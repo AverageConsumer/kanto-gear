@@ -35,19 +35,21 @@ battles, menus and contextual touch controls move to the second display.
 You need your own supported Pokemon Red, Blue or Yellow ROM. No ROM or
 ROM-extracted game data is included here.
 
-1. Open the latest [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/latest)
-   and download `Kanto-Gear-1.0.0.apk` and
-   `Kanto-Gear-Mod-1.0.0.zip`.
-2. Install the APK. Then start **Kanto Gear**, import your ROM, open the
-   **MODS** tab, tap
-   **Import mod .zip**, and choose `Kanto-Gear-Mod-1.0.0.zip` from the same
-   release.
-3. Make sure **Kanto Gear** is enabled, then start the game. The companion
+1. Download `gen1recomp-0.1.59-kanto-gear-android-test.apk` from the latest
+   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/latest)
+   and install it.
+2. Download `Kanto-Gear-Mod-1.0.0.zip` from the latest
+   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
+3. Start **Gen1Recomp Android Test**, import your ROM, open the **MODS** tab,
+   tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.0.0.zip`.
+4. Make sure **Kanto Gear** is enabled, then start the game. The companion
    appears automatically when Android reports a suitable second display.
 
-The APK uses its own Android package and installs beside the official
-Gen1Recomp app. It does not automatically reuse that app's ROM cache or saves.
-Use Gen1Recomp's normal save export/import if you want to move a playthrough.
+The Android test host is published by the Gen1Recomp fork, not by Kanto Gear.
+It contains no bundled mods. Its own Android package installs beside the
+official Gen1Recomp app and does not automatically reuse that app's ROM cache
+or saves. Use Gen1Recomp's normal save export/import if you want to move a
+playthrough.
 
 Android may ask which app may install the downloaded APK. Grant that permission
 only to the browser or file manager you used; disabling device-wide security
@@ -65,6 +67,10 @@ the tested Android 3D setup:
 2. If the original Dramatic Shape Voxel Mod is already installed, remove it
    from the **MODS** tab first. Both versions intentionally use the same mod ID.
 3. Import the performance-fork `.zip` through **MODS → Import mod .zip**.
+   Confirm the experimental-mod warning and enable it.
+
+A fresh setup starts at the tested Thor profile: **VOXEL 35**, **BALANCED**,
+**T-SHIFT 3** and **V-CURVE 2**. Existing saved choices are never replaced.
 
 The fork is based on Dramatic Shape Voxel Mod 1.5.2. Its performance changes
 are promising on the Thor, but they are not claimed to improve every GPU or
@@ -87,12 +93,16 @@ and prompts temporarily take over that display when the game needs them.
 
 | Component | Version | Role |
 | --- | --- | --- |
-| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.0.0 public test | Product and second-screen mod |
-| [Gen1Recomp Kanto Gear fork](https://github.com/AverageConsumer/gen1recomp) | based on 0.1.59 | Required Android host |
-| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.5.3 public test | Optional Android 3D renderer; based on 1.5.2 |
+| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.0.0 public test | Required second-screen mod |
+| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.59 Kanto Gear test | Required Android host APK |
+| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.5.3 public test | Optional Android mod; based on 1.5.2 |
 
 Do not mix arbitrary releases from the three repositories. Each Kanto Gear
 release links the exact set that was tested together.
+
+Automatic updates are disabled for the forked host and both package mods so an
+upstream release cannot silently replace one component. Install future Kanto
+Gear release sets manually as a matched group.
 
 ## Known limits
 
@@ -123,9 +133,9 @@ fork-only problems to the upstream projects unless they reproduce there.
 The repositories stay separate because they have different owners and release
 cycles:
 
-- **Kanto Gear** is the user-facing product and installation entry point.
-- The **Gen1Recomp fork** contains the smallest host support Kanto Gear needs.
-- The **Dramatic Shape fork** contains optional renderer performance work.
+- **Kanto Gear** contains the second-screen mod, screenshots and main guide.
+- The **Gen1Recomp fork** publishes the separate Android test host APK.
+- The **Dramatic Shape fork** publishes the optional Android renderer mod.
 
 Kanto Gear is built on [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
 The optional renderer is built on

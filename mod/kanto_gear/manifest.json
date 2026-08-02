@@ -12,6 +12,5 @@
   "optional_dependencies": [],
   "conflicts": [],
   "permissions": ["engine_internals"],
-  "description": "Dual-screen map, party, battle, PC and contextual touch controls for supported Gen1Recomp Android hosts. Public hardware test; currently verified on AYN Thor.",
-  "github": "AverageConsumer/kanto-gear"
+  "description": "Dual-screen map, party, battle, PC and contextual touch controls for supported Gen1Recomp Android hosts. Public hardware test; currently verified on AYN Thor."
 }
