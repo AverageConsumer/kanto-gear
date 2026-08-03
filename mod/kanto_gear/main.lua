@@ -223,6 +223,12 @@ local function checklistPages(sections)
   return out
 end
 
+local function oneShotTrainerStatus(defeated, battled, result)
+  if defeated or result == "win" then return true end
+  if result == "lose" then return true, "LOST" end
+  return battled or false
+end
+
 local function itemfinderNear(px, py, x, y)
   local function near(origin, value, high)
     return value > math.max(origin - 5, 0) and value <= origin + high
@@ -313,6 +319,13 @@ do
     and pages[2].name == "ITEMS" and pages[2].total == 0
     and pages[3].name == "HIDDEN" and pages[4].page == 2,
     "separate area checklist pages")
+end
+do
+  local done, status = oneShotTrainerStatus(false, true, "lose")
+  assert(done and status == "LOST"
+    and oneShotTrainerStatus(false, true, nil)
+    and not oneShotTrainerStatus(false, false, nil),
+    "one-shot trainer outcomes")
 end
 assert(itemfinderNear(10, 10, 15, 14)
        and not itemfinderNear(10, 10, 5, 10)
@@ -765,8 +778,15 @@ return function(mod)
             done = header_ and header_.event and save.flags
               and save.flags[header_.event] == true or false
           end
+          local status
+          if id == "OAKS_LAB" and obj.index == 1
+              and obj.trainerClass == "OPP_RIVAL1" then
+            done, status = oneShotTrainerStatus(done,
+              save.flags and save.flags.EVENT_BATTLED_RIVAL_IN_OAKS_LAB == true,
+              mod.save:get("oak_lab_rival_result"))
+          end
           sections[1].rows[#sections[1].rows + 1] = {
-            label = label, done = done,
+            label = label, done = done, status = status,
           }
         elseif obj.item and obj.item ~= "0" and obj.item ~= 0 then
           local item = data.items and data.items[obj.item]
@@ -1214,7 +1234,7 @@ return function(mod)
         box("fill", 3, y, 154, 20, row.done and MID or PAPER)
         outline(3, y, 154, 20, INK)
         text(fit(row.label, 18), 8, y + 7, INK)
-        text(row.done and "DONE" or "OPEN", 128, y + 7, DARK)
+        text(row.status or (row.done and "DONE" or "OPEN"), 128, y + 7, DARK)
       end
     end
     if screen.name == "HIDDEN" and assist("item_radar") then
@@ -2557,10 +2577,20 @@ return function(mod)
     return not (owned and mirroredBattleMenu(state))
   end)
 
+  mod.events:on("battle.ended", function(payload)
+    dirty = true
+    local state = payload and payload.battle
+    local result = payload and payload.result
+    if mapId == "OAKS_LAB" and state and state.oppClass == "OPP_RIVAL1"
+        and (result == "win" or result == "lose") then
+      mod.save:set("oak_lab_rival_result", result)
+    end
+  end)
+
   for _, event in ipairs({
     "battle.started", "battle.turn_started", "battle.move_used",
     "battle.damage_dealt", "battle.status_inflicted",
-    "battle.battler_switched", "battle.turn_ended", "battle.ended",
+    "battle.battler_switched", "battle.turn_ended",
     "pokemon.caught",
   }) do
     mod.events:on(event, function() dirty = true end)
