@@ -1329,16 +1329,10 @@ return function(mod)
         for _, marker in ipairs(overview.markers or {}) do
           local x = math.floor(left + (marker.x + 0.5) * density * scale + 0.5)
           local y = math.floor(top + (marker.y + 0.5) * density * scale + 0.5)
-          if marker.kind == "warp" then
-            box("fill", x - 1, y - 1, 1, 3, MAP_EXIT)
-            box("fill", x, y, 2, 1, MAP_EXIT)
-          elseif marker.kind == "item" then
-            box("fill", x, y - 1, 1, 3, MAP_ITEM)
-            box("fill", x - 1, y, 3, 1, MAP_ITEM)
-          elseif marker.kind == "hidden" then
-            box("fill", x - 1, y, 3, 1, MAP_HIDDEN)
-            box("fill", x, y - 1, 1, 3, MAP_HIDDEN)
-          end
+          local c = marker.kind == "warp" and MAP_EXIT
+            or marker.kind == "item" and MAP_ITEM or MAP_HIDDEN
+          local size = density * scale
+          box("fill", x - size / 2, y - size / 2, size, size, c)
         end
       end
       local pos = mod.world:current()
