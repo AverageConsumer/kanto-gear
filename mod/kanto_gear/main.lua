@@ -269,6 +269,10 @@ local function supportedBattleUI(state)
   return kind ~= "link" and kind ~= "oldman"
 end
 
+local function caughtWild(kind, owned)
+  return (kind == "wild" or kind == "safari") and owned == true
+end
+
 local function bottomOwnsBattleUI(enabled, active, available, ready,
                                  battleState)
   return enabled and active and available and ready
@@ -282,6 +286,9 @@ end
 
 assert(not choiceReady(0.31, 0.32) and choiceReady(0.32, 0.32),
        "choice quiet gate")
+assert(caughtWild("wild", true) and caughtWild("safari", true)
+       and not caughtWild("trainer", true) and not caughtWild("wild", false),
+       "caught wild marker")
 assert(textTouch({ isTextBox = true }) == "speed"
        and textTouch({ isTextBox = true, waiting = true }) == "advance"
        and textTouch({ isTextBox = true, done = true }) == "advance"
@@ -1763,9 +1770,27 @@ return function(mod)
         ratio > 0.5 and MID or ratio > 0.2 and PAPER or INK)
   end
 
+  local function drawCaughtBall(x, y)
+    box("fill", x + 3, y, 5, 1, INK)
+    box("fill", x + 1, y + 1, 9, 1, INK)
+    box("fill", x, y + 2, 11, 7, INK)
+    box("fill", x + 1, y + 9, 9, 1, INK)
+    box("fill", x + 3, y + 10, 5, 1, INK)
+    box("fill", x + 2, y + 2, 7, 2, DARK)
+    box("fill", x + 1, y + 4, 9, 1, DARK)
+    box("fill", x + 1, y + 6, 9, 3, PAPER)
+    box("fill", x + 4, y + 4, 3, 3, INK)
+    box("fill", x + 5, y + 5, 1, 1, PAPER)
+  end
+
   local function drawFullBattleStatus(mon, y, player)
     if not mon then return end
-    text(fit(mon.name or mon.species or "-", 12), 6, y + 4, INK, 2)
+    local owned = not player and caughtWild(battle.kind,
+      game.save.pokedex and game.save.pokedex.owned
+      and game.save.pokedex.owned[mon.species])
+    local name = fit(mon.name or mon.species or "-", owned and 10 or 12)
+    text(name, 6, y + 4, INK, 2)
+    if owned then drawCaughtBall(9 + #name * 12, y + 5) end
     text(fit("L" .. tostring(mon.level or 0), 4), 6, y + 27, DARK)
     local status = (mon.hp or 0) <= 0 and "FNT" or mon.status
     if status then text(fit(status, 3), 36, y + 27, DARK) end
