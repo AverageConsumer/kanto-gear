@@ -2945,7 +2945,7 @@ return function(mod)
     if page == "STEPS" or page == "LOCAL" then dirty = true end
   end)
 
-  for _, event in ipairs({ "world.block_replaced", "map.reloaded" }) do
+  for _, event in ipairs({ "world.block_replaced", "map.reloaded", "screen.pushed" }) do
     mod.events:on(event, function(payload)
       if not payload or not payload.mapId or payload.mapId == mapId then
         localMap, dirty = nil, true
