@@ -5,10 +5,10 @@ companion: the game stays on the main display while maps, party information,
 battles, menus and contextual touch controls move to the second display.
 
 > [!IMPORTANT]
-> This is an **unofficial public test build**, not an official Gen1Recomp
-> release. It is currently tested on an **AYN Thor running Android 13**.
-> Other Android dual-display devices, docks and HDMI setups need community
-> testing.
+> This is an **unofficial Android public test build**, not an official
+> Gen1Recomp release. It is verified on an **AYN Thor running Android 13** and
+> is intended to work on comparable Android dual-display devices. Other
+> handhelds, docks and HDMI setups still need community testing.
 
 ![A Gen 1 battle rendered on the main display](top-current.png)
 
@@ -36,10 +36,10 @@ You need your own supported Pokemon Red, Blue or Yellow ROM. No ROM or
 ROM-extracted game data is included here.
 
 1. Download `gen1recomp-0.1.60-kanto-gear-android-test.apk` from the latest
-   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/latest)
+   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.60-kanto.1)
    and install it.
 2. Download `Kanto-Gear-Mod-1.0.0.zip` from the latest
-   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
+   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.0.0).
 3. Start **Gen1Recomp Android Test**, import your ROM, open the **MODS** tab,
    tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.0.0.zip`.
 4. Make sure **Kanto Gear** is enabled, then start the game. The companion
@@ -50,6 +50,11 @@ It contains no bundled mods. Its own Android package installs beside the
 official Gen1Recomp app and does not automatically reuse that app's ROM cache
 or saves. Use Gen1Recomp's normal save export/import if you want to move a
 playthrough.
+
+Future APK updates from this fork keep the same package ID and signing key.
+Install a newer APK over the existing **Gen1Recomp Android Test** app to retain
+its app data, ROM cache, saves and settings. Do not uninstall the app when
+updating, and keep an exported save backup while this remains test software.
 
 Android may ask which app may install the downloaded APK. Grant that permission
 only to the browser or file manager you used; disabling device-wide security
@@ -63,7 +68,7 @@ Gear package because handhelds need additional frame-pacing work. If you want
 the tested Android 3D setup:
 
 1. Download the latest `.zip` from the
-   [Kanto Gear Voxel performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/latest).
+   [Kanto Gear Voxel performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.5.2-android.1).
 2. If the original Dramatic Shape Voxel Mod is already installed, remove it
    from the **MODS** tab first. Both versions intentionally use the same mod ID.
 3. Import the performance-fork `.zip` through **MODS → Import mod .zip**.
@@ -106,7 +111,8 @@ Gear release sets manually as a matched group.
 
 ## Known limits
 
-- Hardware support outside the AYN Thor is currently unverified.
+- The AYN Thor is the confirmed reference device. Comparable Android
+  dual-display hardware is intended to work but remains community-tested.
 - Desktop and ordinary single-screen builds have no companion display; the mod
   stays inactive rather than opening another desktop window.
 - External-monitor rotation, unusual three-display layouts and manufacturer
