@@ -104,6 +104,15 @@ local function pageWindow(index, count)
   return first, math.min(4, math.max(0, count - first + 1))
 end
 
+local function partySlotAt(x, y, count)
+  if y < 23 or y >= 140 then return nil end
+  local col = x >= 81 and x < 156 and 1 or x >= 3 and x < 78 and 0 or nil
+  if col == nil then return nil end
+  local row = math.floor((y - 23) / 39)
+  local slot = row * 2 + col + 1
+  return slot <= (count or 0) and slot or nil
+end
+
 local function pcListKind(state)
   return state and PC_LIST_KINDS[state.kind] and state.kind or nil
 end
@@ -296,6 +305,9 @@ assert(pageSwipeAllowed("active", nil)
        and not pageSwipeAllowed("active", {}), "disabled screen swipe gate")
 assert(pagedIndex(1, 9, 1) == 5 and pagedIndex(9, 9, 1) == 9
        and pagedIndex(5, 9, -1) == 1, "touch list paging")
+assert(partySlotAt(3, 23, 6) == 1 and partySlotAt(81, 23, 6) == 2
+       and partySlotAt(81, 101, 5) == nil and partySlotAt(79, 23, 6) == nil,
+       "party touch slots")
 do
   local first, count = pageWindow(6, 9)
   assert(first == 5 and count == 4
@@ -600,6 +612,7 @@ return function(mod)
   local pendingFly = nil
   local pendingAction = nil
   local fieldChoice = nil
+  local partyMoveFrom = nil
   local choiceTop = nil
   local choiceReadyAt = 0
   local choiceNudgeUntil = 0
@@ -1373,7 +1386,8 @@ return function(mod)
   end
 
   local function drawNormalParty()
-    drawParty(partyData(), "PARTY", false)
+    drawParty(partyData(), partyMoveFrom and "MOVE WHERE?" or "PARTY", false,
+              nil, partyMoveFrom)
   end
 
   local function drawFieldChoice()
@@ -2381,10 +2395,24 @@ return function(mod)
       mod.save:set("steps", steps)
       dirty = true
       mod.log:info("step counter reset")
-    elseif page == "PARTY" and y >= 23 then
-      local col, row = x >= 81 and 1 or 0, math.floor((y - 23) / 39)
-      local mon = game.save.party[row * 2 + col + 1]
-      if mon then
+    elseif page == "PARTY" then
+      local party = game.save.party or {}
+      local slot = partySlotAt(x, y, #party)
+      local mon = slot and party[slot]
+      if mon and mod.world and mod.world.canReorderParty
+          and mod.world:canReorderParty() then
+        if not partyMoveFrom then
+          partyMoveFrom = slot
+        else
+          local from = partyMoveFrom
+          partyMoveFrom = nil
+          local ok, err = mod.world:reorderParty(from, slot)
+          if not ok then
+            mod.log:warn("party reorder rejected: %s", tostring(err))
+          end
+        end
+        dirty = true
+      elseif mon then
         local ok, err = pcall(function()
           require("src.core.Sound").playCry(game.data, mon.species)
         end)
@@ -2637,6 +2665,10 @@ return function(mod)
       refreshBattle()
       if page == "TOOLS" or pendingAction then refreshTools() end
       local mode, top = screenState()
+      if partyMoveFrom and (page ~= "PARTY" or not mod.world
+          or not mod.world.canReorderParty or not mod.world:canReorderParty()) then
+        partyMoveFrom, dirty = nil, true
+      end
       local learn = screenById("MoveLearnMenu")
       local currentPcList = pcList()
       local currentChoice = dialogueChoice()

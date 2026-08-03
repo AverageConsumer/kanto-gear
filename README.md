@@ -86,6 +86,8 @@ handheld and the fork is not distributed as a PC replacement.
 - **Swipe left or right** across the lower screen to move between the map,
   party, steps, field tools, area information and guide pages.
 - **Tap the visible buttons and list entries** to use touch controls.
+- On **PARTY**, tap one Pokémon and then another to swap their positions while
+  the overworld is idle. Battles, dialogue, movement and menus lock reordering.
 - Battles, menus, dialogue choices and other prompts automatically replace
   the normal page when they need input, then return to it afterward.
 
