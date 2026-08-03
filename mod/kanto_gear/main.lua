@@ -1033,7 +1033,9 @@ return function(mod)
       for col, label in ipairs(cells) do
         local left = 3 + math.floor((col - 1) * 154 / #cells)
         local right = 3 + math.floor(col * 154 / #cells)
-        namingKey(left, y, right - left, label,
+        local shown = label == "lower case" and "TO LOWER"
+          or label == "UPPER CASE" and "TO UPPER" or label
+        namingKey(left, y, right - left, shown,
                   top.row == row and top.col == col)
       end
     end
@@ -2609,7 +2611,7 @@ return function(mod)
          tostring(radarOpen),
          tostring(top and top.waiting), tostring(top and top.done),
          tostring(top and top.index), tostring(top and top.kind),
-         tostring(top and top.row), tostring(top and top.col),
+         tostring(top and top.row), tostring(top and top.col), tostring(top and top.lower),
          tostring(top and top.glyphs and table.concat(top.glyphs)),
          tostring(top and top.qty), tostring(top and top.page),
         tostring(currentPcList), tostring(currentPcList and currentPcList.index),
