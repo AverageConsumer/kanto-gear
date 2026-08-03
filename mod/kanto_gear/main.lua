@@ -311,8 +311,8 @@ end
 
 local function mirroredBattleMenu(state)
   return state and (state.isPartyMenu or state.screenId == "BagMenu"
-    or state.screenId == "SummaryMenu" or state.kind == "pp_item_move"
-    or battleChoice(state) or levelUpStatBox(state)) or false
+    or state.kind == "pp_item_move" or battleChoice(state)
+    or levelUpStatBox(state)) or false
 end
 
 assert(not choiceReady(0.31, 0.32) and choiceReady(0.32, 0.32),
@@ -438,10 +438,10 @@ do
     and not bottomOwnsBattleUI(true, true, false, true, state)
     and mirroredBattleMenu({ isPartyMenu = true })
     and mirroredBattleMenu({ screenId = "BagMenu" })
-    and mirroredBattleMenu({ screenId = "SummaryMenu" })
     and mirroredBattleMenu({ kind = "pp_item_move" })
     and mirroredBattleMenu({ onChoose = function() end, index = 1 })
     and mirroredBattleMenu({ mon = { stats = {} } })
+    and not mirroredBattleMenu({ screenId = "SummaryMenu" })
     and not mirroredBattleMenu({ screenId = "TownMap" }),
     "stable upper battle UI ownership")
 end
@@ -1931,8 +1931,8 @@ return function(mod)
     end
   end
 
-  local function drawBattleLocked()
-    header("BATTLE")
+  local function drawBattleLocked(title)
+    header(title or "BATTLE")
     if hideUpperBattleUI()
         and battle.message and #battle.message > 0 then
       box("fill", 6, 30, 148, 106, DARK)
@@ -2055,6 +2055,10 @@ return function(mod)
   local function drawLearnMove(learn, top)
     local newDef = moveDef(learn.newMoveId) or {}
     local newName = newDef.name or learn.newMoveId or "MOVE"
+    if top and top.isTextBox and hideUpperBattleUI() then
+      drawBattleLocked("NEW MOVE")
+      return
+    end
     if learn.selecting and top == learn then
       header("FORGET MOVE")
       text(fit(newName, 14), 5, 25, INK)
