@@ -7,6 +7,9 @@ local KANTO_PALETTE = {
 }
 local INK, DARK, MID, PAPER
 local RADAR_RED = { 220 / 255, 38 / 255, 28 / 255, 1 }
+local MAP_EXIT = { 0.20, 0.65, 1, 1 }
+local MAP_ITEM = { 1, 0.72, 0.10, 1 }
+local MAP_HIDDEN = { 0.90, 0.30, 0.85, 1 }
 local CHOICE_QUIET = 0.32
 local SECONDARY_BACKGROUND
 local RADAR_FRAMES = 16
@@ -1300,13 +1303,19 @@ return function(mod)
     if not overview then
       centered("HOST UPDATE REQUIRED", 62, DARK)
     else
-      local scale, left, top = localMapLayout(overview.width, overview.height)
-      box("fill", left - 2, top - 2, overview.width * scale + 4,
-          overview.height * scale + 4, INK)
-      for y, row in ipairs(overview.rows) do
+      local rows = overview.tileRows or overview.rows
+      local width = overview.tileWidth or overview.width
+      local height = overview.tileHeight or overview.height
+      local density = overview.tileRows and 2 or 1
+      local scale, left, top = localMapLayout(width, height)
+      local shades = { PAPER, MID, DARK, INK }
+      box("fill", left - 2, top - 2, width * scale + 4,
+          height * scale + 4, INK)
+      for y, row in ipairs(rows) do
         for x = 1, #row do
           local cell = row:sub(x, x)
-          local c = cell == "." and PAPER or cell == "~" and MID or DARK
+          local c = overview.tileRows and shades[(tonumber(cell) or 3) + 1]
+            or cell == "." and PAPER or cell == "~" and MID or DARK
           box("fill", left + (x - 1) * scale, top + (y - 1) * scale,
               scale, scale, c)
           if cell == "+" then
@@ -1318,43 +1327,40 @@ return function(mod)
       end
       if enhanced then
         for _, marker in ipairs(overview.markers or {}) do
-          local x = math.floor(left + (marker.x + 0.5) * scale + 0.5)
-          local y = math.floor(top + (marker.y + 0.5) * scale + 0.5)
+          local x = math.floor(left + (marker.x + 0.5) * density * scale + 0.5)
+          local y = math.floor(top + (marker.y + 0.5) * density * scale + 0.5)
           if marker.kind == "warp" then
-            box("fill", x - 2, y - 2, 5, 5, INK)
-            outline(x - 2, y - 2, 5, 5, PAPER)
+            box("fill", x - 1, y - 1, 1, 3, MAP_EXIT)
+            box("fill", x, y, 2, 1, MAP_EXIT)
           elseif marker.kind == "item" then
-            box("fill", x - 1, y - 2, 3, 5, PAPER)
-            box("fill", x - 2, y - 1, 5, 3, PAPER)
-            box("fill", x, y, 1, 1, INK)
+            box("fill", x, y - 1, 1, 3, MAP_ITEM)
+            box("fill", x - 1, y, 3, 1, MAP_ITEM)
           elseif marker.kind == "hidden" then
-            box("fill", x - 2, y, 5, 1, PAPER)
-            box("fill", x, y - 2, 1, 5, PAPER)
+            box("fill", x - 1, y, 3, 1, MAP_HIDDEN)
+            box("fill", x, y - 1, 1, 3, MAP_HIDDEN)
           end
         end
       end
       local pos = mod.world:current()
       if pos and pos.mapId == overview.mapId and pos.x and pos.y then
-        local px = left + (pos.x + 0.5) * scale
-        local py = top + (pos.y + 0.5) * scale
+        local px = left + (pos.x + 0.5) * density * scale
+        local py = top + (pos.y + 0.5) * density * scale
         local direction = ({ up = { 0, -1 }, down = { 0, 1 },
           left = { -1, 0 }, right = { 1, 0 } })[pos.facing] or { 0, 1 }
-        box("fill", px - 2, py - 2, 5, 5, INK)
-        box("fill", px - 1, py - 1, 3, 3, PAPER)
-        box("fill", px + direction[1] * 3 - 1,
-            py + direction[2] * 3 - 1, 3, 3, INK)
+        box("fill", px - 1, py - 1, 3, 3, INK)
+        box("fill", px, py, 1, 1, PAPER)
+        box("fill", px + direction[1] * 2,
+            py + direction[2] * 2, 1, 1, INK)
       end
     end
     box("fill", 4, 126, 152, 14, DARK)
     if enhanced then
-      outline(8, 131, 5, 5, PAPER)
-      text("EXIT", 16, 130, PAPER)
-      box("fill", 61, 131, 5, 5, PAPER)
-      box("fill", 63, 133, 1, 1, DARK)
-      text("ITEM", 69, 130, PAPER)
-      box("fill", 109, 133, 5, 1, PAPER)
-      box("fill", 111, 131, 1, 5, PAPER)
-      text("HIDDEN", 117, 130, PAPER)
+      box("fill", 8, 132, 3, 3, MAP_EXIT)
+      text("EXIT", 14, 130, PAPER)
+      box("fill", 57, 132, 3, 3, MAP_ITEM)
+      text("ITEM", 63, 130, PAPER)
+      box("fill", 105, 132, 3, 3, MAP_HIDDEN)
+      text("HIDDEN", 111, 130, PAPER)
     else
       centered(areaName(mapId), 130, PAPER)
     end
