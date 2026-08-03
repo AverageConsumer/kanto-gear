@@ -72,8 +72,25 @@ local function choiceReady(now, readyAt)
 end
 
 local function textTouch(top)
-  if not (top and top.isTextBox) or top.choice then return nil end
-  return (top.waiting or top.done) and "advance" or "speed"
+  if not (top and top.isTextBox) then return nil end
+  if top.waiting then return "advance" end
+  if not top.done then return "speed" end
+  if not top.choice then return "advance" end
+end
+
+local function textPrompt(top)
+  local action = textTouch(top)
+  return action == "advance" and "TAP TO CONTINUE"
+    or action == "speed" and "HOLD TO SPEED" or nil
+end
+
+local function namingCell(x, y, grid)
+  if not grid or x < 3 or x >= 157 or y < 36 then return end
+  local offset = y - 36
+  local row = math.floor(offset / 17) + 1
+  if offset % 17 >= 15 or not grid[row] or #grid[row] == 0 then return end
+  local col = math.floor((x - 3) * #grid[row] / 154) + 1
+  return row, col
 end
 
 local function pageSwipeAllowed(mode, battle)
@@ -247,9 +264,20 @@ assert(not choiceReady(0.31, 0.32) and choiceReady(0.32, 0.32),
 assert(textTouch({ isTextBox = true }) == "speed"
        and textTouch({ isTextBox = true, waiting = true }) == "advance"
        and textTouch({ isTextBox = true, done = true }) == "advance"
-       and textTouch({ isTextBox = true, choice = function() end }) == nil
+       and textTouch({ isTextBox = true, waiting = true,
+                       choice = function() end }) == "advance"
+       and textTouch({ isTextBox = true, choice = function() end }) == "speed"
+       and textTouch({ isTextBox = true, done = true,
+                       choice = function() end }) == nil
        and textTouch({}) == nil,
        "safe text touch mode")
+do
+  local grid = { { "A", "B", "C" }, { "CASE" } }
+  local r1, c1 = namingCell(55, 36, grid)
+  local r2, c2 = namingCell(80, 53, grid)
+  assert(r1 == 1 and c1 == 2 and r2 == 2 and c2 == 1
+         and not namingCell(80, 51, grid), "naming touch grid")
+end
 assert(pageSwipeAllowed("active", nil)
        and not pageSwipeAllowed("transition", nil)
        and not pageSwipeAllowed("loading", nil)
@@ -975,13 +1003,51 @@ return function(mod)
     centered("START GAME ABOVE", 125, PAPER)
   end
 
-  local function drawDim(alpha, canContinue)
+  local function drawDim(alpha, prompt)
     color({ 0, 0, 0, alpha })
     G.rectangle("fill", 0, 0, WIDTH, HEIGHT)
-    if canContinue then
+    if prompt then
       box("fill", 22, 61, 116, 22, DARK)
       outline(22, 61, 116, 22, PAPER)
-      centered("TAP TO CONTINUE", 69, PAPER)
+      centered(prompt, 69, PAPER)
+    end
+  end
+
+  local namingLabels = {
+    ["ED"] = "OK", [" "] = "SP", ["("] = "L", [")"] = "R",
+    [";"] = ":", ["["] = "LB", ["]"] = "RB", [","] = ".",
+    ["\195\151"] = "X", ["\226\153\130"] = "M",
+    ["\226\153\128"] = "F", ["lower case"] = "LOWER CASE",
+    ["UPPER CASE"] = "UPPER CASE",
+  }
+
+  local function namingLabel(value)
+    value = tostring(value or "")
+    if namingLabels[value] then return namingLabels[value] end
+    if value:sub(1, 1) == "<" then return value:sub(2, 3) end
+    return value
+  end
+
+  local function namingKey(x, y, w, label, selected)
+    box("fill", x, y, w, 15, selected and DARK or MID)
+    outline(x, y, w, 15, INK)
+    local shown = fit(namingLabel(label), math.max(1, math.floor((w - 2) / 6)))
+    text(shown, x + math.floor((w - #shown * 6) / 2), y + 4,
+         selected and PAPER or INK)
+  end
+
+  local function drawNaming(top)
+    header("NAME INPUT")
+    local name = table.concat(top.glyphs or {})
+    centered(name == "" and "-" or fit(name, 24), 24, DARK)
+    for row, cells in ipairs(top:grid()) do
+      local y = 36 + (row - 1) * 17
+      for col, label in ipairs(cells) do
+        local left = 3 + math.floor((col - 1) * 154 / #cells)
+        local right = 3 + math.floor(col * 154 / #cells)
+        namingKey(left, y, right - left, label,
+                  top.row == row and top.col == col)
+      end
     end
   end
 
@@ -1711,7 +1777,7 @@ return function(mod)
       button(18, 106, 58, 27, "YES", top.index == 1)
       button(84, 106, 58, 27, "NO", top.index == 2)
     elseif top and top.isTextBox then
-      drawDim(0.48, top.waiting or (top.done and not top.choice))
+      drawDim(0.48, textPrompt(top))
     end
   end
 
@@ -1728,8 +1794,11 @@ return function(mod)
     local learn = screenById("MoveLearnMenu")
     local pcKind, pcRoot = pcSession()
     local choice, labels = dialogueChoice()
+    local naming = top and top.screenId == "NamingScreen" and top
     if learn then
       drawLearnMove(learn, top)
+    elseif naming then
+      drawNaming(naming)
     elseif choice then
       drawDialogueChoice(choice, labels)
     elseif battle then
@@ -1755,11 +1824,10 @@ return function(mod)
     else
       drawTools()
     end
-    if not learn and not battle and not choice
+    if not learn and not naming and not battle and not choice
         and not (pcKind and mode == "locked")
         and mode ~= "title" and mode ~= "active" then
-      drawDim(fade, mode == "textbox"
-        and top and (top.waiting or top.done) and not top.choice)
+      drawDim(fade, mode == "textbox" and textPrompt(top))
       if mode == "loading" then
         box("fill", 27, 57, 106, 30, DARK)
         outline(27, 57, 106, 30, PAPER)
@@ -2185,6 +2253,14 @@ return function(mod)
     press("a")
   end
 
+  local function tapNaming(top, x, y)
+    local row, col = namingCell(x, y, top:grid())
+    if not row then return end
+    top.row, top.col = row, col
+    press("a")
+    dirty = true
+  end
+
   local function tap(x, y)
     local learn = screenById("MoveLearnMenu")
     if learn then
@@ -2197,7 +2273,11 @@ return function(mod)
       return
     end
     local mode, top = screenState()
-    if mode == "title" or (top and top.screenId == "NamingScreen") then
+    if top and top.screenId == "NamingScreen" then
+      tapNaming(top, x, y)
+      return
+    end
+    if mode == "title" then
       press("a")
       return
     end
@@ -2538,10 +2618,12 @@ return function(mod)
       end
       local screenKey = table.concat({ mode, tostring(top),
         tostring(page), tostring(guidePage), tostring(areaPage),
-        tostring(radarOpen),
-        tostring(top and top.waiting), tostring(top and top.done),
-        tostring(top and top.index), tostring(top and top.kind),
-        tostring(top and top.qty), tostring(top and top.page),
+         tostring(radarOpen),
+         tostring(top and top.waiting), tostring(top and top.done),
+         tostring(top and top.index), tostring(top and top.kind),
+         tostring(top and top.row), tostring(top and top.col),
+         tostring(top and top.glyphs and table.concat(top.glyphs)),
+         tostring(top and top.qty), tostring(top and top.page),
         tostring(currentPcList), tostring(currentPcList and currentPcList.index),
         tostring(learn and learn.selecting),
         tostring(learn and learn.index), tostring(externalLoading),
