@@ -81,6 +81,14 @@ The fork is based on Dramatic Shape Voxel Mod 1.5.2. Its performance changes
 are promising on the Thor, but they are not claimed to improve every GPU or
 handheld and the fork is not distributed as a PC replacement.
 
+## Using the lower screen
+
+- **Swipe left or right** across the lower screen to move between the map,
+  party, steps, field tools, area information and guide pages.
+- **Tap the visible buttons and list entries** to use touch controls.
+- Battles, menus, dialogue choices and other prompts automatically replace
+  the normal page when they need input, then return to it afterward.
+
 ## Settings worth knowing
 
 - **BOTTOM SCREEN → AUTO** is the recommended default.
@@ -90,9 +98,6 @@ handheld and the fork is not distributed as a PC replacement.
   companion display is ready.
 - **PROFILE → PURIST** hides gameplay-assistance pages; **ENHANCED** enables
   them; **CUSTOM** lets you choose each assist separately.
-
-Swipe horizontally on the lower display to change normal pages. Menus, battles
-and prompts temporarily take over that display when the game needs them.
 
 ## Tested release set
 
