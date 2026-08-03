@@ -10,7 +10,7 @@ battles, menus and contextual touch controls move to the second display.
 > is intended to work on comparable Android dual-display devices. Other
 > handhelds, docks and HDMI setups still need community testing.
 
-![A Gen 1 battle rendered on the main display](top-current.png)
+![The Pokemon Lab rendered on the main display](top-current.png)
 
 <p align="center">
   <img src="kanto-gear-map.png" width="48%" alt="Kanto Gear map on the second display">
