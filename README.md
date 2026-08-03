@@ -85,9 +85,11 @@ handheld and the fork is not distributed as a PC replacement.
 
 - **Swipe left or right** across the lower screen to move between the map,
   party, steps, field tools, area information and guide pages.
-- Enable **SPOILER LOCAL MAP** to add a swipe page showing the complete current
-  map or floor and your live position. The regular region map remains the Fly
-  screen, so tapping its unlocked destinations still works as before.
+- **SPOILER LOCAL MAP** defaults to **OFF**. **MAP** adds a swipe page showing
+  the complete current map or floor and your live position; **ENHANCED** also
+  marks exits plus visible and hidden items that have not been collected. The
+  regular region map remains the Fly screen, so tapping its unlocked
+  destinations still works as before.
 - **Tap the visible buttons and list entries** to use touch controls.
 - On **PARTY**, each Pokémon shows a thin EXP bar below its HP bar. Tap a card
   for **STATS** or **SWAP**. Stats opened there stay on the lower screen while

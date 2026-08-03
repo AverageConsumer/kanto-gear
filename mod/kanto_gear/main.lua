@@ -266,6 +266,12 @@ local function localMapLayout(width, height)
          22 + (102 - height * scale) / 2
 end
 
+local function localMapMode(value)
+  if value == "enhanced" then return "enhanced" end
+  if value == true or value == "map" then return "map" end
+  return "off"
+end
+
 local function battleFocusChanged(a, b)
   return (a and a.menuIndex) ~= (b and b.menuIndex)
     or (a and a.moveIndex) ~= (b and b.moveIndex)
@@ -394,6 +400,9 @@ do
   assert(scale == 2 and x == 40 and y == 37,
          "local map fits the companion canvas")
 end
+assert(localMapMode(false) == "off" and localMapMode(true) == "map"
+       and localMapMode("enhanced") == "enhanced",
+       "local map modes preserve the old toggle")
 assert(supportedBattleUI({ kind = "wild" })
        and supportedBattleUI({ battleKind = function() return "safari" end })
        and not supportedBattleUI({ kind = "link" })
@@ -595,7 +604,9 @@ return function(mod)
       sets = { [false] = { profile = profileFromAssists },
                [true] = { profile = profileFromAssists } } },
     { key = "local_map", label = "SPOILER LOCAL MAP",
-      type = "toggle", default = false },
+      type = "choice", default = false, choices = {
+        { "OFF", false }, { "MAP", true }, { "ENHANCED", "enhanced" },
+      } },
     { key = "display_target", label = "BOTTOM SCREEN", type = "choice",
       default = "auto", choices = {
         { "AUTO", "auto" }, { "HANDHELD", "handheld" },
@@ -731,7 +742,9 @@ return function(mod)
 
   local function pageNames()
     local out = { "MAP" }
-    if mod.options:get("local_map") then out[#out + 1] = "LOCAL" end
+    if localMapMode(mod.options:get("local_map")) ~= "off" then
+      out[#out + 1] = "LOCAL"
+    end
     if assist("guide") then out[#out + 1] = "GUIDE" end
     if assist("area") then out[#out + 1] = "AREA" end
     out[#out + 1] = "STEPS"
@@ -1281,7 +1294,8 @@ return function(mod)
   end
 
   local function drawLocalMap()
-    header("LOCAL MAP")
+    local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
+    header(enhanced and "LOCAL MAP +" or "LOCAL MAP")
     local overview = loadLocalMap()
     if not overview then
       centered("HOST UPDATE REQUIRED", 62, DARK)
@@ -1302,6 +1316,23 @@ return function(mod)
           end
         end
       end
+      if enhanced then
+        for _, marker in ipairs(overview.markers or {}) do
+          local x = math.floor(left + (marker.x + 0.5) * scale + 0.5)
+          local y = math.floor(top + (marker.y + 0.5) * scale + 0.5)
+          if marker.kind == "warp" then
+            box("fill", x - 2, y - 2, 5, 5, INK)
+            outline(x - 2, y - 2, 5, 5, PAPER)
+          elseif marker.kind == "item" then
+            box("fill", x - 1, y - 2, 3, 5, PAPER)
+            box("fill", x - 2, y - 1, 5, 3, PAPER)
+            box("fill", x, y, 1, 1, INK)
+          elseif marker.kind == "hidden" then
+            box("fill", x - 2, y, 5, 1, PAPER)
+            box("fill", x, y - 2, 1, 5, PAPER)
+          end
+        end
+      end
       local pos = mod.world:current()
       if pos and pos.mapId == overview.mapId and pos.x and pos.y then
         local px = left + (pos.x + 0.5) * scale
@@ -1315,7 +1346,18 @@ return function(mod)
       end
     end
     box("fill", 4, 126, 152, 14, DARK)
-    centered(areaName(mapId), 130, PAPER)
+    if enhanced then
+      outline(8, 131, 5, 5, PAPER)
+      text("EXIT", 16, 130, PAPER)
+      box("fill", 61, 131, 5, 5, PAPER)
+      box("fill", 63, 133, 1, 1, DARK)
+      text("ITEM", 69, 130, PAPER)
+      box("fill", 109, 133, 5, 1, PAPER)
+      box("fill", 111, 131, 1, 5, PAPER)
+      text("HIDDEN", 117, 130, PAPER)
+    else
+      centered(areaName(mapId), 130, PAPER)
+    end
   end
 
   local function drawFlyPrompt()
@@ -2886,7 +2928,10 @@ return function(mod)
         page = "MAP"
       end
       if page == "AREA" and not assist("area") then page = "MAP" end
-      if page == "LOCAL" and not mod.options:get("local_map") then page = "MAP" end
+      if page == "LOCAL"
+          and localMapMode(mod.options:get("local_map")) == "off" then
+        page = "MAP"
+      end
       if not assist("item_radar") then radarOpen = false end
       dirty = true
     end
