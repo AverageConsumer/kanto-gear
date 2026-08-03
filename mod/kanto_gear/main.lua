@@ -613,6 +613,7 @@ return function(mod)
   local mapId = nil
   local mapAsset = nil
   local spriteCache = {}
+  local caughtBall = nil
   local touchDown = nil
   local textSpeedHeld = false
   local textSpeedReleasePending = false
@@ -1771,16 +1772,20 @@ return function(mod)
   end
 
   local function drawCaughtBall(x, y)
-    box("fill", x + 3, y, 5, 1, INK)
-    box("fill", x + 1, y + 1, 9, 1, INK)
-    box("fill", x, y + 2, 11, 7, INK)
-    box("fill", x + 1, y + 9, 9, 1, INK)
-    box("fill", x + 3, y + 10, 5, 1, INK)
-    box("fill", x + 2, y + 2, 7, 2, DARK)
-    box("fill", x + 1, y + 4, 9, 1, DARK)
-    box("fill", x + 1, y + 6, 9, 3, PAPER)
-    box("fill", x + 4, y + 4, 3, 3, INK)
-    box("fill", x + 5, y + 5, 1, 1, PAPER)
+    if caughtBall == nil then
+      local ok, image = pcall(G.newImage,
+        "assets/generated/battle/balls.png")
+      if ok then
+        image:setFilter("nearest", "nearest")
+        caughtBall = { image = image,
+          quad = G.newQuad(0, 0, 8, 8, image:getDimensions()) }
+      else
+        caughtBall = false
+      end
+    end
+    if not caughtBall then return end
+    G.setColor(1, 1, 1, 1)
+    G.draw(caughtBall.image, caughtBall.quad, x, y)
   end
 
   local function drawFullBattleStatus(mon, y, player)
@@ -1790,7 +1795,7 @@ return function(mod)
       and game.save.pokedex.owned[mon.species])
     local name = fit(mon.name or mon.species or "-", owned and 10 or 12)
     text(name, 6, y + 4, INK, 2)
-    if owned then drawCaughtBall(9 + #name * 12, y + 5) end
+    if owned then drawCaughtBall(9 + #name * 12, y + 7) end
     text(fit("L" .. tostring(mon.level or 0), 4), 6, y + 27, DARK)
     local status = (mon.hp or 0) <= 0 and "FNT" or mon.status
     if status then text(fit(status, 3), 36, y + 27, DARK) end
@@ -2724,6 +2729,10 @@ return function(mod)
     return not bottomOwnsBattleUI(
       fullBottomBattleUI(), active, system.hasSecondaryDisplay(),
       displayReady, state)
+  end)
+
+  mod.hooks:wrap("battle.caught_marker_visible", function(next, state)
+    return active or next(state)
   end)
 
   mod.hooks:wrap("screen.render_visible", function(next, state)
