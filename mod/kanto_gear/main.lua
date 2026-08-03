@@ -113,6 +113,11 @@ local function partySlotAt(x, y, count)
   return slot <= (count or 0) and slot or nil
 end
 
+local function progressRatio(value, first, last)
+  if last <= first then return 1 end
+  return math.max(0, math.min(1, ((value or first) - first) / (last - first)))
+end
+
 local function pcListKind(state)
   return state and PC_LIST_KINDS[state.kind] and state.kind or nil
 end
@@ -315,6 +320,10 @@ assert(pagedIndex(1, 9, 1) == 5 and pagedIndex(9, 9, 1) == 9
 assert(partySlotAt(3, 23, 6) == 1 and partySlotAt(81, 23, 6) == 2
        and partySlotAt(81, 101, 5) == nil and partySlotAt(79, 23, 6) == nil,
        "party touch slots")
+assert(progressRatio(15, 10, 20) == 0.5
+       and progressRatio(0, 10, 20) == 0
+       and progressRatio(30, 10, 20) == 1,
+       "progress ratio")
 do
   local first, count = pageWindow(6, 9)
   assert(first == 5 and count == 4
@@ -490,10 +499,16 @@ local function outline(x, y, w, h, c)
 end
 
 local function hpBar(x, y, w, hp, maxHp)
-  local ratio = math.max(0, math.min(1, (hp or 0) / math.max(1, maxHp or 1)))
+  local ratio = progressRatio(hp, 0, math.max(1, maxHp or 1))
   box("fill", x, y, w, 4, DARK)
   box("fill", x + 1, y + 1, math.floor((w - 2) * ratio), 2,
       ratio > 0.5 and PAPER or ratio > 0.2 and MID or INK)
+end
+
+local function expBar(x, y, w, ratio, selected)
+  box("fill", x, y, w, 3, DARK)
+  box("fill", x + 1, y + 1, math.floor((w - 2) * ratio), 1,
+      selected and MID or PAPER)
 end
 
 local function button(x, y, w, h, label, selected)
@@ -631,6 +646,7 @@ return function(mod)
   local pendingAction = nil
   local fieldChoice = nil
   local partyMoveFrom = nil
+  local partyActionSlot = nil
   local choiceTop = nil
   local choiceReadyAt = 0
   local choiceNudgeUntil = 0
@@ -1359,14 +1375,23 @@ return function(mod)
 
   local function partyData()
     local out = {}
+    local Growth = require("src.pokemon.Growth")
     for i, mon in ipairs(game and game.save and game.save.party or {}) do
-      local def = game.data.pokemon[mon.species]
+      local def = game.data.pokemon[mon.species] or {}
+      local level = mon.level or 1
+      local currentExp = Growth.expForLevel(def.growthRate, level,
+                                            game.data.growth_rates)
+      local nextExp = level < 100
+        and Growth.expForLevel(def.growthRate, level + 1,
+                               game.data.growth_rates) or currentExp
       out[i] = {
         slot = i, species = mon.species,
         name = mon.nickname or (def and def.name) or mon.species,
-        level = mon.level, hp = mon.hp,
+        level = level, hp = mon.hp,
         maxHp = mon.stats and mon.stats.hp or mon.hp,
         status = mon.status,
+        expProgress = level >= 100 and 1
+          or progressRatio(mon.exp, currentExp, nextExp),
       }
     end
     return out
@@ -1384,6 +1409,7 @@ return function(mod)
     text("L" .. tostring(mon.level or 0), x + 29, y + 14,
          selected and PAPER or DARK)
     hpBar(x + 29, y + 25, 41, mon.hp, mon.maxHp)
+    expBar(x + 29, y + 30, 41, mon.expProgress or 0, selected)
     if (mon.hp or 0) <= 0 then
       text("FNT", x + 52, y + 14, selected and PAPER or INK)
     elseif mon.status then
@@ -1404,8 +1430,19 @@ return function(mod)
   end
 
   local function drawNormalParty()
-    drawParty(partyData(), partyMoveFrom and "MOVE WHERE?" or "PARTY", false,
+    drawParty(partyData(), partyMoveFrom and "MOVE WHERE?" or "PARTY",
+              partyMoveFrom ~= nil,
               nil, partyMoveFrom)
+  end
+
+  local function drawPartyAction()
+    local mon = partyData()[partyActionSlot]
+    if not mon then drawNormalParty(); return end
+    header(fit(mon.name, 18), true)
+    button(14, 37, 132, 38, "STATS", false)
+    if #(game.save.party or {}) > 1 then
+      button(14, 84, 132, 38, "SWAP", false)
+    end
   end
 
   local function drawFieldChoice()
@@ -1918,6 +1955,8 @@ return function(mod)
     local pcKind, pcRoot = pcSession()
     local choice, labels = dialogueChoice()
     local naming = top and top.screenId == "NamingScreen" and top
+    local idleSummary = top and top.screenId == "SummaryMenu"
+      and not battle and not pcKind and top
     if learn then
       drawLearnMove(learn, top)
     elseif naming then
@@ -1928,6 +1967,8 @@ return function(mod)
       drawBattle()
     elseif pcKind then
       drawPc(pcKind, pcRoot, top)
+    elseif idleSummary then
+      drawBattleSummary(idleSummary)
     elseif fieldChoice then
       drawFieldChoice()
     elseif mode == "title" then
@@ -1943,11 +1984,11 @@ return function(mod)
     elseif page == "STEPS" then
       drawSteps()
     elseif page == "PARTY" then
-      drawNormalParty()
+      if partyActionSlot then drawPartyAction() else drawNormalParty() end
     else
       drawTools()
     end
-    if not learn and not naming and not battle and not choice
+    if not learn and not naming and not battle and not choice and not idleSummary
         and not (pcKind and mode == "locked")
         and mode ~= "title" and mode ~= "active" then
       drawDim(fade, mode == "textbox" and textPrompt(top))
@@ -2406,6 +2447,18 @@ return function(mod)
   end
 
   local function tap(x, y)
+    local summary = screenById("SummaryMenu")
+    if summary and game.stack:top() == summary then
+      if inside(x, y, 103, 125, 53, 15) then
+        if summary.page == 1 then
+          summary.page = 2
+        else
+          game.stack:pop()
+        end
+        dirty = true
+      end
+      return
+    end
     local learn = screenById("MoveLearnMenu")
     if learn then
       tapLearn(learn, game.stack:top(), x, y)
@@ -2439,6 +2492,22 @@ return function(mod)
       return
     end
     if mode ~= "active" then return end
+    if partyActionSlot then
+      local slot = partyActionSlot
+      local mon = game.save.party and game.save.party[slot]
+      if y < HEADER and x < 24 then
+        partyActionSlot = nil
+      elseif mon and inside(x, y, 14, 37, 132, 38) then
+        partyActionSlot = nil
+        mod.ui.push(game, "SummaryMenu", mon)
+      elseif mon and inside(x, y, 14, 84, 132, 38)
+          and mod.world and mod.world.canReorderParty
+          and mod.world:canReorderParty() then
+        partyActionSlot, partyMoveFrom = nil, slot
+      end
+      dirty = true
+      return
+    end
     if radarOpen then
       if y < HEADER and x < 24 then
         radarOpen = false
@@ -2502,27 +2571,23 @@ return function(mod)
       dirty = true
       mod.log:info("step counter reset")
     elseif page == "PARTY" then
+      if partyMoveFrom and y < HEADER and x < 24 then
+        partyMoveFrom, dirty = nil, true
+        return
+      end
       local party = game.save.party or {}
       local slot = partySlotAt(x, y, #party)
       local mon = slot and party[slot]
-      if mon and mod.world and mod.world.canReorderParty
-          and mod.world:canReorderParty() then
-        if not partyMoveFrom then
-          partyMoveFrom = slot
-        else
-          local from = partyMoveFrom
-          partyMoveFrom = nil
-          local ok, err = mod.world:reorderParty(from, slot)
-          if not ok then
-            mod.log:warn("party reorder rejected: %s", tostring(err))
-          end
+      if mon and partyMoveFrom then
+        local from = partyMoveFrom
+        partyMoveFrom = nil
+        local ok, err = mod.world:reorderParty(from, slot)
+        if not ok then
+          mod.log:warn("party reorder rejected: %s", tostring(err))
         end
         dirty = true
       elseif mon then
-        local ok, err = pcall(function()
-          require("src.core.Sound").playCry(game.data, mon.species)
-        end)
-        if not ok then mod.log:warn("cry failed: %s", tostring(err)) end
+        partyActionSlot, dirty = slot, true
       end
     elseif page == "TOOLS" then
       for i, action in ipairs(tools) do
@@ -2553,7 +2618,8 @@ return function(mod)
   end
 
   local function swipe(dx)
-    if pendingFly or pendingAction or fieldChoice or screenById("MoveLearnMenu")
+    if pendingFly or pendingAction or fieldChoice or partyActionSlot
+        or screenById("MoveLearnMenu")
         or dialogueChoice() or radarOpen then return end
     if not pageSwipeAllowed(screenState(), battle) then return end
     refreshTools()
@@ -2616,6 +2682,7 @@ return function(mod)
         textSpeed = speed,
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
           or (top and top.screenId == "NamingScreen") or dialogueChoice()
+          or (top and top.screenId == "SummaryMenu")
           or screenById("MoveLearnMenu") or pcSession() }
       if speed then holdTextSpeed(true) end
     elseif action == "cancel" then
@@ -2793,6 +2860,10 @@ return function(mod)
           or not mod.world.canReorderParty or not mod.world:canReorderParty()) then
         partyMoveFrom, dirty = nil, true
       end
+      if partyActionSlot and (page ~= "PARTY" or mode ~= "active"
+          or not (game.save.party or {})[partyActionSlot]) then
+        partyActionSlot, dirty = nil, true
+      end
       local learn = screenById("MoveLearnMenu")
       local currentPcList = pcList()
       local currentChoice = dialogueChoice()
@@ -2819,6 +2890,7 @@ return function(mod)
         tostring(learn and learn.index), tostring(externalLoading),
         tostring(pendingFly and pendingFly.id),
         tostring(pendingAction and pendingAction.id),
+        tostring(partyActionSlot), tostring(partyMoveFrom),
         tostring(fieldChoice and fieldChoice.kind),
         tostring(fieldChoice and fieldChoice.source
           and fieldChoice.source.slot) }, ":")
