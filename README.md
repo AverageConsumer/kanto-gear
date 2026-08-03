@@ -35,13 +35,13 @@ battles, menus and contextual touch controls move to the second display.
 You need your own supported Pokemon Red, Blue or Yellow ROM. No ROM or
 ROM-extracted game data is included here.
 
-1. Download `gen1recomp-0.1.60-kanto-gear-android-test.apk` from the latest
-   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.60-kanto.1)
+1. Download `gen1recomp-android-0.1.63-kanto.2.apk` from the latest
+   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.63-kanto.2)
    and install it.
-2. Download `Kanto-Gear-Mod-1.0.0.zip` from the latest
-   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.0.0).
+2. Download `Kanto-Gear-Mod-1.1.0.zip` from the latest
+   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.1.0).
 3. Start **Gen1Recomp Android Test**, import your ROM, open the **MODS** tab,
-   tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.0.0.zip`.
+   tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.1.0.zip`.
 4. Make sure **Kanto Gear** is enabled, then start the game. The companion
    appears automatically when Android reports a suitable second display.
 
@@ -68,16 +68,16 @@ Gear package because handhelds need additional frame-pacing work. If you want
 the tested Android 3D setup:
 
 1. Download the latest `.zip` from the
-   [Kanto Gear Voxel performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.5.2-android.1).
+   [Kanto Gear Voxel performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.5.4-android.2).
 2. If the original Dramatic Shape Voxel Mod is already installed, remove it
    from the **MODS** tab first. Both versions intentionally use the same mod ID.
 3. Import the performance-fork `.zip` through **MODS → Import mod .zip**.
    Confirm the experimental-mod warning and enable it.
 
 A fresh setup starts at the tested Thor profile: **VOXEL 35**, **BALANCED**,
-**T-SHIFT 3** and **V-CURVE 2**. Existing saved choices are never replaced.
+**T-SHIFT 3** and **V-CURVE OFF**. Existing saved choices are never replaced.
 
-The fork is based on Dramatic Shape Voxel Mod 1.5.2. Its performance changes
+The fork is based on Dramatic Shape Voxel Mod 1.5.4. Its performance changes
 are promising on the Thor, but they are not claimed to improve every GPU or
 handheld and the fork is not distributed as a PC replacement.
 
@@ -112,9 +112,9 @@ handheld and the fork is not distributed as a PC replacement.
 
 | Component | Version | Role |
 | --- | --- | --- |
-| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.0.0 public test | Required second-screen mod |
-| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.60 Kanto Gear test | Required Android host APK |
-| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.5.2-android.1 | Optional Android mod; based on 1.5.2 |
+| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.1.0 public test | Required second-screen mod |
+| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.63 Kanto Gear test | Required Android host APK |
+| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.5.4-android.2 | Optional Android mod; based on 1.5.4 |
 
 Do not mix arbitrary releases from the three repositories. Each Kanto Gear
 release links the exact set that was tested together.
