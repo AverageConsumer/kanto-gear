@@ -71,6 +71,11 @@ local function choiceReady(now, readyAt)
   return now >= readyAt
 end
 
+local function textTouch(top)
+  if not (top and top.isTextBox) or top.choice then return nil end
+  return (top.waiting or top.done) and "advance" or "speed"
+end
+
 local function pageSwipeAllowed(mode, battle)
   return mode == "active" and not battle
 end
@@ -239,6 +244,12 @@ end
 
 assert(not choiceReady(0.31, 0.32) and choiceReady(0.32, 0.32),
        "choice quiet gate")
+assert(textTouch({ isTextBox = true }) == "speed"
+       and textTouch({ isTextBox = true, waiting = true }) == "advance"
+       and textTouch({ isTextBox = true, done = true }) == "advance"
+       and textTouch({ isTextBox = true, choice = function() end }) == nil
+       and textTouch({}) == nil,
+       "safe text touch mode")
 assert(pageSwipeAllowed("active", nil)
        and not pageSwipeAllowed("transition", nil)
        and not pageSwipeAllowed("loading", nil)
@@ -522,6 +533,8 @@ return function(mod)
   local mapAsset = nil
   local spriteCache = {}
   local touchDown = nil
+  local textSpeedHeld = false
+  local textSpeedReleasePending = false
   local battle = nil
   local moveInfo = nil
   local intentId = 0
@@ -1852,6 +1865,16 @@ return function(mod)
     game.input:overlayReleased(key)
   end
 
+  local function holdTextSpeed(held)
+    if textSpeedHeld == held then return end
+    textSpeedHeld = held
+    if held then
+      game.input:overlayPressed("a")
+    else
+      game.input:overlayReleased("a")
+    end
+  end
+
   local function useTool(action, opts)
     local ok, err = mod.world:useFieldAction(action.id, opts)
     if not ok then mod.log:warn("field action %s rejected: %s",
@@ -2183,9 +2206,7 @@ return function(mod)
       return
     end
     if mode == "textbox" then
-      if top and (top.waiting or top.done) and not top.choice then
-        press("a")
-      end
+      if textTouch(top) == "advance" then press("a") end
       return
     end
     local pcKind, pcRoot = pcSession()
@@ -2348,19 +2369,36 @@ return function(mod)
       x, y, action = tonumber(sx), tonumber(sy), "tap"
     end
     if action == "down" and x then
-      local mode = screenState()
+      textSpeedReleasePending = false
+      holdTextSpeed(false)
+      local mode, top = screenState()
+      local speed = textTouch(top) == "speed"
       touchDown = { x = x, y = y,
         pageSwipe = pageSwipeAllowed(mode, battle),
+        textSpeed = speed,
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
           or dialogueChoice() or screenById("MoveLearnMenu") or pcSession() }
+      if speed then holdTextSpeed(true) end
     elseif action == "cancel" then
+      textSpeedReleasePending = false
+      holdTextSpeed(false)
       touchDown = nil
     elseif action == "tap" and x then
-      tap(x, y)
+      local mode, top = screenState()
+      if textTouch(top) == "speed" then
+        holdTextSpeed(true)
+        textSpeedReleasePending = true
+      else
+        tap(x, y)
+      end
     elseif action == "up" and x and touchDown then
       local down = touchDown
       local dx, dy = x - down.x, y - down.y
       touchDown = nil
+      if down.textSpeed then
+        textSpeedReleasePending = true
+        return
+      end
       if math.abs(dx) >= 24 and math.abs(dx) > math.abs(dy) * 1.25 then
         if down.pageSwipe then swipe(dx) end
       elseif math.abs(dy) >= 24 and math.abs(dy) > math.abs(dx) * 1.25 then
@@ -2461,6 +2499,10 @@ return function(mod)
 
   -- Existing render hook provides a tick without another engine patch.
   mod.hooks:wrap("render.letterbox", function(next, context)
+    if textSpeedReleasePending then
+      textSpeedReleasePending = false
+      holdTextSpeed(false)
+    end
     next(context)
     if not active then return end
     if not loggedTick then
@@ -2516,7 +2558,12 @@ return function(mod)
       dirty = true
     end
     local displayAvailable = system.hasSecondaryDisplay()
-    if not displayAvailable then displayReady = false end
+    if not displayAvailable then
+      displayReady = false
+      touchDown = nil
+      textSpeedReleasePending = false
+      holdTextSpeed(false)
+    end
     if displayAvailable and not displayReady then dirty = true end
     if (dirty or readbackPending) and (readbackPending or displayAvailable
         or now >= nextPresentAttempt) then
