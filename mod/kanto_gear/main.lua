@@ -647,6 +647,7 @@ return function(mod)
   local fieldChoice = nil
   local partyMoveFrom = nil
   local partyActionSlot = nil
+  local bottomSummary = nil
   local choiceTop = nil
   local choiceReadyAt = 0
   local choiceNudgeUntil = 0
@@ -1647,6 +1648,13 @@ return function(mod)
     button(103, 125, 53, 15, page == 1 and "NEXT" or "CLOSE", false)
   end
 
+  local function drawTopSummaryControls(summary)
+    header("STATS ON TOP")
+    centered("FOLLOW TOP SCREEN", 58, DARK)
+    button(14, 94, 132, 34,
+           summary.page == 1 and "NEXT" or "CLOSE", false)
+  end
+
   local function drawPcRoot(kind, root)
     if kind == "items" then
       header("ITEM PC")
@@ -1765,7 +1773,7 @@ return function(mod)
   local function drawPc(kind, root, top)
     local list = pcList()
     if top and top.screenId == "SummaryMenu" then
-      drawBattleSummary(top)
+      drawTopSummaryControls(top)
     elseif kind == "items" and top and top.qty and top.max and top.onDone then
       drawPcQuantity(top, list)
     elseif list and list.kind == "pc_box_deposit" then
@@ -1882,7 +1890,7 @@ return function(mod)
     elseif bag then
       drawBattleItems(bag)
     elseif summary then
-      drawBattleSummary(summary)
+      drawTopSummaryControls(summary)
     elseif battle.prompt == "safari" then
       if fullBottomBattleUI() then drawFullSafari() else drawSafari() end
     elseif battle.prompt == "mimic" then
@@ -1968,7 +1976,11 @@ return function(mod)
     elseif pcKind then
       drawPc(pcKind, pcRoot, top)
     elseif idleSummary then
-      drawBattleSummary(idleSummary)
+      if idleSummary == bottomSummary then
+        drawBattleSummary(idleSummary)
+      else
+        drawTopSummaryControls(idleSummary)
+      end
     elseif fieldChoice then
       drawFieldChoice()
     elseif mode == "title" then
@@ -2449,12 +2461,11 @@ return function(mod)
   local function tap(x, y)
     local summary = screenById("SummaryMenu")
     if summary and game.stack:top() == summary then
-      if inside(x, y, 103, 125, 53, 15) then
-        if summary.page == 1 then
-          summary.page = 2
-        else
-          game.stack:pop()
-        end
+      local hit = summary == bottomSummary
+        and inside(x, y, 103, 125, 53, 15)
+        or summary ~= bottomSummary and inside(x, y, 14, 94, 132, 34)
+      if hit then
+        press("a")
         dirty = true
       end
       return
@@ -2499,7 +2510,7 @@ return function(mod)
         partyActionSlot = nil
       elseif mon and inside(x, y, 14, 37, 132, 38) then
         partyActionSlot = nil
-        mod.ui.push(game, "SummaryMenu", mon)
+        bottomSummary = mod.ui.push(game, "SummaryMenu", mon)
       elseif mon and inside(x, y, 14, 84, 132, 38)
           and mod.world and mod.world.canReorderParty
           and mod.world:canReorderParty() then
@@ -2806,6 +2817,9 @@ return function(mod)
 
   mod.hooks:wrap("screen.render_visible", function(next, state)
     if next(state) == false then return false end
+    if state == bottomSummary then
+      return not (active and system.hasSecondaryDisplay() and displayReady)
+    end
     local owned = bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
       system.hasSecondaryDisplay(), displayReady, battleState())
@@ -2856,6 +2870,9 @@ return function(mod)
       refreshBattle()
       if page == "TOOLS" or pendingAction then refreshTools() end
       local mode, top = screenState()
+      if bottomSummary and top ~= bottomSummary then
+        bottomSummary, dirty = nil, true
+      end
       if partyMoveFrom and (page ~= "PARTY" or not mod.world
           or not mod.world.canReorderParty or not mod.world:canReorderParty()) then
         partyMoveFrom, dirty = nil, true

@@ -87,8 +87,9 @@ handheld and the fork is not distributed as a PC replacement.
   party, steps, field tools, area information and guide pages.
 - **Tap the visible buttons and list entries** to use touch controls.
 - On **PARTY**, each Pokémon shows a thin EXP bar below its HP bar. Tap a card
-  for **STATS** or **SWAP**; swapping remains locked whenever the overworld is
-  busy.
+  for **STATS** or **SWAP**. Stats opened there stay on the lower screen while
+  the paused game remains visible above; swapping stays locked whenever the
+  overworld is busy.
 - Battles, menus, dialogue choices and other prompts automatically replace
   the normal page when they need input, then return to it afterward.
 
