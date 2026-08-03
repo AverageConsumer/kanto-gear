@@ -447,10 +447,12 @@ end
 local function clean(value)
   return tostring(value or ""):upper()
     :gsub("Ä", "AE"):gsub("Ö", "OE"):gsub("Ü", "UE")
-    :gsub("É", "E"):gsub("_", " "):gsub("[^A-Z0-9 :%%%+%-%./%?!<>]", "")
+    :gsub("É", "E"):gsub("é", "E"):gsub("_", " ")
+    :gsub("[^A-Z0-9 :%%%+%-%./%?!<>]", "")
 end
 
-assert(clean("40%") == "40%", "percent glyph whitelist")
+assert(clean("40%") == "40%" and clean("POKé BALL") == "POKE BALL",
+       "text glyph normalization")
 
 local function fit(value, chars)
   local out = clean(value)
