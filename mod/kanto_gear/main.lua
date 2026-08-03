@@ -79,9 +79,7 @@ local function textTouch(top)
 end
 
 local function textPrompt(top)
-  local action = textTouch(top)
-  return action == "advance" and "TAP TO CONTINUE"
-    or action == "speed" and "HOLD TO SPEED" or nil
+  return textTouch(top) == "advance" and "TAP TO CONTINUE" or nil
 end
 
 local function namingCell(x, y, grid)
