@@ -35,8 +35,16 @@ battles, menus and contextual touch controls move to the second display.
 You need your own supported Pokemon Red, Blue or Yellow ROM. No ROM or
 ROM-extracted game data is included here.
 
-1. Download `gen1recomp-android-0.1.63-kanto.2.apk` from the latest
-   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.63-kanto.2)
+> [!IMPORTANT]
+> For the complete tested Android experience, use the exact three-part release
+> set linked below: the Gen1Recomp Android test APK, Kanto Gear, and the
+> Dramatic Shape Android performance fork. The host and Kanto Gear are
+> required; the Voxel fork is technically optional but is the recommended 3D
+> renderer for this package. Do not substitute the official host or mix
+> versions from different release sets.
+
+1. Download `gen1recomp-android-0.1.64-kanto.2.apk` from the latest
+   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.64-kanto.2)
    and install it.
 2. Download `Kanto-Gear-Mod-1.1.0.zip` from the latest
    [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.1.0).
@@ -115,8 +123,8 @@ handheld and the fork is not distributed as a PC replacement.
 | Component | Version | Role |
 | --- | --- | --- |
 | [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.1.0 public test | Required second-screen mod |
-| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.63 Kanto Gear test | Required Android host APK |
-| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.5.4-android.2 | Optional Android mod; based on 1.5.4 |
+| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.64 Kanto Gear test | Required Android host APK |
+| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.5.4-android.2 | Recommended for the complete tested 3D setup; technically optional |
 
 Do not mix arbitrary releases from the three repositories. Each Kanto Gear
 release links the exact set that was tested together.
