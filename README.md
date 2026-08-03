@@ -98,6 +98,8 @@ handheld and the fork is not distributed as a PC replacement.
 - **EXTRA SCREEN** prefers an external presentation display for TV-style use.
 - **HIDE UPPER BATTLE UI** removes duplicated battle menus only while the
   companion display is ready.
+- **FULL BOTTOM BATTLE UI** additionally moves both HP/status panels to the
+  companion display. The current split layout remains the default.
 - **PROFILE → PURIST** hides gameplay-assistance pages; **ENHANCED** enables
   them; **CUSTOM** lets you choose each assist separately.
 

@@ -553,9 +553,17 @@ return function(mod)
       } },
     { key = "hide_upper_battle_ui", label = "HIDE UPPER BATTLE UI",
       type = "toggle", default = false },
+    { key = "full_bottom_battle_ui", label = "FULL BOTTOM BATTLE UI",
+      type = "toggle", default = false },
   })
   local function assist(key)
     return assistEnabled(mod.options:get("profile"), mod.options:get(key))
+  end
+  local function fullBottomBattleUI()
+    return mod.options:get("full_bottom_battle_ui") == true
+  end
+  local function hideUpperBattleUI()
+    return fullBottomBattleUI() or mod.options:get("hide_upper_battle_ui")
   end
 
   local runtime = rawget(_G, "love")
@@ -1729,7 +1737,7 @@ return function(mod)
 
   local function drawBattleLocked()
     header("BATTLE")
-    if mod.options:get("hide_upper_battle_ui")
+    if hideUpperBattleUI()
         and battle.message and #battle.message > 0 then
       box("fill", 6, 30, 148, 106, DARK)
       outline(6, 30, 148, 106, PAPER)
@@ -1745,6 +1753,50 @@ return function(mod)
     if battle.prompt == "advance" then
       button(22, 58, 116, 32, "CONTINUE", false)
     end
+  end
+
+  local function drawFullBattleHpBar(x, y, w, hp, maxHp)
+    local ratio = math.max(0,
+      math.min(1, (hp or 0) / math.max(1, maxHp or 1)))
+    box("fill", x, y, w, 6, DARK)
+    box("fill", x + 1, y + 1, math.floor((w - 2) * ratio), 4,
+        ratio > 0.5 and MID or ratio > 0.2 and PAPER or INK)
+  end
+
+  local function drawFullBattleStatus(mon, y, player)
+    if not mon then return end
+    text(fit(mon.name or mon.species or "-", 12), 6, y + 4, INK, 2)
+    text(fit("L" .. tostring(mon.level or 0), 4), 6, y + 27, DARK)
+    local status = (mon.hp or 0) <= 0 and "FNT" or mon.status
+    if status then text(fit(status, 3), 36, y + 27, DARK) end
+    if player then
+      drawFullBattleHpBar(60, y + 28, 48, mon.hp, mon.maxHp)
+      text(fit(("%d/%d"):format(mon.hp or 0, mon.maxHp or 0), 7),
+           113, y + 27, INK)
+    else
+      drawFullBattleHpBar(60, y + 28, 94, mon.hp, mon.maxHp)
+    end
+    box("fill", 4, y + 44, 152, 1, DARK)
+  end
+
+  local function drawFullBattleActions(labels)
+    for i, label in ipairs(labels) do
+      local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+      button(3 + col * 78, 94 + row * 24, 76, 22,
+             label, battle.menuIndex == i)
+    end
+  end
+
+  local function drawFullBattleRoot()
+    drawFullBattleStatus(battle.enemy, 0, false)
+    drawFullBattleStatus(battle.player, 45, true)
+    drawFullBattleActions({ "FIGHT", "PKMN", "ITEM", "RUN" })
+  end
+
+  local function drawFullSafari()
+    drawFullBattleStatus(battle.enemy, 0, false)
+    centered("SAFARI BALLS " .. tostring(battle.safariBalls or 0), 64, DARK)
+    drawFullBattleActions({ "BALL", "BAIT", "ROCK", "RUN" })
   end
 
   local function drawBattle()
@@ -1763,7 +1815,7 @@ return function(mod)
     elseif summary then
       drawBattleSummary(summary)
     elseif battle.prompt == "safari" then
-      drawSafari()
+      if fullBottomBattleUI() then drawFullSafari() else drawSafari() end
     elseif battle.prompt == "mimic" then
       drawMimic()
     elseif moveInfo then
@@ -1773,7 +1825,8 @@ return function(mod)
     elseif battle.prompt ~= "menu" then
       drawBattleLocked()
     else
-      drawBattleRoot()
+      if fullBottomBattleUI() then drawFullBattleRoot()
+      else drawBattleRoot() end
     end
   end
 
@@ -2058,6 +2111,15 @@ return function(mod)
     end
   end
 
+  local function fullBattleChoice(x, y)
+    for i = 1, 4 do
+      local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+      if inside(x, y, 3 + col * 78, 94 + row * 24, 76, 22) then
+        return i
+      end
+    end
+  end
+
   local function tapBattle(x, y)
     local top = game and game.stack and game.stack:top()
     if top and top.kind == "pp_item_move" then
@@ -2111,9 +2173,15 @@ return function(mod)
       return
     end
     if battle.prompt == "safari" then
-      if y < 24 then return end
-      local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
-      local action = ({ "ball", "bait", "rock", "run" })[row * 2 + col + 1]
+      local choice
+      if fullBottomBattleUI() then
+        choice = fullBattleChoice(x, y)
+      elseif y >= 24 then
+        local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
+        choice = row * 2 + col + 1
+      end
+      local action = ({ "ball", "bait", "rock", "run" })[choice]
+      if not action then return end
       submit("safari", { action = action })
       return
     end
@@ -2153,9 +2221,15 @@ return function(mod)
       end
       return
     end
-    if battle.prompt ~= "menu" or y < 24 then return end
-    local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
-    local choice = row * 2 + col + 1
+    if battle.prompt ~= "menu" then return end
+    local choice
+    if fullBottomBattleUI() then
+      choice = fullBattleChoice(x, y)
+    elseif y >= 24 then
+      local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
+      choice = row * 2 + col + 1
+    end
+    if not choice then return end
     local raw = battleState()
     if raw and game.stack:top() == raw then
       raw.menuIndex = choice
@@ -2600,7 +2674,7 @@ return function(mod)
     local raw = battleState()
     local top = game and game.stack and game.stack:top()
     local owned = bottomOwnsBattleUI(
-      mod.options:get("hide_upper_battle_ui"), active,
+      hideUpperBattleUI(), active,
       system.hasSecondaryDisplay(), displayReady, raw)
     return not (owned
       and (state == raw or (state == top and top.isTextBox)))
@@ -2609,21 +2683,28 @@ return function(mod)
   mod.hooks:wrap("battle.move_grid_navigation", function(next, state)
     if next(state) == true then return true end
     return bottomOwnsBattleUI(
-      mod.options:get("hide_upper_battle_ui"), active,
+      hideUpperBattleUI(), active,
       system.hasSecondaryDisplay(), displayReady, state)
   end)
 
   mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
     if next(state) == true then return true end
     return bottomOwnsBattleUI(
-      mod.options:get("hide_upper_battle_ui"), active,
+      hideUpperBattleUI(), active,
       system.hasSecondaryDisplay(), displayReady, battleState())
+  end)
+
+  mod.hooks:wrap("battle.status_hud_visible", function(next, state)
+    if next(state) == false then return false end
+    return not bottomOwnsBattleUI(
+      fullBottomBattleUI(), active, system.hasSecondaryDisplay(),
+      displayReady, state)
   end)
 
   mod.hooks:wrap("screen.render_visible", function(next, state)
     if next(state) == false then return false end
     local owned = bottomOwnsBattleUI(
-      mod.options:get("hide_upper_battle_ui"), active,
+      hideUpperBattleUI(), active,
       system.hasSecondaryDisplay(), displayReady, battleState())
     return not (owned and mirroredBattleMenu(state))
   end)
