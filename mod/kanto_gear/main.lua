@@ -1108,8 +1108,8 @@ return function(mod)
     header("CHOOSE")
     if #labels == 2 then
       centered("MAKE A CHOICE", 37, DARK)
-      button(6, 62, 72, 44, labels[1], top.index == 1)
-      button(82, 62, 72, 44, labels[2], top.index == 2)
+      button(24, 54, 112, 32, labels[1], top.index == 1)
+      button(24, 90, 112, 32, labels[2], top.index == 2)
     else
       local start, count = choiceWindow(labels, top.index)
       for row = 1, count do
@@ -2377,8 +2377,8 @@ return function(mod)
 
     local selected
     if #labels == 2 then
-      if inside(x, y, 6, 62, 72, 44) then selected = 1 end
-      if inside(x, y, 82, 62, 72, 44) then selected = 2 end
+      if inside(x, y, 24, 54, 112, 32) then selected = 1 end
+      if inside(x, y, 24, 90, 112, 32) then selected = 2 end
     else
       local start, count = choiceWindow(labels, top.index)
       for row = 1, count do
