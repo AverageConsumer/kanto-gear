@@ -284,9 +284,18 @@ local function bottomOwnsBattleUI(enabled, active, available, ready,
     and supportedBattleUI(battleState) or false
 end
 
+local function battleChoice(state)
+  return state and state.onChoose and state.index and not state.items or false
+end
+
+local function levelUpStatBox(state)
+  return state and state.mon and state.mon.stats and not state.screenId or false
+end
+
 local function mirroredBattleMenu(state)
   return state and (state.isPartyMenu or state.screenId == "BagMenu"
-    or state.screenId == "SummaryMenu" or state.kind == "pp_item_move") or false
+    or state.screenId == "SummaryMenu" or state.kind == "pp_item_move"
+    or battleChoice(state) or levelUpStatBox(state)) or false
 end
 
 assert(not choiceReady(0.31, 0.32) and choiceReady(0.32, 0.32),
@@ -406,6 +415,8 @@ do
     and mirroredBattleMenu({ screenId = "BagMenu" })
     and mirroredBattleMenu({ screenId = "SummaryMenu" })
     and mirroredBattleMenu({ kind = "pp_item_move" })
+    and mirroredBattleMenu({ onChoose = function() end, index = 1 })
+    and mirroredBattleMenu({ mon = { stats = {} } })
     and not mirroredBattleMenu({ screenId = "TownMap" }),
     "stable upper battle UI ownership")
 end
@@ -1123,10 +1134,17 @@ return function(mod)
     end
   end
 
-  local function drawDialogueChoice(top, labels)
+  local function drawDialogueChoice(top, labels, prompt)
     header("CHOOSE")
     if #labels == 2 then
-      centered("MAKE A CHOICE", 37, DARK)
+      local first = math.max(1, #(prompt or {}) - 1)
+      if prompt and prompt[first] then
+        for i = first, #prompt do
+          centered(fit(prompt[i], 24), 29 + (i - first) * 11, DARK)
+        end
+      else
+        centered("MAKE A CHOICE", 37, DARK)
+      end
       button(24, 54, 112, 32, labels[1], top.index == 1)
       button(24, 90, 112, 32, labels[2], top.index == 2)
     else
@@ -1140,6 +1158,21 @@ return function(mod)
     if choiceNudgeUntil > love.timer.getTime() then
       centered("PAUSE THEN CHOOSE", 134, DARK)
     end
+  end
+
+  local function drawLevelUpStats(state)
+    local mon, stats = state.mon, state.mon.stats
+    header("LEVEL UP")
+    centered(fit((mon.nickname or mon.species or "POKEMON")
+      .. "  L" .. tostring(mon.level or 0), 24), 27, DARK)
+    local rows = { { "ATTACK", stats.attack },
+      { "DEFENSE", stats.defense }, { "SPEED", stats.speed },
+      { "SPECIAL", stats.special } }
+    for i, row in ipairs(rows) do
+      text(row[1], 24, 44 + (i - 1) * 15, INK)
+      text(tostring(row[2] or 0), 119, 44 + (i - 1) * 15, DARK)
+    end
+    button(24, 108, 112, 27, "CONTINUE", false)
   end
 
   local function drawMapFallback()
@@ -1963,14 +1996,17 @@ return function(mod)
     local pcKind, pcRoot = pcSession()
     local choice, labels = dialogueChoice()
     local naming = top and top.screenId == "NamingScreen" and top
+    local levelStats = battle and levelUpStatBox(top) and top
     local idleSummary = top and top.screenId == "SummaryMenu"
       and not battle and not pcKind and top
     if learn then
       drawLearnMove(learn, top)
     elseif naming then
       drawNaming(naming)
+    elseif levelStats then
+      drawLevelUpStats(levelStats)
     elseif choice then
-      drawDialogueChoice(choice, labels)
+      drawDialogueChoice(choice, labels, battle and battle.message)
     elseif battle then
       drawBattle()
     elseif pcKind then
@@ -2059,6 +2095,16 @@ return function(mod)
         and top.index or nil
       nextBattle.summaryPage = top and top.screenId == "SummaryMenu"
         and top.page or nil
+      if battleChoice(top) and not nextBattle.message
+          and raw and raw.visibleText then
+        local visible = raw:visibleText()
+        if visible then
+          nextBattle.message = {}
+          for i, line in ipairs(visible) do
+            nextBattle.message[i] = tostring(line)
+          end
+        end
+      end
       for _, side in ipairs({ "player", "enemy" }) do
         local source, copy = raw and raw[side], nextBattle[side]
         if source and copy then
@@ -2473,6 +2519,11 @@ return function(mod)
     local learn = screenById("MoveLearnMenu")
     if learn then
       tapLearn(learn, game.stack:top(), x, y)
+      return
+    end
+    local battleTop = game and game.stack and game.stack:top()
+    if battle and levelUpStatBox(battleTop) then
+      if inside(x, y, 24, 108, 112, 27) then press("a") end
       return
     end
     local choice, labels = dialogueChoice()
