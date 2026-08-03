@@ -229,6 +229,14 @@ local function oneShotTrainerStatus(defeated, battled, result)
   return battled or false
 end
 
+local function clockText(is24Hour, timestamp)
+  local time = os.date("*t", timestamp)
+  if is24Hour then return ("%02d:%02d"):format(time.hour, time.min) end
+  local hour = time.hour % 12
+  return ("%d:%02d%s"):format(hour == 0 and 12 or hour, time.min,
+    time.hour < 12 and "AM" or "PM")
+end
+
 local function itemfinderNear(px, py, x, y)
   local function near(origin, value, high)
     return value > math.max(origin - 5, 0) and value <= origin + high
@@ -326,6 +334,12 @@ do
     and oneShotTrainerStatus(false, true, nil)
     and not oneShotTrainerStatus(false, false, nil),
     "one-shot trainer outcomes")
+end
+do
+  local timestamp = os.time({ year = 2020, month = 1, day = 1,
+    hour = 21, min = 5, sec = 0 })
+  assert(clockText(true, timestamp) == "21:05"
+    and clockText(false, timestamp) == "9:05PM", "system clock format")
 end
 assert(itemfinderNear(10, 10, 15, 14)
        and not itemfinderNear(10, 10, 5, 10)
@@ -911,7 +925,9 @@ return function(mod)
     else
       text(fit(title, 14), 5, 6, PAPER)
     end
-    text(os.date("%H:%M"), 106, 6, PAPER)
+    local clock = clockText(not system.is24HourClock
+      or system.is24HourClock() ~= false)
+    text(clock, 137 - #clock * 6, 6, PAPER)
     battery()
   end
 
