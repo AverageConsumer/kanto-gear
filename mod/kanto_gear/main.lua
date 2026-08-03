@@ -537,6 +537,7 @@ return function(mod)
   end
 
   local PaletteFX = require("src.render.PaletteFX")
+  local EngineFont = require("src.render.Font")
 
   local canvas = G.newCanvas(WIDTH, HEIGHT, { dpiscale = 1 })
   canvas:setFilter("nearest", "nearest")
@@ -1013,33 +1014,20 @@ return function(mod)
     end
   end
 
-  local namingLabels = {
-    ["ED"] = "OK", [" "] = "SP", ["("] = "L", [")"] = "R",
-    [";"] = ":", ["["] = "LB", ["]"] = "RB", [","] = ".",
-    ["\195\151"] = "X", ["\226\153\130"] = "M",
-    ["\226\153\128"] = "F", ["lower case"] = "LOWER CASE",
-    ["UPPER CASE"] = "UPPER CASE",
-  }
-
-  local function namingLabel(value)
-    value = tostring(value or "")
-    if namingLabels[value] then return namingLabels[value] end
-    if value:sub(1, 1) == "<" then return value:sub(2, 3) end
-    return value
-  end
-
   local function namingKey(x, y, w, label, selected)
     box("fill", x, y, w, 15, selected and DARK or MID)
     outline(x, y, w, 15, INK)
-    local shown = fit(namingLabel(label), math.max(1, math.floor((w - 2) / 6)))
-    text(shown, x + math.floor((w - #shown * 6) / 2), y + 4,
-         selected and PAPER or INK)
+    color(selected and PAPER or INK)
+    EngineFont.draw(label, x + math.floor((w - EngineFont.width(label)) / 2),
+                    y + 3)
   end
 
   local function drawNaming(top)
     header("NAME INPUT")
     local name = table.concat(top.glyphs or {})
-    centered(name == "" and "-" or fit(name, 24), 24, DARK)
+    name = name == "" and "-" or name
+    color(DARK)
+    EngineFont.draw(name, math.floor((WIDTH - EngineFont.width(name)) / 2), 24)
     for row, cells in ipairs(top:grid()) do
       local y = 36 + (row - 1) * 17
       for col, label in ipairs(cells) do
