@@ -2197,7 +2197,7 @@ return function(mod)
       return
     end
     local mode, top = screenState()
-    if mode == "title" then
+    if mode == "title" or (top and top.screenId == "NamingScreen") then
       press("a")
       return
     end
@@ -2377,7 +2377,8 @@ return function(mod)
         pageSwipe = pageSwipeAllowed(mode, battle),
         textSpeed = speed,
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
-          or dialogueChoice() or screenById("MoveLearnMenu") or pcSession() }
+          or (top and top.screenId == "NamingScreen") or dialogueChoice()
+          or screenById("MoveLearnMenu") or pcSession() }
       if speed then holdTextSpeed(true) end
     elseif action == "cancel" then
       textSpeedReleasePending = false
