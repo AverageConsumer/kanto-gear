@@ -35,7 +35,7 @@ battles, menus and contextual touch controls move to the second display.
 You need your own supported Pokemon Red, Blue or Yellow ROM. No ROM or
 ROM-extracted game data is included here.
 
-1. Download `gen1recomp-0.1.59-kanto-gear-android-test.apk` from the latest
+1. Download `gen1recomp-0.1.60-kanto-gear-android-test.apk` from the latest
    [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/latest)
    and install it.
 2. Download `Kanto-Gear-Mod-1.0.0.zip` from the latest
@@ -94,8 +94,8 @@ and prompts temporarily take over that display when the game needs them.
 | Component | Version | Role |
 | --- | --- | --- |
 | [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.0.0 public test | Required second-screen mod |
-| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.59 Kanto Gear test | Required Android host APK |
-| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.5.3 public test | Optional Android mod; based on 1.5.2 |
+| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.60 Kanto Gear test | Required Android host APK |
+| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.5.2-android.1 | Optional Android mod; based on 1.5.2 |
 
 Do not mix arbitrary releases from the three repositories. Each Kanto Gear
 release links the exact set that was tested together.
