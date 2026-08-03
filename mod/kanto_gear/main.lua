@@ -2613,6 +2613,13 @@ return function(mod)
       system.hasSecondaryDisplay(), displayReady, state)
   end)
 
+  mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
+    if next(state) == true then return true end
+    return bottomOwnsBattleUI(
+      mod.options:get("hide_upper_battle_ui"), active,
+      system.hasSecondaryDisplay(), displayReady, battleState())
+  end)
+
   mod.hooks:wrap("screen.render_visible", function(next, state)
     if next(state) == false then return false end
     local owned = bottomOwnsBattleUI(
