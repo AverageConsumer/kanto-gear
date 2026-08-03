@@ -258,6 +258,14 @@ local function itemfinderNear(px, py, x, y)
   return near(px, x, 5) and near(py, y, 4)
 end
 
+local function localMapLayout(width, height)
+  width, height = math.max(1, width or 1), math.max(1, height or 1)
+  local scale = math.min(3, 148 / width, 98 / height)
+  if scale >= 1 then scale = math.floor(scale) end
+  return scale, (WIDTH - width * scale) / 2,
+         22 + (102 - height * scale) / 2
+end
+
 local function battleFocusChanged(a, b)
   return (a and a.menuIndex) ~= (b and b.menuIndex)
     or (a and a.moveIndex) ~= (b and b.moveIndex)
@@ -381,6 +389,11 @@ end
 assert(itemfinderNear(10, 10, 15, 14)
        and not itemfinderNear(10, 10, 5, 10)
        and not itemfinderNear(10, 10, 10, 15), "native itemfinder radius")
+do
+  local scale, x, y = localMapLayout(40, 36)
+  assert(scale == 2 and x == 40 and y == 37,
+         "local map fits the companion canvas")
+end
 assert(supportedBattleUI({ kind = "wild" })
        and supportedBattleUI({ battleKind = function() return "safari" end })
        and not supportedBattleUI({ kind = "link" })
@@ -581,6 +594,8 @@ return function(mod)
       type = "toggle", default = true,
       sets = { [false] = { profile = profileFromAssists },
                [true] = { profile = profileFromAssists } } },
+    { key = "local_map", label = "SPOILER LOCAL MAP",
+      type = "toggle", default = false },
     { key = "display_target", label = "BOTTOM SCREEN", type = "choice",
       default = "auto", choices = {
         { "AUTO", "auto" }, { "HANDHELD", "handheld" },
@@ -640,6 +655,7 @@ return function(mod)
   local steps = 0
   local mapId = nil
   local mapAsset = nil
+  local localMap = nil
   local spriteCache = {}
   local caughtBall = nil
   local touchDown = nil
@@ -715,6 +731,7 @@ return function(mod)
 
   local function pageNames()
     local out = { "MAP" }
+    if mod.options:get("local_map") then out[#out + 1] = "LOCAL" end
     if assist("guide") then out[#out + 1] = "GUIDE" end
     if assist("area") then out[#out + 1] = "AREA" end
     out[#out + 1] = "STEPS"
@@ -1247,6 +1264,55 @@ return function(mod)
       end
     else
       drawMapFallback()
+    end
+    box("fill", 4, 126, 152, 14, DARK)
+    centered(areaName(mapId), 130, PAPER)
+  end
+
+  local function loadLocalMap()
+    if localMap ~= nil then return localMap or nil end
+    if not (mod.world and mod.world.mapOverview) then
+      localMap = false
+      return nil
+    end
+    local overview = mod.world:mapOverview()
+    localMap = overview and overview.rows and overview or false
+    return localMap or nil
+  end
+
+  local function drawLocalMap()
+    header("LOCAL MAP")
+    local overview = loadLocalMap()
+    if not overview then
+      centered("HOST UPDATE REQUIRED", 62, DARK)
+    else
+      local scale, left, top = localMapLayout(overview.width, overview.height)
+      box("fill", left - 2, top - 2, overview.width * scale + 4,
+          overview.height * scale + 4, INK)
+      for y, row in ipairs(overview.rows) do
+        for x = 1, #row do
+          local cell = row:sub(x, x)
+          local c = cell == "." and PAPER or cell == "~" and MID or DARK
+          box("fill", left + (x - 1) * scale, top + (y - 1) * scale,
+              scale, scale, c)
+          if cell == "+" then
+            box("fill", left + (x - 0.75) * scale,
+                top + (y - 0.75) * scale,
+                math.max(1, scale / 2), math.max(1, scale / 2), PAPER)
+          end
+        end
+      end
+      local pos = mod.world:current()
+      if pos and pos.mapId == overview.mapId and pos.x and pos.y then
+        local px = left + (pos.x + 0.5) * scale
+        local py = top + (pos.y + 0.5) * scale
+        local direction = ({ up = { 0, -1 }, down = { 0, 1 },
+          left = { -1, 0 }, right = { 1, 0 } })[pos.facing] or { 0, 1 }
+        box("fill", px - 2, py - 2, 5, 5, INK)
+        box("fill", px - 1, py - 1, 3, 3, PAPER)
+        box("fill", px + direction[1] * 3 - 1,
+            py + direction[2] * 3 - 1, 3, 3, INK)
+      end
     end
     box("fill", 4, 126, 152, 14, DARK)
     centered(areaName(mapId), 130, PAPER)
@@ -2025,6 +2091,8 @@ return function(mod)
       drawRadar()
     elseif page == "MAP" then
       drawMap()
+    elseif page == "LOCAL" then
+      drawLocalMap()
     elseif page == "GUIDE" then
       drawGuide()
     elseif page == "AREA" then
@@ -2800,6 +2868,7 @@ return function(mod)
   mod.events:on("map.entered", function(payload)
     mapId, pendingFly, pendingAction, fieldChoice, dirty =
       payload.mapId, nil, nil, nil, true
+    localMap = nil
     guidePage, areaPage = 1, 1
     radarOpen = false
   end)
@@ -2817,6 +2886,7 @@ return function(mod)
         page = "MAP"
       end
       if page == "AREA" and not assist("area") then page = "MAP" end
+      if page == "LOCAL" and not mod.options:get("local_map") then page = "MAP" end
       if not assist("item_radar") then radarOpen = false end
       dirty = true
     end
@@ -2827,8 +2897,16 @@ return function(mod)
     mod.save:set("steps", steps)
     mapId = payload.mapId or mapId
     if radarOpen then radarOpen, dirty = false, true end
-    if page == "STEPS" then dirty = true end
+    if page == "STEPS" or page == "LOCAL" then dirty = true end
   end)
+
+  for _, event in ipairs({ "world.block_replaced", "map.reloaded" }) do
+    mod.events:on(event, function(payload)
+      if not payload or not payload.mapId or payload.mapId == mapId then
+        localMap, dirty = nil, true
+      end
+    end)
+  end
 
   mod.hooks:wrap("battle.bottom_ui_visible", function(next, state)
     if next(state) == false then return false end
@@ -2962,6 +3040,12 @@ return function(mod)
         tostring(fieldChoice and fieldChoice.kind),
         tostring(fieldChoice and fieldChoice.source
           and fieldChoice.source.slot) }, ":")
+      if page == "LOCAL" and mod.world and mod.world.current then
+        local pos = mod.world:current()
+        screenKey = screenKey .. ":" .. tostring(pos and pos.x)
+          .. ":" .. tostring(pos and pos.y)
+          .. ":" .. tostring(pos and pos.facing)
+      end
       if screenKey ~= lastScreenKey or mode == "transition" then
         lastScreenKey, dirty = screenKey, true
       end
