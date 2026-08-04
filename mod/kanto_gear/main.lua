@@ -98,6 +98,11 @@ local function pageSwipeAllowed(mode, battle)
   return mode == "active" and not battle
 end
 
+local function carouselSubpage(current, count, direction)
+  local nextPage = math.max(1, math.min(count, current or 1)) + direction
+  if nextPage >= 1 and nextPage <= count then return nextPage end
+end
+
 local function pagedIndex(index, count, direction)
   return math.max(1, math.min(count, index + direction * 4))
 end
@@ -261,12 +266,24 @@ local function itemfinderNear(px, py, x, y)
   return near(px, x, 5) and near(py, y, 4)
 end
 
-local function localMapLayout(width, height)
+local function localMapLayout(width, height, zoom, focusX, focusY)
   width, height = math.max(1, width or 1), math.max(1, height or 1)
   local scale = math.min(3, 148 / width, 98 / height)
   if scale >= 1 then scale = math.floor(scale) end
-  return scale, (WIDTH - width * scale) / 2,
-         22 + (102 - height * scale) / 2
+  scale = scale * (zoom == 2 and 2 or 1)
+  local left = 4 + (152 - width * scale) / 2
+  local top = 22 + (102 - height * scale) / 2
+  if zoom == 2 and focusX and focusY then
+    left = 80 - focusX * scale
+    top = 73 - focusY * scale
+    if width * scale > 152 then
+      left = math.max(156 - width * scale, math.min(4, left))
+    end
+    if height * scale > 102 then
+      top = math.max(124 - height * scale, math.min(22, top))
+    end
+  end
+  return scale, left, top
 end
 
 local function localMapMode(value)
@@ -341,6 +358,10 @@ assert(pageSwipeAllowed("active", nil)
        and not pageSwipeAllowed("transition", nil)
        and not pageSwipeAllowed("loading", nil)
        and not pageSwipeAllowed("active", {}), "disabled screen swipe gate")
+assert(carouselSubpage(1, 3, 1) == 2
+       and carouselSubpage(3, 3, -1) == 2
+       and carouselSubpage(3, 3, 1) == nil,
+       "horizontal carousel subpages")
 assert(pagedIndex(1, 9, 1) == 5 and pagedIndex(9, 9, 1) == 9
        and pagedIndex(5, 9, -1) == 1, "touch list paging")
 assert(partySlotAt(3, 23, 6) == 1 and partySlotAt(81, 23, 6) == 2
@@ -402,6 +423,9 @@ do
   local scale, x, y = localMapLayout(40, 36)
   assert(scale == 2 and x == 40 and y == 37,
          "local map fits the companion canvas")
+  scale, x, y = localMapLayout(40, 36, 2, 20, 18)
+  assert(scale == 4 and x == 0 and y == 1,
+         "local map zoom follows the player without leaving empty edges")
 end
 assert(localMapMode(false) == "off" and localMapMode(true) == "map"
        and localMapMode("enhanced") == "enhanced",
@@ -659,6 +683,7 @@ return function(mod)
   local dirty = true
   local readbackPending = false
   local page = "MAP"
+  local localMapZoom = 1
   local guidePage = 1
   local areaPage = 1
   local radarOpen = false
@@ -1009,11 +1034,16 @@ return function(mod)
     end
   end
 
-  local function header(title, back)
+  local function header(title, back, paged)
     box("fill", 0, 0, WIDTH, HEADER, DARK)
     if back then
       text("<", 4, 6, PAPER)
       text(fit(title, 12), 16, 6, PAPER)
+    elseif paged then
+      local label = fit(title, 12)
+      text("<", 4, 6, PAPER)
+      text(label, 55 - math.floor(#label * 3), 6, PAPER)
+      text(">", 97, 6, PAPER)
     else
       text(fit(title, 14), 5, 6, PAPER)
     end
@@ -1260,7 +1290,7 @@ return function(mod)
   end
 
   local function drawMap()
-    header(canFly() and "MAP + FLY" or "MAP")
+    header(canFly() and "MAP + FLY" or "MAP", false, true)
     local asset = loadMap()
     if asset then
       color({ 1, 1, 1, 1 })
@@ -1298,7 +1328,7 @@ return function(mod)
 
   local function drawLocalMap()
     local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
-    header(enhanced and "LOCAL MAP +" or "LOCAL MAP")
+    header("LOCAL", false, true)
     local overview = loadLocalMap()
     if not overview then
       centered("HOST UPDATE REQUIRED", 62, DARK)
@@ -1307,8 +1337,15 @@ return function(mod)
       local width = overview.tileWidth or overview.width
       local height = overview.tileHeight or overview.height
       local density = overview.tileRows and 2 or 1
-      local scale, left, top = localMapLayout(width, height)
+      local pos = mod.world:current()
+      local focusX = pos and pos.mapId == overview.mapId and pos.x
+        and (pos.x + 0.5) * density
+      local focusY = pos and pos.mapId == overview.mapId and pos.y
+        and (pos.y + 0.5) * density
+      local scale, left, top = localMapLayout(
+        width, height, localMapZoom, focusX, focusY)
       local shades = { PAPER, MID, DARK, INK }
+      G.setScissor(2, 20, 156, 106)
       box("fill", left - 2, top - 2, width * scale + 4,
           height * scale + 4, INK)
       for y, row in ipairs(rows) do
@@ -1335,7 +1372,6 @@ return function(mod)
           box("fill", x - size / 2, y - size / 2, size, size, c)
         end
       end
-      local pos = mod.world:current()
       if pos and pos.mapId == overview.mapId and pos.x and pos.y then
         local px = left + (pos.x + 0.5) * density * scale
         local py = top + (pos.y + 0.5) * density * scale
@@ -1346,6 +1382,8 @@ return function(mod)
         box("fill", px + direction[1] * 2,
             py + direction[2] * 2, 1, 1, INK)
       end
+      G.setScissor()
+      button(134, 22, 22, 16, localMapZoom == 1 and "+" or "-", false)
     end
     box("fill", 4, 126, 152, 14, DARK)
     if enhanced then
@@ -1378,7 +1416,7 @@ return function(mod)
   end
 
   local function drawSteps()
-    header("STEPS")
+    header("STEPS", false, true)
     foot(69, 29)
     centered(tostring(steps), 55, INK, 2)
     centered("TOTAL", 82, DARK)
@@ -1388,7 +1426,7 @@ return function(mod)
   local function drawGuide()
     local guide = guideData()
     guidePage = math.max(1, math.min(guidePage, guide.pages))
-    header(("GUIDE %d/%d"):format(guidePage, guide.pages))
+    header(("GUIDE %d/%d"):format(guidePage, guide.pages), false, true)
     text(fit(guide.name, 15), 4, 23, DARK)
     text(("DEX %d/%d"):format(guide.dexCaught, guide.dexTotal), 94, 23, INK)
 
@@ -1423,7 +1461,7 @@ return function(mod)
     local area = areaData()
     areaPage = math.max(1, math.min(areaPage, area.pages))
     local screen = area.screens[areaPage]
-    header(("AREA %d/%d"):format(areaPage, area.pages))
+    header(("AREA %d/%d"):format(areaPage, area.pages), false, true)
     text(fit(area.name, 23), 5, 23, DARK)
     local complete = screen.total > 0 and screen.done == screen.total
     box("fill", 4, 34, 152, 12, complete and DARK or MID)
@@ -1485,7 +1523,7 @@ return function(mod)
   end
 
   local function drawTools()
-    header("TOOLS")
+    header("TOOLS", false, true)
     if #tools == 0 then
       box("fill", 12, 42, 136, 58, MID)
       outline(12, 42, 136, 58, INK)
@@ -1559,8 +1597,9 @@ return function(mod)
     end
   end
 
-  local function drawParty(list, title, back, activeSpecies, selectedSlot)
-    header(title or "PARTY", back)
+  local function drawParty(list, title, back, activeSpecies, selectedSlot,
+                           paged)
+    header(title or "PARTY", back, paged)
     for i = 1, 6 do
       local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
       local mon = list[i]
@@ -1574,7 +1613,7 @@ return function(mod)
   local function drawNormalParty()
     drawParty(partyData(), partyMoveFrom and "MOVE WHERE?" or "PARTY",
               partyMoveFrom ~= nil,
-              nil, partyMoveFrom)
+              nil, partyMoveFrom, partyMoveFrom == nil)
   end
 
   local function drawPartyAction()
@@ -2618,6 +2657,41 @@ return function(mod)
     dirty = true
   end
 
+  local function changePage(direction)
+    if pendingFly or pendingAction or fieldChoice or partyActionSlot
+        or partyMoveFrom or screenById("MoveLearnMenu")
+        or dialogueChoice() or radarOpen then return end
+    if not pageSwipeAllowed(screenState(), battle) then return end
+    refreshTools()
+    local current, count
+    if page == "GUIDE" then
+      current, count = guidePage, guideData().pages
+    elseif page == "AREA" then
+      current, count = areaPage, areaData().pages
+    end
+    local subpage = current and carouselSubpage(current, count, direction)
+    if subpage then
+      if page == "GUIDE" then guidePage = subpage else areaPage = subpage end
+      mod.log:info("page %s %d/%d", page, subpage, count)
+      dirty = true
+      return
+    end
+    local names = pageNames()
+    local index = 1
+    for i, name in ipairs(names) do
+      if name == page then index = i break end
+    end
+    index = ((index - 1 + direction) % #names) + 1
+    page = names[index]
+    if page == "GUIDE" then
+      guidePage = direction < 0 and guideData().pages or 1
+    elseif page == "AREA" then
+      areaPage = direction < 0 and areaData().pages or 1
+    end
+    mod.log:info("page %s", page)
+    dirty = true
+  end
+
   local function tap(x, y)
     local summary = screenById("SummaryMenu")
     if summary and game.stack:top() == summary then
@@ -2721,6 +2795,16 @@ return function(mod)
       end
       return
     end
+    if y < HEADER and not partyMoveFrom then
+      if x < 22 then changePage(-1)
+      elseif x >= 86 and x < 108 then changePage(1) end
+      return
+    end
+    if page == "LOCAL" and inside(x, y, 126, 18, 34, 30) then
+      localMapZoom = localMapZoom == 1 and 2 or 1
+      dirty = true
+      return
+    end
     if page == "MAP" and canFly() then
       local best, distance
       for _, target in ipairs(flyTargets()) do
@@ -2794,23 +2878,10 @@ return function(mod)
   end
 
   local function swipe(dx)
-    if pendingFly or pendingAction or fieldChoice or partyActionSlot
-        or screenById("MoveLearnMenu")
-        or dialogueChoice() or radarOpen then return end
-    if not pageSwipeAllowed(screenState(), battle) then return end
-    refreshTools()
-    local names = pageNames()
-    local index = 1
-    for i, name in ipairs(names) do
-      if name == page then index = i break end
-    end
-    index = ((index - 1 + (dx < 0 and 1 or -1)) % #names) + 1
-    page = names[index]
-    mod.log:info("page %s", page)
-    dirty = true
+    changePage(dx < 0 and 1 or -1)
   end
 
-  local function swipeVertical(dy, allowPage)
+  local function swipeVertical(dy)
     if radarOpen then return end
     local top = game and game.stack and game.stack:top()
     if pcSession() and pcListKind(top) and #(top.items or {}) > 4 then
@@ -2829,15 +2900,6 @@ return function(mod)
       if choice.clampScroll then choice:clampScroll() end
       dirty = true
       return
-    end
-    if allowPage and pageSwipeAllowed(screenState(), battle)
-        and not fieldChoice and (page == "GUIDE" or page == "AREA") then
-      local pages_ = page == "GUIDE" and guideData().pages or areaData().pages
-      local current = page == "GUIDE" and guidePage or areaPage
-      current = math.max(1, math.min(pages_,
-        current + (dy < 0 and 1 or -1)))
-      if page == "GUIDE" then guidePage = current else areaPage = current end
-      dirty = true
     end
   end
 
@@ -2884,7 +2946,7 @@ return function(mod)
       if math.abs(dx) >= 24 and math.abs(dx) > math.abs(dy) * 1.25 then
         if down.pageSwipe then swipe(dx) end
       elseif math.abs(dy) >= 24 and math.abs(dy) > math.abs(dx) * 1.25 then
-        swipeVertical(dy, down.pageSwipe)
+        swipeVertical(dy)
       elseif dialogueChoice() and (math.abs(dx) >= 12 or math.abs(dy) >= 12) then
         return
       elseif down.input then
