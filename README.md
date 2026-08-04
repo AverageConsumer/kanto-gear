@@ -43,13 +43,13 @@ ROM-extracted game data is included here.
 > renderer for this package. Do not substitute the official host or mix
 > versions from different release sets.
 
-1. Download `gen1recomp-android-0.1.64-kanto.2.apk` from the latest
-   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.64-kanto.2)
+1. Download `gen1recomp-android-0.1.69-kanto.3.apk` from the latest
+   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.69-kanto.3)
    and install it.
-2. Download `Kanto-Gear-Mod-1.1.0.zip` from the latest
-   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.1.0).
+2. Download `Kanto-Gear-Mod-1.2.0.zip` from the latest
+   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.2.0).
 3. Start **Gen1Recomp Android Test**, import your ROM, open the **MODS** tab,
-   tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.1.0.zip`.
+   tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.2.0.zip`.
 4. Make sure **Kanto Gear** is enabled, then start the game. The companion
    appears automatically when Android reports a suitable second display.
 
@@ -76,7 +76,7 @@ Gear package because handhelds need additional frame-pacing work. If you want
 the tested Android 3D setup:
 
 1. Download the latest `.zip` from the
-   [Kanto Gear Voxel performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.5.4-android.2).
+   [Kanto Gear Voxel performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.6.0-android.1).
 2. If the original Dramatic Shape Voxel Mod is already installed, remove it
    from the **MODS** tab first. Both versions intentionally use the same mod ID.
 3. Import the performance-fork `.zip` through **MODS → Import mod .zip**.
@@ -85,7 +85,7 @@ the tested Android 3D setup:
 A fresh setup starts at the tested Thor profile: **VOXEL 35**, **BALANCED**,
 **T-SHIFT 3** and **V-CURVE OFF**. Existing saved choices are never replaced.
 
-The fork is based on Dramatic Shape Voxel Mod 1.5.4. Its performance changes
+The fork is based on Dramatic Shape Voxel Mod 1.6.0. Its performance changes
 are promising on the Thor, but they are not claimed to improve every GPU or
 handheld and the fork is not distributed as a PC replacement.
 
@@ -93,11 +93,15 @@ handheld and the fork is not distributed as a PC replacement.
 
 - **Swipe left or right** across the lower screen to move between the map,
   party, steps, field tools, area information and guide pages.
+- **Tap the arrows in the header** for the same navigation without swiping.
+  Horizontal swipes and arrows also move through multi-page Guide and Area
+  views before continuing to the next section.
 - **SPOILER LOCAL MAP** defaults to **OFF**. **MAP** adds a swipe page showing
   the complete current map or floor and your live position; **ENHANCED** also
   marks exits plus visible and hidden items that have not been collected. The
   regular region map remains the Fly screen, so tapping its unlocked
-  destinations still works as before.
+  destinations still works as before. Tap **+ / -** on the local map to toggle
+  a player-centred zoom.
 - **Tap the visible buttons and list entries** to use touch controls.
 - On **PARTY**, each Pokémon shows a thin EXP bar below its HP bar. Tap a card
   for **STATS** or **SWAP**. Stats opened there stay on the lower screen while
@@ -122,9 +126,9 @@ handheld and the fork is not distributed as a PC replacement.
 
 | Component | Version | Role |
 | --- | --- | --- |
-| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.1.0 public test | Required second-screen mod |
-| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.64 Kanto Gear test | Required Android host APK |
-| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.5.4-android.2 | Recommended for the complete tested 3D setup; technically optional |
+| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.2.0 public test | Required second-screen mod |
+| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.69-kanto.3 | Required Android host APK |
+| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.6.0-android.1 | Recommended for the complete tested 3D setup; technically optional |
 
 Do not mix arbitrary releases from the three repositories. Each Kanto Gear
 release links the exact set that was tested together.
