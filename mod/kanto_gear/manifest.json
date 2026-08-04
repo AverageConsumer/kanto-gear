@@ -6,7 +6,7 @@
   "entry": "main.lua",
   "category": "UI",
   "profile": "content",
-  "game_version": "0.0.0-dev || >=0.1.58 <2.0.0",
+  "game_version": "0.0.0-dev || >=0.1.69 <2.0.0",
   "affects_link": false,
   "dependencies": [],
   "optional_dependencies": [],

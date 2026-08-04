@@ -656,14 +656,7 @@ return function(mod)
 
   local runtime = rawget(_G, "love")
   local system = runtime and runtime.system
-  if not system or not system.hasSecondaryDisplay
-      or not system.presentSecondaryDisplay
-      or not system.pollSecondaryDisplayTouch then
-    mod.log:warn("host has no secondary-display bridge; mod stays inactive")
-    return
-  end
-
-  G = runtime.graphics
+  G = runtime and runtime.graphics
   if not G then
     mod.log:warn("host has no graphics runtime; mod stays inactive")
     return
@@ -679,6 +672,7 @@ return function(mod)
     return
   end
   local game
+  local companion
   local active = false
   local dirty = true
   local readbackPending = false
@@ -698,7 +692,7 @@ return function(mod)
   local spriteCache = {}
   local caughtBall = nil
   local touchDown = nil
-  local textSpeedHeld = false
+  local textSpeedToken
   local textSpeedReleasePending = false
   local battle = nil
   local moveInfo = nil
@@ -720,9 +714,14 @@ return function(mod)
   local choiceCommitted = nil
   local loggedTick = false
   local loggedPresent = false
+  local bridgeWarned = false
   local displayReady = false
   local nextPresentAttempt = 0
   local themeKey = nil
+
+  local function hasDisplay()
+    return companion and companion.detected and companion.detected() or false
+  end
 
   local function romThemePalette(name)
     local palettes = game and game.data and game.data.palettes
@@ -2213,7 +2212,7 @@ return function(mod)
     if readbackPending then
       local image = canvas:pollImageData()
       if image then
-        shown = system.presentSecondaryDisplay(image, SECONDARY_BACKGROUND,
+        shown = companion.push(image, WIDTH, HEIGHT, SECONDARY_BACKGROUND,
           mod.options:get("display_target"))
         readbackPending = false
         displayReady = shown
@@ -2304,18 +2303,13 @@ return function(mod)
   end
 
   local function press(key)
-    game.input:overlayPressed(key)
-    game.input:overlayReleased(key)
+    mod.input:tap(game, key)
   end
 
   local function holdTextSpeed(held)
-    if textSpeedHeld == held then return end
-    textSpeedHeld = held
-    if held then
-      game.input:overlayPressed("a")
-    else
-      game.input:overlayReleased("a")
-    end
+    if held == (textSpeedToken ~= nil) then return end
+    if held then textSpeedToken = mod.input:press(game, "a")
+    else mod.input:release(textSpeedToken); textSpeedToken = nil end
   end
 
   local function useTool(action, opts)
@@ -2484,7 +2478,7 @@ return function(mod)
     end
     if moveInfo or battle.prompt == "locked" then return end
     if battle.prompt == "advance" then
-      submit("advance")
+      press("a")
       return
     end
     if battle.prompt == "moves" then
@@ -3025,7 +3019,7 @@ return function(mod)
     local top = game and game.stack and game.stack:top()
     local owned = bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
-      system.hasSecondaryDisplay(), displayReady, raw)
+      hasDisplay(), displayReady, raw)
     return not (owned
       and (state == raw or (state == top and top.isTextBox)))
   end)
@@ -3034,20 +3028,20 @@ return function(mod)
     if next(state) == true then return true end
     return bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
-      system.hasSecondaryDisplay(), displayReady, state)
+      hasDisplay(), displayReady, state)
   end)
 
   mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
     if next(state) == true then return true end
     return bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
-      system.hasSecondaryDisplay(), displayReady, battleState())
+      hasDisplay(), displayReady, battleState())
   end)
 
   mod.hooks:wrap("battle.status_hud_visible", function(next, state)
     if next(state) == false then return false end
     return not bottomOwnsBattleUI(
-      fullBottomBattleUI(), active, system.hasSecondaryDisplay(),
+      fullBottomBattleUI(), active, hasDisplay(),
       displayReady, state)
   end)
 
@@ -3058,11 +3052,11 @@ return function(mod)
   mod.hooks:wrap("screen.render_visible", function(next, state)
     if next(state) == false then return false end
     if state == bottomSummary then
-      return not (active and system.hasSecondaryDisplay() and displayReady)
+      return not (active and hasDisplay() and displayReady)
     end
     local owned = bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
-      system.hasSecondaryDisplay(), displayReady, battleState())
+      hasDisplay(), displayReady, battleState())
     return not (owned and mirroredBattleMenu(state))
   end)
 
@@ -3085,17 +3079,25 @@ return function(mod)
     mod.events:on(event, function() dirty = true end)
   end
 
-  -- Existing render hook provides a tick without another engine patch.
-  mod.hooks:wrap("render.letterbox", function(next, context)
+  -- Upstream owns the display seam; this mod only supplies its companion frame.
+  mod.hooks:wrap("render.compose", function(next, renderer, context)
+    local handled = next(renderer, context)
+    companion = context and context.secondScreen
     if textSpeedReleasePending then
       textSpeedReleasePending = false
       holdTextSpeed(false)
     end
-    next(context)
-    if not active then return end
+    if not companion or not companion.detected or not companion.pollTouch then
+      if not bridgeWarned then
+        bridgeWarned = true
+        mod.log:warn("host SecondScreen bridge has no companion touch support")
+      end
+      return handled
+    end
+    if not active then return handled end
     if not loggedTick then
       loggedTick = true
-      mod.log:info("display available=%s", tostring(system.hasSecondaryDisplay()))
+      mod.log:info("display available=%s", tostring(hasDisplay()))
     end
 
     local now = love.timer.getTime()
@@ -3103,7 +3105,7 @@ return function(mod)
       nextPoll = now + 0.05
       refreshTheme()
       for _ = 1, 32 do
-        local event = system.pollSecondaryDisplayTouch()
+        local event = companion.pollTouch()
         if not event then break end
         touchEvent(event)
       end
@@ -3165,7 +3167,7 @@ return function(mod)
       nextClock = now + 60
       dirty = true
     end
-    local displayAvailable = system.hasSecondaryDisplay()
+    local displayAvailable = hasDisplay()
     if not displayAvailable then
       displayReady = false
       touchDown = nil
@@ -3181,5 +3183,6 @@ return function(mod)
         mod.log:info("first frame submitted=true")
       end
     end
+    return handled
   end, -1000)
 end
