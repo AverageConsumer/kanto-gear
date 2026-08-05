@@ -15,6 +15,13 @@ T.love.graphics.newCanvas = newCanvas
 T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
+local options = run.loader.optionSchemas.kanto_gear
+T.eq(#options, 5, "Kanto Gear keeps its settings compact")
+T.eq(options[1].label, "THEME", "theme setting is device-neutral")
+T.eq(options[2].label, "INFO", "assist features use one preset")
+T.eq(options[4].label, "GEAR SCREEN", "display setting is device-neutral")
+T.eq(options[5].label, "BATTLE VIEW", "battle layout uses one setting")
+T.eq(#options[5].choices, 3, "battle view exposes three clear layouts")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")

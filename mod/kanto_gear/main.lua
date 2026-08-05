@@ -236,18 +236,13 @@ local function methodLines(methods)
   return lines[1] or "", lines[2] or ""
 end
 
-local function profileFromAssists(get)
-  local hints, details = get("type_hints"), get("move_details")
-  local guide, area = get("guide"), get("area")
-  local radar, catchOdds = get("item_radar"), get("catch_odds")
-  if hints and details and guide and area and radar and catchOdds then
-    return "enhanced"
+local function battleUIMode(value, legacyFull)
+  if value == "standard" or value == "gear" or value == "full" then
+    return value
   end
-  if not hints and not details and not guide and not area and not radar
-      and not catchOdds then
-    return "purist"
-  end
-  return "custom"
+  if legacyFull == true then return "full" end
+  if value == true then return "gear" end
+  return "standard"
 end
 
 local function checklistPages(sections)
@@ -413,18 +408,11 @@ end
 assert(not assistEnabled("purist", true)
        and assistEnabled("enhanced", false)
        and assistEnabled("custom", true), "assist profiles")
-do
-  local values = { type_hints = true, move_details = true,
-                   guide = true, area = true, item_radar = true,
-                   catch_odds = true }
-  local function get(key) return values[key] end
-  assert(profileFromAssists(get) == "enhanced", "all assists enhanced")
-  values.guide = false
-  assert(profileFromAssists(get) == "custom", "mixed assists custom")
-  values.type_hints, values.move_details, values.area, values.item_radar,
-    values.catch_odds = false, false, false, false, false
-  assert(profileFromAssists(get) == "purist", "all assists purist")
-end
+assert(battleUIMode("standard", true) == "standard"
+       and battleUIMode("gear", false) == "gear"
+       and battleUIMode("full", false) == "full"
+       and battleUIMode(true, false) == "gear"
+       and battleUIMode(false, true) == "full", "battle UI settings")
 do
   local pages = checklistPages({
     { name = "TRAINERS", rows = { { done = true }, { done = false } } },
@@ -618,73 +606,65 @@ local function inside(x, y, left, top, width, height)
 end
 
 return function(mod)
+  local infoDefault = mod.options:get("info_level")
+  if infoDefault == nil then
+    local legacyProfile = mod.options:get("profile")
+    infoDefault = legacyProfile == "custom" and "legacy"
+      or legacyProfile == "purist" and "purist" or "enhanced"
+  end
+  local infoChoices = {
+    { "PURIST", "purist" }, { "ENHANCED", "enhanced" },
+  }
+  if infoDefault == "legacy" then
+    infoChoices[#infoChoices + 1] = { "SAVED CUSTOM", "legacy" }
+  end
+
+  local battleDefault = mod.options:get("battle_view")
+  if battleDefault == nil then
+    battleDefault = battleUIMode(mod.options:get("hide_upper_battle_ui"),
+                                 mod.options:get("full_bottom_battle_ui"))
+  end
+
   mod.options:define({
-    { key = "theme", label = "BOTTOM THEME", type = "choice",
+    { key = "theme", label = "THEME", type = "choice",
       default = "kanto", choices = {
         { "KANTO GREEN", "kanto" }, { "MATCH GAME", "match" },
         { "OG", "og" }, { "OG INVERTED", "og_inv" },
         { "SGB", "sgb" }, { "ADVANCED", "advanced" },
         { "VERSION COLOR", "version" },
       } },
-    { key = "profile", label = "PROFILE", type = "choice",
-      default = "enhanced", choices = {
-        { "PURIST", "purist" }, { "ENHANCED", "enhanced" },
-        { "CUSTOM", "custom" },
-      }, sync = true, sets = {
-        purist = { type_hints = false, move_details = false,
-                   guide = false, area = false, item_radar = false,
-                   catch_odds = false },
-        enhanced = { type_hints = true, move_details = true,
-                     guide = true, area = true, item_radar = true,
-                     catch_odds = true },
-        custom = { profile = profileFromAssists },
-      } },
-    { key = "type_hints", label = "ASSIST TYPE HINTS",
-      type = "toggle", default = true,
-      sets = { [false] = { profile = profileFromAssists },
-               [true] = { profile = profileFromAssists } } },
-    { key = "move_details", label = "ASSIST MOVE INFO",
-      type = "toggle", default = true,
-      sets = { [false] = { profile = profileFromAssists },
-               [true] = { profile = profileFromAssists } } },
-    { key = "guide", label = "ASSIST GUIDE PAGE",
-      type = "toggle", default = true,
-      sets = { [false] = { profile = profileFromAssists },
-               [true] = { profile = profileFromAssists } } },
-    { key = "area", label = "ASSIST AREA PAGE",
-      type = "toggle", default = true,
-      sets = { [false] = { profile = profileFromAssists },
-               [true] = { profile = profileFromAssists } } },
-    { key = "item_radar", label = "ASSIST ITEM RADAR",
-      type = "toggle", default = true,
-      sets = { [false] = { profile = profileFromAssists },
-               [true] = { profile = profileFromAssists } } },
-    { key = "catch_odds", label = "ASSIST CATCH ODDS",
-      type = "toggle", default = true,
-      sets = { [false] = { profile = profileFromAssists },
-               [true] = { profile = profileFromAssists } } },
-    { key = "local_map", label = "SPOILER LOCAL MAP",
+    { key = "info_level", label = "INFO", type = "choice",
+      default = infoDefault, choices = infoChoices },
+    { key = "local_map", label = "AREA MAP",
       type = "choice", default = false, choices = {
         { "OFF", false }, { "MAP", true }, { "ENHANCED", "enhanced" },
       } },
-    { key = "display_target", label = "BOTTOM SCREEN", type = "choice",
+    { key = "display_target", label = "GEAR SCREEN", type = "choice",
       default = "auto", choices = {
         { "AUTO", "auto" }, { "HANDHELD", "handheld" },
-        { "EXTRA SCREEN", "secondary" },
+        { "EXTERNAL", "secondary" },
       } },
-    { key = "hide_upper_battle_ui", label = "HIDE UPPER BATTLE UI",
-      type = "toggle", default = false },
-    { key = "full_bottom_battle_ui", label = "FULL BOTTOM BATTLE UI",
-      type = "toggle", default = false },
+    { key = "battle_view", label = "BATTLE VIEW",
+      type = "choice", default = battleDefault, choices = {
+        { "STANDARD", "standard" }, { "GEAR", "gear" },
+        { "FULL GEAR", "full" },
+      } },
   })
   local function assist(key)
-    return assistEnabled(mod.options:get("profile"), mod.options:get(key))
+    local level = mod.options:get("info_level")
+    if level == "legacy" then
+      return assistEnabled("custom", mod.options:get(key))
+    end
+    return level ~= "purist"
+  end
+  local function currentBattleUIMode()
+    return mod.options:get("battle_view") or "standard"
   end
   local function fullBottomBattleUI()
-    return mod.options:get("full_bottom_battle_ui") == true
+    return currentBattleUIMode() == "full"
   end
   local function hideUpperBattleUI()
-    return fullBottomBattleUI() or mod.options:get("hide_upper_battle_ui")
+    return currentBattleUIMode() ~= "standard"
   end
 
   local runtime = rawget(_G, "love")
@@ -696,7 +676,7 @@ return function(mod)
   end
 
   local PaletteFX = require("src.render.PaletteFX")
-  local EngineFont = require("src.render.Font")
+  local EngineFont = mod.ui.Font
 
   local canvas = G.newCanvas(WIDTH, HEIGHT, { dpiscale = 1 })
   canvas:setFilter("nearest", "nearest")
@@ -723,7 +703,6 @@ return function(mod)
   local mapAsset = nil
   local localMap = nil
   local spriteCache = {}
-  local caughtBall = nil
   local touchDown = nil
   local textSpeedToken
   local textSpeedReleasePending = false
@@ -2061,20 +2040,13 @@ return function(mod)
   end
 
   local function drawCaughtBall(x, y)
-    if caughtBall == nil then
-      local ok, image = pcall(G.newImage,
-        "assets/generated/battle/balls.png")
-      if ok then
-        image:setFilter("nearest", "nearest")
-        caughtBall = { image = image,
-          quad = G.newQuad(0, 0, 8, 8, image:getDimensions()) }
-      else
-        caughtBall = false
-      end
-    end
-    if not caughtBall then return end
-    G.setColor(1, 1, 1, 1)
-    G.draw(caughtBall.image, caughtBall.quad, x, y)
+    box("fill", x + 2, y, 4, 1, INK)
+    box("fill", x + 1, y + 1, 6, 1, INK)
+    box("fill", x, y + 2, 8, 4, INK)
+    box("fill", x + 1, y + 6, 6, 1, INK)
+    box("fill", x + 2, y + 7, 4, 1, INK)
+    box("fill", x + 1, y + 3, 6, 2, PAPER)
+    box("fill", x + 3, y + 3, 2, 2, DARK)
   end
 
   local function drawFullBattleStatus(mon, y, player)
