@@ -121,6 +121,29 @@ local function partySlotAt(x, y, count)
   return slot <= (count or 0) and slot or nil
 end
 
+local function moveGridLayout(state, owned)
+  if owned then return true end
+  return state and state.wideLayout and state:wideLayout() == true or false
+end
+
+local function moveSlotAt(x, y, count, grid)
+  local col, row, left, top
+  if grid then
+    col = x >= 81 and x < 157 and 1 or x >= 3 and x < 79 and 0 or nil
+    row = y >= 80 and y < 136 and 1 or y >= 24 and y < 78 and 0 or nil
+    if col == nil or row == nil then return nil end
+    left, top = 3 + col * 78, 24 + row * 56
+  else
+    if x < 8 or x >= 152 or y < 24 or y >= 135 then return nil end
+    row = math.floor((y - 24) / 28)
+    if (y - 24) % 28 >= 27 then return nil end
+    left, top = 8, 24 + row * 28
+  end
+  local slot = row * (grid and 2 or 1) + (col or 0) + 1
+  if slot > (count or 0) then return nil end
+  return slot, left, top
+end
+
 local function progressRatio(value, first, last)
   if last <= first then return 1 end
   return math.max(0, math.min(1, ((value or first) - first) / (last - first)))
@@ -367,6 +390,16 @@ assert(pagedIndex(1, 9, 1) == 5 and pagedIndex(9, 9, 1) == 9
 assert(partySlotAt(3, 23, 6) == 1 and partySlotAt(81, 23, 6) == 2
        and partySlotAt(81, 101, 5) == nil and partySlotAt(79, 23, 6) == nil,
        "party touch slots")
+do
+  local classic = { wideLayout = function() return false end }
+  local wide = { wideLayout = function() return true end }
+  assert(not moveGridLayout(classic, false) and moveGridLayout(classic, true)
+         and moveGridLayout(wide, false), "move layout authority")
+  assert(moveSlotAt(4, 25, 4, true) == 1
+         and moveSlotAt(4, 81, 4, true) == 3
+         and moveSlotAt(9, 81, 4, false) == 3
+         and not moveSlotAt(81, 81, 3, true), "move touch layout")
+end
 assert(progressRatio(15, 10, 20) == 0.5
        and progressRatio(0, 10, 20) == 0
        and progressRatio(30, 10, 20) == 1,
@@ -721,6 +754,11 @@ return function(mod)
 
   local function hasDisplay()
     return companion and companion.detected and companion.detected() or false
+  end
+
+  local function companionMoveGrid(state)
+    return moveGridLayout(state, bottomOwnsBattleUI(
+      hideUpperBattleUI(), active, hasDisplay(), displayReady, state))
   end
 
   local function romThemePalette(name)
@@ -1698,14 +1736,39 @@ return function(mod)
     end
   end
 
+  local function moveRow(move, y, selected)
+    local disabled = move.disabled or move.pp <= 0
+    local dark = disabled or selected
+    box("fill", 8, y, 144, 27, dark and DARK or MID)
+    outline(8, y, 144, 27, INK)
+    text(fit(move.name, 11), 12, y + 3, dark and PAPER or INK)
+    text(("PP %d/%d"):format(move.pp or 0, move.maxPp or 0),
+         88, y + 3, dark and PAPER or DARK)
+    text(fit(move.type or "STATUS", 7), 12, y + 15,
+         dark and PAPER or DARK)
+    if assist("type_hints") then
+      text(effectLabel(move.effectiveness), 110, y + 15,
+           dark and PAPER or INK)
+    end
+    if assist("move_details") then
+      outline(139, y + 14, 11, 11, dark and PAPER or INK)
+      text("?", 142, y + 16, dark and PAPER or INK)
+    end
+  end
+
   local function drawMoves()
     header("MOVES", true)
+    local grid = companionMoveGrid(battleState())
     for i = 1, 4 do
-      local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
       local move = battle.moves[i]
       if move then
-        moveCard(move, 3 + col * 78, 24 + row * 56,
-                 battle.moveIndex == i)
+        if grid then
+          local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+          moveCard(move, 3 + col * 78, 24 + row * 56,
+                   battle.moveIndex == i)
+        else
+          moveRow(move, 24 + (i - 1) * 28, battle.moveIndex == i)
+        end
       end
     end
   end
@@ -2482,14 +2545,14 @@ return function(mod)
       return
     end
     if battle.prompt == "moves" then
-      if y < 24 or y >= 136 then return end
-      local col, row = x >= 81 and 1 or 0, y >= 80 and 1 or 0
-      local slot = row * 2 + col + 1
+      local grid = companionMoveGrid(battleState())
+      local slot, cardX, cardY = moveSlotAt(
+        x, y, #(battle.moves or {}), grid)
       local move = battle.moves[slot]
       if not move then return end
-      local cardX, cardY = 3 + col * 78, 24 + row * 56
       if assist("move_details")
-          and inside(x, y, cardX + 62, cardY, 14, 14) then
+          and inside(x, y, cardX + (grid and 62 or 130),
+                     cardY + (grid and 0 or 13), 14, 14) then
         local raw = battleState()
         if raw then raw.moveIndex = slot end
         moveInfo = move
@@ -3026,9 +3089,7 @@ return function(mod)
 
   mod.hooks:wrap("battle.move_grid_navigation", function(next, state)
     if next(state) == true then return true end
-    return bottomOwnsBattleUI(
-      hideUpperBattleUI(), active,
-      hasDisplay(), displayReady, state)
+    return companionMoveGrid(state)
   end)
 
   mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
