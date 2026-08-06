@@ -27,6 +27,12 @@ battles, menus and contextual touch controls move to the second display.
   main UI returns immediately when the second display is switched off.
 - Offers `AUTO`, `HANDHELD` and `EXTERNAL` display targeting for handheld,
   docked and TV-style layouts.
+- Swaps the game and Kanto Gear between connected screens live with **Y** and
+  returns the game to the remaining display if one screen is switched off or
+  disconnected.
+- Uses the host's detailed map tiles for clearer local maps, warns below 20%
+  battery, and lets players hide Kanto Gear's own caught marker independently
+  of other mods.
 - Works without the Voxel Mod. The matching Voxel performance fork is an
   optional visual upgrade.
 
@@ -36,9 +42,9 @@ Use this matched release set:
 
 | Download | Required? | What it provides |
 | --- | --- | --- |
-| [`gen1recomp-android-0.1.72-kanto.4.apk`](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.72-kanto.4) | **Required** | Android host with the dual-display bridge and device-routing fixes |
-| [`Kanto-Gear-Mod-1.3.0.zip`](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.3.0) | **Required** | Kanto Gear itself |
-| [`DRAMATIC_SHAPE-1.6.0-android.2.zip`](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.6.0-android.2) | Optional | Tested Android 3D renderer and Stadium compatibility fix |
+| [`gen1recomp-android-0.1.75-kanto.5.apk`](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.5) | **Required** | Android host with the dual-display bridge, live screen swap and detailed-map interface |
+| [`Kanto-Gear-Mod-1.4.0.zip`](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.4.0) | **Required** | Kanto Gear itself |
+| [`DRAMATIC_SHAPE-1.6.2-android.1.zip`](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.6.2-android.1) | Optional | Tested Android 3D renderer and Stadium compatibility fixes |
 
 The official Gen1Recomp Android release does not yet contain the complete host
 support used by Kanto Gear, so the APK fork is currently required. Kanto Gear
@@ -54,13 +60,13 @@ ROM-extracted game data is included here.
 > the Voxel fork is optional. Do not substitute the official host or mix
 > versions from different release sets.
 
-1. Download `gen1recomp-android-0.1.72-kanto.4.apk` from the matching
-   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.72-kanto.4)
+1. Download `gen1recomp-android-0.1.75-kanto.5.apk` from the matching
+   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.5)
    and install it.
-2. Download `Kanto-Gear-Mod-1.3.0.zip` from the matching
-   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.3.0).
+2. Download `Kanto-Gear-Mod-1.4.0.zip` from the matching
+   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.4.0).
 3. Start **Gen1Recomp Android Test**, import your ROM, open the **MODS** tab,
-   tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.3.0.zip`.
+   tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.4.0.zip`.
 4. Make sure **Kanto Gear** is enabled, then start the game. The companion
    appears automatically when Android reports a suitable second display.
 
@@ -87,7 +93,7 @@ Gear package because handhelds need additional frame-pacing work. If you want
 the tested Android 3D setup:
 
 1. Download the latest `.zip` from the
-   [Kanto Gear Voxel performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.6.0-android.2).
+   [Kanto Gear Voxel performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.6.2-android.1).
 2. If the original Dramatic Shape Voxel Mod is already installed, remove it
    from the **MODS** tab first. Both versions intentionally use the same mod ID.
 3. Import the performance-fork `.zip` through **MODS → Import mod .zip**.
@@ -96,7 +102,7 @@ the tested Android 3D setup:
 A fresh setup starts at the tested Thor profile: **VOXEL 35**, **BALANCED**,
 **T-SHIFT 3** and **V-CURVE OFF**. Existing saved choices are never replaced.
 
-The fork is based on Dramatic Shape Voxel Mod 1.6.0. Its performance changes
+The fork is based on Dramatic Shape Voxel Mod 1.6.2. Its performance changes
 are promising on the Thor, but they are not claimed to improve every GPU or
 handheld and the fork is not distributed as a PC replacement.
 
@@ -126,6 +132,8 @@ handheld and the fork is not distributed as a PC replacement.
 - **GEAR SCREEN → AUTO** is the recommended default.
 - **HANDHELD** prefers the other built-in display.
 - **EXTERNAL** prefers an external presentation display for TV-style use.
+- Press **Y** while the companion is connected to swap the game and Kanto
+  Gear between the two displays without restarting.
 - **BATTLE VIEW → STANDARD** keeps the normal game HUD. **GEAR** moves
   duplicated battle controls to Kanto Gear, while **FULL GEAR** also moves the
   HP/status panels. The standard split layout remains the default.
@@ -135,9 +143,9 @@ handheld and the fork is not distributed as a PC replacement.
 
 | Component | Version | Role |
 | --- | --- | --- |
-| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.3.0 public test | Required second-screen mod |
-| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.72-kanto.4 | Required Android host APK |
-| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.6.0-android.2 | Optional Android 3D renderer |
+| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.4.0 public test | Required second-screen mod |
+| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.75-kanto.5 | Required Android host APK |
+| [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.6.2-android.1 | Optional Android 3D renderer |
 
 Do not mix arbitrary releases from the three repositories. Each Kanto Gear
 release links the exact set that was tested together.
