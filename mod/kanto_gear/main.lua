@@ -310,6 +310,17 @@ local function localMapMode(value)
   return "off"
 end
 
+local function localMapGrid(overview)
+  if overview.tileDetailRows then
+    return overview.tileDetailRows, overview.tileDetailWidth,
+      overview.tileDetailHeight, 4
+  end
+  if overview.tileRows then
+    return overview.tileRows, overview.tileWidth, overview.tileHeight, 2
+  end
+  return overview.rows, overview.width, overview.height, 1
+end
+
 local function battleFocusChanged(a, b)
   return (a and a.menuIndex) ~= (b and b.menuIndex)
     or (a and a.moveIndex) ~= (b and b.moveIndex)
@@ -451,6 +462,15 @@ end
 assert(localMapMode(false) == "off" and localMapMode(true) == "map"
        and localMapMode("enhanced") == "enhanced",
        "local map modes preserve the old toggle")
+local _, gridWidth, gridHeight, gridDensity = localMapGrid({
+  tileDetailRows = { "0" }, tileDetailWidth = 4, tileDetailHeight = 8,
+})
+local _, oldGridWidth, oldGridHeight, oldGridDensity = localMapGrid({
+  tileRows = { "0" }, tileWidth = 2, tileHeight = 4,
+})
+assert(gridWidth == 4 and gridHeight == 8 and gridDensity == 4
+       and oldGridWidth == 2 and oldGridHeight == 4 and oldGridDensity == 2,
+       "local map grid compatibility")
 assert(supportedBattleUI({ kind = "wild" })
        and supportedBattleUI({ battleKind = function() return "safari" end })
        and not supportedBattleUI({ kind = "link" })
@@ -606,6 +626,14 @@ local function inside(x, y, left, top, width, height)
 end
 
 return function(mod)
+  local function isLowBattery(state, percent)
+    percent = tonumber(percent)
+    return percent ~= nil and percent <= 20
+      and state ~= "charging" and state ~= "charged"
+  end
+  assert(isLowBattery("battery", 20) and not isLowBattery("battery", 21)
+         and not isLowBattery("charging", 5), "low battery warning")
+
   local infoDefault = mod.options:get("info_level")
   if infoDefault == nil then
     local legacyProfile = mod.options:get("profile")
@@ -649,6 +677,8 @@ return function(mod)
         { "STANDARD", "standard" }, { "GEAR", "gear" },
         { "FULL GEAR", "full" },
       } },
+    { key = "caught_icon", label = "CAUGHT ICON",
+      type = "toggle", default = true },
   })
   local function assist(key)
     local level = mod.options:get("info_level")
@@ -665,6 +695,17 @@ return function(mod)
   end
   local function hideUpperBattleUI()
     return currentBattleUIMode() ~= "standard"
+  end
+  local runtimeHandheldOverride
+  local function bottomOnHandheld()
+    if runtimeHandheldOverride ~= nil then return runtimeHandheldOverride end
+    return mod.options:get("display_target") == "handheld"
+  end
+  local function displayPreference()
+    if runtimeHandheldOverride ~= nil then
+      return runtimeHandheldOverride and "handheld" or "secondary"
+    end
+    return mod.options:get("display_target")
   end
 
   local runtime = rawget(_G, "love")
@@ -689,6 +730,11 @@ return function(mod)
   local active = false
   local dirty = true
   local readbackPending = false
+  local gameReadbackPending = false
+  local gameReadbackCanvas
+  local gameCaptureCanvas
+  local nextGameCapture = 0
+  local primaryBottomRect
   local page = "MAP"
   local localMapZoom = 1
   local guidePage = 1
@@ -702,6 +748,7 @@ return function(mod)
   local mapId = nil
   local mapAsset = nil
   local localMap = nil
+  local localMapImage = nil
   local spriteCache = {}
   local touchDown = nil
   local textSpeedToken
@@ -711,6 +758,7 @@ return function(mod)
   local intentId = 0
   local nextPoll = 0
   local nextClock = 0
+  local batteryLow = false
   local lastScreenKey = nil
   local worldStarted = false
   local externalLoading = false
@@ -730,6 +778,11 @@ return function(mod)
   local displayReady = false
   local nextPresentAttempt = 0
   local themeKey = nil
+
+  local function invalidateLocalMap()
+    if localMapImage and localMapImage.release then localMapImage:release() end
+    localMap, localMapImage = nil, nil
+  end
 
   local function hasDisplay()
     return companion and companion.detected and companion.detected() or false
@@ -776,6 +829,7 @@ return function(mod)
     local key = theme .. (theme == "match" and (":" .. PaletteFX.mode) or "")
     if not force and key == themeKey then return end
     usePalette(themePalette(theme))
+    invalidateLocalMap()
     themeKey, dirty = key, true
   end
 
@@ -1040,11 +1094,14 @@ return function(mod)
   end
 
   local function battery()
-    local _, percent = system.getPowerInfo()
+    local state, percent = system.getPowerInfo()
     percent = tonumber(percent)
+    local low = isLowBattery(state, percent)
+    if low ~= batteryLow then nextClock = 0 end
+    batteryLow = low
     box("line", 143.5, 6.5, 12, 7, PAPER)
     box("fill", 155, 9, 2, 3, PAPER)
-    if percent then
+    if percent and (not low or math.floor(love.timer.getTime()) % 2 == 0) then
       box("fill", 145, 8, math.floor(9 * math.max(0, math.min(100, percent)) / 100),
           4, PAPER)
     end
@@ -1056,10 +1113,10 @@ return function(mod)
       text("<", 4, 6, PAPER)
       text(fit(title, 12), 16, 6, PAPER)
     elseif paged then
-      local label = fit(title, 12)
+      local label = fit(title, 10)
       text("<", 4, 6, PAPER)
-      text(label, 55 - math.floor(#label * 3), 6, PAPER)
-      text(">", 97, 6, PAPER)
+      text(label, 48 - math.floor(#label * 3), 6, PAPER)
+      text(">", 88, 6, PAPER)
     else
       text(fit(title, 14), 5, 6, PAPER)
     end
@@ -1342,6 +1399,30 @@ return function(mod)
     return localMap or nil
   end
 
+  local function loadLocalMapImage(rows, width, height)
+    if localMapImage ~= nil then return localMapImage or nil end
+    if not (love.image and love.image.newImageData) then
+      localMapImage = false
+      return nil
+    end
+    local ok, image = pcall(function()
+      local pixels = love.image.newImageData(width, height)
+      local shades = { PAPER, MID, DARK, INK }
+      for y, row in ipairs(rows) do
+        for x = 1, #row do
+          local c = shades[(tonumber(row:sub(x, x)) or 3) + 1]
+          pixels:setPixel(x - 1, y - 1, c[1], c[2], c[3], c[4])
+        end
+      end
+      local result = G.newImage(pixels)
+      result:setFilter("nearest", "nearest")
+      if pixels.release then pixels:release() end
+      return result
+    end)
+    localMapImage = ok and image or false
+    return localMapImage or nil
+  end
+
   local function drawLocalMap()
     local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
     header("LOCAL", false, true)
@@ -1349,10 +1430,7 @@ return function(mod)
     if not overview then
       centered("HOST UPDATE REQUIRED", 62, DARK)
     else
-      local rows = overview.tileRows or overview.rows
-      local width = overview.tileWidth or overview.width
-      local height = overview.tileHeight or overview.height
-      local density = overview.tileRows and 2 or 1
+      local rows, width, height, density = localMapGrid(overview)
       local pos = mod.world:current()
       local focusX = pos and pos.mapId == overview.mapId and pos.x
         and (pos.x + 0.5) * density
@@ -1364,17 +1442,23 @@ return function(mod)
       G.setScissor(2, 20, 156, 106)
       box("fill", left - 2, top - 2, width * scale + 4,
           height * scale + 4, INK)
-      for y, row in ipairs(rows) do
-        for x = 1, #row do
-          local cell = row:sub(x, x)
-          local c = overview.tileRows and shades[(tonumber(cell) or 3) + 1]
-            or cell == "." and PAPER or cell == "~" and MID or DARK
-          box("fill", left + (x - 1) * scale, top + (y - 1) * scale,
-              scale, scale, c)
-          if cell == "+" then
-            box("fill", left + (x - 0.75) * scale,
-                top + (y - 0.75) * scale,
-                math.max(1, scale / 2), math.max(1, scale / 2), PAPER)
+      local image = density > 1 and loadLocalMapImage(rows, width, height)
+      if image then
+        G.setColor(1, 1, 1, 1)
+        G.draw(image, left, top, 0, scale, scale)
+      else
+        for y, row in ipairs(rows) do
+          for x = 1, #row do
+            local cell = row:sub(x, x)
+            local c = density > 1 and shades[(tonumber(cell) or 3) + 1]
+              or cell == "." and PAPER or cell == "~" and MID or DARK
+            box("fill", left + (x - 1) * scale, top + (y - 1) * scale,
+                scale, scale, c)
+            if cell == "+" then
+              box("fill", left + (x - 0.75) * scale,
+                  top + (y - 0.75) * scale,
+                  math.max(1, scale / 2), math.max(1, scale / 2), PAPER)
+            end
           end
         end
       end
@@ -2051,7 +2135,8 @@ return function(mod)
 
   local function drawFullBattleStatus(mon, y, player)
     if not mon then return end
-    local owned = not player and caughtWild(battle.kind,
+    local owned = mod.options:get("caught_icon") ~= false
+      and not player and caughtWild(battle.kind,
       game.save.pokedex and game.save.pokedex.owned
       and game.save.pokedex.owned[mon.species])
     local name = fit(mon.name or mon.species or "-", owned and 10 or 12)
@@ -2244,11 +2329,21 @@ return function(mod)
 
   local function pumpDisplay()
     local shown = false
+    if bottomOnHandheld() then
+      if readbackPending and canvas:pollImageData() then
+        readbackPending = false
+      end
+      if dirty then
+        draw()
+        dirty = false
+      end
+      return false
+    end
     if readbackPending then
       local image = canvas:pollImageData()
       if image then
         shown = companion.push(image, WIDTH, HEIGHT, SECONDARY_BACKGROUND,
-          mod.options:get("display_target"))
+          displayPreference())
         readbackPending = false
         displayReady = shown
         if not shown then
@@ -2985,6 +3080,17 @@ return function(mod)
     end
   end
 
+  local function resetSwapState()
+    displayReady = false
+    primaryBottomRect = nil
+    nextGameCapture = 0
+    nextPresentAttempt = 0
+    touchDown = nil
+    textSpeedReleasePending = false
+    holdTextSpeed(false)
+    dirty = true
+  end
+
   mod.events:on("game.ready", function(payload)
     game = payload.game
     refreshTheme(true)
@@ -3005,7 +3111,7 @@ return function(mod)
   mod.events:on("map.entered", function(payload)
     mapId, pendingFly, pendingAction, fieldChoice, dirty =
       payload.mapId, nil, nil, nil, true
-    localMap = nil
+    invalidateLocalMap()
     guidePage, areaPage = 1, 1
     radarOpen = false
   end)
@@ -3018,6 +3124,10 @@ return function(mod)
   mod.events:on("mod.options_changed", function(payload)
     if payload and payload.mod == "kanto_gear" then
       if payload.key == "theme" then refreshTheme(true) end
+      if payload.key == "display_target" then
+        runtimeHandheldOverride = nil
+        resetSwapState()
+      end
       if not assist("move_details") then moveInfo = nil end
       if page == "GUIDE" and not assist("guide") then
         page = "MAP"
@@ -3032,6 +3142,130 @@ return function(mod)
     end
   end)
 
+  mod.hooks:wrap("input.step", function(next, stepGame, dt)
+    if active and hasDisplay() and game and game.input
+        and game.input:wasPressed("screen_swap") then
+      runtimeHandheldOverride = not bottomOnHandheld()
+      resetSwapState()
+      mod.log:info("screen swap: gear=%s",
+        runtimeHandheldOverride and "handheld" or "external")
+    end
+    return next(stepGame, dt)
+  end, 1000)
+
+  mod.hooks:wrap("render.output_enabled", function(next)
+    if active and bottomOnHandheld() and hasDisplay() then return true end
+    return next()
+  end, 1000)
+
+  mod.hooks:wrap("render.output", function(next, context)
+    if not (active and bottomOnHandheld() and hasDisplay()
+        and context and context.canvas) then
+      primaryBottomRect = nil
+      return next(context)
+    end
+
+    local now = love.timer.getTime()
+    if gameReadbackPending and gameReadbackCanvas
+        and now >= nextPresentAttempt then
+      local image = gameReadbackCanvas:pollImageData()
+      if image then
+        local shown = companion.push(image, image:getWidth(), image:getHeight(),
+          SECONDARY_BACKGROUND, "secondary:cover")
+        gameReadbackPending = false
+        gameReadbackCanvas = nil
+        if shown == true and not displayReady then
+          mod.log:info("screen swap: game frame submitted")
+        end
+        displayReady = shown == true
+        if not displayReady then nextPresentAttempt = now + 0.25 end
+      end
+    end
+
+    if not gameReadbackPending and now >= nextGameCapture then
+      local ww = math.max(1, context.width or G.getWidth())
+      local wh = math.max(1, context.height or G.getHeight())
+      local captureScale = math.min(960 / ww, 540 / wh)
+      local cw = math.max(1, math.floor(ww * captureScale + 0.5))
+      local ch = math.max(1, math.floor(wh * captureScale + 0.5))
+      if not gameCaptureCanvas or gameCaptureCanvas:getWidth() ~= cw
+          or gameCaptureCanvas:getHeight() ~= ch then
+        gameCaptureCanvas = G.newCanvas(cw, ch, { dpiscale = 1 })
+        gameCaptureCanvas:setFilter("linear", "linear")
+      end
+      G.push("all")
+      G.setCanvas(gameCaptureCanvas)
+      G.origin()
+      G.setScissor()
+      G.setShader()
+      G.setBlendMode("alpha")
+      G.clear(0, 0, 0, 1)
+      G.setColor(1, 1, 1, 1)
+      G.draw(context.canvas, 0, 0, 0, cw / ww, ch / wh)
+      G.pop()
+      if gameCaptureCanvas:requestImageData() then
+        gameReadbackPending = true
+        gameReadbackCanvas = gameCaptureCanvas
+        nextGameCapture = now + 1 / 60
+      end
+    end
+
+    if dirty then draw(); dirty = false end
+    local ww = math.max(1, context.width or G.getWidth())
+    local wh = math.max(1, context.height or G.getHeight())
+    local scale = math.min(ww / WIDTH, wh / HEIGHT)
+    local dw, dh = WIDTH * scale, HEIGHT * scale
+    local dx, dy = math.floor((ww - dw) / 2), math.floor((wh - dh) / 2)
+    primaryBottomRect = { x = dx, y = dy, w = dw, h = dh }
+
+    G.push("all")
+    G.setCanvas()
+    G.origin()
+    G.setScissor()
+    G.setShader()
+    G.setBlendMode("alpha")
+    G.clear(PAPER[1], PAPER[2], PAPER[3], 1)
+    G.setColor(1, 1, 1, 1)
+    G.draw(canvas, dx, dy, 0, scale, scale)
+    G.pop()
+    return true
+  end, 1000)
+
+  local function primaryTouch(action, x, y)
+    if not (active and bottomOnHandheld() and hasDisplay()) then return false end
+    local rect = primaryBottomRect
+    if not rect then return true end
+    local insideRect = x >= rect.x and x < rect.x + rect.w
+      and y >= rect.y and y < rect.y + rect.h
+    if action == "down" and not insideRect then
+      touchDown = nil
+      return true
+    end
+    local tx = math.max(0, math.min(WIDTH - 1,
+      math.floor((x - rect.x) * WIDTH / rect.w)))
+    local ty = math.max(0, math.min(HEIGHT - 1,
+      math.floor((y - rect.y) * HEIGHT / rect.h)))
+    if action == "down" or action == "up" or action == "cancel" then
+      touchEvent(string.format("%s,%d,%d", action, tx, ty))
+    end
+    return true
+  end
+
+  mod.hooks:wrap("input.touchpressed", function(next, id, x, y, dx, dy, pressure)
+    if primaryTouch("down", x, y) then return true end
+    return next(id, x, y, dx, dy, pressure)
+  end, 1000)
+
+  mod.hooks:wrap("input.touchmoved", function(next, id, x, y, dx, dy, pressure)
+    if active and bottomOnHandheld() and hasDisplay() then return true end
+    return next(id, x, y, dx, dy, pressure)
+  end, 1000)
+
+  mod.hooks:wrap("input.touchreleased", function(next, id, x, y, dx, dy, pressure)
+    if primaryTouch("up", x, y) then return true end
+    return next(id, x, y, dx, dy, pressure)
+  end, 1000)
+
   mod.events:on("world.stepped", function(payload)
     steps = steps + 1
     mod.save:set("steps", steps)
@@ -3043,7 +3277,8 @@ return function(mod)
   for _, event in ipairs({ "world.block_replaced", "map.reloaded", "screen.pushed" }) do
     mod.events:on(event, function(payload)
       if not payload or not payload.mapId or payload.mapId == mapId then
-        localMap, dirty = nil, true
+        invalidateLocalMap()
+        dirty = true
       end
     end)
   end
@@ -3079,7 +3314,8 @@ return function(mod)
   end)
 
   mod.hooks:wrap("battle.caught_marker_visible", function(next, state)
-    return active or next(state)
+    if mod.options:get("caught_icon") ~= false and active then return true end
+    return next(state)
   end)
 
   mod.hooks:wrap("screen.render_visible", function(next, state)
@@ -3140,7 +3376,7 @@ return function(mod)
       for _ = 1, 32 do
         local event = companion.pollTouch()
         if not event then break end
-        touchEvent(event)
+        if not bottomOnHandheld() then touchEvent(event) end
       end
       refreshBattle()
       if page == "TOOLS" or pendingAction then refreshTools() end
@@ -3197,18 +3433,30 @@ return function(mod)
       end
     end
     if now >= nextClock then
-      nextClock = now + 60
+      nextClock = now + (batteryLow and 1 or 60)
       dirty = true
     end
     local displayAvailable = hasDisplay()
     if not displayAvailable then
+      if runtimeHandheldOverride ~= nil then
+        runtimeHandheldOverride = nil
+        resetSwapState()
+        mod.log:info("screen disconnected: restored saved layout")
+      end
+      if gameReadbackPending and gameReadbackCanvas
+          and gameReadbackCanvas:pollImageData() then
+        gameReadbackPending = false
+        gameReadbackCanvas = nil
+      end
       displayReady = false
       touchDown = nil
       textSpeedReleasePending = false
       holdTextSpeed(false)
     end
     if displayAvailable and not displayReady then dirty = true end
-    if (dirty or readbackPending) and (readbackPending or displayAvailable
+    if bottomOnHandheld() then
+      if dirty or readbackPending then pumpDisplay() end
+    elseif (dirty or readbackPending) and (readbackPending or displayAvailable
         or now >= nextPresentAttempt) then
       local shown = pumpDisplay()
       if shown and not loggedPresent then
