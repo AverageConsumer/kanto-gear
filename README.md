@@ -48,7 +48,10 @@ Use this matched release set:
 
 The official Gen1Recomp Android release does not yet contain the complete host
 support used by Kanto Gear, so the APK fork is currently required. Kanto Gear
-works without the Voxel fork; install it only if you want the 3D renderer.
+works without Dramatic Shape. If you already use or want Dramatic Shape on
+Android, use the matching Voxel fork above: it contains companion-screen battle
+HUD fixes that prevent empty gray or translucent panels from remaining on the
+main display when Kanto Gear moves that HUD to the second screen.
 
 ## Install on Android
 
@@ -56,8 +59,10 @@ You need your own supported Pokemon Red, Blue or Yellow ROM. No ROM or
 ROM-extracted game data is included here.
 
 > [!IMPORTANT]
-> Use the matched versions above. The host APK and Kanto Gear are required;
-> the Voxel fork is optional. Do not substitute the official host or mix
+> Use the matched versions above. The host APK and Kanto Gear are required. The
+> Voxel component is optional because Kanto Gear works without Dramatic Shape.
+> If you use Dramatic Shape with Kanto Gear on Android, use the matching fork
+> rather than another Voxel build. Do not substitute the official host or mix
 > versions from different release sets.
 
 1. Download `gen1recomp-android-0.1.75-kanto.5.apk` from the matching
@@ -87,10 +92,12 @@ features is not required.
 
 ## Optional: Voxel performance fork (Android only)
 
-Kanto Gear does not require the Voxel Mod. We love the original mod and
-recommend its official release on PC. This fork belongs to the Android Kanto
-Gear package because handhelds need additional frame-pacing work. If you want
-the tested Android 3D setup:
+Kanto Gear does not require the Voxel Mod. However, if you use Dramatic Shape
+together with Kanto Gear on Android, use this matching fork so the moved battle
+HUD is handled correctly. We love the original mod and recommend its official
+release on PC. This fork belongs to the Android Kanto Gear package because
+handhelds need additional frame-pacing and companion-screen compatibility work.
+For the tested Android 3D setup:
 
 1. Download the latest `.zip` from the
    [Kanto Gear Voxel performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.6.2-android.1).
