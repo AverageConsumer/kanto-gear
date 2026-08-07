@@ -1563,10 +1563,9 @@ return function(mod)
     local save = game.save or {}
     local player = save.player or {}
     local dex = save.pokedex or {}
-    local seen, owned = 0, 0
+    local owned = 0
     for species, def in pairs(game.data.pokemon or {}) do
       if def.dex then
-        if dex.seen and dex.seen[species] then seen = seen + 1 end
         if dex.owned and dex.owned[species] then owned = owned + 1 end
       end
     end
@@ -1577,28 +1576,39 @@ return function(mod)
     local elapsed = math.max(0, math.floor(tonumber(save.playTime) or 0))
 
     header("TRAINER", false, true)
-    text(fit(player.name or "RED", 12), 5, 23, INK)
-    text(("ID %05d"):format(player.id or 0), 92, 23, DARK)
-    text(("BADGES %d/%d"):format(badgeCount, #badges), 5, 39, DARK)
+    box("fill", 4, 22, 152, 50, MID)
+    outline(4, 22, 152, 50, INK)
+    text(fit(player.name or "RED", 12), 8, 27, INK)
+    text(("ID %05d"):format(player.id or 0), 89, 27, DARK)
+    box("fill", 8, 43, 144, 1, DARK)
+    text(("BADGES %d/%d"):format(badgeCount, #badges), 8, 48, DARK)
     local badgeGap = 152 / math.max(1, #badges)
     for i, badge in ipairs(badges) do
       local x = math.floor(4 + (i - 1) * badgeGap)
       local nextX = math.floor(4 + i * badgeGap)
-      box("fill", x, 52, math.max(2, nextX - x - 3), 13,
+      box("fill", x + 4, 61, math.max(2, nextX - x - 7), 7,
         inventory[Badges.itemFor(badge)] and DARK or MID)
-      outline(x, 52, math.max(2, nextX - x - 3), 13, INK)
+      outline(x + 4, 61, math.max(2, nextX - x - 7), 7, INK)
     end
-    text("MONEY", 5, 73, DARK)
-    text(fit("¥" .. tostring(save.money or 0), 12), 55, 73, INK)
-    text("TIME", 5, 87, DARK)
+    box("fill", 4, 76, 74, 29, PAPER)
+    outline(4, 76, 74, 29, INK)
+    text("MONEY", 8, 80, DARK)
+    text(fit("¥" .. tostring(save.money or 0), 11), 8, 92, INK)
+    box("fill", 82, 76, 74, 29, PAPER)
+    outline(82, 76, 74, 29, INK)
+    text("TIME", 86, 80, DARK)
     text(("%d:%02d"):format(math.floor(elapsed / 3600),
-      math.floor(elapsed / 60) % 60), 55, 87, INK)
-    text(("DEX %d/%d"):format(owned,
-      game.data.constants and game.data.constants.dexSize or 151), 5, 101, INK)
-    text("SEEN " .. tostring(seen), 88, 101, DARK)
-    text("STEPS", 5, 116, DARK)
-    text(tostring(steps), 5, 128, INK)
-    button(96, 111, 60, 27, "RESET", false)
+      math.floor(elapsed / 60) % 60), 86, 92, INK)
+    box("fill", 4, 109, 74, 29, PAPER)
+    outline(4, 109, 74, 29, INK)
+    text("POKEDEX", 8, 113, DARK)
+    text(("%d/%d"):format(owned,
+      game.data.constants and game.data.constants.dexSize or 151), 8, 125, INK)
+    box("fill", 82, 109, 74, 29, PAPER)
+    outline(82, 109, 74, 29, INK)
+    text("STEPS", 86, 113, DARK)
+    text("RESET", 120, 113, DARK)
+    text(tostring(steps), 86, 125, INK)
   end
 
   local function drawGuide()
@@ -3074,7 +3084,7 @@ return function(mod)
         dirty = true
       end
       return
-    elseif page == "TRAINER" and inside(x, y, 96, 111, 60, 27) then
+    elseif page == "TRAINER" and inside(x, y, 116, 109, 40, 29) then
       steps = 0
       mod.save:set("steps", steps)
       dirty = true
