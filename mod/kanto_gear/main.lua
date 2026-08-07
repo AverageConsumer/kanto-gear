@@ -663,8 +663,13 @@ return function(mod)
     return percent ~= nil and percent <= 20
       and state ~= "charging" and state ~= "charged"
   end
+  local function isCharging(state)
+    return state == "charging" or state == "charged"
+  end
   assert(isLowBattery("battery", 20) and not isLowBattery("battery", 21)
          and not isLowBattery("charging", 5), "low battery warning")
+  assert(isCharging("charging") and isCharging("charged")
+         and not isCharging("battery"), "charging indicator")
 
   local function compactSteps(value)
     if value < 100000 then return tostring(value) end
@@ -1170,6 +1175,15 @@ return function(mod)
     if percent and (not low or math.floor(love.timer.getTime()) % 2 == 0) then
       box("fill", 145, 8, math.floor(9 * math.max(0, math.min(100, percent)) / 100),
           4, foreground)
+    end
+    if isCharging(state) then
+      box("fill", 141, 6, 1, 1, foreground)
+      box("fill", 140, 7, 2, 1, foreground)
+      box("fill", 139, 8, 2, 1, foreground)
+      box("fill", 138, 9, 4, 1, foreground)
+      box("fill", 140, 10, 2, 1, foreground)
+      box("fill", 139, 11, 2, 1, foreground)
+      box("fill", 139, 12, 1, 1, foreground)
     end
   end
 
@@ -3620,7 +3634,7 @@ return function(mod)
       end
     end
     if now >= nextClock then
-      nextClock = now + (batteryLow and 1 or 60)
+      nextClock = now + (batteryLow and 1 or 5)
       dirty = true
     end
     local displayAvailable = hasDisplay()
