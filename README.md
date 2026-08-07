@@ -145,6 +145,8 @@ handheld and the fork is not distributed as a PC replacement.
   duplicated battle controls to Kanto Gear, while **FULL GEAR** also moves the
   HP/status panels. The standard split layout remains the default.
 - **INFO → PURIST** hides gameplay-assistance pages; **ENHANCED** enables them.
+- **TRIGGER TABS** lets L2/R2 cycle Kanto Gear pages. It is off by default so
+  other mods remain free to use those controls.
 
 ## Tested release set
 

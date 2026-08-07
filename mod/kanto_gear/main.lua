@@ -713,6 +713,8 @@ return function(mod)
       } },
     { key = "caught_icon", label = "CAUGHT ICON",
       type = "toggle", default = true },
+    { key = "trigger_tabs", label = "TRIGGER TABS",
+      type = "toggle", default = false },
   })
   local function assist(key)
     local level = mod.options:get("info_level")
@@ -2871,6 +2873,47 @@ return function(mod)
     dirty = true
   end
 
+  local triggerHeld = { left = false, right = false }
+  local function triggerEdge(value, held)
+    value = tonumber(value) or 0
+    local down = held and value > 0.35 or value >= 0.65
+    return down and not held, down
+  end
+  do
+    local pressed, held = triggerEdge(0.7, false)
+    local repeated = triggerEdge(0.7, held)
+    local _, released = triggerEdge(0.2, held)
+    assert(pressed and not repeated and not released,
+      "trigger tab edge and hysteresis")
+  end
+
+  local function pollTriggerTabs()
+    if mod.options:get("trigger_tabs") ~= true then
+      triggerHeld.left, triggerHeld.right = false, false
+      return
+    end
+    local js = love and love.joystick
+    local left, right = 0, 0
+    if js and js.getJoysticks then
+      local ok, pads = pcall(js.getJoysticks)
+      if ok then
+        for _, pad in ipairs(pads or {}) do
+          if pad.getGamepadAxis then
+            local okLeft, value = pcall(pad.getGamepadAxis, pad, "triggerleft")
+            if okLeft then left = math.max(left, tonumber(value) or 0) end
+            local okRight, value2 = pcall(pad.getGamepadAxis, pad, "triggerright")
+            if okRight then right = math.max(right, tonumber(value2) or 0) end
+          end
+        end
+      end
+    end
+    local leftPressed, rightPressed
+    leftPressed, triggerHeld.left = triggerEdge(left, triggerHeld.left)
+    rightPressed, triggerHeld.right = triggerEdge(right, triggerHeld.right)
+    if leftPressed then changePage(-1)
+    elseif rightPressed then changePage(1) end
+  end
+
   local function tap(x, y)
     local summary = screenById("SummaryMenu")
     if summary and game.stack:top() == summary then
@@ -3198,6 +3241,7 @@ return function(mod)
   end)
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
+    pollTriggerTabs()
     if active and hasDisplay() and game and game.input
         and game.input:wasPressed("screen_swap") then
       runtimeHandheldOverride = not bottomOnHandheld()

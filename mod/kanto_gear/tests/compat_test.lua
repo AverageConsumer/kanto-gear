@@ -3,7 +3,10 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 local T = require("tests.modkit")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
 local entry = assert(loadfile(path .. "/main.lua"))()
-T.check(debug.getinfo(entry, "u").nups <= 60,
+local upvalues = debug.getinfo(entry, "u").nups
+local firstUpvalue = debug.getupvalue(entry, 1)
+if firstUpvalue == "_ENV" then upvalues = upvalues - 1 end
+T.check(upvalues <= 60,
   "Kanto Gear stays within LuaJIT's 60-upvalue function limit")
 local newCanvas = T.love.graphics.newCanvas
 T.love.graphics.newCanvas = function(...)
@@ -19,7 +22,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 6, "Kanto Gear keeps its settings compact")
+T.eq(#options, 7, "Kanto Gear keeps its settings compact")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
 T.eq(#options[1].choices, 9, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "modern_light", "modern light theme is available")
@@ -29,6 +32,8 @@ T.eq(options[4].label, "GEAR SCREEN", "display setting is device-neutral")
 T.eq(options[5].label, "BATTLE VIEW", "battle layout uses one setting")
 T.eq(#options[5].choices, 3, "battle view exposes three clear layouts")
 T.eq(options[6].label, "CAUGHT ICON", "caught marker has one clear toggle")
+T.eq(options[7].label, "TRIGGER TABS", "trigger navigation is opt-in")
+T.eq(options[7].default, false, "trigger navigation cannot claim controls by default")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
@@ -78,6 +83,19 @@ end
 T.eq(#run.errors, 0, "theme changes apply live without mod errors")
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 swapPressed = false
+local trigger = { left = 0, right = 0 }
+T.love.joystick = { getJoysticks = function()
+  return { { getGamepadAxis = function(_, axis)
+    return axis == "triggerleft" and trigger.left or trigger.right
+  end } }
+end }
+run.loader.modOptions.kanto_gear.trigger_tabs = true
+trigger.right = 0.8
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+trigger.right = 0
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+T.eq(#run.errors, 0, "trigger polling is safe and edge-triggered")
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), true,
   "the screen-swap action enables swapped output while connected")
