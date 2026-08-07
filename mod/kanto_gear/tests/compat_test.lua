@@ -41,8 +41,29 @@ T.eq(hooks:depth("render.output"), 1,
   "Kanto Gear owns final output only for a live screen swap")
 T.eq(hooks:depth("input.touchpressed"), 1,
   "Kanto Gear can own primary touch while swapped")
+T.eq(hooks:depth("ui.start_menu.items"), 1,
+  "Kanto Gear publishes one conditional menu shortcut")
 T.eq(hooks:depth("render.letterbox"), 0,
   "Kanto Gear no longer borrows the letterbox hook as a frame tick")
+local standaloneMenu = run.loader.hooks:call("ui.start_menu.items",
+  function(_, items) return items end, {}, {
+    { label = "OPTION" }, { label = "MODS" },
+  })
+T.eq(#standaloneMenu, 2,
+  "Kanto Gear leaves the Start menu unchanged without Modern UI")
+run.loader.mods.gen1_modern_ui = {
+  enabled = true, manifest = { version = "0.8.2" },
+}
+run.loader.exports.gen1_modern_ui = {}
+local modernMenu = run.loader.hooks:call("ui.start_menu.items",
+  function(_, items) return items end, {}, {
+    { label = "OPTION" }, { label = "MODS" },
+  })
+T.eq(#modernMenu, 3, "Modern UI receives one Kanto Gear menu row")
+T.eq(modernMenu[2].id, "kanto_gear.options",
+  "Kanto Gear menu row is stable and anchored before MODS")
+T.check(type(modernMenu[2].onSelect) == "function",
+  "Kanto Gear menu row opens its existing options")
 local composed = run.loader.hooks:call("render.compose",
   function() return "upstream" end, {}, {
     secondScreen = { detected = function() return false end,
