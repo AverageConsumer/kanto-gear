@@ -166,6 +166,22 @@ local function pcListKind(state)
   return state and PC_LIST_KINDS[state.kind] and state.kind or nil
 end
 
+local function pcRootGridIndex(index, count, direction)
+  index = math.max(1, math.min(count, index or 1))
+  local row, col = math.floor((index - 1) / 2), (index - 1) % 2
+  if direction == "left" or direction == "right" then
+    local other = row * 2 + (1 - col) + 1
+    return other <= count and other or index
+  end
+  local nextRow = row + (direction == "down" and 1 or -1)
+  if nextRow < 0 then return index end
+  local other = nextRow * 2 + col + 1
+  if other <= count then return other end
+  -- Red/Blue have one full-width LOG OFF button in the last row.
+  if direction == "down" and nextRow * 2 + 1 == count then return count end
+  return index
+end
+
 local function assistEnabled(profile, custom)
   if profile == "purist" then return false end
   if profile == "enhanced" then return true end
@@ -428,6 +444,13 @@ do
   assert(first == 5 and count == 4
     and pcListKind({ kind = "pc_box_withdraw" }) == "pc_box_withdraw"
     and not pcListKind({ kind = "bag" }), "PC touch list identity")
+  assert(pcRootGridIndex(1, 5, "right") == 2
+    and pcRootGridIndex(1, 5, "down") == 3
+    and pcRootGridIndex(4, 5, "down") == 5
+    and pcRootGridIndex(5, 5, "up") == 3
+    and pcRootGridIndex(5, 5, "right") == 5
+    and pcRootGridIndex(4, 6, "down") == 6,
+    "PC root grid navigation")
 end
 assert(not assistEnabled("purist", true)
        and assistEnabled("enhanced", false)
@@ -1634,6 +1657,24 @@ return function(mod)
     text("STEPS", 86, 113, DARK)
     text(fit(compactSteps(steps), 8), 86, 125, INK)
     text(">", 146, 120, DARK)
+  end
+
+  local function remapPcRootNavigation()
+    local _, root = pcSession()
+    local input = game and game.input
+    if not (root and game.stack:top() == root and active and hasDisplay()
+        and displayReady and input and type(input.pressQueue) == "table") then
+      return
+    end
+    for queueIndex = #input.pressQueue, 1, -1 do
+      local direction = input.pressQueue[queueIndex]
+      if direction == "left" or direction == "right"
+          or direction == "up" or direction == "down" then
+        root.index = pcRootGridIndex(root.index, #root.items, direction)
+        table.remove(input.pressQueue, queueIndex)
+        dirty = true
+      end
+    end
   end
 
   local function drawStepsDetail()
@@ -3329,6 +3370,7 @@ return function(mod)
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
     pollTriggerTabs()
+    remapPcRootNavigation()
     if active and hasDisplay() and game and game.input
         and game.input:wasPressed("screen_swap") then
       runtimeHandheldOverride = not bottomOnHandheld()
