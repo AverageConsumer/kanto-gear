@@ -2,17 +2,28 @@ local WIDTH, HEIGHT = 160, 144
 local HEADER = 20
 local G
 
-local KANTO_PALETTE = {
-  { 155, 188, 15 }, { 139, 172, 15 }, { 48, 98, 48 }, { 15, 56, 15 },
-}
 local INK, DARK, MID, PAPER
+local THEME = {
+  style = "classic",
+  classic = {
+    { 155, 188, 15 }, { 139, 172, 15 }, { 48, 98, 48 }, { 15, 56, 15 },
+  },
+  light = {
+    { 248, 249, 252 }, { 222, 226, 235 }, { 39, 45, 58 }, { 12, 15, 22 },
+  },
+  dark = {
+    { 12, 15, 22 }, { 31, 37, 50 }, { 190, 198, 212 }, { 245, 247, 251 },
+  },
+  red = { 227 / 255, 27 / 255, 35 / 255, 1 },
+  blue = { 52 / 255, 53 / 255, 143 / 255, 1 },
+  white = { 248 / 255, 249 / 255, 252 / 255, 1 },
+}
 local RADAR_RED = { 220 / 255, 38 / 255, 28 / 255, 1 }
 local MAP_EXIT = { 0.20, 0.65, 1, 1 }
 local MAP_ITEM = { 1, 0.72, 0.10, 1 }
 local MAP_HIDDEN = { 0.90, 0.30, 0.85, 1 }
 local CHOICE_QUIET = 0.32
 local SECONDARY_BACKGROUND
-local RADAR_FRAMES = 16
 local PC_LIST_KINDS = {
   pc_box_withdraw = true, pc_box_deposit = true,
   pc_box_release = true, pc_box_change = true,
@@ -57,15 +68,17 @@ local function fillerColor(palette)
 end
 
 local function usePalette(palette)
-  palette = validPalette(palette) and palette or KANTO_PALETTE
+  palette = validPalette(palette) and palette or THEME.classic
   PAPER, MID, DARK, INK = rgba(palette[1]), rgba(palette[2]),
                            rgba(palette[3]), rgba(palette[4])
   SECONDARY_BACKGROUND = rgb24(fillerColor(palette))
 end
 
-usePalette(KANTO_PALETTE)
-assert(validPalette(KANTO_PALETTE)
-       and inverted(KANTO_PALETTE)[1] == KANTO_PALETTE[4]
+usePalette(THEME.classic)
+assert(validPalette(THEME.classic)
+       and validPalette(THEME.light)
+       and validPalette(THEME.dark)
+       and inverted(THEME.classic)[1] == THEME.classic[4]
        and fillerColor({ { 255, 255, 255 }, { 200, 100, 100 },
                          { 120, 20, 80 }, { 0, 0, 0 } })[1] == 120
        and SECONDARY_BACKGROUND == 0x0F380F, "theme palette helpers")
@@ -596,7 +609,19 @@ local function centered(value, y, c, scale)
 end
 
 local function outline(x, y, w, h, c)
-  box("line", x + 0.5, y + 0.5, w - 1, h - 1, c or INK)
+  c = c or INK
+  if THEME.style == "classic" or w < 5 or h < 5 then
+    box("line", x + 0.5, y + 0.5, w - 1, h - 1, c)
+    return
+  end
+  box("fill", x + 2, y, w - 4, 1, c)
+  box("fill", x + 2, y + h - 1, w - 4, 1, c)
+  box("fill", x, y + 2, 1, h - 4, c)
+  box("fill", x + w - 1, y + 2, 1, h - 4, c)
+  box("fill", x + 1, y + 1, 1, 1, c)
+  box("fill", x + w - 2, y + 1, 1, 1, c)
+  box("fill", x + 1, y + h - 2, 1, 1, c)
+  box("fill", x + w - 2, y + h - 2, 1, 1, c)
 end
 
 local function hpBar(x, y, w, hp, maxHp)
@@ -613,9 +638,15 @@ local function expBar(x, y, w, ratio, selected)
 end
 
 local function button(x, y, w, h, label, selected)
-  box("fill", x, y, w, h, selected and DARK or MID)
-  outline(x, y, w, h, INK)
-  local c = selected and PAPER or INK
+  local modern = THEME.style ~= "classic"
+  box("fill", x, y, w, h, modern and selected and THEME.red
+    or selected and DARK or MID)
+  outline(x, y, w, h, modern and THEME.blue or INK)
+  if modern and selected then
+    box("fill", x + 2, y + 2, 2, math.max(1, h - 4), THEME.white)
+  end
+  local c = modern and selected and THEME.white
+    or selected and PAPER or INK
   text(fit(label, math.floor((w - 8) / 6)),
        x + math.max(4, math.floor((w - #fit(label, math.floor((w - 8) / 6)) * 6) / 2)),
        y + math.floor((h - 7) / 2), c)
@@ -626,6 +657,7 @@ local function inside(x, y, left, top, width, height)
 end
 
 return function(mod)
+  local RADAR_FRAMES = 16
   local function isLowBattery(state, percent)
     percent = tonumber(percent)
     return percent ~= nil and percent <= 20
@@ -657,6 +689,8 @@ return function(mod)
     { key = "theme", label = "THEME", type = "choice",
       default = "kanto", choices = {
         { "KANTO GREEN", "kanto" }, { "MATCH GAME", "match" },
+        { "MODERN LIGHT", "modern_light" },
+        { "MODERN DARK", "modern_dark" },
         { "OG", "og" }, { "OG INVERTED", "og_inv" },
         { "SGB", "sgb" }, { "ADVANCED", "advanced" },
         { "VERSION COLOR", "version" },
@@ -808,6 +842,8 @@ return function(mod)
       })[PaletteFX.mode] or "kanto"
     end
     if theme == "og" then return PaletteFX.GRAYS end
+    if theme == "modern_light" then return THEME.light end
+    if theme == "modern_dark" then return THEME.dark end
     if theme == "og_inv" then return inverted(PaletteFX.GRAYS) end
     if theme == "version" then return PaletteFX.ogBg() end
     if theme == "sgb" or theme == "sgb_inv" then
@@ -821,13 +857,15 @@ return function(mod)
       local pack = PaletteFX.gbcPack()
       return yellow or (pack and pack.palettes and pack.palettes.MEWMON)
     end
-    return KANTO_PALETTE
+    return THEME.classic
   end
 
   local function refreshTheme(force)
     local theme = mod.options:get("theme") or "kanto"
     local key = theme .. (theme == "match" and (":" .. PaletteFX.mode) or "")
     if not force and key == themeKey then return end
+    THEME.style = theme == "modern_light" and "modern_light"
+      or theme == "modern_dark" and "modern_dark" or "classic"
     usePalette(themePalette(theme))
     invalidateLocalMap()
     themeKey, dirty = key, true
@@ -1093,37 +1131,46 @@ return function(mod)
            y + (maxH - ih * scale) / 2, 0, scale, scale)
   end
 
-  local function battery()
+  local function battery(foreground)
+    foreground = foreground or PAPER
     local state, percent = system.getPowerInfo()
     percent = tonumber(percent)
     local low = isLowBattery(state, percent)
     if low ~= batteryLow then nextClock = 0 end
     batteryLow = low
-    box("line", 143.5, 6.5, 12, 7, PAPER)
-    box("fill", 155, 9, 2, 3, PAPER)
+    box("line", 143.5, 6.5, 12, 7, foreground)
+    box("fill", 155, 9, 2, 3, foreground)
     if percent and (not low or math.floor(love.timer.getTime()) % 2 == 0) then
       box("fill", 145, 8, math.floor(9 * math.max(0, math.min(100, percent)) / 100),
-          4, PAPER)
+          4, foreground)
     end
   end
 
   local function header(title, back, paged)
-    box("fill", 0, 0, WIDTH, HEADER, DARK)
+    local modern = THEME.style ~= "classic"
+    local background = modern and (THEME.style == "modern_dark" and MID or DARK)
+      or DARK
+    local foreground = modern and THEME.white or PAPER
+    box("fill", 0, 0, WIDTH, HEADER, background)
+    if modern then
+      box("fill", 0, HEADER - 2, WIDTH, 2, THEME.blue)
+      box("fill", 0, HEADER - 2, 42, 2, THEME.red)
+    end
     if back then
-      text("<", 4, 6, PAPER)
-      text(fit(title, 12), 16, 6, PAPER)
+      text("<", 4, 6, foreground)
+      text(fit(title, 12), 16, 6, foreground)
     elseif paged then
       local label = fit(title, 10)
-      text("<", 4, 6, PAPER)
-      text(label, 48 - math.floor(#label * 3), 6, PAPER)
-      text(">", 88, 6, PAPER)
+      text("<", 4, 6, foreground)
+      text(label, 48 - math.floor(#label * 3), 6, foreground)
+      text(">", 88, 6, foreground)
     else
-      text(fit(title, 14), 5, 6, PAPER)
+      text(fit(title, 14), 5, 6, foreground)
     end
     local clock = clockText(not system.is24HourClock
       or system.is24HourClock() ~= false)
-    text(clock, 137 - #clock * 6, 6, PAPER)
-    battery()
+    text(clock, 137 - #clock * 6, 6, foreground)
+    battery(foreground)
   end
 
   local function stackHas(target)
@@ -1217,20 +1264,22 @@ return function(mod)
   end
 
   local function drawTitle()
-    box("fill", 0, 0, WIDTH, HEIGHT, DARK)
-    color(PAPER)
+    local modern = THEME.style ~= "classic"
+    local foreground = modern and INK or PAPER
+    box("fill", 0, 0, WIDTH, HEIGHT, modern and PAPER or DARK)
+    color(foreground)
     G.circle("line", 80, 29, 15)
     G.circle("line", 80, 29, 6)
     for i = 0, 7 do
       local a = i * math.pi / 4
       box("fill", math.floor(78 + math.cos(a) * 17),
-          math.floor(27 + math.sin(a) * 17), 4, 4, PAPER)
+          math.floor(27 + math.sin(a) * 17), 4, 4, foreground)
     end
-    centered("KANTO GEAR", 56, PAPER, 2)
-    box("fill", 28, 78, 104, 1, PAPER)
-    centered("DUAL DISPLAY", 87, PAPER)
-    centered("LINK READY", 104, MID)
-    centered("START GAME ABOVE", 125, PAPER)
+    centered("KANTO GEAR", 56, foreground, 2)
+    box("fill", 28, 78, 104, 1, modern and THEME.red or PAPER)
+    centered("DUAL DISPLAY", 87, foreground)
+    centered("LINK READY", 104, modern and THEME.blue or MID)
+    centered("START GAME ABOVE", 125, foreground)
   end
 
   local function drawDim(alpha, prompt)
@@ -2322,7 +2371,13 @@ return function(mod)
       if pendingFly then drawFlyPrompt()
       elseif pendingAction then drawActionPrompt() end
     end
-    outline(1, 1, WIDTH - 2, HEIGHT - 2, INK)
+    if THEME.style ~= "classic" then
+      outline(1, 1, WIDTH - 2, HEIGHT - 2, THEME.blue)
+      box("fill", 3, 1, 16, 1, THEME.red)
+      box("fill", WIDTH - 19, HEIGHT - 2, 16, 1, THEME.red)
+    else
+      outline(1, 1, WIDTH - 2, HEIGHT - 2, INK)
+    end
     G.setCanvas()
     G.pop()
   end

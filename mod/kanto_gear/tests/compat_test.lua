@@ -2,6 +2,9 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
+local entry = assert(loadfile(path .. "/main.lua"))()
+T.check(debug.getinfo(entry, "u").nups <= 60,
+  "Kanto Gear stays within LuaJIT's 60-upvalue function limit")
 local newCanvas = T.love.graphics.newCanvas
 T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)
@@ -18,6 +21,9 @@ T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
 T.eq(#options, 6, "Kanto Gear keeps its settings compact")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
+T.eq(#options[1].choices, 9, "classic and modern themes share one setting")
+T.eq(options[1].choices[3][2], "modern_light", "modern light theme is available")
+T.eq(options[1].choices[4][2], "modern_dark", "modern dark theme is available")
 T.eq(options[2].label, "INFO", "assist features use one preset")
 T.eq(options[4].label, "GEAR SCREEN", "display setting is device-neutral")
 T.eq(options[5].label, "BATTLE VIEW", "battle layout uses one setting")
@@ -64,6 +70,12 @@ T.eq(run.loader.hooks:call("battle.caught_marker_visible",
   function() return false end, {}), false,
   "disabling Kanto's icon does not force the native marker")
 run.loader.modOptions.kanto_gear.caught_icon = true
+for _, theme in ipairs({ "modern_light", "modern_dark", "kanto" }) do
+  run.loader.modOptions.kanto_gear.theme = theme
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "theme" })
+end
+T.eq(#run.errors, 0, "theme changes apply live without mod errors")
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 swapPressed = false
 T.eq(run.loader.hooks:call("render.output_enabled",

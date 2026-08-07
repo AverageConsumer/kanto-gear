@@ -208,6 +208,12 @@ testing the Retroid Pocket 5 dual-screen support, collecting detailed
 diagnostics, and working with us for more than 24 hours to identify and verify
 the Android display-routing fixes.
 
+The optional Modern Light and Modern Dark themes adapt the angular panels,
+dark surfaces, and red-and-blue accents shared by
+[CustCast's Thor UI work](https://github.com/CustCast/PokeRogue-App-Android-Thor).
+Thanks to CustCast for making the original artwork available and inviting its
+use in Kanto Gear.
+
 Kanto Gear's own code is available under the [MIT License](LICENSE). That
 license does not replace or extend the licenses, rights or ownership of
 Gen1Recomp, Dramatic Shape Voxel Mod, Pokemon or their respective assets.
