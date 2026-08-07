@@ -297,11 +297,12 @@ local function itemfinderNear(px, py, x, y)
   return near(px, x, 5) and near(py, y, 4)
 end
 
-local function localMapLayout(width, height, zoom, focusX, focusY)
+local function localMapLayout(width, height, zoom, focusX, focusY, density)
   width, height = math.max(1, width or 1), math.max(1, height or 1)
+  density = math.max(1, tonumber(density) or 4)
   local scale = math.min(3, 148 / width, 98 / height)
   if scale >= 1 then scale = math.floor(scale) end
-  scale = scale * (zoom == 2 and 2 or 1)
+  if zoom == 2 then scale = math.max(scale * 2, 8 / density) end
   local left = 4 + (152 - width * scale) / 2
   local top = 22 + (102 - height * scale) / 2
   if zoom == 2 and focusX and focusY then
@@ -471,6 +472,8 @@ do
   scale, x, y = localMapLayout(40, 36, 2, 20, 18)
   assert(scale == 4 and x == 0 and y == 1,
          "local map zoom follows the player without leaving empty edges")
+  scale = localMapLayout(48, 196, 2, 24, 98, 4)
+  assert(scale == 2, "thin local maps keep a useful zoom level")
 end
 assert(localMapMode(false) == "off" and localMapMode(true) == "map"
        and localMapMode("enhanced") == "enhanced",
@@ -1527,7 +1530,7 @@ return function(mod)
       local focusY = pos and pos.mapId == overview.mapId and pos.y
         and (pos.y + 0.5) * density
       local scale, left, top = localMapLayout(
-        width, height, localMapZoom, focusX, focusY)
+        width, height, localMapZoom, focusX, focusY, density)
       local shades = { PAPER, MID, DARK, INK }
       G.setScissor(2, 20, 156, 106)
       box("fill", left - 2, top - 2, width * scale + 4,
