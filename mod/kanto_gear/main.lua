@@ -781,6 +781,7 @@ return function(mod)
   local nextGameCapture = 0
   local primaryBottomRect
   local page = "MAP"
+  local trainerStepsOpen = false
   local localMapZoom = 1
   local guidePage = 1
   local areaPage = 1
@@ -1613,11 +1614,23 @@ return function(mod)
     text("POKEDEX", 8, 113, DARK)
     text(("%d/%d"):format(owned,
       game.data.constants and game.data.constants.dexSize or 151), 8, 125, INK)
-    box("fill", 82, 109, 36, 29, PAPER)
-    outline(82, 109, 36, 29, INK)
-    text("STEPS", 85, 113, DARK)
-    text(fit(compactSteps(steps), 5), 85, 125, INK)
-    button(120, 109, 36, 29, "RESET", false)
+    box("fill", 82, 109, 74, 29, PAPER)
+    outline(82, 109, 74, 29, INK)
+    text("STEPS", 86, 113, DARK)
+    text(fit(compactSteps(steps), 8), 86, 125, INK)
+    text(">", 146, 120, DARK)
+  end
+
+  local function drawStepsDetail()
+    local exact = ("%.0f"):format(steps)
+    header("STEPS", true)
+    box("fill", 76, 29, 7, 11, DARK)
+    box("fill", 71, 37, 11, 9, DARK)
+    box("fill", 69, 33, 3, 4, DARK)
+    box("fill", 73, 30, 3, 4, DARK)
+    centered(exact, 55, INK, #exact <= 12 and 2 or 1)
+    centered("TOTAL", 82, DARK)
+    button(34, 105, 92, 28, "RESET", false)
   end
 
   local function drawGuide()
@@ -2399,7 +2412,7 @@ return function(mod)
     elseif page == "AREA" then
       drawArea()
     elseif page == "TRAINER" then
-      drawTrainer()
+      if trainerStepsOpen then drawStepsDetail() else drawTrainer() end
     elseif page == "PARTY" then
       if partyActionSlot then drawPartyAction() else drawNormalParty() end
     else
@@ -2889,6 +2902,10 @@ return function(mod)
         or partyMoveFrom or screenById("MoveLearnMenu")
         or dialogueChoice() or radarOpen then return end
     if not pageSwipeAllowed(screenState(), battle) then return end
+    if trainerStepsOpen then
+      trainerStepsOpen, dirty = false, true
+      return
+    end
     refreshTools()
     local current, count
     if page == "GUIDE" then
@@ -3063,6 +3080,17 @@ return function(mod)
       end
       return
     end
+    if trainerStepsOpen then
+      if y < HEADER and x < 22 then
+        trainerStepsOpen, dirty = false, true
+      elseif inside(x, y, 34, 105, 92, 28) then
+        steps = 0
+        mod.save:set("steps", steps)
+        dirty = true
+        mod.log:info("step counter reset")
+      end
+      return
+    end
     if y < HEADER and not partyMoveFrom then
       if x < 22 then changePage(-1)
       elseif x >= 86 and x < 108 then changePage(1) end
@@ -3093,11 +3121,9 @@ return function(mod)
         dirty = true
       end
       return
-    elseif page == "TRAINER" and inside(x, y, 120, 109, 36, 29) then
-      steps = 0
-      mod.save:set("steps", steps)
+    elseif page == "TRAINER" and inside(x, y, 82, 109, 74, 29) then
+      trainerStepsOpen = true
       dirty = true
-      mod.log:info("step counter reset")
     elseif page == "PARTY" then
       if partyMoveFrom and y < HEADER and x < 24 then
         partyMoveFrom, dirty = nil, true
@@ -3564,6 +3590,7 @@ return function(mod)
         tostring(pendingFly and pendingFly.id),
         tostring(pendingAction and pendingAction.id),
         tostring(partyActionSlot), tostring(partyMoveFrom),
+        tostring(trainerStepsOpen),
         tostring(fieldChoice and fieldChoice.kind),
         tostring(fieldChoice and fieldChoice.source
           and fieldChoice.source.slot) }, ":")
