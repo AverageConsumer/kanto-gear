@@ -116,7 +116,8 @@ handheld and the fork is not distributed as a PC replacement.
 ## Using the lower screen
 
 - **Swipe left or right** across the lower screen to move between the map,
-  party, steps, field tools, area information and guide pages.
+  party, Trainer Card, field tools, area information and guide pages. The
+  Trainer Card combines badges, money, play time, Pokédex progress and steps.
 - **Tap the arrows in the header** for the same navigation without swiping.
   Horizontal swipes and arrows also move through multi-page Guide and Area
   views before continuing to the next section.

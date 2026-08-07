@@ -58,7 +58,11 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 local swapPressed = true
 local game = {
   data = run.data,
-  save = { player = {} },
+  save = {
+    player = { name = "RED", id = 7 }, money = 1234, playTime = 3661,
+    inventory = { BOULDERBADGE = true },
+    pokedex = { seen = {}, owned = {} },
+  },
   input = { wasPressed = function(_, action)
     return action == "screen_swap" and swapPressed
   end },
@@ -90,11 +94,19 @@ T.love.joystick = { getJoysticks = function()
   end } }
 end }
 run.loader.modOptions.kanto_gear.trigger_tabs = true
-trigger.right = 0.8
-run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-trigger.right = 0
-run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+for i = 1, 3 do
+  trigger.right = 0.8
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  if i == 1 then
+    run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  end
+  trigger.right = 0
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+end
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = { detected = function() return displayDetected end,
+                   pollTouch = function() return nil end },
+})
 T.eq(#run.errors, 0, "trigger polling is safe and edge-triggered")
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), true,

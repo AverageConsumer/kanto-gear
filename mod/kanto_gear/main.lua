@@ -885,7 +885,7 @@ return function(mod)
     end
     if assist("guide") then out[#out + 1] = "GUIDE" end
     if assist("area") then out[#out + 1] = "AREA" end
-    out[#out + 1] = "STEPS"
+    out[#out + 1] = "TRAINER"
     out[#out + 1] = "PARTY"
     out[#out + 1] = "TOOLS"
     return out
@@ -1559,19 +1559,46 @@ return function(mod)
     button(84, 91, 58, 27, "NO", false)
   end
 
-  local function foot(x, y)
-    box("fill", x + 7, y, 7, 11, DARK)
-    box("fill", x + 2, y + 8, 11, 9, DARK)
-    box("fill", x, y + 4, 3, 4, DARK)
-    box("fill", x + 4, y + 1, 3, 4, DARK)
-  end
+  local function drawTrainer()
+    local save = game.save or {}
+    local player = save.player or {}
+    local dex = save.pokedex or {}
+    local seen, owned = 0, 0
+    for species, def in pairs(game.data.pokemon or {}) do
+      if def.dex then
+        if dex.seen and dex.seen[species] then seen = seen + 1 end
+        if dex.owned and dex.owned[species] then owned = owned + 1 end
+      end
+    end
+    local Badges = require("src.inventory.Badges")
+    local badges = Badges.list(game.data)
+    local inventory = save.inventory or {}
+    local badgeCount = Badges.count(game.data, save)
+    local elapsed = math.max(0, math.floor(tonumber(save.playTime) or 0))
 
-  local function drawSteps()
-    header("STEPS", false, true)
-    foot(69, 29)
-    centered(tostring(steps), 55, INK, 2)
-    centered("TOTAL", 82, DARK)
-    button(34, 105, 92, 28, "RESET", false)
+    header("TRAINER", false, true)
+    text(fit(player.name or "RED", 12), 5, 23, INK)
+    text(("ID %05d"):format(player.id or 0), 92, 23, DARK)
+    text(("BADGES %d/%d"):format(badgeCount, #badges), 5, 39, DARK)
+    local badgeGap = 152 / math.max(1, #badges)
+    for i, badge in ipairs(badges) do
+      local x = math.floor(4 + (i - 1) * badgeGap)
+      local nextX = math.floor(4 + i * badgeGap)
+      box("fill", x, 52, math.max(2, nextX - x - 3), 13,
+        inventory[Badges.itemFor(badge)] and DARK or MID)
+      outline(x, 52, math.max(2, nextX - x - 3), 13, INK)
+    end
+    text("MONEY", 5, 73, DARK)
+    text(fit("¥" .. tostring(save.money or 0), 12), 55, 73, INK)
+    text("TIME", 5, 87, DARK)
+    text(("%d:%02d"):format(math.floor(elapsed / 3600),
+      math.floor(elapsed / 60) % 60), 55, 87, INK)
+    text(("DEX %d/%d"):format(owned,
+      game.data.constants and game.data.constants.dexSize or 151), 5, 101, INK)
+    text("SEEN " .. tostring(seen), 88, 101, DARK)
+    text("STEPS", 5, 116, DARK)
+    text(tostring(steps), 5, 128, INK)
+    button(96, 111, 60, 27, "RESET", false)
   end
 
   local function drawGuide()
@@ -2352,8 +2379,8 @@ return function(mod)
       drawGuide()
     elseif page == "AREA" then
       drawArea()
-    elseif page == "STEPS" then
-      drawSteps()
+    elseif page == "TRAINER" then
+      drawTrainer()
     elseif page == "PARTY" then
       if partyActionSlot then drawPartyAction() else drawNormalParty() end
     else
@@ -3047,7 +3074,7 @@ return function(mod)
         dirty = true
       end
       return
-    elseif page == "STEPS" and inside(x, y, 34, 105, 92, 28) then
+    elseif page == "TRAINER" and inside(x, y, 96, 111, 60, 27) then
       steps = 0
       mod.save:set("steps", steps)
       dirty = true
@@ -3370,7 +3397,7 @@ return function(mod)
     mod.save:set("steps", steps)
     mapId = payload.mapId or mapId
     if radarOpen then radarOpen, dirty = false, true end
-    if page == "STEPS" or page == "LOCAL" then dirty = true end
+    if page == "TRAINER" or page == "LOCAL" then dirty = true end
   end)
 
   for _, event in ipairs({ "world.block_replaced", "map.reloaded", "screen.pushed" }) do
