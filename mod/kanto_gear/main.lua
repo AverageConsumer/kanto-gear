@@ -666,6 +666,15 @@ return function(mod)
   assert(isLowBattery("battery", 20) and not isLowBattery("battery", 21)
          and not isLowBattery("charging", 5), "low battery warning")
 
+  local function compactSteps(value)
+    if value < 100000 then return tostring(value) end
+    if value < 10000000 then return math.floor(value / 1000) .. "K" end
+    return math.floor(value / 1000000) .. "M"
+  end
+  assert(compactSteps(99999) == "99999"
+    and compactSteps(100000) == "100K"
+    and compactSteps(10000000) == "10M", "compact step count")
+
   local infoDefault = mod.options:get("info_level")
   if infoDefault == nil then
     local legacyProfile = mod.options:get("profile")
@@ -1604,11 +1613,11 @@ return function(mod)
     text("POKEDEX", 8, 113, DARK)
     text(("%d/%d"):format(owned,
       game.data.constants and game.data.constants.dexSize or 151), 8, 125, INK)
-    box("fill", 82, 109, 74, 29, PAPER)
-    outline(82, 109, 74, 29, INK)
-    text("STEPS", 86, 113, DARK)
-    text("RESET", 120, 113, DARK)
-    text(tostring(steps), 86, 125, INK)
+    box("fill", 82, 109, 36, 29, PAPER)
+    outline(82, 109, 36, 29, INK)
+    text("STEPS", 85, 113, DARK)
+    text(fit(compactSteps(steps), 5), 85, 125, INK)
+    button(120, 109, 36, 29, "RESET", false)
   end
 
   local function drawGuide()
@@ -3084,7 +3093,7 @@ return function(mod)
         dirty = true
       end
       return
-    elseif page == "TRAINER" and inside(x, y, 116, 109, 40, 29) then
+    elseif page == "TRAINER" and inside(x, y, 120, 109, 36, 29) then
       steps = 0
       mod.save:set("steps", steps)
       dirty = true
