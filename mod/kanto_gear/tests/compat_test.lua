@@ -39,8 +39,10 @@ T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
 T.eq(hooks:depth("render.output"), 1,
   "Kanto Gear owns final output only for a live screen swap")
-T.eq(hooks:depth("input.touchpressed"), 1,
-  "Kanto Gear can own primary touch while swapped")
+T.eq(hooks:depth("input.pointer"), 1,
+  "Kanto Gear uses the upstream pointer seam while swapped")
+T.eq(hooks:depth("input.touchpressed"), 0,
+  "Kanto Gear no longer needs private touch hooks")
 T.eq(hooks:depth("ui.start_menu.items"), 1,
   "Kanto Gear publishes one conditional menu shortcut")
 T.eq(hooks:depth("render.letterbox"), 0,
@@ -77,6 +79,17 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
                    pollTouch = function() return nil end },
 })
 local swapPressed = true
+local trigger = { left = 0, right = 0 }
+T.love.joystick = { getJoysticks = function()
+  return { {
+    isGamepadDown = function(_, button)
+      return button == "y" and swapPressed
+    end,
+    getGamepadAxis = function(_, axis)
+      return axis == "triggerleft" and trigger.left or trigger.right
+    end,
+  } }
+end }
 local game = {
   data = run.data,
   save = {
@@ -84,9 +97,6 @@ local game = {
     inventory = { BOULDERBADGE = true },
     pokedex = { seen = {}, owned = {} },
   },
-  input = { wasPressed = function(_, action)
-    return action == "screen_swap" and swapPressed
-  end },
 }
 run.loader.events:emit("game.ready", { game = game })
 T.eq(run.loader.hooks:call("battle.caught_marker_visible",
@@ -108,12 +118,6 @@ end
 T.eq(#run.errors, 0, "theme changes apply live without mod errors")
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 swapPressed = false
-local trigger = { left = 0, right = 0 }
-T.love.joystick = { getJoysticks = function()
-  return { { getGamepadAxis = function(_, axis)
-    return axis == "triggerleft" and trigger.left or trigger.right
-  end } }
-end }
 run.loader.modOptions.kanto_gear.trigger_tabs = true
 for i = 1, 3 do
   trigger.right = 0.8
@@ -136,12 +140,6 @@ displayDetected = false
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
   "disconnect bypasses swapped output immediately")
-
-local Input = require("src.core.Input")
-Input:init()
-Input:keypressed("f6")
-Input:step()
-T.check(Input:wasPressed("screen_swap"), "F6 maps to screen swap")
 
 run.release()
 T.finish("Kanto Gear compatibility")

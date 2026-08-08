@@ -2969,6 +2969,7 @@ return function(mod)
   end
 
   local triggerHeld = { left = false, right = false }
+  local screenSwapHeld = false
   local function triggerEdge(value, held)
     value = tonumber(value) or 0
     local down = held and value > 0.35 or value >= 0.65
@@ -3007,6 +3008,30 @@ return function(mod)
     rightPressed, triggerHeld.right = triggerEdge(right, triggerHeld.right)
     if leftPressed then changePage(-1)
     elseif rightPressed then changePage(1) end
+  end
+
+  local function pollScreenSwap()
+    local down = false
+    local keyboard = love and love.keyboard
+    if keyboard and keyboard.isDown then
+      local ok, pressed = pcall(keyboard.isDown, "f6")
+      down = ok and pressed or false
+    end
+    local js = love and love.joystick
+    if js and js.getJoysticks then
+      local ok, pads = pcall(js.getJoysticks)
+      if ok then
+        for _, pad in ipairs(pads or {}) do
+          if pad.isGamepadDown then
+            local okDown, pressed = pcall(pad.isGamepadDown, pad, "y")
+            if okDown and pressed then down = true break end
+          end
+        end
+      end
+    end
+    local pressed = down and not screenSwapHeld
+    screenSwapHeld = down
+    return pressed
   end
 
   local function tap(x, y)
@@ -3346,8 +3371,8 @@ return function(mod)
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
     pollTriggerTabs()
-    if active and hasDisplay() and game and game.input
-        and game.input:wasPressed("screen_swap") then
+    local swapPressed = pollScreenSwap()
+    if active and hasDisplay() and swapPressed then
       runtimeHandheldOverride = not bottomOnHandheld()
       resetSwapState()
       mod.log:info("screen swap: gear=%s",
@@ -3454,19 +3479,13 @@ return function(mod)
     return true
   end
 
-  mod.hooks:wrap("input.touchpressed", function(next, id, x, y, dx, dy, pressure)
-    if primaryTouch("down", x, y) then return true end
-    return next(id, x, y, dx, dy, pressure)
-  end, 1000)
-
-  mod.hooks:wrap("input.touchmoved", function(next, id, x, y, dx, dy, pressure)
-    if active and bottomOnHandheld() and hasDisplay() then return true end
-    return next(id, x, y, dx, dy, pressure)
-  end, 1000)
-
-  mod.hooks:wrap("input.touchreleased", function(next, id, x, y, dx, dy, pressure)
-    if primaryTouch("up", x, y) then return true end
-    return next(id, x, y, dx, dy, pressure)
+  mod.hooks:wrap("input.pointer", function(next, pointerGame, event)
+    local action = ({ pressed = "down", released = "up",
+                      cancelled = "cancel" })[event.phase]
+    if action and primaryTouch(action, event.x, event.y) then return true end
+    if event.phase == "moved" and active and bottomOnHandheld()
+        and hasDisplay() then return true end
+    return next(pointerGame, event)
   end, 1000)
 
   mod.events:on("world.stepped", function(payload)
