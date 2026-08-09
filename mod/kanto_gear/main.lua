@@ -2360,6 +2360,7 @@ return function(mod)
 
   local function drawBattle()
     local top = game and game.stack and game.stack:top()
+    local raw = battleState()
     local party = top and top.isPartyMenu and top
     local bag = top and top.screenId == "BagMenu" and top
     local ppMoves = top and top.kind == "pp_item_move" and top
@@ -2383,7 +2384,7 @@ return function(mod)
       drawMoves()
     elseif battle.prompt ~= "menu" then
       if fullBottomBattleUI() and battle.prompt == "locked"
-          and not (battle.message and #battle.message > 0) then
+          and raw and raw.draining then
         drawFullBattleStatuses()
       else
         drawBattleLocked()
