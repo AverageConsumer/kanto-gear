@@ -43,7 +43,7 @@ Use this matched release set:
 
 | Download | Required? | What it provides |
 | --- | --- | --- |
-| [`gen1recomp-android-0.1.75-kanto.5.apk`](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.5) | **Required** | Android host with the dual-display bridge, live screen swap and detailed-map interface |
+| [`gen1recomp-android-0.1.75-kanto.6.apk`](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.6) | **Required** | Clean upstream-based Android host with the dual-display bridge, live screen swap and detailed-map interface |
 | [`Kanto-Gear-Mod-1.6.0.zip`](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.6.0) | **Required** | Kanto Gear itself |
 | [`DRAMATIC_SHAPE-1.7.0-android.1.zip`](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.7.0-android.1) | Optional | Tested Android 3D renderer and Stadium compatibility fixes |
 
@@ -66,8 +66,8 @@ ROM-extracted game data is included here.
 > rather than another Voxel build. Do not substitute the official host or mix
 > versions from different release sets.
 
-1. Download `gen1recomp-android-0.1.75-kanto.5.apk` from the matching
-   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.5)
+1. Download `gen1recomp-android-0.1.75-kanto.6.apk` from the matching
+   [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.6)
    and install it.
 2. Download `Kanto-Gear-Mod-1.6.0.zip` from the matching
    [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.6.0).
@@ -160,7 +160,7 @@ handheld and the fork is not distributed as a PC replacement.
 | Component | Version | Role |
 | --- | --- | --- |
 | [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.6.0 public test | Required second-screen mod |
-| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.75-kanto.5 | Required Android host APK |
+| [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.75-kanto.6 | Required Android host APK |
 | [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.7.0-android.1 | Optional Android 3D renderer |
 
 Do not mix arbitrary releases from the three repositories. Each Kanto Gear
