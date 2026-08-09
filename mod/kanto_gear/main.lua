@@ -2291,9 +2291,10 @@ return function(mod)
   local function drawFullBattleHpBar(x, y, w, hp, maxHp)
     local ratio = math.max(0,
       math.min(1, (hp or 0) / math.max(1, maxHp or 1)))
-    box("fill", x, y, w, 6, DARK)
-    box("fill", x + 1, y + 1, math.floor((w - 2) * ratio), 4,
-        ratio > 0.5 and MID or ratio > 0.2 and PAPER or INK)
+    box("fill", x, y, w, 7, DARK)
+    box("fill", x + 1, y + 1, w - 2, 5, PAPER)
+    box("fill", x + 1, y + 1, math.floor((w - 2) * ratio), 5,
+        ratio <= 0.2 and THEME.red or ratio <= 0.5 and DARK or INK)
   end
 
   local function drawCaughtBall(x, y)
@@ -2317,20 +2318,20 @@ return function(mod)
       and not player and caughtWild(battle.kind,
       game.save.pokedex and game.save.pokedex.owned
       and game.save.pokedex.owned[mon.species])
-    local name = fit(mon.name or mon.species or "-", owned and 10 or 12)
-    text(name, 6, y + 4, INK, 2)
-    if owned then drawCaughtBall(9 + #name * 12, y + 7) end
-    text(fit("L" .. tostring(mon.level or 0), 4), 6, y + 27, DARK)
+    box("fill", 4, y, 152, 40, MID)
+    outline(4, y, 152, 40, DARK)
+    local name = fit(mon.name or mon.species or "-", owned and 10 or 11)
+    text(name, 9, y + 5, INK)
+    if owned then drawCaughtBall(11 + #name * 8, y + 5) end
     local status = (mon.hp or 0) <= 0 and "FNT" or mon.status
-    if status then text(fit(status, 3), 36, y + 27, DARK) end
+    if status then text(fit(status, 3), 100, y + 5, DARK) end
+    text(fit("L" .. tostring(mon.level or 0), 4), 124, y + 5, DARK)
+    text("HP", 9, y + 24, DARK)
+    drawFullBattleHpBar(28, y + 24, 68, mon.hp, mon.maxHp)
     if player then
-      drawFullBattleHpBar(60, y + 28, 48, mon.hp, mon.maxHp)
       text(fit(("%d/%d"):format(mon.hp or 0, mon.maxHp or 0), 7),
-           113, y + 27, INK)
-    else
-      drawFullBattleHpBar(60, y + 28, 94, mon.hp, mon.maxHp)
+           100, y + 24, INK)
     end
-    box("fill", 4, y + 44, 152, 1, DARK)
   end
 
   local function drawFullBattleActions(labels)
@@ -2342,8 +2343,8 @@ return function(mod)
   end
 
   local function drawFullBattleStatuses()
-    drawFullBattleStatus(battle.enemy, 0, false)
-    drawFullBattleStatus(battle.player, 45, true)
+    drawFullBattleStatus(battle.enemy, 3, false)
+    drawFullBattleStatus(battle.player, 48, true)
   end
 
   local function drawFullBattleRoot()
@@ -2352,7 +2353,7 @@ return function(mod)
   end
 
   local function drawFullSafari()
-    drawFullBattleStatus(battle.enemy, 0, false)
+    drawFullBattleStatus(battle.enemy, 3, false)
     centered("SAFARI BALLS " .. tostring(battle.safariBalls or 0), 64, DARK)
     drawFullBattleActions({ "BALL", "BAIT", "ROCK", "RUN" })
   end
