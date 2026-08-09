@@ -2297,6 +2297,11 @@ return function(mod)
   end
 
   local function drawCaughtBall(x, y)
+    local raw = battleState()
+    if raw and raw.drawCaughtBall then
+      raw:drawCaughtBall(x, y)
+      return
+    end
     box("fill", x + 2, y, 4, 1, INK)
     box("fill", x + 1, y + 1, 6, 1, INK)
     box("fill", x, y + 2, 8, 4, INK)
