@@ -142,6 +142,7 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
                    pollTouch = function() return nil end },
 })
 T.eq(#run.errors, 0, "trigger polling is safe and edge-triggered")
+run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
 
 -- An animated sprite mod may resolve a menu front pic to a format LÖVE cannot
 -- decode directly. Use the shared image-data loader before the icon fallback.
@@ -154,7 +155,12 @@ local newImage = T.love.graphics.newImage
 local fallbackIcons = 0
 local fallbackIsWhite = false
 local decodedFrames = 0
-Sprites.path = function() return "unsupported.gif", true end
+local genericSprites, ownedSprites = 0, 0
+Sprites.path = function(_, _, _, opts)
+  if opts and opts.mon then ownedSprites = ownedSprites + 1
+  else genericSprites = genericSprites + 1 end
+  return "unsupported.gif", true
+end
 Assets.imageData = function(path)
   if path == "unsupported.gif" then
     decodedFrames = decodedFrames + 1
@@ -182,10 +188,14 @@ for _ = 1, 32 do
     secondScreen = { detected = function() return displayDetected end,
                      pollTouch = function() return nil end },
   })
-  if decodedFrames > 0 then break end
+  if decodedFrames > 0 and genericSprites > 0 and ownedSprites > 0 then break end
 end
 T.check(decodedFrames > 0,
-  "unsupported Party sprites use the shared image-data loader")
+  "unsupported hooked sprites use the shared image-data loader")
+T.check(genericSprites > 0,
+  "Guide sprites use the live sprite resolver")
+T.check(ownedSprites > 0,
+  "owned Pokemon screens pass their live Pokemon to the sprite resolver")
 T.eq(fallbackIcons, 0,
   "decoded Party sprite frames do not use placeholder icons")
 Sprites.path = function() return "unavailable.gif", true end

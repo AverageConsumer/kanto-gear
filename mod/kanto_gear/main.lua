@@ -1151,15 +1151,8 @@ return function(mod)
   end
 
   local function sprite(species, side, mon)
-    local def = game and game.data and game.data.pokemon
-      and game.data.pokemon[species]
-    local path
-    if mon then
-      path = PokemonSprites.path(game.data, species, side,
-        { kind = "summary", mon = mon })
-    else
-      path = def and (side == "back" and def.spriteBack or def.spriteFront)
-    end
+    local path = PokemonSprites.path(game and game.data, species, side,
+      { kind = "summary", mon = mon })
     if not path then return nil end
     local key = side .. ":" .. path
     if spriteCache[key] == nil then
@@ -2085,7 +2078,8 @@ return function(mod)
         local id = def.types and def.types[index]
         return id and TypeChart.displayName(id) or "--"
       end
-      drawSprite(mon.species, "front", 4, 23, 43, 43)
+      drawSprite(mon.species, "front", 4, 23, 43, 43,
+                 nil, mon.source or mon)
       text(fit(mon.nickname or def.name or mon.species, 17), 51, 24, INK)
       text(("NO.%03d LV.%d"):format(def.dex or 0, level),
            51, 36, DARK)
@@ -2174,7 +2168,8 @@ return function(mod)
     outline(x, y, 76, 45, INK)
     if not mon then return end
     local def = game.data.pokemon[mon.species] or {}
-    drawSprite(mon.species, "front", x + 2, y + 3, 32, 32)
+    drawSprite(mon.species, "front", x + 2, y + 3, 32, 32,
+               nil, mon.source or mon)
     text(fit(mon.nickname or def.name or mon.species, 6), x + 35, y + 9,
          selected and PAPER or INK)
     text("LV." .. tostring(mon.level or 0), x + 35, y + 25,
@@ -2411,7 +2406,8 @@ return function(mod)
     end
 
     header("NEW MOVE")
-    drawSprite(learn.mon.species, "front", 5, 25, 42, 42)
+    drawSprite(learn.mon.species, "front", 5, 25, 42, 42,
+               nil, learn.mon.source or learn.mon)
     local monDef = game.data.pokemon[learn.mon.species] or {}
     text(fit(learn.mon.nickname or monDef.name or learn.mon.species, 16),
          51, 27, DARK)
