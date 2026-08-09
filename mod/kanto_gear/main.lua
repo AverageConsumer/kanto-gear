@@ -1323,7 +1323,9 @@ return function(mod)
     box("fill", 28, 78, 104, 1, modern and THEME.red or PAPER)
     centered("DUAL DISPLAY", 87, foreground)
     centered("LINK READY", 104, modern and THEME.blue or MID)
-    centered("START GAME ABOVE", 125, foreground)
+    if math.floor(love.timer.getTime() * 2) % 2 == 0 then
+      centered("START GAME ABOVE", 125, foreground)
+    end
   end
 
   local function drawDim(alpha, prompt)
@@ -3656,7 +3658,8 @@ return function(mod)
       end
     end
     if now >= nextClock then
-      nextClock = now + (batteryLow and 1 or 5)
+      local title = screenState() == "title"
+      nextClock = now + (title and 0.5 or batteryLow and 1 or 5)
       dirty = true
     end
     local displayAvailable = hasDisplay()
