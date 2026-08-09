@@ -3431,6 +3431,18 @@ return function(mod)
   end)
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
+    if moveInfo then
+      local queue = stepGame and stepGame.input
+        and stepGame.input.pressQueue
+      local consumed
+      for i = #(queue or {}), 1, -1 do
+        if queue[i] == "b" then
+          table.remove(queue, i)
+          consumed = true
+        end
+      end
+      if consumed then back() end
+    end
     pollTriggerTabs()
     local swapPressed = pollScreenSwap()
     if active and hasDisplay() and swapPressed then

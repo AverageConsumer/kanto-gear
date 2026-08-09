@@ -110,6 +110,32 @@ game.stack = { states = { world }, top = function(self)
   return self.states[#self.states]
 end }
 run.loader.events:emit("game.ready", { game = game })
+do
+  local inputHook
+  for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
+    if entry.owner == "kanto_gear" then inputHook = entry.callback end
+  end
+  local moveInfoUpvalue
+  for i = 1, debug.getinfo(inputHook, "u").nups do
+    if debug.getupvalue(inputHook, i) == "moveInfo" then
+      moveInfoUpvalue = i
+      break
+    end
+  end
+  T.check(moveInfoUpvalue ~= nil,
+    "input hook owns the move-info overlay state")
+  debug.setupvalue(inputHook, moveInfoUpvalue, { name = "TACKLE" })
+  game.input = { pressQueue = { "b", "a", "b" } }
+  local previousSwapPressed = swapPressed
+  swapPressed = false
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  swapPressed = previousSwapPressed
+  T.eq(table.concat(game.input.pressQueue, ","), "a",
+    "B closes move info without leaking into the battle menu")
+  local _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
+  T.eq(openMoveInfo, nil, "B closes the move-info overlay")
+  game.input = nil
+end
 T.eq(run.loader.hooks:call("battle.caught_marker_visible",
   function() return false end, {}), true,
   "Kanto Gear shows its caught icon by default")
