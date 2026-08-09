@@ -106,7 +106,9 @@ local game = {
 }
 local world = { map = { id = "PALLET_TOWN" } }
 game.overworld = world
-game.stack = { states = { world }, top = function() return world end }
+game.stack = { states = { world }, top = function(self)
+  return self.states[#self.states]
+end }
 run.loader.events:emit("game.ready", { game = game })
 T.eq(run.loader.hooks:call("battle.caught_marker_visible",
   function() return false end, {}), true,
@@ -142,6 +144,40 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
                    pollTouch = function() return nil end },
 })
 T.eq(#run.errors, 0, "trigger polling is safe and edge-triggered")
+
+do
+  local previousStates = game.stack.states
+  local previousOptions = run.loader.modOptions.kanto_gear
+  local getTime = T.love.timer.getTime
+  local PromptSprites = require("src.pokemon.Sprites")
+  local promptSpritePath = PromptSprites.path
+  local promptSprites = 0
+  game.stack.states = { world, {
+    screenId = "MoveLearnMenu", mon = game.save.party[1],
+    newMoveId = "FIX_EMBERISH", selecting = false, index = 1,
+  }, { isTextBox = true, waiting = true } }
+  T.love.timer.getTime = function() return 1 end
+  PromptSprites.path = function(...)
+    promptSprites = promptSprites + 1
+    return promptSpritePath(...)
+  end
+  run.loader.modOptions.kanto_gear = { battle_view = "gear" }
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "battle_view" })
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = { detected = function() return displayDetected end,
+                     pollTouch = function() return nil end },
+  })
+  PromptSprites.path = promptSpritePath
+  T.love.timer.getTime = getTime
+  game.stack.states = previousStates
+  run.loader.modOptions.kanto_gear = previousOptions
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "battle_view" })
+  T.check(promptSprites > 0,
+    "full-moveset TM prompt is safe outside battle")
+end
+
 run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
 
 -- An animated sprite mod may resolve a menu front pic to a format LÖVE cannot

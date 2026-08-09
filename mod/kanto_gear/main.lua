@@ -2386,7 +2386,7 @@ return function(mod)
   local function drawLearnMove(learn, top)
     local newDef = moveDef(learn.newMoveId) or {}
     local newName = newDef.name or learn.newMoveId or "MOVE"
-    if top and top.isTextBox and hideUpperBattleUI() then
+    if battle and top and top.isTextBox and hideUpperBattleUI() then
       drawBattleLocked("NEW MOVE")
       return
     end
