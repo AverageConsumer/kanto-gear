@@ -1862,6 +1862,7 @@ return function(mod)
     local source = mon.source or mon
     if not drawSprite(mon.species, "front", x + 2, y + 2, 27, 27,
                       nil, source, true) then
+      color({ 1, 1, 1, 1 })
       PartyMenu.drawIcon(game, source, x + 8, y + 8, false, 0)
     end
     text(fit(mon.name, 7), x + 29, y + 4, selected and PAPER or INK)

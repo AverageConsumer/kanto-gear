@@ -150,8 +150,13 @@ local PartyMenu = require("src.ui.PartyMenu")
 local spritePath, drawIcon = Sprites.path, PartyMenu.drawIcon
 local newImage = T.love.graphics.newImage
 local fallbackIcons = 0
+local fallbackIsWhite = false
 Sprites.path = function() return "unsupported.gif", true end
-PartyMenu.drawIcon = function() fallbackIcons = fallbackIcons + 1 end
+PartyMenu.drawIcon = function()
+  fallbackIcons = fallbackIcons + 1
+  local r, g, b, a = T.love.graphics.getColor()
+  fallbackIsWhite = r == 1 and g == 1 and b == 1 and a == 1
+end
 T.love.graphics.newImage = function(path, ...)
   if path == "unsupported.gif" then error("unsupported image format") end
   return newImage(path, ...)
@@ -171,6 +176,7 @@ Sprites.path, PartyMenu.drawIcon = spritePath, drawIcon
 T.love.graphics.newImage = newImage
 T.check(fallbackIcons > 0,
   "unsupported Party sprites fall back to official Pokemon icons")
+T.check(fallbackIsWhite, "fallback Party icons keep their original colors")
 
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), true,
