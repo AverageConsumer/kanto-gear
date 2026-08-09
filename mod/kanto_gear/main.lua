@@ -680,13 +680,8 @@ return function(mod)
     return percent ~= nil and percent <= 20
       and state ~= "charging" and state ~= "charged"
   end
-  local function isCharging(state)
-    return state == "charging" or state == "charged"
-  end
   assert(isLowBattery("battery", 20) and not isLowBattery("battery", 21)
          and not isLowBattery("charging", 5), "low battery warning")
-  assert(isCharging("charging") and isCharging("charged")
-         and not isCharging("battery"), "charging indicator")
 
   local function compactSteps(value)
     if value < 100000 then return tostring(value) end
@@ -843,7 +838,7 @@ return function(mod)
   local intentId = 0
   local nextPoll = 0
   local nextClock = 0
-  local batteryLow = false
+  local batteryAnimated = false
   local lastScreenKey = nil
   local worldStarted = false
   local externalLoading = false
@@ -1195,27 +1190,27 @@ return function(mod)
     return true
   end
 
-  local function battery(foreground)
+  local function battery(x, foreground)
     foreground = foreground or PAPER
     local state, percent = system.getPowerInfo()
     percent = tonumber(percent)
     local low = isLowBattery(state, percent)
-    if low ~= batteryLow then nextClock = 0 end
-    batteryLow = low
-    box("line", 143.5, 6.5, 12, 7, foreground)
-    box("fill", 155, 9, 2, 3, foreground)
-    if percent and (not low or math.floor(love.timer.getTime()) % 2 == 0) then
-      box("fill", 145, 8, math.floor(9 * math.max(0, math.min(100, percent)) / 100),
-          4, foreground)
-    end
-    if isCharging(state) then
-      box("fill", 141, 6, 1, 1, foreground)
-      box("fill", 140, 7, 2, 1, foreground)
-      box("fill", 139, 8, 2, 1, foreground)
-      box("fill", 138, 9, 4, 1, foreground)
-      box("fill", 140, 10, 2, 1, foreground)
-      box("fill", 139, 11, 2, 1, foreground)
-      box("fill", 139, 12, 1, 1, foreground)
+    local charging = state == "charging"
+    local animated = low or charging
+    if animated ~= batteryAnimated then nextClock = 0 end
+    batteryAnimated = animated
+    box("line", x + 0.5, 6.5, 12, 7, foreground)
+    box("fill", x + 12, 9, 2, 3, foreground)
+    local tick = math.floor(love.timer.getTime())
+    local segments = state == "charging" and tick % 3 + 1
+      or state == "charged" and 3
+      or percent and percent > 66 and 3
+      or percent and percent > 33 and 2
+      or percent and percent > 0 and 1 or 0
+    if not low or tick % 2 == 0 then
+      for segment = 0, segments - 1 do
+        box("fill", x + 2 + segment * 3, 8, 2, 4, foreground)
+      end
     end
   end
 
@@ -1229,28 +1224,26 @@ return function(mod)
       box("fill", 0, HEADER - 2, WIDTH, 2, THEME.blue)
       box("fill", 0, HEADER - 2, 42, 2, THEME.red)
     end
-    if back and paged then
-      local label = fit(title, 9)
+    if back then
       text("<", 4, 6, foreground)
       box("fill", 16, 4, 1, 12, foreground)
-      text("<", 22, 6, foreground)
-      text(label, 58 - math.floor(#label * 3), 6, foreground)
-      text(">", 94, 6, foreground)
+    end
+    if paged then
+      local label = fit(title, back and 8 or 10)
+      local left, center = back and 22 or 4, back and 57 or 48
+      text("<", left, 6, foreground)
+      text(label, center - math.floor(#label * 3), 6, foreground)
+      text(">", 85, 6, foreground)
     elseif back then
-      text("<", 4, 6, foreground)
-      text(fit(title, 12), 16, 6, foreground)
-    elseif paged then
-      local label = fit(title, 10)
-      text("<", 4, 6, foreground)
-      text(label, 48 - math.floor(#label * 3), 6, foreground)
-      text(">", 88, 6, foreground)
+      text(fit(title, 11), 22, 6, foreground)
     else
       text(fit(title, 14), 5, 6, foreground)
     end
     local clock = clockText(not system.is24HourClock
       or system.is24HourClock() ~= false)
-    text(clock, 137 - #clock * 6, 6, foreground)
-    battery(foreground)
+    local clockX = 117 - math.floor(#clock * 3)
+    text(clock, clockX, 6, foreground)
+    battery(143, foreground)
   end
 
   local function stackHas(target)
@@ -3714,7 +3707,8 @@ return function(mod)
     end
     if now >= nextClock then
       local title = screenState() == "title"
-      nextClock = now + (title and 0.5 or batteryLow and 1 or 5)
+      nextClock = now + (title and 0.5
+        or batteryAnimated and 1 or 5)
       dirty = true
     end
     local displayAvailable = hasDisplay()
