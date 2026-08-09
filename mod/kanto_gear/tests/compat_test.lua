@@ -144,22 +144,54 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 T.eq(#run.errors, 0, "trigger polling is safe and edge-triggered")
 
 -- An animated sprite mod may resolve a menu front pic to a format LÖVE cannot
--- decode. The Party page must fall back to the engine's official icon path.
+-- decode directly. Use the shared image-data loader before the icon fallback.
 local Sprites = require("src.pokemon.Sprites")
+local Assets = require("src.render.Assets")
 local PartyMenu = require("src.ui.PartyMenu")
 local spritePath, drawIcon = Sprites.path, PartyMenu.drawIcon
+local imageData = Assets.imageData
 local newImage = T.love.graphics.newImage
 local fallbackIcons = 0
 local fallbackIsWhite = false
+local decodedFrames = 0
 Sprites.path = function() return "unsupported.gif", true end
+Assets.imageData = function(path)
+  if path == "unsupported.gif" then
+    decodedFrames = decodedFrames + 1
+    return "decoded-frame.png"
+  end
+  return imageData(path)
+end
 PartyMenu.drawIcon = function()
   fallbackIcons = fallbackIcons + 1
   local r, g, b, a = T.love.graphics.getColor()
   fallbackIsWhite = r == 1 and g == 1 and b == 1 and a == 1
 end
 T.love.graphics.newImage = function(path, ...)
-  if path == "unsupported.gif" then error("unsupported image format") end
+  if path == "unsupported.gif" or path == "unavailable.gif" then
+    error("unsupported image format")
+  end
   return newImage(path, ...)
+end
+for _ = 1, 32 do
+  trigger.right = 0.8
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  trigger.right = 0
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = { detected = function() return displayDetected end,
+                     pollTouch = function() return nil end },
+  })
+  if decodedFrames > 0 then break end
+end
+T.check(decodedFrames > 0,
+  "unsupported Party sprites use the shared image-data loader")
+T.eq(fallbackIcons, 0,
+  "decoded Party sprite frames do not use placeholder icons")
+Sprites.path = function() return "unavailable.gif", true end
+Assets.imageData = function(path)
+  if path == "unavailable.gif" then error("unavailable image data") end
+  return imageData(path)
 end
 for _ = 1, 32 do
   trigger.right = 0.8
@@ -172,7 +204,8 @@ for _ = 1, 32 do
   })
   if fallbackIcons > 0 then break end
 end
-Sprites.path, PartyMenu.drawIcon = spritePath, drawIcon
+Sprites.path, Assets.imageData, PartyMenu.drawIcon =
+  spritePath, imageData, drawIcon
 T.love.graphics.newImage = newImage
 T.check(fallbackIcons > 0,
   "unsupported Party sprites fall back to official Pokemon icons")

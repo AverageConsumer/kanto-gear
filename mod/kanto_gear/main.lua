@@ -1169,7 +1169,12 @@ return function(mod)
     local key = side .. ":" .. path
     if spriteCache[key] == nil then
       local ok, image = pcall(G.newImage, path)
-      if ok then image:setFilter("nearest", "nearest") end
+      if not (ok and image) then
+        local dataOk, data = pcall(
+          require("src.render.Assets").imageData, path)
+        if dataOk and data then ok, image = pcall(G.newImage, data) end
+      end
+      if ok and image then image:setFilter("nearest", "nearest") end
       spriteCache[key] = ok and image or false
     end
     return spriteCache[key] or nil
