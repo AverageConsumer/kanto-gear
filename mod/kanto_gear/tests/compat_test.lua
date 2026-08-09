@@ -297,7 +297,7 @@ do
   }
   TrainerCard.new = function()
     badgeLoads = badgeLoads + 1
-    local badges = { image = T.love.graphics.newImage({}), quads = {} }
+    local badges = { img = T.love.graphics.newImage({}), quads = {} }
     for i = 0, 7 do
       badges.quads[i] = T.love.graphics.newQuad(0, i * 32 + 16,
         16, 16, 16, 256)
@@ -307,6 +307,7 @@ do
   T.love.graphics.draw = function(image, quad, x, y, ...)
     if type(quad) == "table" and quad.w == 16 and quad.h == 16
         and y == 56 then
+      assert(image ~= nil, "Trainer badge draw requires Recomp's texture")
       local _, _, _, alpha = T.love.graphics.getColor()
       badgeAlphas[#badgeAlphas + 1] = alpha
     end

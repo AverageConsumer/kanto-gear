@@ -1663,7 +1663,7 @@ return function(mod)
         G.setColor(tint[1], tint[2], tint[3], owned and 1 or 0.25)
         local x = math.floor(5 + (i - 1) * 134
           / math.max(1, #badges - 1))
-        G.draw(badgeAsset.image, quad, x, 56)
+        G.draw(badgeAsset.img, quad, x, 56)
       else
         local x = math.floor(4 + (i - 1) * badgeGap)
         local nextX = math.floor(4 + i * badgeGap)
