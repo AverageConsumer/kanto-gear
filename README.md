@@ -30,8 +30,9 @@ battles, menus and contextual touch controls move to the second display.
 - Swaps the game and Kanto Gear between connected screens live with **Y** and
   returns the game to the remaining display if one screen is switched off or
   disconnected.
-- Uses the host's detailed map tiles for clearer local maps, warns below 20%
-  battery, and lets players hide Kanto Gear's own caught marker independently
+- Uses the host's detailed map tiles for clearer local maps, adapts zoom for
+  long or narrow routes, warns below 20% battery, shows when the device is
+  charging, and lets players hide Kanto Gear's own caught marker independently
   of other mods.
 - Works without the Voxel Mod. The matching Voxel performance fork is an
   optional visual upgrade.
@@ -43,7 +44,7 @@ Use this matched release set:
 | Download | Required? | What it provides |
 | --- | --- | --- |
 | [`gen1recomp-android-0.1.75-kanto.5.apk`](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.5) | **Required** | Android host with the dual-display bridge, live screen swap and detailed-map interface |
-| [`Kanto-Gear-Mod-1.5.0.zip`](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.5.0) | **Required** | Kanto Gear itself |
+| [`Kanto-Gear-Mod-1.6.0.zip`](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.6.0) | **Required** | Kanto Gear itself |
 | [`DRAMATIC_SHAPE-1.7.0-android.1.zip`](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.7.0-android.1) | Optional | Tested Android 3D renderer and Stadium compatibility fixes |
 
 The official Gen1Recomp Android release does not yet contain the complete host
@@ -68,10 +69,10 @@ ROM-extracted game data is included here.
 1. Download `gen1recomp-android-0.1.75-kanto.5.apk` from the matching
    [Gen1Recomp Android test release](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.5)
    and install it.
-2. Download `Kanto-Gear-Mod-1.5.0.zip` from the matching
-   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.5.0).
+2. Download `Kanto-Gear-Mod-1.6.0.zip` from the matching
+   [Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.6.0).
 3. Start **Gen1Recomp Android Test**, import your ROM, open the **MODS** tab,
-   tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.5.0.zip`.
+   tap **Import mod .zip**, and choose `Kanto-Gear-Mod-1.6.0.zip`.
 4. Make sure **Kanto Gear** is enabled, then start the game. The companion
    appears automatically when Android reports a suitable second display.
 
@@ -134,6 +135,9 @@ handheld and the fork is not distributed as a PC replacement.
   overworld is busy.
 - Battles, menus, dialogue choices and other prompts automatically replace
   the normal page when they need input, then return to it afterward.
+- Categorized battle bags such as Useful Bag update their pocket and items
+  live. Header arrows show when pockets can be changed by controller or touch;
+  ordinary bags keep their normal layout.
 
 ## Settings worth knowing
 
@@ -155,7 +159,7 @@ handheld and the fork is not distributed as a PC replacement.
 
 | Component | Version | Role |
 | --- | --- | --- |
-| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.5.0 public test | Required second-screen mod |
+| [Kanto Gear](https://github.com/AverageConsumer/kanto-gear) | 1.6.0 public test | Required second-screen mod |
 | [Gen1Recomp Android test fork](https://github.com/AverageConsumer/gen1recomp) | 0.1.75-kanto.5 | Required Android host APK |
 | [Dramatic Shape performance fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod) | 1.7.0-android.1 | Optional Android 3D renderer |
 
