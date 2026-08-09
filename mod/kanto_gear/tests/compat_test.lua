@@ -17,6 +17,7 @@ T.love.graphics.newCanvas = function(...)
 end
 local run = T.sdk.loadMod(path, { data = T.fixtures.load() })
 T.love.graphics.newCanvas = newCanvas
+T.love.system.getPowerInfo = function() return "battery", 80 end
 
 T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
@@ -93,11 +94,19 @@ end }
 local game = {
   data = run.data,
   save = {
-    player = { name = "RED", id = 7 }, money = 1234, playTime = 3661,
+    player = { name = "RED", id = 7, map = "PALLET_TOWN" },
+    party = { {
+      species = "PIKACHU", nickname = "PIKA", level = 5,
+      hp = 20, stats = { hp = 20 }, exp = 0,
+    } },
+    money = 1234, playTime = 3661,
     inventory = { BOULDERBADGE = true },
     pokedex = { seen = {}, owned = {} },
   },
 }
+local world = { map = { id = "PALLET_TOWN" } }
+game.overworld = world
+game.stack = { states = { world }, top = function() return world end }
 run.loader.events:emit("game.ready", { game = game })
 T.eq(run.loader.hooks:call("battle.caught_marker_visible",
   function() return false end, {}), true,
@@ -133,6 +142,36 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
                    pollTouch = function() return nil end },
 })
 T.eq(#run.errors, 0, "trigger polling is safe and edge-triggered")
+
+-- An animated sprite mod may resolve a menu front pic to a format LÖVE cannot
+-- decode. The Party page must fall back to the engine's official icon path.
+local Sprites = require("src.pokemon.Sprites")
+local PartyMenu = require("src.ui.PartyMenu")
+local spritePath, drawIcon = Sprites.path, PartyMenu.drawIcon
+local newImage = T.love.graphics.newImage
+local fallbackIcons = 0
+Sprites.path = function() return "unsupported.gif", true end
+PartyMenu.drawIcon = function() fallbackIcons = fallbackIcons + 1 end
+T.love.graphics.newImage = function(path, ...)
+  if path == "unsupported.gif" then error("unsupported image format") end
+  return newImage(path, ...)
+end
+for _ = 1, 32 do
+  trigger.right = 0.8
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  trigger.right = 0
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = { detected = function() return displayDetected end,
+                     pollTouch = function() return nil end },
+  })
+  if fallbackIcons > 0 then break end
+end
+Sprites.path, PartyMenu.drawIcon = spritePath, drawIcon
+T.love.graphics.newImage = newImage
+T.check(fallbackIcons > 0,
+  "unsupported Party sprites fall back to official Pokemon icons")
+
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), true,
   "the screen-swap action enables swapped output while connected")

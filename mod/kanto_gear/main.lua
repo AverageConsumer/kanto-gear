@@ -799,6 +799,8 @@ return function(mod)
   end
 
   local PaletteFX = require("src.render.PaletteFX")
+  local PokemonSprites = require("src.pokemon.Sprites")
+  local PartyMenu = require("src.ui.PartyMenu")
   local EngineFont = mod.ui.Font
 
   local canvas = G.newCanvas(WIDTH, HEIGHT, { dpiscale = 1 })
@@ -1153,10 +1155,16 @@ return function(mod)
     return mapAsset
   end
 
-  local function sprite(species, side)
+  local function sprite(species, side, mon)
     local def = game and game.data and game.data.pokemon
       and game.data.pokemon[species]
-    local path = def and (side == "back" and def.spriteBack or def.spriteFront)
+    local path
+    if mon then
+      path = PokemonSprites.path(game.data, species, side,
+        { kind = "summary", mon = mon })
+    else
+      path = def and (side == "back" and def.spriteBack or def.spriteFront)
+    end
     if not path then return nil end
     local key = side .. ":" .. path
     if spriteCache[key] == nil then
@@ -1167,17 +1175,19 @@ return function(mod)
     return spriteCache[key] or nil
   end
 
-  local function drawSprite(species, side, x, y, maxW, maxH, tint)
-    local image = sprite(species, side)
+  local function drawSprite(species, side, x, y, maxW, maxH, tint,
+                            mon, quiet)
+    local image = sprite(species, side, mon)
     if not image then
-      box("fill", x + 4, y + 4, maxW - 8, maxH - 8, DARK)
-      return
+      if not quiet then box("fill", x + 4, y + 4, maxW - 8, maxH - 8, DARK) end
+      return false
     end
     local iw, ih = image:getDimensions()
     local scale = math.min(maxW / iw, maxH / ih)
     color(tint or { 1, 1, 1, 1 })
     G.draw(image, x + (maxW - iw * scale) / 2,
            y + (maxH - ih * scale) / 2, 0, scale, scale)
+    return true
   end
 
   local function battery(foreground)
@@ -1830,7 +1840,7 @@ return function(mod)
         and Growth.expForLevel(def.growthRate, level + 1,
                                game.data.growth_rates) or currentExp
       out[i] = {
-        slot = i, species = mon.species,
+        slot = i, species = mon.species, source = mon,
         name = mon.nickname or (def and def.name) or mon.species,
         level = level, hp = mon.hp,
         maxHp = mon.stats and mon.stats.hp or mon.hp,
@@ -1849,7 +1859,11 @@ return function(mod)
       text("-", x + 35, y + 14, DARK)
       return
     end
-    drawSprite(mon.species, "front", x + 2, y + 2, 27, 27)
+    local source = mon.source or mon
+    if not drawSprite(mon.species, "front", x + 2, y + 2, 27, 27,
+                      nil, source, true) then
+      PartyMenu.drawIcon(game, source, x + 8, y + 8, false, 0)
+    end
     text(fit(mon.name, 7), x + 29, y + 4, selected and PAPER or INK)
     text("L" .. tostring(mon.level or 0), x + 29, y + 14,
          selected and PAPER or DARK)
