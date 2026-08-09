@@ -367,6 +367,11 @@ local function battleChoice(state)
   return state and state.onChoose and state.index and not state.items or false
 end
 
+local function categorizedBag(state)
+  return state and (state.__pocketIndex ~= nil or state.modernBag ~= nil)
+    or false
+end
+
 local function levelUpStatBox(state)
   return state and state.mon and state.mon.stats and not state.screenId or false
 end
@@ -517,6 +522,10 @@ assert(not battleFocusChanged({}, {})
        and battleFocusChanged({ itemTitle = "MEDICINE" },
                               { itemTitle = "POKE BALLS" }),
        "battle focus sync")
+assert(categorizedBag({ __pocketIndex = 1 })
+       and categorizedBag({ modernBag = {} })
+       and not categorizedBag({ screenId = "BagMenu" }),
+       "categorized bag navigation")
 do
   local state = {}
   assert(bottomOwnsBattleUI(true, true, true, true, state)
@@ -1205,7 +1214,14 @@ return function(mod)
       box("fill", 0, HEADER - 2, WIDTH, 2, THEME.blue)
       box("fill", 0, HEADER - 2, 42, 2, THEME.red)
     end
-    if back then
+    if back and paged then
+      local label = fit(title, 9)
+      text("<", 4, 6, foreground)
+      box("fill", 16, 4, 1, 12, foreground)
+      text("<", 22, 6, foreground)
+      text(label, 58 - math.floor(#label * 3), 6, foreground)
+      text(">", 94, 6, foreground)
+    elseif back then
       text("<", 4, 6, foreground)
       text(fit(title, 12), 16, 6, foreground)
     elseif paged then
@@ -2015,7 +2031,7 @@ return function(mod)
   end
 
   local function drawBattleItems(menu)
-    header(menu.title or "ITEMS", true)
+    header(menu.title or "ITEMS", true, categorizedBag(menu))
     local odds = {}
     if assist("catch_odds") then
       for _, item in ipairs(battle.items or {}) do
@@ -2727,8 +2743,18 @@ return function(mod)
       return
     end
     if top and top.screenId == "BagMenu" then
-      if y < HEADER and x < 24 then
-        press("b")
+      if y < HEADER then
+        if categorizedBag(top) then
+          if x < 18 then
+            press("b")
+          elseif x < 40 then
+            press("left")
+          elseif x >= 86 and x < 108 then
+            press("right")
+          end
+        elseif x < 24 then
+          press("b")
+        end
       else
         local first, count = choiceWindow(top.items or {}, top.index)
         local row = math.floor((y - 25) / 28) + 1
