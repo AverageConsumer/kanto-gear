@@ -1641,6 +1641,12 @@ return function(mod)
     local badgeCount = Badges.count(game.data, save)
     local elapsed = math.max(0, math.floor(tonumber(save.playTime) or 0))
 
+    if spriteCache.__badges == nil then
+      local ok, card = pcall(require("src.ui.TrainerCard").new, game)
+      spriteCache.__badges = ok and card and card.badges or false
+    end
+    local badgeAsset = spriteCache.__badges
+
     header("TRAINER", false, true)
     box("fill", 4, 22, 152, 50, MID)
     outline(4, 22, 152, 50, INK)
@@ -1650,11 +1656,21 @@ return function(mod)
     text(("BADGES %d/%d"):format(badgeCount, #badges), 8, 48, DARK)
     local badgeGap = 152 / math.max(1, #badges)
     for i, badge in ipairs(badges) do
-      local x = math.floor(4 + (i - 1) * badgeGap)
-      local nextX = math.floor(4 + i * badgeGap)
-      box("fill", x + 4, 61, math.max(2, nextX - x - 7), 7,
-        inventory[Badges.itemFor(badge)] and DARK or MID)
-      outline(x + 4, 61, math.max(2, nextX - x - 7), 7, INK)
+      local owned = inventory[Badges.itemFor(badge)]
+      local quad = badgeAsset and badgeAsset.quads[i - 1]
+      if quad then
+        local tint = owned and INK or DARK
+        G.setColor(tint[1], tint[2], tint[3], owned and 1 or 0.25)
+        local x = math.floor(5 + (i - 1) * 134
+          / math.max(1, #badges - 1))
+        G.draw(badgeAsset.image, quad, x, 56)
+      else
+        local x = math.floor(4 + (i - 1) * badgeGap)
+        local nextX = math.floor(4 + i * badgeGap)
+        box("fill", x + 4, 61, math.max(2, nextX - x - 7), 7,
+          owned and DARK or MID)
+        outline(x + 4, 61, math.max(2, nextX - x - 7), 7, INK)
+      end
     end
     box("fill", 4, 76, 74, 29, PAPER)
     outline(4, 76, 74, 29, INK)
@@ -3382,6 +3398,7 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     game = payload.game
+    spriteCache.__badges = nil
     refreshTheme(true)
     reloadSteps()
     local player = game.save and game.save.player

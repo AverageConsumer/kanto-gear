@@ -283,6 +283,60 @@ T.check(fallbackIcons > 0,
   "unsupported Party sprites fall back to official Pokemon icons")
 T.check(fallbackIsWhite, "fallback Party icons keep their original colors")
 
+do
+  local badgeLoads, badgeAlphas = 0, {}
+  local draw = T.love.graphics.draw
+  local TrainerCard = require("src.ui.TrainerCard")
+  local trainerCardNew = TrainerCard.new
+  local dataBadges = game.data.constants.badges
+  game.data.constants.badges = {
+    { id = "BOULDERBADGE" }, { id = "CASCADEBADGE" },
+    { id = "THUNDERBADGE" }, { id = "RAINBOWBADGE" },
+    { id = "SOULBADGE" }, { id = "MARSHBADGE" },
+    { id = "VOLCANOBADGE" }, { id = "EARTHBADGE" },
+  }
+  TrainerCard.new = function()
+    badgeLoads = badgeLoads + 1
+    local badges = { image = T.love.graphics.newImage({}), quads = {} }
+    for i = 0, 7 do
+      badges.quads[i] = T.love.graphics.newQuad(0, i * 32 + 16,
+        16, 16, 16, 256)
+    end
+    return { badges = badges }
+  end
+  T.love.graphics.draw = function(image, quad, x, y, ...)
+    if type(quad) == "table" and quad.w == 16 and quad.h == 16
+        and y == 56 then
+      local _, _, _, alpha = T.love.graphics.getColor()
+      badgeAlphas[#badgeAlphas + 1] = alpha
+    end
+    return draw(image, quad, x, y, ...)
+  end
+  run.loader.events:emit("game.ready", { game = game })
+  for _ = 1, 32 do
+    trigger.right = 0.8
+    run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+    trigger.right = 0
+    run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+    run.loader.hooks:call("render.compose", function() return false end, {}, {
+      secondScreen = { detected = function() return displayDetected end,
+                       pollTouch = function() return nil end },
+    })
+    if #badgeAlphas >= 8 then break end
+  end
+  TrainerCard.new, T.love.graphics.draw = trainerCardNew, draw
+  game.data.constants.badges = dataBadges
+  T.eq(badgeLoads, 1, "Trainer badges reuse Recomp's Trainer Card sprites")
+  T.eq(#badgeAlphas, 8, "Trainer draws all eight real badge silhouettes")
+  local solid, faded = 0, 0
+  for _, alpha in ipairs(badgeAlphas) do
+    if alpha == 1 then solid = solid + 1
+    elseif alpha == 0.25 then faded = faded + 1 end
+  end
+  T.eq(solid, 1, "owned badges draw at full strength")
+  T.eq(faded, 7, "unearned badges remain visible as faded silhouettes")
+end
+
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), true,
   "the screen-swap action enables swapped output while connected")
