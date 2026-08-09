@@ -341,6 +341,8 @@ local function battleFocusChanged(a, b)
     or (a and a.partyIndex) ~= (b and b.partyIndex)
     or (a and a.subIndex) ~= (b and b.subIndex)
     or (a and a.itemIndex) ~= (b and b.itemIndex)
+    or (a and a.itemPocket) ~= (b and b.itemPocket)
+    or (a and a.itemTitle) ~= (b and b.itemTitle)
     or (a and a.summaryPage) ~= (b and b.summaryPage)
     or (a and a.mimicIndex) ~= (b and b.mimicIndex)
 end
@@ -510,7 +512,10 @@ do
 end
 assert(not battleFocusChanged({}, {})
        and battleFocusChanged({ moveIndex = 1 }, { moveIndex = 2 })
-       and battleFocusChanged({ itemIndex = 1 }, { itemIndex = 2 }),
+       and battleFocusChanged({ itemIndex = 1 }, { itemIndex = 2 })
+       and battleFocusChanged({ itemPocket = 1 }, { itemPocket = 2 })
+       and battleFocusChanged({ itemTitle = "MEDICINE" },
+                              { itemTitle = "POKE BALLS" }),
        "battle focus sync")
 do
   local state = {}
@@ -2010,7 +2015,7 @@ return function(mod)
   end
 
   local function drawBattleItems(menu)
-    header("ITEMS", true)
+    header(menu.title or "ITEMS", true)
     local odds = {}
     if assist("catch_odds") then
       for _, item in ipairs(battle.items or {}) do
@@ -2525,6 +2530,10 @@ return function(mod)
         and top.subIndex or nil
       nextBattle.itemIndex = top and top.screenId == "BagMenu"
         and top.index or nil
+      nextBattle.itemPocket = top and top.screenId == "BagMenu"
+        and top.__pocketIndex or nil
+      nextBattle.itemTitle = top and top.screenId == "BagMenu"
+        and top.title or nil
       nextBattle.summaryPage = top and top.screenId == "SummaryMenu"
         and top.page or nil
       if battleChoice(top) and not nextBattle.message
