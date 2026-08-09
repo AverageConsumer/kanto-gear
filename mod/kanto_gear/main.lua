@@ -2336,9 +2336,13 @@ return function(mod)
     end
   end
 
-  local function drawFullBattleRoot()
+  local function drawFullBattleStatuses()
     drawFullBattleStatus(battle.enemy, 0, false)
     drawFullBattleStatus(battle.player, 45, true)
+  end
+
+  local function drawFullBattleRoot()
+    drawFullBattleStatuses()
     drawFullBattleActions({ "FIGHT", "PKMN", "ITEM", "RUN" })
   end
 
@@ -2372,7 +2376,12 @@ return function(mod)
     elseif battle.prompt == "moves" then
       drawMoves()
     elseif battle.prompt ~= "menu" then
-      drawBattleLocked()
+      if fullBottomBattleUI() and battle.prompt == "locked"
+          and not (battle.message and #battle.message > 0) then
+        drawFullBattleStatuses()
+      else
+        drawBattleLocked()
+      end
     else
       if fullBottomBattleUI() then drawFullBattleRoot()
       else drawBattleRoot() end
