@@ -2,7 +2,12 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
+local Strings = require("src.core.Strings")
+Strings.load({ strings = { ["POKé BALL"] = "POKEBALL" } })
 local entry = assert(loadfile(path .. "/main.lua"))()
+Strings.load({})
+T.check(type(entry) == "function",
+  "Kanto Gear loads while a translation catalog is already active")
 local upvalues = debug.getinfo(entry, "u").nups
 local firstUpvalue = debug.getupvalue(entry, 1)
 if firstUpvalue == "_ENV" then upvalues = upvalues - 1 end
@@ -14,7 +19,6 @@ for index = 1, debug.getinfo(entry, "u").nups do
   if name == "fit" then fit = value break end
 end
 T.check(type(fit) == "function", "Kanto Gear text fitter is available")
-local Strings = require("src.core.Strings")
 Strings.load({ strings = {
   ["LEVEL UP"] = "LEVEL AUF",
   ["Trainer battle"] = "TRAINER-KAMPF",

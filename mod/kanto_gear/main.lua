@@ -601,9 +601,7 @@ local function glyphList(value)
   return out
 end
 
-local function clean(value)
-  value = tostring(value or "")
-  if Strings then value = Strings.lookup(value) end
+local function normalize(value)
   value = value:upper()
     :gsub("ä", "Ä"):gsub("ö", "Ö"):gsub("ü", "Ü")
     :gsub("ẞ", "SS"):gsub("ß", "SS")
@@ -615,9 +613,16 @@ local function clean(value)
   return table.concat(out)
 end
 
-assert(clean("40%") == "40%" and clean("POKé BALL") == "POKE BALL",
+local function clean(value)
+  value = tostring(value or "")
+  if Strings then value = Strings.lookup(value) end
+  return normalize(value)
+end
+
+assert(normalize("40%") == "40%"
+       and normalize("POKé BALL") == "POKE BALL",
        "text glyph normalization")
-assert(clean("Ärger über Größe") == "ÄRGER ÜBER GRÖSSE",
+assert(normalize("Ärger über Größe") == "ÄRGER ÜBER GRÖSSE",
        "German glyph normalization")
 
 local function fit(value, chars)
