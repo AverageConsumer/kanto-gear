@@ -1823,11 +1823,11 @@ return function(mod)
     box("fill", 4, 126, 152, 14, DARK)
     if enhanced then
       box("fill", 8, 132, 3, 3, MAP_EXIT)
-      text("EXIT", 14, 130, PAPER)
+      text(fit("EXIT", 7), 14, 130, PAPER)
       box("fill", 57, 132, 3, 3, MAP_ITEM)
-      text("ITEM", 63, 130, PAPER)
+      text(fit("ITEM", 7), 63, 130, PAPER)
       box("fill", 105, 132, 3, 3, MAP_HIDDEN)
-      text("HIDDEN", 111, 130, PAPER)
+      text(fit("HIDDEN", 7), 111, 130, PAPER)
     else
       centered(areaName(mapId), 130, PAPER)
     end
@@ -1950,7 +1950,7 @@ return function(mod)
         local tint = not row.caught and DARK or nil
         drawSprite(row.species, "front", 5, y + 1, 27, 27, tint)
         text(fit(row.name, 12), 35, y + 3, INK)
-        if row.caught then text("CAUGHT", 113, y + 3, DARK) end
+        if row.caught then text(fit("CAUGHT", 7), 113, y + 3, DARK) end
         local levels = row.minLevel == row.maxLevel
           and THEME:format("L%d", row.minLevel)
           or THEME:format("L%d-%d", row.minLevel, row.maxLevel)
@@ -1983,7 +1983,8 @@ return function(mod)
         box("fill", 3, y, 154, 20, row.done and MID or PAPER)
         outline(3, y, 154, 20, INK)
         text(fit(row.label, 18), 8, y + 7, INK)
-        text(row.status or (row.done and "DONE" or "OPEN"), 128, y + 7, DARK)
+        text(fit(row.status or (row.done and "DONE" or "OPEN"), 5),
+             128, y + 7, DARK)
       end
     end
     if screen.name == "HIDDEN" and assist("item_radar") then
@@ -2774,7 +2775,7 @@ return function(mod)
       if mode == "loading" then
         box("fill", 27, 57, 106, 30, DARK)
         outline(27, 57, 106, 30, PAPER)
-        centered("LOADING AREA", 69, PAPER)
+        centered(fit("LOADING AREA", 16), 69, PAPER)
       end
     end
     if not learn and not battle and mode == "active" then
