@@ -13,8 +13,9 @@ Turn a dual-screen Android handheld into a complete Gen 1 companion for [Gen1Rec
 </p>
 
 <p>
-  <img src="kanto-gear-map-2026.png" width="48%" alt="Kanto Gear detailed local map on a second screen">
-  <img src="kanto-gear-party-2026.png" width="48%" alt="Kanto Gear Pokémon party and guide on a second screen">
+  <img src="kanto-gear-local-map.png" width="32%" alt="Kanto Gear detailed local map with exits and item markers">
+  <img src="kanto-gear-party.png" width="32%" alt="Kanto Gear Pokémon party with sprites, HP and EXP">
+  <img src="kanto-gear-full-gear-battle.png" width="32%" alt="Kanto Gear Full Gear battle controls and status panels">
 </p>
 
 <p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.7.0">Download Kanto Gear</a></strong> · <strong><a href="#install-on-android">Install on Android</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
