@@ -180,6 +180,40 @@ do
     "B closes move info without leaking into the battle menu")
   local _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
   T.eq(openMoveInfo, nil, "B closes the move-info overlay")
+
+  local function upvalue(fn, target)
+    for i = 1, debug.getinfo(fn, "u").nups do
+      local name, value = debug.getupvalue(fn, i)
+      if name == target then return value end
+    end
+  end
+  local pollTriggerTabs = upvalue(inputHook, "pollTriggerTabs")
+  local changePage = upvalue(pollTriggerTabs, "changePage")
+  local refreshTools = upvalue(changePage, "refreshTools")
+  local api = upvalue(refreshTools, "mod")
+  local oldWorld = rawget(api, "world")
+  local oldBicycle = game.data.items.BICYCLE
+  local oldCut = game.data.moves.CUT
+  game.data.items.BICYCLE = { name = "FAHRRAD" }
+  game.data.moves.CUT = { name = "ZERSCHNEIDER" }
+  api.world = { availableFieldActions = function()
+    return {
+      { id = "bicycle", label = "BICYCLE" },
+      { id = "cut", label = "CUT" },
+      { id = "bicycle", label = "BIKE OFF" },
+    }
+  end }
+  refreshTools()
+  local actions = upvalue(refreshTools, "tools")
+  T.eq(actions[1].label, "FAHRRAD",
+    "Tools use the translated item name")
+  T.eq(actions[2].label, "ZERSCHNEIDER",
+    "Tools use the translated move name")
+  T.eq(actions[3].label, "BIKE OFF",
+    "contextual tool labels keep their specific meaning")
+  api.world = oldWorld
+  game.data.items.BICYCLE = oldBicycle
+  game.data.moves.CUT = oldCut
   game.input = nil
 end
 T.eq(run.loader.hooks:call("battle.caught_marker_visible",

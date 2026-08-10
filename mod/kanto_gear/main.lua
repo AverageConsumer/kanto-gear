@@ -978,6 +978,12 @@ return function(mod)
       and mod.world:availableFieldActions() or {}
     local keys = {}
     for i, action in ipairs(nextTools) do
+      local key = action.id == "bicycle" and "BICYCLE"
+        or tostring(action.id):upper()
+      local defs = game and game.data
+        and (action.id == "bicycle" and game.data.items or game.data.moves)
+      local def = defs and defs[key]
+      if action.label == key and def and def.name then action.label = def.name end
       local context = {}
       for _, rod in ipairs(action.rods or {}) do context[#context + 1] = rod.id end
       for _, source in ipairs(action.sources or {}) do
