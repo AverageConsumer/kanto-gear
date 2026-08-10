@@ -1873,7 +1873,8 @@ return function(mod)
     text(fit(player.name or "RED", 12), 8, 27, INK)
     text(THEME:format("ID %05d", player.id or 0), 89, 27, DARK)
     box("fill", 8, 43, 144, 1, DARK)
-    text(THEME:format("BADGES %d/%d", badgeCount, #badges), 8, 48, DARK)
+    text(THEME:format("%s %d/%d", THEME:translate("BADGES"),
+      badgeCount, #badges), 8, 48, DARK)
     local badgeGap = 152 / math.max(1, #badges)
     for i, badge in ipairs(badges) do
       local owned = inventory[badge.item or badge.id]

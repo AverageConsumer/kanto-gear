@@ -82,7 +82,7 @@ theme.strings = {
     return ({
       ["LEVEL UP"] = "LEVEL AUF",
       ["Trainer battle"] = "TRAINER-KAMPF",
-      ["BADGES %d/%d"] = "ORDEN %d/%d",
+      ["BADGES"] = "ORDEN",
       ["PP %d"] = "AP",
       ["TO LOWER"] = "KLEIN",
     })[source]
@@ -94,8 +94,8 @@ T.eq(fit("Trainer battle", 20), "TRAINER-KAMPF",
   "battle headers use the catalog's canonical source spelling")
 T.eq(fit("KANTO GEAR", 20), "KANTO GEAR",
   "untranslated Kanto Gear text keeps its English fallback")
-T.eq(theme:format("BADGES %d/%d", 3, 8), "ORDEN 3/8",
-  "dynamic UI text translates before interpolation")
+T.eq(theme:format("%s %d/%d", theme:translate("BADGES"), 3, 8),
+  "ORDEN 3/8", "dynamic UI text reuses translated labels")
 T.eq(theme:format("PP %d", 12), "PP 12",
   "malformed dynamic translations fall back without losing values")
 T.eq(theme:translate("TO LOWER"), "KLEIN",
