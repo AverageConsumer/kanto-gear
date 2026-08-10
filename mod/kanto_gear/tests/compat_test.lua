@@ -42,6 +42,11 @@ T.check(theme ~= nil,
 T.eq(theme:moveName({ id = "TACKLE", name = "TACKLE" }, {
   moves = { TACKLE = { name = "TACKLE-DE" } },
 }), "TACKLE-DE", "move cards use the live translated move name")
+T.eq(theme:typeName("POISON", { type_chart = {
+  get = function(_, id) return id == "POISON" and { name = "GIFT" } end,
+} }), "GIFT", "move details use the translated type registry")
+T.eq(theme:typeName("CUSTOM", {}), "CUSTOM",
+  "unknown move types keep their stable id")
 local toxicDetails, toxicKnown = theme:moveDescription(
   { id = "TOXIC" }, { effect = "POISON_EFFECT" }, {})
 T.check(toxicKnown and toxicDetails[1] == "BADLY POISONS TARGET",

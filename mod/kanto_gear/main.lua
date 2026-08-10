@@ -92,6 +92,12 @@ function THEME:moveName(move, data)
   return def and def.name or move and (move.name or move.id) or "MOVE"
 end
 
+function THEME:typeName(id, content)
+  local registry = content and content.type_chart
+  local record = id and registry and registry:get(id)
+  return record and record.name or id or "STATUS"
+end
+
 function THEME:moveDescription(move, def, ruleset)
   def = def or {}
   local id = move and move.id or def.id
@@ -2160,7 +2166,7 @@ return function(mod)
          x + 4, y + 4, dark and PAPER or INK)
     text(("PP %d/%d"):format(move.pp or 0, move.maxPp or 0), x + 4, y + 19,
          dark and PAPER or DARK)
-    text(fit(move.type or "STATUS", 7), x + 4, y + 34,
+    text(fit(THEME:typeName(move.type, mod.content), 7), x + 4, y + 34,
          dark and PAPER or DARK)
     if assist("type_hints") then
       text(effectLabel(move.effectiveness), x + 56, y + 34,
@@ -2181,7 +2187,7 @@ return function(mod)
          12, y + 3, dark and PAPER or INK)
     text(("PP %d/%d"):format(move.pp or 0, move.maxPp or 0),
          88, y + 3, dark and PAPER or DARK)
-    text(fit(move.type or "STATUS", 7), 12, y + 15,
+    text(fit(THEME:typeName(move.type, mod.content), 7), 12, y + 15,
          dark and PAPER or DARK)
     if assist("type_hints") then
       text(effectLabel(move.effectiveness), 110, y + 15,
@@ -2218,7 +2224,7 @@ return function(mod)
     header(fit(THEME:moveName(move, game and game.data), 12), true)
     box("fill", 12, 25, 136, 112, MID)
     outline(12, 25, 136, 112, INK)
-    centered(def.type or move.type or "STATUS", 33, INK, 2)
+    centered(THEME:typeName(def.type or move.type, mod.content), 33, INK, 2)
     text("POWER", 20, 54, DARK)
     text(tostring(move.displayPower or "--"), 20, 65, INK)
     text("HIT", 69, 54, DARK)
