@@ -47,6 +47,11 @@ T.eq(theme:typeName("POISON", { type_chart = {
 } }), "GIFT", "move details use the translated type registry")
 T.eq(theme:typeName("CUSTOM", {}), "CUSTOM",
   "unknown move types keep their stable id")
+T.eq(theme:statusName("PSN", { statuses = {
+  get = function(_, id)
+    return id == "PSN" and { label = "GIFT", hudLabel = "GIF" }
+  end,
+} }), "GIF", "party cards use the translated status registry")
 local toxicDetails, toxicKnown = theme:moveDescription(
   { id = "TOXIC" }, { effect = "POISON_EFFECT" }, {})
 T.check(toxicKnown and toxicDetails[1] == "BADLY POISONS TARGET",
@@ -77,6 +82,9 @@ theme.strings = {
     return ({
       ["LEVEL UP"] = "LEVEL AUF",
       ["Trainer battle"] = "TRAINER-KAMPF",
+      ["BADGES %d/%d"] = "ORDEN %d/%d",
+      ["PP %d"] = "AP",
+      ["TO LOWER"] = "KLEIN",
     })[source]
   end,
 }
@@ -86,7 +94,23 @@ T.eq(fit("Trainer battle", 20), "TRAINER-KAMPF",
   "battle headers use the catalog's canonical source spelling")
 T.eq(fit("KANTO GEAR", 20), "KANTO GEAR",
   "untranslated Kanto Gear text keeps its English fallback")
+T.eq(theme:format("BADGES %d/%d", 3, 8), "ORDEN 3/8",
+  "dynamic UI text translates before interpolation")
+T.eq(theme:format("PP %d", 12), "PP 12",
+  "malformed dynamic translations fall back without losing values")
+T.eq(theme:translate("TO LOWER"), "KLEIN",
+  "non-tile-font controls use the same translation source")
 theme.strings = nil
+for _, stale in ipairs({
+  'newDef.type or "STATUS"',
+  'fit(mon.status, 3)',
+  '("BADGES %d/%d"):format',
+  '("GUIDE %d/%d"):format',
+  '"SAFARI BALLS " ..',
+}) do
+  T.check(not source:find(stale, 1, true),
+    "Kanto Gear avoids untranslated dynamic UI path " .. stale)
+end
 local newCanvas = T.love.graphics.newCanvas
 T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)

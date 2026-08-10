@@ -92,10 +92,37 @@ function THEME:moveName(move, data)
   return def and def.name or move and (move.name or move.id) or "MOVE"
 end
 
+function THEME:translate(source)
+  return self.strings and self.strings:get(source) or source
+end
+
+local function formatSpecifierCount(value)
+  local count = 0
+  for spec in value:gmatch("%%(.)") do
+    if spec ~= "%" then count = count + 1 end
+  end
+  return count
+end
+
+function THEME:format(source, ...)
+  local template = self:translate(source)
+  if formatSpecifierCount(template) ~= formatSpecifierCount(source) then
+    template = source
+  end
+  local ok, value = pcall(string.format, template, ...)
+  return ok and value or string.format(source, ...)
+end
+
 function THEME:typeName(id, content)
   local registry = content and content.type_chart
   local record = id and registry and registry:get(id)
   return record and record.name or id or "STATUS"
+end
+
+function THEME:statusName(id, content)
+  local registry = content and content.statuses
+  local record = id and registry and registry:get(id)
+  return record and (record.hudLabel or record.label) or id
 end
 
 function THEME:moveDescription(move, def, ruleset)
@@ -103,7 +130,7 @@ function THEME:moveDescription(move, def, ruleset)
   local id = move and move.id or def.id
   local fixed = def.fixedDamage
   if type(fixed) == "number" then
-    return { "DEALS " .. fixed .. " FIXED DAMAGE" }, true
+    return { self:format("DEALS %d FIXED DAMAGE", fixed) }, true
   elseif fixed == "level" then
     return { "DAMAGE EQUALS", "USER LEVEL" }, true
   elseif type(fixed) == "function" then
@@ -111,13 +138,13 @@ function THEME:moveDescription(move, def, ruleset)
   end
   local hits = def.multiHit
   if type(hits) == "number" then
-    return { "HITS " .. hits .. " TIMES" }, true
+    return { self:format("HITS %d TIMES", hits) }, true
   elseif type(hits) == "table" and #hits > 0 then
     local low, high = hits[1], hits[1]
     for _, count in ipairs(hits) do
       low, high = math.min(low, count), math.max(high, count)
     end
-    return { "HITS " .. low .. "-" .. high .. " TIMES" }, true
+    return { self:format("HITS %d-%d TIMES", low, high) }, true
   end
   local special = self.moveSpecial[id]
   if special then return special, true end
@@ -138,19 +165,22 @@ function THEME:moveDescription(move, def, ruleset)
   end
   local stat, stages = effect and effect:match("^([A-Z]+)_UP([12])_EFFECT$")
   if stat then
-    return { "RAISES USER " .. stat,
+    return { self:format("RAISES USER %s", self:translate(stat)),
              stages == "2" and "BY TWO STAGES" or "BY ONE STAGE" }, true
   end
   stat, stages = effect and effect:match("^([A-Z]+)_DOWN([12])_EFFECT$")
   if stat then
     local amount = stages == "2" and "BY TWO STAGES" or "BY ONE STAGE"
-    local first = "LOWERS TARGET " .. stat
+    stat = self:translate(stat)
+    local first = self:format("LOWERS TARGET %s", stat)
     return #first <= 21 and { first, amount }
-      or { "LOWERS TARGET", stat .. " " .. amount }, true
+      or { "LOWERS TARGET", self:format("%s %s", stat,
+                                         self:translate(amount)) }, true
   end
   stat = effect and effect:match("^([A-Z]+)_DOWN_SIDE_EFFECT$")
   if stat then
-    return { "33.2% CHANCE TO LOWER", "TARGET " .. stat }, true
+    return { "33.2% CHANCE TO LOWER",
+             self:format("TARGET %s", self:translate(stat)) }, true
   end
   local description = self.moveEffects[effect]
   if description then return description, true end
@@ -379,7 +409,8 @@ local function methodLines(methods)
   for _, odds in ipairs(methods) do
     local chance = odds.min == odds.max and tostring(odds.min)
       or (odds.min .. "-" .. odds.max)
-    local method = odds.name .. " " .. chance .. "%"
+    local method = THEME:format("%s %s%%",
+      THEME:translate(odds.name), chance)
     local joined = lines[#lines] == "" and method or lines[#lines] .. "/" .. method
     if #joined <= 14 then
       lines[#lines] = joined
@@ -425,10 +456,10 @@ end
 
 local function clockText(is24Hour, timestamp)
   local time = os.date("*t", timestamp)
-  if is24Hour then return ("%02d:%02d"):format(time.hour, time.min) end
+  if is24Hour then return THEME:format("%02d:%02d", time.hour, time.min) end
   local hour = time.hour % 12
-  return ("%d:%02d%s"):format(hour == 0 and 12 or hour, time.min,
-    time.hour < 12 and "AM" or "PM")
+  return THEME:format("%d:%02d%s", hour == 0 and 12 or hour, time.min,
+    THEME:translate(time.hour < 12 and "AM" or "PM"))
 end
 
 local function itemfinderNear(px, py, x, y)
@@ -754,10 +785,7 @@ end
 
 local function clean(value)
   value = tostring(value or "")
-  if THEME.strings then
-    value = THEME.strings:get(value) or value
-  end
-  return normalize(value)
+  return normalize(THEME:translate(value))
 end
 
 assert(normalize("40%") == "40%"
@@ -864,8 +892,10 @@ return function(mod)
 
   local function compactSteps(value)
     if value < 100000 then return tostring(value) end
-    if value < 10000000 then return math.floor(value / 1000) .. "K" end
-    return math.floor(value / 1000000) .. "M"
+    if value < 10000000 then
+      return THEME:format("%dK", math.floor(value / 1000))
+    end
+    return THEME:format("%dM", math.floor(value / 1000000))
   end
   assert(compactSteps(99999) == "99999"
     and compactSteps(100000) == "100K"
@@ -1277,7 +1307,7 @@ return function(mod)
       for _, hidden in ipairs(field.hiddenCoins and field.hiddenCoins[id] or {}) do
         local key = id .. "_" .. hidden.x .. "_" .. hidden.y
         sections[3].rows[#sections[3].rows + 1] = {
-          label = tostring(hidden.coins) .. " COINS",
+          label = THEME:format("%d COINS", hidden.coins),
           done = save.hiddenTaken and save.hiddenTaken[key] == true or false,
         }
       end
@@ -1546,6 +1576,7 @@ return function(mod)
   end
 
   local function namingKey(x, y, w, label, selected)
+    label = THEME:translate(label)
     box("fill", x, y, w, 15, selected and DARK or MID)
     outline(x, y, w, 15, INK)
     color(selected and PAPER or INK)
@@ -1602,8 +1633,9 @@ return function(mod)
     local mon, stats = state.mon, state.mon.stats
     local def = game.data.pokemon[mon.species] or {}
     header("LEVEL UP")
-    centered(fit((mon.nickname or def.name or mon.species or "POKEMON")
-      .. "  L" .. tostring(mon.level or 0), 24), 27, DARK)
+    centered(fit(THEME:format("%s  L%d",
+      mon.nickname or def.name or mon.species or "POKEMON",
+      mon.level or 0), 24), 27, DARK)
     local rows = { { "ATTACK", stats.attack },
       { "DEFENSE", stats.defense }, { "SPEED", stats.speed },
       { "SPECIAL", stats.special } }
@@ -1839,9 +1871,9 @@ return function(mod)
     box("fill", 4, 22, 152, 50, MID)
     outline(4, 22, 152, 50, INK)
     text(fit(player.name or "RED", 12), 8, 27, INK)
-    text(("ID %05d"):format(player.id or 0), 89, 27, DARK)
+    text(THEME:format("ID %05d", player.id or 0), 89, 27, DARK)
     box("fill", 8, 43, 144, 1, DARK)
-    text(("BADGES %d/%d"):format(badgeCount, #badges), 8, 48, DARK)
+    text(THEME:format("BADGES %d/%d", badgeCount, #badges), 8, 48, DARK)
     local badgeGap = 152 / math.max(1, #badges)
     for i, badge in ipairs(badges) do
       local owned = inventory[badge.item or badge.id]
@@ -1863,7 +1895,7 @@ return function(mod)
     box("fill", 4, 76, 74, 29, PAPER)
     outline(4, 76, 74, 29, INK)
     text("MONEY", 8, 80, DARK)
-    text(fit("¥" .. tostring(save.money or 0), 11), 8, 92, INK)
+    text(fit(THEME:format("¥%d", save.money or 0), 11), 8, 92, INK)
     box("fill", 82, 76, 74, 29, PAPER)
     outline(82, 76, 74, 29, INK)
     text("TIME", 86, 80, DARK)
@@ -1896,13 +1928,15 @@ return function(mod)
   local function drawGuide()
     local guide = guideData()
     guidePage = math.max(1, math.min(guidePage, guide.pages))
-    header(("GUIDE %d/%d"):format(guidePage, guide.pages), false, true)
+    header(THEME:format("GUIDE %d/%d", guidePage, guide.pages), false, true)
     text(fit(guide.name, 15), 4, 23, DARK)
-    text(("DEX %d/%d"):format(guide.dexCaught, guide.dexTotal), 94, 23, INK)
+    text(THEME:format("DEX %d/%d", guide.dexCaught, guide.dexTotal),
+         94, 23, INK)
 
     box("fill", 4, 34, 152, 12, guide.complete and DARK or MID)
     local status = guide.complete and "+ AREA COMPLETE +"
-      or #guide.rows > 0 and ("AREA " .. guide.caught .. "/" .. #guide.rows)
+      or #guide.rows > 0 and THEME:format("AREA %d/%d",
+        guide.caught, #guide.rows)
       or "NO WILD ENCOUNTERS"
     centered(status, 37, guide.complete and PAPER or INK)
 
@@ -1917,8 +1951,8 @@ return function(mod)
         text(fit(row.name, 12), 35, y + 3, INK)
         if row.caught then text("CAUGHT", 113, y + 3, DARK) end
         local levels = row.minLevel == row.maxLevel
-          and ("L" .. row.minLevel)
-          or ("L" .. row.minLevel .. "-" .. row.maxLevel)
+          and THEME:format("L%d", row.minLevel)
+          or THEME:format("L%d-%d", row.minLevel, row.maxLevel)
         local methods1, methods2 = methodLines(row.methods)
         text(methods1, 35, y + 13, DARK)
         text(methods2, 35, y + 21, DARK)
@@ -1931,13 +1965,14 @@ return function(mod)
     local area = areaData()
     areaPage = math.max(1, math.min(areaPage, area.pages))
     local screen = area.screens[areaPage]
-    header(("AREA %d/%d"):format(areaPage, area.pages), false, true)
+    header(THEME:format("AREA %d/%d", areaPage, area.pages), false, true)
     text(fit(area.name, 23), 5, 23, DARK)
     local complete = screen.total > 0 and screen.done == screen.total
     box("fill", 4, 34, 152, 12, complete and DARK or MID)
-    local status = screen.total == 0 and ("NO " .. screen.name)
-      or complete and ("+ " .. screen.name .. " CLEARED +")
-      or ("%s %d/%d"):format(screen.name, screen.done, screen.total)
+    local name = THEME:translate(screen.name)
+    local status = screen.total == 0 and THEME:format("NO %s", name)
+      or complete and THEME:format("+ %s CLEARED +", name)
+      or THEME:format("%s %d/%d", name, screen.done, screen.total)
     centered(status, 37, complete and PAPER or INK)
 
     for slot = 1, screen.perPage do
@@ -1989,7 +2024,7 @@ return function(mod)
     box("fill", cx - 3, cy - 3, 6, 6, INK)
     centered(radarFrame < RADAR_FRAMES and "SCANNING"
       or #signals == 0 and "NO SIGNAL"
-      or ("SIGNALS " .. #signals), 132, DARK)
+      or THEME:format("SIGNALS %d", #signals), 132, DARK)
   end
 
   local function drawTools()
@@ -2063,14 +2098,15 @@ return function(mod)
       PartyMenu.drawIcon(game, source, x + 8, y + 8, false, 0)
     end
     text(fit(mon.name, 7), x + 29, y + 4, selected and PAPER or INK)
-    text("L" .. tostring(mon.level or 0), x + 29, y + 14,
+    text(THEME:format("L%d", mon.level or 0), x + 29, y + 14,
          selected and PAPER or DARK)
     hpBar(x + 29, y + 25, 41, mon.hp, mon.maxHp)
     expBar(x + 29, y + 30, 41, mon.expProgress or 0, selected)
     if (mon.hp or 0) <= 0 then
       text("FNT", x + 52, y + 14, selected and PAPER or INK)
     elseif mon.status then
-      text(fit(mon.status, 3), x + 52, y + 14, selected and PAPER or INK)
+      text(fit(THEME:statusName(mon.status, mod.content), 3),
+           x + 52, y + 14, selected and PAPER or INK)
     end
   end
 
@@ -2128,7 +2164,8 @@ return function(mod)
 
   local function drawSafari()
     header("SAFARI")
-    button(3, 24, 76, 54, "BALL x" .. tostring(battle.safariBalls or 0),
+    button(3, 24, 76, 54,
+           THEME:format("BALL x%d", battle.safariBalls or 0),
            battle.menuIndex == 1)
     button(81, 24, 76, 54, "BAIT", battle.menuIndex == 2)
     button(3, 81, 76, 56, "THROW ROCK", battle.menuIndex == 3)
@@ -2164,8 +2201,8 @@ return function(mod)
     outline(x, y, 76, 53, INK)
     text(fit(THEME:moveName(move, game and game.data), 10),
          x + 4, y + 4, dark and PAPER or INK)
-    text(("PP %d/%d"):format(move.pp or 0, move.maxPp or 0), x + 4, y + 19,
-         dark and PAPER or DARK)
+    text(THEME:format("PP %d/%d", move.pp or 0, move.maxPp or 0),
+         x + 4, y + 19, dark and PAPER or DARK)
     text(fit(THEME:typeName(move.type, mod.content), 7), x + 4, y + 34,
          dark and PAPER or DARK)
     if assist("type_hints") then
@@ -2185,7 +2222,7 @@ return function(mod)
     outline(8, y, 144, 27, INK)
     text(fit(THEME:moveName(move, game and game.data), 11),
          12, y + 3, dark and PAPER or INK)
-    text(("PP %d/%d"):format(move.pp or 0, move.maxPp or 0),
+    text(THEME:format("PP %d/%d", move.pp or 0, move.maxPp or 0),
          88, y + 3, dark and PAPER or DARK)
     text(fit(THEME:typeName(move.type, mod.content), 7), 12, y + 15,
          dark and PAPER or DARK)
@@ -2272,7 +2309,7 @@ return function(mod)
         right = right .. " " .. chanceLabel(odds[item.value])
       end
       button(8, 25 + (row - 1) * 28, 144, 25,
-             (item.label or tostring(index)) .. " " .. right,
+             THEME:format("%s %s", item.label or tostring(index), right),
              menu.index == index)
     end
   end
@@ -2281,8 +2318,8 @@ return function(mod)
     header("CHOOSE MOVE", true)
     for i, item in ipairs(menu.items or {}) do
       button(8, 25 + (i - 1) * 28, 144, 25,
-             (item.label or tostring(i)) .. "  PP " .. (item.right or "--"),
-             menu.index == i)
+             THEME:format("%s  PP %s", item.label or tostring(i),
+                          item.right or "--"), menu.index == i)
     end
   end
 
@@ -2290,37 +2327,39 @@ return function(mod)
     local mon, data = summary.mon, game.data
     local def = data.pokemon[mon.species] or {}
     local page, level = summary.page or 1, mon.level or 0
-    header("STATS " .. page .. "/2")
+    header(THEME:format("STATS %d/2", page))
     if page == 1 then
       local stats = mon.stats or {}
       local function typeName(index)
         local id = def.types and def.types[index]
-        local record = id and mod.content.type_chart:get(id)
-        return record and record.name or id or "--"
+        return id and THEME:typeName(id, mod.content) or "--"
       end
       drawSprite(mon.species, "front", 4, 23, 43, 43,
                  nil, mon.source or mon)
       text(fit(mon.nickname or def.name or mon.species, 17), 51, 24, INK)
-      text(("NO.%03d LV.%d"):format(def.dex or 0, level),
+      text(THEME:format("NO.%03d LV.%d", def.dex or 0, level),
            51, 36, DARK)
-      text(("HP %d/%d"):format(mon.hp or 0, stats.hp or 0), 51, 48, INK)
+      text(THEME:format("HP %d/%d", mon.hp or 0, stats.hp or 0),
+           51, 48, INK)
       hpBar(51, 59, 105, mon.hp, stats.hp)
-      text("STATUS " .. (mon.status or "OK"), 51, 65, DARK)
+      text(THEME:format("STATUS %s",
+        THEME:statusName(mon.status, mod.content)
+          or THEME:translate("OK")), 51, 65, DARK)
       box("fill", 4, 76, 152, 1, DARK)
-      text("ATK " .. tostring(stats.attack or 0), 5, 81, INK)
-      text("DEF " .. tostring(stats.defense or 0), 5, 92, INK)
-      text("SPD " .. tostring(stats.speed or 0), 5, 103, INK)
-      text("SPC " .. tostring(stats.special or 0), 5, 114, INK)
-      text("TYPE1 " .. typeName(1), 77, 81, DARK)
-      text("TYPE2 " .. typeName(2), 77, 92, DARK)
-      text("OT " .. fit(mon.ot or game.save.player.name or "RED", 10),
-           77, 103, DARK)
-      text(("ID %05d"):format(mon.otId or game.save.player.id or 0),
+      text(THEME:format("ATK %d", stats.attack or 0), 5, 81, INK)
+      text(THEME:format("DEF %d", stats.defense or 0), 5, 92, INK)
+      text(THEME:format("SPD %d", stats.speed or 0), 5, 103, INK)
+      text(THEME:format("SPC %d", stats.special or 0), 5, 114, INK)
+      text(THEME:format("TYPE1 %s", typeName(1)), 77, 81, DARK)
+      text(THEME:format("TYPE2 %s", typeName(2)), 77, 92, DARK)
+      text(THEME:format("OT %s",
+        fit(mon.ot or game.save.player.name or "RED", 10)), 77, 103, DARK)
+      text(THEME:format("ID %05d", mon.otId or game.save.player.id or 0),
            77, 114, DARK)
     else
       text(fit(mon.nickname or def.name or mon.species, 17), 5, 25, INK)
-      text("LV." .. tostring(level), 116, 25, DARK)
-      text("EXP " .. tostring(mon.exp or 0), 5, 39, DARK)
+      text(THEME:format("LV.%d", level), 116, 25, DARK)
+      text(THEME:format("EXP %d", mon.exp or 0), 5, 39, DARK)
       if level < 100 then
         local growth = def.growthRate
           and mod.content.growth_rates:get(def.growthRate)
@@ -2328,7 +2367,7 @@ return function(mod)
         local nextExp = math.max(0,
           (growth and growth.expForLevel
             and growth.expForLevel(level + 1) or 0) - (mon.exp or 0))
-        text(("NEXT L.%d %d"):format(level + 1, nextExp), 5, 51, DARK)
+        text(THEME:format("NEXT L.%d %d", level + 1, nextExp), 5, 51, DARK)
       else
         text("NEXT MAX", 5, 51, DARK)
       end
@@ -2341,7 +2380,7 @@ return function(mod)
         local y = 66 + (i - 1) * 14
         text(fit(moveDef and moveDef.name or move and move.id or "-", 14),
              6, y, INK)
-        text(move and ("PP %d/%d"):format(move.pp or 0, maxPP)
+        text(move and THEME:format("PP %d/%d", move.pp or 0, maxPP)
           or "PP --", 103, y, DARK)
       end
     end
@@ -2370,7 +2409,8 @@ return function(mod)
     local boxes = game.save.boxes or {}
     local current = game.save.currentBox or 1
     header("POKEMON PC")
-    centered(("BOX %d  %d/20"):format(current, #(boxes[current] or {})),
+    centered(THEME:format("BOX %d  %d/20", current,
+                          #(boxes[current] or {})),
              22, DARK)
     local labels = { "WITHDRAW", "DEPOSIT", "RELEASE", "BOXES" }
     for i, label in ipairs(labels) do
@@ -2395,7 +2435,7 @@ return function(mod)
                nil, mon.source or mon)
     text(fit(mon.nickname or def.name or mon.species, 6), x + 35, y + 9,
          selected and PAPER or INK)
-    text("LV." .. tostring(mon.level or 0), x + 35, y + 25,
+    text(THEME:format("LV.%d", mon.level or 0), x + 35, y + 25,
          selected and PAPER or DARK)
   end
 
@@ -2408,7 +2448,7 @@ return function(mod)
       pc_box_release = "RELEASE" })[list.kind] or "POKEMON"
     header(action, true)
     local pages = math.max(1, math.ceil(#list.items / 4))
-    centered(("BOX %d  %d/20  %d/%d"):format(current, #mons,
+    centered(THEME:format("BOX %d  %d/20  %d/%d", current, #mons,
       math.floor((math.max(1, list.index) - 1) / 4) + 1, pages), 22, DARK)
     if #list.items == 0 then
       centered("NOTHING HERE", 61, INK)
@@ -2451,10 +2491,12 @@ return function(mod)
     for row = 1, count do
       local index, item = first + row - 1, list.items[first + row - 1]
       button(8, 25 + (row - 1) * 28, 144, 25,
-             (item.label or tostring(index)) .. " " .. (item.right or ""),
+             THEME:format("%s %s", item.label or tostring(index),
+                          item.right or ""),
              list.index == index)
     end
-    centered(("PAGE %d/%d"):format(math.floor((list.index - 1) / 4) + 1,
+    centered(THEME:format("PAGE %d/%d",
+      math.floor((list.index - 1) / 4) + 1,
       math.max(1, math.ceil(#list.items / 4))), 136, DARK)
   end
 
@@ -2547,9 +2589,10 @@ return function(mod)
     local name = fit(mon.name or mon.species or "-", owned and 10 or 11)
     text(name, 9, y + 5, INK)
     if owned then drawCaughtBall(11 + #name * 8, y + 5) end
-    local status = (mon.hp or 0) <= 0 and "FNT" or mon.status
+    local status = (mon.hp or 0) <= 0 and "FNT"
+      or THEME:statusName(mon.status, mod.content)
     if status then text(fit(status, 3), 100, y + 5, DARK) end
-    text(fit("L" .. tostring(mon.level or 0), 4), 124, y + 5, DARK)
+    text(fit(THEME:format("L%d", mon.level or 0), 4), 124, y + 5, DARK)
     text("HP", 9, y + 24, DARK)
     drawFullBattleHpBar(28, y + 24, 68, mon.hp, mon.maxHp)
     if player then
@@ -2578,7 +2621,8 @@ return function(mod)
 
   local function drawFullSafari()
     drawFullBattleStatus(battle.enemy, 3, false)
-    centered("SAFARI BALLS " .. tostring(battle.safariBalls or 0), 64, DARK)
+    centered(THEME:format("SAFARI BALLS %d", battle.safariBalls or 0),
+             64, DARK)
     drawFullBattleActions({ "BALL", "BAIT", "ROCK", "RUN" })
   end
 
@@ -2633,7 +2677,7 @@ return function(mod)
     if learn.selecting and top == learn then
       header("FORGET MOVE")
       text(fit(newName, 14), 5, 25, INK)
-      text(fit(newDef.type or "STATUS", 8), 101, 25, DARK)
+      text(fit(THEME:typeName(newDef.type, mod.content), 8), 101, 25, DARK)
       for i = 1, 4 do
         local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
         local mv = learn.mon.moves[i]
@@ -2653,8 +2697,8 @@ return function(mod)
          51, 27, DARK)
     text(fit(newName, 16), 51, 42, INK)
     if assist("move_details") then
-      text(fit(newDef.type or "STATUS", 9), 51, 56, DARK)
-      text("PP " .. tostring(newDef.pp or 0), 112, 56, DARK)
+      text(fit(THEME:typeName(newDef.type, mod.content), 9), 51, 56, DARK)
+      text(THEME:format("PP %d", newDef.pp or 0), 112, 56, DARK)
     end
     box("fill", 7, 75, 146, 1, DARK)
     centered("FOLLOW TOP SCREEN", 83, INK)
