@@ -7,7 +7,7 @@
 Turn a dual-screen Android handheld into a complete Gen 1 companion for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp): keep the game on one display and put maps, party data, battles and touch controls on the other.
 
 <p>
-  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.7.0"><img src="https://img.shields.io/badge/release-v1.7.0-5c8a3c" alt="Latest release: v1.7.0"></a>
+  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.7.1"><img src="https://img.shields.io/badge/release-v1.7.1-5c8a3c" alt="Latest release: v1.7.1"></a>
   <a href="#supported-devices"><img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Platform: Android"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/code-MIT-blue.svg" alt="Code license: MIT"></a>
 </p>
@@ -18,7 +18,7 @@ Turn a dual-screen Android handheld into a complete Gen 1 companion for [Gen1Rec
   <img src="kanto-gear-full-gear-battle.png" width="32%" alt="Kanto Gear Full Gear battle controls and status panels">
 </p>
 
-<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.7.0">Download Kanto Gear</a></strong> · <strong><a href="#install-on-android">Install on Android</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
+<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.7.1">Download Kanto Gear</a></strong> · <strong><a href="#install-on-android">Install on Android</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
 
 </div>
 
@@ -44,8 +44,8 @@ optional; the host and Kanto Gear mod are required.
 
 | Download | Required | Purpose |
 | --- | :---: | --- |
-| [Gen1Recomp Android Test 0.1.75-kanto.6](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.6) | **Yes** | Android host with the dual-display bridge |
-| [Kanto Gear 1.7.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.7.0) | **Yes** | The second-screen companion mod |
+| [Gen1Recomp Android Test 0.1.76-kanto.7](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.76-kanto.7) | **Yes** | Android host with the dual-display bridge |
+| [Kanto Gear 1.7.1](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.7.1) | **Yes** | The second-screen companion mod |
 | [Dramatic Shape 1.7.0-android.1](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.7.0-android.1) | No | Tested optional 3D renderer for Android |
 
 > [!IMPORTANT]
@@ -57,8 +57,8 @@ optional; the host and Kanto Gear mod are required.
 You need your own supported Pokémon Red, Blue or Yellow ROM. No ROM or
 ROM-extracted game data is included.
 
-1. Install the [Gen1Recomp Android Test APK](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.75-kanto.6).
-2. Download [Kanto Gear 1.7.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.7.0).
+1. Install the [Gen1Recomp Android Test APK](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.76-kanto.7).
+2. Download [Kanto Gear 1.7.1](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.7.1).
 3. Open **Gen1Recomp Android Test → MODS → Import mod .zip** and select the
    Kanto Gear ZIP.
 4. Enable **Kanto Gear** and start the game. The companion opens automatically
