@@ -39,6 +39,34 @@ for index = 1, debug.getinfo(entry, "u").nups do
 end
 T.check(theme ~= nil,
   "Kanto Gear owns a public translation-registry reference")
+T.eq(theme:moveName({ id = "TACKLE", name = "TACKLE" }, {
+  moves = { TACKLE = { name = "TACKLE-DE" } },
+}), "TACKLE-DE", "move cards use the live translated move name")
+local toxicDetails, toxicKnown = theme:moveDescription(
+  { id = "TOXIC" }, { effect = "POISON_EFFECT" }, {})
+T.check(toxicKnown and toxicDetails[1] == "BADLY POISONS TARGET",
+  "move details describe move-specific Gen 1 behavior")
+local unknownDetails, unknownKnown = theme:moveDescription(
+  { id = "CUSTOM_MOVE" }, { effect = "CUSTOM_EFFECT" }, {})
+T.check(not unknownKnown and unknownDetails[1] == "NO DETAILS AVAILABLE",
+  "unknown mod effects are reported honestly")
+local movesPath = os.getenv("KANTO_GEAR_MOVES_PATH")
+if movesPath then
+  local moves = assert(loadfile(movesPath))()
+  local total, known = 0, 0
+  for id, def in pairs(moves) do
+    total = total + 1
+    local lines, covered = theme:moveDescription({ id = id }, def, {
+      focusEnergyBug = true,
+      hyperBeamSkipRechargeOnKO = true,
+    })
+    if covered then known = known + 1 end
+    for _, line in ipairs(lines) do
+      T.check(#line <= 21, id .. " move detail fits the info panel")
+    end
+  end
+  T.eq(known, total, "all imported Gen 1 moves have known details")
+end
 theme.strings = {
   get = function(_, source)
     return ({
@@ -125,12 +153,13 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { detected = function() return displayDetected end,
                    pollTouch = function() return nil end },
 })
-local swapPressed = true
+local swapPressed, infoPressed = true, false
 local trigger = { left = 0, right = 0 }
 T.love.joystick = { getJoysticks = function()
   return { {
     isGamepadDown = function(_, button)
       return button == "y" and swapPressed
+        or button == "x" and infoPressed
     end,
     getGamepadAxis = function(_, axis)
       return axis == "triggerleft" and trigger.left or trigger.right
@@ -180,6 +209,37 @@ do
     "B closes move info without leaking into the battle menu")
   local _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
   T.eq(openMoveInfo, nil, "B closes the move-info overlay")
+
+  local battleUpvalue
+  for i = 1, debug.getinfo(inputHook, "u").nups do
+    if debug.getupvalue(inputHook, i) == "battle" then
+      battleUpvalue = i
+      break
+    end
+  end
+  T.check(battleUpvalue ~= nil, "input hook owns the battle snapshot")
+  local _, previousBattle = debug.getupvalue(inputHook, battleUpvalue)
+  debug.setupvalue(inputHook, battleUpvalue, {
+    prompt = "moves", moveIndex = 1,
+    moves = { { id = "TACKLE", name = "TACKLE" } },
+  })
+  game.input = { pressQueue = {} }
+  swapPressed, infoPressed = false, true
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
+  T.eq(openMoveInfo.id, "TACKLE", "X opens the selected move details")
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
+  T.eq(openMoveInfo.id, "TACKLE", "holding X does not toggle move details")
+  infoPressed = false
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  infoPressed = true
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
+  T.eq(openMoveInfo, nil, "pressing X again closes move details")
+  infoPressed = false
+  swapPressed = previousSwapPressed
+  debug.setupvalue(inputHook, battleUpvalue, previousBattle)
 
   local function upvalue(fn, target)
     for i = 1, debug.getinfo(fn, "u").nups do

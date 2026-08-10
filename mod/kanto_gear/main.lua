@@ -18,6 +18,141 @@ local THEME = {
   blue = { 52 / 255, 53 / 255, 143 / 255, 1 },
   white = { 248 / 255, 249 / 255, 252 / 255, 1 },
 }
+
+THEME.highCritMoves = {
+  CRABHAMMER = true, KARATE_CHOP = true, RAZOR_LEAF = true, SLASH = true,
+}
+
+THEME.moveEffects = {
+  ATTACK_TWICE_EFFECT = { "HITS TWICE" },
+  BIDE_EFFECT = { "STORES DAMAGE 2-3", "TURNS THEN RETURNS 2X" },
+  BURN_SIDE_EFFECT1 = { "10.2% CHANCE", "TO BURN TARGET" },
+  BURN_SIDE_EFFECT2 = { "30.1% CHANCE", "TO BURN TARGET" },
+  CHARGE_EFFECT = { "CHARGES THIS TURN", "ATTACKS NEXT TURN" },
+  CONFUSION_EFFECT = { "CONFUSES THE TARGET" },
+  CONFUSION_SIDE_EFFECT = { "9.8% CHANCE", "TO CONFUSE TARGET" },
+  CONVERSION_EFFECT = { "COPIES TARGET TYPES" },
+  DISABLE_EFFECT = { "DISABLES RANDOM MOVE", "FOR 1-8 TURNS" },
+  DRAIN_HP_EFFECT = { "HEALS USER BY HALF", "OF DAMAGE DEALT" },
+  DREAM_EATER_EFFECT = { "ONLY HITS SLEEPING", "DRAINS HALF DAMAGE" },
+  EXPLODE_EFFECT = { "USER FAINTS AFTER", "THE ATTACK" },
+  FLINCH_SIDE_EFFECT1 = { "10.2% CHANCE", "TO FLINCH TARGET" },
+  FLINCH_SIDE_EFFECT2 = { "30.1% CHANCE", "TO FLINCH TARGET" },
+  FLY_EFFECT = { "FLIES UP THIS TURN", "ATTACKS NEXT TURN" },
+  FREEZE_SIDE_EFFECT1 = { "10.2% CHANCE", "TO FREEZE TARGET" },
+  HAZE_EFFECT = { "CLEARS BOTH SIDES", "STATS AND CONDITIONS" },
+  HEAL_EFFECT = { "RESTORES HALF OF", "USER MAX HP" },
+  JUMP_KICK_EFFECT = { "USER LOSES 1 HP", "IF ATTACK MISSES" },
+  LEECH_SEED_EFFECT = { "DRAINS TARGET HP", "EACH TURN" },
+  LIGHT_SCREEN_EFFECT = { "DOUBLES USER SPECIAL", "DEFENSE UNTIL SWITCH" },
+  METRONOME_EFFECT = { "USES A RANDOM MOVE" },
+  MIMIC_EFFECT = { "COPIES A TARGET MOVE" },
+  MIRROR_MOVE_EFFECT = { "REPEATS TARGET LAST", "MOVE" },
+  MIST_EFFECT = { "PREVENTS ENEMY STAT", "REDUCTIONS" },
+  OHKO_EFFECT = { "ONE-HIT KO", "FAILS IF USER SLOWER" },
+  PARALYZE_EFFECT = { "PARALYZES THE TARGET" },
+  PARALYZE_SIDE_EFFECT1 = { "10.2% CHANCE", "TO PARALYZE TARGET" },
+  PARALYZE_SIDE_EFFECT2 = { "30.1% CHANCE", "TO PARALYZE TARGET" },
+  PAY_DAY_EFFECT = { "SCATTERS 2X LEVEL", "COINS AFTER BATTLE" },
+  POISON_EFFECT = { "POISONS THE TARGET" },
+  POISON_SIDE_EFFECT1 = { "20.3% CHANCE", "TO POISON TARGET" },
+  POISON_SIDE_EFFECT2 = { "40.2% CHANCE", "TO POISON TARGET" },
+  RAGE_EFFECT = { "ATTACK RISES WHEN", "USER IS HIT" },
+  RECOIL_EFFECT = { "USER TAKES 1/4", "OF DAMAGE DEALT" },
+  REFLECT_EFFECT = { "DOUBLES USER DEFENSE", "UNTIL SWITCHING" },
+  SLEEP_EFFECT = { "PUTS TARGET TO SLEEP" },
+  SPLASH_EFFECT = { "DOES NOTHING" },
+  SUBSTITUTE_EFFECT = { "USES 1/4 MAX HP", "TO CREATE A DECOY" },
+  SUPER_FANG_EFFECT = { "HALVES TARGET", "CURRENT HP" },
+  SWIFT_EFFECT = { "NEVER MISSES" },
+  SWITCH_AND_TELEPORT_EFFECT = { "ENDS WILD BATTLE", "FAILS VS TRAINERS" },
+  THRASH_PETAL_DANCE_EFFECT = { "ATTACKS 3-4 TURNS", "THEN CONFUSES USER" },
+  TRANSFORM_EFFECT = { "COPIES TARGET STATS", "TYPES AND MOVES" },
+  TRAPPING_EFFECT = { "TRAPS FOR 2-5 HITS", "TARGET CANNOT MOVE" },
+  TWINEEDLE_EFFECT = { "HITS TWICE", "20.3% POISON CHANCE" },
+  TWO_TO_FIVE_ATTACKS_EFFECT = { "HITS 2-5 TIMES" },
+}
+
+THEME.moveSpecial = {
+  COUNTER = { "2X LAST NORMAL/FIGHT", "DAMAGE" },
+  DIG = { "DIGS UNDERGROUND", "ATTACKS NEXT TURN" },
+  DRAGON_RAGE = { "DEALS 40 FIXED DAMAGE" },
+  NIGHT_SHADE = { "DAMAGE EQUALS", "USER LEVEL" },
+  PSYWAVE = { "DEALS 1 TO 1.5X", "USER LEVEL DAMAGE" },
+  REST = { "FULLY HEALS USER", "THEN SLEEPS 2 TURNS" },
+  SEISMIC_TOSS = { "DAMAGE EQUALS", "USER LEVEL" },
+  SONICBOOM = { "DEALS 20 FIXED DAMAGE" },
+  STRUGGLE = { "USER TAKES HALF", "OF DAMAGE DEALT" },
+  TELEPORT = { "ESCAPES WILD BATTLE", "FAILS VS TRAINERS" },
+  TOXIC = { "BADLY POISONS TARGET", "DAMAGE GROWS PER TURN" },
+}
+
+function THEME:moveName(move, data)
+  local def = data and data.moves and move and data.moves[move.id]
+  return def and def.name or move and (move.name or move.id) or "MOVE"
+end
+
+function THEME:moveDescription(move, def, ruleset)
+  def = def or {}
+  local id = move and move.id or def.id
+  local fixed = def.fixedDamage
+  if type(fixed) == "number" then
+    return { "DEALS " .. fixed .. " FIXED DAMAGE" }, true
+  elseif fixed == "level" then
+    return { "DAMAGE EQUALS", "USER LEVEL" }, true
+  elseif type(fixed) == "function" then
+    return { "DEALS CUSTOM", "FIXED DAMAGE" }, true
+  end
+  local hits = def.multiHit
+  if type(hits) == "number" then
+    return { "HITS " .. hits .. " TIMES" }, true
+  elseif type(hits) == "table" and #hits > 0 then
+    local low, high = hits[1], hits[1]
+    for _, count in ipairs(hits) do
+      low, high = math.min(low, count), math.max(high, count)
+    end
+    return { "HITS " .. low .. "-" .. high .. " TIMES" }, true
+  end
+  local special = self.moveSpecial[id]
+  if special then return special, true end
+  if def.highCrit or self.highCritMoves[id] then
+    return { "HIGH CRITICAL-HIT", "RATE" }, true
+  end
+  local effect = def.effect
+  if effect == "FOCUS_ENERGY_EFFECT" then
+    return ruleset and ruleset.focusEnergyBug == false
+      and { "RAISES CRITICAL-HIT", "RATE" }
+      or { "LOWERS CRITICAL-HIT", "RATE DUE TO GEN 1 BUG" }, true
+  elseif effect == "HYPER_BEAM_EFFECT" then
+    return ruleset and ruleset.hyperBeamSkipRechargeOnKO == false
+      and { "USER MUST RECHARGE", "NEXT TURN" }
+      or { "RECHARGES NEXT TURN", "UNLESS TARGET FAINTS" }, true
+  elseif effect == "SPECIAL_DAMAGE_EFFECT" then
+    return { "SPECIAL DAMAGE", "NO DETAILS AVAILABLE" }, false
+  end
+  local stat, stages = effect and effect:match("^([A-Z]+)_UP([12])_EFFECT$")
+  if stat then
+    return { "RAISES USER " .. stat,
+             stages == "2" and "BY TWO STAGES" or "BY ONE STAGE" }, true
+  end
+  stat, stages = effect and effect:match("^([A-Z]+)_DOWN([12])_EFFECT$")
+  if stat then
+    local amount = stages == "2" and "BY TWO STAGES" or "BY ONE STAGE"
+    local first = "LOWERS TARGET " .. stat
+    return #first <= 21 and { first, amount }
+      or { "LOWERS TARGET", stat .. " " .. amount }, true
+  end
+  stat = effect and effect:match("^([A-Z]+)_DOWN_SIDE_EFFECT$")
+  if stat then
+    return { "33.2% CHANCE TO LOWER", "TARGET " .. stat }, true
+  end
+  local description = self.moveEffects[effect]
+  if description then return description, true end
+  if effect == "NO_ADDITIONAL_EFFECT" then
+    return { "DEALS DAMAGE" }, true
+  end
+  return { "NO DETAILS AVAILABLE" }, false
+end
 local RADAR_RED = { 220 / 255, 38 / 255, 28 / 255, 1 }
 local MAP_EXIT = { 0.20, 0.65, 1, 1 }
 local MAP_ITEM = { 1, 0.72, 0.10, 1 }
@@ -1998,7 +2133,7 @@ return function(mod)
     header("MIMIC")
     for i, move in ipairs(battle.mimicMoves or {}) do
       button(8, 25 + (i - 1) * 28, 144, 25,
-             move.name or move.id or tostring(i), battle.mimicIndex == i)
+             THEME:moveName(move, game and game.data), battle.mimicIndex == i)
     end
   end
 
@@ -2021,7 +2156,8 @@ return function(mod)
     local dark = disabled or selected
     box("fill", x, y, 76, 53, dark and DARK or MID)
     outline(x, y, 76, 53, INK)
-    text(fit(move.name, 10), x + 4, y + 4, dark and PAPER or INK)
+    text(fit(THEME:moveName(move, game and game.data), 10),
+         x + 4, y + 4, dark and PAPER or INK)
     text(("PP %d/%d"):format(move.pp or 0, move.maxPp or 0), x + 4, y + 19,
          dark and PAPER or DARK)
     text(fit(move.type or "STATUS", 7), x + 4, y + 34,
@@ -2032,7 +2168,7 @@ return function(mod)
     end
     if assist("move_details") then
       outline(x + 63, y + 2, 11, 11, dark and PAPER or INK)
-      text("?", x + 66, y + 4, dark and PAPER or INK)
+      text("X", x + 66, y + 4, dark and PAPER or INK)
     end
   end
 
@@ -2041,7 +2177,8 @@ return function(mod)
     local dark = disabled or selected
     box("fill", 8, y, 144, 27, dark and DARK or MID)
     outline(8, y, 144, 27, INK)
-    text(fit(move.name, 11), 12, y + 3, dark and PAPER or INK)
+    text(fit(THEME:moveName(move, game and game.data), 11),
+         12, y + 3, dark and PAPER or INK)
     text(("PP %d/%d"):format(move.pp or 0, move.maxPp or 0),
          88, y + 3, dark and PAPER or DARK)
     text(fit(move.type or "STATUS", 7), 12, y + 15,
@@ -2052,7 +2189,7 @@ return function(mod)
     end
     if assist("move_details") then
       outline(139, y + 14, 11, 11, dark and PAPER or INK)
-      text("?", 142, y + 16, dark and PAPER or INK)
+      text("X", 142, y + 16, dark and PAPER or INK)
     end
   end
 
@@ -2074,19 +2211,30 @@ return function(mod)
   end
 
   local function drawMoveInfo(move)
-    header(fit(move.name, 12), true)
-    box("fill", 12, 29, 136, 104, MID)
-    outline(12, 29, 136, 104, INK)
-    centered(move.type or "STATUS", 39, INK, 2)
-    text("POWER", 25, 72, DARK)
-    text(tostring(move.displayPower or "--"), 108, 72, INK)
-    text("HIT CHANCE", 25, 86, DARK)
-    text(chanceLabel(move.hitChance), 98, 86, INK)
-    text("PP", 25, 100, DARK)
-    text(("%d/%d"):format(move.pp or 0, move.maxPp or 0), 88, 100, INK)
+    local def = game and game.data and game.data.moves
+      and game.data.moves[move.id] or {}
+    local raw = battleState()
+    local lines = THEME:moveDescription(move, def, raw and raw.ruleset)
+    header(fit(THEME:moveName(move, game and game.data), 12), true)
+    box("fill", 12, 25, 136, 112, MID)
+    outline(12, 25, 136, 112, INK)
+    centered(def.type or move.type or "STATUS", 33, INK, 2)
+    text("POWER", 20, 54, DARK)
+    text(tostring(move.displayPower or "--"), 20, 65, INK)
+    text("HIT", 69, 54, DARK)
+    text(chanceLabel(move.hitChance), 61, 65, INK)
+    text("PP", 121, 54, DARK)
+    text(("%d/%d"):format(move.pp or 0, move.maxPp or 0), 108, 65, INK)
     if assist("type_hints") then
-      text("EFFECT", 25, 114, DARK)
-      text(effectLabel(move.effectiveness), 108, 114, INK)
+      text("MATCHUP", 25, 83, DARK)
+      text(effectLabel(move.effectiveness), 112, 83, INK)
+    end
+    box("fill", 19, 95, 122, 1, DARK)
+    if lines[2] then
+      centered(lines[1], 103, INK)
+      centered(lines[2], 116, INK)
+    else
+      centered(lines[1], 110, INK)
     end
   end
 
@@ -3143,11 +3291,13 @@ return function(mod)
   end
 
   local function pollScreenSwap()
-    local down = false
+    local down, infoDown = false, false
     local keyboard = love and love.keyboard
     if keyboard and keyboard.isDown then
       local ok, pressed = pcall(keyboard.isDown, "f6")
       down = ok and pressed or false
+      local okInfo, pressedInfo = pcall(keyboard.isDown, "x")
+      infoDown = okInfo and pressedInfo or false
     end
     local js = love and love.joystick
     if js and js.getJoysticks then
@@ -3156,14 +3306,18 @@ return function(mod)
         for _, pad in ipairs(pads or {}) do
           if pad.isGamepadDown then
             local okDown, pressed = pcall(pad.isGamepadDown, pad, "y")
-            if okDown and pressed then down = true break end
+            if okDown and pressed then down = true end
+            local okInfo, pressedInfo = pcall(pad.isGamepadDown, pad, "x")
+            if okInfo and pressedInfo then infoDown = true end
           end
         end
       end
     end
     local pressed = down and not screenSwapHeld
+    local infoPressed = infoDown and not triggerHeld.info
     screenSwapHeld = down
-    return pressed
+    triggerHeld.info = infoDown
+    return pressed, infoPressed
   end
 
   local function tap(x, y)
@@ -3516,7 +3670,18 @@ return function(mod)
       if consumed then back() end
     end
     pollTriggerTabs()
-    local swapPressed = pollScreenSwap()
+    local swapPressed, infoPressed = pollScreenSwap()
+    if infoPressed and assist("move_details") then
+      if moveInfo then
+        moveInfo = nil
+        dirty = true
+      elseif battle and battle.prompt == "moves" then
+        local raw = battleState()
+        local index = raw and raw.moveIndex or battle.moveIndex or 1
+        moveInfo = battle.moves and battle.moves[index]
+        dirty = moveInfo ~= nil or dirty
+      end
+    end
     if active and hasDisplay() and swapPressed then
       runtimeHandheldOverride = not bottomOnHandheld()
       resetSwapState()
