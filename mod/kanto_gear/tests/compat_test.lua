@@ -15,9 +15,14 @@ for index = 1, debug.getinfo(entry, "u").nups do
 end
 T.check(type(fit) == "function", "Kanto Gear text fitter is available")
 local Strings = require("src.core.Strings")
-Strings.load({ strings = { ["LEVEL UP"] = "LEVEL AUF" } })
+Strings.load({ strings = {
+  ["LEVEL UP"] = "LEVEL AUF",
+  ["Trainer battle"] = "TRAINER-KAMPF",
+} })
 T.eq(fit("LEVEL UP", 20), "LEVEL AUF",
   "Kanto Gear reads the active Recomp translation catalog")
+T.eq(fit("Trainer battle", 20), "TRAINER-KAMPF",
+  "battle headers use the catalog's canonical source spelling")
 T.eq(fit("KANTO GEAR", 20), "KANTO GEAR",
   "untranslated Kanto Gear text keeps its English fallback")
 Strings.load({})

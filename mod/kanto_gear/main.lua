@@ -1960,8 +1960,8 @@ return function(mod)
   end
 
   local function drawBattleRoot()
-    header(battle.kind == "wild" and "WILD BATTLE"
-      or battle.kind == "trainer" and "TRAINER BATTLE" or "BATTLE")
+    header(battle.kind == "wild" and "Wild battle"
+      or battle.kind == "trainer" and "Trainer battle" or "BATTLE")
     button(3, 24, 76, 54, "FIGHT", battle.menuIndex == 1)
     button(81, 24, 76, 54, "PKMN", battle.menuIndex == 2)
     button(3, 81, 76, 56, "ITEM", battle.menuIndex == 3)
@@ -2318,8 +2318,8 @@ return function(mod)
   end
 
   local function drawBattleLocked(title)
-    header(title or (battle.kind == "wild" and "WILD BATTLE"
-      or battle.kind == "trainer" and "TRAINER BATTLE" or "BATTLE"))
+    header(title or (battle.kind == "wild" and "Wild battle"
+      or battle.kind == "trainer" and "Trainer battle" or "BATTLE"))
     if hideUpperBattleUI()
         and battle.message and #battle.message > 0 then
       box("fill", 6, 30, 148, 106, DARK)
