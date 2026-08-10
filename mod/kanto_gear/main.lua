@@ -1,6 +1,8 @@
 local WIDTH, HEIGHT = 160, 144
 local HEADER = 20
 local G
+local stringsOK, Strings = pcall(require, "src.core.Strings")
+if not stringsOK then Strings = nil end
 
 local INK, DARK, MID, PAPER
 local THEME = {
@@ -585,7 +587,9 @@ local function box(mode, x, y, w, h, c)
 end
 
 local function clean(value)
-  return tostring(value or ""):upper()
+  value = tostring(value or "")
+  if Strings then value = Strings.lookup(value) end
+  return value:upper()
     :gsub("Ä", "AE"):gsub("Ö", "OE"):gsub("Ü", "UE")
     :gsub("É", "E"):gsub("é", "E"):gsub("_", " ")
     :gsub("[^A-Z0-9 :%%%+%-%./%?!<>]", "")
@@ -1415,8 +1419,9 @@ return function(mod)
 
   local function drawLevelUpStats(state)
     local mon, stats = state.mon, state.mon.stats
+    local def = game.data.pokemon[mon.species] or {}
     header("LEVEL UP")
-    centered(fit((mon.nickname or mon.species or "POKEMON")
+    centered(fit((mon.nickname or def.name or mon.species or "POKEMON")
       .. "  L" .. tostring(mon.level or 0), 24), 27, DARK)
     local rows = { { "ATTACK", stats.attack },
       { "DEFENSE", stats.defense }, { "SPEED", stats.speed },

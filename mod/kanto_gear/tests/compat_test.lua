@@ -8,6 +8,19 @@ local firstUpvalue = debug.getupvalue(entry, 1)
 if firstUpvalue == "_ENV" then upvalues = upvalues - 1 end
 T.check(upvalues <= 60,
   "Kanto Gear stays within LuaJIT's 60-upvalue function limit")
+local fit
+for index = 1, debug.getinfo(entry, "u").nups do
+  local name, value = debug.getupvalue(entry, index)
+  if name == "fit" then fit = value break end
+end
+T.check(type(fit) == "function", "Kanto Gear text fitter is available")
+local Strings = require("src.core.Strings")
+Strings.load({ strings = { ["LEVEL UP"] = "LEVEL AUF" } })
+T.eq(fit("LEVEL UP", 20), "LEVEL AUF",
+  "Kanto Gear reads the active Recomp translation catalog")
+T.eq(fit("KANTO GEAR", 20), "KANTO GEAR",
+  "untranslated Kanto Gear text keeps its English fallback")
+Strings.load({})
 local newCanvas = T.love.graphics.newCanvas
 T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)
