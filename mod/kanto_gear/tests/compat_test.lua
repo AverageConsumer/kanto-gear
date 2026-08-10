@@ -2,6 +2,16 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
+local sourceFile = assert(io.open(path .. "/main.lua", "rb"))
+local source = sourceFile:read("*a")
+sourceFile:close()
+for _, module in ipairs({
+  "src.core.Strings", "src.world.FieldDefaults", "src.inventory.Badges",
+  "src.pokemon.Growth", "src.battle.TypeChart",
+}) do
+  T.check(not source:find(module, 1, true),
+    "Kanto Gear no longer imports " .. module)
+end
 local Strings = require("src.core.Strings")
 Strings.load({ strings = { ["POKé BALL"] = "POKEBALL" } })
 local entry = assert(loadfile(path .. "/main.lua"))()
@@ -19,17 +29,31 @@ for index = 1, debug.getinfo(entry, "u").nups do
   if name == "fit" then fit = value break end
 end
 T.check(type(fit) == "function", "Kanto Gear text fitter is available")
-Strings.load({ strings = {
-  ["LEVEL UP"] = "LEVEL AUF",
-  ["Trainer battle"] = "TRAINER-KAMPF",
-} })
+local theme
+for index = 1, debug.getinfo(entry, "u").nups do
+  local name, value = debug.getupvalue(entry, index)
+  if name == "THEME" then
+    theme = value
+    break
+  end
+end
+T.check(theme ~= nil,
+  "Kanto Gear owns a public translation-registry reference")
+theme.strings = {
+  get = function(_, source)
+    return ({
+      ["LEVEL UP"] = "LEVEL AUF",
+      ["Trainer battle"] = "TRAINER-KAMPF",
+    })[source]
+  end,
+}
 T.eq(fit("LEVEL UP", 20), "LEVEL AUF",
-  "Kanto Gear reads the active Recomp translation catalog")
+  "Kanto Gear reads the public Recomp strings registry")
 T.eq(fit("Trainer battle", 20), "TRAINER-KAMPF",
   "battle headers use the catalog's canonical source spelling")
 T.eq(fit("KANTO GEAR", 20), "KANTO GEAR",
   "untranslated Kanto Gear text keeps its English fallback")
-Strings.load({})
+theme.strings = nil
 local newCanvas = T.love.graphics.newCanvas
 T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)
@@ -312,11 +336,13 @@ do
   local trainerCardNew = TrainerCard.new
   local dataBadges = game.data.constants.badges
   game.data.constants.badges = {
-    { id = "BOULDERBADGE" }, { id = "CASCADEBADGE" },
+    { id = "BOULDERBADGE", item = "TEST_BADGE" },
+    { id = "CASCADEBADGE" },
     { id = "THUNDERBADGE" }, { id = "RAINBOWBADGE" },
     { id = "SOULBADGE" }, { id = "MARSHBADGE" },
     { id = "VOLCANOBADGE" }, { id = "EARTHBADGE" },
   }
+  game.save.inventory.TEST_BADGE = true
   TrainerCard.new = function()
     badgeLoads = badgeLoads + 1
     local badges = { img = T.love.graphics.newImage({}), quads = {} }
@@ -349,6 +375,7 @@ do
   end
   TrainerCard.new, T.love.graphics.draw = trainerCardNew, draw
   game.data.constants.badges = dataBadges
+  game.save.inventory.TEST_BADGE = nil
   T.eq(badgeLoads, 1, "Trainer badges reuse Recomp's Trainer Card sprites")
   T.eq(#badgeAlphas, 8, "Trainer draws all eight real badge silhouettes")
   local solid, faded = 0, 0

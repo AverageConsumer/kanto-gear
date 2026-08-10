@@ -1,8 +1,6 @@
 local WIDTH, HEIGHT = 160, 144
 local HEADER = 20
 local G
-local stringsOK, Strings = pcall(require, "src.core.Strings")
-if not stringsOK then Strings = nil end
 
 local INK, DARK, MID, PAPER
 local THEME = {
@@ -615,7 +613,9 @@ end
 
 local function clean(value)
   value = tostring(value or "")
-  if Strings then value = Strings.lookup(value) end
+  if THEME.strings then
+    value = THEME.strings:get(value) or value
+  end
   return normalize(value)
 end
 
@@ -710,6 +710,8 @@ local function inside(x, y, left, top, width, height)
 end
 
 return function(mod)
+  THEME.strings = mod.content.strings
+
   local RADAR_FRAMES = 16
   local function isLowBattery(state, percent)
     percent = tonumber(percent)
@@ -1035,7 +1037,7 @@ return function(mod)
   local function guideData()
     local rows, bySpecies = {}, {}
     local data, field = game.data, game.data.field or {}
-    local fishing = require("src.world.FieldDefaults").field(data, "fishing") or {}
+    local fishing = field.fishing or {}
     for _, id in ipairs(areaMaps(mapId)) do
       local encounter = data.encounters and data.encounters[id]
       local buckets = data.constants and data.constants.encounterBuckets
@@ -1672,10 +1674,12 @@ return function(mod)
         if dex.owned and dex.owned[species] then owned = owned + 1 end
       end
     end
-    local Badges = require("src.inventory.Badges")
-    local badges = Badges.list(game.data)
+    local badges = game.data.constants and game.data.constants.badges or {}
     local inventory = save.inventory or {}
-    local badgeCount = Badges.count(game.data, save)
+    local badgeCount = 0
+    for _, badge in ipairs(badges) do
+      if inventory[badge.item or badge.id] then badgeCount = badgeCount + 1 end
+    end
     local elapsed = math.max(0, math.floor(tonumber(save.playTime) or 0))
 
     if spriteCache.__badges == nil then
@@ -1693,7 +1697,7 @@ return function(mod)
     text(("BADGES %d/%d"):format(badgeCount, #badges), 8, 48, DARK)
     local badgeGap = 152 / math.max(1, #badges)
     for i, badge in ipairs(badges) do
-      local owned = inventory[Badges.itemFor(badge)]
+      local owned = inventory[badge.item or badge.id]
       local quad = badgeAsset and badgeAsset.quads[i - 1]
       if quad then
         local tint = owned and INK or DARK
@@ -1874,15 +1878,17 @@ return function(mod)
 
   local function partyData()
     local out = {}
-    local Growth = require("src.pokemon.Growth")
     for i, mon in ipairs(game and game.save and game.save.party or {}) do
       local def = game.data.pokemon[mon.species] or {}
       local level = mon.level or 1
-      local currentExp = Growth.expForLevel(def.growthRate, level,
-                                            game.data.growth_rates)
+      local growth = def.growthRate
+        and mod.content.growth_rates:get(def.growthRate)
+        or mod.content.growth_rates:get("MEDIUM_FAST")
+      local currentExp = growth and growth.expForLevel
+        and math.max(0, growth.expForLevel(level)) or 0
       local nextExp = level < 100
-        and Growth.expForLevel(def.growthRate, level + 1,
-                               game.data.growth_rates) or currentExp
+        and growth and growth.expForLevel
+        and math.max(0, growth.expForLevel(level + 1)) or currentExp
       out[i] = {
         slot = i, species = mon.species, source = mon,
         name = mon.nickname or (def and def.name) or mon.species,
@@ -2127,10 +2133,10 @@ return function(mod)
     header("STATS " .. page .. "/2")
     if page == 1 then
       local stats = mon.stats or {}
-      local TypeChart = require("src.battle.TypeChart")
       local function typeName(index)
         local id = def.types and def.types[index]
-        return id and TypeChart.displayName(id) or "--"
+        local record = id and mod.content.type_chart:get(id)
+        return record and record.name or id or "--"
       end
       drawSprite(mon.species, "front", 4, 23, 43, 43,
                  nil, mon.source or mon)
@@ -2156,9 +2162,12 @@ return function(mod)
       text("LV." .. tostring(level), 116, 25, DARK)
       text("EXP " .. tostring(mon.exp or 0), 5, 39, DARK)
       if level < 100 then
-        local Growth = require("src.pokemon.Growth")
+        local growth = def.growthRate
+          and mod.content.growth_rates:get(def.growthRate)
+          or mod.content.growth_rates:get("MEDIUM_FAST")
         local nextExp = math.max(0,
-          Growth.expForLevel(def.growthRate, level + 1) - (mon.exp or 0))
+          (growth and growth.expForLevel
+            and growth.expForLevel(level + 1) or 0) - (mon.exp or 0))
         text(("NEXT L.%d %d"):format(level + 1, nextExp), 5, 51, DARK)
       else
         text("NEXT MAX", 5, 51, DARK)
