@@ -577,6 +577,9 @@ local FONT = {
   ["<"]="00010001000100010000010000010000010",
   [">"]="01000001000001000001000100010001000",
   ["!"]="00100001000010000100001000000000100",
+  ["Ä"]="10001000000111010001111111000110001",
+  ["Ö"]="10001000000111010001100011000101110",
+  ["Ü"]="10001000001000110001100011000101110",
 }
 
 local function color(c) G.setColor(c[1], c[2], c[3], c[4]) end
@@ -586,30 +589,52 @@ local function box(mode, x, y, w, h, c)
   G.rectangle(mode, x, y, w, h)
 end
 
+local function glyphList(value)
+  local out, index = {}, 1
+  while index <= #value do
+    local first = value:byte(index)
+    local size = first < 0x80 and 1 or first < 0xE0 and 2
+      or first < 0xF0 and 3 or 4
+    out[#out + 1] = value:sub(index, index + size - 1)
+    index = index + size
+  end
+  return out
+end
+
 local function clean(value)
   value = tostring(value or "")
   if Strings then value = Strings.lookup(value) end
-  return value:upper()
-    :gsub("Ä", "AE"):gsub("Ö", "OE"):gsub("Ü", "UE")
+  value = value:upper()
+    :gsub("ä", "Ä"):gsub("ö", "Ö"):gsub("ü", "Ü")
+    :gsub("ẞ", "SS"):gsub("ß", "SS")
     :gsub("É", "E"):gsub("é", "E"):gsub("_", " ")
-    :gsub("[^A-Z0-9 :%%%+%-%./%?!<>]", "")
+  local out = {}
+  for _, glyph in ipairs(glyphList(value)) do
+    if glyph == " " or FONT[glyph] then out[#out + 1] = glyph end
+  end
+  return table.concat(out)
 end
 
 assert(clean("40%") == "40%" and clean("POKé BALL") == "POKE BALL",
        "text glyph normalization")
+assert(clean("Ärger über Größe") == "ÄRGER ÜBER GRÖSSE",
+       "German glyph normalization")
 
 local function fit(value, chars)
-  local out = clean(value)
-  if #out > chars then out = out:sub(1, math.max(1, chars - 1)) .. "." end
-  return out
+  local glyphs = glyphList(clean(value))
+  if #glyphs <= chars then return table.concat(glyphs) end
+  local out = {}
+  for index = 1, math.max(0, chars - 1) do out[index] = glyphs[index] end
+  out[#out + 1] = "."
+  return table.concat(out)
 end
 
 local function text(value, x, y, c, scale)
   value, scale = clean(value), scale or 1
   color(c)
   local cursor = x
-  for index = 1, #value do
-    local glyph = FONT[value:sub(index, index)]
+  for _, character in ipairs(glyphList(value)) do
+    local glyph = FONT[character]
     if glyph then
       for row = 0, 6 do
         for column = 0, 4 do
@@ -626,7 +651,8 @@ end
 
 local function centered(value, y, c, scale)
   value, scale = clean(value), scale or 1
-  text(value, math.floor((WIDTH - #value * 6 * scale) / 2), y, c, scale)
+  text(value, math.floor((WIDTH - #glyphList(value) * 6 * scale) / 2),
+       y, c, scale)
 end
 
 local function outline(x, y, w, h, c)
@@ -668,8 +694,9 @@ local function button(x, y, w, h, label, selected)
   end
   local c = modern and selected and THEME.white
     or selected and PAPER or INK
-  text(fit(label, math.floor((w - 8) / 6)),
-       x + math.max(4, math.floor((w - #fit(label, math.floor((w - 8) / 6)) * 6) / 2)),
+  local shown = fit(label, math.floor((w - 8) / 6))
+  text(shown, x + math.max(4,
+       math.floor((w - #glyphList(shown) * 6) / 2)),
        y + math.floor((h - 7) / 2), c)
 end
 
