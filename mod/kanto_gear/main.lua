@@ -1900,13 +1900,15 @@ return function(mod)
       and #flyTargets() > 0
   end
 
+  function compat.currentRegion()
+    if not compat.isGen2() then return nil end
+    local entry = locationEntry(mapId)
+    local index = tonumber(entry and entry.index) or 0
+    return (index == 94 or index < 46) and "johto" or "kanto"
+  end
+
   local function drawMap()
-    local region
-    if compat.isGen2() then
-      local entry = locationEntry(mapId)
-      local index = tonumber(entry and entry.index) or 0
-      region = (index == 94 or index < 46) and "johto" or "kanto"
-    end
+    local region = compat.currentRegion()
     local mapTitle = region and (region:upper() .. (canFly() and " FLY" or " MAP"))
       or (canFly() and "MAP + FLY" or "MAP")
     header(mapTitle, false, true)
@@ -2106,8 +2108,8 @@ return function(mod)
         local quad = asset.quads[base + cell[3]]
         if quad then
           local px = (flip and (1 - cell[1]) or cell[1]) * 8
-          G.draw(asset.image, quad, x + (px + (flip and 8 or 0)) * 0.5,
-            y + cell[2] * 4, 0, sx * 0.5, 0.5)
+          G.draw(asset.image, quad, x + px + (flip and 8 or 0),
+            y + cell[2] * 8, 0, sx, 1)
         end
       end
     end
@@ -2133,6 +2135,7 @@ return function(mod)
       end
     end
     local badges = game.data.constants and game.data.constants.badges or {}
+    local shownBadges = badges
     if compat.isGen2() then
       badges = {}
       for _, id in ipairs(THEME.gen2Badges.johto) do
@@ -2141,6 +2144,11 @@ return function(mod)
       for _, id in ipairs(THEME.gen2Badges.kanto) do
         badges[#badges + 1] = { id = id, region = "kanto" }
       end
+      shownBadges = {}
+      local region = compat.currentRegion()
+      for _, id in ipairs(THEME.gen2Badges[region] or THEME.gen2Badges.johto) do
+        shownBadges[#shownBadges + 1] = { id = id, region = region or "johto" }
+      end
     end
     local inventory = save.inventory or {}
     local playerBadges = player.badges or {}
@@ -2148,14 +2156,23 @@ return function(mod)
       if compat.isGen2() then
         local held = badge.region == "kanto" and (player.kantoBadges or {})
           or playerBadges
-        local slot = badge.region == "kanto" and index - 8 or index
-        return held[badge.id] or held[slot]
+        return held[badge.id] or held[index]
       end
       return inventory[badge.item or badge.id]
     end
     local badgeCount = 0
-    for i, badge in ipairs(badges) do
-      if ownsBadge(badge, i) then badgeCount = badgeCount + 1 end
+    if compat.isGen2() then
+      for _, region in ipairs({ "johto", "kanto" }) do
+        for i, id in ipairs(THEME.gen2Badges[region]) do
+          if ownsBadge({ id = id, region = region }, i) then
+            badgeCount = badgeCount + 1
+          end
+        end
+      end
+    else
+      for i, badge in ipairs(badges) do
+        if ownsBadge(badge, i) then badgeCount = badgeCount + 1 end
+      end
     end
     local elapsed = math.max(0, math.floor(compat.playSeconds(save)))
 
@@ -2178,16 +2195,15 @@ return function(mod)
     box("fill", 8, 43, 144, 1, DARK)
     text(THEME:format("%s %d/%d", THEME:translate("BADGES"),
       badgeCount, #badges), 8, 48, DARK)
-    for i, badge in ipairs(badges) do
+    for i, badge in ipairs(shownBadges) do
       local badgeOwned = ownsBadge(badge, i)
       local quad = badgeAsset and badgeAsset.quads and badgeAsset.quads[i - 1]
       if compat.isGen2() then
-        local col, row = (i - 1) % 8, math.floor((i - 1) / 8)
-        local x, y = 7 + col * 19, 55 + row * 9
+        local x, y = 5 + (i - 1) * 19, 55
         if not compat.drawGen2Badge(badge.id, x, y, badgeOwned) then
-          box("fill", x, y, 8, 7, badgeOwned and DARK or MID)
-          outline(x, y, 8, 7, INK)
-          text(badge.id:sub(1, 1), x + 2, y + 1,
+          box("fill", x, y, 16, 14, badgeOwned and DARK or MID)
+          outline(x, y, 16, 14, INK)
+          text(badge.id:sub(1, 2), x + 2, y + 4,
             badgeOwned and PAPER or DARK)
         end
       elseif quad then
@@ -2406,10 +2422,13 @@ return function(mod)
       return
     end
     local source = mon.source or mon
-    if not drawSprite(mon.species, "front", x + 2, y + 2, 27, 27,
-                      nil, source, true) then
-      compat.drawPokemonIcon(source, x + 2, y + 2)
+    local drawn = compat.isGen2()
+      and compat.drawPokemonIcon(source, x + 2, y + 2)
+    if not drawn then
+      drawn = drawSprite(mon.species, "front", x + 2, y + 2, 27, 27,
+                         nil, source, true)
     end
+    if not drawn then compat.drawPokemonIcon(source, x + 2, y + 2) end
     text(fit(mon.name, 7), x + 29, y + 4, selected and PAPER or INK)
     text(THEME:format("L%d", mon.level or 0), x + 29, y + 14,
          selected and PAPER or DARK)
@@ -2566,6 +2585,28 @@ return function(mod)
     end
   end
 
+  function compat.typeEffectiveness(moveType, defenderTypes, chart)
+    if not (moveType and defenderTypes and defenderTypes[1] and chart) then
+      return nil
+    end
+    local multiplier = 10
+    for _, row in ipairs(chart.matchups or {}) do
+      if row.attacker == moveType then
+        for _, defenderType in ipairs(defenderTypes) do
+          if row.defender == defenderType then
+            multiplier = math.floor(multiplier * row.multiplier / 10)
+            break
+          end
+        end
+      end
+    end
+    return multiplier
+  end
+  assert(compat.typeEffectiveness("FIRE", { "GRASS", "BUG" }, { matchups = {
+    { attacker = "FIRE", defender = "GRASS", multiplier = 20 },
+    { attacker = "FIRE", defender = "BUG", multiplier = 20 },
+  } }) == 40, "type effectiveness preview")
+
   function compat.moveInfoLines(move, def, ruleset)
     if compat.isGen2() and type(def.description) == "string"
         and #def.description > 0 then
@@ -2639,8 +2680,9 @@ return function(mod)
       return
     end
     local cancel = menu.isCancel and menu:isCancel()
+    local selected = not cancel and menu.index or nil
     drawParty(battle.party or {}, cancel and "CANCEL" or "PARTY", true, nil,
-      cancel and nil or menu.index)
+      selected)
   end
 
   function compat.battleBagMenu(menu)
@@ -3236,6 +3278,16 @@ return function(mod)
           copy.hp = math.max(0, math.floor(source.shownHP or shown
             or mon.hp or copy.hp or 0))
           copy.status = source.shownStatus or copy.status
+        end
+      end
+      if compat.isGen2() and nextBattle.enemy then
+        local enemy = game.data.pokemon
+          and game.data.pokemon[nextBattle.enemy.species]
+        for _, move in ipairs(nextBattle.moves or {}) do
+          if move.effectiveness == nil then
+            move.effectiveness = compat.typeEffectiveness(move.type,
+              enemy and enemy.types, game.data.type_chart)
+          end
         end
       end
     end
