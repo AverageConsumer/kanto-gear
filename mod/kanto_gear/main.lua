@@ -3080,10 +3080,7 @@ return function(mod)
 
   local function drawPc(kind, root, top)
     local list = pcList()
-    if compat.isScreen(top, "summary") then
-      if compat.summary.supports(top, game) then drawBattleSummary(top)
-      else drawTopSummaryControls(top) end
-    elseif kind == "items" and top and top.qty and top.max and top.onDone then
+    if kind == "items" and top and top.qty and top.max and top.onDone then
       drawPcQuantity(top, list)
     elseif list and list.kind == "pc_box_deposit" then
       drawParty(partyData(), "DEPOSIT", true, nil, list.index)
@@ -3291,8 +3288,6 @@ return function(mod)
     local naming = not compat.isGen2()
       and compat.isScreen(top, "naming") and top
     local levelStats = battle and levelUpStatBox(top) and top
-    local idleSummary = compat.isScreen(top, "summary")
-      and not battle and not pcKind and top
     if learn then
       drawLearnMove(learn, top)
     elseif naming then
@@ -3305,10 +3300,6 @@ return function(mod)
       drawBattle()
     elseif pcKind then
       drawPc(pcKind, pcRoot, top)
-    elseif idleSummary then
-      if compat.summary.supports(idleSummary, game) then
-        drawBattleSummary(idleSummary)
-      else drawTopSummaryControls(idleSummary) end
     elseif fieldChoice then
       drawFieldChoice()
     elseif mode == "title" then
@@ -3330,7 +3321,7 @@ return function(mod)
     else
       drawTools()
     end
-    if not learn and not naming and not battle and not choice and not idleSummary
+    if not learn and not naming and not battle and not choice
         and not (pcKind and mode == "locked")
         and mode ~= "title" and mode ~= "active" then
       drawDim(fade, mode == "textbox" and textPrompt(top))
@@ -3713,20 +3704,6 @@ return function(mod)
   end
 
   local function tapPc(kind, root, top, x, y)
-    if compat.isScreen(top, "summary") then
-      if y < HEADER and x < 24 then
-        press("b")
-      elseif compat.summary.supports(top, game)
-          and inside(x, y, 103, 125, 53, 15) then
-        press("a")
-      elseif not compat.summary.supports(top, game)
-          and inside(x, y, 14, 94, 132, 34) then
-        press("b")
-      end
-      dirty = true
-      return
-    end
-
     local list = pcList()
     if kind == "items" and top and top.qty and top.max and top.onDone then
       if y < HEADER and x < 24 then
@@ -3970,6 +3947,7 @@ return function(mod)
   local function tap(x, y)
     local summary = screenById("summary")
     if summary and game.stack:top() == summary then
+      if not battle then return end
       if y < HEADER and x < 24 then
         press("b")
       elseif compat.summary.supports(summary, game)
@@ -4536,7 +4514,8 @@ return function(mod)
     if next(state) == false then return false end
     if compat.isScreen(state, "summary")
         and compat.summary.supports(state, game) then
-      return not (active and hasDisplay() and displayReady)
+      return not (active and hasDisplay() and displayReady
+        and battleState() ~= nil)
     end
     local owned = bottomOwnsBattleUI(
       hideUpperBattleUI(), active,

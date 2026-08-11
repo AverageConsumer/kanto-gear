@@ -160,7 +160,12 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 })
 T.eq(run.loader.hooks:call("screen.render_visible",
   function() return true end, summary), false,
-  "supported Gold summaries render only on the companion screen")
+  "Gold battle summaries render only on the companion screen")
+game.stack.states = { summary }
+T.eq(run.loader.hooks:call("screen.render_visible",
+  function() return true end, summary), true,
+  "Gold field summaries keep their native top-screen rendering")
+game.stack.states = { screen, party, summary }
 summary.moveDetail = true
 T.eq(run.loader.hooks:call("screen.render_visible",
   function() return true end, summary), true,

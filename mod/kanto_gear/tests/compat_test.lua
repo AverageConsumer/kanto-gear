@@ -34,6 +34,8 @@ T.check(not Summary.supports(gen2State),
   "unknown summary subviews safely remain on the native screen")
 T.check(not source:find("bottomSummary", 1, true),
   "summary ownership no longer depends on where it was opened")
+T.check(not source:find("idleSummary", 1, true),
+  "field summaries leave the companion page in place")
 for _, module in ipairs({
   "src.core.Strings", "src.world.FieldDefaults", "src.inventory.Badges",
   "src.pokemon.Growth", "src.battle.TypeChart",
@@ -245,6 +247,35 @@ game.stack = { states = { world }, top = function(self)
   return self.states[#self.states]
 end }
 run.loader.events:emit("game.ready", { game = game })
+do
+  local summary = { screenId = "SummaryMenu", page = 1,
+    mon = game.save.party[1] }
+  local previousStates = game.stack.states
+  local summaryHook
+  for _, entry in ipairs(run.loader.hooks.chains["screen.render_visible"] or {}) do
+    if entry.owner == "kanto_gear" then summaryHook = entry.callback end
+  end
+  local readyUpvalue
+  for i = 1, debug.getinfo(summaryHook, "u").nups do
+    if debug.getupvalue(summaryHook, i) == "displayReady" then
+      readyUpvalue = i
+      break
+    end
+  end
+  T.check(readyUpvalue ~= nil, "summary hook tracks companion readiness")
+  local _, previousReady = debug.getupvalue(summaryHook, readyUpvalue)
+  debug.setupvalue(summaryHook, readyUpvalue, true)
+  game.stack.states = { world, summary }
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, summary), true,
+    "Gen 1 field summaries keep their native top-screen rendering")
+  game.stack.states = { world, { isBattleState = true }, summary }
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, summary), false,
+    "Gen 1 battle summaries render only on the companion screen")
+  debug.setupvalue(summaryHook, readyUpvalue, previousReady)
+  game.stack.states = previousStates
+end
 do
   local inputHook
   for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
