@@ -6,6 +6,7 @@
   "entry": "main.lua",
   "category": "UI",
   "profile": "content",
+  "games": ["gen1", "gen2"],
   "game_version": "0.0.0-dev || >=0.1.75 <2.0.0",
   "affects_link": false,
   "dependencies": [],

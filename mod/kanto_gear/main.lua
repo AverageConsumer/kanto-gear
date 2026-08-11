@@ -548,8 +548,10 @@ local function levelUpStatBox(state)
   return state and state.mon and state.mon.stats and not state.screenId or false
 end
 
+local MIRRORED_BATTLE_IDS = { BagMenu = true, Gen2PackMenu = false }
+
 local function mirroredBattleMenu(state)
-  return state and (state.isPartyMenu or state.screenId == "BagMenu"
+  return state and (state.isPartyMenu or MIRRORED_BATTLE_IDS[state.screenId]
     or state.kind == "pp_item_move" or battleChoice(state)
     or levelUpStatBox(state)) or false
 end
@@ -708,7 +710,6 @@ do
     and mirroredBattleMenu({ kind = "pp_item_move" })
     and mirroredBattleMenu({ onChoose = function() end, index = 1 })
     and mirroredBattleMenu({ mon = { stats = {} } })
-    and not mirroredBattleMenu({ screenId = "SummaryMenu" })
     and not mirroredBattleMenu({ screenId = "TownMap" }),
     "stable upper battle UI ownership")
 end
@@ -1004,7 +1005,6 @@ return function(mod)
 
   local PaletteFX = require("src.render.PaletteFX")
   local PokemonSprites = require("src.pokemon.Sprites")
-  local PartyMenu = require("src.ui.PartyMenu")
   local EngineFont = mod.ui.Font
 
   local canvas = G.newCanvas(WIDTH, HEIGHT, { dpiscale = 1 })
@@ -1067,6 +1067,44 @@ return function(mod)
   local displayReady = false
   local nextPresentAttempt = 0
   local themeKey = nil
+
+  local compat = { screens = {
+    party = { PartyMenu = true, Gen2PartyMenu = true },
+    summary = { SummaryMenu = true, Gen2SummaryMenu = true },
+    bag = { BagMenu = true, Gen2PackMenu = true },
+    naming = { NamingScreen = true, Gen2NamingScreen = true },
+    pokemonPc = { BoxMenu = true, Gen2PcMenu = true },
+    itemPc = { PlayerPC = true, Gen2ItemPcMenu = true },
+    trainerCard = { TrainerCard = true, Gen2TrainerCard = true },
+  } }
+
+  function compat.isGen2()
+    return game and game.save and game.save.generation == 2
+  end
+
+  function compat.isScreen(state, kind)
+    return state and compat.screens[kind]
+      and compat.screens[kind][state.screenId] == true or false
+  end
+
+  function compat.screenName(kind, gen2)
+    for id in pairs(compat.screens[kind] or {}) do
+      if (id:sub(1, 4) == "Gen2") == gen2 then return id end
+    end
+  end
+
+  function compat.caughtDex(save)
+    local dex = save and save.pokedex or {}
+    return dex.owned or dex.caught or {}
+  end
+
+  function compat.playSeconds(save)
+    local value = save and save.playTime
+    if type(value) ~= "table" then return tonumber(value) or 0 end
+    return (tonumber(value.hours) or 0) * 3600
+      + (tonumber(value.minutes) or 0) * 60
+      + (tonumber(value.seconds) or 0)
+  end
 
   local function invalidateLocalMap()
     if localMapImage and localMapImage.release then localMapImage:release() end
@@ -1177,6 +1215,18 @@ return function(mod)
   end
 
   local function locationEntries()
+    if compat.isGen2() then
+      local source = game and game.data and game.data.gen2Landmarks
+      local landmarks = source and source.landmarks or {}
+      local byIndex, out = {}, {}
+      for _, entry in pairs(landmarks) do
+        if entry.index ~= nil then byIndex[entry.index] = entry end
+      end
+      for id, def in pairs(game.data.gen2Maps or {}) do
+        if byIndex[def.landmark] then out[id] = byIndex[def.landmark] end
+      end
+      return out
+    end
     local townMap = game and game.data and game.data.field
       and game.data.field.townMap
     return townMap and (townMap.locations or townMap) or {}
@@ -1188,7 +1238,9 @@ return function(mod)
 
   local function areaName(id)
     local entry = locationEntry(id)
-    return fit((entry and (entry.name or entry.label)) or id or "KANTO", 23)
+    local name = (entry and (entry.name or entry.label)) or id or "KANTO"
+    name = tostring(name):gsub("<LF>", " "):gsub("\n", " ")
+    return fit(name, 23)
   end
 
   local function areaMaps(id)
@@ -1218,12 +1270,28 @@ return function(mod)
     for _, id in ipairs(areaMaps(mapId)) do
       local encounter = data.encounters and data.encounters[id]
       local buckets = data.constants and data.constants.encounterBuckets
-      addEncounters(rows, bySpecies,
-        encounter and encounter.grass and encounter.grass.slots, "WALK",
-        encounter and encounter.grass and (encounter.grass.buckets or buckets))
-      addEncounters(rows, bySpecies,
-        encounter and encounter.water and encounter.water.slots, "SURF",
-        encounter and encounter.water and (encounter.water.buckets or buckets))
+      if compat.isGen2() then
+        local encounters = data.gen2Encounters or {}
+        local function addGold(entry, method)
+          local slots = entry and entry.slots or {}
+          if slots.MORN or slots.DAY or slots.NITE then
+            for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
+              addEncounters(rows, bySpecies, slots[time], method)
+            end
+          else
+            addEncounters(rows, bySpecies, slots, method)
+          end
+        end
+        addGold(encounters.grass and encounters.grass[id], "WALK")
+        addGold(encounters.water and encounters.water[id], "SURF")
+      else
+        addEncounters(rows, bySpecies,
+          encounter and encounter.grass and encounter.grass.slots, "WALK",
+          encounter and encounter.grass and (encounter.grass.buckets or buckets))
+        addEncounters(rows, bySpecies,
+          encounter and encounter.water and encounter.water.slots, "SURF",
+          encounter and encounter.water and (encounter.water.buckets or buckets))
+      end
       local super = field.superRod and field.superRod[id]
       if (encounter and encounter.water) or super then
         for _, rod in ipairs({ "OLD_ROD", "GOOD_ROD", "SUPER_ROD" }) do
@@ -1236,11 +1304,13 @@ return function(mod)
       end
     end
 
-    local dex = game.save.pokedex or {}
-    local ownedDex = dex.owned or {}
-    local owned, dexTotal = 0, (data.constants and data.constants.dexSize) or 151
+    local ownedDex = compat.caughtDex(game.save)
+    local owned, dexTotal = 0, (data.constants and data.constants.dexSize) or 0
     for species, def in pairs(data.pokemon or {}) do
-      if def.dex and ownedDex[species] then owned = owned + 1 end
+      if def.dex then
+        dexTotal = math.max(dexTotal, tonumber(def.dex) or 0)
+        if ownedDex[species] then owned = owned + 1 end
+      end
     end
     local areaCaught = 0
     for _, row in ipairs(rows) do
@@ -1269,7 +1339,8 @@ return function(mod)
           local label = trainer and trainer.name
             or tostring(obj.trainerClass):gsub("^OPP_", "")
           if tostring(obj.trainerClass):match("^OPP_RIVAL") then
-            label = save.player.rival or label
+            label = (save.player and save.player.rival)
+              or (save.rival and save.rival.name) or label
           end
           local done = save.defeatedTrainers
             and save.defeatedTrainers[key] == true or false
@@ -1321,7 +1392,7 @@ return function(mod)
   end
 
   local function radarSignals()
-    local world = game and game.overworld
+    local world = game and (game.overworld or game.world)
     local player = world and world.player
     if not player then return {} end
     local field = game.data.field or {}
@@ -1398,6 +1469,55 @@ return function(mod)
     return true
   end
 
+  function compat.drawPokemonIcon(mon, x, y)
+    local data = game and game.data or {}
+    local name, path
+    if data.gen2Icons then
+      name = mon.isEgg and "ICON_EGG"
+        or data.gen2Icons.species and data.gen2Icons.species[mon.species]
+      local entry = name and data.gen2Icons.icons
+        and data.gen2Icons.icons[name]
+      path = entry and entry.image
+    else
+      local icons = data.icons or {}
+      local def = data.pokemon and data.pokemon[mon.species]
+      local entry = (icons.bySpecies and icons.bySpecies[mon.species])
+        or (def and def.icon)
+      if type(entry) == "string" then
+        name, path = entry, icons.icons and icons.icons[entry]
+      elseif type(entry) == "table" then
+        path = entry.image
+      end
+      if not path then
+        name = def and def.dex and icons.byDex and icons.byDex[def.dex]
+        path = name and icons.icons and icons.icons[name]
+      end
+    end
+    path = PokemonSprites.iconPath(data, mon, path, { name = name })
+    if not path then return false end
+    local key = "icon:" .. path
+    if spriteCache[key] == nil then
+      local ok, image = pcall(G.newImage, path)
+      if not (ok and image) then
+        local dataOk, imageData = pcall(
+          require("src.render.Assets").imageData, path)
+        if dataOk and imageData then ok, image = pcall(G.newImage, imageData) end
+      end
+      if ok and image then image:setFilter("nearest", "nearest") end
+      spriteCache[key] = ok and image or false
+    end
+    local image = spriteCache[key]
+    if not image then return false end
+    local iw, ih = image:getDimensions()
+    local fw, fh = math.min(16, iw), math.min(16, ih)
+    local quad = G.newQuad(0, 0, fw, fh, iw, ih)
+    local scale = math.min(27 / fw, 27 / fh)
+    color({ 1, 1, 1, 1 })
+    G.draw(image, quad, x + (27 - fw * scale) / 2,
+      y + (27 - fh * scale) / 2, 0, scale, scale)
+    return true
+  end
+
   local function battery(x, foreground)
     foreground = foreground or PAPER
     local state, percent = system.getPowerInfo()
@@ -1462,16 +1582,19 @@ return function(mod)
   end
 
   local function screenById(id)
+    local ids = compat.screens[id]
     local states = game and game.stack and game.stack.states or {}
     for i = #states, 1, -1 do
-      if states[i].screenId == id then return states[i] end
+      if (ids and ids[states[i].screenId])
+          or (not ids and states[i].screenId == id) then return states[i] end
     end
   end
 
   local function pcSession()
-    local root = screenById("BoxMenu")
+    if compat.isGen2() then return end
+    local root = screenById("pokemonPc")
     if root then return "pokemon", root end
-    root = screenById("PlayerPC")
+    root = screenById("itemPc")
     if root then return "items", root end
   end
 
@@ -1491,16 +1614,16 @@ return function(mod)
 
   local function screenState()
     local top = game and game.stack and game.stack:top()
-    local world = game and game.overworld
-    if not (world and stackHas(world)) then
+    local world = game and (game.overworld or game.world)
+    if not (world and (compat.isGen2() and world.map or stackHas(world))) then
       worldStarted = false
       return "title", top, 0
     end
     if not worldStarted then
-      if top ~= world then return "title", top, 0 end
+      if not compat.isGen2() and top ~= world then return "title", top, 0 end
       worldStarted = true
     end
-    if world.transitioning then
+    if not compat.isGen2() and world.transitioning then
       local alpha = math.min(1, (top and top.t or 0)
         / math.max(1, top and top.frames or 1))
       if top and top.phase == "in" then alpha = 1 - alpha end
@@ -1509,7 +1632,7 @@ return function(mod)
     if externalLoading then return "loading", top, 0.72 end
     if top and top.isTextBox then return "textbox", top, 0.58 end
     if world.flyAnim or world.teleportOut then return "locked", top, 0.58 end
-    if top == world then return "active", top, 0 end
+    if (compat.isGen2() and not top) or top == world then return "active", top, 0 end
     return "locked", top, 0.58
   end
 
@@ -1661,7 +1784,11 @@ return function(mod)
 
   local function entryCoords(entry)
     local c = entry and (entry.coords or entry)
-    return c and tonumber(c.x or c.col), c and tonumber(c.y or c.row)
+    local x, y = c and tonumber(c.x or c.col), c and tonumber(c.y or c.row)
+    if compat.isGen2() and entry and entry.index ~= nil then
+      return x and x / 8, y and y / 8
+    end
+    return x, y
   end
 
   local function mapPoint(entry)
@@ -1846,23 +1973,39 @@ return function(mod)
   local function drawTrainer()
     local save = game.save or {}
     local player = save.player or {}
-    local dex = save.pokedex or {}
+    local ownedDex = compat.caughtDex(save)
     local owned = 0
+    local dexTotal = 0
     for species, def in pairs(game.data.pokemon or {}) do
       if def.dex then
-        if dex.owned and dex.owned[species] then owned = owned + 1 end
+        dexTotal = dexTotal + 1
+        if ownedDex[species] then owned = owned + 1 end
       end
     end
-    local badges = game.data.constants and game.data.constants.badges or {}
+    local badges = compat.isGen2() and {
+      { id = "ZEPHYR" }, { id = "HIVE" }, { id = "PLAIN" },
+      { id = "FOG" }, { id = "STORM" }, { id = "MINERAL" },
+      { id = "GLACIER" }, { id = "RISING" },
+    } or game.data.constants and game.data.constants.badges or {}
     local inventory = save.inventory or {}
-    local badgeCount = 0
-    for _, badge in ipairs(badges) do
-      if inventory[badge.item or badge.id] then badgeCount = badgeCount + 1 end
+    local playerBadges = player.badges or {}
+    local function ownsBadge(badge, index)
+      return compat.isGen2() and (playerBadges[badge.id] or playerBadges[index])
+        or inventory[badge.item or badge.id]
     end
-    local elapsed = math.max(0, math.floor(tonumber(save.playTime) or 0))
+    local badgeCount = 0
+    for i, badge in ipairs(badges) do
+      if ownsBadge(badge, i) then badgeCount = badgeCount + 1 end
+    end
+    local elapsed = math.max(0, math.floor(compat.playSeconds(save)))
 
     if spriteCache.__badges == nil then
-      local ok, card = pcall(require("src.ui.TrainerCard").new, game)
+      local ok, card = false, nil
+      if not compat.isGen2() then
+        local screens = require("src.ui.Screens")
+        ok, card = pcall(screens.build, game,
+          compat.screenName("trainerCard", false))
+      end
       spriteCache.__badges = ok and card and card.badges or false
     end
     local badgeAsset = spriteCache.__badges
@@ -1877,11 +2020,11 @@ return function(mod)
       badgeCount, #badges), 8, 48, DARK)
     local badgeGap = 152 / math.max(1, #badges)
     for i, badge in ipairs(badges) do
-      local owned = inventory[badge.item or badge.id]
-      local quad = badgeAsset and badgeAsset.quads[i - 1]
+      local badgeOwned = ownsBadge(badge, i)
+      local quad = badgeAsset and badgeAsset.quads and badgeAsset.quads[i - 1]
       if quad then
-        local tint = owned and INK or DARK
-        G.setColor(tint[1], tint[2], tint[3], owned and 1 or 0.25)
+        local tint = badgeOwned and INK or DARK
+        G.setColor(tint[1], tint[2], tint[3], badgeOwned and 1 or 0.25)
         local x = math.floor(5 + (i - 1) * 134
           / math.max(1, #badges - 1))
         G.draw(badgeAsset.img, quad, x, 56)
@@ -1889,14 +2032,14 @@ return function(mod)
         local x = math.floor(4 + (i - 1) * badgeGap)
         local nextX = math.floor(4 + i * badgeGap)
         box("fill", x + 4, 61, math.max(2, nextX - x - 7), 7,
-          owned and DARK or MID)
+          badgeOwned and DARK or MID)
         outline(x + 4, 61, math.max(2, nextX - x - 7), 7, INK)
       end
     end
     box("fill", 4, 76, 74, 29, PAPER)
     outline(4, 76, 74, 29, INK)
     text("MONEY", 8, 80, DARK)
-    text(fit(THEME:format("¥%d", save.money or 0), 11), 8, 92, INK)
+    text(fit(THEME:format("¥%d", player.money or save.money or 0), 11), 8, 92, INK)
     box("fill", 82, 76, 74, 29, PAPER)
     outline(82, 76, 74, 29, INK)
     text("TIME", 86, 80, DARK)
@@ -1906,7 +2049,7 @@ return function(mod)
     outline(4, 109, 74, 29, INK)
     text("POKEDEX", 8, 113, DARK)
     text(("%d/%d"):format(owned,
-      game.data.constants and game.data.constants.dexSize or 151), 8, 125, INK)
+      game.data.constants and game.data.constants.dexSize or dexTotal), 8, 125, INK)
     box("fill", 82, 109, 74, 29, PAPER)
     outline(82, 109, 74, 29, INK)
     text("STEPS", 86, 113, DARK)
@@ -2096,8 +2239,7 @@ return function(mod)
     local source = mon.source or mon
     if not drawSprite(mon.species, "front", x + 2, y + 2, 27, 27,
                       nil, source, true) then
-      color({ 1, 1, 1, 1 })
-      PartyMenu.drawIcon(game, source, x + 8, y + 8, false, 0)
+      compat.drawPokemonIcon(source, x + 2, y + 2)
     end
     text(fit(mon.name, 7), x + 29, y + 4, selected and PAPER or INK)
     text(THEME:format("L%d", mon.level or 0), x + 29, y + 14,
@@ -2517,7 +2659,7 @@ return function(mod)
 
   local function drawPc(kind, root, top)
     local list = pcList()
-    if top and top.screenId == "SummaryMenu" then
+    if compat.isScreen(top, "summary") then
       drawTopSummaryControls(top)
     elseif kind == "items" and top and top.qty and top.max and top.onDone then
       drawPcQuantity(top, list)
@@ -2584,8 +2726,7 @@ return function(mod)
     if not mon then return end
     local owned = mod.options:get("caught_icon") ~= false
       and not player and caughtWild(battle.kind,
-      game.save.pokedex and game.save.pokedex.owned
-      and game.save.pokedex.owned[mon.species])
+      compat.caughtDex(game.save)[mon.species])
     box("fill", 4, y, 152, 40, MID)
     outline(4, y, 152, 40, DARK)
     local name = fit(mon.name or mon.species or "-", owned and 10 or 11)
@@ -2631,11 +2772,11 @@ return function(mod)
   local function drawBattle()
     local top = game and game.stack and game.stack:top()
     local raw = battleState()
-    local party = top and top.isPartyMenu and top
-    local bag = top and top.screenId == "BagMenu" and top
+    local party = compat.isScreen(top, "party") and top
+    local bag = not compat.isGen2() and compat.isScreen(top, "bag") and top
     local ppMoves = top and top.kind == "pp_item_move" and top
-    local summary = top and top.screenId == "SummaryMenu"
-      and screenById("PartyMenu") and top
+    local summary = compat.isScreen(top, "summary")
+      and screenById("party") and top
     if ppMoves then
       drawPpItemMoves(ppMoves)
     elseif party then
@@ -2725,9 +2866,10 @@ return function(mod)
     local learn = screenById("MoveLearnMenu")
     local pcKind, pcRoot = pcSession()
     local choice, labels = dialogueChoice()
-    local naming = top and top.screenId == "NamingScreen" and top
+    local naming = not compat.isGen2()
+      and compat.isScreen(top, "naming") and top
     local levelStats = battle and levelUpStatBox(top) and top
-    local idleSummary = top and top.screenId == "SummaryMenu"
+    local idleSummary = compat.isScreen(top, "summary")
       and not battle and not pcKind and top
     if learn then
       drawLearnMove(learn, top)
@@ -2836,16 +2978,16 @@ return function(mod)
       nextBattle.menuIndex = raw and raw.menuIndex
       nextBattle.moveIndex = raw and raw.moveIndex
       nextBattle.mimicIndex = raw and raw.mimicIndex
-      nextBattle.partyIndex = top and top.isPartyMenu and top.index or nil
-      nextBattle.subIndex = top and top.isPartyMenu and top.submenu
+      nextBattle.partyIndex = compat.isScreen(top, "party") and top.index or nil
+      nextBattle.subIndex = compat.isScreen(top, "party") and top.submenu
         and top.subIndex or nil
-      nextBattle.itemIndex = top and top.screenId == "BagMenu"
+      nextBattle.itemIndex = not compat.isGen2() and compat.isScreen(top, "bag")
         and top.index or nil
-      nextBattle.itemPocket = top and top.screenId == "BagMenu"
+      nextBattle.itemPocket = not compat.isGen2() and compat.isScreen(top, "bag")
         and top.__pocketIndex or nil
-      nextBattle.itemTitle = top and top.screenId == "BagMenu"
+      nextBattle.itemTitle = not compat.isGen2() and compat.isScreen(top, "bag")
         and top.title or nil
-      nextBattle.summaryPage = top and top.screenId == "SummaryMenu"
+      nextBattle.summaryPage = compat.isScreen(top, "summary")
         and top.page or nil
       if battleChoice(top) and not nextBattle.message
           and raw and raw.visibleText then
@@ -3013,11 +3155,11 @@ return function(mod)
       end
       return
     end
-    if top and top.screenId == "SummaryMenu" and screenById("PartyMenu") then
+    if compat.isScreen(top, "summary") and screenById("party") then
       if inside(x, y, 103, 125, 53, 15) then press("a") end
       return
     end
-    if top and top.isPartyMenu then
+    if compat.isScreen(top, "party") then
       if y < HEADER and x < 24 then
         press("b")
       elseif top.submenu then
@@ -3037,7 +3179,7 @@ return function(mod)
       end
       return
     end
-    if top and top.screenId == "BagMenu" then
+    if not compat.isGen2() and compat.isScreen(top, "bag") then
       if y < HEADER then
         if categorizedBag(top) then
           if x < 18 then
@@ -3127,7 +3269,7 @@ return function(mod)
   end
 
   local function tapPc(kind, root, top, x, y)
-    if top and top.screenId == "SummaryMenu" then
+    if compat.isScreen(top, "summary") then
       if inside(x, y, 103, 125, 53, 15) then press("a") end
       dirty = true
       return
@@ -3373,7 +3515,7 @@ return function(mod)
   end
 
   local function tap(x, y)
-    local summary = screenById("SummaryMenu")
+    local summary = screenById("summary")
     if summary and game.stack:top() == summary then
       local hit = summary == bottomSummary
         and inside(x, y, 103, 125, 53, 15)
@@ -3400,7 +3542,7 @@ return function(mod)
       return
     end
     local mode, top = screenState()
-    if top and top.screenId == "NamingScreen" then
+    if not compat.isGen2() and compat.isScreen(top, "naming") then
       tapNaming(top, x, y)
       return
     end
@@ -3429,7 +3571,15 @@ return function(mod)
         partyActionSlot = nil
       elseif mon and inside(x, y, 14, 37, 132, 38) then
         partyActionSlot = nil
-        bottomSummary = mod.ui.push(game, "SummaryMenu", mon)
+        if compat.isGen2() then
+          bottomSummary = mod.ui.push(game, compat.screenName("summary", true), {
+            mon = mon, party = game.save.party, index = slot,
+            onClose = function() game.stack:pop() end,
+          })
+        else
+          bottomSummary = mod.ui.push(game,
+            compat.screenName("summary", false), mon)
+        end
       elseif mon and inside(x, y, 14, 84, 132, 38)
           and mod.world and mod.world.canReorderParty
           and mod.world:canReorderParty() then
@@ -3578,7 +3728,8 @@ return function(mod)
       dirty = true
       return
     end
-    if top and top.screenId == "BagMenu" and #(top.items or {}) > 4 then
+    if not compat.isGen2() and compat.isScreen(top, "bag")
+        and #(top.items or {}) > 4 then
       top.index = pagedIndex(top.index, #top.items, dy < 0 and 1 or -1)
       dirty = true
       return
@@ -3608,8 +3759,8 @@ return function(mod)
         pageSwipe = pageSwipeAllowed(mode, battle),
         textSpeed = speed,
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
-          or (top and top.screenId == "NamingScreen") or dialogueChoice()
-          or (top and top.screenId == "SummaryMenu")
+          or (not compat.isGen2() and compat.isScreen(top, "naming"))
+          or dialogueChoice() or compat.isScreen(top, "summary")
           or screenById("MoveLearnMenu") or pcSession() }
       if speed then holdTextSpeed(true) end
     elseif action == "cancel" then
@@ -3663,6 +3814,10 @@ return function(mod)
     reloadSteps()
     local player = game.save and game.save.player
     mapId = player and player.map
+    if not mapId and mod.world and mod.world.current then
+      local position = mod.world:current()
+      mapId = position and position.mapId
+    end
     local voxel = mod.find("DRAMATIC_SHAPE")
     if voxel and voxel.exports.isLoading then
       externalLoading = voxel.exports.isLoading() == true

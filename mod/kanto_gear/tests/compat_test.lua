@@ -379,14 +379,21 @@ run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
 -- decode directly. Use the shared image-data loader before the icon fallback.
 local Sprites = require("src.pokemon.Sprites")
 local Assets = require("src.render.Assets")
-local PartyMenu = require("src.ui.PartyMenu")
-local spritePath, drawIcon = Sprites.path, PartyMenu.drawIcon
+local spritePath = Sprites.path
 local imageData = Assets.imageData
 local newImage = T.love.graphics.newImage
+local drawImage = T.love.graphics.draw
 local fallbackIcons = 0
 local fallbackIsWhite = false
+local fallbackPhase = false
+local fallbackImage
 local decodedFrames = 0
 local genericSprites, ownedSprites = 0, 0
+local originalIcons = game.data.icons
+game.data.icons = {
+  bySpecies = { PIKACHU = "TEST_ICON" },
+  icons = { TEST_ICON = "official-icon.png" },
+}
 Sprites.path = function(_, _, _, opts)
   if opts and opts.mon then ownedSprites = ownedSprites + 1
   else genericSprites = genericSprites + 1 end
@@ -399,16 +406,21 @@ Assets.imageData = function(path)
   end
   return imageData(path)
 end
-PartyMenu.drawIcon = function()
-  fallbackIcons = fallbackIcons + 1
-  local r, g, b, a = T.love.graphics.getColor()
-  fallbackIsWhite = r == 1 and g == 1 and b == 1 and a == 1
+T.love.graphics.draw = function(image, quad, x, y, rotation, sx, sy, ...)
+  if fallbackPhase and image == fallbackImage then
+    fallbackIcons = fallbackIcons + 1
+    local r, g, b, a = T.love.graphics.getColor()
+    fallbackIsWhite = r == 1 and g == 1 and b == 1 and a == 1
+  end
+  return drawImage(image, quad, x, y, rotation, sx, sy, ...)
 end
 T.love.graphics.newImage = function(path, ...)
   if path == "unsupported.gif" or path == "unavailable.gif" then
     error("unsupported image format")
   end
-  return newImage(path, ...)
+  local image = newImage(path, ...)
+  if path == "official-icon.png" then fallbackImage = image end
+  return image
 end
 for _ = 1, 32 do
   trigger.right = 0.8
@@ -430,6 +442,7 @@ T.check(ownedSprites > 0,
 T.eq(fallbackIcons, 0,
   "decoded Party sprite frames do not use placeholder icons")
 Sprites.path = function() return "unavailable.gif", true end
+fallbackPhase = true
 Assets.imageData = function(path)
   if path == "unavailable.gif" then error("unavailable image data") end
   return imageData(path)
@@ -445,9 +458,10 @@ for _ = 1, 32 do
   })
   if fallbackIcons > 0 then break end
 end
-Sprites.path, Assets.imageData, PartyMenu.drawIcon =
-  spritePath, imageData, drawIcon
+Sprites.path, Assets.imageData = spritePath, imageData
 T.love.graphics.newImage = newImage
+T.love.graphics.draw = drawImage
+game.data.icons = originalIcons
 T.check(fallbackIcons > 0,
   "unsupported Party sprites fall back to official Pokemon icons")
 T.check(fallbackIsWhite, "fallback Party icons keep their original colors")
