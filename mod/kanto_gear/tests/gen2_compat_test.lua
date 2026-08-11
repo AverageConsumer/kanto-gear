@@ -29,6 +29,12 @@ run.data.gen2Encounters = { grass = { FIX_ROUTE = { slots = {
   DAY = { { species = "FIXMON_A", level = 3 } },
   NITE = { { species = "FIXMON_B", level = 4 } },
 } } }, water = {} }
+local johtoMap = {}
+for i = 1, 20 * 18 do johtoMap[i] = 0 end
+run.data.gen2MenuGfx = { pokegear = {
+  tiles = "gold-map.png", tilesWide = 1,
+  maps = { johto = johtoMap, kanto = johtoMap },
+} }
 
 local game = {
   data = run.data,
@@ -72,6 +78,13 @@ local companion = {
   detected = function() return true end,
   pollTouch = function() return nil end,
 }
+local mapDraws = T.record.draw()
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.check(#mapDraws:fromPath("gold-map.png") > 0,
+  "Gold map renders the extracted Pokegear town-map tiles")
+mapDraws:stop()
 for _ = 1, 10 do
   trigger = 0.8
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)

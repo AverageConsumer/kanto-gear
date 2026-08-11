@@ -1412,6 +1412,29 @@ return function(mod)
 
   local function loadMap()
     if mapAsset ~= nil then return mapAsset or nil end
+    if compat.isGen2() then
+      local gfx = game and game.data and game.data.gen2MenuGfx
+        and game.data.gen2MenuGfx.pokegear
+      if not (gfx and gfx.tiles and gfx.maps) then
+        mapAsset = false
+        return nil
+      end
+      local ok, image = pcall(G.newImage, gfx.tiles)
+      if not ok then
+        mapAsset = false
+        return nil
+      end
+      image:setFilter("nearest", "nearest")
+      local iw, ih = image:getDimensions()
+      local across = gfx.tilesWide or math.floor(iw / 8)
+      local quads = {}
+      for i = 0, across * math.floor(ih / 8) - 1 do
+        quads[i] = G.newQuad((i % across) * 8, math.floor(i / across) * 8,
+                             8, 8, iw, ih)
+      end
+      mapAsset = { image = image, quads = quads, maps = gfx.maps, gen2 = true }
+      return mapAsset
+    end
     local townMap = game and game.data and game.data.field
       and game.data.field.townMap
     local bg = townMap and townMap.background
@@ -1793,6 +1816,11 @@ return function(mod)
   end
 
   local function mapPoint(entry)
+    if compat.isGen2() then
+      local x, y = entry and tonumber(entry.x), entry and tonumber(entry.y)
+      if not (x and y) then return nil end
+      return 20 + x * 0.75, 20 + y * 0.75
+    end
     local x, y = entryCoords(entry)
     if not (x and y) then return nil end
     return 20 + (x * 8 + 16) * 0.75,
@@ -1829,12 +1857,24 @@ return function(mod)
     header(canFly() and "MAP + FLY" or "MAP", false, true)
     local asset = loadMap()
     if asset then
-      color({ 1, 1, 1, 1 })
-      for i, tile in ipairs(asset.map) do
+      local cells = asset.map
+      if asset.gen2 then
+        local entry = locationEntry(mapId)
+        local index = tonumber(entry and entry.index) or 0
+        local region = (index == 94 or index < 46) and "johto" or "kanto"
+        cells = asset.maps[region]
+        color(THEME.style == "modern_dark" and INK or PAPER)
+      else
+        color({ 1, 1, 1, 1 })
+      end
+      for i, tile in ipairs(cells or {}) do
         local quad = asset.quads[tile]
         if quad then
           local col, row = (i - 1) % 20, math.floor((i - 1) / 20)
-          if row > 0 then
+          if asset.gen2 then
+            G.draw(asset.image, quad, 20 + col * 6, 20 + row * 6,
+                   0, 0.75, 0.75)
+          elseif row > 0 then
             G.draw(asset.image, quad, 20 + col * 6, 22 + (row - 1) * 6, 0, 0.75, 0.75)
           end
         end
