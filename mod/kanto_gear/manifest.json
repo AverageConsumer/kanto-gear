@@ -1,7 +1,7 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "1.7.2",
+  "version": "1.8.0-rc.1",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",
@@ -13,6 +13,6 @@
   "optional_dependencies": [],
   "conflicts": [],
   "permissions": ["engine_internals"],
-  "description": "Dual-screen map, party, battle, PC and contextual touch controls for supported Gen1Recomp Android hosts. Tested on AYN Thor and Retroid Pocket 5.",
+  "description": "Dual-screen companion UI for Gen 1 and Pokemon Gold on supported Gen1Recomp Android hosts. Tested on AYN Thor and Retroid Pocket 5.",
   "github": "AverageConsumer/kanto-gear"
 }
