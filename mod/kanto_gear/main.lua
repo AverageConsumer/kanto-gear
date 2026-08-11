@@ -2422,7 +2422,7 @@ return function(mod)
       return
     end
     local source = mon.source or mon
-    if not drawSprite(mon.species, "front", x + 2, y + 2, 27, 27,
+    if not drawSprite(mon.species, "front", x + 2, y + 4, 27, 27,
                       nil, source, true) then
       compat.drawPokemonIcon(source, x + 2, y + 2)
     end
