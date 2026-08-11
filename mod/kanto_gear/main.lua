@@ -2422,13 +2422,10 @@ return function(mod)
       return
     end
     local source = mon.source or mon
-    local drawn = compat.isGen2()
-      and compat.drawPokemonIcon(source, x + 2, y + 2)
-    if not drawn then
-      drawn = drawSprite(mon.species, "front", x + 2, y + 2, 27, 27,
-                         nil, source, true)
+    if not drawSprite(mon.species, "front", x + 2, y + 2, 27, 27,
+                      nil, source, true) then
+      compat.drawPokemonIcon(source, x + 2, y + 2)
     end
-    if not drawn then compat.drawPokemonIcon(source, x + 2, y + 2) end
     text(fit(mon.name, 7), x + 29, y + 4, selected and PAPER or INK)
     text(THEME:format("L%d", mon.level or 0), x + 29, y + 14,
          selected and PAPER or DARK)
