@@ -1116,6 +1116,15 @@ return function(mod)
   assert(compat.systemId("gold", "1.8.0-rc.8") == "SLS-GD-1.8.0-RC8",
     "Silph Link system identifier")
 
+  function compat.titleChoice(top)
+    return top and top.screenId == "Gen2MainMenu" and top.phase == "menu"
+      and top.list or nil
+  end
+  assert(compat.titleChoice({ screenId = "Gen2MainMenu", phase = "menu",
+      list = {} })
+    and not compat.titleChoice({ screenId = "Gen2MainMenu", phase = "confirm",
+      list = {} }), "Gold title choice adapter")
+
   function compat.gen2PaletteModules()
     if not compat.isGen2() then return nil end
     if compat.gen2GbcPalette == nil then
@@ -1723,6 +1732,7 @@ return function(mod)
   local function dialogueChoice()
     local top = game and game.stack and game.stack:top()
     if not top then return end
+    top = compat.titleChoice(top) or top
     if top.onChoose and top.index and not top.items then
       return top, { "YES", "NO" }
     end
@@ -4464,6 +4474,7 @@ return function(mod)
          tostring(radarOpen),
          tostring(top and top.waiting), tostring(top and top.done),
          tostring(top and top.index), tostring(top and top.kind),
+         tostring(currentChoice and currentChoice.index),
          tostring(top and top.row), tostring(top and top.col), tostring(top and top.lower),
          tostring(top and top.glyphs and table.concat(top.glyphs)),
          tostring(top and top.qty), tostring(top and top.page),
