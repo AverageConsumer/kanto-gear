@@ -138,5 +138,37 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 })
 T.check(true, "Gold party CANCEL renders as navigation instead of a Pokemon")
 
+local scriptChoice = {
+  screenId = "Gen2ScriptMenu", items = { "ONE", "TWO", "THREE" },
+  row = 2, col = 1, cols = 1,
+}
+game.stack.states = { scriptChoice }
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.eq(scriptChoice.row, 2,
+  "Gold script choices share the companion choice renderer")
+
+local nestedChoice = { screenId = "Gen2PackMenu",
+  confirm = { choice = 2 } }
+game.stack.states = { nestedChoice }
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.eq(nestedChoice.confirm.choice, 2,
+  "Gold nested confirmations share the companion choice renderer")
+
+local nameChoice = { screenId = "Gen2NamePick",
+  items = { "NEW NAME", "GOLD" }, cursor = 2 }
+game.stack.states = { nameChoice }
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.eq(nameChoice.cursor, 2,
+  "Gold name choices share the companion choice renderer")
+
 run.release()
 T.finish("Kanto Gear Gen 2 compatibility")

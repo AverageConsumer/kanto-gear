@@ -1125,6 +1125,50 @@ return function(mod)
     and not compat.titleChoice({ screenId = "Gen2MainMenu", phase = "confirm",
       list = {} }), "Gold title choice adapter")
 
+  compat.yesNoFields = {
+    Gen2SaveMenu = { confirm = "choice", overwrite = "choice" },
+    Gen2StartMenu = { confirm = "confirmChoice" },
+    Gen2BattleState = { ["ask-nickname"] = "nicknameIndex",
+      ["ask-shift"] = "shiftIndex", ["ask-forget"] = "forgetChoice",
+      ["stop-learning"] = "forgetChoice" },
+  }
+
+  function compat.yesNoField(top)
+    if not top or (top.messageTimer or 0) > 0 then return nil end
+    local phases = compat.yesNoFields[top.screenId]
+    return phases and phases[top.phase] or nil
+  end
+
+  function compat.choiceView(top)
+    local title = compat.titleChoice(top)
+    if title then return title, "index" end
+    if top and top.screenId == "Gen2ScriptMenu" then return top, "script" end
+    if top and top.screenId == "Gen2NamePick" and not top.slide then
+      return top, "cursor"
+    end
+    local confirm = top and top.confirm
+    if type(confirm) == "table" and confirm.choice
+        and (not confirm.pages or confirm.page >= #confirm.pages) then
+      return confirm, "choice"
+    end
+    local field = compat.yesNoField(top)
+    return top, field or "index"
+  end
+
+  function compat.choiceIndex(top, field, value)
+    if field == "script" then
+      if value then
+        top.row = math.floor((value - 1) / top.cols) + 1
+        top.col = (value - 1) % top.cols + 1
+      end
+      return (top.row - 1) * top.cols + top.col
+    end
+    if value then top[field] = value end
+    return top[field]
+  end
+  assert(compat.choiceIndex({ row = 2, col = 1, cols = 1 }, "script") == 2,
+    "Gold choice index adapter")
+
   function compat.gen2PaletteModules()
     if not compat.isGen2() then return nil end
     if compat.gen2GbcPalette == nil then
@@ -1732,16 +1776,31 @@ return function(mod)
   local function dialogueChoice()
     local top = game and game.stack and game.stack:top()
     if not top then return end
-    top = compat.titleChoice(top) or top
-    if top.onChoose and top.index and not top.items then
-      return top, { "YES", "NO" }
+    local field
+    top, field = compat.choiceView(top)
+    if field ~= "index" and field ~= "script" and field ~= "cursor" then
+      return top, { "YES", "NO" }, field
     end
-    if top.items and not top.screenId and not pcListKind(top) then
+    if top.onChoose and top.index and not top.items then
+      return top, { "YES", "NO" }, field
+    end
+    if top.screenId == "Gen2ElevatorMenu" then
+      local labels = {}
+      for i, row in ipairs(top.floors or {}) do
+        labels[i] = top.floorName and top.floorName(top.floorNames, row.floorId)
+          or row.label or tostring(row.floorId or i)
+      end
+      if #labels > 0 then return top, labels, field end
+    end
+    if top.items and (field == "script" or field == "cursor"
+        or not top.screenId)
+        and not pcListKind(top) then
       local labels = {}
       for i, item in ipairs(top.items) do
-        labels[i] = item.label or tostring(i)
+        labels[i] = type(item) == "table" and (item.label or tostring(i))
+          or tostring(item)
       end
-      if #labels > 0 then return top, labels end
+      if #labels > 0 then return top, labels, field end
     end
   end
 
@@ -1838,8 +1897,9 @@ return function(mod)
     end
   end
 
-  local function drawDialogueChoice(top, labels, prompt)
+  local function drawDialogueChoice(top, labels, prompt, field)
     header("CHOOSE")
+    local selected = compat.choiceIndex(top, field)
     if #labels == 2 then
       local first = math.max(1, #(prompt or {}) - 1)
       if prompt and prompt[first] then
@@ -1849,14 +1909,14 @@ return function(mod)
       else
         centered("MAKE A CHOICE", 37, DARK)
       end
-      button(24, 54, 112, 32, labels[1], top.index == 1)
-      button(24, 90, 112, 32, labels[2], top.index == 2)
+      button(24, 54, 112, 32, labels[1], selected == 1)
+      button(24, 90, 112, 32, labels[2], selected == 2)
     else
-      local start, count = choiceWindow(labels, top.index)
+      local start, count = choiceWindow(labels, selected)
       for row = 1, count do
         local index = start + row - 1
         button(8, 24 + (row - 1) * 27, 144, 24,
-               labels[index], top.index == index)
+               labels[index], selected == index)
       end
     end
     if choiceNudgeUntil > love.timer.getTime() then
@@ -3173,7 +3233,7 @@ return function(mod)
     local mode, top, fade = screenState()
     local learn = screenById("MoveLearnMenu")
     local pcKind, pcRoot = pcSession()
-    local choice, labels = dialogueChoice()
+    local choice, labels, choiceField = dialogueChoice()
     local naming = not compat.isGen2()
       and compat.isScreen(top, "naming") and top
     local levelStats = battle and levelUpStatBox(top) and top
@@ -3186,7 +3246,7 @@ return function(mod)
     elseif levelStats then
       drawLevelUpStats(levelStats)
     elseif choice then
-      drawDialogueChoice(choice, labels, battle and battle.message)
+      drawDialogueChoice(choice, labels, battle and battle.message, choiceField)
     elseif battle then
       drawBattle()
     elseif pcKind then
@@ -3688,7 +3748,7 @@ return function(mod)
     dirty = true
   end
 
-  local function tapDialogueChoice(top, labels, x, y)
+  local function tapDialogueChoice(top, labels, x, y, field)
     local now = love.timer.getTime()
     if trackChoice(top, now) then dirty = true end
     if choiceCommitted == top then return end
@@ -3704,7 +3764,8 @@ return function(mod)
       if inside(x, y, 24, 54, 112, 32) then selected = 1 end
       if inside(x, y, 24, 90, 112, 32) then selected = 2 end
     else
-      local start, count = choiceWindow(labels, top.index)
+      local start, count = choiceWindow(labels,
+        compat.choiceIndex(top, field))
       for row = 1, count do
         if inside(x, y, 8, 24 + (row - 1) * 27, 144, 24) then
           selected = start + row - 1
@@ -3713,7 +3774,7 @@ return function(mod)
       end
     end
     if not selected then return end
-    top.index = selected
+    compat.choiceIndex(top, field, selected)
     if top.clampScroll then top:clampScroll() end
     choiceCommitted = top
     press("a")
@@ -3860,9 +3921,9 @@ return function(mod)
       if inside(x, y, 24, 108, 112, 27) then press("a") end
       return
     end
-    local choice, labels = dialogueChoice()
+    local choice, labels, field = dialogueChoice()
     if choice then
-      tapDialogueChoice(choice, labels, x, y)
+      tapDialogueChoice(choice, labels, x, y, field)
       return
     end
     local mode, top = screenState()
@@ -4058,9 +4119,10 @@ return function(mod)
       dirty = true
       return
     end
-    local choice, labels = dialogueChoice()
+    local choice, labels, field = dialogueChoice()
     if choice and #labels > 4 then
-      choice.index = pagedIndex(choice.index, #labels, dy < 0 and 1 or -1)
+      compat.choiceIndex(choice, field, pagedIndex(
+        compat.choiceIndex(choice, field), #labels, dy < 0 and 1 or -1))
       if choice.clampScroll then choice:clampScroll() end
       dirty = true
       return
@@ -4458,7 +4520,7 @@ return function(mod)
       end
       local learn = screenById("MoveLearnMenu")
       local currentPcList = pcList()
-      local currentChoice = dialogueChoice()
+      local currentChoice, _, currentChoiceField = dialogueChoice()
       if trackChoice(currentChoice, now) then dirty = true end
       if choiceNudgeUntil > 0 and now >= choiceNudgeUntil then
         choiceNudgeUntil = 0
@@ -4474,7 +4536,8 @@ return function(mod)
          tostring(radarOpen),
          tostring(top and top.waiting), tostring(top and top.done),
          tostring(top and top.index), tostring(top and top.kind),
-         tostring(currentChoice and currentChoice.index),
+         tostring(currentChoice and compat.choiceIndex(
+           currentChoice, currentChoiceField)),
          tostring(top and top.row), tostring(top and top.col), tostring(top and top.lower),
          tostring(top and top.glyphs and table.concat(top.glyphs)),
          tostring(top and top.qty), tostring(top and top.page),
