@@ -1103,6 +1103,19 @@ return function(mod)
     return game and game.save and game.save.generation == 2
   end
 
+  compat.romCodes = { red = "RD", blue = "BL", yellow = "YL", gold = "GD" }
+
+  function compat.systemId(version, release)
+    version = version or (game and game.save and game.save.version)
+    local code = compat.romCodes[version]
+      or (compat.isGen2() and "G2" or "G1")
+    release = tostring(release or mod.version or "DEV")
+      :gsub("%-rc%.", "-RC")
+    return ("SLS-%s-%s"):format(code, release:upper())
+  end
+  assert(compat.systemId("gold", "1.8.0-rc.8") == "SLS-GD-1.8.0-RC8",
+    "Silph Link system identifier")
+
   function compat.gen2PaletteModules()
     if not compat.isGen2() then return nil end
     if compat.gen2GbcPalette == nil then
@@ -1741,21 +1754,39 @@ return function(mod)
   local function drawTitle()
     local modern = THEME.style ~= "classic"
     local foreground = modern and INK or PAPER
+    local primary = modern and THEME.blue or PAPER
+    local secondary = modern and THEME.red or MID
+    local phase = math.floor(love.timer.getTime() * 2) % 3
     box("fill", 0, 0, WIDTH, HEIGHT, modern and PAPER or DARK)
-    color(foreground)
-    G.circle("line", 80, 29, 15)
-    G.circle("line", 80, 29, 6)
-    for i = 0, 7 do
-      local a = i * math.pi / 4
-      box("fill", math.floor(78 + math.cos(a) * 17),
-          math.floor(27 + math.sin(a) * 17), 4, 4, foreground)
+    outline(3, 3, 154, 138, primary)
+    box("fill", 3, 3, 28, 2, secondary)
+    box("fill", 129, 139, 28, 2, secondary)
+
+    centered("SILPH CO.", 9, secondary)
+    outline(47, 24, 22, 18, foreground)
+    outline(91, 24, 22, 18, foreground)
+    box("fill", 51, 28, 14, 10, modern and MID or INK)
+    box("fill", 95, 28, 14, 10, modern and MID or INK)
+    box("fill", 69, 32, 22, 2, foreground)
+    for i = 0, 2 do
+      box("fill", 73 + i * 7, 31, 4, 4,
+        i == phase and secondary or foreground)
     end
-    centered("KANTO GEAR", 56, foreground, 2)
-    box("fill", 28, 78, 104, 1, modern and THEME.red or PAPER)
-    centered("DUAL DISPLAY", 87, foreground)
-    centered("LINK READY", 104, modern and THEME.blue or MID)
+
+    centered("SILPH LINK", 50, foreground, 2)
+    box("fill", 24, 67, 36, 1, secondary)
+    box("fill", 100, 67, 36, 1, secondary)
+    centered("SYSTEM", 65, primary)
+
+    box("fill", 15, 81, 130, 21, modern and MID or INK)
+    outline(15, 81, 130, 21, primary)
+    centered(compat.systemId(), 88, foreground)
+
+    box("fill", 35, 114, 4, 4, secondary)
+    box("fill", 121, 114, 4, 4, secondary)
+    centered("LINK ONLINE", 112, primary)
     if math.floor(love.timer.getTime() * 2) % 2 == 0 then
-      centered("START GAME ABOVE", 125, foreground)
+      centered("START GAME ABOVE", 128, foreground)
     end
   end
 
