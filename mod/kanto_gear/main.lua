@@ -1854,14 +1854,19 @@ return function(mod)
   end
 
   local function drawMap()
-    header(canFly() and "MAP + FLY" or "MAP", false, true)
+    local region
+    if compat.isGen2() then
+      local entry = locationEntry(mapId)
+      local index = tonumber(entry and entry.index) or 0
+      region = (index == 94 or index < 46) and "johto" or "kanto"
+    end
+    local mapTitle = region and (region:upper() .. (canFly() and " FLY" or " MAP"))
+      or (canFly() and "MAP + FLY" or "MAP")
+    header(mapTitle, false, true)
     local asset = loadMap()
     if asset then
       local cells = asset.map
       if asset.gen2 then
-        local entry = locationEntry(mapId)
-        local index = tonumber(entry and entry.index) or 0
-        local region = (index == 94 or index < 46) and "johto" or "kanto"
         cells = asset.maps[region]
         color(THEME.style == "modern_dark" and INK or PAPER)
       else
@@ -1887,7 +1892,7 @@ return function(mod)
     else
       drawMapFallback()
     end
-    box("fill", 4, 126, 152, 14, DARK)
+    box("fill", 4, 128, 152, 14, DARK)
     centered(areaName(mapId), 130, PAPER)
   end
 
