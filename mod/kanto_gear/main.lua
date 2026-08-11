@@ -1077,7 +1077,6 @@ return function(mod)
   local fieldChoice = nil
   local partyMoveFrom = nil
   local partyActionSlot = nil
-  local bottomSummary = nil
   local choiceTop = nil
   local choiceReadyAt = 0
   local choiceNudgeUntil = 0
@@ -1098,6 +1097,8 @@ return function(mod)
     itemPc = { PlayerPC = true, Gen2ItemPcMenu = true },
     trainerCard = { TrainerCard = true, Gen2TrainerCard = true },
   } }
+  compat.summary = assert(load(mod:read("summary.lua"),
+    "@kanto_gear/summary.lua"))()
 
   function compat.isGen2()
     return game and game.save and game.save.generation == 2
@@ -2843,26 +2844,26 @@ return function(mod)
   end
 
   local function drawBattleSummary(summary)
-    local mon, data = summary.mon, game.data
-    local def = data.pokemon[mon.species] or {}
-    local page, level = summary.page or 1, mon.level or 0
-    header(THEME:format("STATS %d/2", page))
-    if page == 1 then
-      local stats = mon.stats or {}
+    local view = compat.summary.view(summary, game)
+    local mon, def = view.mon, view.def
+    local page, level = view.page, view.level
+    header(THEME:format("STATS %d/%d", page, view.pages), true)
+    if not view.gen2 and page == 1 then
+      local stats = view.stats
       local function typeName(index)
-        local id = def.types and def.types[index]
+        local id = view.types[index]
         return id and THEME:typeName(id, mod.content) or "--"
       end
       drawSprite(mon.species, "front", 4, 23, 43, 43,
                  nil, mon.source or mon)
-      text(fit(mon.nickname or def.name or mon.species, 17), 51, 24, INK)
-      text(THEME:format("NO.%03d LV.%d", def.dex or 0, level),
+      text(fit(view.name, 17), 51, 24, INK)
+      text(THEME:format("NO.%03d LV.%d", view.dex, level),
            51, 36, DARK)
-      text(THEME:format("HP %d/%d", mon.hp or 0, stats.hp or 0),
+      text(THEME:format("HP %d/%d", view.hp, view.maxHp),
            51, 48, INK)
-      hpBar(51, 59, 105, mon.hp, stats.hp)
+      hpBar(51, 59, 105, view.hp, view.maxHp)
       text(THEME:format("STATUS %s",
-        THEME:statusName(mon.status, mod.content)
+        THEME:statusName(view.status, mod.content)
           or THEME:translate("OK")), 51, 65, DARK)
       box("fill", 4, 76, 152, 1, DARK)
       text(THEME:format("ATK %d", stats.attack or 0), 5, 81, INK)
@@ -2872,45 +2873,90 @@ return function(mod)
       text(THEME:format("TYPE1 %s", typeName(1)), 77, 81, DARK)
       text(THEME:format("TYPE2 %s", typeName(2)), 77, 92, DARK)
       text(THEME:format("OT %s",
-        fit(mon.ot or game.save.player.name or "RED", 10)), 77, 103, DARK)
-      text(THEME:format("ID %05d", mon.otId or game.save.player.id or 0),
+        fit(view.ot, 10)), 77, 103, DARK)
+      text(THEME:format("ID %05d", view.otId),
            77, 114, DARK)
-    else
-      text(fit(mon.nickname or def.name or mon.species, 17), 5, 25, INK)
+    elseif not view.gen2 then
+      text(fit(view.name, 17), 5, 25, INK)
       text(THEME:format("LV.%d", level), 116, 25, DARK)
-      text(THEME:format("EXP %d", mon.exp or 0), 5, 39, DARK)
+      text(THEME:format("EXP %d", view.experience), 5, 39, DARK)
       if level < 100 then
         local growth = def.growthRate
           and mod.content.growth_rates:get(def.growthRate)
           or mod.content.growth_rates:get("MEDIUM_FAST")
         local nextExp = math.max(0,
           (growth and growth.expForLevel
-            and growth.expForLevel(level + 1) or 0) - (mon.exp or 0))
+            and growth.expForLevel(level + 1) or 0) - view.experience)
         text(THEME:format("NEXT L.%d %d", level + 1, nextExp), 5, 51, DARK)
       else
         text("NEXT MAX", 5, 51, DARK)
       end
       box("fill", 4, 61, 152, 1, DARK)
       for i = 1, 4 do
-        local move = mon.moves and mon.moves[i]
-        local moveDef = move and data.moves[move.id]
-        local maxPP = moveDef and (moveDef.pp
-          + (move.ppUps or 0) * math.floor(moveDef.pp / 5)) or 0
+        local move = view.moves[i]
         local y = 66 + (i - 1) * 14
-        text(fit(moveDef and moveDef.name or move and move.id or "-", 14),
-             6, y, INK)
-        text(move and THEME:format("PP %d/%d", move.pp or 0, maxPP)
+        text(fit(move.name, 14), 6, y, INK)
+        text(move.pp and THEME:format("PP %d/%d", move.pp, move.maxPp)
           or "PP --", 103, y, DARK)
       end
+    elseif page == 1 then
+      local status = THEME:statusName(view.status, mod.content)
+        or THEME:translate("OK")
+      if (tonumber(mon.pokerus) or 0) % 16 > 0 then status = "PKRS" end
+      drawSprite(mon.species, "front", 4, 23, 43, 43,
+                 nil, mon.source or mon)
+      text(fit(view.name, 17), 51, 24, INK)
+      text(THEME:format("NO.%03d LV.%d", view.dex, level), 51, 36, DARK)
+      text(THEME:format("HP %d/%d", view.hp, view.maxHp), 51, 48, INK)
+      hpBar(51, 59, 105, view.hp, view.maxHp)
+      text(THEME:format("STATUS %s", status), 51, 65, DARK)
+      box("fill", 4, 76, 152, 1, DARK)
+      text(THEME:format("TYPE1 %s",
+        THEME:typeName(view.types[1], mod.content)), 5, 82, DARK)
+      text(THEME:format("TYPE2 %s", view.types[2]
+        and THEME:typeName(view.types[2], mod.content) or "--"), 5, 94, DARK)
+      text(THEME:format("EXP %d", view.experience), 77, 82, DARK)
+      if level < 100 then
+        text(THEME:format("NEXT L.%d", level + 1), 77, 94, DARK)
+        text(tostring(view.nextExp or 0), 77, 105, DARK)
+      else
+        text("NEXT MAX", 77, 94, DARK)
+      end
+    elseif page == 2 then
+      text(fit(view.name, 17), 5, 25, INK)
+      text(THEME:format("LV.%d", level), 116, 25, DARK)
+      text(THEME:format("ITEM %s", fit(view.item or "---", 18)), 5, 39, DARK)
+      box("fill", 4, 51, 152, 1, DARK)
+      for i = 1, 4 do
+        local move = view.moves[i]
+        local y = 57 + (i - 1) * 16
+        text(fit(move.name, 14), 6, y, INK)
+        text(move.pp and THEME:format("PP %d/%d", move.pp, move.maxPp)
+          or "PP --", 103, y, DARK)
+      end
+    else
+      local stats = view.stats
+      text(fit(view.name, 17), 5, 25, INK)
+      text(THEME:format("LV.%d", level), 116, 25, DARK)
+      text(THEME:format("OT %s", fit(view.ot, 11)), 5, 39, DARK)
+      text(THEME:format("ID %05d", view.otId), 96, 39, DARK)
+      box("fill", 4, 51, 152, 1, DARK)
+      local rows = { { "ATK", stats.attack }, { "DEF", stats.defense },
+        { "SP.ATK", stats.specialAttack },
+        { "SP.DEF", stats.specialDefense }, { "SPEED", stats.speed } }
+      for i, row in ipairs(rows) do
+        local y = 57 + (i - 1) * 13
+        text(THEME:translate(row[1]), 16, y, DARK)
+        text(("%3d"):format(row[2] or 0), 120, y, INK)
+      end
     end
-    button(103, 125, 53, 15, page == 1 and "NEXT" or "CLOSE", false)
+    button(103, 125, 53, 15, page < view.pages and "NEXT" or "CLOSE", false)
   end
 
   local function drawTopSummaryControls(summary)
-    header("STATS ON TOP")
+    header("STATS ON TOP", true)
     centered("FOLLOW TOP SCREEN", 58, DARK)
-    button(14, 94, 132, 34,
-           summary.page == 1 and "NEXT" or "CLOSE", false)
+    button(14, 94, 132, 34, "BACK", false)
   end
 
   local function drawPcRoot(kind, root)
@@ -3035,7 +3081,8 @@ return function(mod)
   local function drawPc(kind, root, top)
     local list = pcList()
     if compat.isScreen(top, "summary") then
-      drawTopSummaryControls(top)
+      if compat.summary.supports(top, game) then drawBattleSummary(top)
+      else drawTopSummaryControls(top) end
     elseif kind == "items" and top and top.qty and top.max and top.onDone then
       drawPcQuantity(top, list)
     elseif list and list.kind == "pc_box_deposit" then
@@ -3150,8 +3197,7 @@ return function(mod)
     local party = compat.isScreen(top, "party") and top
     local bag = compat.isScreen(top, "bag") and top
     local ppMoves = top and top.kind == "pp_item_move" and top
-    local summary = compat.isScreen(top, "summary")
-      and screenById("party") and top
+    local summary = compat.isScreen(top, "summary") and top
     if ppMoves then
       drawPpItemMoves(ppMoves)
     elseif party then
@@ -3159,7 +3205,8 @@ return function(mod)
     elseif bag then
       drawBattleItems(compat.battleBagMenu(bag))
     elseif summary then
-      drawTopSummaryControls(summary)
+      if compat.summary.supports(summary, game) then drawBattleSummary(summary)
+      else drawTopSummaryControls(summary) end
     elseif battle.prompt == "safari" then
       if fullBottomBattleUI() then drawFullSafari() else drawSafari() end
     elseif battle.prompt == "mimic" then
@@ -3259,11 +3306,9 @@ return function(mod)
     elseif pcKind then
       drawPc(pcKind, pcRoot, top)
     elseif idleSummary then
-      if idleSummary == bottomSummary then
+      if compat.summary.supports(idleSummary, game) then
         drawBattleSummary(idleSummary)
-      else
-        drawTopSummaryControls(idleSummary)
-      end
+      else drawTopSummaryControls(idleSummary) end
     elseif fieldChoice then
       drawFieldChoice()
     elseif mode == "title" then
@@ -3543,8 +3588,16 @@ return function(mod)
       end
       return
     end
-    if compat.isScreen(top, "summary") and screenById("party") then
-      if inside(x, y, 103, 125, 53, 15) then press("a") end
+    if compat.isScreen(top, "summary") then
+      if y < HEADER and x < 24 then
+        press("b")
+      elseif compat.summary.supports(top, game)
+          and inside(x, y, 103, 125, 53, 15) then
+        press("a")
+      elseif not compat.summary.supports(top, game)
+          and inside(x, y, 14, 94, 132, 34) then
+        press("b")
+      end
       return
     end
     if compat.isScreen(top, "party") then
@@ -3661,7 +3714,15 @@ return function(mod)
 
   local function tapPc(kind, root, top, x, y)
     if compat.isScreen(top, "summary") then
-      if inside(x, y, 103, 125, 53, 15) then press("a") end
+      if y < HEADER and x < 24 then
+        press("b")
+      elseif compat.summary.supports(top, game)
+          and inside(x, y, 103, 125, 53, 15) then
+        press("a")
+      elseif not compat.summary.supports(top, game)
+          and inside(x, y, 14, 94, 132, 34) then
+        press("b")
+      end
       dirty = true
       return
     end
@@ -3909,11 +3970,18 @@ return function(mod)
   local function tap(x, y)
     local summary = screenById("summary")
     if summary and game.stack:top() == summary then
-      local hit = summary == bottomSummary
-        and inside(x, y, 103, 125, 53, 15)
-        or summary ~= bottomSummary and inside(x, y, 14, 94, 132, 34)
-      if hit then
+      if y < HEADER and x < 24 then
+        press("b")
+      elseif compat.summary.supports(summary, game)
+          and inside(x, y, 103, 125, 53, 15) then
         press("a")
+      elseif not compat.summary.supports(summary, game)
+          and inside(x, y, 14, 94, 132, 34) then
+        press("b")
+      else
+        return
+      end
+      if compat.summary.supports(summary, game) then
         dirty = true
       end
       return
@@ -3964,13 +4032,12 @@ return function(mod)
       elseif mon and inside(x, y, 14, 37, 132, 38) then
         partyActionSlot = nil
         if compat.isGen2() then
-          bottomSummary = mod.ui.push(game, compat.screenName("summary", true), {
+          mod.ui.push(game, compat.screenName("summary", true), {
             mon = mon, party = game.save.party, index = slot,
             onClose = function() game.stack:pop() end,
           })
         else
-          bottomSummary = mod.ui.push(game,
-            compat.screenName("summary", false), mon)
+          mod.ui.push(game, compat.screenName("summary", false), mon)
         end
       elseif mon and inside(x, y, 14, 84, 132, 38)
           and mod.world and mod.world.canReorderParty
@@ -4467,7 +4534,8 @@ return function(mod)
 
   mod.hooks:wrap("screen.render_visible", function(next, state)
     if next(state) == false then return false end
-    if state == bottomSummary then
+    if compat.isScreen(state, "summary")
+        and compat.summary.supports(state, game) then
       return not (active and hasDisplay() and displayReady)
     end
     local owned = bottomOwnsBattleUI(
@@ -4528,9 +4596,6 @@ return function(mod)
       refreshBattle()
       if page == "TOOLS" or pendingAction then refreshTools() end
       local mode, top = screenState()
-      if bottomSummary and top ~= bottomSummary then
-        bottomSummary, dirty = nil, true
-      end
       if partyMoveFrom and (page ~= "PARTY" or not mod.world
           or not mod.world.canReorderParty or not mod.world:canReorderParty()) then
         partyMoveFrom, dirty = nil, true
@@ -4562,6 +4627,8 @@ return function(mod)
          tostring(top and top.row), tostring(top and top.col), tostring(top and top.lower),
          tostring(top and top.glyphs and table.concat(top.glyphs)),
          tostring(top and top.qty), tostring(top and top.page),
+         tostring(top and top.moveDetail), tostring(top and top.moveIndex),
+         tostring(top and top.mon),
         tostring(currentPcList), tostring(currentPcList and currentPcList.index),
         tostring(learn and learn.selecting),
         tostring(learn and learn.index), tostring(externalLoading),

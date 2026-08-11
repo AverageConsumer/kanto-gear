@@ -6,7 +6,7 @@ local newCanvas = T.love.graphics.newCanvas
 T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)
   function canvas:requestImageData() return true end
-  function canvas:pollImageData() return nil end
+  function canvas:pollImageData() return {} end
   return canvas
 end
 local run = T.sdk.loadMod(path, {
@@ -77,6 +77,7 @@ end }
 local companion = {
   detected = function() return true end,
   pollTouch = function() return nil end,
+  push = function() return true end,
 }
 local mapDraws = T.record.draw()
 run.loader.hooks:call("render.compose", function() return false end, {}, {
@@ -137,6 +138,34 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
 })
 T.check(true, "Gold party CANCEL renders as navigation instead of a Pokemon")
+
+local summary = {
+  screenId = "Gen2SummaryMenu", page = 3, mon = game.save.party[1],
+  itemName = function() return "BERRY" end,
+  expToNext = function() return 20 end,
+  otName = function() return "GOLD" end,
+  otId = function() return 25 end,
+}
+summary.mon.experience = 12
+summary.mon.maxHp = 20
+summary.mon.stats.attack = 9
+summary.mon.stats.defense = 10
+summary.mon.stats.specialAttack = 11
+summary.mon.stats.specialDefense = 12
+summary.mon.stats.speed = 13
+game.stack.states = { screen, party, summary }
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.eq(run.loader.hooks:call("screen.render_visible",
+  function() return true end, summary), false,
+  "supported Gold summaries render only on the companion screen")
+summary.moveDetail = true
+T.eq(run.loader.hooks:call("screen.render_visible",
+  function() return true end, summary), true,
+  "unsupported Gold summary subviews safely keep native rendering")
+summary.moveDetail = false
 
 local scriptChoice = {
   screenId = "Gen2ScriptMenu", items = { "ONE", "TWO", "THREE" },

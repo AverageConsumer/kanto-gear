@@ -5,6 +5,35 @@ local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
 local sourceFile = assert(io.open(path .. "/main.lua", "rb"))
 local source = sourceFile:read("*a")
 sourceFile:close()
+local Summary = assert(loadfile(path .. "/summary.lua"))()
+local gen1Summary = Summary.view({ screenId = "SummaryMenu", page = 2,
+  mon = { species = "MON", level = 5, hp = 18, exp = 125,
+    stats = { hp = 20, attack = 10, defense = 11, speed = 12, special = 13 },
+    moves = {} } }, { data = { pokemon = { MON = { dex = 1, types = {
+      "NORMAL" } } }, moves = {} }, save = { player = {} } })
+T.eq(gen1Summary.pages, 2, "Gen 1 summaries keep their native two pages")
+T.eq(gen1Summary.experience, 125, "Gen 1 summaries read Gen 1 experience")
+local gen2State = { screenId = "Gen2SummaryMenu", page = 3,
+  mon = { species = "MON", level = 5, hp = 20, maxHp = 21,
+    experience = 140, item = "BERRY", moves = {}, stats = {
+      hp = 21, attack = 11, defense = 12, specialAttack = 13,
+      specialDefense = 14, speed = 15 } },
+  itemName = function() return "BERRY" end,
+  expToNext = function() return 60 end,
+  otName = function() return "GOLD" end,
+  otId = function() return 25 end }
+local gen2Summary = Summary.view(gen2State, { data = { pokemon = {
+  MON = { dex = 152, types = { "WATER" } } }, moves = {} },
+  save = { player = {} } })
+T.eq(gen2Summary.pages, 3, "Gen 2 summaries expose all three native pages")
+T.eq(gen2Summary.stats.specialDefense, 14,
+  "Gen 2 summaries retain split special stats")
+T.eq(gen2Summary.item, "BERRY", "Gen 2 summaries retain held items")
+gen2State.moveDetail = true
+T.check(not Summary.supports(gen2State),
+  "unknown summary subviews safely remain on the native screen")
+T.check(not source:find("bottomSummary", 1, true),
+  "summary ownership no longer depends on where it was opened")
 for _, module in ipairs({
   "src.core.Strings", "src.world.FieldDefaults", "src.inventory.Badges",
   "src.pokemon.Growth", "src.battle.TypeChart",
