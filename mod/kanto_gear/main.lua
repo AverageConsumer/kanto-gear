@@ -1608,7 +1608,8 @@ return function(mod)
   local function battleState()
     local states = game and game.stack and game.stack.states or {}
     for i = #states, 1, -1 do
-      if states[i].isBattleState then return states[i] end
+      if states[i].isBattleState
+          or states[i].screenId == "Gen2BattleState" then return states[i] end
     end
   end
 
@@ -3002,8 +3003,10 @@ return function(mod)
       for _, side in ipairs({ "player", "enemy" }) do
         local source, copy = raw and raw[side], nextBattle[side]
         if source and copy then
-          copy.hp = math.max(0, math.floor(source.shownHP
-            or source.mon.hp or copy.hp or 0))
+          local mon = source.mon or source
+          local shown = raw.shownHp and raw.shownHp[side]
+          copy.hp = math.max(0, math.floor(source.shownHP or shown
+            or mon.hp or copy.hp or 0))
           copy.status = source.shownStatus or copy.status
         end
       end

@@ -83,5 +83,20 @@ for _ = 1, 10 do
 end
 T.check(true, "Gold-shaped save and world render every companion tab")
 
+local enemy = { species = "FIXMON_B", level = 4, hp = 11, maxHp = 12,
+  moves = {} }
+local battle = { player = game.save.party[1], enemy = enemy,
+  party = game.save.party, wild = true, turn = 0 }
+function battle:moveDisabled() return false end
+local screen = { screenId = "Gen2BattleState", battle = battle,
+  phase = "menu", menuIndex = 1, moveIndex = 1,
+  shownHp = { player = 19, enemy = 10 } }
+game.stack.states = { screen }
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.check(true, "Gold battle state and direct mon HP shape render safely")
+
 run.release()
 T.finish("Kanto Gear Gen 2 compatibility")
