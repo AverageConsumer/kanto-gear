@@ -24,10 +24,15 @@ return {
   ["NO"] = "NEIN",
   ["OK"] = "OK",
   ["INFO"] = "INFO",
+  ["CANCEL"] = "ABBRUCH",
 
   -- Map, guide, area and tools.
   ["AREA MAP"] = "GEBIETSKARTE",
   ["MAP + FLY"] = "KARTE + FLUG",
+  ["JOHTO MAP"] = "JOHTO-KARTE",
+  ["JOHTO FLY"] = "JOHTO-FLUG",
+  ["KANTO MAP"] = "KANTO-KARTE",
+  ["KANTO FLY"] = "KANTO-FLUG",
   ["FLY TO"] = "FLIEGEN NACH",
   ["CONTEXT REQUIRED"] = "KONTEXT NÖTIG",
   ["NO ACTION HERE"] = "KEINE AKTION HIER",
@@ -72,6 +77,7 @@ return {
   ["STATS"] = "WERTE",
   ["STATS %d/2"] = "WERTE %d/2",
   ["STATS %d/%d"] = "WERTE %d/%d",
+  ["STATS ON TOP"] = "WERTE OBEN",
   ["STATUS"] = "STATUS",
   ["STATUS %s"] = "STATUS %s",
   ["HP"] = "KP",
@@ -100,6 +106,26 @@ return {
   ["SPC %d"] = "SPEZ %d",
   ["TYPE1 %s"] = "TYP1 %s",
   ["TYPE2 %s"] = "TYP2 %s",
+  ["FNT"] = "K.O.",
+
+  -- Kanto Gear settings. Theme and product names stay recognizable while
+  -- descriptive labels follow the selected language.
+  ["THEME"] = "DESIGN",
+  ["PURIST"] = "PURISTISCH",
+  ["ENHANCED"] = "ERWEITERT",
+  ["SAVED CUSTOM"] = "GESPEICHERT",
+  ["MATCH GAME"] = "SPIELFARBEN",
+  ["MODERN LIGHT"] = "MODERN HELL",
+  ["MODERN DARK"] = "MODERN DUNKEL",
+  ["OG INVERTED"] = "OG INVERTIERT",
+  ["VERSION COLOR"] = "VERSIONSFARBE",
+  ["OFF"] = "AUS",
+  ["GEAR SCREEN"] = "GEAR-BILDSCHIRM",
+  ["EXTERNAL"] = "EXTERN",
+  ["BATTLE VIEW"] = "KAMPFANSICHT",
+  ["CAUGHT ICON"] = "GEFANGEN-SYMBOL",
+  ["TRIGGER TABS"] = "TRIGGER-TABS",
+  ["LINK ONLINE"] = "LINK AKTIV",
 
   -- Battle, move selection and PC screens.
   ["BATTLE"] = "KAMPF",

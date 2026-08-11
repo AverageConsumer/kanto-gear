@@ -20,7 +20,7 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count >= 180, "Übersetzungskatalog ist unvollständig")
+assert(count >= 200, "Übersetzungskatalog ist unvollständig")
 
 local function glyphs(value)
   return select(2, value:gsub("[^\128-\193]", ""))
