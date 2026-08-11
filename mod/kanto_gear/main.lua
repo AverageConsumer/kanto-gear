@@ -1303,6 +1303,8 @@ return function(mod)
         .. ":" .. table.concat(context, ",")
     end
     local nextKey = table.concat(keys, "|")
+    nextTools.page = math.max(1, math.min(
+      math.max(1, math.ceil(#nextTools / 6)), tools.page or 1))
     tools = nextTools
     if nextKey ~= toolsKey then
       toolsKey = nextKey
@@ -2459,7 +2461,12 @@ return function(mod)
   end
 
   local function drawTools()
-    header("TOOLS", false, true)
+    local pages = math.max(1, math.ceil(#tools / 6))
+    local current = math.max(1, math.min(pages, tools.page or 1))
+    local first = (current - 1) * 6 + 1
+    local count = math.min(6, math.max(0, #tools - first + 1))
+    header(pages > 1 and THEME:format("TOOLS %d/%d", current, pages)
+      or "TOOLS", false, true)
     if #tools == 0 then
       box("fill", 12, 42, 136, 58, MID)
       outline(12, 42, 136, 58, INK)
@@ -2472,9 +2479,9 @@ return function(mod)
       end
       return
     end
-    for i, action in ipairs(tools) do
-      if i > 6 then break end
-      local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+    for slot = 1, count do
+      local action = tools[first + slot - 1]
+      local col, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
       button(3 + col * 78, 25 + row * 38, 76, 34, action.label, false)
     end
   end
@@ -4024,6 +4031,11 @@ return function(mod)
     if y < HEADER and not partyMoveFrom then
       if x < 22 then changePage(-1)
       elseif x >= 86 and x < 108 then changePage(1) end
+      if page == "TOOLS" and x >= 22 and x < 86 and #tools > 6 then
+        local pages = math.ceil(#tools / 6)
+        tools.page = (tools.page or 1) % pages + 1
+        dirty = true
+      end
       return
     end
     if page == "LOCAL" and inside(x, y, 126, 18, 34, 30) then
@@ -4074,9 +4086,11 @@ return function(mod)
         partyActionSlot, dirty = slot, true
       end
     elseif page == "TOOLS" then
-      for i, action in ipairs(tools) do
-        if i > 6 then break end
-        local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+      local first = ((tools.page or 1) - 1) * 6 + 1
+      local count = math.min(6, #tools - first + 1)
+      for slot = 1, count do
+        local action = tools[first + slot - 1]
+        local col, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
         if inside(x, y, 3 + col * 78, 25 + row * 38, 76, 34) then
           if action.id == "dig" or action.id == "teleport" then
             pendingAction = action
@@ -4107,6 +4121,13 @@ return function(mod)
 
   local function swipeVertical(dy)
     if radarOpen then return end
+    if page == "TOOLS" and #tools > 6 then
+      local pages = math.ceil(#tools / 6)
+      local direction = dy < 0 and 1 or -1
+      tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
+      dirty = true
+      return
+    end
     local top = game and game.stack and game.stack:top()
     if pcSession() and pcListKind(top) and #(top.items or {}) > 4 then
       top.index = pagedIndex(top.index, #top.items, dy < 0 and 1 or -1)
