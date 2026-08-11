@@ -39,6 +39,8 @@ for index = 1, debug.getinfo(entry, "u").nups do
 end
 T.check(theme ~= nil,
   "Kanto Gear owns a public translation-registry reference")
+T.eq(#theme.gen2Badges.johto + #theme.gen2Badges.kanto, 16,
+  "Gold trainer view accounts for all sixteen badges")
 T.eq(theme:moveName({ id = "TACKLE", name = "TACKLE" }, {
   moves = { TACKLE = { name = "TACKLE-DE" } },
 }), "TACKLE-DE", "move cards use the live translated move name")

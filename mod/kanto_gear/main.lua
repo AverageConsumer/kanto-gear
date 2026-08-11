@@ -540,7 +540,8 @@ local function battleChoice(state)
 end
 
 local function categorizedBag(state)
-  return state and (state.__pocketIndex ~= nil or state.modernBag ~= nil)
+  return state and (state.__pocketIndex ~= nil or state.pocketIndex ~= nil
+    or state.modernBag ~= nil)
     or false
 end
 
@@ -548,13 +549,24 @@ local function levelUpStatBox(state)
   return state and state.mon and state.mon.stats and not state.screenId or false
 end
 
-local MIRRORED_BATTLE_IDS = { BagMenu = true, Gen2PackMenu = false }
+local MIRRORED_BATTLE_IDS = {
+  BagMenu = true, Gen2PackMenu = true,
+  PartyMenu = true, Gen2PartyMenu = true,
+}
 
 local function mirroredBattleMenu(state)
+  if state and state.screenId == "Gen2PackMenu" and state.message then
+    return false
+  end
   return state and (state.isPartyMenu or MIRRORED_BATTLE_IDS[state.screenId]
     or state.kind == "pp_item_move" or battleChoice(state)
     or levelUpStatBox(state)) or false
 end
+
+assert(mirroredBattleMenu({ screenId = "Gen2PackMenu" })
+       and mirroredBattleMenu({ screenId = "Gen2PartyMenu" })
+       and not mirroredBattleMenu({ screenId = "Gen2PackMenu", message = {} }),
+       "safe Gen 2 battle menu mirroring")
 
 assert(not choiceReady(0.31, 0.32) and choiceReady(0.32, 0.32),
        "choice quiet gate")
@@ -879,6 +891,15 @@ local function inside(x, y, left, top, width, height)
   return x >= left and x < left + width and y >= top and y < top + height
 end
 
+THEME.gen2Badges = {
+  johto = { "ZEPHYR", "HIVE", "PLAIN", "FOG", "STORM", "MINERAL",
+    "GLACIER", "RISING" },
+  kanto = { "BOULDER", "CASCADE", "THUNDER", "RAINBOW", "SOUL", "MARSH",
+    "VOLCANO", "EARTH" },
+  oam = { ZEPHYR = 1, HIVE = 2, PLAIN = 3, FOG = 4, MINERAL = 5,
+    STORM = 6, GLACIER = 7, RISING = 8 },
+}
+
 return function(mod)
   THEME.strings = mod.content.strings
 
@@ -1080,6 +1101,17 @@ return function(mod)
 
   function compat.isGen2()
     return game and game.save and game.save.generation == 2
+  end
+
+  function compat.gen2PaletteModules()
+    if not compat.isGen2() then return nil end
+    if compat.gen2GbcPalette == nil then
+      local okGbc, gbc = pcall(require, "src.render.GbcPalette")
+      local okPal, palettes = pcall(require, "src.world.gen2.Palettes")
+      compat.gen2GbcPalette = okGbc and gbc or false
+      compat.gen2Palettes = okPal and palettes or false
+    end
+    return compat.gen2GbcPalette or nil, compat.gen2Palettes or nil
   end
 
   function compat.isScreen(state, kind)
@@ -1486,9 +1518,17 @@ return function(mod)
     end
     local iw, ih = image:getDimensions()
     local scale = math.min(maxW / iw, maxH / ih)
-    color(tint or { 1, 1, 1, 1 })
-    G.draw(image, x + (maxW - iw * scale) / 2,
-           y + (maxH - ih * scale) / 2, 0, scale, scale)
+    local function paint()
+      color(tint or { 1, 1, 1, 1 })
+      G.draw(image, x + (maxW - iw * scale) / 2,
+             y + (maxH - ih * scale) / 2, 0, scale, scale)
+    end
+    local gbc, palettes = compat.gen2PaletteModules()
+    local colors = palettes and palettes.monColors
+      and palettes.monColors(game.data.gen2Palettes, species,
+                             mon and mon.shiny)
+    if colors and gbc and gbc.available() then gbc.with(colors, paint)
+    else paint() end
     return true
   end
 
@@ -1535,9 +1575,16 @@ return function(mod)
     local fw, fh = math.min(16, iw), math.min(16, ih)
     local quad = G.newQuad(0, 0, fw, fh, iw, ih)
     local scale = math.min(27 / fw, 27 / fh)
-    color({ 1, 1, 1, 1 })
-    G.draw(image, quad, x + (27 - fw * scale) / 2,
-      y + (27 - fh * scale) / 2, 0, scale, scale)
+    local function paint()
+      color({ 1, 1, 1, 1 })
+      G.draw(image, quad, x + (27 - fw * scale) / 2,
+        y + (27 - fh * scale) / 2, 0, scale, scale)
+    end
+    local gbc = compat.gen2PaletteModules()
+    local colors = data.gen2Palettes and data.gen2Palettes.partyMenu
+      and data.gen2Palettes.partyMenu[1]
+    if colors and gbc and gbc.available() then gbc.with(colors, paint)
+    else paint() end
     return true
   end
 
@@ -2016,6 +2063,63 @@ return function(mod)
     button(84, 91, 58, 27, "NO", false)
   end
 
+  function compat.gen2BadgeAsset()
+    if spriteCache.__gen2Badges ~= nil then
+      return spriteCache.__gen2Badges or nil
+    end
+    local gfx = game.data.gen2MenuGfx and game.data.gen2MenuGfx.trainerCard
+    if not (gfx and gfx.badges and gfx.badgeOam) then
+      spriteCache.__gen2Badges = false
+      return nil
+    end
+    local ok, image = pcall(G.newImage, gfx.badges)
+    if not (ok and image) then
+      spriteCache.__gen2Badges = false
+      return nil
+    end
+    image:setFilter("nearest", "nearest")
+    local iw, ih = image:getDimensions()
+    local wide = gfx.badgesWide or 2
+    local quads = {}
+    for tile = 0, wide * math.floor(ih / 8) - 1 do
+      quads[tile] = G.newQuad((tile % wide) * 8,
+        math.floor(tile / wide) * 8, 8, 8, iw, ih)
+    end
+    spriteCache.__gen2Badges = {
+      image = image, quads = quads, oam = gfx.badgeOam,
+      palette = gfx.badgePalette,
+    }
+    return spriteCache.__gen2Badges
+  end
+
+  function compat.drawGen2Badge(name, x, y, owned)
+    local asset = compat.gen2BadgeAsset()
+    local obj = asset and asset.oam[THEME.gen2Badges.oam[name] or 0]
+    local tile = obj and obj.frames and obj.frames[1]
+    if tile == nil then return false end
+    local flip = tile >= 0x80
+    local base, sx = flip and tile - 0x80 or tile, flip and -1 or 1
+    local function paint()
+      color(owned and { 1, 1, 1, 1 } or { 0.35, 0.35, 0.35, 0.32 })
+      for _, cell in ipairs({ { 0, 0, 0 }, { 1, 0, 1 },
+          { 0, 1, 2 }, { 1, 1, 3 } }) do
+        local quad = asset.quads[base + cell[3]]
+        if quad then
+          local px = (flip and (1 - cell[1]) or cell[1]) * 8
+          G.draw(asset.image, quad, x + (px + (flip and 8 or 0)) * 0.5,
+            y + cell[2] * 4, 0, sx * 0.5, 0.5)
+        end
+      end
+    end
+    local gbc = compat.gen2PaletteModules()
+    if asset.palette and gbc and gbc.available() then
+      gbc.with(asset.palette, paint)
+    else
+      paint()
+    end
+    return true
+  end
+
   local function drawTrainer()
     local save = game.save or {}
     local player = save.player or {}
@@ -2028,16 +2132,26 @@ return function(mod)
         if ownedDex[species] then owned = owned + 1 end
       end
     end
-    local badges = compat.isGen2() and {
-      { id = "ZEPHYR" }, { id = "HIVE" }, { id = "PLAIN" },
-      { id = "FOG" }, { id = "STORM" }, { id = "MINERAL" },
-      { id = "GLACIER" }, { id = "RISING" },
-    } or game.data.constants and game.data.constants.badges or {}
+    local badges = game.data.constants and game.data.constants.badges or {}
+    if compat.isGen2() then
+      badges = {}
+      for _, id in ipairs(THEME.gen2Badges.johto) do
+        badges[#badges + 1] = { id = id, region = "johto" }
+      end
+      for _, id in ipairs(THEME.gen2Badges.kanto) do
+        badges[#badges + 1] = { id = id, region = "kanto" }
+      end
+    end
     local inventory = save.inventory or {}
     local playerBadges = player.badges or {}
     local function ownsBadge(badge, index)
-      return compat.isGen2() and (playerBadges[badge.id] or playerBadges[index])
-        or inventory[badge.item or badge.id]
+      if compat.isGen2() then
+        local held = badge.region == "kanto" and (player.kantoBadges or {})
+          or playerBadges
+        local slot = badge.region == "kanto" and index - 8 or index
+        return held[badge.id] or held[slot]
+      end
+      return inventory[badge.item or badge.id]
     end
     local badgeCount = 0
     for i, badge in ipairs(badges) do
@@ -2064,17 +2178,26 @@ return function(mod)
     box("fill", 8, 43, 144, 1, DARK)
     text(THEME:format("%s %d/%d", THEME:translate("BADGES"),
       badgeCount, #badges), 8, 48, DARK)
-    local badgeGap = 152 / math.max(1, #badges)
     for i, badge in ipairs(badges) do
       local badgeOwned = ownsBadge(badge, i)
       local quad = badgeAsset and badgeAsset.quads and badgeAsset.quads[i - 1]
-      if quad then
+      if compat.isGen2() then
+        local col, row = (i - 1) % 8, math.floor((i - 1) / 8)
+        local x, y = 7 + col * 19, 55 + row * 9
+        if not compat.drawGen2Badge(badge.id, x, y, badgeOwned) then
+          box("fill", x, y, 8, 7, badgeOwned and DARK or MID)
+          outline(x, y, 8, 7, INK)
+          text(badge.id:sub(1, 1), x + 2, y + 1,
+            badgeOwned and PAPER or DARK)
+        end
+      elseif quad then
         local tint = badgeOwned and INK or DARK
         G.setColor(tint[1], tint[2], tint[3], badgeOwned and 1 or 0.25)
         local x = math.floor(5 + (i - 1) * 134
           / math.max(1, #badges - 1))
         G.draw(badgeAsset.img, quad, x, 56)
       else
+        local badgeGap = 152 / math.max(1, #badges)
         local x = math.floor(4 + (i - 1) * badgeGap)
         local nextX = math.floor(4 + i * badgeGap)
         box("fill", x + 4, 61, math.max(2, nextX - x - 7), 7,
@@ -2443,19 +2566,51 @@ return function(mod)
     end
   end
 
+  function compat.moveInfoLines(move, def, ruleset)
+    if compat.isGen2() and type(def.description) == "string"
+        and #def.description > 0 then
+      local source = def.description:gsub("<NEXT>", " "):gsub("\n", " ")
+        :gsub("%s+", " ")
+      local lines, current = {}, ""
+      for word in source:gmatch("%S+") do
+        local joined = current == "" and word or current .. " " .. word
+        if #joined <= 21 then
+          current = joined
+        elseif current == "" then
+          lines[#lines + 1] = fit(word, 21)
+          if #lines == 2 then break end
+        else
+          lines[#lines + 1] = fit(current, 21)
+          current = word
+          if #lines == 2 then break end
+        end
+      end
+      if #lines < 2 and current ~= "" then
+        lines[#lines + 1] = fit(current, 21)
+      end
+      if #lines > 0 then return lines end
+    end
+    return THEME:moveDescription(move, def, ruleset)
+  end
+
   local function drawMoveInfo(move)
     local def = game and game.data and game.data.moves
       and game.data.moves[move.id] or {}
     local raw = battleState()
-    local lines = THEME:moveDescription(move, def, raw and raw.ruleset)
+    local lines = compat.moveInfoLines(move, def, raw and raw.ruleset)
+    local power = move.displayPower
+    if power == nil then power = move.power or def.power end
+    if power == 0 then power = nil end
+    local accuracy = move.hitChance
+    if accuracy == nil then accuracy = move.accuracy or def.accuracy end
     header(fit(THEME:moveName(move, game and game.data), 12), true)
     box("fill", 12, 25, 136, 112, MID)
     outline(12, 25, 136, 112, INK)
     centered(THEME:typeName(def.type or move.type, mod.content), 33, INK, 2)
     text("POWER", 20, 54, DARK)
-    text(tostring(move.displayPower or "--"), 20, 65, INK)
+    text(tostring(power or "--"), 20, 65, INK)
     text("HIT", 69, 54, DARK)
-    text(chanceLabel(move.hitChance), 61, 65, INK)
+    text(chanceLabel(accuracy), 61, 65, INK)
     text("PP", 121, 54, DARK)
     text(("%d/%d"):format(move.pp or 0, move.maxPp or 0), 108, 65, INK)
     if assist("type_hints") then
@@ -2474,13 +2629,40 @@ return function(mod)
   local function drawBattleParty(menu)
     if menu.submenu then
       header(fit((battle.party[menu.index] or {}).name or "POKEMON", 12), true)
-      for i, item in ipairs(menu.subItems or {}) do
+      local submenu = type(menu.submenu) == "table" and menu.submenu or nil
+      local items = menu.subItems or (submenu and submenu.items) or {}
+      local index = menu.subIndex or (submenu and submenu.index)
+      for i, item in ipairs(items) do
         button(14, 29 + (i - 1) * 35, 132, 30,
-               item.label or tostring(i), menu.subIndex == i)
+               item.label or tostring(i), index == i)
       end
       return
     end
-    drawParty(battle.party or {}, "PARTY", true, nil, menu.index)
+    local cancel = menu.isCancel and menu:isCancel()
+    drawParty(battle.party or {}, cancel and "CANCEL" or "PARTY", true, nil,
+      cancel and nil or menu.index)
+  end
+
+  function compat.battleBagMenu(menu)
+    if not (menu and menu.screenId == "Gen2PackMenu") then return menu end
+    local items = {}
+    for i, row in ipairs(menu.rows or {}) do
+      items[i] = {
+        value = row.id,
+        label = row.name or row.id,
+        right = row.teaches or (row.showCount and ("x" .. tostring(row.count)))
+          or "",
+      }
+    end
+    items[#items + 1] = { label = "CANCEL", cancel = true }
+    local pocket = menu.pocket and menu:pocket() or {}
+    return {
+      screenId = menu.screenId,
+      items = items,
+      index = menu.index or 1,
+      title = pocket.label or "ITEMS",
+      pocketIndex = menu.pocketIndex,
+    }
   end
 
   local function drawBattleItems(menu)
@@ -2819,7 +3001,7 @@ return function(mod)
     local top = game and game.stack and game.stack:top()
     local raw = battleState()
     local party = compat.isScreen(top, "party") and top
-    local bag = not compat.isGen2() and compat.isScreen(top, "bag") and top
+    local bag = compat.isScreen(top, "bag") and top
     local ppMoves = top and top.kind == "pp_item_move" and top
     local summary = compat.isScreen(top, "summary")
       and screenById("party") and top
@@ -2828,7 +3010,7 @@ return function(mod)
     elseif party then
       drawBattleParty(party)
     elseif bag then
-      drawBattleItems(bag)
+      drawBattleItems(compat.battleBagMenu(bag))
     elseif summary then
       drawTopSummaryControls(summary)
     elseif battle.prompt == "safari" then
@@ -3025,14 +3207,15 @@ return function(mod)
       nextBattle.moveIndex = raw and raw.moveIndex
       nextBattle.mimicIndex = raw and raw.mimicIndex
       nextBattle.partyIndex = compat.isScreen(top, "party") and top.index or nil
+      local submenu = compat.isScreen(top, "party")
+        and type(top.submenu) == "table" and top.submenu or nil
       nextBattle.subIndex = compat.isScreen(top, "party") and top.submenu
-        and top.subIndex or nil
-      nextBattle.itemIndex = not compat.isGen2() and compat.isScreen(top, "bag")
-        and top.index or nil
-      nextBattle.itemPocket = not compat.isGen2() and compat.isScreen(top, "bag")
-        and top.__pocketIndex or nil
-      nextBattle.itemTitle = not compat.isGen2() and compat.isScreen(top, "bag")
-        and top.title or nil
+        and (top.subIndex or (submenu and submenu.index)) or nil
+      local bag = compat.isScreen(top, "bag") and compat.battleBagMenu(top) or nil
+      nextBattle.itemIndex = bag and bag.index or nil
+      nextBattle.itemPocket = bag
+        and (bag.__pocketIndex or bag.pocketIndex) or nil
+      nextBattle.itemTitle = bag and bag.title or nil
       nextBattle.summaryPage = compat.isScreen(top, "summary")
         and top.page or nil
       if battleChoice(top) and not nextBattle.message
@@ -3211,10 +3394,12 @@ return function(mod)
       if y < HEADER and x < 24 then
         press("b")
       elseif top.submenu then
+        local submenu = type(top.submenu) == "table" and top.submenu or nil
+        local items = top.subItems or (submenu and submenu.items) or {}
         local index = math.floor((y - 29) / 35) + 1
         if x >= 14 and x < 146 and index >= 1
-            and index <= #(top.subItems or {}) then
-          top.subIndex = index
+            and index <= #items then
+          if submenu then submenu.index = index else top.subIndex = index end
           press("a")
         end
       elseif y >= 23 then
@@ -3227,7 +3412,8 @@ return function(mod)
       end
       return
     end
-    if not compat.isGen2() and compat.isScreen(top, "bag") then
+    if compat.isScreen(top, "bag") then
+      local menu = compat.battleBagMenu(top)
       if y < HEADER then
         if categorizedBag(top) then
           if x < 18 then
@@ -3241,7 +3427,7 @@ return function(mod)
           press("b")
         end
       else
-        local first, count = choiceWindow(top.items or {}, top.index)
+        local first, count = choiceWindow(menu.items or {}, menu.index)
         local row = math.floor((y - 25) / 28) + 1
         if x >= 8 and x < 152 and row >= 1 and row <= count then
           top.index = first + row - 1
@@ -3858,6 +4044,7 @@ return function(mod)
   mod.events:on("game.ready", function(payload)
     game = payload.game
     spriteCache.__badges = nil
+    spriteCache.__gen2Badges = nil
     refreshTheme(true)
     reloadSteps()
     local player = game.save and game.save.player

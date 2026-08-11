@@ -84,7 +84,6 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 })
 T.check(#mapDraws:fromPath("gold-map.png") > 0,
   "Gold map renders the extracted Pokegear town-map tiles")
-mapDraws:stop()
 for _ = 1, 10 do
   trigger = 0.8
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
@@ -93,7 +92,11 @@ for _ = 1, 10 do
   run.loader.hooks:call("render.compose", function() return false end, {}, {
     secondScreen = companion,
   })
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = companion,
+  })
 end
+mapDraws:stop()
 T.check(true, "Gold-shaped save and world render every companion tab")
 
 local enemy = { species = "FIXMON_B", level = 4, hp = 11, maxHp = 12,
@@ -110,6 +113,30 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
 })
 T.check(true, "Gold battle state and direct mon HP shape render safely")
+
+local pack = {
+  screenId = "Gen2PackMenu", battle = true, pocketIndex = 1, index = 1,
+  rows = { { id = "POTION", name = "POTION", count = 2,
+    showCount = true } },
+  pocket = function() return { id = "ITEM", label = "ITEMS" } end,
+}
+game.stack.states = { screen, pack }
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.check(true, "Gold battle PACK rows render on the companion screen")
+
+local party = {
+  screenId = "Gen2PartyMenu", index = #game.save.party + 1,
+  isCancel = function(self) return self.index > #game.save.party end,
+}
+game.stack.states = { screen, party }
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.check(true, "Gold party CANCEL renders as navigation instead of a Pokemon")
 
 run.release()
 T.finish("Kanto Gear Gen 2 compatibility")
