@@ -462,11 +462,114 @@ local function clockText(is24Hour, timestamp)
     THEME:translate(time.hour < 12 and "AM" or "PM"))
 end
 
-local function itemfinderNear(px, py, x, y)
+local Area = {}
+
+function Area.itemfinderNear(px, py, x, y)
   local function near(origin, value, high)
     return value > math.max(origin - 5, 0) and value <= origin + high
   end
   return near(px, x, 5) and near(py, y, 4)
+end
+
+local function gen2Definition(definitions, index)
+  local direct = definitions and definitions[index]
+  if type(direct) == "table" then return direct, direct.id or index end
+  for id, def in pairs(definitions or {}) do
+    if type(def) == "table" and def.index == index then return def, id end
+  end
+end
+
+local function gen2FlagSet(world, event)
+  return event ~= nil and world and world.getFlag
+    and world:getFlag(event) == true or false
+end
+
+local function gen2ItemName(data, index)
+  local def, id = gen2Definition(data and data.items, index)
+  return def and def.name or id or tostring(index)
+end
+
+local function gen2TrainerName(data, save, trainer)
+  local class, classId = gen2Definition(
+    data and data.gen2Trainers and data.gen2Trainers.classes,
+    trainer and trainer.class)
+  if not class then return "TRAINER" end
+  classId = class.id or classId
+  if tostring(classId):match("^RIVAL") then
+    return save and save.rival and save.rival.name or class.name or classId
+  end
+  local member = class.trainers and class.trainers[trainer.member]
+  return member and member.name
+    and tostring(class.name or classId) .. " " .. tostring(member.name)
+    or class.name or classId
+end
+
+function Area.gen2Hidden(data, world, mapId)
+  local map = data and data.gen2Maps and data.gen2Maps[mapId]
+  local out = {}
+  for _, event in ipairs(map and map.bgEvents or {}) do
+    local hidden = event.hiddenItem
+    if hidden then
+      out[#out + 1] = {
+        label = gen2ItemName(data, hidden.item),
+        done = gen2FlagSet(world, hidden.event),
+        x = event.x, y = event.y,
+      }
+    end
+  end
+  return out
+end
+
+function Area.gen2Rows(data, save, world, mapIds)
+  local rows = { {}, {}, {} }
+  for _, mapId in ipairs(mapIds) do
+    local map = data and data.gen2Maps and data.gen2Maps[mapId]
+    for _, obj in ipairs(map and map.objects or {}) do
+      if obj.trainer then
+        rows[1][#rows[1] + 1] = {
+          label = gen2TrainerName(data, save, obj.trainer),
+          done = gen2FlagSet(world, obj.trainer.event),
+        }
+      elseif obj.itemball and obj.itemball.item ~= 0 then
+        rows[2][#rows[2] + 1] = {
+          label = gen2ItemName(data, obj.itemball.item),
+          done = gen2FlagSet(world, obj.eventFlag),
+        }
+      end
+    end
+    for _, hidden in ipairs(Area.gen2Hidden(data, world, mapId)) do
+      rows[3][#rows[3] + 1] = hidden
+    end
+  end
+  return rows
+end
+
+do
+  local flags = { [11] = true, [13] = true }
+  local data = {
+    items = {
+      POTION = { index = 7, name = "POTION" },
+      BERRY = { index = 8, name = "BERRY" },
+    },
+    gen2Trainers = { classes = { YOUNGSTER = {
+      index = 3, name = "YOUNGSTER",
+      trainers = { [2] = { name = "JOEY" } },
+    } } },
+    gen2Maps = { TEST = {
+      objects = {
+        { trainer = { class = 3, member = 2, event = 11 } },
+        { eventFlag = 12, itemball = { item = 7 } },
+      },
+      bgEvents = { { x = 4, y = 5,
+        hiddenItem = { item = 8, event = 13 } } },
+    } },
+  }
+  local world = { getFlag = function(_, id) return flags[id] end }
+  local rows = Area.gen2Rows(data, {}, world, { "TEST" })
+  assert(rows[1][1].label == "YOUNGSTER JOEY" and rows[1][1].done
+    and rows[2][1].label == "POTION" and not rows[2][1].done
+    and rows[3][1].label == "BERRY" and rows[3][1].done,
+    "Gen 2 area checklist data")
 end
 
 local function localMapLayout(width, height, zoom, focusX, focusY, density)
@@ -655,9 +758,9 @@ do
   assert(clockText(true, timestamp) == "21:05"
     and clockText(false, timestamp) == "9:05PM", "system clock format")
 end
-assert(itemfinderNear(10, 10, 15, 14)
-       and not itemfinderNear(10, 10, 5, 10)
-       and not itemfinderNear(10, 10, 10, 15), "native itemfinder radius")
+assert(Area.itemfinderNear(10, 10, 15, 14)
+       and not Area.itemfinderNear(10, 10, 5, 10)
+       and not Area.itemfinderNear(10, 10, 10, 15), "native itemfinder radius")
 do
   local scale, x, y = localMapLayout(40, 36)
   assert(scale == 2 and x == 40 and y == 37,
@@ -1431,7 +1534,14 @@ return function(mod)
         perPage = assist("item_radar") and 3 or 4 } }
     local data, save = game.data, game.save
     local field = data.field or {}
-    for _, id in ipairs(areaMaps(mapId)) do
+    local maps = areaMaps(mapId)
+    if compat.isGen2() then
+      local rows = Area.gen2Rows(data, save, mod.world, maps)
+      for index = 1, 3 do sections[index].rows = rows[index] end
+      local screens = checklistPages(sections)
+      return { name = areaName(mapId), screens = screens, pages = #screens }
+    end
+    for _, id in ipairs(maps) do
       local map = data.maps and data.maps[id]
       for _, obj in ipairs(map and map.objects or {}) do
         local key = id .. "_obj_" .. tostring(obj.index)
@@ -1496,13 +1606,27 @@ return function(mod)
     local world = game and (game.overworld or game.world)
     local player = world and world.player
     if not player then return {} end
+    if compat.isGen2() then
+      local out = {}
+      for _, item in ipairs(Area.gen2Hidden(game.data, mod.world, mapId)) do
+        if not item.done and item.x and item.y
+            and Area.itemfinderNear(
+              player.cellX, player.cellY, item.x, item.y) then
+          out[#out + 1] = {
+            dx = item.x - player.cellX, dy = item.y - player.cellY,
+          }
+        end
+      end
+      return out
+    end
     local field = game.data.field or {}
     local hidden = field.hiddenItems and field.hiddenItems[mapId] or {}
     local taken, out = game.save.hiddenTaken or {}, {}
     for _, item in ipairs(hidden) do
       local key = mapId .. "_" .. item.x .. "_" .. item.y
       if not taken[key]
-          and itemfinderNear(player.cellX, player.cellY, item.x, item.y) then
+          and Area.itemfinderNear(
+            player.cellX, player.cellY, item.x, item.y) then
         out[#out + 1] = {
           dx = item.x - player.cellX, dy = item.y - player.cellY,
         }

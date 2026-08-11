@@ -23,7 +23,19 @@ T.eq(#run.errors, 0, "Kanto Gear has no Gen 2 boot errors")
 run.data.gen2Landmarks = { landmarks = {
   LANDMARK_FIX_ROUTE = { index = 2, name = "FIX ROUTE", x = 40, y = 56 },
 } }
-run.data.gen2Maps = { FIX_ROUTE = { landmark = 2 } }
+run.data.gen2Maps = { FIX_ROUTE = {
+  landmark = 2,
+  objects = {
+    { eventFlag = 12, itemball = { item = 1 } },
+    { trainer = { class = 3, member = 1, event = 11 } },
+  },
+  bgEvents = { { x = 3, y = 4,
+    hiddenItem = { item = 1, event = 13 } } },
+} }
+run.data.gen2Trainers = { classes = { YOUNGSTER = {
+  index = 3, name = "YOUNGSTER",
+  trainers = { { name = "JOEY" } },
+} } }
 run.data.gen2Encounters = { grass = { FIX_ROUTE = { slots = {
   MORN = { { species = "FIXMON_A", level = 2 } },
   DAY = { { species = "FIXMON_A", level = 3 } },
