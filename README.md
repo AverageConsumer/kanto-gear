@@ -7,7 +7,7 @@
 Turn a dual-screen Android handheld into a complete Pokémon companion for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp): keep the game on one display and put maps, party data, battles and touch controls on the other.
 
 <p>
-  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.1"><img src="https://img.shields.io/badge/release-v1.8.1-5c8a3c" alt="Latest release: v1.8.1"></a>
+  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2"><img src="https://img.shields.io/badge/release-v1.8.2-5c8a3c" alt="Latest release: v1.8.2"></a>
   <a href="#supported-devices"><img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Platform: Android"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/code-MIT-blue.svg" alt="Code license: MIT"></a>
 </p>
@@ -18,7 +18,7 @@ Turn a dual-screen Android handheld into a complete Pokémon companion for [Gen1
   <img src="kanto-gear-full-gear-battle.png" width="32%" alt="Kanto Gear Full Gear battle controls and status panels">
 </p>
 
-<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.1">Download Kanto Gear</a></strong> · <strong><a href="#install-on-android">Install on Android</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
+<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2">Download Kanto Gear</a></strong> · <strong><a href="#install-on-android">Install on Android</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
 
 </div>
 
@@ -31,7 +31,7 @@ display without changing the game underneath it.
 - Check your party, Trainer Card, badges, Pokédex progress, steps and area data.
 - Use contextual touch controls for battles, bags, dialogue, PC boxes and moves.
 - Move battle controls—or the complete battle HUD—to the second screen.
-- Swap the game and Kanto Gear between displays instantly with **Y**.
+- Optionally swap the game and Kanto Gear between displays with **Y**.
 - Choose classic Game Boy-inspired or modern light and dark themes.
 
 The normal game UI returns when the second display is switched off or
@@ -45,8 +45,8 @@ optional; the host and Kanto Gear mod are required.
 | Download | Required | Purpose |
 | --- | :---: | --- |
 | [Gen1Recomp Android Test 0.1.79-kanto.9](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.79-kanto.9) | **Yes** | Android host with Gold and the dual-display bridge |
-| [Kanto Gear 1.8.1](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.1) | **Yes** | The second-screen companion mod |
-| [Kanto Gear Deutsch 0.2.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.1) | No | German text for the Kanto Gear interface |
+| [Kanto Gear 1.8.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2) | **Yes** | The second-screen companion mod |
+| [Kanto Gear Deutsch 0.2.1](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2) | No | German text for the Kanto Gear interface |
 | [Dramatic Shape 1.7.0-android.1](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.7.0-android.1) | No | Tested optional 3D renderer for Android |
 
 > [!IMPORTANT]
@@ -59,14 +59,14 @@ You need your own supported Pokémon Red, Blue, Yellow or Gold ROM. No ROM or
 ROM-extracted game data is included.
 
 1. Install the [Gen1Recomp Android Test APK](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.79-kanto.9).
-2. Download [Kanto Gear 1.8.1](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.1).
+2. Download [Kanto Gear 1.8.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2).
 3. Open **Gen1Recomp Android Test → MODS → Import mod .zip** and select the
    Kanto Gear ZIP.
 4. Enable **Kanto Gear** and start the game. The companion opens automatically
    when Android reports a suitable second display.
 
 For a German Kanto Gear interface, import the optional
-`kanto_gear_de-0.2.0.zip` from the same release. Other translations can
+`kanto_gear_de-0.2.1.zip` from the same release. Other translations can
 use the small [language-pack template](translations/README.md).
 
 When updating the host, install the newer APK over the existing app. Do not
@@ -104,7 +104,7 @@ opening an unwanted extra window.
 | Action | Control |
 | --- | --- |
 | Change Kanto Gear page | Swipe left/right or tap the header arrows |
-| Swap the two displays | Press **Y** |
+| Swap the two displays | Enable **SCREEN SWAP (Y)**, then press **Y** |
 | Cycle pages with a controller | Enable **TRIGGER TABS**, then use L2/R2 |
 | Zoom the local map | Tap **+ / −** |
 | Open Kanto Gear settings with Modern UI | **MOD MENUS → KANTO GEAR** |
@@ -112,6 +112,7 @@ opening an unwanted extra window.
 Useful settings:
 
 - **GEAR SCREEN → AUTO** is the recommended display mode.
+- **SCREEN SWAP (Y)** is off by default so other mods can use **Y**.
 - **BATTLE VIEW → STANDARD** keeps the original battle HUD.
 - **BATTLE VIEW → GEAR** moves duplicated battle controls.
 - **BATTLE VIEW → FULL GEAR** also moves HP and status panels.
