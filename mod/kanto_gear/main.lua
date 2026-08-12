@@ -2324,11 +2324,12 @@ return function(mod)
     return spriteCache.__gen2Badges
   end
 
-  function compat.drawGen2Badge(name, x, y, owned)
+  function compat.drawGen2Badge(name, x, y, owned, scale)
     local asset = compat.gen2BadgeAsset()
     local obj = asset and asset.oam[THEME.gen2Badges.oam[name] or 0]
     local tile = obj and obj.frames and obj.frames[1]
     if tile == nil then return false end
+    scale = scale or 1
     local flip = tile >= 0x80
     local base, sx = flip and tile - 0x80 or tile, flip and -1 or 1
     local function paint()
@@ -2337,9 +2338,9 @@ return function(mod)
           { 0, 1, 2 }, { 1, 1, 3 } }) do
         local quad = asset.quads[base + cell[3]]
         if quad then
-          local px = (flip and (1 - cell[1]) or cell[1]) * 8
-          G.draw(asset.image, quad, x + px + (flip and 8 or 0),
-            y + cell[2] * 8, 0, sx, 1)
+          local px = (flip and (1 - cell[1]) or cell[1]) * 8 * scale
+          G.draw(asset.image, quad, x + px + (flip and 8 * scale or 0),
+            y + cell[2] * 8 * scale, 0, sx * scale, scale)
         end
       end
     end
@@ -2429,11 +2430,11 @@ return function(mod)
       local badgeOwned = ownsBadge(badge, i)
       local quad = badgeAsset and badgeAsset.quads and badgeAsset.quads[i - 1]
       if compat.isGen2() then
-        local x, y = 5 + (i - 1) * 19, 55
-        if not compat.drawGen2Badge(badge.id, x, y, badgeOwned) then
-          box("fill", x, y, 16, 14, badgeOwned and DARK or MID)
-          outline(x, y, 16, 14, INK)
-          text(badge.id:sub(1, 2), x + 2, y + 4,
+        local x, y = 11 + (i - 1) * 18, 57
+        if not compat.drawGen2Badge(badge.id, x, y, badgeOwned, 0.75) then
+          box("fill", x, y, 12, 12, badgeOwned and DARK or MID)
+          outline(x, y, 12, 12, INK)
+          text(badge.id:sub(1, 1), x + 2, y + 2,
             badgeOwned and PAPER or DARK)
         end
       elseif quad then

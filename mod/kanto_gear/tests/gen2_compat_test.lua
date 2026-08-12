@@ -120,6 +120,16 @@ for _ = 1, 10 do
 end
 mapDraws:stop()
 T.check(true, "Gold-shaped save and world render every companion tab")
+local firstBadge, lastBadge = false, false
+for _, call in ipairs(rectangles) do
+  local _, x, y, w, h = unpack(call)
+  if y == 57 and w == 12 and h == 12 then
+    firstBadge = firstBadge or x == 11
+    lastBadge = lastBadge or x == 137
+  end
+end
+T.check(firstBadge and lastBadge,
+  "Gold badges use smaller icons with equal outer margins")
 
 local enemy = { species = "FIXMON_B", level = 4, hp = 11, maxHp = 12,
   moves = {} }
