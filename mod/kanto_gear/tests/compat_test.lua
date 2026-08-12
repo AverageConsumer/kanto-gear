@@ -159,18 +159,20 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 7, "Kanto Gear keeps its settings compact")
+T.eq(#options, 8, "Kanto Gear keeps its settings compact")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
 T.eq(#options[1].choices, 9, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "modern_light", "modern light theme is available")
 T.eq(options[1].choices[4][2], "modern_dark", "modern dark theme is available")
 T.eq(options[2].label, "INFO", "assist features use one preset")
 T.eq(options[4].label, "GEAR SCREEN", "display setting is device-neutral")
-T.eq(options[5].label, "BATTLE VIEW", "battle layout uses one setting")
-T.eq(#options[5].choices, 3, "battle view exposes three clear layouts")
-T.eq(options[6].label, "CAUGHT ICON", "caught marker has one clear toggle")
-T.eq(options[7].label, "TRIGGER TABS", "trigger navigation is opt-in")
-T.eq(options[7].default, false, "trigger navigation cannot claim controls by default")
+T.eq(options[5].label, "SCREEN SWAP (Y)", "live swapping names its control")
+T.eq(options[5].default, false, "screen swap cannot claim Y by default")
+T.eq(options[6].label, "BATTLE VIEW", "battle layout uses one setting")
+T.eq(#options[6].choices, 3, "battle view exposes three clear layouts")
+T.eq(options[7].label, "CAUGHT ICON", "caught marker has one clear toggle")
+T.eq(options[8].label, "TRIGGER TABS", "trigger navigation is opt-in")
+T.eq(options[8].default, false, "trigger navigation cannot claim controls by default")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
@@ -215,11 +217,12 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { detected = function() return displayDetected end,
                    pollTouch = function() return nil end },
 })
-local swapPressed, infoPressed = true, false
+local swapPressed, infoPressed, swapPolls = true, false, 0
 local trigger = { left = 0, right = 0 }
 T.love.joystick = { getJoysticks = function()
   return { {
     isGamepadDown = function(_, button)
+      if button == "y" then swapPolls = swapPolls + 1 end
       return button == "y" and swapPressed
         or button == "x" and infoPressed
     end,
@@ -247,6 +250,16 @@ game.stack = { states = { world }, top = function(self)
   return self.states[#self.states]
 end }
 run.loader.events:emit("game.ready", { game = game })
+T.eq(run.loader.hooks:call("render.output_enabled",
+  function() return false end), false,
+  "Y screen swapping is disabled by default")
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+T.eq(swapPolls, 0, "disabled screen swapping never polls Y")
+run.loader.modOptions.kanto_gear = { screen_swap = true }
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "screen_swap" })
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+T.check(swapPolls > 0, "enabled screen swapping polls Y")
 do
   local summary = { screenId = "SummaryMenu", page = 1,
     mon = game.save.party[1] }
@@ -601,6 +614,13 @@ displayDetected = false
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
   "disconnect bypasses swapped output immediately")
+displayDetected = true
+run.loader.modOptions.kanto_gear.screen_swap = false
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "screen_swap" })
+T.eq(run.loader.hooks:call("render.output_enabled",
+  function() return false end), false,
+  "disabling screen swap restores the configured display target")
 
 run.release()
 T.finish("Kanto Gear compatibility")

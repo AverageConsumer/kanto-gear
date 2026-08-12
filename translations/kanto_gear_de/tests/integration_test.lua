@@ -21,5 +21,8 @@ T.eq(run.data.strings["JOHTO MAP"], "JOHTO-KARTE",
 T.eq(run.data.strings["BATTLE VIEW"], "KAMPFANSICHT",
   "Begleitmod übersetzt Kanto-Gear-Einstellungen")
 
+T.eq(run.data.strings["SCREEN SWAP (Y)"], "SCREEN-TAUSCH (Y)",
+  "Begleitmod übersetzt den optionalen Bildschirmtausch")
+
 run.release()
 T.finish("Kanto Gear Deutsch integration")

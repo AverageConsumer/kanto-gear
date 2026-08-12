@@ -1066,6 +1066,8 @@ return function(mod)
         { "AUTO", "auto" }, { "HANDHELD", "handheld" },
         { "EXTERNAL", "secondary" },
       } },
+    { key = "screen_swap", label = "SCREEN SWAP (Y)",
+      type = "toggle", default = false },
     { key = "battle_view", label = "BATTLE VIEW",
       type = "choice", default = battleDefault, choices = {
         { "STANDARD", "standard" }, { "GEAR", "gear" },
@@ -4040,10 +4042,13 @@ return function(mod)
 
   local function pollScreenSwap()
     local down, infoDown = false, false
+    local swapEnabled = mod.options:get("screen_swap") == true
     local keyboard = love and love.keyboard
     if keyboard and keyboard.isDown then
-      local ok, pressed = pcall(keyboard.isDown, "f6")
-      down = ok and pressed or false
+      if swapEnabled then
+        local ok, pressed = pcall(keyboard.isDown, "f6")
+        down = ok and pressed or false
+      end
       local okInfo, pressedInfo = pcall(keyboard.isDown, "x")
       infoDown = okInfo and pressedInfo or false
     end
@@ -4053,8 +4058,10 @@ return function(mod)
       if ok then
         for _, pad in ipairs(pads or {}) do
           if pad.isGamepadDown then
-            local okDown, pressed = pcall(pad.isGamepadDown, pad, "y")
-            if okDown and pressed then down = true end
+            if swapEnabled then
+              local okDown, pressed = pcall(pad.isGamepadDown, pad, "y")
+              if okDown and pressed then down = true end
+            end
             local okInfo, pressedInfo = pcall(pad.isGamepadDown, pad, "x")
             if okInfo and pressedInfo then infoDown = true end
           end
@@ -4422,7 +4429,9 @@ return function(mod)
   mod.events:on("mod.options_changed", function(payload)
     if payload and payload.mod == "kanto_gear" then
       if payload.key == "theme" then refreshTheme(true) end
-      if payload.key == "display_target" then
+      if payload.key == "display_target"
+          or (payload.key == "screen_swap"
+            and mod.options:get("screen_swap") ~= true) then
         runtimeHandheldOverride = nil
         resetSwapState()
       end
