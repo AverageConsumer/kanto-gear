@@ -3538,7 +3538,8 @@ return function(mod)
         end
       end
       for _, side in ipairs({ "player", "enemy" }) do
-        local source, copy = raw and raw[side], nextBattle[side]
+        local source = raw and (raw[side] or (raw.battle and raw.battle[side]))
+        local copy = nextBattle[side]
         if source and copy then
           local mon = source.mon or source
           local shown = raw.shownHp and raw.shownHp[side]

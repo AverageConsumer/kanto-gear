@@ -143,6 +143,15 @@ T.eq(run.loader.hooks:call("battle.status_hud_visible",
     function() return true end, screen), false,
   "FULL GEAR gives Gold's status HUD to the companion screen too")
 
+-- Gold resolves the turn before its native HP bar finishes chasing the new
+-- value.  The companion must follow screen.shownHp, not jump straight to the
+-- already-final battle mon HP.
+local main = assert(io.open(path .. "/main.lua", "rb"))
+local source = main:read("*a")
+main:close()
+T.check(source:find("raw%.battle and raw%.battle%[side%]", 1) ~= nil,
+  "Gold FULL GEAR reads chased HP from the nested battle state")
+
 local pack = {
   screenId = "Gen2PackMenu", battle = true, pocketIndex = 1, index = 1,
   rows = { { id = "POTION", name = "POTION", count = 2,
