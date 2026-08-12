@@ -3340,7 +3340,7 @@ return function(mod)
       drawMoves()
     elseif battle.prompt ~= "menu" then
       if fullBottomBattleUI() and battle.prompt == "locked"
-          and raw and raw.draining then
+          and raw and (raw.draining or raw.hpAnim) then
         drawFullBattleStatuses()
       else
         drawBattleLocked()

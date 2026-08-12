@@ -3,6 +3,15 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 local T = require("tests.modkit")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
 local newCanvas = T.love.graphics.newCanvas
+local rectangle = T.love.graphics.rectangle
+local getTime = T.love.timer.getTime
+local now = 0
+local rectangles = {}
+T.love.timer.getTime = function() return now end
+T.love.graphics.rectangle = function(...)
+  rectangles[#rectangles + 1] = { ... }
+  return rectangle(...)
+end
 T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)
   function canvas:requestImageData() return true end
@@ -152,6 +161,33 @@ main:close()
 T.check(source:find("raw%.battle and raw%.battle%[side%]", 1) ~= nil,
   "Gold FULL GEAR reads chased HP from the nested battle state")
 
+run.loader.game = game
+screen.phase = "anim"
+screen.hpAnim = { side = "enemy", to = 7 }
+screen.shownHp.enemy = 9
+screen.battle.enemy.hp = 7
+rectangles = {}
+now = 1
+run.loader.events:emit("battle.damage_dealt", {})
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+local sawEnemyPanel, sawChasedHp = false, false
+for _, call in ipairs(rectangles) do
+  local _, x, y, w, h = unpack(call)
+  if x == 4 and y == 3 and w == 152 and h == 40 then
+    sawEnemyPanel = true
+  elseif x == 29 and y == 28 and w == 49 and h == 5 then
+    sawChasedHp = true
+  end
+end
+T.check(sawEnemyPanel,
+  "Gold HP animation keeps FULL GEAR status panels visible")
+T.check(sawChasedHp,
+  "Gold HP animation draws the chased intermediate enemy HP")
+run.loader.game = nil
+screen.phase, screen.hpAnim = "menu", nil
+
 local pack = {
   screenId = "Gen2PackMenu", battle = true, pocketIndex = 1, index = 1,
   rows = { { id = "POTION", name = "POTION", count = 2,
@@ -242,4 +278,6 @@ T.eq(nameChoice.cursor, 2,
   "Gold name choices share the companion choice renderer")
 
 run.release()
+T.love.graphics.rectangle = rectangle
+T.love.timer.getTime = getTime
 T.finish("Kanto Gear Gen 2 compatibility")
