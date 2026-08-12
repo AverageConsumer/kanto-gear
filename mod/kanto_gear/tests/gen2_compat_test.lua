@@ -163,6 +163,7 @@ T.check(source:find("raw%.battle and raw%.battle%[side%]", 1) ~= nil,
 
 run.loader.game = game
 screen.phase = "anim"
+screen.message = "FIXMON_A used TACKLE!"
 screen.hpAnim = { side = "enemy", to = 7 }
 screen.shownHp.enemy = 9
 screen.battle.enemy.hp = 7
@@ -186,7 +187,7 @@ T.check(sawEnemyPanel,
 T.check(sawChasedHp,
   "Gold HP animation draws the chased intermediate enemy HP")
 run.loader.game = nil
-screen.phase, screen.hpAnim = "menu", nil
+screen.phase, screen.message, screen.hpAnim = "menu", nil, nil
 
 local pack = {
   screenId = "Gen2PackMenu", battle = true, pocketIndex = 1, index = 1,
