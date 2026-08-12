@@ -127,6 +127,22 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 })
 T.check(true, "Gold battle state and direct mon HP shape render safely")
 
+run.loader.modOptions.kanto_gear.battle_view = "gear"
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "battle_view" })
+T.eq(run.loader.hooks:call("battle.bottom_ui_visible",
+    function() return true end, screen), false,
+  "GEAR gives Gold battle text and menus to the companion screen")
+T.eq(run.loader.hooks:call("battle.status_hud_visible",
+    function() return true end, screen), true,
+  "GEAR leaves Gold's native status HUD visible")
+run.loader.modOptions.kanto_gear.battle_view = "full"
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "battle_view" })
+T.eq(run.loader.hooks:call("battle.status_hud_visible",
+    function() return true end, screen), false,
+  "FULL GEAR gives Gold's status HUD to the companion screen too")
+
 local pack = {
   screenId = "Gen2PackMenu", battle = true, pocketIndex = 1, index = 1,
   rows = { { id = "POTION", name = "POTION", count = 2,
