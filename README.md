@@ -7,7 +7,7 @@
 Turn a dual-screen Android handheld into a complete Pokémon companion for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp): keep the game on one display and put maps, party data, battles and touch controls on the other.
 
 <p>
-  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2"><img src="https://img.shields.io/badge/release-v1.8.2-5c8a3c" alt="Latest release: v1.8.2"></a>
+  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.3"><img src="https://img.shields.io/badge/release-v1.8.3-5c8a3c" alt="Latest release: v1.8.3"></a>
   <a href="#supported-devices"><img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Platform: Android"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/code-MIT-blue.svg" alt="Code license: MIT"></a>
 </p>
@@ -18,7 +18,7 @@ Turn a dual-screen Android handheld into a complete Pokémon companion for [Gen1
   <img src="kanto-gear-full-gear-battle.png" width="32%" alt="Kanto Gear Full Gear battle controls and status panels">
 </p>
 
-<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2">Download Kanto Gear</a></strong> · <strong><a href="#install-on-android">Install on Android</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
+<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.3">Download Kanto Gear</a></strong> · <strong><a href="#install-on-android">Install on Android</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
 
 </div>
 
@@ -44,9 +44,9 @@ optional; the host and Kanto Gear mod are required.
 
 | Download | Required | Purpose |
 | --- | :---: | --- |
-| [Gen1Recomp Android Test 0.1.79-kanto.9](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.79-kanto.9) | **Yes** | Android host with Gold and the dual-display bridge |
-| [Kanto Gear 1.8.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2) | **Yes** | The second-screen companion mod |
-| [Kanto Gear Deutsch 0.2.1](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2) | No | German text for the Kanto Gear interface |
+| [Gen1Recomp Android Test 0.1.80-kanto.10](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.80-kanto.10) | **Yes** | Android host with Gold and the dual-display bridge |
+| [Kanto Gear 1.8.3](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.3) | **Yes** | The second-screen companion mod |
+| [Kanto Gear Deutsch 0.2.1](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.3) | No | German text for the Kanto Gear interface |
 | [Dramatic Shape 1.7.0-android.1](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.7.0-android.1) | No | Tested optional 3D renderer for Android |
 
 > [!IMPORTANT]
@@ -58,8 +58,8 @@ optional; the host and Kanto Gear mod are required.
 You need your own supported Pokémon Red, Blue, Yellow or Gold ROM. No ROM or
 ROM-extracted game data is included.
 
-1. Install the [Gen1Recomp Android Test APK](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.79-kanto.9).
-2. Download [Kanto Gear 1.8.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.2).
+1. Install the [Gen1Recomp Android Test APK](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.80-kanto.10).
+2. Download [Kanto Gear 1.8.3](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.3).
 3. Open **Gen1Recomp Android Test → MODS → Import mod .zip** and select the
    Kanto Gear ZIP.
 4. Enable **Kanto Gear** and start the game. The companion opens automatically
@@ -74,7 +74,7 @@ uninstall it first unless you have exported your save.
 
 > [!WARNING]
 > If the second screen stopped working after accepting the old host's update
-> prompt, manually install `0.1.79-kanto.9` once. That prompt installed the
+> prompt, manually install `0.1.80-kanto.10` once. That prompt installed the
 > official Gen1Recomp host, which does not yet include every Kanto Gear Android
 > bridge feature. This release hides only that incompatible host update path;
 > normal mod update checks still work.
