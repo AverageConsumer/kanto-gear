@@ -589,6 +589,14 @@ end
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), true,
   "the screen-swap action enables swapped output while connected")
+local swappedRenderer = { uiAnchors = { { anchor = "topright" } } }
+run.loader.hooks:call("render.compose", function() return false end,
+  swappedRenderer, {
+    secondScreen = { detected = function() return displayDetected end,
+                     pollTouch = function() return nil end },
+  })
+T.eq(swappedRenderer.uiAnchors, nil,
+  "screen swap keeps dynamic menus inside the uncropped game viewport")
 displayDetected = false
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,

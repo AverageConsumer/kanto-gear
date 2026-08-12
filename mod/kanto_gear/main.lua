@@ -4668,8 +4668,14 @@ return function(mod)
 
   -- Upstream owns the display seam; this mod only supplies its companion frame.
   mod.hooks:wrap("render.compose", function(next, renderer, context)
-    local handled = next(renderer, context)
     companion = context and context.secondScreen
+    -- The captured game frame is wider than some lower displays. Keep dynamic
+    -- UI inside the central Game Boy viewport while that frame is cover-cropped;
+    -- beginFrame rebuilds anchors on the next normal frame.
+    if active and bottomOnHandheld() and hasDisplay() and renderer then
+      renderer.uiAnchors = nil
+    end
+    local handled = next(renderer, context)
     if textSpeedReleasePending then
       textSpeedReleasePending = false
       holdTextSpeed(false)
