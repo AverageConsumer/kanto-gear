@@ -94,6 +94,8 @@ return {
   ["DEFENSE"] = "ABWEHR",
   ["SPEED"] = "INITIATIVE",
   ["SPECIAL"] = "SPEZIAL",
+  ["SPCL.ATK"] = "SP.ANGR.",
+  ["SPCL.DEF"] = "SP.ABW.",
   ["ATK"] = "ANG",
   ["DEF"] = "VERT",
   ["SP.ATK"] = "SP.ANG",

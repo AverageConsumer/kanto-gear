@@ -670,7 +670,6 @@ assert(mirroredBattleMenu({ screenId = "Gen2PackMenu" })
        and mirroredBattleMenu({ screenId = "Gen2PartyMenu" })
        and not mirroredBattleMenu({ screenId = "Gen2PackMenu", message = {} }),
        "safe Gen 2 battle menu mirroring")
-
 assert(not choiceReady(0.31, 0.32) and choiceReady(0.32, 0.32),
        "choice quiet gate")
 assert(caughtWild("wild", true) and caughtWild("safari", true)
@@ -1202,6 +1201,32 @@ return function(mod)
     itemPc = { PlayerPC = true, Gen2ItemPcMenu = true },
     trainerCard = { TrainerCard = true, Gen2TrainerCard = true },
   } }
+
+  function compat.levelUpMon(state)
+    if state and state.mon and state.mon.stats and not state.screenId then
+      return state.mon
+    end
+    if state and state.screenId == "Gen2BattleState"
+        and state.phase == "stats-box" then
+      local mon = state.statsBoxMon
+      return mon and mon.stats and mon or nil
+    end
+  end
+
+  function compat.isBattleScreen(state)
+    return state and (state.isBattleState
+      or state.screenId == "Gen2BattleState") or false
+  end
+
+  do
+    local mon = { stats = {} }
+    assert(compat.levelUpMon({ screenId = "Gen2BattleState",
+                              phase = "stats-box", statsBoxMon = mon }) == mon
+           and not compat.levelUpMon({ screenId = "Gen2BattleState",
+                                       phase = "menu", statsBoxMon = mon })
+           and compat.isBattleScreen({ screenId = "Gen2BattleState" }),
+           "shared level-up and battle-screen detection")
+  end
   compat.summary = assert(load(mod:read("summary.lua"),
     "@kanto_gear/summary.lua"))()
 
@@ -1873,8 +1898,7 @@ return function(mod)
   local function battleState()
     local states = game and game.stack and game.stack.states or {}
     for i = #states, 1, -1 do
-      if states[i].isBattleState
-          or states[i].screenId == "Gen2BattleState" then return states[i] end
+      if compat.isBattleScreen(states[i]) then return states[i] end
     end
   end
 
@@ -2053,21 +2077,30 @@ return function(mod)
     end
   end
 
-  local function drawLevelUpStats(state)
-    local mon, stats = state.mon, state.mon.stats
+  local function drawLevelUpStats(mon)
+    local stats = mon.stats
     local def = game.data.pokemon[mon.species] or {}
     header("LEVEL UP")
     centered(fit(THEME:format("%s  L%d",
       mon.nickname or def.name or mon.species or "POKEMON",
       mon.level or 0), 24), 27, DARK)
-    local rows = { { "ATTACK", stats.attack },
-      { "DEFENSE", stats.defense }, { "SPEED", stats.speed },
-      { "SPECIAL", stats.special } }
+    local splitSpecial = stats.specialAttack ~= nil
+      or stats.specialDefense ~= nil
+    local rows = splitSpecial and {
+      { "ATTACK", stats.attack }, { "DEFENSE", stats.defense },
+      { "SPCL.ATK", stats.specialAttack },
+      { "SPCL.DEF", stats.specialDefense }, { "SPEED", stats.speed },
+    } or {
+      { "ATTACK", stats.attack }, { "DEFENSE", stats.defense },
+      { "SPEED", stats.speed }, { "SPECIAL", stats.special },
+    }
+    local firstY, step = splitSpecial and 39 or 44, splitSpecial and 13 or 15
     for i, row in ipairs(rows) do
-      text(row[1], 24, 44 + (i - 1) * 15, INK)
-      text(tostring(row[2] or 0), 119, 44 + (i - 1) * 15, DARK)
+      local y = firstY + (i - 1) * step
+      text(row[1], 24, y, INK)
+      text(tostring(row[2] or 0), 119, y, DARK)
     end
-    button(24, 108, 112, 27, "CONTINUE", false)
+    button(24, splitSpecial and 111 or 108, 112, 27, "CONTINUE", false)
   end
 
   local function drawMapFallback()
@@ -3413,7 +3446,7 @@ return function(mod)
     local choice, labels, choiceField = dialogueChoice()
     local naming = not compat.isGen2()
       and compat.isScreen(top, "naming") and top
-    local levelStats = battle and levelUpStatBox(top) and top
+    local levelStats = battle and compat.levelUpMon(top)
     if learn then
       drawLearnMove(learn, top)
     elseif naming then
@@ -4102,8 +4135,11 @@ return function(mod)
       return
     end
     local battleTop = game and game.stack and game.stack:top()
-    if battle and levelUpStatBox(battleTop) then
-      if inside(x, y, 24, 108, 112, 27) then press("a") end
+    local levelMon = battle and compat.levelUpMon(battleTop)
+    if levelMon then
+      local buttonY = levelMon.stats and (levelMon.stats.specialAttack ~= nil
+        or levelMon.stats.specialDefense ~= nil) and 111 or 108
+      if inside(x, y, 24, buttonY, 112, 27) then press("a") end
       return
     end
     local choice, labels, field = dialogueChoice()
@@ -4664,6 +4700,14 @@ return function(mod)
     if mapId == "OAKS_LAB" and state and state.oppClass == "OPP_RIVAL1"
         and (result == "win" or result == "lose") then
       mod.save:set("oak_lab_rival_result", result)
+    end
+  end)
+
+  mod.events:on("screen.popped", function(payload)
+    if compat.isBattleScreen(payload and payload.state) then
+      battle = nil
+      moveInfo = nil
+      dirty = true
     end
   end)
 

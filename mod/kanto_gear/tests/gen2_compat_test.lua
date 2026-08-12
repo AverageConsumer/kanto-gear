@@ -199,6 +199,51 @@ T.check(sawChasedHp,
 run.loader.game = nil
 screen.phase, screen.message, screen.hpAnim = "menu", nil, nil
 
+screen.statsBoxMon = game.save.party[1]
+screen.statsBoxMon.stats = { hp = 22, attack = 12, defense = 11,
+  specialAttack = 13, specialDefense = 14, speed = 15 }
+screen.phase = "stats-box"
+rectangles = {}
+now = 2
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+local sawLevelContinue = false
+for _, call in ipairs(rectangles) do
+  local _, x, y, w, h = unpack(call)
+  if x == 24 and y == 111 and w == 112 and h == 27 then
+    sawLevelContinue = true
+  end
+end
+T.check(sawLevelContinue,
+  "Gold level-up stats render on the companion screen")
+T.eq(run.loader.hooks:call("screen.render_visible",
+  function() return true end, screen), true,
+  "Gold level-up keeps the native battle scene visible")
+
+screen.phase, screen.statsBoxMon = "resolving", nil
+screen.message = "FIXMON_A gained 12 EXP. Points!"
+now = 3
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+game.stack.states = {}
+run.loader.events:emit("screen.popped", { state = screen })
+rectangles = {}
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+local staleBattlePanel = false
+for _, call in ipairs(rectangles) do
+  local _, x, y, w, h = unpack(call)
+  if x == 4 and y == 3 and w == 152 and h == 40 then
+    staleBattlePanel = true
+  end
+end
+T.check(not staleBattlePanel,
+  "popping Gold's battle screen clears the cached EXP view immediately")
+screen.phase, screen.message = "menu", nil
+
 local pack = {
   screenId = "Gen2PackMenu", battle = true, pocketIndex = 1, index = 1,
   rows = { { id = "POTION", name = "POTION", count = 2,
