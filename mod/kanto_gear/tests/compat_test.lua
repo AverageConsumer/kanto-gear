@@ -60,6 +60,8 @@ for index = 1, debug.getinfo(entry, "u").nups do
   if name == "fit" then fit = value break end
 end
 T.check(type(fit) == "function", "Kanto Gear text fitter is available")
+T.eq(fit("¿ÁÉÍÓÚÜ Ñ¡", 20), "¿ÁÉÍÓÚÜ Ñ¡",
+  "Spanish punctuation and accented letters survive text fitting")
 local theme
 for index = 1, debug.getinfo(entry, "u").nups do
   local name, value = debug.getupvalue(entry, index)

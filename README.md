@@ -93,6 +93,10 @@ this one; both intentionally share the same mod ID.
 
 - **AYN Thor** — primary development and test device
 - **Retroid Pocket 5 + Retroid Dual Screen Add-on** — community tested
+- **Anbernic RG DS** — community confirmed specifically with GammaOS Nano 1.4
+  (Android 14); Linux and other RG DS operating systems are untested and not
+  covered by this compatibility report. Avoid other performance-heavy mods on
+  its lower-power hardware.
 - **External Android displays, docks and TVs** — supported through selectable
   `AUTO`, `HANDHELD` and `EXTERNAL` display routing; hardware reports are welcome
 

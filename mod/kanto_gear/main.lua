@@ -865,6 +865,14 @@ local FONT = {
   ["Ä"]="10001000000111010001111111000110001",
   ["Ö"]="10001000000111010001100011000101110",
   ["Ü"]="10001000001000110001100011000101110",
+  ["Á"]="00010001000111010001111111000110001",
+  ["É"]="00010001001111110000111101000011111",
+  ["Í"]="00010001001111100100001000010011111",
+  ["Ó"]="00010001000111010001100011000101110",
+  ["Ú"]="00010001001000110001100011000101110",
+  ["Ñ"]="01010101001000111001101011001110001",
+  ["¿"]="00100000000010000100010001000101110",
+  ["¡"]="00100000000010000100001000010000100",
 }
 
 local function color(c) G.setColor(c[1], c[2], c[3], c[4]) end
@@ -890,7 +898,9 @@ local function normalize(value)
   value = value:upper()
     :gsub("ä", "Ä"):gsub("ö", "Ö"):gsub("ü", "Ü")
     :gsub("ẞ", "SS"):gsub("ß", "SS")
-    :gsub("É", "E"):gsub("é", "E"):gsub("_", " ")
+    :gsub("á", "Á"):gsub("é", "É"):gsub("í", "Í")
+    :gsub("ó", "Ó"):gsub("ú", "Ú"):gsub("ñ", "Ñ")
+    :gsub("_", " ")
   local out = {}
   for _, glyph in ipairs(glyphList(value)) do
     if glyph == " " or FONT[glyph] then out[#out + 1] = glyph end
@@ -904,10 +914,14 @@ local function clean(value)
 end
 
 assert(normalize("40%") == "40%"
-       and normalize("POKé BALL") == "POKE BALL",
+       and normalize("POKé BALL") == "POKÉ BALL",
        "text glyph normalization")
 assert(normalize("Ärger über Größe") == "ÄRGER ÜBER GRÖSSE",
        "German glyph normalization")
+assert(normalize("¿árbol, pingüino y niño? ¡Sí!")
+       == "¿ÁRBOL PINGÜINO Y NIÑO? ¡SÍ!"
+       and normalize("áéíóúüñ") == "ÁÉÍÓÚÜÑ",
+       "Spanish glyph normalization")
 
 local function fit(value, chars)
   local glyphs = glyphList(clean(value))
