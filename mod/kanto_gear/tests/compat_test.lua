@@ -62,6 +62,18 @@ end
 T.check(type(fit) == "function", "Kanto Gear text fitter is available")
 T.eq(fit("¿ÁÉÍÓÚÜ Ñ¡", 20), "¿ÁÉÍÓÚÜ Ñ¡",
   "Spanish punctuation and accented letters survive text fitting")
+local methodLines
+for index = 1, debug.getinfo(entry, "u").nups do
+  local name, value = debug.getupvalue(entry, index)
+  if name == "methodLines" then methodLines = value break end
+end
+T.check(type(methodLines) == "function",
+  "Kanto Gear encounter method layout is available")
+local method1, method2 = methodLines({
+  { name = "CAMINANDO", min = 14, max = 29 },
+})
+T.eq(method1, "CAMINANDO", "long translated encounter methods stay intact")
+T.eq(method2, "14-29%", "long encounter odds move to their own line")
 local theme
 for index = 1, debug.getinfo(entry, "u").nups do
   local name, value = debug.getupvalue(entry, index)

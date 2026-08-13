@@ -404,23 +404,6 @@ local function addEncounters(rows, bySpecies, slots, method, buckets)
   end
 end
 
-local function methodLines(methods)
-  local lines = { "" }
-  for _, odds in ipairs(methods) do
-    local chance = odds.min == odds.max and tostring(odds.min)
-      or (odds.min .. "-" .. odds.max)
-    local method = THEME:format("%s %s%%",
-      THEME:translate(odds.name), chance)
-    local joined = lines[#lines] == "" and method or lines[#lines] .. "/" .. method
-    if #joined <= 14 then
-      lines[#lines] = joined
-    else
-      lines[#lines + 1] = method
-    end
-  end
-  return lines[1] or "", lines[2] or ""
-end
-
 local function battleUIMode(value, legacyFull)
   if value == "standard" or value == "gear" or value == "full" then
     return value
@@ -931,6 +914,33 @@ local function fit(value, chars)
   for index = 1, math.max(0, chars - 1) do out[index] = glyphs[index] end
   out[#out + 1] = "."
   return table.concat(out)
+end
+
+local function methodLines(methods)
+  local lines = { "" }
+  for _, odds in ipairs(methods) do
+    local chance = odds.min == odds.max and tostring(odds.min)
+      or (odds.min .. "-" .. odds.max)
+    local label = THEME:translate(odds.name)
+    local chanceText = chance .. "%"
+    local method = THEME:format("%s %s", label, chanceText)
+    local joined = lines[#lines] == "" and method
+      or lines[#lines] .. "/" .. method
+    if #glyphList(clean(joined)) <= 14 then
+      lines[#lines] = joined
+    elseif lines[#lines] == "" then
+      lines[#lines] = fit(label, 14)
+      lines[#lines + 1] = chanceText
+    elseif #lines < 2 then
+      if #glyphList(clean(method)) <= 14 then
+        lines[#lines + 1] = method
+      else
+        local labelChars = 13 - #glyphList(chanceText)
+        lines[#lines + 1] = fit(label, labelChars) .. " " .. chanceText
+      end
+    end
+  end
+  return lines[1] or "", lines[2] or ""
 end
 
 local function text(value, x, y, c, scale)
