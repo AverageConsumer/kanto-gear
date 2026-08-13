@@ -2021,9 +2021,12 @@ return function(mod)
     outline(15, 81, 130, 21, primary)
     centered(compat.systemId(), 88, foreground)
 
-    box("fill", 35, 114, 4, 4, secondary)
-    box("fill", 121, 114, 4, 4, secondary)
-    centered("LINK ONLINE", 112, primary)
+    local linkStatus = fit("LINK ONLINE", 18)
+    local linkWidth = #glyphList(linkStatus) * 6
+    local linkX = math.floor((WIDTH - linkWidth) / 2)
+    box("fill", linkX - 12, 114, 4, 4, secondary)
+    box("fill", linkX + linkWidth + 8, 114, 4, 4, secondary)
+    text(linkStatus, linkX, 112, primary)
     if math.floor(love.timer.getTime() * 2) % 2 == 0 then
       centered("START GAME ABOVE", 128, foreground)
     end
