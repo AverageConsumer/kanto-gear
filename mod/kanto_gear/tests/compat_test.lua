@@ -271,14 +271,19 @@ do
     if entry.owner == "kanto_gear" then summaryHook = entry.callback end
   end
   local readyUpvalue
+  local battleUpvalue
   for i = 1, debug.getinfo(summaryHook, "u").nups do
-    if debug.getupvalue(summaryHook, i) == "displayReady" then
+    local name = debug.getupvalue(summaryHook, i)
+    if name == "displayReady" then
       readyUpvalue = i
-      break
+    elseif name == "battle" then
+      battleUpvalue = i
     end
   end
   T.check(readyUpvalue ~= nil, "summary hook tracks companion readiness")
+  T.check(battleUpvalue ~= nil, "summary hook tracks its battle snapshot")
   local _, previousReady = debug.getupvalue(summaryHook, readyUpvalue)
+  local _, previousBattle = debug.getupvalue(summaryHook, battleUpvalue)
   debug.setupvalue(summaryHook, readyUpvalue, true)
   game.stack.states = { world, summary }
   T.eq(run.loader.hooks:call("screen.render_visible",
@@ -286,8 +291,13 @@ do
     "Gen 1 field summaries keep their native top-screen rendering")
   game.stack.states = { world, { isBattleState = true }, summary }
   T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, summary), true,
+    "missing battle snapshots leave the native summary visible")
+  debug.setupvalue(summaryHook, battleUpvalue, {})
+  T.eq(run.loader.hooks:call("screen.render_visible",
     function() return true end, summary), false,
     "Gen 1 battle summaries render only on the companion screen")
+  debug.setupvalue(summaryHook, battleUpvalue, previousBattle)
   debug.setupvalue(summaryHook, readyUpvalue, previousReady)
   game.stack.states = previousStates
 end

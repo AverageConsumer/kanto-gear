@@ -633,9 +633,9 @@ local function caughtWild(kind, owned)
 end
 
 local function bottomOwnsBattleUI(enabled, active, available, ready,
-                                 battleState)
+                                 battleState, snapshot)
   return enabled and active and available and ready
-    and supportedBattleUI(battleState) or false
+    and snapshot ~= nil and supportedBattleUI(battleState) or false
 end
 
 local function battleChoice(state)
@@ -816,9 +816,10 @@ assert(categorizedBag({ __pocketIndex = 1 })
        "categorized bag navigation")
 do
   local state = {}
-  assert(bottomOwnsBattleUI(true, true, true, true, state)
-    and not bottomOwnsBattleUI(true, true, true, false, state)
-    and not bottomOwnsBattleUI(true, true, false, true, state)
+  assert(bottomOwnsBattleUI(true, true, true, true, state, {})
+    and not bottomOwnsBattleUI(true, true, true, true, state, nil)
+    and not bottomOwnsBattleUI(true, true, true, false, state, {})
+    and not bottomOwnsBattleUI(true, true, false, true, state, {})
     and mirroredBattleMenu({ isPartyMenu = true })
     and mirroredBattleMenu({ screenId = "BagMenu" })
     and mirroredBattleMenu({ kind = "pp_item_move" })
@@ -1362,7 +1363,7 @@ return function(mod)
 
   local function companionMoveGrid(state)
     return moveGridLayout(state, bottomOwnsBattleUI(
-      hideUpperBattleUI(), active, hasDisplay(), displayReady, state))
+      hideUpperBattleUI(), active, hasDisplay(), displayReady, state, battle))
   end
 
   local function romThemePalette(name)
@@ -4720,7 +4721,7 @@ return function(mod)
     local top = game and game.stack and game.stack:top()
     local owned = bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
-      hasDisplay(), displayReady, raw)
+      hasDisplay(), displayReady, raw, battle)
     return not (owned
       and (state == raw or (state == top and top.isTextBox)))
   end)
@@ -4734,14 +4735,14 @@ return function(mod)
     if next(state) == true then return true end
     return bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
-      hasDisplay(), displayReady, battleState())
+      hasDisplay(), displayReady, battleState(), battle)
   end)
 
   mod.hooks:wrap("battle.status_hud_visible", function(next, state)
     if next(state) == false then return false end
     return not bottomOwnsBattleUI(
       fullBottomBattleUI(), active, hasDisplay(),
-      displayReady, state)
+      displayReady, state, battle)
   end)
 
   mod.hooks:wrap("battle.caught_marker_visible", function(next, state)
@@ -4754,11 +4755,11 @@ return function(mod)
     if compat.isScreen(state, "summary")
         and compat.summary.supports(state, game) then
       return not (active and hasDisplay() and displayReady
-        and battleState() ~= nil)
+        and battleState() ~= nil and battle ~= nil)
     end
     local owned = bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
-      hasDisplay(), displayReady, battleState())
+      hasDisplay(), displayReady, battleState(), battle)
     return not (owned and mirroredBattleMenu(state))
   end)
 

@@ -140,6 +140,8 @@ local screen = { screenId = "Gen2BattleState", battle = battle,
   phase = "menu", menuIndex = 1, moveIndex = 1,
   shownHp = { player = 19, enemy = 10 } }
 game.stack.states = { screen }
+run.loader.game = game
+now = now + 1
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
@@ -178,7 +180,7 @@ screen.hpAnim = { side = "enemy", to = 7 }
 screen.shownHp.enemy = 9
 screen.battle.enemy.hp = 7
 rectangles = {}
-now = 1
+now = now + 1
 run.loader.events:emit("battle.damage_dealt", {})
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
@@ -196,7 +198,6 @@ T.check(sawEnemyPanel,
   "Gold HP animation keeps FULL GEAR status panels visible")
 T.check(sawChasedHp,
   "Gold HP animation draws the chased intermediate enemy HP")
-run.loader.game = nil
 screen.phase, screen.message, screen.hpAnim = "menu", nil, nil
 
 screen.statsBoxMon = game.save.party[1]
@@ -204,7 +205,7 @@ screen.statsBoxMon.stats = { hp = 22, attack = 12, defense = 11,
   specialAttack = 13, specialDefense = 14, speed = 15 }
 screen.phase = "stats-box"
 rectangles = {}
-now = 2
+now = now + 1
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
 })
@@ -223,7 +224,7 @@ T.eq(run.loader.hooks:call("screen.render_visible",
 
 screen.phase, screen.statsBoxMon = "resolving", nil
 screen.message = "FIXMON_A gained 12 EXP. Points!"
-now = 3
+now = now + 1
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
 })
@@ -251,6 +252,7 @@ local pack = {
   pocket = function() return { id = "ITEM", label = "ITEMS" } end,
 }
 game.stack.states = { screen, pack }
+now = now + 1
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
@@ -262,6 +264,7 @@ local party = {
   isCancel = function(self) return self.index > #game.save.party end,
 }
 game.stack.states = { screen, party }
+now = now + 1
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
@@ -283,6 +286,7 @@ summary.mon.stats.specialAttack = 11
 summary.mon.stats.specialDefense = 12
 summary.mon.stats.speed = 13
 game.stack.states = { screen, party, summary }
+now = now + 1
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
