@@ -644,7 +644,7 @@ end
 
 local function categorizedBag(state)
   return state and (state.__pocketIndex ~= nil or state.pocketIndex ~= nil
-    or state.modernBag ~= nil)
+    or state.modernBag ~= nil or state.__gen3uiBagPocketIndex ~= nil)
     or false
 end
 
@@ -1201,6 +1201,8 @@ return function(mod)
     itemPc = { PlayerPC = true, Gen2ItemPcMenu = true },
     trainerCard = { TrainerCard = true, Gen2TrainerCard = true },
   } }
+  compat.bagViews = setmetatable({}, { __mode = "k" })
+  compat.bagLabels = { "ITEMS", "BALLS", "KEY", "TM/HM" }
 
   function compat.levelUpMon(state)
     if state and state.mon and state.mon.stats and not state.screenId then
@@ -2952,6 +2954,45 @@ return function(mod)
   end
 
   function compat.battleBagMenu(menu)
+    -- Gen 3 UI 1.4 keeps its categorized cursor beside the native BagMenu.
+    local rows = menu and menu.__gen3uiBagViewRows
+    local viewIndex = menu and menu.__gen3uiBagViewIndex
+    if menu and menu.screenId == "BagMenu" and type(rows) == "table"
+        and type(viewIndex) == "number" then
+      local nativeIndex = menu.index or 1
+      local previous = compat.bagViews[menu]
+      local mode = previous and previous.mode or "view"
+      if previous then
+        local nativeMoved = nativeIndex ~= previous.native
+        local viewMoved = viewIndex ~= previous.view
+        local nativeRow = (menu.items or {})[nativeIndex]
+        local viewRow = rows[viewIndex]
+        local aligned = nativeRow and viewRow
+          and nativeRow.value == viewRow.value
+        if viewMoved and not nativeMoved then
+          mode = "view"
+        elseif nativeMoved and not viewMoved and not aligned then
+          mode = "native"
+        end
+      end
+      compat.bagViews[menu] = {
+        native = nativeIndex, view = viewIndex, mode = mode,
+      }
+      if mode == "native" then return menu end
+
+      local items = {}
+      for i, row in ipairs(rows) do
+        items[i] = { value = row.value, label = row.label, right = row.right }
+      end
+      local pocketIndex = menu.__gen3uiBagPocketIndex or 1
+      return {
+        screenId = menu.screenId,
+        items = items,
+        index = viewIndex,
+        title = compat.bagLabels[pocketIndex] or "ITEMS",
+        pocketIndex = pocketIndex,
+      }
+    end
     if not (menu and menu.screenId == "Gen2PackMenu") then return menu end
     local items = {}
     for i, row in ipairs(menu.rows or {}) do
@@ -2971,6 +3012,20 @@ return function(mod)
       title = pocket.label or "ITEMS",
       pocketIndex = menu.pocketIndex,
     }
+  end
+
+  function compat.selectBattleBagItem(menu, index)
+    menu.index = index
+    local rows = menu.__gen3uiBagViewRows
+    local row = type(rows) == "table" and rows[index] or nil
+    if not row then return end
+    menu.__gen3uiBagViewIndex = index
+    for nativeIndex, nativeRow in ipairs(menu.items or {}) do
+      if nativeRow and nativeRow.value == row.value then
+        menu.index = nativeIndex
+        return
+      end
+    end
   end
 
   local function drawBattleItems(menu)
@@ -3791,7 +3846,7 @@ return function(mod)
         local first, count = choiceWindow(menu.items or {}, menu.index)
         local row = math.floor((y - 25) / 28) + 1
         if x >= 8 and x < 152 and row >= 1 and row <= count then
-          top.index = first + row - 1
+          compat.selectBattleBagItem(top, first + row - 1)
           press("a")
         end
       end

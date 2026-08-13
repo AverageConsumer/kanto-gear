@@ -355,6 +355,49 @@ do
   local changePage = upvalue(pollTriggerTabs, "changePage")
   local refreshTools = upvalue(changePage, "refreshTools")
   local api = upvalue(refreshTools, "mod")
+  local composeHook
+  for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
+    if entry.owner == "kanto_gear" then composeHook = entry.callback end
+  end
+  local refreshBattle = upvalue(composeHook, "refreshBattle")
+  local compat = upvalue(refreshBattle, "compat")
+  local virtualBag = {
+    screenId = "BagMenu", index = 1,
+    items = {
+      { value = "POTION", label = "POTION", right = "x2" },
+      { value = "ANTIDOTE", label = "ANTIDOTE", right = "x1" },
+    },
+    __gen3uiBagPocketIndex = 1,
+    __gen3uiBagViewIndex = 1,
+    __gen3uiBagViewRows = {
+      { value = "POTION", label = "POTION", right = "x2" },
+      { value = "ANTIDOTE", label = "ANTIDOTE", right = "x1" },
+    },
+  }
+  T.eq(compat.battleBagMenu(virtualBag).index, 1,
+    "virtual categorized bags start on their visible selection")
+  virtualBag.__gen3uiBagViewIndex = 2
+  T.eq(compat.battleBagMenu(virtualBag).index, 2,
+    "virtual bag controller movement refreshes the companion cursor")
+  virtualBag.index = 2
+  T.eq(compat.battleBagMenu(virtualBag).index, 2,
+    "native action synchronization keeps the virtual bag authoritative")
+  local nativeBag = {
+    screenId = "BagMenu", index = 1,
+    items = virtualBag.items,
+    __gen3uiBagPocketIndex = 1,
+    __gen3uiBagViewIndex = 1,
+    __gen3uiBagViewRows = virtualBag.__gen3uiBagViewRows,
+  }
+  compat.battleBagMenu(nativeBag)
+  nativeBag.index = 2
+  T.eq(compat.battleBagMenu(nativeBag), nativeBag,
+    "disabled virtual bag rendering keeps native controller movement")
+  compat.selectBattleBagItem(virtualBag, 1)
+  T.eq(virtualBag.index, 1,
+    "companion touch resolves a virtual row to the native bag item")
+  T.eq(virtualBag.__gen3uiBagViewIndex, 1,
+    "companion touch also updates the virtual bag selection")
   local oldWorld = rawget(api, "world")
   local oldBicycle = game.data.items.BICYCLE
   local oldCut = game.data.moves.CUT
