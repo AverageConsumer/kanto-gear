@@ -437,12 +437,8 @@ local function oneShotTrainerStatus(defeated, battled, result)
   return battled or false
 end
 
-local function clockText(is24Hour, timestamp)
-  local time = os.date("*t", timestamp)
-  if is24Hour then return THEME:format("%02d:%02d", time.hour, time.min) end
-  local hour = time.hour % 12
-  return THEME:format("%d:%02d%s", hour == 0 and 12 or hour, time.min,
-    THEME:translate(time.hour < 12 and "AM" or "PM"))
+local function compactClock(value)
+  return THEME:format((value or "--:--"):gsub("^0", ""):gsub("%s+", ""))
 end
 
 local Area = {}
@@ -735,10 +731,8 @@ do
     "one-shot trainer outcomes")
 end
 do
-  local timestamp = os.time({ year = 2020, month = 1, day = 1,
-    hour = 21, min = 5, sec = 0 })
-  assert(clockText(true, timestamp) == "21:05"
-    and clockText(false, timestamp) == "9:05PM", "system clock format")
+  assert(compactClock("21:05") == "21:05"
+    and compactClock("09:05 PM") == "9:05PM", "system clock format")
 end
 assert(Area.itemfinderNear(10, 10, 15, 14)
        and not Area.itemfinderNear(10, 10, 5, 10)
@@ -1146,7 +1140,6 @@ return function(mod)
   end
 
   local runtime = rawget(_G, "love")
-  local system = runtime and runtime.system
   G = runtime and runtime.graphics
   if not G then
     mod.log:warn("host has no graphics runtime; mod stays inactive")
@@ -1837,7 +1830,7 @@ return function(mod)
 
   local function battery(x, foreground)
     foreground = foreground or PAPER
-    local state, percent = system.getPowerInfo()
+    local state, percent = mod.device:powerInfo()
     percent = tonumber(percent)
     local low = isLowBattery(state, percent)
     local charging = state == "charging"
@@ -1884,8 +1877,7 @@ return function(mod)
     else
       text(fit(title, 14), 5, 6, foreground)
     end
-    local clock = clockText(not system.is24HourClock
-      or system.is24HourClock() ~= false)
+    local clock = compactClock(mod.datetime:time(game, os.time()))
     local clockX = 117 - math.floor(#clock * 3)
     text(clock, clockX, 6, foreground)
     battery(143, foreground)

@@ -67,6 +67,8 @@ for index = 1, debug.getinfo(entry, "u").nups do
   local name, value = debug.getupvalue(entry, index)
   if name == "methodLines" then methodLines = value break end
 end
+T.check(not source:find("love.system", 1, true),
+  "Kanto Gear uses sandbox-safe device and date/time facades")
 T.check(type(methodLines) == "function",
   "Kanto Gear encounter method layout is available")
 local method1, method2 = methodLines({
