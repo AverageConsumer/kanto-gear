@@ -39,8 +39,8 @@ disconnected, so you are never trapped on a missing screen.
 
 ## What you need
 
-Kanto Gear currently uses a matched Android release set. The Voxel renderer is
-optional; the host and Kanto Gear mod are required.
+Kanto Gear currently uses a matched Android release set. The host and Kanto
+Gear mod are required; no Voxel renderer is required.
 
 | Download | Required | Purpose |
 | --- | :---: | --- |
@@ -48,7 +48,6 @@ optional; the host and Kanto Gear mod are required.
 | [Kanto Gear 1.8.6](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | **Yes** | The second-screen companion mod |
 | [Kanto Gear Deutsch 0.2.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | No | German text for the Kanto Gear interface |
 | [Kanto Gear Español (España) 0.2.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | No | Spanish (Spain) text for the Kanto Gear interface |
-| [Dramatic Shape 1.7.0-android.1](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.7.0-android.1) | No | Tested optional 3D renderer for Android |
 
 > [!IMPORTANT]
 > Use the versions linked above together. The official Gen1Recomp Android app
@@ -81,13 +80,17 @@ uninstall it first unless you have exported your save.
 > bridge feature. This release hides only that incompatible host update path;
 > normal mod update checks still work.
 
-### Optional Voxel renderer
+### Voxel renderers
 
-Kanto Gear works without a Voxel Mod. If you already use Dramatic Shape on
-Android, use the [matching Kanto Gear fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.7.0-android.1).
-It contains companion-screen battle fixes that prevent empty panels and
-duplicated HUD elements. Remove another Dramatic Shape build before importing
-this one; both intentionally share the same mod ID.
+Kanto Gear does not require or bundle a Voxel renderer. Our former
+[Dramatic Shape Android fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod)
+is frozen at `1.7.0-android.1` and no longer maintained. Its release remains
+available for existing users, but it will not receive upstream, compatibility,
+feature or support updates and is not part of the current matched release set.
+
+Other renderer forks may work, but compatibility belongs to their current
+maintainers. Do not install multiple Dramatic Shape variants together because
+they intentionally share the same mod ID.
 
 ## Made for real dual-screen hardware
 
@@ -135,13 +138,14 @@ Android version, display setup, installed versions and a screenshot if useful.
 
 Host startup problems belong to the
 [Gen1Recomp Android fork](https://github.com/AverageConsumer/gen1recomp/issues).
-Problems exclusive to the optional 3D renderer belong to the
-[Dramatic Shape Android fork](https://github.com/AverageConsumer/DramaticShapeVoxelMod/issues).
+Problems exclusive to a third-party 3D renderer belong to its current
+maintainer. Our legacy Dramatic Shape Android fork is retained only as an
+unsupported historical download.
 
 ## Credits
 
 Kanto Gear is built on [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
-The optional renderer is based on
+The former Android renderer fork was based on
 [Dramatic Shape Voxel Mod](https://github.com/DramaticShape/DramaticShapeVoxelMod).
 
 Special thanks to [@Rocky5150](https://github.com/Rocky5150) for more than 24
