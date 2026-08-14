@@ -47,6 +47,7 @@ optional; the host and Kanto Gear mod are required.
 | [Gen1Recomp Android Test 0.1.85-kanto.12](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.85-kanto.12) | **Yes** | Android host with Gold and the dual-display bridge |
 | [Kanto Gear 1.8.6](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | **Yes** | The second-screen companion mod |
 | [Kanto Gear Deutsch 0.2.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | No | German text for the Kanto Gear interface |
+| [Kanto Gear Español (España) 0.2.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | No | Spanish (Spain) text for the Kanto Gear interface |
 | [Dramatic Shape 1.7.0-android.1](https://github.com/AverageConsumer/DramaticShapeVoxelMod/releases/tag/v1.7.0-android.1) | No | Tested optional 3D renderer for Android |
 
 > [!IMPORTANT]
@@ -65,9 +66,10 @@ ROM-extracted game data is included.
 4. Enable **Kanto Gear** and start the game. The companion opens automatically
    when Android reports a suitable second display.
 
-For a German Kanto Gear interface, import the optional
-`kanto_gear_de-0.2.2.zip` from the same release. Other translations can
-use the small [language-pack template](translations/README.md).
+For a German or Spanish Kanto Gear interface, import the matching optional
+`kanto_gear_de-0.2.2.zip` or `kanto_gear_es-0.2.2.zip` from the same release.
+Other translations can use the small
+[language-pack template](translations/README.md).
 
 When updating the host, install the newer APK over the existing app. Do not
 uninstall it first unless you have exported your save.
@@ -146,6 +148,8 @@ Special thanks to [@Rocky5150](https://github.com/Rocky5150) for more than 24
 hours of Retroid Pocket 5 testing and diagnostics, and to
 [CustCast](https://github.com/CustCast/PokeRogue-App-Android-Thor) for sharing
 the artwork that inspired the optional Modern Light and Modern Dark themes.
+The Spanish (Spain) Kanto Gear translation was contributed by
+**Desierto La Espada**.
 
 Kanto Gear's code is available under the [MIT License](LICENSE). Pokémon and
 related names are trademarks of their respective owners. This project is not
