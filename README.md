@@ -44,7 +44,7 @@ optional; the host and Kanto Gear mod are required.
 
 | Download | Required | Purpose |
 | --- | :---: | --- |
-| [Gen1Recomp Android Test 0.1.85-kanto.12](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.85-kanto.12) | **Yes** | Android host with Gold and the dual-display bridge |
+| [Gen1Recomp Android Test 0.1.86-kanto.13](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.86-kanto.13) | **Yes** | Android host with Gold and the dual-display bridge |
 | [Kanto Gear 1.8.6](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | **Yes** | The second-screen companion mod |
 | [Kanto Gear Deutsch 0.2.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | No | German text for the Kanto Gear interface |
 | [Kanto Gear Español (España) 0.2.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | No | Spanish (Spain) text for the Kanto Gear interface |
@@ -59,7 +59,7 @@ optional; the host and Kanto Gear mod are required.
 You need your own supported Pokémon Red, Blue, Yellow or Gold ROM. No ROM or
 ROM-extracted game data is included.
 
-1. Install the [Gen1Recomp Android Test APK](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.85-kanto.12).
+1. Install the [Gen1Recomp Android Test APK](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.86-kanto.13).
 2. Download [Kanto Gear 1.8.6](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6).
 3. Open **Gen1Recomp Android Test → MODS → Import mod .zip** and select the
    Kanto Gear ZIP.
@@ -76,7 +76,7 @@ uninstall it first unless you have exported your save.
 
 > [!WARNING]
 > If the second screen stopped working after accepting the old host's update
-> prompt, manually install `0.1.85-kanto.12` once. That prompt installed the
+> prompt, manually install `0.1.86-kanto.13` once. That prompt installed the
 > official Gen1Recomp host, which does not yet include every Kanto Gear Android
 > bridge feature. This release hides only that incompatible host update path;
 > normal mod update checks still work.
