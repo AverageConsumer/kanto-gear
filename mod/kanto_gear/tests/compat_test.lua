@@ -218,6 +218,10 @@ T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
 T.eq(hooks:depth("render.output"), 1,
   "Kanto Gear owns final output only for a live screen swap")
+T.eq(hooks:depth("render.viewport"), 1,
+  "Kanto Gear can reserve a native game viewport")
+T.eq(hooks:depth("render.window"), 1,
+  "Kanto Gear decorates the remaining host window")
 T.eq(hooks:depth("input.pointer"), 1,
   "Kanto Gear uses the upstream pointer seam while swapped")
 T.eq(hooks:depth("input.touchpressed"), 0,
@@ -329,6 +333,36 @@ local gameFit = theme:fitRect(
   theme:windowLayout("stacked", 1280, 720).game, 640, 576)
 T.eq(outputDraws[1].args[1], gameFit.x,
   "one-window output preserves the complete composed Game frame")
+local nativeGameRect = run.loader.hooks:call("render.viewport", function(ctx)
+  return { x = 0, y = 0, width = ctx.width, height = ctx.height }
+end, { width = 1280, height = 720, generation = 1 })
+local nativeLayout = theme:windowLayout("stacked", 1280, 720)
+T.eq(nativeGameRect.width, nativeLayout.game.w,
+  "native viewport gives the Game its real layout width")
+T.eq(nativeGameRect.height, nativeLayout.game.h,
+  "native viewport gives the Game its real layout height")
+T.eq(run.loader.hooks:call("render.output_enabled",
+  function() return false end), false,
+  "native viewport avoids rescaling the finished Game frame")
+local nativeDraws = {}
+T.love.graphics.draw = function(image, ...)
+  nativeDraws[#nativeDraws + 1] = { image = image, args = { ... } }
+end
+local nativeCanvas = T.love.graphics.newCanvas(
+  nativeGameRect.width, nativeGameRect.height)
+T.eq(run.loader.hooks:call("render.window", function(_, context)
+  T.love.graphics.draw(context.canvas, context.x, context.y)
+end, game, {
+  canvas = nativeCanvas,
+  x = nativeGameRect.x, y = nativeGameRect.y,
+  width = nativeGameRect.width, height = nativeGameRect.height,
+  windowWidth = 1280, windowHeight = 720, generation = 1,
+}), true, "native window layout owns its companion region")
+T.love.graphics.draw = outputDraw
+T.eq(#nativeDraws, 2,
+  "native window draws the reflowed Game once and Gear once")
+T.eq(nativeDraws[1].image, nativeCanvas,
+  "native window presents the host-rendered Game without scaling")
 local pointerPasses = 0
 local gearRect = theme:fitRect(
   theme:windowLayout("stacked", 1280, 720).gear, 160, 144)

@@ -1217,6 +1217,7 @@ return function(mod)
   local gameCaptureCanvas
   local nextGameCapture = 0
   local primaryBottomRect
+  THEME.nativeWindowLayout = nil
   local page = "MAP"
   local trainerStepsOpen = false
   local localMapZoom = 1
@@ -4655,14 +4656,38 @@ return function(mod)
     return next(stepGame, dt)
   end, 1000)
 
+  mod.hooks:wrap("render.viewport", function(next, context)
+    local available = next(context)
+    THEME.nativeWindowLayout = nil
+    if not (active and inlineDisplay() and context) then return available end
+    local base = type(available) == "table" and available or {
+      x = 0, y = 0, width = context.width, height = context.height,
+    }
+    local layout = THEME:windowLayout(windowMode(), base.width, base.height,
+      runtimeHandheldOverride == true)
+    if not layout then return available end
+    for _, rect in pairs(layout) do
+      rect.x = rect.x + (base.x or 0)
+      rect.y = rect.y + (base.y or 0)
+    end
+    THEME.nativeWindowLayout = layout
+    return {
+      x = layout.game.x, y = layout.game.y,
+      width = layout.game.w, height = layout.game.h,
+    }
+  end, 1000)
+
   mod.hooks:wrap("render.output_enabled", function(next)
-    if active and inlineDisplay() then return true end
+    if active and inlineDisplay() then
+      return not THEME.nativeWindowLayout
+    end
     if active and bottomOnHandheld() and hasDisplay() then return true end
     return next()
   end, 1000)
 
   mod.hooks:wrap("render.output", function(next, context)
-    if active and inlineDisplay() and context and context.canvas then
+    if active and inlineDisplay() and not THEME.nativeWindowLayout
+        and context and context.canvas then
       if next(context) == true then
         primaryBottomRect = nil
         displayReady = false
@@ -4690,6 +4715,7 @@ return function(mod)
       displayReady = true
       return true
     end
+    if active and inlineDisplay() then return next(context) end
     if not (active and bottomOnHandheld() and hasDisplay()
         and context and context.canvas) then
       primaryBottomRect = nil
@@ -4759,6 +4785,27 @@ return function(mod)
     G.setColor(1, 1, 1, 1)
     G.draw(canvas, dx, dy, 0, scale, scale)
     G.pop()
+    return true
+  end, 1000)
+
+  mod.hooks:wrap("render.window", function(next, windowGame, context)
+    if not (active and inlineDisplay() and THEME.nativeWindowLayout
+        and context and context.canvas) then
+      return next(windowGame, context)
+    end
+    next(windowGame, context)
+    if dirty then draw(); dirty = false end
+    G.push("all")
+    G.origin()
+    G.setCanvas()
+    G.setScissor()
+    G.setShader()
+    G.setBlendMode("alpha")
+    G.setColor(1, 1, 1, 1)
+    primaryBottomRect = THEME:drawCanvas(canvas, THEME.nativeWindowLayout.gear)
+    G.setScissor()
+    G.pop()
+    displayReady = true
     return true
   end, 1000)
 
