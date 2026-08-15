@@ -101,6 +101,27 @@ T.eq(theme:statusName("PSN", { statuses = {
     return id == "PSN" and { label = "GIFT", hudLabel = "GIF" }
   end,
 } }), "GIF", "party cards use the translated status registry")
+T.eq(theme:windowLayout("off", 1280, 720), nil,
+  "disabled window layout leaves native output untouched")
+local stacked = theme:windowLayout("stacked", 1280, 720)
+T.check(stacked.game.y + stacked.game.h < stacked.gear.y,
+  "stacked layout keeps Game and Gear in separate rows")
+local side = theme:windowLayout("side", 1280, 720)
+T.check(side.game.x + side.game.w < side.gear.x,
+  "side layout keeps Game and Gear in separate columns")
+local large = theme:windowLayout("large", 1280, 720)
+T.check(large.game.w > large.gear.w and large.game.h > large.gear.h,
+  "large layout gives the game the dominant surface")
+local swapped = theme:windowLayout("side", 1280, 720, true)
+T.eq(swapped.game.x, side.gear.x, "screen swap exchanges the Game slot")
+T.eq(swapped.gear.x, side.game.x, "screen swap exchanges the Gear slot")
+for _, layout in ipairs({ stacked, side, large, swapped }) do
+  for _, rect in pairs(layout) do
+    T.check(rect.x >= 0 and rect.y >= 0
+      and rect.x + rect.w <= 1280 and rect.y + rect.h <= 720,
+      "window presets stay inside the output surface")
+  end
+end
 local toxicDetails, toxicKnown = theme:moveDescription(
   { id = "TOXIC" }, { effect = "POISON_EFFECT" }, {})
 T.check(toxicKnown and toxicDetails[1] == "BADLY POISONS TARGET",
@@ -175,20 +196,23 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 8, "Kanto Gear keeps its settings compact")
+T.eq(#options, 9, "Kanto Gear keeps its settings compact")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
 T.eq(#options[1].choices, 9, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "modern_light", "modern light theme is available")
 T.eq(options[1].choices[4][2], "modern_dark", "modern dark theme is available")
 T.eq(options[2].label, "INFO", "assist features use one preset")
 T.eq(options[4].label, "GEAR SCREEN", "display setting is device-neutral")
-T.eq(options[5].label, "SCREEN SWAP (Y)", "live swapping names its control")
-T.eq(options[5].default, false, "screen swap cannot claim Y by default")
-T.eq(options[6].label, "BATTLE VIEW", "battle layout uses one setting")
-T.eq(#options[6].choices, 3, "battle view exposes three clear layouts")
-T.eq(options[7].label, "CAUGHT ICON", "caught marker has one clear toggle")
-T.eq(options[8].label, "TRIGGER TABS", "trigger navigation is opt-in")
-T.eq(options[8].default, false, "trigger navigation cannot claim controls by default")
+T.eq(options[5].label, "DISPLAY LAYOUT", "single-screen layouts use one setting")
+T.eq(options[5].default, "off", "single-screen composition is opt-in")
+T.eq(#options[5].choices, 4, "window layout exposes three compact presets")
+T.eq(options[6].label, "SCREEN SWAP (Y)", "live swapping names its control")
+T.eq(options[6].default, false, "screen swap cannot claim Y by default")
+T.eq(options[7].label, "BATTLE VIEW", "battle layout uses one setting")
+T.eq(#options[7].choices, 3, "battle view exposes three clear layouts")
+T.eq(options[8].label, "CAUGHT ICON", "caught marker has one clear toggle")
+T.eq(options[9].label, "TRIGGER TABS", "trigger navigation is opt-in")
+T.eq(options[9].default, false, "trigger navigation cannot claim controls by default")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
@@ -269,6 +293,79 @@ run.loader.events:emit("game.ready", { game = game })
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
   "Y screen swapping is disabled by default")
+run.loader.modOptions.kanto_gear = { window_layout = "stacked" }
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "window_layout" })
+local companionDisables = 0
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = { setEnabled = function(on)
+    if on == false then companionDisables = companionDisables + 1 end
+  end },
+})
+T.check(companionDisables > 0,
+  "one-window layout dismisses a stale physical companion surface")
+T.eq(run.loader.hooks:call("render.output_enabled",
+  function() return false end), true,
+  "one-window layout does not require a physical companion display")
+local outputCanvas = T.love.graphics.newCanvas(640, 576)
+T.eq(run.loader.hooks:call("render.output", function() return false end, {
+  canvas = outputCanvas, width = 1280, height = 720,
+}), true, "one-window layout owns the enabled final output")
+local outputDraws = {}
+local outputDraw = T.love.graphics.draw
+T.love.graphics.draw = function(image, ...)
+  outputDraws[#outputDraws + 1] = { image = image, args = { ... } }
+  return outputDraw(image, ...)
+end
+run.loader.hooks:call("render.output", function() return false end, {
+  canvas = outputCanvas, width = 1280, height = 720,
+  gameX = 80, gameY = 72, gameWidth = 480, gameHeight = 432,
+})
+T.love.graphics.draw = outputDraw
+T.eq(#outputDraws, 2,
+  "one-window output draws exactly the Game and Gear surfaces")
+T.eq(outputDraws[1].image, outputCanvas, "one-window output draws Game first")
+local gameFit = theme:fitRect(
+  theme:windowLayout("stacked", 1280, 720).game, 480, 432)
+T.check(outputDraws[1].args[1] < gameFit.x,
+  "one-window output crops native letterbox margins before fitting Game")
+local pointerPasses = 0
+local gearRect = theme:fitRect(
+  theme:windowLayout("stacked", 1280, 720).gear, 160, 144)
+run.loader.hooks:call("input.pointer", function()
+  pointerPasses = pointerPasses + 1
+  return false
+end, game, { phase = "pressed", x = 100, y = 100 })
+T.eq(pointerPasses, 1, "touch outside Gear remains native game input")
+run.loader.hooks:call("input.pointer", function()
+  pointerPasses = pointerPasses + 1
+  return false
+end, game, { phase = "pressed",
+  x = gearRect.x + gearRect.w / 2, y = gearRect.y + gearRect.h / 2 })
+T.eq(pointerPasses, 1, "touch inside Gear is consumed by Kanto Gear")
+run.loader.hooks:call("input.pointer", function() return false end, game, {
+  phase = "cancelled", x = gearRect.x, y = gearRect.y,
+})
+local ownedDraws = 0
+T.love.graphics.draw = function(...)
+  ownedDraws = ownedDraws + 1
+  return outputDraw(...)
+end
+T.eq(run.loader.hooks:call("render.output", function() return true end, {
+  canvas = outputCanvas, width = 1280, height = 720,
+}), true, "an earlier final-output owner remains authoritative")
+T.love.graphics.draw = outputDraw
+T.eq(ownedDraws, 0, "Kanto Gear does not paint over another output owner")
+run.loader.modOptions.kanto_gear = {}
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "window_layout" })
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = { detected = function() return displayDetected end,
+                   pollTouch = function() return nil end },
+})
+T.eq(run.loader.hooks:call("render.output_enabled",
+  function() return false end), false,
+  "disabling one-window layout restores native output")
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 T.eq(swapPolls, 0, "disabled screen swapping never polls Y")
 run.loader.modOptions.kanto_gear = { screen_swap = true }

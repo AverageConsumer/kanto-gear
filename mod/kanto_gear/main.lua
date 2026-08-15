@@ -125,6 +125,54 @@ function THEME:statusName(id, content)
   return record and (record.hudLabel or record.label) or id
 end
 
+function THEME:fitRect(rect, width, height)
+  local scale = math.min(rect.w / width, rect.h / height)
+  local w, h = math.floor(width * scale), math.floor(height * scale)
+  return {
+    x = math.floor(rect.x + (rect.w - w) / 2),
+    y = math.floor(rect.y + (rect.h - h) / 2),
+    w = w, h = h,
+  }
+end
+
+function THEME:windowLayout(mode, width, height, swapped)
+  if not mode or mode == "off" then return nil end
+  local gap = math.max(2, math.floor(math.min(width, height) * 0.01))
+  local game, gear
+  if mode == "stacked" then
+    local gearHeight = math.floor((height - gap) * 0.36)
+    game = { x = 0, y = 0, w = width, h = height - gearHeight - gap }
+    gear = { x = 0, y = game.h + gap, w = width, h = gearHeight }
+  elseif mode == "side" then
+    local gearWidth = math.floor((width - gap) * 0.34)
+    game = { x = 0, y = 0, w = width - gearWidth - gap, h = height }
+    gear = { x = game.w + gap, y = 0, w = gearWidth, h = height }
+  elseif mode == "large" then
+    local gearHeight = math.floor(height * 0.42)
+    local gearWidth = math.min(math.floor(width * 0.38),
+      math.floor(gearHeight * WIDTH / HEIGHT))
+    game = { x = 0, y = 0, w = width - gearWidth - gap, h = height }
+    gear = { x = game.w + gap, y = height - gearHeight,
+      w = gearWidth, h = gearHeight }
+  else
+    return nil
+  end
+  if swapped then game, gear = gear, game end
+  return { game = game, gear = gear }
+end
+
+function THEME:drawCanvas(canvas, rect, source)
+  source = source or {
+    x = 0, y = 0, w = canvas:getWidth(), h = canvas:getHeight(),
+  }
+  local fitted = self:fitRect(rect, source.w, source.h)
+  G.setScissor(rect.x, rect.y, rect.w, rect.h)
+  local sx, sy = fitted.w / source.w, fitted.h / source.h
+  G.draw(canvas, fitted.x - source.x * sx, fitted.y - source.y * sy,
+    0, sx, sy)
+  return fitted
+end
+
 function THEME:moveDescription(move, def, ruleset)
   def = def or {}
   local id = move and move.id or def.id
@@ -1084,6 +1132,11 @@ return function(mod)
         { "AUTO", "auto" }, { "HANDHELD", "handheld" },
         { "EXTERNAL", "secondary" },
       } },
+    { key = "window_layout", label = "DISPLAY LAYOUT", type = "choice",
+      default = "off", choices = {
+        { "DEVICE DEFAULT", "off" }, { "STACKED", "stacked" },
+        { "SIDE BY SIDE", "side" }, { "LARGE GAME", "large" },
+      } },
     { key = "screen_swap", label = "SCREEN SWAP (Y)",
       type = "toggle", default = false },
     { key = "battle_view", label = "BATTLE VIEW",
@@ -1138,6 +1191,12 @@ return function(mod)
     end
     return mod.options:get("display_target")
   end
+  local function windowMode()
+    return mod.options:get("window_layout") or "off"
+  end
+  local function inlineDisplay()
+    return windowMode() ~= "off"
+  end
 
   local runtime = rawget(_G, "love")
   G = runtime and runtime.graphics
@@ -1152,10 +1211,6 @@ return function(mod)
 
   local canvas = G.newCanvas(WIDTH, HEIGHT, { dpiscale = 1 })
   canvas:setFilter("nearest", "nearest")
-  if not canvas.requestImageData or not canvas.pollImageData then
-    mod.log:warn("host has no asynchronous display readback; mod stays inactive")
-    return
-  end
   local game
   local companion
   local active = false
@@ -1361,7 +1416,8 @@ return function(mod)
   end
 
   local function hasDisplay()
-    return companion and companion.detected and companion.detected() or false
+    return inlineDisplay()
+      or (companion and companion.detected and companion.detected()) or false
   end
 
   local function companionMoveGrid(state)
@@ -3582,6 +3638,7 @@ return function(mod)
 
   local function pumpDisplay()
     local shown = false
+    if not canvas.requestImageData or not canvas.pollImageData then return false end
     if bottomOnHandheld() then
       if readbackPending and canvas:pollImageData() then
         readbackPending = false
@@ -4542,6 +4599,7 @@ return function(mod)
     if payload and payload.mod == "kanto_gear" then
       if payload.key == "theme" then refreshTheme(true) end
       if payload.key == "display_target"
+          or payload.key == "window_layout"
           or (payload.key == "screen_swap"
             and mod.options:get("screen_swap") ~= true) then
         runtimeHandheldOverride = nil
@@ -4588,20 +4646,58 @@ return function(mod)
       end
     end
     if active and hasDisplay() and swapPressed then
-      runtimeHandheldOverride = not bottomOnHandheld()
+      if inlineDisplay() then
+        runtimeHandheldOverride = runtimeHandheldOverride ~= true
+      else
+        runtimeHandheldOverride = not bottomOnHandheld()
+      end
       resetSwapState()
-      mod.log:info("screen swap: gear=%s",
-        runtimeHandheldOverride and "handheld" or "external")
+      mod.log:info("screen swap: gear=%s", inlineDisplay()
+        and (runtimeHandheldOverride and "primary" or "secondary")
+        or (runtimeHandheldOverride and "handheld" or "external"))
     end
     return next(stepGame, dt)
   end, 1000)
 
   mod.hooks:wrap("render.output_enabled", function(next)
+    if active and inlineDisplay() then return true end
     if active and bottomOnHandheld() and hasDisplay() then return true end
     return next()
   end, 1000)
 
   mod.hooks:wrap("render.output", function(next, context)
+    if active and inlineDisplay() and context and context.canvas then
+      if next(context) == true then
+        primaryBottomRect = nil
+        displayReady = false
+        return true
+      end
+      if dirty then draw(); dirty = false end
+      local fallbackWidth, fallbackHeight = G.getDimensions()
+      local ww = math.max(1, context.width or fallbackWidth)
+      local wh = math.max(1, context.height or fallbackHeight)
+      local layout = THEME:windowLayout(windowMode(), ww, wh,
+        runtimeHandheldOverride == true)
+      if not layout then return false end
+      G.push("all")
+      G.setCanvas()
+      G.origin()
+      G.setScissor()
+      G.setShader()
+      G.setBlendMode("alpha")
+      G.clear(0, 0, 0, 1)
+      G.setColor(1, 1, 1, 1)
+      THEME:drawCanvas(context.canvas, layout.game, {
+        x = context.gameX or 0, y = context.gameY or 0,
+        w = context.gameWidth or context.canvas:getWidth(),
+        h = context.gameHeight or context.canvas:getHeight(),
+      })
+      primaryBottomRect = THEME:drawCanvas(canvas, layout.gear)
+      G.setScissor()
+      G.pop()
+      displayReady = true
+      return true
+    end
     if not (active and bottomOnHandheld() and hasDisplay()
         and context and context.canvas) then
       primaryBottomRect = nil
@@ -4675,15 +4771,18 @@ return function(mod)
   end, 1000)
 
   local function primaryTouch(action, x, y)
-    if not (active and bottomOnHandheld() and hasDisplay()) then return false end
+    local inline = inlineDisplay()
+    if not (active and hasDisplay()
+        and (inline or bottomOnHandheld())) then return false end
     local rect = primaryBottomRect
-    if not rect then return true end
+    if not rect then return not inline end
     local insideRect = x >= rect.x and x < rect.x + rect.w
       and y >= rect.y and y < rect.y + rect.h
     if action == "down" and not insideRect then
       touchDown = nil
-      return true
+      return not inline
     end
+    if inline and action ~= "down" and not touchDown then return false end
     local tx = math.max(0, math.min(WIDTH - 1,
       math.floor((x - rect.x) * WIDTH / rect.w)))
     local ty = math.max(0, math.min(HEIGHT - 1,
@@ -4698,8 +4797,9 @@ return function(mod)
     local action = ({ pressed = "down", released = "up",
                       cancelled = "cancel" })[event.phase]
     if action and primaryTouch(action, event.x, event.y) then return true end
-    if event.phase == "moved" and active and bottomOnHandheld()
-        and hasDisplay() then return true end
+    if event.phase == "moved" and active and hasDisplay()
+        and ((inlineDisplay() and touchDown) or (not inlineDisplay()
+          and bottomOnHandheld())) then return true end
     return next(pointerGame, event)
   end, 1000)
 
@@ -4797,11 +4897,16 @@ return function(mod)
 
   -- Upstream owns the display seam; this mod only supplies its companion frame.
   mod.hooks:wrap("render.compose", function(next, renderer, context)
+    local inline = inlineDisplay()
     companion = context and context.secondScreen
+    if active and inline and companion and companion.setEnabled then
+      companion.setEnabled(false)
+    end
     -- The captured game frame is wider than some lower displays. Keep dynamic
     -- UI inside the central Game Boy viewport while that frame is cover-cropped;
     -- beginFrame rebuilds anchors on the next normal frame.
-    if active and bottomOnHandheld() and hasDisplay() and renderer then
+    if active and not inline and bottomOnHandheld()
+        and hasDisplay() and renderer then
       renderer.uiAnchors = nil
     end
     local handled = next(renderer, context)
@@ -4809,7 +4914,8 @@ return function(mod)
       textSpeedReleasePending = false
       holdTextSpeed(false)
     end
-    if not companion or not companion.detected or not companion.pollTouch then
+    if not inline and (not companion or not companion.detected
+        or not companion.pollTouch) then
       if not bridgeWarned then
         bridgeWarned = true
         mod.log:warn("host SecondScreen bridge has no companion touch support")
@@ -4826,10 +4932,12 @@ return function(mod)
     if now >= nextPoll then
       nextPoll = now + 0.05
       refreshTheme()
-      for _ = 1, 32 do
-        local event = companion.pollTouch()
-        if not event then break end
-        if not bottomOnHandheld() then touchEvent(event) end
+      if not inline then
+        for _ = 1, 32 do
+          local event = companion.pollTouch()
+          if not event then break end
+          if not bottomOnHandheld() then touchEvent(event) end
+        end
       end
       refreshBattle()
       if page == "TOOLS" or pendingAction then refreshTools() end
@@ -4911,9 +5019,10 @@ return function(mod)
       holdTextSpeed(false)
     end
     if displayAvailable and not displayReady then dirty = true end
-    if bottomOnHandheld() then
+    if not inline and bottomOnHandheld() then
       if dirty or readbackPending then pumpDisplay() end
-    elseif (dirty or readbackPending) and (readbackPending or displayAvailable
+    elseif not inline and (dirty or readbackPending)
+        and (readbackPending or displayAvailable
         or now >= nextPresentAttempt) then
       local shown = pumpDisplay()
       if shown and not loggedPresent then
