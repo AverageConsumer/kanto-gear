@@ -4757,6 +4757,8 @@ return function(mod)
     return {
       x = layout.game.x, y = layout.game.y,
       width = layout.game.w, height = layout.game.h,
+      capture = THEME:windowMode(mod.options) == "fullscreen"
+        and layout.showGear,
     }
   end, 1000)
 

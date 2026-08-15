@@ -472,6 +472,8 @@ run.loader.events:emit("mod.options_changed",
 local fullscreenRect = run.loader.hooks:call("render.viewport", function(ctx)
   return { x = 0, y = 0, width = ctx.width, height = ctx.height }
 end, { width = 1280, height = 720, generation = 1 })
+T.check(not fullscreenRect.capture,
+  "fullscreen Game does not pay for a final capture")
 local fullscreenDraws = {}
 T.love.graphics.draw = function(image, ...)
   fullscreenDraws[#fullscreenDraws + 1] = image
@@ -490,9 +492,11 @@ T.eq(#fullscreenDraws, 1,
   "fullscreen Game does not paint a hidden Gear surface")
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 fullscreenDraws = {}
-run.loader.hooks:call("render.viewport", function(ctx)
+local fullscreenGearRect = run.loader.hooks:call("render.viewport", function(ctx)
   return { x = 0, y = 0, width = ctx.width, height = ctx.height }
 end, { width = 1280, height = 720, generation = 1 })
+T.check(fullscreenGearRect.capture,
+  "fullscreen Gear requests final window composition")
 run.loader.hooks:call("render.window", function(_, context)
   T.love.graphics.draw(context.canvas, context.x, context.y)
 end, game, fullscreenContext)
