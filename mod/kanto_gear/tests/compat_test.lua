@@ -152,7 +152,8 @@ T.check(swappedOverlay.gameOnTop,
   "swapped overlay keeps the smaller Game surface visible above Gear")
 local hiddenGame = theme:windowLayout(
   "overlay", 1280, 720, true, "bottom_right", true)
-T.check(hiddenGame.showGear and not hiddenGame.gameOnTop,
+T.check(hiddenGame.showGear and not hiddenGame.showGame
+    and not hiddenGame.gameOnTop,
   "hidden Gear-first overlay keeps Gear full and omits the smaller Game")
 for _, layout in ipairs({ stacked, side, overlay, swapped, swappedOverlay }) do
   for _, rect in ipairs({ layout.game, layout.gear }) do
@@ -503,6 +504,28 @@ end, game, { phase = "pressed",
   y = overlayGameRect.y + overlayGameRect.height / 2 })
 T.eq(pointerPasses, 2,
   "the smaller Game overlay keeps native pointer input")
+overlayPressed = true
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+local hiddenGameRect = run.loader.hooks:call("render.viewport", function(ctx)
+  return { x = 0, y = 0, width = ctx.width, height = ctx.height }
+end, { width = 1280, height = 720, generation = 1 })
+local hiddenGameDraws = {}
+T.love.graphics.draw = function(image, ...)
+  hiddenGameDraws[#hiddenGameDraws + 1] = image
+end
+run.loader.hooks:call("render.window", function(_, context)
+  T.love.graphics.draw(context.canvas, context.x, context.y)
+end, game, {
+  canvas = T.love.graphics.newCanvas(hiddenGameRect.width, hiddenGameRect.height),
+  x = hiddenGameRect.x, y = hiddenGameRect.y,
+  width = hiddenGameRect.width, height = hiddenGameRect.height,
+  windowWidth = 1280, windowHeight = 720, generation = 1,
+})
+T.love.graphics.draw = outputDraw
+T.eq(#hiddenGameDraws, 1,
+  "hidden Gear-first overlay never presents the captured Game frame")
+overlayPressed = false
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 run.loader.modOptions.kanto_gear = {
   display_mode = "fullscreen", fullscreen_start = "game",
   screen_swap = false,

@@ -182,6 +182,7 @@ function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
   local gap = math.max(2, math.floor(math.min(width, height) * 0.01))
   local game, gear
   local showGear = true
+  local showGame = true
   local gameOnTop = false
   if mode == "fullscreen" then
     game = { x = 0, y = 0, w = width, h = height }
@@ -217,10 +218,12 @@ function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
   end
   if mode == "overlay" and overlayHidden then
     showGear = swapped == true
+    showGame = swapped ~= true
     gameOnTop = false
   end
   return {
-    game = game, gear = gear, showGear = showGear, gameOnTop = gameOnTop,
+    game = game, gear = gear, showGame = showGame,
+    showGear = showGear, gameOnTop = gameOnTop,
   }
 end
 
@@ -4847,7 +4850,7 @@ return function(mod)
         primaryBottomRect = THEME:drawCanvas(canvas, layout.gear)
         THEME:drawCanvas(context.canvas, layout.game)
       else
-        THEME:drawCanvas(context.canvas, layout.game)
+        if layout.showGame then THEME:drawCanvas(context.canvas, layout.game) end
         primaryBottomRect = layout.showGear
           and THEME:drawCanvas(canvas, layout.gear) or nil
       end
@@ -4934,7 +4937,7 @@ return function(mod)
         and context and context.canvas) then
       return next(windowGame, context)
     end
-    next(windowGame, context)
+    if THEME.nativeWindowLayout.showGame then next(windowGame, context) end
     if not THEME.nativeWindowLayout.showGear then
       primaryBottomRect = nil
       displayReady = false
