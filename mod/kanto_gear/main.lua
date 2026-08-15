@@ -171,7 +171,8 @@ function THEME:fitRect(rect, width, height)
   }
 end
 
-function THEME:windowLayout(mode, width, height, swapped)
+function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
+    overlayHidden)
   if not mode or mode == "off" then return nil end
   if mode == "auto" then
     mode = width >= height and "side" or "stacked"
@@ -199,8 +200,13 @@ function THEME:windowLayout(mode, width, height, swapped)
     local gearHeight = math.floor(height * 0.42)
     local gearWidth = math.min(math.floor(width * 0.38),
       math.floor(gearHeight * WIDTH / HEIGHT))
+    local left = overlayCorner == "top_left"
+      or overlayCorner == "bottom_left"
+    local top = overlayCorner == "top_left"
+      or overlayCorner == "top_right"
     game = { x = 0, y = 0, w = width, h = height }
-    gear = { x = width - gearWidth - gap, y = height - gearHeight - gap,
+    gear = { x = left and gap or width - gearWidth - gap,
+      y = top and gap or height - gearHeight - gap,
       w = gearWidth, h = gearHeight }
   else
     return nil
@@ -208,6 +214,10 @@ function THEME:windowLayout(mode, width, height, swapped)
   if swapped then
     game, gear = gear, game
     gameOnTop = mode == "overlay"
+  end
+  if mode == "overlay" and overlayHidden then
+    showGear = swapped == true
+    gameOnTop = false
   end
   return {
     game = game, gear = gear, showGear = showGear, gameOnTop = gameOnTop,
@@ -1204,6 +1214,21 @@ return function(mod)
       }, choices = {
         { "GAME", "game" }, { "GEAR", "gear" },
       } },
+    { key = "overlay_corner", label = "OVERLAY CORNER", type = "choice",
+      default = "bottom_right", visible_if = {
+        key = "display_mode", equals = "combined",
+      }, choices = {
+        { "TOP LEFT", "top_left" }, { "TOP RIGHT", "top_right" },
+        { "BOTTOM LEFT", "bottom_left" },
+        { "BOTTOM RIGHT", "bottom_right" },
+      } },
+    { key = "overlay_button", label = "OVERLAY BUTTON", type = "choice",
+      default = "off", visible_if = {
+        key = "display_mode", equals = "combined",
+      }, choices = {
+        { "OFF", "off" }, { "R3", "rightstick" },
+        { "L3", "leftstick" }, { "F7", "f7" },
+      } },
     { key = "display_target", label = "GEAR OUTPUT", type = "choice",
       default = "auto", choices = {
         { "AUTO", "auto" }, { "MAIN SCREEN", "handheld" },
@@ -1256,17 +1281,17 @@ return function(mod)
   local function hideUpperBattleUI()
     return currentBattleUIMode() ~= "standard"
   end
-  local runtimeScreenSwap
+  local displayRuntime = {}
   local function inlineDisplay()
     return THEME:displayMode(mod.options) ~= "separate"
   end
   local function bottomOnHandheld()
     local handheld = mod.options:get("display_target") == "handheld"
-    if runtimeScreenSwap then return not handheld end
+    if displayRuntime.swapped then return not handheld end
     return handheld
   end
   local function displayPreference()
-    if runtimeScreenSwap then
+    if displayRuntime.swapped then
       return bottomOnHandheld() and "handheld" or "secondary"
     end
     return mod.options:get("display_target")
@@ -1493,7 +1518,7 @@ return function(mod)
   local function hasDisplay()
     if inlineDisplay() then
       return THEME:displayMode(mod.options) ~= "fullscreen"
-        or THEME:gearPrimary(mod.options, runtimeScreenSwap)
+        or THEME:gearPrimary(mod.options, displayRuntime.swapped)
     end
     return (companion and companion.detected and companion.detected()) or false
   end
@@ -4242,7 +4267,7 @@ return function(mod)
     dirty = true
   end
 
-  local triggerHeld = { left = false, right = false }
+  local triggerHeld = { left = false, right = false, overlay = false }
   local screenSwapHeld = false
   local function triggerEdge(value, held)
     value = tonumber(value) or 0
@@ -4285,9 +4310,13 @@ return function(mod)
   end
 
   local function pollScreenSwap()
-    local down, infoDown = false, false
+    local down, infoDown, overlayDown = false, false, false
     local swapEnabled = THEME:displayMode(mod.options) == "fullscreen"
       or mod.options:get("screen_swap") == true
+    local overlayButton = mod.options:get("overlay_button") or "off"
+    local overlayEnabled = THEME:displayMode(mod.options) == "combined"
+      and THEME:windowMode(mod.options) == "overlay"
+      and overlayButton ~= "off"
     local keyboard = love and love.keyboard
     if keyboard and keyboard.isDown then
       if swapEnabled then
@@ -4296,6 +4325,10 @@ return function(mod)
       end
       local okInfo, pressedInfo = pcall(keyboard.isDown, "x")
       infoDown = okInfo and pressedInfo or false
+      if overlayEnabled and overlayButton == "f7" then
+        local okOverlay, pressedOverlay = pcall(keyboard.isDown, "f7")
+        overlayDown = okOverlay and pressedOverlay or false
+      end
     end
     local js = love and love.joystick
     if js and js.getJoysticks then
@@ -4309,15 +4342,22 @@ return function(mod)
             end
             local okInfo, pressedInfo = pcall(pad.isGamepadDown, pad, "x")
             if okInfo and pressedInfo then infoDown = true end
+            if overlayEnabled and overlayButton ~= "f7" then
+              local okOverlay, pressedOverlay = pcall(
+                pad.isGamepadDown, pad, overlayButton)
+              if okOverlay and pressedOverlay then overlayDown = true end
+            end
           end
         end
       end
     end
     local pressed = down and not screenSwapHeld
     local infoPressed = infoDown and not triggerHeld.info
+    local overlayPressed = overlayDown and not triggerHeld.overlay
     screenSwapHeld = down
+    triggerHeld.overlay = overlayDown
     triggerHeld.info = infoDown
-    return pressed, infoPressed
+    return pressed, infoPressed, overlayPressed
   end
 
   local function tap(x, y)
@@ -4681,10 +4721,13 @@ return function(mod)
           or payload.key == "fullscreen_start"
           or payload.key == "combined_layout"
           or payload.key == "combined_primary"
+          or payload.key == "overlay_corner"
+          or payload.key == "overlay_button"
           or payload.key == "display_target"
           or (payload.key == "screen_swap"
             and mod.options:get("screen_swap") ~= true) then
-        runtimeScreenSwap = nil
+        displayRuntime.swapped = nil
+        displayRuntime.overlayHidden = false
         resetSwapState()
       end
       if not assist("move_details") then moveInfo = nil end
@@ -4715,7 +4758,7 @@ return function(mod)
       if consumed then back() end
     end
     pollTriggerTabs()
-    local swapPressed, infoPressed = pollScreenSwap()
+    local swapPressed, infoPressed, overlayPressed = pollScreenSwap()
     if infoPressed and assist("move_details") then
       if moveInfo then
         moveInfo = nil
@@ -4728,12 +4771,18 @@ return function(mod)
       end
     end
     if active and (inlineDisplay() or hasDisplay()) and swapPressed then
-      runtimeScreenSwap = not runtimeScreenSwap
+      displayRuntime.swapped = not displayRuntime.swapped
       resetSwapState()
       mod.log:info("screen swap: gear=%s", inlineDisplay()
-        and (THEME:gearPrimary(mod.options, runtimeScreenSwap)
-          and "primary" or "secondary")
-        or (bottomOnHandheld() and "handheld" or "external"))
+        and (THEME:gearPrimary(mod.options, displayRuntime.swapped)
+            and "primary" or "secondary")
+          or (bottomOnHandheld() and "handheld" or "external"))
+    end
+    if active and inlineDisplay() and overlayPressed then
+      displayRuntime.overlayHidden = not displayRuntime.overlayHidden
+      resetSwapState()
+      mod.log:info("overlay %s",
+        displayRuntime.overlayHidden and "hidden" or "shown")
     end
     return next(stepGame, dt)
   end, 1000)
@@ -4747,7 +4796,8 @@ return function(mod)
     }
     local layout = THEME:windowLayout(THEME:windowMode(mod.options),
       base.width, base.height,
-      THEME:gearPrimary(mod.options, runtimeScreenSwap))
+      THEME:gearPrimary(mod.options, displayRuntime.swapped),
+      mod.options:get("overlay_corner"), displayRuntime.overlayHidden)
     if not layout then return available end
     for _, rect in ipairs({ layout.game, layout.gear }) do
       rect.x = rect.x + (base.x or 0)
@@ -4781,7 +4831,8 @@ return function(mod)
       local ww = math.max(1, context.width or fallbackWidth)
       local wh = math.max(1, context.height or fallbackHeight)
       local layout = THEME:windowLayout(THEME:windowMode(mod.options), ww, wh,
-        THEME:gearPrimary(mod.options, runtimeScreenSwap))
+        THEME:gearPrimary(mod.options, displayRuntime.swapped),
+        mod.options:get("overlay_corner"), displayRuntime.overlayHidden)
       if not layout then return false end
       if layout.showGear and dirty then draw(); dirty = false end
       G.push("all")
@@ -5149,8 +5200,8 @@ return function(mod)
     end
     local displayAvailable = hasDisplay()
     if not displayAvailable then
-      if not inline and runtimeScreenSwap ~= nil then
-        runtimeScreenSwap = nil
+      if not inline and displayRuntime.swapped ~= nil then
+        displayRuntime.swapped = nil
         resetSwapState()
         mod.log:info("screen disconnected: restored saved layout")
       end

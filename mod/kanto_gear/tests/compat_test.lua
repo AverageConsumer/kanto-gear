@@ -150,6 +150,10 @@ T.eq(swapped.gear.x, side.game.x, "screen swap exchanges the Gear slot")
 local swappedOverlay = theme:windowLayout("overlay", 1280, 720, true)
 T.check(swappedOverlay.gameOnTop,
   "swapped overlay keeps the smaller Game surface visible above Gear")
+local hiddenGame = theme:windowLayout(
+  "overlay", 1280, 720, true, "bottom_right", true)
+T.check(hiddenGame.showGear and not hiddenGame.gameOnTop,
+  "hidden Gear-first overlay keeps Gear full and omits the smaller Game")
 for _, layout in ipairs({ stacked, side, overlay, swapped, swappedOverlay }) do
   for _, rect in ipairs({ layout.game, layout.gear }) do
     T.check(rect.x >= 0 and rect.y >= 0
@@ -231,7 +235,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 12, "Kanto Gear keeps one compact display hierarchy")
+T.eq(#options, 14, "Kanto Gear keeps one compact display hierarchy")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
 T.eq(#options[1].choices, 9, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "modern_light", "modern light theme is available")
@@ -246,18 +250,23 @@ T.eq(options[6].label, "LAYOUT", "combined mode owns its layout")
 T.eq(options[6].default, "auto", "combined layout adapts by default")
 T.eq(#options[6].choices, 4, "combined mode exposes four compact presets")
 T.eq(options[7].label, "PRIMARY VIEW", "combined mode can invert its priority")
-T.eq(options[8].label, "GEAR OUTPUT", "separate mode owns its output target")
-T.eq(options[8].visible_if.equals, "separate",
+T.eq(options[8].label, "OVERLAY CORNER", "overlay owns one position setting")
+T.eq(options[8].default, "bottom_right", "overlay keeps its familiar corner")
+T.eq(#options[8].choices, 4, "overlay supports every screen corner")
+T.eq(options[9].label, "OVERLAY BUTTON", "overlay owns one visibility shortcut")
+T.eq(options[9].default, "off", "overlay cannot claim a button by default")
+T.eq(options[10].label, "GEAR OUTPUT", "separate mode owns its output target")
+T.eq(options[10].visible_if.equals, "separate",
   "separate output stays inside separate mode")
-T.eq(options[9].label, "QUICK SWAP (Y)", "live swapping names its control")
-T.eq(options[9].default, false, "screen swap cannot claim Y by default")
-T.eq(options[9].visible_if.not_equals, "fullscreen",
+T.eq(options[11].label, "QUICK SWAP (Y)", "live swapping names its control")
+T.eq(options[11].default, false, "screen swap cannot claim Y by default")
+T.eq(options[11].visible_if.not_equals, "fullscreen",
   "fullscreen swap claims Y explicitly through its selected mode")
-T.eq(options[10].label, "BATTLE VIEW", "battle layout uses one setting")
-T.eq(#options[10].choices, 3, "battle view exposes three clear layouts")
-T.eq(options[11].label, "CAUGHT ICON", "caught marker has one clear toggle")
-T.eq(options[12].label, "TRIGGER TABS", "trigger navigation is opt-in")
-T.eq(options[12].default, false, "trigger navigation cannot claim controls by default")
+T.eq(options[12].label, "BATTLE VIEW", "battle layout uses one setting")
+T.eq(#options[12].choices, 3, "battle view exposes three clear layouts")
+T.eq(options[13].label, "CAUGHT ICON", "caught marker has one clear toggle")
+T.eq(options[14].label, "TRIGGER TABS", "trigger navigation is opt-in")
+T.eq(options[14].default, false, "trigger navigation cannot claim controls by default")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
@@ -306,7 +315,7 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { detected = function() return displayDetected end,
                    pollTouch = function() return nil end },
 })
-local swapPressed, infoPressed, swapPolls = true, false, 0
+local swapPressed, infoPressed, overlayPressed, swapPolls = true, false, false, 0
 local trigger = { left = 0, right = 0 }
 T.love.joystick = { getJoysticks = function()
   return { {
@@ -314,6 +323,7 @@ T.love.joystick = { getJoysticks = function()
       if button == "y" then swapPolls = swapPolls + 1 end
       return button == "y" and swapPressed
         or button == "x" and infoPressed
+        or button == "rightstick" and overlayPressed
     end,
     getGamepadAxis = function(_, axis)
       return axis == "triggerleft" and trigger.left or trigger.right
@@ -438,6 +448,28 @@ local overlayPrimaryRect = run.loader.hooks:call("render.viewport", function(ctx
 end, { width = 1280, height = 720, generation = 1 })
 T.check(overlayPrimaryRect.capture,
   "Game-first overlay requests final window composition")
+local topLeft = theme:windowLayout("overlay", 1280, 720, false, "top_left")
+T.check(topLeft.gear.x < 20 and topLeft.gear.y < 20,
+  "overlay corner moves the smaller surface without changing its layout")
+run.loader.modOptions.kanto_gear.overlay_button = "rightstick"
+overlayPressed = true
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+local hiddenOverlayRect = run.loader.hooks:call("render.viewport", function(ctx)
+  return { x = 0, y = 0, width = ctx.width, height = ctx.height }
+end, { width = 1280, height = 720, generation = 1 })
+T.check(not hiddenOverlayRect.capture,
+  "overlay button hides the smaller Gear surface")
+overlayPressed = false
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+overlayPressed = true
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+overlayPressed = false
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+local shownOverlayRect = run.loader.hooks:call("render.viewport", function(ctx)
+  return { x = 0, y = 0, width = ctx.width, height = ctx.height }
+end, { width = 1280, height = 720, generation = 1 })
+T.check(shownOverlayRect.capture,
+  "overlay button restores the smaller Gear surface")
 run.loader.modOptions.kanto_gear.combined_primary = "gear"
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "combined_primary" })
