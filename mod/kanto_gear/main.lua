@@ -172,7 +172,7 @@ function THEME:fitRect(rect, width, height)
 end
 
 function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
-    overlayHidden)
+    overlayHidden, secondarySize)
   if not mode or mode == "off" then return nil end
   if mode == "auto" then
     mode = width >= height and "side" or "stacked"
@@ -180,6 +180,10 @@ function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
     mode = "overlay"
   end
   local gap = math.max(2, math.floor(math.min(width, height) * 0.01))
+  local requestedSize = tonumber(secondarySize)
+  local function share(fallback)
+    return math.max(20, math.min(80, requestedSize or fallback)) / 100
+  end
   local game, gear
   local showGear = true
   local showGame = true
@@ -190,16 +194,17 @@ function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
     showGear = swapped == true
     swapped = false
   elseif mode == "stacked" then
-    local gearHeight = math.floor((height - gap) * 0.36)
+    local gearHeight = math.floor((height - gap) * share(36))
     game = { x = 0, y = 0, w = width, h = height - gearHeight - gap }
     gear = { x = 0, y = game.h + gap, w = width, h = gearHeight }
   elseif mode == "side" then
-    local gearWidth = math.floor((width - gap) * 0.34)
+    local gearWidth = math.floor((width - gap) * share(34))
     game = { x = 0, y = 0, w = width - gearWidth - gap, h = height }
     gear = { x = game.w + gap, y = 0, w = gearWidth, h = height }
   elseif mode == "overlay" then
-    local gearHeight = math.floor(height * 0.42)
-    local gearWidth = math.min(math.floor(width * 0.38),
+    local gearHeight = math.floor(height * share(42))
+    local gearWidth = math.min(math.floor(width
+      * (requestedSize and share(42) or 0.38)),
       math.floor(gearHeight * WIDTH / HEIGHT))
     local left = overlayCorner == "top_left"
       or overlayCorner == "bottom_left"
@@ -1216,6 +1221,16 @@ return function(mod)
         key = "display_mode", equals = "combined",
       }, choices = {
         { "GAME", "game" }, { "GEAR", "gear" },
+      } },
+    { key = "secondary_size", label = "SECONDARY SIZE", type = "choice",
+      default = "auto", visible_if = {
+        key = "display_mode", equals = "combined",
+      }, choices = {
+        { "AUTO", "auto" }, { "20%", 20 }, { "25%", 25 },
+        { "30%", 30 }, { "35%", 35 }, { "40%", 40 },
+        { "45%", 45 }, { "50%", 50 }, { "55%", 55 },
+        { "60%", 60 }, { "65%", 65 }, { "70%", 70 },
+        { "75%", 75 }, { "80%", 80 },
       } },
     { key = "overlay_corner", label = "OVERLAY CORNER", type = "choice",
       default = "bottom_right", visible_if = {
@@ -4724,6 +4739,7 @@ return function(mod)
           or payload.key == "fullscreen_start"
           or payload.key == "combined_layout"
           or payload.key == "combined_primary"
+          or payload.key == "secondary_size"
           or payload.key == "overlay_corner"
           or payload.key == "overlay_button"
           or payload.key == "display_target"
@@ -4800,7 +4816,8 @@ return function(mod)
     local layout = THEME:windowLayout(THEME:windowMode(mod.options),
       base.width, base.height,
       THEME:gearPrimary(mod.options, displayRuntime.swapped),
-      mod.options:get("overlay_corner"), displayRuntime.overlayHidden)
+      mod.options:get("overlay_corner"), displayRuntime.overlayHidden,
+      mod.options:get("secondary_size"))
     if not layout then return available end
     for _, rect in ipairs({ layout.game, layout.gear }) do
       rect.x = rect.x + (base.x or 0)
@@ -4835,7 +4852,8 @@ return function(mod)
       local wh = math.max(1, context.height or fallbackHeight)
       local layout = THEME:windowLayout(THEME:windowMode(mod.options), ww, wh,
         THEME:gearPrimary(mod.options, displayRuntime.swapped),
-        mod.options:get("overlay_corner"), displayRuntime.overlayHidden)
+        mod.options:get("overlay_corner"), displayRuntime.overlayHidden,
+        mod.options:get("secondary_size"))
       if not layout then return false end
       if layout.showGear and dirty then draw(); dirty = false end
       G.push("all")

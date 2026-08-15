@@ -126,6 +126,18 @@ T.check(stacked.game.y + stacked.game.h < stacked.gear.y,
 local side = theme:windowLayout("side", 1280, 720)
 T.check(side.game.x + side.game.w < side.gear.x,
   "side layout keeps Game and Gear in separate columns")
+local autoSizedSide = theme:windowLayout(
+  "side", 1280, 720, false, nil, false, "auto")
+T.eq(autoSizedSide.gear.w, side.gear.w,
+  "automatic secondary sizing preserves the established layout")
+local balancedSide = theme:windowLayout(
+  "side", 1280, 720, false, nil, false, 50)
+T.check(math.abs(balancedSide.game.w - balancedSide.gear.w) <= 1,
+  "50 percent gives split views equal layout space")
+local gearHeavyStack = theme:windowLayout(
+  "stacked", 1280, 720, false, nil, false, 65)
+T.check(gearHeavyStack.gear.h > gearHeavyStack.game.h,
+  "split layouts allow the secondary view to become larger")
 local autoLandscape = theme:windowLayout("auto", 1280, 720)
 local autoPortrait = theme:windowLayout("auto", 720, 1280)
 T.check(autoLandscape.game.x + autoLandscape.game.w < autoLandscape.gear.x,
@@ -137,6 +149,13 @@ T.eq(overlay.game.w, 1280, "overlay leaves the full width to the game")
 T.eq(overlay.game.h, 720, "overlay leaves the full height to the game")
 T.check(overlay.gear.w < overlay.game.w and overlay.gear.h < overlay.game.h,
   "overlay keeps Gear as the smaller surface")
+local smallOverlay = theme:windowLayout(
+  "overlay", 1280, 720, false, nil, false, 25)
+local largeOverlay = theme:windowLayout(
+  "overlay", 1280, 720, false, nil, false, 60)
+T.check(smallOverlay.gear.w < largeOverlay.gear.w
+    and smallOverlay.gear.h < largeOverlay.gear.h,
+  "overlay size follows the shared secondary-size control")
 local legacyLarge = theme:windowLayout("large", 1280, 720)
 T.eq(legacyLarge.game.w, overlay.game.w,
   "the legacy large preset migrates to overlay")
@@ -236,7 +255,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 14, "Kanto Gear keeps one compact display hierarchy")
+T.eq(#options, 15, "Kanto Gear keeps one compact display hierarchy")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
 T.eq(#options[1].choices, 9, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "modern_light", "modern light theme is available")
@@ -251,23 +270,26 @@ T.eq(options[6].label, "LAYOUT", "combined mode owns its layout")
 T.eq(options[6].default, "auto", "combined layout adapts by default")
 T.eq(#options[6].choices, 4, "combined mode exposes four compact presets")
 T.eq(options[7].label, "PRIMARY VIEW", "combined mode can invert its priority")
-T.eq(options[8].label, "OVERLAY CORNER", "overlay owns one position setting")
-T.eq(options[8].default, "bottom_right", "overlay keeps its familiar corner")
-T.eq(#options[8].choices, 4, "overlay supports every screen corner")
-T.eq(options[9].label, "OVERLAY BUTTON", "overlay owns one visibility shortcut")
-T.eq(options[9].default, "off", "overlay cannot claim a button by default")
-T.eq(options[10].label, "GEAR OUTPUT", "separate mode owns its output target")
-T.eq(options[10].visible_if.equals, "separate",
+T.eq(options[8].label, "SECONDARY SIZE", "combined layouts share one size control")
+T.eq(options[8].default, "auto", "existing layout sizes remain the default")
+T.eq(#options[8].choices, 14, "secondary sizing offers granular safe presets")
+T.eq(options[9].label, "OVERLAY CORNER", "overlay owns one position setting")
+T.eq(options[9].default, "bottom_right", "overlay keeps its familiar corner")
+T.eq(#options[9].choices, 4, "overlay supports every screen corner")
+T.eq(options[10].label, "OVERLAY BUTTON", "overlay owns one visibility shortcut")
+T.eq(options[10].default, "off", "overlay cannot claim a button by default")
+T.eq(options[11].label, "GEAR OUTPUT", "separate mode owns its output target")
+T.eq(options[11].visible_if.equals, "separate",
   "separate output stays inside separate mode")
-T.eq(options[11].label, "QUICK SWAP (Y)", "live swapping names its control")
-T.eq(options[11].default, false, "screen swap cannot claim Y by default")
-T.eq(options[11].visible_if.not_equals, "fullscreen",
+T.eq(options[12].label, "QUICK SWAP (Y)", "live swapping names its control")
+T.eq(options[12].default, false, "screen swap cannot claim Y by default")
+T.eq(options[12].visible_if.not_equals, "fullscreen",
   "fullscreen swap claims Y explicitly through its selected mode")
-T.eq(options[12].label, "BATTLE VIEW", "battle layout uses one setting")
-T.eq(#options[12].choices, 3, "battle view exposes three clear layouts")
-T.eq(options[13].label, "CAUGHT ICON", "caught marker has one clear toggle")
-T.eq(options[14].label, "TRIGGER TABS", "trigger navigation is opt-in")
-T.eq(options[14].default, false, "trigger navigation cannot claim controls by default")
+T.eq(options[13].label, "BATTLE VIEW", "battle layout uses one setting")
+T.eq(#options[13].choices, 3, "battle view exposes three clear layouts")
+T.eq(options[14].label, "CAUGHT ICON", "caught marker has one clear toggle")
+T.eq(options[15].label, "TRIGGER TABS", "trigger navigation is opt-in")
+T.eq(options[15].default, false, "trigger navigation cannot claim controls by default")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
