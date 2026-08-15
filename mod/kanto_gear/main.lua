@@ -192,6 +192,7 @@ function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
     game = { x = 0, y = 0, w = width, h = height }
     gear = { x = 0, y = 0, w = width, h = height }
     showGear = swapped == true
+    showGame = not showGear
     swapped = false
   elseif mode == "stacked" then
     local gearHeight = math.floor((height - gap) * share(36))

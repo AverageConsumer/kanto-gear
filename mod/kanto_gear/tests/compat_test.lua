@@ -161,8 +161,9 @@ T.eq(legacyLarge.game.w, overlay.game.w,
   "the legacy large preset migrates to overlay")
 local fullscreenGame = theme:windowLayout("fullscreen", 1280, 720)
 local fullscreenGear = theme:windowLayout("fullscreen", 1280, 720, true)
-T.check(not fullscreenGame.showGear and fullscreenGear.showGear,
-  "fullscreen swap displays exactly the selected surface")
+T.check(fullscreenGame.showGame and not fullscreenGame.showGear
+    and fullscreenGear.showGear and not fullscreenGear.showGame,
+  "fullscreen swap draws only the selected surface")
 local swapped = theme:windowLayout("side", 1280, 720, true)
 T.eq(swapped.game.x, side.gear.x, "screen swap exchanges the Game slot")
 T.eq(swapped.gear.x, side.game.x, "screen swap exchanges the Gear slot")
@@ -586,8 +587,8 @@ run.loader.hooks:call("render.window", function(_, context)
   T.love.graphics.draw(context.canvas, context.x, context.y)
 end, game, fullscreenContext)
 T.love.graphics.draw = outputDraw
-T.eq(#fullscreenDraws, 2,
-  "fullscreen mode always lets Y reveal Gear without a separate toggle")
+T.eq(#fullscreenDraws, 1,
+  "fullscreen Gear omits the hidden Game surface after a Y swap")
 swapPressed = false
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 swapPressed, swapPolls = true, 0
