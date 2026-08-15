@@ -5118,8 +5118,8 @@ return function(mod)
   mod.hooks:wrap("render.compose", function(next, renderer, context)
     local inline = inlineDisplay()
     companion = context and context.secondScreen
-    if active and inline and companion and companion.setEnabled then
-      companion.setEnabled(false)
+    if companion and companion.setEnabled then
+      companion.setEnabled(active and not inline)
     end
     -- The captured game frame is wider than some lower displays. Keep dynamic
     -- UI inside the central Game Boy viewport while that frame is cover-cropped;

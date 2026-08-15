@@ -605,10 +605,14 @@ T.eq(ownedDraws, 0, "Kanto Gear does not paint over another output owner")
 run.loader.modOptions.kanto_gear = { display_mode = "separate" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_mode" })
+local separateEnabled = false
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { detected = function() return displayDetected end,
-                   pollTouch = function() return nil end },
+                   pollTouch = function() return nil end,
+                   setEnabled = function(on) separateEnabled = on end },
 })
+T.eq(separateEnabled, true,
+  "separate mode enables the host's companion display")
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
   "disabling one-window layout restores native output")
