@@ -8,7 +8,7 @@ Add maps, party data, battles and touch controls to [Gen1Recomp](https://github.
 
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0"><img src="https://img.shields.io/badge/release-v2.0.0-5c8a3c" alt="Latest release: v2.0.0"></a>
-  <a href="#display-modes"><img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows-3DDC84" alt="Platforms: Android and Windows"></a>
+  <a href="#display-modes"><img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows%20%7C%20Linux-3DDC84" alt="Platforms: Android, Windows and Linux"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/code-MIT-blue.svg" alt="Code license: MIT"></a>
 </p>
 
@@ -44,7 +44,7 @@ are required; no Voxel renderer is required.
 
 | Download | Required | Purpose |
 | --- | :---: | --- |
-| [Gen1Recomp Kanto host 0.1.94-kanto.22](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.94-kanto.22) | **Yes** | Matched Android or Windows host |
+| [Gen1Recomp Kanto host 0.1.94-kanto.22](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.94-kanto.22) | **Yes** | Matched Android, Windows, Linux or PortMaster/Rocknix host |
 | [Kanto Gear 2.0.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0) | **Yes** | Companion UI and display modes |
 | [Kanto Gear Deutsch 0.2.3](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0) | No | German text for the Kanto Gear interface |
 | [Kanto Gear Español (España) 0.2.3](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0) | No | Spanish (Spain) text for the Kanto Gear interface |
@@ -58,10 +58,12 @@ are required; no Voxel renderer is required.
 You need your own supported Pokémon Red, Blue, Yellow or Gold ROM. No ROM or
 ROM-extracted game data is included.
 
-1. Install the [Gen1Recomp Kanto host](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.94-kanto.22): use the APK on Android or extract the Windows ZIP.
+1. Install the [Gen1Recomp Kanto host](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.94-kanto.22)
+   for your platform. Linux x64, Linux ARM64, PortMaster/Rocknix and a universal
+   LÖVE 11.5 payload are available alongside Android and Windows.
 2. Download [Kanto Gear 2.0.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0).
-3. Open **Gen1Recomp Android Test → MODS → Import mod .zip** and select the
-   Kanto Gear ZIP.
+3. Open the host's **MODS → Import mod .zip** screen and select the Kanto Gear
+   ZIP.
 4. Enable **Kanto Gear** and start the game. Choose a display mode in Kanto
    Gear's settings.
 
@@ -71,8 +73,9 @@ Other translations can use the small
 [language-pack template](translations/README.md).
 
 When updating the host, install the newer APK over the existing app. Do not
-uninstall it first unless you have exported your save. On Windows, extract the
-new host into a fresh folder; your normal per-user save remains separate.
+uninstall it first unless you have exported your save. On Windows or Linux, use
+the new host package; your normal per-user save remains separate. PortMaster
+keeps its portable save beside the game on the SD card.
 
 > [!WARNING]
 > If the second screen stopped working after accepting an old host update
@@ -111,15 +114,18 @@ layout makes the game view smaller.
 - **AYN Thor** — primary development and test device
 - **Retroid Pocket 5 + Retroid Dual Screen Add-on** — community tested
 - **Anbernic RG DS** — community confirmed specifically with GammaOS Nano 1.4
-  (Android 14); Linux and other RG DS operating systems are untested and not
-  covered by this compatibility report. Avoid other performance-heavy mods on
-  its lower-power hardware.
+  (Android 14). Avoid other performance-heavy mods on its lower-power hardware.
+- **Anbernic RG DS with Rocknix** — the dual-screen and touch route was
+  community confirmed with the earlier diagnostic PortMaster build; the final
+  2.0 package remains experimental until it receives a fresh confirmation.
 - **Windows 11** — combined layouts and a separate companion window tested
+- **Linux x86_64 and ARM64** — packages embed the exact Android/Windows-tested
+  payload and pass structural verification; real-device reports are welcome
 - **External Android displays, docks and TVs** — supported through selectable
   display routing; hardware reports are welcome
 
-Linux, Rocknix and macOS use the same desktop display path, but current 2.0
-packages are validated only on Android and Windows. Reports are welcome.
+macOS uses the same desktop display path through the universal `.love` package,
+but it is not presented as a tested or signed native app bundle.
 
 ## Quick controls
 
@@ -143,8 +149,8 @@ Useful settings:
 
 ## Compatibility and support
 
-This uses an unofficial Android and Windows test host. It is not an official
-Gen1Recomp release. Keep an exported save backup while testing.
+This uses an unofficial matched test host. It is not an official Gen1Recomp
+release. Keep an exported save backup while testing experimental packages.
 
 Open a [Kanto Gear issue](https://github.com/AverageConsumer/kanto-gear/issues)
 for second-display, touch or companion-UI problems. Include your device,
