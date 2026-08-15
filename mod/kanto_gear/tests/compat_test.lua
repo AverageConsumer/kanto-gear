@@ -429,8 +429,16 @@ run.loader.hooks:call("input.pointer", function() return false end, game, {
 })
 run.loader.modOptions.kanto_gear = {
   display_mode = "combined", combined_layout = "overlay",
-  combined_primary = "gear",
+  combined_primary = "game",
 }
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "combined_primary" })
+local overlayPrimaryRect = run.loader.hooks:call("render.viewport", function(ctx)
+  return { x = 0, y = 0, width = ctx.width, height = ctx.height }
+end, { width = 1280, height = 720, generation = 1 })
+T.check(overlayPrimaryRect.capture,
+  "Game-first overlay requests final window composition")
+run.loader.modOptions.kanto_gear.combined_primary = "gear"
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "combined_primary" })
 local overlayGameRect = run.loader.hooks:call("render.viewport", function(ctx)
