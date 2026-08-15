@@ -9,7 +9,7 @@ local run = T.sdk.loadMods({
 
 T.eq(#run.errors, 0,
   "Kanto Gear and the Spanish companion mod load together under Gold")
-T.eq(run.data.strings["START GAME ABOVE"], "INICIA EL JUEGO ARRIBA",
+T.eq(run.data.strings["START GAME"], "INICIAR JUEGO",
   "companion mod registers Kanto Gear text")
 T.eq(run.data.strings["DEALS %d FIXED DAMAGE"],
   "CAUSA %d DE DAÑO FIJO",

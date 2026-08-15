@@ -1,6 +1,6 @@
 return {
   -- Start, navigation and common controls.
-  ["START GAME ABOVE"] = "SPIEL OBEN STARTEN",
+  ["START GAME"] = "SPIEL STARTEN",
   ["TAP TO CONTINUE"] = "ZUM STARTEN TIPPEN",
   ["HOST UPDATE REQUIRED"] = "HOST-UPDATE NÖTIG",
   ["LOADING AREA"] = "GEBIET LÄDT",

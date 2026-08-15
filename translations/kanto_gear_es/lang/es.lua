@@ -1,7 +1,7 @@
 return {
   -- Traducción al español de España de Kanto Gear.
   -- Las claves originales y los marcadores %s/%d/%% se mantienen sin cambios.
-  ["START GAME ABOVE"] = "INICIA EL JUEGO ARRIBA",
+  ["START GAME"] = "INICIAR JUEGO",
   ["TAP TO CONTINUE"] = "TOCA PARA CONTINUAR",
   ["HOST UPDATE REQUIRED"] = "ACTUALIZA EL HOST",
   ["LOADING AREA"] = "CARGANDO ZONA",

@@ -2208,7 +2208,7 @@ return function(mod)
     box("fill", linkX + linkWidth + 8, 114, 4, 4, secondary)
     text(linkStatus, linkX, 112, primary)
     if math.floor(love.timer.getTime() * 2) % 2 == 0 then
-      centered("START GAME ABOVE", 128, foreground)
+      centered("START GAME", 128, foreground)
     end
   end
 
