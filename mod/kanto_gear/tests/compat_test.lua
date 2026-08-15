@@ -101,6 +101,23 @@ T.eq(theme:statusName("PSN", { statuses = {
     return id == "PSN" and { label = "GIFT", hudLabel = "GIF" }
   end,
 } }), "GIF", "party cards use the translated status registry")
+local function displayDefaults(values)
+  return theme:displayDefaults(function(key) return values[key] end)
+end
+local migratedMode, migratedLayout = displayDefaults({ window_layout = "large" })
+T.eq(migratedMode, "combined", "legacy one-window users keep combined mode")
+T.eq(migratedLayout, "overlay", "legacy large layout migrates to overlay")
+local freshMode, freshLayout = displayDefaults({})
+T.eq(freshMode, "separate", "existing device output remains the fresh default")
+T.eq(freshLayout, "auto", "combined mode starts orientation-aware")
+local fakeOptions = { values = {
+  display_mode = "fullscreen", fullscreen_start = "game",
+} }
+function fakeOptions:get(key) return self.values[key] end
+theme.displayModeDefault, theme.combinedLayoutDefault = "separate", "auto"
+T.check(not theme:gearPrimary(fakeOptions, false)
+    and theme:gearPrimary(fakeOptions, true),
+  "fullscreen swap always has a route between Game and Gear")
 T.eq(theme:windowLayout("off", 1280, 720), nil,
   "disabled window layout leaves native output untouched")
 local stacked = theme:windowLayout("stacked", 1280, 720)
@@ -109,14 +126,32 @@ T.check(stacked.game.y + stacked.game.h < stacked.gear.y,
 local side = theme:windowLayout("side", 1280, 720)
 T.check(side.game.x + side.game.w < side.gear.x,
   "side layout keeps Game and Gear in separate columns")
-local large = theme:windowLayout("large", 1280, 720)
-T.check(large.game.w > large.gear.w and large.game.h > large.gear.h,
-  "large layout gives the game the dominant surface")
+local autoLandscape = theme:windowLayout("auto", 1280, 720)
+local autoPortrait = theme:windowLayout("auto", 720, 1280)
+T.check(autoLandscape.game.x + autoLandscape.game.w < autoLandscape.gear.x,
+  "automatic landscape layout uses columns")
+T.check(autoPortrait.game.y + autoPortrait.game.h < autoPortrait.gear.y,
+  "automatic portrait layout uses rows")
+local overlay = theme:windowLayout("overlay", 1280, 720)
+T.eq(overlay.game.w, 1280, "overlay leaves the full width to the game")
+T.eq(overlay.game.h, 720, "overlay leaves the full height to the game")
+T.check(overlay.gear.w < overlay.game.w and overlay.gear.h < overlay.game.h,
+  "overlay keeps Gear as the smaller surface")
+local legacyLarge = theme:windowLayout("large", 1280, 720)
+T.eq(legacyLarge.game.w, overlay.game.w,
+  "the legacy large preset migrates to overlay")
+local fullscreenGame = theme:windowLayout("fullscreen", 1280, 720)
+local fullscreenGear = theme:windowLayout("fullscreen", 1280, 720, true)
+T.check(not fullscreenGame.showGear and fullscreenGear.showGear,
+  "fullscreen swap displays exactly the selected surface")
 local swapped = theme:windowLayout("side", 1280, 720, true)
 T.eq(swapped.game.x, side.gear.x, "screen swap exchanges the Game slot")
 T.eq(swapped.gear.x, side.game.x, "screen swap exchanges the Gear slot")
-for _, layout in ipairs({ stacked, side, large, swapped }) do
-  for _, rect in pairs(layout) do
+local swappedOverlay = theme:windowLayout("overlay", 1280, 720, true)
+T.check(swappedOverlay.gameOnTop,
+  "swapped overlay keeps the smaller Game surface visible above Gear")
+for _, layout in ipairs({ stacked, side, overlay, swapped, swappedOverlay }) do
+  for _, rect in ipairs({ layout.game, layout.gear }) do
     T.check(rect.x >= 0 and rect.y >= 0
       and rect.x + rect.w <= 1280 and rect.y + rect.h <= 720,
       "window presets stay inside the output surface")
@@ -196,23 +231,33 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 9, "Kanto Gear keeps its settings compact")
+T.eq(#options, 12, "Kanto Gear keeps one compact display hierarchy")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
 T.eq(#options[1].choices, 9, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "modern_light", "modern light theme is available")
 T.eq(options[1].choices[4][2], "modern_dark", "modern dark theme is available")
 T.eq(options[2].label, "INFO", "assist features use one preset")
-T.eq(options[4].label, "GEAR SCREEN", "display setting is device-neutral")
-T.eq(options[5].label, "DISPLAY LAYOUT", "single-screen layouts use one setting")
-T.eq(options[5].default, "off", "single-screen composition is opt-in")
-T.eq(#options[5].choices, 4, "window layout exposes three compact presets")
-T.eq(options[6].label, "SCREEN SWAP (Y)", "live swapping names its control")
-T.eq(options[6].default, false, "screen swap cannot claim Y by default")
-T.eq(options[7].label, "BATTLE VIEW", "battle layout uses one setting")
-T.eq(#options[7].choices, 3, "battle view exposes three clear layouts")
-T.eq(options[8].label, "CAUGHT ICON", "caught marker has one clear toggle")
-T.eq(options[9].label, "TRIGGER TABS", "trigger navigation is opt-in")
-T.eq(options[9].default, false, "trigger navigation cannot claim controls by default")
+T.eq(options[4].label, "DISPLAY MODE", "display modes share one entry point")
+T.eq(#options[4].choices, 3, "display mode exposes three clear families")
+T.eq(options[5].label, "START SCREEN", "fullscreen owns its start surface")
+T.eq(options[5].visible_if.equals, "fullscreen",
+  "fullscreen settings stay inside fullscreen mode")
+T.eq(options[6].label, "LAYOUT", "combined mode owns its layout")
+T.eq(options[6].default, "auto", "combined layout adapts by default")
+T.eq(#options[6].choices, 4, "combined mode exposes four compact presets")
+T.eq(options[7].label, "PRIMARY VIEW", "combined mode can invert its priority")
+T.eq(options[8].label, "GEAR OUTPUT", "separate mode owns its output target")
+T.eq(options[8].visible_if.equals, "separate",
+  "separate output stays inside separate mode")
+T.eq(options[9].label, "QUICK SWAP (Y)", "live swapping names its control")
+T.eq(options[9].default, false, "screen swap cannot claim Y by default")
+T.eq(options[9].visible_if.not_equals, "fullscreen",
+  "fullscreen swap claims Y explicitly through its selected mode")
+T.eq(options[10].label, "BATTLE VIEW", "battle layout uses one setting")
+T.eq(#options[10].choices, 3, "battle view exposes three clear layouts")
+T.eq(options[11].label, "CAUGHT ICON", "caught marker has one clear toggle")
+T.eq(options[12].label, "TRIGGER TABS", "trigger navigation is opt-in")
+T.eq(options[12].default, false, "trigger navigation cannot claim controls by default")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
@@ -297,9 +342,11 @@ run.loader.events:emit("game.ready", { game = game })
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
   "Y screen swapping is disabled by default")
-run.loader.modOptions.kanto_gear = { window_layout = "stacked" }
+run.loader.modOptions.kanto_gear = {
+  display_mode = "combined", combined_layout = "stacked",
+}
 run.loader.events:emit("mod.options_changed",
-  { mod = "kanto_gear", key = "window_layout" })
+  { mod = "kanto_gear", key = "display_mode" })
 local companionDisables = 0
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { setEnabled = function(on)
@@ -380,6 +427,81 @@ T.eq(pointerPasses, 1, "touch inside Gear is consumed by Kanto Gear")
 run.loader.hooks:call("input.pointer", function() return false end, game, {
   phase = "cancelled", x = gearRect.x, y = gearRect.y,
 })
+run.loader.modOptions.kanto_gear = {
+  display_mode = "combined", combined_layout = "overlay",
+  combined_primary = "gear",
+}
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "combined_primary" })
+local overlayGameRect = run.loader.hooks:call("render.viewport", function(ctx)
+  return { x = 0, y = 0, width = ctx.width, height = ctx.height }
+end, { width = 1280, height = 720, generation = 1 })
+local overlayDraws = {}
+T.love.graphics.draw = function(image, ...)
+  overlayDraws[#overlayDraws + 1] = image
+end
+local overlayCanvas = T.love.graphics.newCanvas(
+  overlayGameRect.width, overlayGameRect.height)
+run.loader.hooks:call("render.window", function(_, context)
+  T.love.graphics.draw(context.canvas, context.x, context.y)
+end, game, {
+  canvas = overlayCanvas,
+  x = overlayGameRect.x, y = overlayGameRect.y,
+  width = overlayGameRect.width, height = overlayGameRect.height,
+  windowWidth = 1280, windowHeight = 720, generation = 1,
+})
+T.love.graphics.draw = outputDraw
+T.eq(#overlayDraws, 3,
+  "Gear-first overlay redraws the smaller Game surface on top")
+T.eq(overlayDraws[3], overlayCanvas,
+  "swapped overlay keeps the Game surface visible")
+run.loader.hooks:call("input.pointer", function()
+  pointerPasses = pointerPasses + 1
+  return false
+end, game, { phase = "pressed",
+  x = overlayGameRect.x + overlayGameRect.width / 2,
+  y = overlayGameRect.y + overlayGameRect.height / 2 })
+T.eq(pointerPasses, 2,
+  "the smaller Game overlay keeps native pointer input")
+run.loader.modOptions.kanto_gear = {
+  display_mode = "fullscreen", fullscreen_start = "game",
+  screen_swap = false,
+}
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "display_mode" })
+local fullscreenRect = run.loader.hooks:call("render.viewport", function(ctx)
+  return { x = 0, y = 0, width = ctx.width, height = ctx.height }
+end, { width = 1280, height = 720, generation = 1 })
+local fullscreenDraws = {}
+T.love.graphics.draw = function(image, ...)
+  fullscreenDraws[#fullscreenDraws + 1] = image
+end
+local fullscreenCanvas = T.love.graphics.newCanvas(
+  fullscreenRect.width, fullscreenRect.height)
+local fullscreenContext = {
+  canvas = fullscreenCanvas, x = fullscreenRect.x, y = fullscreenRect.y,
+  width = fullscreenRect.width, height = fullscreenRect.height,
+  windowWidth = 1280, windowHeight = 720, generation = 1,
+}
+run.loader.hooks:call("render.window", function(_, context)
+  T.love.graphics.draw(context.canvas, context.x, context.y)
+end, game, fullscreenContext)
+T.eq(#fullscreenDraws, 1,
+  "fullscreen Game does not paint a hidden Gear surface")
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+fullscreenDraws = {}
+run.loader.hooks:call("render.viewport", function(ctx)
+  return { x = 0, y = 0, width = ctx.width, height = ctx.height }
+end, { width = 1280, height = 720, generation = 1 })
+run.loader.hooks:call("render.window", function(_, context)
+  T.love.graphics.draw(context.canvas, context.x, context.y)
+end, game, fullscreenContext)
+T.love.graphics.draw = outputDraw
+T.eq(#fullscreenDraws, 2,
+  "fullscreen mode always lets Y reveal Gear without a separate toggle")
+swapPressed = false
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+swapPressed, swapPolls = true, 0
 local ownedDraws = 0
 T.love.graphics.draw = function(...)
   ownedDraws = ownedDraws + 1
@@ -390,9 +512,9 @@ T.eq(run.loader.hooks:call("render.output", function() return true end, {
 }), true, "an earlier final-output owner remains authoritative")
 T.love.graphics.draw = outputDraw
 T.eq(ownedDraws, 0, "Kanto Gear does not paint over another output owner")
-run.loader.modOptions.kanto_gear = {}
+run.loader.modOptions.kanto_gear = { display_mode = "separate" }
 run.loader.events:emit("mod.options_changed",
-  { mod = "kanto_gear", key = "window_layout" })
+  { mod = "kanto_gear", key = "display_mode" })
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { detected = function() return displayDetected end,
                    pollTouch = function() return nil end },

@@ -125,6 +125,42 @@ function THEME:statusName(id, content)
   return record and (record.hudLabel or record.label) or id
 end
 
+function THEME:displayDefaults(get)
+  local legacy = get("window_layout")
+  local mode = get("display_mode")
+  if mode == nil then
+    mode = legacy and legacy ~= "off" and "combined" or "separate"
+  end
+  local layout = get("combined_layout")
+  if layout == nil then
+    layout = legacy == "large" and "overlay"
+      or (legacy ~= "off" and legacy) or "auto"
+  end
+  return mode, layout
+end
+
+function THEME:displayMode(options)
+  return options:get("display_mode") or self.displayModeDefault
+end
+
+function THEME:windowMode(options)
+  local mode = self:displayMode(options)
+  if mode == "fullscreen" then return "fullscreen" end
+  if mode == "combined" then
+    return options:get("combined_layout") or self.combinedLayoutDefault
+  end
+  return "off"
+end
+
+function THEME:gearPrimary(options, swapped)
+  local primary = self:displayMode(options) == "fullscreen"
+    and (options:get("fullscreen_start") or "game")
+    or (options:get("combined_primary") or "game")
+  local gear = primary == "gear"
+  if swapped then return not gear end
+  return gear
+end
+
 function THEME:fitRect(rect, width, height)
   local scale = math.min(rect.w / width, rect.h / height)
   local w, h = math.floor(width * scale), math.floor(height * scale)
@@ -137,9 +173,21 @@ end
 
 function THEME:windowLayout(mode, width, height, swapped)
   if not mode or mode == "off" then return nil end
+  if mode == "auto" then
+    mode = width >= height and "side" or "stacked"
+  elseif mode == "large" then
+    mode = "overlay"
+  end
   local gap = math.max(2, math.floor(math.min(width, height) * 0.01))
   local game, gear
-  if mode == "stacked" then
+  local showGear = true
+  local gameOnTop = false
+  if mode == "fullscreen" then
+    game = { x = 0, y = 0, w = width, h = height }
+    gear = { x = 0, y = 0, w = width, h = height }
+    showGear = swapped == true
+    swapped = false
+  elseif mode == "stacked" then
     local gearHeight = math.floor((height - gap) * 0.36)
     game = { x = 0, y = 0, w = width, h = height - gearHeight - gap }
     gear = { x = 0, y = game.h + gap, w = width, h = gearHeight }
@@ -147,18 +195,23 @@ function THEME:windowLayout(mode, width, height, swapped)
     local gearWidth = math.floor((width - gap) * 0.34)
     game = { x = 0, y = 0, w = width - gearWidth - gap, h = height }
     gear = { x = game.w + gap, y = 0, w = gearWidth, h = height }
-  elseif mode == "large" then
+  elseif mode == "overlay" then
     local gearHeight = math.floor(height * 0.42)
     local gearWidth = math.min(math.floor(width * 0.38),
       math.floor(gearHeight * WIDTH / HEIGHT))
-    game = { x = 0, y = 0, w = width - gearWidth - gap, h = height }
-    gear = { x = game.w + gap, y = height - gearHeight,
+    game = { x = 0, y = 0, w = width, h = height }
+    gear = { x = width - gearWidth - gap, y = height - gearHeight - gap,
       w = gearWidth, h = gearHeight }
   else
     return nil
   end
-  if swapped then game, gear = gear, game end
-  return { game = game, gear = gear }
+  if swapped then
+    game, gear = gear, game
+    gameOnTop = mode == "overlay"
+  end
+  return {
+    game = game, gear = gear, showGear = showGear, gameOnTop = gameOnTop,
+  }
 end
 
 function THEME:drawCanvas(canvas, rect)
@@ -1107,6 +1160,9 @@ return function(mod)
                                  mod.options:get("full_bottom_battle_ui"))
   end
 
+  THEME.displayModeDefault, THEME.combinedLayoutDefault = THEME:displayDefaults(
+    function(key) return mod.options:get(key) end)
+
   mod.options:define({
     { key = "theme", label = "THEME", type = "choice",
       default = "kanto", choices = {
@@ -1123,18 +1179,42 @@ return function(mod)
       type = "choice", default = false, choices = {
         { "OFF", false }, { "MAP", true }, { "ENHANCED", "enhanced" },
       } },
-    { key = "display_target", label = "GEAR SCREEN", type = "choice",
+    { key = "display_mode", label = "DISPLAY MODE", type = "choice",
+      default = THEME.displayModeDefault, choices = {
+        { "FULLSCREEN SWAP", "fullscreen" },
+        { "COMBINED SCREEN", "combined" },
+        { "SEPARATE SCREENS", "separate" },
+      } },
+    { key = "fullscreen_start", label = "START SCREEN", type = "choice",
+      default = "game", visible_if = {
+        key = "display_mode", equals = "fullscreen",
+      }, choices = {
+        { "GAME", "game" }, { "GEAR", "gear" },
+      } },
+    { key = "combined_layout", label = "LAYOUT", type = "choice",
+      default = THEME.combinedLayoutDefault, visible_if = {
+        key = "display_mode", equals = "combined",
+      }, choices = {
+        { "AUTO", "auto" }, { "STACKED", "stacked" },
+        { "SIDE BY SIDE", "side" }, { "OVERLAY", "overlay" },
+      } },
+    { key = "combined_primary", label = "PRIMARY VIEW", type = "choice",
+      default = "game", visible_if = {
+        key = "display_mode", equals = "combined",
+      }, choices = {
+        { "GAME", "game" }, { "GEAR", "gear" },
+      } },
+    { key = "display_target", label = "GEAR OUTPUT", type = "choice",
       default = "auto", choices = {
-        { "AUTO", "auto" }, { "HANDHELD", "handheld" },
-        { "EXTERNAL", "secondary" },
+        { "AUTO", "auto" }, { "MAIN SCREEN", "handheld" },
+        { "SECOND SCREEN", "secondary" },
+      }, visible_if = {
+        key = "display_mode", equals = "separate",
       } },
-    { key = "window_layout", label = "DISPLAY LAYOUT", type = "choice",
-      default = "off", choices = {
-        { "DEVICE DEFAULT", "off" }, { "STACKED", "stacked" },
-        { "SIDE BY SIDE", "side" }, { "LARGE GAME", "large" },
+    { key = "screen_swap", label = "QUICK SWAP (Y)",
+      type = "toggle", default = false, visible_if = {
+        key = "display_mode", not_equals = "fullscreen",
       } },
-    { key = "screen_swap", label = "SCREEN SWAP (Y)",
-      type = "toggle", default = false },
     { key = "battle_view", label = "BATTLE VIEW",
       type = "choice", default = battleDefault, choices = {
         { "STANDARD", "standard" }, { "GEAR", "gear" },
@@ -1176,22 +1256,20 @@ return function(mod)
   local function hideUpperBattleUI()
     return currentBattleUIMode() ~= "standard"
   end
-  local runtimeHandheldOverride
+  local runtimeScreenSwap
+  local function inlineDisplay()
+    return THEME:displayMode(mod.options) ~= "separate"
+  end
   local function bottomOnHandheld()
-    if runtimeHandheldOverride ~= nil then return runtimeHandheldOverride end
-    return mod.options:get("display_target") == "handheld"
+    local handheld = mod.options:get("display_target") == "handheld"
+    if runtimeScreenSwap then return not handheld end
+    return handheld
   end
   local function displayPreference()
-    if runtimeHandheldOverride ~= nil then
-      return runtimeHandheldOverride and "handheld" or "secondary"
+    if runtimeScreenSwap then
+      return bottomOnHandheld() and "handheld" or "secondary"
     end
     return mod.options:get("display_target")
-  end
-  local function windowMode()
-    return mod.options:get("window_layout") or "off"
-  end
-  local function inlineDisplay()
-    return windowMode() ~= "off"
   end
 
   local runtime = rawget(_G, "love")
@@ -1413,8 +1491,11 @@ return function(mod)
   end
 
   local function hasDisplay()
-    return inlineDisplay()
-      or (companion and companion.detected and companion.detected()) or false
+    if inlineDisplay() then
+      return THEME:displayMode(mod.options) ~= "fullscreen"
+        or THEME:gearPrimary(mod.options, runtimeScreenSwap)
+    end
+    return (companion and companion.detected and companion.detected()) or false
   end
 
   local function companionMoveGrid(state)
@@ -4205,7 +4286,8 @@ return function(mod)
 
   local function pollScreenSwap()
     local down, infoDown = false, false
-    local swapEnabled = mod.options:get("screen_swap") == true
+    local swapEnabled = THEME:displayMode(mod.options) == "fullscreen"
+      or mod.options:get("screen_swap") == true
     local keyboard = love and love.keyboard
     if keyboard and keyboard.isDown then
       if swapEnabled then
@@ -4595,11 +4677,14 @@ return function(mod)
   mod.events:on("mod.options_changed", function(payload)
     if payload and payload.mod == "kanto_gear" then
       if payload.key == "theme" then refreshTheme(true) end
-      if payload.key == "display_target"
-          or payload.key == "window_layout"
+      if payload.key == "display_mode"
+          or payload.key == "fullscreen_start"
+          or payload.key == "combined_layout"
+          or payload.key == "combined_primary"
+          or payload.key == "display_target"
           or (payload.key == "screen_swap"
             and mod.options:get("screen_swap") ~= true) then
-        runtimeHandheldOverride = nil
+        runtimeScreenSwap = nil
         resetSwapState()
       end
       if not assist("move_details") then moveInfo = nil end
@@ -4642,16 +4727,13 @@ return function(mod)
         dirty = moveInfo ~= nil or dirty
       end
     end
-    if active and hasDisplay() and swapPressed then
-      if inlineDisplay() then
-        runtimeHandheldOverride = runtimeHandheldOverride ~= true
-      else
-        runtimeHandheldOverride = not bottomOnHandheld()
-      end
+    if active and (inlineDisplay() or hasDisplay()) and swapPressed then
+      runtimeScreenSwap = not runtimeScreenSwap
       resetSwapState()
       mod.log:info("screen swap: gear=%s", inlineDisplay()
-        and (runtimeHandheldOverride and "primary" or "secondary")
-        or (runtimeHandheldOverride and "handheld" or "external"))
+        and (THEME:gearPrimary(mod.options, runtimeScreenSwap)
+          and "primary" or "secondary")
+        or (bottomOnHandheld() and "handheld" or "external"))
     end
     return next(stepGame, dt)
   end, 1000)
@@ -4663,10 +4745,11 @@ return function(mod)
     local base = type(available) == "table" and available or {
       x = 0, y = 0, width = context.width, height = context.height,
     }
-    local layout = THEME:windowLayout(windowMode(), base.width, base.height,
-      runtimeHandheldOverride == true)
+    local layout = THEME:windowLayout(THEME:windowMode(mod.options),
+      base.width, base.height,
+      THEME:gearPrimary(mod.options, runtimeScreenSwap))
     if not layout then return available end
-    for _, rect in pairs(layout) do
+    for _, rect in ipairs({ layout.game, layout.gear }) do
       rect.x = rect.x + (base.x or 0)
       rect.y = rect.y + (base.y or 0)
     end
@@ -4693,13 +4776,13 @@ return function(mod)
         displayReady = false
         return true
       end
-      if dirty then draw(); dirty = false end
       local fallbackWidth, fallbackHeight = G.getDimensions()
       local ww = math.max(1, context.width or fallbackWidth)
       local wh = math.max(1, context.height or fallbackHeight)
-      local layout = THEME:windowLayout(windowMode(), ww, wh,
-        runtimeHandheldOverride == true)
+      local layout = THEME:windowLayout(THEME:windowMode(mod.options), ww, wh,
+        THEME:gearPrimary(mod.options, runtimeScreenSwap))
       if not layout then return false end
+      if layout.showGear and dirty then draw(); dirty = false end
       G.push("all")
       G.setCanvas()
       G.origin()
@@ -4708,11 +4791,17 @@ return function(mod)
       G.setBlendMode("alpha")
       G.clear(0, 0, 0, 1)
       G.setColor(1, 1, 1, 1)
-      THEME:drawCanvas(context.canvas, layout.game)
-      primaryBottomRect = THEME:drawCanvas(canvas, layout.gear)
+      if layout.gameOnTop then
+        primaryBottomRect = THEME:drawCanvas(canvas, layout.gear)
+        THEME:drawCanvas(context.canvas, layout.game)
+      else
+        THEME:drawCanvas(context.canvas, layout.game)
+        primaryBottomRect = layout.showGear
+          and THEME:drawCanvas(canvas, layout.gear) or nil
+      end
       G.setScissor()
       G.pop()
-      displayReady = true
+      displayReady = layout.showGear
       return true
     end
     if active and inlineDisplay() then return next(context) end
@@ -4794,6 +4883,11 @@ return function(mod)
       return next(windowGame, context)
     end
     next(windowGame, context)
+    if not THEME.nativeWindowLayout.showGear then
+      primaryBottomRect = nil
+      displayReady = false
+      return true
+    end
     if dirty then draw(); dirty = false end
     G.push("all")
     G.origin()
@@ -4803,6 +4897,9 @@ return function(mod)
     G.setBlendMode("alpha")
     G.setColor(1, 1, 1, 1)
     primaryBottomRect = THEME:drawCanvas(canvas, THEME.nativeWindowLayout.gear)
+    if THEME.nativeWindowLayout.gameOnTop then
+      THEME:drawCanvas(context.canvas, THEME.nativeWindowLayout.game)
+    end
     G.setScissor()
     G.pop()
     displayReady = true
@@ -4813,6 +4910,15 @@ return function(mod)
     local inline = inlineDisplay()
     if not (active and hasDisplay()
         and (inline or bottomOnHandheld())) then return false end
+    local layout = THEME.nativeWindowLayout
+    if inline and layout and layout.gameOnTop then
+      local gameRect = layout.game
+      if x >= gameRect.x and x < gameRect.x + gameRect.w
+          and y >= gameRect.y and y < gameRect.y + gameRect.h then
+        touchDown = nil
+        return false
+      end
+    end
     local rect = primaryBottomRect
     if not rect then return not inline end
     local insideRect = x >= rect.x and x < rect.x + rect.w
@@ -5042,8 +5148,8 @@ return function(mod)
     end
     local displayAvailable = hasDisplay()
     if not displayAvailable then
-      if runtimeHandheldOverride ~= nil then
-        runtimeHandheldOverride = nil
+      if not inline and runtimeScreenSwap ~= nil then
+        runtimeScreenSwap = nil
         resetSwapState()
         mod.log:info("screen disconnected: restored saved layout")
       end
