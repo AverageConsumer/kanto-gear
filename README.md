@@ -2,13 +2,13 @@
 
 # Kanto Gear
 
-### A Nintendo DS-style second screen for Pokémon Red, Blue, Yellow and Gold
+### A flexible companion screen for Pokémon Red, Blue, Yellow and Gold
 
-Turn a dual-screen Android handheld into a complete Pokémon companion for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp): keep the game on one display and put maps, party data, battles and touch controls on the other.
+Add maps, party data, battles and touch controls to [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp). Use one screen, combine both views in one window, or give Kanto Gear its own display.
 
 <p>
-  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6"><img src="https://img.shields.io/badge/release-v1.8.6-5c8a3c" alt="Latest release: v1.8.6"></a>
-  <a href="#supported-devices"><img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Platform: Android"></a>
+  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0"><img src="https://img.shields.io/badge/release-v2.0.0-5c8a3c" alt="Latest release: v2.0.0"></a>
+  <a href="#display-modes"><img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows-3DDC84" alt="Platforms: Android and Windows"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/code-MIT-blue.svg" alt="Code license: MIT"></a>
 </p>
 
@@ -18,66 +18,67 @@ Turn a dual-screen Android handheld into a complete Pokémon companion for [Gen1
   <img src="kanto-gear-full-gear-battle.png" width="32%" alt="Kanto Gear Full Gear battle controls and status panels">
 </p>
 
-<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6">Download Kanto Gear</a></strong> · <strong><a href="#install-on-android">Install on Android</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
+<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0">Download Kanto Gear</a></strong> · <strong><a href="#install">Install</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
 
 </div>
 
 ## Your adventure, always in reach
 
-Kanto Gear gives Pokémon Red, Blue, Yellow and Gold a dedicated companion
+Kanto Gear gives Pokémon Red, Blue, Yellow and Gold a configurable companion
 display without changing the game underneath it.
 
 - Explore with a live region map, detailed local maps, exits and item markers.
 - Check your party, Trainer Card, badges, Pokédex progress, steps and area data.
 - Use contextual touch controls for battles, bags, dialogue, PC boxes and moves.
 - Move battle controls—or the complete battle HUD—to the second screen.
-- Optionally swap the game and Kanto Gear between displays with **Y**.
+- Swap views, hide an overlay or move the companion between displays.
 - Choose classic Game Boy-inspired or modern light and dark themes.
 
-The normal game UI returns when the second display is switched off or
-disconnected, so you are never trapped on a missing screen.
+Display changes and disconnects are handled live, so the game remains reachable
+when a second display disappears.
 
 ## What you need
 
-Kanto Gear currently uses a matched Android release set. The host and Kanto
-Gear mod are required; no Voxel renderer is required.
+Kanto Gear currently uses a matched host release. The host and Kanto Gear mod
+are required; no Voxel renderer is required.
 
 | Download | Required | Purpose |
 | --- | :---: | --- |
-| [Gen1Recomp Android Test 0.1.88-kanto.14](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.88-kanto.14) | **Yes** | Android host with Gold and the dual-display bridge |
-| [Kanto Gear 1.8.6](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | **Yes** | The second-screen companion mod |
-| [Kanto Gear Deutsch 0.2.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | No | German text for the Kanto Gear interface |
-| [Kanto Gear Español (España) 0.2.2](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6) | No | Spanish (Spain) text for the Kanto Gear interface |
+| [Gen1Recomp Kanto host 0.1.94-kanto.22](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.94-kanto.22) | **Yes** | Matched Android or Windows host |
+| [Kanto Gear 2.0.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0) | **Yes** | Companion UI and display modes |
+| [Kanto Gear Deutsch 0.2.3](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0) | No | German text for the Kanto Gear interface |
+| [Kanto Gear Español (España) 0.2.3](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0) | No | Spanish (Spain) text for the Kanto Gear interface |
 
 > [!IMPORTANT]
-> Use the versions linked above together. The official Gen1Recomp Android app
-> does not yet contain every host feature required by this Kanto Gear release.
+> Use the versions linked above together. The official Gen1Recomp release does
+> not yet contain every host feature required by this Kanto Gear release.
 
-## Install on Android
+## Install
 
 You need your own supported Pokémon Red, Blue, Yellow or Gold ROM. No ROM or
 ROM-extracted game data is included.
 
-1. Install the [latest Gen1Recomp Android Test APK](https://github.com/AverageConsumer/gen1recomp/releases/latest).
-2. Download [Kanto Gear 1.8.6](https://github.com/AverageConsumer/kanto-gear/releases/tag/v1.8.6).
+1. Install the [Gen1Recomp Kanto host](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.94-kanto.22): use the APK on Android or extract the Windows ZIP.
+2. Download [Kanto Gear 2.0.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0).
 3. Open **Gen1Recomp Android Test → MODS → Import mod .zip** and select the
    Kanto Gear ZIP.
-4. Enable **Kanto Gear** and start the game. The companion opens automatically
-   when Android reports a suitable second display.
+4. Enable **Kanto Gear** and start the game. Choose a display mode in Kanto
+   Gear's settings.
 
 For a German or Spanish Kanto Gear interface, import the matching optional
-`kanto_gear_de-0.2.2.zip` or `kanto_gear_es-0.2.2.zip` from the same release.
+`kanto_gear_de-0.2.3.zip` or `kanto_gear_es-0.2.3.zip` from the same release.
 Other translations can use the small
 [language-pack template](translations/README.md).
 
 When updating the host, install the newer APK over the existing app. Do not
-uninstall it first unless you have exported your save.
+uninstall it first unless you have exported your save. On Windows, extract the
+new host into a fresh folder; your normal per-user save remains separate.
 
 > [!WARNING]
-> If the second screen stopped working after accepting the old host's update
-> prompt, manually install `0.1.88-kanto.14` once. That prompt installed the
+> If the second screen stopped working after accepting an old host update
+> prompt, manually install `0.1.94-kanto.22` once. That prompt installed the
 > official Gen1Recomp host, which does not yet include every Kanto Gear Android
-> bridge feature. This release hides only that incompatible host update path;
+> bridge feature. The matched host disables that incompatible self-update path;
 > normal mod update checks still work.
 
 ### Voxel renderers
@@ -92,7 +93,18 @@ Other renderer forks may work, but compatibility belongs to their current
 maintainers. Do not install multiple Dramatic Shape variants together because
 they intentionally share the same mod ID.
 
-## Made for real dual-screen hardware
+## Display modes
+
+- **Single Screen** keeps one view fullscreen and lets you swap to the other.
+- **Combined Screen** places both views in one window: side by side, stacked or
+  as a movable overlay with adjustable size.
+- **Dual Screen** uses Android's selected display or opens a separate desktop
+  companion window that can be moved like any other window.
+
+The game viewport and Android touch controls remain usable when a combined
+layout makes the game view smaller.
+
+## Tested devices
 
 ### Supported devices
 
@@ -102,11 +114,12 @@ they intentionally share the same mod ID.
   (Android 14); Linux and other RG DS operating systems are untested and not
   covered by this compatibility report. Avoid other performance-heavy mods on
   its lower-power hardware.
+- **Windows 11** — combined layouts and a separate companion window tested
 - **External Android displays, docks and TVs** — supported through selectable
-  `AUTO`, `HANDHELD` and `EXTERNAL` display routing; hardware reports are welcome
+  display routing; hardware reports are welcome
 
-On single-screen and desktop builds, Kanto Gear stays inactive instead of
-opening an unwanted extra window.
+Linux, Rocknix and macOS use the same desktop display path, but current 2.0
+packages are validated only on Android and Windows. Reports are welcome.
 
 ## Quick controls
 
@@ -120,7 +133,8 @@ opening an unwanted extra window.
 
 Useful settings:
 
-- **GEAR SCREEN → AUTO** is the recommended display mode.
+- **DISPLAY MODE → DUAL SCREEN** is recommended on dual-screen handhelds.
+- **DISPLAY MODE → COMBINED SCREEN** is recommended on one-screen devices.
 - **SCREEN SWAP (Y)** is off by default so other mods can use **Y**.
 - **BATTLE VIEW → STANDARD** keeps the original battle HUD.
 - **BATTLE VIEW → GEAR** moves duplicated battle controls.
@@ -129,16 +143,15 @@ Useful settings:
 
 ## Compatibility and support
 
-This is an unofficial Android public test build. It is not an official
+This uses an unofficial Android and Windows test host. It is not an official
 Gen1Recomp release. Keep an exported save backup while testing.
 
 Open a [Kanto Gear issue](https://github.com/AverageConsumer/kanto-gear/issues)
 for second-display, touch or companion-UI problems. Include your device,
-Android version, display setup, installed versions and a screenshot if useful.
+operating system, display setup, installed versions and a screenshot if useful.
 
-Host startup problems belong to the
-[Gen1Recomp Android fork](https://github.com/AverageConsumer/gen1recomp/issues).
-Problems exclusive to a third-party 3D renderer belong to its current
+Include host startup problems in the Kanto Gear report and identify the host
+version. Problems exclusive to a third-party 3D renderer belong to its current
 maintainer. Our legacy Dramatic Shape Android fork is retained only as an
 unsupported historical download.
 
