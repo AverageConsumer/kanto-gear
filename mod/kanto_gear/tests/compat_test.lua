@@ -804,6 +804,12 @@ do
     "Tools use the translated move name")
   T.eq(actions[3].label, "BIKE OFF",
     "contextual tool labels keep their specific meaning")
+  api.world = { availableFieldActions = function()
+    return {}, "world is busy"
+  end }
+  refreshTools()
+  T.eq(upvalue(refreshTools, "tools"), actions,
+    "Tools keep their stable list during a walking frame")
   api.world = oldWorld
   game.data.items.BICYCLE = oldBicycle
   game.data.moves.CUT = oldCut

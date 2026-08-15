@@ -1610,8 +1610,11 @@ return function(mod)
   end
 
   local function refreshTools()
-    local nextTools = mod.world and mod.world.availableFieldActions
-      and mod.world:availableFieldActions() or {}
+    local nextTools, unavailable = {}, nil
+    if mod.world and mod.world.availableFieldActions then
+      nextTools, unavailable = mod.world:availableFieldActions()
+    end
+    if unavailable == "world is busy" then return end
     local keys = {}
     for i, action in ipairs(nextTools) do
       local key = action.id == "bicycle" and "BICYCLE"
