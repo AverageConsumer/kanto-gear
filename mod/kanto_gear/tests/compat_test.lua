@@ -326,9 +326,9 @@ T.eq(#outputDraws, 2,
   "one-window output draws exactly the Game and Gear surfaces")
 T.eq(outputDraws[1].image, outputCanvas, "one-window output draws Game first")
 local gameFit = theme:fitRect(
-  theme:windowLayout("stacked", 1280, 720).game, 480, 432)
-T.check(outputDraws[1].args[1] < gameFit.x,
-  "one-window output crops native letterbox margins before fitting Game")
+  theme:windowLayout("stacked", 1280, 720).game, 640, 576)
+T.eq(outputDraws[1].args[1], gameFit.x,
+  "one-window output preserves the complete composed Game frame")
 local pointerPasses = 0
 local gearRect = theme:fitRect(
   theme:windowLayout("stacked", 1280, 720).gear, 160, 144)

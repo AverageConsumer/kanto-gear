@@ -161,15 +161,11 @@ function THEME:windowLayout(mode, width, height, swapped)
   return { game = game, gear = gear }
 end
 
-function THEME:drawCanvas(canvas, rect, source)
-  source = source or {
-    x = 0, y = 0, w = canvas:getWidth(), h = canvas:getHeight(),
-  }
-  local fitted = self:fitRect(rect, source.w, source.h)
+function THEME:drawCanvas(canvas, rect)
+  local fitted = self:fitRect(rect, canvas:getWidth(), canvas:getHeight())
   G.setScissor(rect.x, rect.y, rect.w, rect.h)
-  local sx, sy = fitted.w / source.w, fitted.h / source.h
-  G.draw(canvas, fitted.x - source.x * sx, fitted.y - source.y * sy,
-    0, sx, sy)
+  G.draw(canvas, fitted.x, fitted.y, 0,
+    fitted.w / canvas:getWidth(), fitted.h / canvas:getHeight())
   return fitted
 end
 
@@ -4687,11 +4683,7 @@ return function(mod)
       G.setBlendMode("alpha")
       G.clear(0, 0, 0, 1)
       G.setColor(1, 1, 1, 1)
-      THEME:drawCanvas(context.canvas, layout.game, {
-        x = context.gameX or 0, y = context.gameY or 0,
-        w = context.gameWidth or context.canvas:getWidth(),
-        h = context.gameHeight or context.canvas:getHeight(),
-      })
+      THEME:drawCanvas(context.canvas, layout.game)
       primaryBottomRect = THEME:drawCanvas(canvas, layout.gear)
       G.setScissor()
       G.pop()
