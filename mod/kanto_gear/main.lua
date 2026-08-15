@@ -2009,7 +2009,7 @@ return function(mod)
   local function battery(x, foreground)
     foreground = foreground or PAPER
     local state, percent = mod.device:powerInfo()
-    percent = tonumber(percent)
+    percent = tonumber(percent) or 100
     local low = isLowBattery(state, percent)
     local charging = state == "charging"
     local animated = low or charging
