@@ -3760,7 +3760,23 @@ return function(mod)
 
   local function pumpDisplay()
     local shown = false
-    if not canvas.requestImageData or not canvas.pollImageData then return false end
+    if not canvas.requestImageData or not canvas.pollImageData then
+      if dirty then
+        draw()
+        dirty = false
+      end
+      if not canvas.newImageData then return false end
+      local ok, image = pcall(canvas.newImageData, canvas)
+      if not ok or not image then return false end
+      shown = companion.push(image, WIDTH, HEIGHT, SECONDARY_BACKGROUND,
+        displayPreference())
+      displayReady = shown
+      if not shown then
+        dirty = true
+        nextPresentAttempt = love.timer.getTime() + 0.25
+      end
+      return shown
+    end
     if bottomOnHandheld() then
       if readbackPending and canvas:pollImageData() then
         readbackPending = false
@@ -4923,9 +4939,21 @@ return function(mod)
       G.setColor(1, 1, 1, 1)
       G.draw(context.canvas, 0, 0, 0, cw / ww, ch / wh)
       G.pop()
-      if gameCaptureCanvas:requestImageData() then
+      if gameCaptureCanvas.requestImageData
+          and gameCaptureCanvas.pollImageData
+          and gameCaptureCanvas:requestImageData() then
         gameReadbackPending = true
         gameReadbackCanvas = gameCaptureCanvas
+        nextGameCapture = now + 1 / 60
+      elseif gameCaptureCanvas.newImageData then
+        local ok, image = pcall(gameCaptureCanvas.newImageData,
+          gameCaptureCanvas)
+        if ok and image then
+          local shown = companion.push(image, image:getWidth(), image:getHeight(),
+            SECONDARY_BACKGROUND, "secondary:cover")
+          displayReady = shown == true
+          if not displayReady then nextPresentAttempt = now + 0.25 end
+        end
         nextGameCapture = now + 1 / 60
       end
     end

@@ -242,10 +242,12 @@ for _, stale in ipairs({
     "Kanto Gear avoids untranslated dynamic UI path " .. stale)
 end
 local newCanvas = T.love.graphics.newCanvas
+local modCanvas
 T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)
   function canvas:requestImageData() return true end
   function canvas:pollImageData() return nil end
+  modCanvas = modCanvas or canvas
   return canvas
 end
 local run = T.sdk.loadMod(path, { data = T.fixtures.load() })
@@ -606,13 +608,24 @@ run.loader.modOptions.kanto_gear = { display_mode = "separate" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_mode" })
 local separateEnabled = false
+local desktopFrames = 0
+local requestImageData, pollImageData = modCanvas.requestImageData,
+  modCanvas.pollImageData
+modCanvas.requestImageData, modCanvas.pollImageData = nil, nil
+function modCanvas:newImageData() return {} end
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { detected = function() return displayDetected end,
                    pollTouch = function() return nil end,
+                   push = function() desktopFrames = desktopFrames + 1 return true end,
                    setEnabled = function(on) separateEnabled = on end },
 })
+modCanvas.requestImageData, modCanvas.pollImageData = requestImageData,
+  pollImageData
+modCanvas.newImageData = nil
 T.eq(separateEnabled, true,
   "separate mode enables the host's companion display")
+T.eq(desktopFrames, 1,
+  "desktop hosts submit a synchronous fallback frame")
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
   "disabling one-window layout restores native output")
