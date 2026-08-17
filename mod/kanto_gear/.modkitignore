@@ -1,2 +1,3 @@
 tests/compat_test.lua
 tests/gen2_compat_test.lua
+tests/desktop_compat_test.lua
