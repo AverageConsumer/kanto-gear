@@ -56,6 +56,9 @@ run.data.gen2MenuGfx = { pokegear = {
   tiles = "gold-map.png", tilesWide = 1,
   maps = { johto = johtoMap, kanto = johtoMap },
 } }
+run.data.gen2Sprites = { SPRITE_CHRIS = {
+  image = "gold-player.png", frames = 1, trueColor = true,
+} }
 
 local game = {
   data = run.data,
@@ -107,6 +110,10 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 })
 T.check(#mapDraws:fromPath("gold-map.png") > 0,
   "Gold map renders the extracted Pokegear town-map tiles")
+local playerMarker = mapDraws:fromPath("gold-player.png")[1]
+T.check(playerMarker and playerMarker.args[2] == 44
+    and playerMarker.args[3] == 56 and playerMarker.args[5] == 0.75,
+  "Gold map uses the native player sprite at the scaled landmark")
 for _ = 1, 10 do
   trigger = 0.8
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
@@ -121,15 +128,6 @@ for _ = 1, 10 do
 end
 mapDraws:stop()
 T.check(true, "Gold-shaped save and world render every companion tab")
-local mapMarker = false
-for _, call in ipairs(rectangles) do
-  local mode, x, y, w, h = unpack(call)
-  if mode == "fill" and x == 47 and y == 59 and w == 7 and h == 7 then
-    mapMarker = true
-  end
-end
-T.check(mapMarker,
-  "Gold map centers the compact fallback marker on the native landmark")
 local firstBadge, lastBadge = false, false
 for _, call in ipairs(rectangles) do
   local _, x, y, w, h = unpack(call)

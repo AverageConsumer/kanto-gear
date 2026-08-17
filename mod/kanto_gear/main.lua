@@ -1538,7 +1538,8 @@ return function(mod)
     local playerSprites = data.field and data.field.playerSprites or {}
     local id = compat.isGen2() and "SPRITE_CHRIS"
       or playerSprites.walk or "SPRITE_RED"
-    local def = data.sprites and data.sprites[id]
+    local sprites = compat.isGen2() and data.gen2Sprites or data.sprites
+    local def = sprites and sprites[id]
     local key = def and (id .. ":" .. tostring(def.image))
     if key and (not compat.mapMarker or compat.mapMarker.key ~= key) then
       local ok, renderer = pcall(function()
