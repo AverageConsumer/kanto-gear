@@ -484,7 +484,7 @@ local function hasUnlockedTool(save)
   return false
 end
 
-local function addEncounters(rows, bySpecies, slots, method, buckets)
+local function addEncounters(rows, bySpecies, slots, method, buckets, time)
   slots = slots or {}
   local weights, previous = {}, 0
   for index, slot in ipairs(slots) do
@@ -500,6 +500,12 @@ local function addEncounters(rows, bySpecies, slots, method, buckets)
     else
       row.minLevel = math.min(row.minLevel, slot.level)
       row.maxLevel = math.max(row.maxLevel, slot.level)
+    end
+    if time then
+      row.times = row.times or {}
+      row.times[time] = true
+    else
+      row.allTimes = true
     end
   end
   local total, seen = buckets and buckets[#slots] or #slots, {}
@@ -895,6 +901,18 @@ do
   assert(#rows == 1 and rows[1].minLevel == 3 and rows[1].maxLevel == 5
     and #rows[1].methods == 2 and rows[1].methods[1].min == 100,
     "guide encounter merge")
+end
+do
+  local rows, by = {}, {}
+  addEncounters(rows, by, { { species = "TEST", level = 3 } },
+    "WALK", nil, "MORN")
+  addEncounters(rows, by, { { species = "TEST", level = 4 } },
+    "WALK", nil, "DAY")
+  assert(rows[1].times.MORN and rows[1].times.DAY
+    and not rows[1].times.NITE and not rows[1].allTimes,
+    "guide encounter time merge")
+  addEncounters(rows, by, { { species = "TEST", level = 5 } }, "SURF")
+  assert(rows[1].allTimes, "guide unrestricted encounter availability")
 end
 assert(not battleFocusChanged({}, {})
        and battleFocusChanged({ moveIndex = 1 }, { moveIndex = 2 })
@@ -1710,7 +1728,7 @@ return function(mod)
           local slots = entry and entry.slots or {}
           if slots.MORN or slots.DAY or slots.NITE then
             for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
-              addEncounters(rows, bySpecies, slots[time], method)
+              addEncounters(rows, bySpecies, slots[time], method, nil, time)
             end
           else
             addEncounters(rows, bySpecies, slots, method)
@@ -1755,7 +1773,7 @@ return function(mod)
     return { name = areaName(mapId), rows = rows, caught = areaCaught,
       complete = #rows > 0 and areaCaught == #rows,
       dexCaught = owned, dexTotal = dexTotal,
-      pages = math.max(1, math.ceil(#rows / 3)) }
+      pages = math.max(1, math.ceil(#rows / 3)), timed = compat.isGen2() }
   end
 
   local function areaData()
@@ -2723,6 +2741,21 @@ return function(mod)
     button(34, 105, 92, 28, "RESET", false)
   end
 
+  local function drawCaughtBall(x, y)
+    local raw = battleState()
+    if raw and raw.drawCaughtBall then
+      raw:drawCaughtBall(x, y)
+      return
+    end
+    box("fill", x + 2, y, 4, 1, INK)
+    box("fill", x + 1, y + 1, 6, 1, INK)
+    box("fill", x, y + 2, 8, 4, INK)
+    box("fill", x + 1, y + 6, 6, 1, INK)
+    box("fill", x + 2, y + 7, 4, 1, INK)
+    box("fill", x + 1, y + 3, 6, 2, PAPER)
+    box("fill", x + 3, y + 3, 2, 2, DARK)
+  end
+
   local function drawGuide()
     local guide = guideData()
     guidePage = math.max(1, math.min(guidePage, guide.pages))
@@ -2747,7 +2780,17 @@ return function(mod)
         local tint = not row.caught and DARK or nil
         drawSprite(row.species, "front", 5, y + 1, 27, 27, tint)
         text(fit(row.name, 12), 35, y + 3, INK)
-        if row.caught then text(fit("CAUGHT", 7), 113, y + 3, DARK) end
+        if guide.timed then
+          local times = {}
+          for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
+            times[#times + 1] = (row.allTimes or row.times and row.times[time])
+              and fit(time, 1) or "-"
+          end
+          text(table.concat(times, " "), 112, y + 3, DARK)
+          if row.caught then drawCaughtBall(147, y + 2) end
+        elseif row.caught then
+          text(fit("CAUGHT", 7), 113, y + 3, DARK)
+        end
         local levels = row.minLevel == row.maxLevel
           and THEME:format("L%d", row.minLevel)
           or THEME:format("L%d-%d", row.minLevel, row.maxLevel)
@@ -3630,21 +3673,6 @@ return function(mod)
     box("fill", x + 1, y + 1, w - 2, 5, PAPER)
     box("fill", x + 1, y + 1, math.floor((w - 2) * ratio), 5,
         ratio <= 0.2 and THEME.red or ratio <= 0.5 and DARK or INK)
-  end
-
-  local function drawCaughtBall(x, y)
-    local raw = battleState()
-    if raw and raw.drawCaughtBall then
-      raw:drawCaughtBall(x, y)
-      return
-    end
-    box("fill", x + 2, y, 4, 1, INK)
-    box("fill", x + 1, y + 1, 6, 1, INK)
-    box("fill", x, y + 2, 8, 4, INK)
-    box("fill", x + 1, y + 6, 6, 1, INK)
-    box("fill", x + 2, y + 7, 4, 1, INK)
-    box("fill", x + 1, y + 3, 6, 2, PAPER)
-    box("fill", x + 3, y + 3, 2, 2, DARK)
   end
 
   local function drawFullBattleStatus(mon, y, player)
