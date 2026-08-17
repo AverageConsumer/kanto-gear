@@ -62,7 +62,7 @@ local game = {
   save = {
     generation = 2,
     player = {
-      name = "GOLD", id = 25, money = 1234,
+      name = "GOLD", id = 25, money = 1234, map = "FIX_ROUTE",
       badges = { ZEPHYR = true }, kantoBadges = {},
     },
     party = { {
@@ -121,6 +121,15 @@ for _ = 1, 10 do
 end
 mapDraws:stop()
 T.check(true, "Gold-shaped save and world render every companion tab")
+local mapMarker = false
+for _, call in ipairs(rectangles) do
+  local mode, x, y, w, h = unpack(call)
+  if mode == "line" and x == 44.5 and y == 56.5 and w == 11 and h == 11 then
+    mapMarker = true
+  end
+end
+T.check(mapMarker,
+  "Gold map centers a full-size location marker on the native landmark")
 local firstBadge, lastBadge = false, false
 for _, call in ipairs(rectangles) do
   local _, x, y, w, h = unpack(call)

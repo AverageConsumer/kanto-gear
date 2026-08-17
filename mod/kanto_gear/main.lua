@@ -1114,6 +1114,13 @@ local function outline(x, y, w, h, c)
   box("fill", x + w - 2, y + h - 2, 1, 1, c)
 end
 
+function THEME:drawMapMarker(x, y)
+  x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+  box("line", x - 5.5, y - 5.5, 11, 11, PAPER)
+  box("line", x - 4.5, y - 4.5, 9, 9, INK)
+  box("fill", x - 1, y - 1, 3, 3, self.red)
+end
+
 local function hpBar(x, y, w, hp, maxHp)
   local ratio = progressRatio(hp, 0, math.max(1, maxHp or 1))
   box("fill", x, y, w, 4, DARK)
@@ -2330,14 +2337,17 @@ return function(mod)
   local function drawMapFallback()
     local townMap = game.data.field and game.data.field.townMap
     local locations = townMap and (townMap.locations or townMap) or {}
+    local playerX, playerY
     for id, entry in pairs(locations) do
       local c = entry.coords or entry
       local x, y = tonumber(c.x or c.col), tonumber(c.y or c.row)
       if x and y then
         local px, py = 22 + x * 7, 24 + y * 6
-        box("fill", px, py, 4, 4, id == mapId and INK or DARK)
+        box("fill", px, py, 4, 4, DARK)
+        if id == mapId then playerX, playerY = px + 2, py + 2 end
       end
     end
+    if playerX then THEME:drawMapMarker(playerX, playerY) end
   end
 
   local function entryCoords(entry)
@@ -2357,8 +2367,8 @@ return function(mod)
     end
     local x, y = entryCoords(entry)
     if not (x and y) then return nil end
-    return 20 + (x * 8 + 16) * 0.75,
-           22 + y * 8 * 0.75
+    return 20 + (x * 8 + 20) * 0.75,
+           22 + (y * 8 + 4) * 0.75
   end
 
   local function outside(map)
@@ -2421,10 +2431,7 @@ return function(mod)
         end
       end
       local px, py = mapPoint(locationEntry(mapId))
-      if px then
-        box("fill", px + 0.5, py + 0.5, 5, 5, PAPER)
-        outline(px + 0.5, py + 0.5, 5, 5, INK)
-      end
+      if px then THEME:drawMapMarker(px, py) end
     else
       drawMapFallback()
     end
