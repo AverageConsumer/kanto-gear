@@ -1116,8 +1116,8 @@ end
 
 function THEME:drawMapMarker(x, y)
   x, y = math.floor(x + 0.5), math.floor(y + 0.5)
-  box("line", x - 5.5, y - 5.5, 11, 11, PAPER)
-  box("line", x - 4.5, y - 4.5, 9, 9, INK)
+  box("fill", x - 3, y - 3, 7, 7, INK)
+  box("fill", x - 2, y - 2, 5, 5, PAPER)
   box("fill", x - 1, y - 1, 3, 3, self.red)
 end
 
@@ -1531,6 +1531,34 @@ return function(mod)
       compat.gen2Palettes = okPal and palettes or false
     end
     return compat.gen2GbcPalette or nil, compat.gen2Palettes or nil
+  end
+
+  function compat.drawMapMarker(x, y)
+    local data = game and game.data or {}
+    local playerSprites = data.field and data.field.playerSprites or {}
+    local id = compat.isGen2() and "SPRITE_CHRIS"
+      or playerSprites.walk or "SPRITE_RED"
+    local def = data.sprites and data.sprites[id]
+    local key = def and (id .. ":" .. tostring(def.image))
+    if key and (not compat.mapMarker or compat.mapMarker.key ~= key) then
+      local ok, renderer = pcall(function()
+        return require("src.render.SpriteRenderer").new(def, "kanto-gear-map")
+      end)
+      compat.mapMarker = { key = key, renderer = ok and renderer or false }
+    end
+    local renderer = compat.mapMarker and compat.mapMarker.renderer
+    if renderer then
+      local ok = pcall(function()
+        local pose = renderer:getPoseGeometry("down", 0, false)
+        local scale = 0.75
+        color({ 1, 1, 1, 1 })
+        G.draw(renderer:resolveImage(), pose.quad,
+          x - pose.width * scale / 2, y - pose.height * scale / 2,
+          0, scale, scale)
+      end)
+      if ok then return end
+    end
+    THEME:drawMapMarker(x, y)
   end
 
   function compat.isScreen(state, kind)
@@ -2347,7 +2375,7 @@ return function(mod)
         if id == mapId then playerX, playerY = px + 2, py + 2 end
       end
     end
-    if playerX then THEME:drawMapMarker(playerX, playerY) end
+    if playerX then compat.drawMapMarker(playerX, playerY) end
   end
 
   local function entryCoords(entry)
@@ -2431,7 +2459,7 @@ return function(mod)
         end
       end
       local px, py = mapPoint(locationEntry(mapId))
-      if px then THEME:drawMapMarker(px, py) end
+      if px then compat.drawMapMarker(px, py) end
     else
       drawMapFallback()
     end

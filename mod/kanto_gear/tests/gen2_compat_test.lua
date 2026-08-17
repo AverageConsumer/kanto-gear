@@ -124,12 +124,12 @@ T.check(true, "Gold-shaped save and world render every companion tab")
 local mapMarker = false
 for _, call in ipairs(rectangles) do
   local mode, x, y, w, h = unpack(call)
-  if mode == "line" and x == 44.5 and y == 56.5 and w == 11 and h == 11 then
+  if mode == "fill" and x == 47 and y == 59 and w == 7 and h == 7 then
     mapMarker = true
   end
 end
 T.check(mapMarker,
-  "Gold map centers a full-size location marker on the native landmark")
+  "Gold map centers the compact fallback marker on the native landmark")
 local firstBadge, lastBadge = false, false
 for _, call in ipairs(rectangles) do
   local _, x, y, w, h = unpack(call)
