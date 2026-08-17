@@ -39,28 +39,28 @@ when a second display disappears.
 
 ## What you need
 
-Kanto Gear currently uses a matched host release. The host and Kanto Gear mod
-are required; no Voxel renderer is required.
+Kanto Gear 2.0 works with the official Gen1Recomp 0.1.99 release or newer. No
+custom host or Voxel renderer is required.
 
 | Download | Required | Purpose |
 | --- | :---: | --- |
-| [Gen1Recomp Kanto host 0.1.94-kanto.22](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.94-kanto.22) | **Yes** | Matched Android, Windows, Linux or PortMaster/Rocknix host |
+| [Gen1Recomp 0.1.99 or newer](https://github.com/bryanthaboi/gen1recomp/releases/latest) | **Yes** | Official host for Android, Windows, Linux, macOS, Switch and supported handheld packages |
 | [Kanto Gear 2.0.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0) | **Yes** | Companion UI and display modes |
 | [Kanto Gear Deutsch 0.2.3](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0) | No | German text for the Kanto Gear interface |
 | [Kanto Gear Español (España) 0.2.3](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0) | No | Spanish (Spain) text for the Kanto Gear interface |
 
 > [!IMPORTANT]
-> Use the versions linked above together. The official Gen1Recomp release does
-> not yet contain every host feature required by this Kanto Gear release.
+> Gen1Recomp 0.1.99 is the first official release containing Kanto Gear's full
+> display and mod API requirements. Older hosts are not supported by Kanto Gear
+> 2.0.
 
 ## Install
 
 You need your own supported Pokémon Red, Blue, Yellow or Gold ROM. No ROM or
 ROM-extracted game data is included.
 
-1. Install the [Gen1Recomp Kanto host](https://github.com/AverageConsumer/gen1recomp/releases/tag/v0.1.94-kanto.22)
-   for your platform. Linux x64, Linux ARM64, PortMaster/Rocknix and a universal
-   LÖVE 11.5 payload are available alongside Android and Windows.
+1. Install the [latest official Gen1Recomp release](https://github.com/bryanthaboi/gen1recomp/releases/latest)
+   for your platform.
 2. Download [Kanto Gear 2.0.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.0.0).
 3. Open the host's **MODS → Import mod .zip** screen and select the Kanto Gear
    ZIP.
@@ -72,17 +72,15 @@ For a German or Spanish Kanto Gear interface, import the matching optional
 Other translations can use the small
 [language-pack template](translations/README.md).
 
-When updating the host, install the newer APK over the existing app. Do not
-uninstall it first unless you have exported your save. On Windows or Linux, use
-the new host package; your normal per-user save remains separate. PortMaster
-keeps its portable save beside the game on the SD card.
+Use Gen1Recomp's normal update path for later official releases. Keep an
+exported save backup before changing hosts or operating systems.
 
 > [!WARNING]
-> If the second screen stopped working after accepting an old host update
-> prompt, manually install `0.1.94-kanto.22` once. That prompt installed the
-> official Gen1Recomp host, which does not yet include every Kanto Gear Android
-> bridge feature. The matched host disables that incompatible self-update path;
-> normal mod update checks still work.
+> The former **Gen1Recomp Kanto host** and the official Android app use separate
+> app identities, so the official app installs beside it and cannot see its
+> private saves or installed mods. Export your save from the old host first,
+> then import the ROM, save and Kanto Gear into the official app. Do not remove
+> the old host until the migrated save has been verified.
 
 ### Voxel renderers
 
@@ -149,15 +147,17 @@ Useful settings:
 
 ## Compatibility and support
 
-This uses an unofficial matched test host. It is not an official Gen1Recomp
-release. Keep an exported save backup while testing experimental packages.
+Kanto Gear 2.0 requires the official Gen1Recomp 0.1.99 release or newer. Keep an
+exported save backup while testing experimental display layouts or platform
+packages.
 
 Open a [Kanto Gear issue](https://github.com/AverageConsumer/kanto-gear/issues)
 for second-display, touch or companion-UI problems. Include your device,
 operating system, display setup, installed versions and a screenshot if useful.
 
-Include host startup problems in the Kanto Gear report and identify the host
-version. Problems exclusive to a third-party 3D renderer belong to its current
+Include the official host version in Kanto Gear reports. General host startup
+problems belong to the [Gen1Recomp issue tracker](https://github.com/bryanthaboi/gen1recomp/issues).
+Problems exclusive to a third-party 3D renderer belong to its current
 maintainer. Our legacy Dramatic Shape Android fork is retained only as an
 unsupported historical download.
 
