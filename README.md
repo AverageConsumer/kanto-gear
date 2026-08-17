@@ -2,13 +2,15 @@
 
 # Kanto Gear
 
-### A flexible companion screen for Pokémon Red, Blue, Yellow and Gold
+### A second screen when you have one. A better layout when you do not.
 
-Add maps, party data, battles and touch controls to [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp). Use one screen, combine both views in one window, or give Kanto Gear its own display.
+Kanto Gear adds maps, party data, battle controls and touch-friendly tools to
+[Gen1Recomp](https://github.com/bryanthaboi/gen1recomp). It works on one screen,
+inside a combined layout, or on a dedicated second display.
 
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.1.0"><img src="https://img.shields.io/badge/release-v2.1.0-5c8a3c" alt="Latest release: v2.1.0"></a>
-  <a href="#display-modes"><img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows%20%7C%20Linux-3DDC84" alt="Platforms: Android, Windows and Linux"></a>
+  <a href="#display-mode-reference"><img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows%20%7C%20Linux-3DDC84" alt="Platforms: Android, Windows and Linux"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/code-MIT-blue.svg" alt="Code license: MIT"></a>
 </p>
 
@@ -22,7 +24,53 @@ Add maps, party data, battles and touch controls to [Gen1Recomp](https://github.
 
 </div>
 
-## Your adventure, always in reach
+## Pick your setup
+
+Kanto Gear is not tied to one handheld or one screen arrangement. Choose the
+layout that fits the device in front of you.
+
+| Your setup | Use this mode | What you get |
+| --- | --- | --- |
+| **Phone or small one-screen handheld** | **Single Screen** | Keep the game fullscreen and swap to Kanto Gear only when you need it. |
+| **Steam Deck, desktop or larger one-screen device** | **Combined Screen** | Put both views side by side, stack them, or use a movable overlay. |
+| **AYN Thor, RG DS or another dual-screen handheld** | **Dual Screen** | Keep the game on one display and give Kanto Gear the other. |
+| **Retroid Dual Screen Add-on, monitor, dock or TV** | **Dual Screen** | Route Kanto Gear to the selected Android display or move its desktop window wherever you want. |
+
+### A real companion display
+
+<p align="center">
+  <img src="kanto-gear-dual-screen-game.png" width="57%" alt="Pokémon Red running on the primary AYN Thor display">
+  <img src="kanto-gear-dual-screen-companion.png" width="38%" alt="Kanto Gear map running on the secondary AYN Thor display">
+</p>
+
+The two images above are direct captures from the primary and secondary
+displays of an AYN Thor running the official Gen1Recomp host. On Android, Kanto
+Gear can follow a selected physical display and recover live if that display is
+disconnected.
+
+### A normal companion window on desktop
+
+<p align="center">
+  <img src="kanto-gear-desktop-dual-window.png" width="100%" alt="Pokémon Red and Kanto Gear running in separate movable windows on Windows 11">
+</p>
+
+On desktop, Dual Screen mode opens Kanto Gear as a normal companion window.
+Keep it beside the game, move it to another monitor or size both windows around
+the rest of your desktop. Windows 11 is tested; Linux packages use the same
+desktop-window path and welcome real-device reports.
+
+### One screen still gets both views
+
+<p align="center">
+  <img src="kanto-gear-combined-side-by-side.png" width="100%" alt="Pokémon Red and the Kanto Gear local map sharing one Android display in Combined Screen mode">
+</p>
+
+Single Screen mode gives the entire display to one view and swaps on demand.
+Combined Screen mode keeps both visible with side-by-side, stacked and overlay
+layouts. The game viewport and Android touch controls adapt with the layout,
+and the companion size can be tuned without stretching its UI.
+
+## What Kanto Gear adds
 
 Kanto Gear gives Pokémon Red, Blue, Yellow and Gold a configurable companion
 display without changing the game underneath it.
@@ -100,7 +148,7 @@ Other renderer forks may work, but compatibility belongs to their current
 maintainers. Do not install multiple Dramatic Shape variants together because
 they intentionally share the same mod ID.
 
-## Display modes
+## Display mode reference
 
 - **Single Screen** keeps one view fullscreen and lets you swap to the other.
 - **Combined Screen** places both views in one window: side by side, stacked or
