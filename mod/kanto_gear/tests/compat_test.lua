@@ -764,6 +764,12 @@ do
     "enemy info derives weaknesses from the active type chart")
   T.eq(enemyInfo.resist[1].type, "GRASS",
     "enemy info derives resistances from the active type chart")
+  local originalTypes = game.data.pokemon.FIXMON_B.types
+  game.data.pokemon.FIXMON_B.types = { "NORMAL", "NORMAL" }
+  local monoInfo = compat.enemyInfo({ species = "FIXMON_B" }, game.data, {})
+  T.eq(#monoInfo.types, 1,
+    "enemy info collapses duplicated Gen 2 monotype slots")
+  game.data.pokemon.FIXMON_B.types = originalTypes
   local virtualBag = {
     screenId = "BagMenu", index = 1,
     items = {

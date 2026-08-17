@@ -3088,13 +3088,18 @@ return function(mod)
       name = enemy.name or def.name or species or "-",
       level = enemy.level,
       dex = entry and entry.dex or def.dex,
-      types = def.types or {},
+      types = {},
       seen = species and not not seen[species] or false,
       caught = species and not not caught[species] or false,
       weak = {}, resist = {},
       kind = entry and entry.kind,
       description = {},
     }
+    for _, typeId in ipairs(def.types or {}) do
+      if typeId ~= info.types[#info.types] then
+        info.types[#info.types + 1] = typeId
+      end
+    end
     if entry then
       local heightM, height = tonumber(entry.heightM), tonumber(entry.height)
       if heightM then
