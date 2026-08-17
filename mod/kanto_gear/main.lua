@@ -3739,10 +3739,8 @@ return function(mod)
       text(fit(THEME:format("TYPE %s",
         #typeNames > 0 and table.concat(typeNames, "/") or "--"), 17),
         52, 46, DARK)
-      text("SEEN", 52, 57, DARK)
-      text(info.seen and "YES" or "NO", 112, 57, INK)
-      text("CAUGHT", 52, 68, DARK)
-      text(info.caught and "YES" or "NO", 112, 68, INK)
+      text("CAUGHT", 52, 57, DARK)
+      text(info.caught and "YES" or "NO", 112, 57, INK)
       box("fill", 4, 78, 152, 1, DARK)
       centered("BASE MATCHUP", 81, DARK)
       box("fill", 79, 90, 1, 52, MID)
