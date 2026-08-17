@@ -3724,8 +3724,9 @@ return function(mod)
         end
         return
       end
-      header(THEME:translate("ENEMY INFO") .. " >")
-      drawSprite(info.species, "front", 4, 24, 44, 48, nil, battle.enemy)
+      header(THEME:translate("ENEMY INFO"))
+      drawSprite(info.species, "front", 4, 22, 44, 40, nil, battle.enemy)
+      button(5, 65, 43, 12, "DEX >", false)
       text(fit(info.name, 17), 52, 24, INK)
       local identity = info.dex and info.level
         and THEME:format("NO.%03d LV.%d", info.dex, info.level)
