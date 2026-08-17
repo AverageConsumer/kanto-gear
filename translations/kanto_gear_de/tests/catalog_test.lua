@@ -45,6 +45,9 @@ local layoutLimits = {
   ["HIT"] = 8,
   ["PP"] = 4,
   ["MATCHUP"] = 13,
+  ["SEEN"] = 7,
+  ["WEAK"] = 7,
+  ["RESIST"] = 7,
 }
 
 for source, limit in pairs(layoutLimits) do

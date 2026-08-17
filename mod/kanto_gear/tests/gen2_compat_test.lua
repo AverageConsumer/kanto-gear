@@ -163,6 +163,27 @@ run.loader.events:emit("mod.options_changed",
 T.eq(run.loader.hooks:call("battle.status_hud_visible",
     function() return true end, screen), false,
   "FULL GEAR gives Gold's status HUD to the companion screen too")
+run.loader.modOptions.kanto_gear.battle_view = "info"
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "battle_view" })
+T.eq(run.loader.hooks:call("battle.bottom_ui_visible",
+    function() return true end, screen), true,
+  "INFO leaves Gold's native battle menu visible")
+T.eq(run.loader.hooks:call("battle.status_hud_visible",
+    function() return true end, screen), true,
+  "INFO leaves Gold's native status HUD visible")
+local infoDraws = T.record.draw()
+now = now + 1
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+infoDraws:stop()
+T.check(#infoDraws:fromPath(
+    "tests/fixture_data/assets/fixmon_b_front.png") > 0,
+  "Gold INFO draws the active enemy species on the companion screen")
+run.loader.modOptions.kanto_gear.battle_view = "full"
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "battle_view" })
 
 -- Gold resolves the turn before its native HP bar finishes chasing the new
 -- value.  The companion must follow screen.shownHp, not jump straight to the

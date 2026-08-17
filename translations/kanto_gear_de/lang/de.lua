@@ -24,6 +24,7 @@ return {
   ["NO"] = "NEIN",
   ["OK"] = "OK",
   ["INFO"] = "INFO",
+  ["ENEMY INFO"] = "GEGNER-INFO",
   ["CANCEL"] = "ABBRUCH",
 
   -- Map, guide, area and tools.
@@ -61,6 +62,12 @@ return {
   ["TOTAL"] = "GESAMT",
   ["LOST"] = "VERLOREN",
   ["CAUGHT"] = "GEF.",
+  ["SEEN"] = "GESEHEN",
+  ["WEAK"] = "SCHWACH",
+  ["RESIST"] = "RESIST.",
+  ["BASE MATCHUP"] = "BASIS-WIRKUNG",
+  ["TYPE %s"] = "TYP %s",
+  ["+%d MORE"] = "+%d MEHR",
   ["DONE"] = "FERT.",
   ["OPEN"] = "OFFEN",
   ["HIDDEN"] = "GEHEIM",

@@ -1262,7 +1262,7 @@ return function(mod)
     { key = "battle_view", label = "BATTLE VIEW",
       type = "choice", default = battleDefault, choices = {
         { "STANDARD", "standard" }, { "GEAR", "gear" },
-        { "FULL GEAR", "full" },
+        { "FULL GEAR", "full" }, { "INFO", "info" },
       } },
     { key = "caught_icon", label = "CAUGHT ICON",
       type = "toggle", default = true },
@@ -1298,7 +1298,8 @@ return function(mod)
     return currentBattleUIMode() == "full"
   end
   local function hideUpperBattleUI()
-    return currentBattleUIMode() ~= "standard"
+    local mode = currentBattleUIMode()
+    return mode == "gear" or mode == "full"
   end
   local displayRuntime = {}
   local function inlineDisplay()
@@ -3071,6 +3072,46 @@ return function(mod)
     end
     return multiplier
   end
+
+  function compat.enemyInfo(enemy, data, save)
+    enemy, data = enemy or {}, data or {}
+    local species = enemy.species
+    local def = species and data.pokemon and data.pokemon[species] or {}
+    local dex = save and save.pokedex or {}
+    local seen, caught = dex.seen or {}, compat.caughtDex(save)
+    local info = {
+      species = species,
+      name = enemy.name or def.name or species or "-",
+      level = enemy.level,
+      dex = def.dex,
+      types = def.types or {},
+      seen = species and not not seen[species] or false,
+      caught = species and not not caught[species] or false,
+      weak = {}, resist = {},
+    }
+    local attackers = {}
+    for _, row in ipairs((data.type_chart or {}).matchups or {}) do
+      attackers[row.attacker] = true
+    end
+    for typeId in pairs(attackers) do
+      local multiplier = compat.typeEffectiveness(
+        typeId, info.types, data.type_chart)
+      local list = multiplier and multiplier > 10 and info.weak
+        or multiplier and multiplier < 10 and info.resist
+      if list then
+        list[#list + 1] = { type = typeId, multiplier = multiplier }
+      end
+    end
+    table.sort(info.weak, function(a, b)
+      if a.multiplier ~= b.multiplier then return a.multiplier > b.multiplier end
+      return tostring(a.type) < tostring(b.type)
+    end)
+    table.sort(info.resist, function(a, b)
+      if a.multiplier ~= b.multiplier then return a.multiplier < b.multiplier end
+      return tostring(a.type) < tostring(b.type)
+    end)
+    return info
+  end
   assert(compat.typeEffectiveness("FIRE", { "GRASS", "BUG" }, { matchups = {
     { attacker = "FIRE", defender = "GRASS", multiplier = 20 },
     { attacker = "FIRE", defender = "BUG", multiplier = 20 },
@@ -3605,6 +3646,45 @@ return function(mod)
   end
 
   local function drawBattle()
+    if currentBattleUIMode() == "info" then
+      local info = compat.enemyInfo(battle.enemy, game.data, game.save)
+      header("ENEMY INFO")
+      drawSprite(info.species, "front", 4, 24, 44, 48, nil, battle.enemy)
+      text(fit(info.name, 17), 52, 24, INK)
+      local identity = info.dex and info.level
+        and THEME:format("NO.%03d LV.%d", info.dex, info.level)
+        or info.level and THEME:format("LV.%d", info.level) or ""
+      text(fit(identity, 17), 52, 35, DARK)
+      local typeNames = {}
+      for _, typeId in ipairs(info.types) do
+        typeNames[#typeNames + 1] = THEME:typeName(typeId, mod.content)
+      end
+      text(fit(THEME:format("TYPE %s",
+        #typeNames > 0 and table.concat(typeNames, "/") or "--"), 17),
+        52, 46, DARK)
+      text("SEEN", 52, 57, DARK)
+      text(info.seen and "YES" or "NO", 112, 57, INK)
+      text("CAUGHT", 52, 68, DARK)
+      text(info.caught and "YES" or "NO", 112, 68, INK)
+      box("fill", 4, 78, 152, 1, DARK)
+      centered("BASE MATCHUP", 81, DARK)
+      box("fill", 79, 90, 1, 52, MID)
+      text("WEAK", 5, 91, DARK)
+      text("RESIST", 84, 91, DARK)
+      for column, rows in ipairs({ info.weak, info.resist }) do
+        local x = column == 1 and 5 or 84
+        if #rows == 0 then text("--", x, 102, INK) end
+        for i = 1, math.min(#rows, 4) do
+          local row = rows[i]
+          local label = i == 4 and #rows > 4
+            and THEME:format("+%d MORE", #rows - 3)
+            or fit(THEME:typeName(row.type, mod.content), 6)
+              .. " " .. effectLabel(row.multiplier)
+          text(fit(label, 11), x, 102 + (i - 1) * 10, INK)
+        end
+      end
+      return
+    end
     local top = game and game.stack and game.stack:top()
     local raw = battleState()
     local party = compat.isScreen(top, "party") and top
@@ -3998,6 +4078,7 @@ return function(mod)
   end
 
   local function tapBattle(x, y)
+    if currentBattleUIMode() == "info" then return end
     local top = game and game.stack and game.stack:top()
     if top and top.kind == "pp_item_move" then
       if y < HEADER and x < 24 then
@@ -4769,7 +4850,9 @@ return function(mod)
         displayRuntime.overlayHidden = false
         resetSwapState()
       end
-      if not assist("move_details") then moveInfo = nil end
+      if not assist("move_details")
+          or (payload.key == "battle_view"
+            and currentBattleUIMode() == "info") then moveInfo = nil end
       if page == "GUIDE" and not assist("guide") then
         page = "MAP"
       end
@@ -4798,7 +4881,8 @@ return function(mod)
     end
     pollTriggerTabs()
     local swapPressed, infoPressed, overlayPressed = pollScreenSwap()
-    if infoPressed and assist("move_details") then
+    if infoPressed and assist("move_details")
+        and currentBattleUIMode() ~= "info" then
       if moveInfo then
         moveInfo = nil
         dirty = true

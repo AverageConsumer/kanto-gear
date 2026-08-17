@@ -289,7 +289,9 @@ T.eq(options[12].default, false, "screen swap cannot claim Y by default")
 T.eq(options[12].visible_if.not_equals, "fullscreen",
   "fullscreen swap claims Y explicitly through its selected mode")
 T.eq(options[13].label, "BATTLE VIEW", "battle layout uses one setting")
-T.eq(#options[13].choices, 3, "battle view exposes three clear layouts")
+T.eq(#options[13].choices, 4, "battle view exposes four clear layouts")
+T.eq(options[13].choices[4][2], "info",
+  "battle view offers a read-only enemy information layout")
 T.eq(options[14].label, "CAUGHT ICON", "caught marker has one clear toggle")
 T.eq(options[15].label, "TRIGGER TABS", "trigger navigation is opt-in")
 T.eq(options[15].default, false, "trigger navigation cannot claim controls by default")
@@ -747,6 +749,19 @@ do
   end
   local refreshBattle = upvalue(composeHook, "refreshBattle")
   local compat = upvalue(refreshBattle, "compat")
+  local enemyInfo = compat.enemyInfo({
+    species = "FIXMON_B", name = "FIXMON B", level = 9,
+  }, game.data, { pokedex = {
+    seen = { FIXMON_B = true }, owned = { FIXMON_B = true },
+  } })
+  T.eq(enemyInfo.dex, 2, "enemy info reads the species Pokédex number")
+  T.eq(enemyInfo.types[1], "FIRE", "enemy info reads the species base type")
+  T.check(enemyInfo.seen and enemyInfo.caught,
+    "enemy info reports existing Pokédex flags without inventing counts")
+  T.eq(enemyInfo.weak[1].type, "WATER",
+    "enemy info derives weaknesses from the active type chart")
+  T.eq(enemyInfo.resist[1].type, "GRASS",
+    "enemy info derives resistances from the active type chart")
   local virtualBag = {
     screenId = "BagMenu", index = 1,
     items = {

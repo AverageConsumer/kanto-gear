@@ -20,6 +20,8 @@ T.eq(run.data.strings["JOHTO MAP"], "MAPA DE JOHTO",
   "companion mod translates Gold map headings")
 T.eq(run.data.strings["BATTLE VIEW"], "VISTA DE COMBATE",
   "companion mod translates Kanto Gear settings")
+T.eq(run.data.strings["ENEMY INFO"], "INFO. RIVAL",
+  "companion mod translates enemy information")
 T.eq(run.data.strings["DISPLAY LAYOUT"], "DISEÑO DE PANTALLA",
   "companion mod translates the single-window layout")
 T.eq(run.data.strings["SCREEN SWAP (Y)"], "INTERCAMBIAR PANT. (Y)",
