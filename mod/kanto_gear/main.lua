@@ -1035,9 +1035,10 @@ assert(normalize("¿árbol, pingüino y niño? ¡Sí!")
        and normalize("áéíóúüñ") == "ÁÉÍÓÚÜÑ",
        "Spanish glyph normalization")
 
-local function fit(value, chars)
+local function fit(value, chars, ellipsis)
   local glyphs = glyphList(clean(value))
   if #glyphs <= chars then return table.concat(glyphs) end
+  if ellipsis == false then return table.concat(glyphs, "", 1, chars) end
   local out = {}
   for index = 1, math.max(0, chars - 1) do out[index] = glyphs[index] end
   out[#out + 1] = "."
@@ -2784,7 +2785,7 @@ return function(mod)
           local times = {}
           for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
             times[#times + 1] = (row.allTimes or row.times and row.times[time])
-              and fit(time, 1) or "-"
+              and fit(time, 1, false) or "-"
           end
           text(table.concat(times, " "), 112, y + 3, DARK)
           if row.caught then drawCaughtBall(147, y + 2) end

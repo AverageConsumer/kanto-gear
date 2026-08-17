@@ -64,6 +64,8 @@ end
 T.check(type(fit) == "function", "Kanto Gear text fitter is available")
 T.eq(fit("¿ÁÉÍÓÚÜ Ñ¡", 20), "¿ÁÉÍÓÚÜ Ñ¡",
   "Spanish punctuation and accented letters survive text fitting")
+T.eq(fit("MORN", 1, false), "M",
+  "compact labels keep their first glyph instead of an ellipsis")
 local methodLines
 for index = 1, debug.getinfo(entry, "u").nups do
   local name, value = debug.getupvalue(entry, index)
