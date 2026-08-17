@@ -1045,6 +1045,62 @@ local function fit(value, chars, ellipsis)
   return table.concat(out)
 end
 
+function THEME:messageLines(messages, chars, limit)
+  local function wrap(message)
+    local lines, current = {}, ""
+    for word in clean(message):gmatch("%S+") do
+      local joined = current == "" and word or current .. " " .. word
+      if #glyphList(joined) <= chars then current = joined
+      else
+        if current ~= "" then lines[#lines + 1] = current end
+        local glyphs = glyphList(word)
+        while #glyphs > chars do
+          lines[#lines + 1] = table.concat(glyphs, "", 1, chars)
+          for _ = 1, chars do table.remove(glyphs, 1) end
+        end
+        current = table.concat(glyphs)
+      end
+    end
+    if current ~= "" then lines[#lines + 1] = current end
+    return lines
+  end
+
+  limit = limit or 2
+  local count, out = #(messages or {}), {}
+  local latest = wrap(messages and messages[count])
+  if #latest > 1 then
+    for index = 1, math.min(#latest, limit) do out[index] = latest[index] end
+    if latest[limit + 1] then
+      out[limit] = fit(out[limit] .. " " .. latest[limit + 1], chars)
+    end
+    return out
+  end
+  for index = math.max(1, count - limit + 1), count do
+    local lines = wrap(messages[index])
+    out[#out + 1] = fit(lines[#lines] or "", chars)
+  end
+  return out
+end
+
+do
+  local lines = THEME:messageLines(
+    { "OLD", "GOTCHA! HOOTHOOT WAS CAUGHT!" }, 22)
+  assert(lines[1] == "GOTCHA! HOOTHOOT WAS" and lines[2] == "CAUGHT!",
+         "battle message word wrapping")
+  lines = THEME:messageLines(
+    { "OLD", "RATTATA USED", "TAIL WHIP!" }, 22)
+  assert(lines[1] == "RATTATA USED" and lines[2] == "TAIL WHIP!",
+         "battle message line preservation")
+  lines = THEME:messageLines(
+    { "THIS MESSAGE IS LONG ENOUGH TO REQUIRE THREE DISPLAY LINES" }, 22)
+  assert(lines[1] == "THIS MESSAGE IS LONG"
+         and lines[2] == "ENOUGH TO REQUIRE THR.",
+         "battle message overflow")
+  lines = THEME:messageLines({ "ABCDEFGHIJKLMNOPQRSTUVWXYZ" }, 10, 3)
+  assert(lines[1] == "ABCDEFGHIJ" and lines[2] == "KLMNOPQRST"
+         and lines[3] == "UVWXYZ", "battle message long-word wrapping")
+end
+
 local function methodLines(methods)
   local lines = { "" }
   for _, odds in ipairs(methods) do
@@ -2351,16 +2407,18 @@ return function(mod)
     header("CHOOSE")
     local selected = compat.choiceIndex(top, field)
     if #labels == 2 then
-      local first = math.max(1, #(prompt or {}) - 1)
-      if prompt and prompt[first] then
-        for i = first, #prompt do
-          centered(fit(prompt[i], 24), 29 + (i - first) * 11, DARK)
+      local lines = THEME:messageLines(prompt, 24, 3)
+      if #lines > 0 then
+        local y = 35 - (#lines - 1) * 6
+        for _, line in ipairs(lines) do
+          centered(line, y, DARK)
+          y = y + 12
         end
       else
         centered("MAKE A CHOICE", 37, DARK)
       end
-      button(24, 54, 112, 32, labels[1], selected == 1)
-      button(24, 90, 112, 32, labels[2], selected == 2)
+      button(24, 58, 112, 28, labels[1], selected == 1)
+      button(24, 91, 112, 28, labels[2], selected == 2)
     else
       local start, count = choiceWindow(labels, selected)
       for row = 1, count do
@@ -3726,9 +3784,12 @@ return function(mod)
         and battle.message and #battle.message > 0 then
       box("fill", 6, 30, 148, 106, DARK)
       outline(6, 30, 148, 106, PAPER)
-      local first = math.max(1, #battle.message - 1)
-      text(fit(battle.message[first], 22), 14, 51, PAPER)
-      text(fit(battle.message[first + 1] or "", 22), 14, 72, PAPER)
+      local lines = THEME:messageLines(battle.message, 22, 4)
+      local y = 65 - math.floor((#lines - 1) * 7.5)
+      for _, line in ipairs(lines) do
+        text(line, 14, y, PAPER)
+        y = y + 15
+      end
       if battle.prompt == "advance" then
         box("fill", 14, 96, 132, 1, MID)
         centered("TAP TO CONTINUE", 110, MID)
