@@ -22,6 +22,8 @@ T.eq(run.data.strings["BATTLE VIEW"], "KAMPFANSICHT",
   "Begleitmod übersetzt Kanto-Gear-Einstellungen")
 T.eq(run.data.strings["ENEMY INFO"], "GEGNER-INFO",
   "Begleitmod übersetzt die Gegnerinformation")
+T.eq(run.data.strings["WEIGHT %.1f KG"], "GEWICHT %.1f KG",
+  "Begleitmod übersetzt die Pokédex-Details")
 T.eq(run.data.strings["DISPLAY LAYOUT"], "ANZEIGELAYOUT",
   "Begleitmod übersetzt das Ein-Fenster-Layout")
 

@@ -49,6 +49,8 @@ local entry = assert(loadfile(path .. "/main.lua"))()
 Strings.load({})
 T.check(type(entry) == "function",
   "Kanto Gear loads while a translation catalog is already active")
+T.check(not source:find("+%d MORE", 1, true),
+  "INFO previews link to complete tables instead of hiding +more rows")
 local upvalues = debug.getinfo(entry, "u").nups
 local firstUpvalue = debug.getupvalue(entry, 1)
 if firstUpvalue == "_ENV" then upvalues = upvalues - 1 end

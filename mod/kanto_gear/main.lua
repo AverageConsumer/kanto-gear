@@ -1362,6 +1362,7 @@ return function(mod)
   local textSpeedReleasePending = false
   local battle = nil
   local moveInfo = nil
+  local battleInfoDetail = nil
   local intentId = 0
   local nextPoll = 0
   local nextClock = 0
@@ -3077,18 +3078,61 @@ return function(mod)
     enemy, data = enemy or {}, data or {}
     local species = enemy.species
     local def = species and data.pokemon and data.pokemon[species] or {}
+    local entry = compat.isGen2()
+      and data.gen2Pokedex and data.gen2Pokedex.entries
+      and data.gen2Pokedex.entries[species] or def.dexEntry
     local dex = save and save.pokedex or {}
     local seen, caught = dex.seen or {}, compat.caughtDex(save)
     local info = {
       species = species,
       name = enemy.name or def.name or species or "-",
       level = enemy.level,
-      dex = def.dex,
+      dex = entry and entry.dex or def.dex,
       types = def.types or {},
       seen = species and not not seen[species] or false,
       caught = species and not not caught[species] or false,
       weak = {}, resist = {},
+      kind = entry and entry.kind,
+      description = {},
     }
+    if entry then
+      local heightM, height = tonumber(entry.heightM), tonumber(entry.height)
+      if heightM then
+        info.height = THEME:format("HEIGHT %.1f M", heightM)
+        info.weight = THEME:format("WEIGHT %.1f KG",
+          tonumber(entry.weightKg) or 0)
+      elseif compat.isGen2() and height then
+        info.height = THEME:format("HEIGHT %d FT %d IN",
+          math.floor(height / 100), height % 100)
+        info.weight = THEME:format("WEIGHT %.1f LB",
+          (tonumber(entry.weight) or 0) / 10)
+      elseif entry.heightFt then
+        info.height = THEME:format("HEIGHT %d FT %d IN",
+          tonumber(entry.heightFt) or 0, tonumber(entry.heightIn) or 0)
+        info.weight = THEME:format("WEIGHT %.1f LB",
+          (tonumber(entry.weight) or 0) / 10)
+      end
+      local source = compat.isGen2()
+        and table.concat({ entry.text or "", entry.text2 or "" }, " ")
+        or (data.text and data.text[entry.text]) or entry.text or ""
+      source = tostring(source):gsub("<[^>]+>", " ")
+        :gsub("[\r\n@]+", " "):gsub("%s+", " ")
+      local current = ""
+      for word in fit(source, 10000):gmatch("%S+") do
+        local joined = current == "" and word or current .. " " .. word
+        if #glyphList(joined) <= 24 then
+          current = joined
+        elseif current == "" then
+          info.description[#info.description + 1] = fit(word, 24)
+        else
+          info.description[#info.description + 1] = fit(current, 24)
+          current = word
+        end
+      end
+      if current ~= "" then
+        info.description[#info.description + 1] = fit(current, 24)
+      end
+    end
     local attackers = {}
     for _, row in ipairs((data.type_chart or {}).matchups or {}) do
       attackers[row.attacker] = true
@@ -3648,7 +3692,39 @@ return function(mod)
   local function drawBattle()
     if currentBattleUIMode() == "info" then
       local info = compat.enemyInfo(battle.enemy, game.data, game.save)
-      header("ENEMY INFO")
+      if battleInfoDetail == "profile" then
+        header("POKEDEX", true)
+        centered(fit(info.name, 24), 25, INK)
+        centered(fit(THEME:format("NO.%03d %s", info.dex or 0,
+          info.kind or "--"), 24), 37, DARK)
+        centered(fit(info.height or "--", 24), 50, INK)
+        centered(fit(info.weight or "--", 24), 61, INK)
+        box("fill", 4, 74, 152, 1, DARK)
+        if #info.description == 0 then
+          centered("NO DETAILS AVAILABLE", 103, DARK)
+        else
+          for i = 1, math.min(8, #info.description) do
+            centered(info.description[i], 80 + (i - 1) * 8, INK)
+          end
+        end
+        return
+      elseif battleInfoDetail == "weak" or battleInfoDetail == "resist" then
+        local rows = info[battleInfoDetail]
+        header(battleInfoDetail == "weak" and "WEAK" or "RESIST", true)
+        centered("BASE MATCHUP", 23, DARK)
+        box("fill", 4, 33, 152, 1, DARK)
+        if #rows == 0 then
+          centered("--", 76, INK)
+        else
+          for i, row in ipairs(rows) do
+            local y = 37 + (i - 1) * 8
+            text(fit(THEME:typeName(row.type, mod.content), 18), 8, y, INK)
+            text(effectLabel(row.multiplier), 128, y, DARK)
+          end
+        end
+        return
+      end
+      header(THEME:translate("ENEMY INFO") .. " >")
       drawSprite(info.species, "front", 4, 24, 44, 48, nil, battle.enemy)
       text(fit(info.name, 17), 52, 24, INK)
       local identity = info.dex and info.level
@@ -3669,17 +3745,19 @@ return function(mod)
       box("fill", 4, 78, 152, 1, DARK)
       centered("BASE MATCHUP", 81, DARK)
       box("fill", 79, 90, 1, 52, MID)
-      text("WEAK", 5, 91, DARK)
-      text("RESIST", 84, 91, DARK)
+      text(fit("WEAK", 7), 5, 91, DARK)
+      text(tostring(#info.weak), 57, 91, DARK)
+      text(">", 71, 91, DARK)
+      text(fit("RESIST", 7), 84, 91, DARK)
+      text(tostring(#info.resist), 136, 91, DARK)
+      text(">", 150, 91, DARK)
       for column, rows in ipairs({ info.weak, info.resist }) do
         local x = column == 1 and 5 or 84
         if #rows == 0 then text("--", x, 102, INK) end
         for i = 1, math.min(#rows, 4) do
           local row = rows[i]
-          local label = i == 4 and #rows > 4
-            and THEME:format("+%d MORE", #rows - 3)
-            or fit(THEME:typeName(row.type, mod.content), 6)
-              .. " " .. effectLabel(row.multiplier)
+          local label = fit(THEME:typeName(row.type, mod.content), 6)
+            .. " " .. effectLabel(row.multiplier)
           text(fit(label, 11), x, 102 + (i - 1) * 10, INK)
         end
       end
@@ -3955,6 +4033,7 @@ return function(mod)
     if changed then
       if not battle then
         moveInfo = nil
+        battleInfoDetail = nil
       else
         radarOpen = false
       end
@@ -3973,7 +4052,9 @@ return function(mod)
   end
 
   local function back()
-    if moveInfo then
+    if battleInfoDetail then
+      battleInfoDetail = nil
+    elseif moveInfo then
       moveInfo = nil
     elseif battle and battle.prompt == "moves" then
       submit("back")
@@ -4078,7 +4159,16 @@ return function(mod)
   end
 
   local function tapBattle(x, y)
-    if currentBattleUIMode() == "info" then return end
+    if currentBattleUIMode() == "info" then
+      if battleInfoDetail then
+        if y < HEADER and x < 22 then battleInfoDetail, dirty = nil, true end
+      elseif y >= HEADER and y < 79 then
+        battleInfoDetail, dirty = "profile", true
+      elseif y >= 90 then
+        battleInfoDetail, dirty = x < 80 and "weak" or "resist", true
+      end
+      return
+    end
     local top = game and game.stack and game.stack:top()
     if top and top.kind == "pp_item_move" then
       if y < HEADER and x < 24 then
@@ -4853,6 +4943,7 @@ return function(mod)
       if not assist("move_details")
           or (payload.key == "battle_view"
             and currentBattleUIMode() == "info") then moveInfo = nil end
+      if payload.key == "battle_view" then battleInfoDetail = nil end
       if page == "GUIDE" and not assist("guide") then
         page = "MAP"
       end
@@ -4867,7 +4958,7 @@ return function(mod)
   end)
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
-    if moveInfo then
+    if moveInfo or battleInfoDetail then
       local queue = stepGame and stepGame.input
         and stepGame.input.pressQueue
       local consumed
@@ -5204,6 +5295,7 @@ return function(mod)
 
   mod.events:on("battle.ended", function(payload)
     dirty = true
+    battleInfoDetail = nil
     local state = payload and payload.battle
     local result = payload and payload.result
     if mapId == "OAKS_LAB" and state and state.oppClass == "OPP_RIVAL1"
@@ -5216,6 +5308,7 @@ return function(mod)
     if compat.isBattleScreen(payload and payload.state) then
       battle = nil
       moveInfo = nil
+      battleInfoDetail = nil
       dirty = true
     end
   end)
@@ -5315,7 +5408,7 @@ return function(mod)
         tostring(pendingFly and pendingFly.id),
         tostring(pendingAction and pendingAction.id),
         tostring(partyActionSlot), tostring(partyMoveFrom),
-        tostring(trainerStepsOpen),
+        tostring(trainerStepsOpen), tostring(battleInfoDetail),
         tostring(fieldChoice and fieldChoice.kind),
         tostring(fieldChoice and fieldChoice.source
           and fieldChoice.source.slot) }, ":")

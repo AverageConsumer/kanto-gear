@@ -95,9 +95,10 @@ T.love.joystick = { getJoysticks = function()
     end,
   } }
 end }
+local touchEvents = {}
 local companion = {
   detected = function() return true end,
-  pollTouch = function() return nil end,
+  pollTouch = function() return table.remove(touchEvents, 1) end,
   push = function() return true end,
 }
 local mapDraws = T.record.draw()
@@ -133,6 +134,10 @@ T.check(firstBadge and lastBadge,
 
 local enemy = { species = "FIXMON_B", level = 4, hp = 11, maxHp = 12,
   moves = {} }
+run.data.gen2Pokedex = { entries = { FIXMON_B = {
+  dex = 2, kind = "FLAME", height = 204, weight = 190,
+  text = "A small flame stays warm.", text2 = "It glows at night.",
+} } }
 local battle = { player = game.save.party[1], enemy = enemy,
   party = game.save.party, wild = true, turn = 0 }
 function battle:moveDisabled() return false end
@@ -181,6 +186,39 @@ infoDraws:stop()
 T.check(#infoDraws:fromPath(
     "tests/fixture_data/assets/fixmon_b_front.png") > 0,
   "Gold INFO draws the active enemy species on the companion screen")
+touchEvents[1] = "tap,40,40"
+local profileDraws = T.record.draw()
+now = now + 1
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+profileDraws:stop()
+T.eq(#profileDraws:fromPath(
+    "tests/fixture_data/assets/fixmon_b_front.png"), 0,
+  "tapping INFO identity opens the Gold Pokedex detail page")
+game.input = { pressQueue = { "b" } }
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+T.eq(#game.input.pressQueue, 0,
+  "Pokedex detail consumes B without backing out of the battle")
+local profileBackDraws = T.record.draw()
+now = now + 1
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+profileBackDraws:stop()
+T.check(#profileBackDraws:fromPath(
+    "tests/fixture_data/assets/fixmon_b_front.png") > 0,
+  "B returns from Pokedex detail to the compact INFO card")
+touchEvents[1] = "tap,20,110"
+local matchupDraws = T.record.draw()
+now = now + 1
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+matchupDraws:stop()
+T.eq(#matchupDraws:fromPath(
+    "tests/fixture_data/assets/fixmon_b_front.png"), 0,
+  "tapping a matchup column opens its complete focused table")
 run.loader.modOptions.kanto_gear.battle_view = "full"
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "battle_view" })

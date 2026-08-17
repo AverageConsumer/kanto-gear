@@ -22,6 +22,8 @@ T.eq(run.data.strings["BATTLE VIEW"], "VISTA DE COMBATE",
   "companion mod translates Kanto Gear settings")
 T.eq(run.data.strings["ENEMY INFO"], "INFO. RIVAL",
   "companion mod translates enemy information")
+T.eq(run.data.strings["WEIGHT %.1f KG"], "PESO %.1f KG",
+  "companion mod translates Pokedex details")
 T.eq(run.data.strings["DISPLAY LAYOUT"], "DISEÑO DE PANTALLA",
   "companion mod translates the single-window layout")
 T.eq(run.data.strings["SCREEN SWAP (Y)"], "INTERCAMBIAR PANT. (Y)",
