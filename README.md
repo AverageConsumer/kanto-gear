@@ -72,8 +72,8 @@ and the companion size can be tuned without stretching its UI.
 
 ## What Kanto Gear adds
 
-Kanto Gear gives Pokémon Red, Blue, Yellow and Gold a configurable companion
-display without changing the game underneath it.
+Kanto Gear gives Pokémon Red, Blue, Yellow, Gold and Silver a configurable
+companion display without changing the game underneath it.
 
 - Explore with a live region map, detailed local maps, exits and item markers.
 - Check your party, Trainer Card, badges, Pokédex progress, steps and area data.
@@ -90,6 +90,8 @@ when a second display disappears.
 Kanto Gear 2.2 works with the official Gen1Recomp 0.1.99 release or newer. No
 custom host or Voxel renderer is required for new installations.
 
+Pokémon Silver requires Gen1Recomp 0.2.10 or newer.
+
 | Download | Required | Purpose |
 | --- | :---: | --- |
 | [Gen1Recomp 0.1.99 or newer](https://github.com/bryanthaboi/gen1recomp/releases/latest) | **Yes** | Official host and platform packages |
@@ -104,8 +106,8 @@ custom host or Voxel renderer is required for new installations.
 
 ## Install
 
-You need your own supported Pokémon Red, Blue, Yellow or Gold ROM. No ROM or
-ROM-extracted game data is included.
+You need your own supported Pokémon Red, Blue, Yellow, Gold or Silver ROM. No
+ROM or ROM-extracted game data is included.
 
 1. Install the [latest official Gen1Recomp release](https://github.com/bryanthaboi/gen1recomp/releases/latest)
    for your platform.
@@ -130,9 +132,9 @@ exported save backup before changing hosts or operating systems.
 > then import the ROM, save and Kanto Gear into the official app. Do not remove
 > the old host until the migrated save has been verified.
 >
-> Gen1Recomp 0.1.99 cannot export a Pokémon Gold cartridge `.sav` yet. Gold
-> players should keep the legacy host installed and continue there until an
-> upstream Gen 2 transfer path is available. Kanto Gear 2.1 remains compatible
+> Gen1Recomp cannot export Pokémon Gold or Silver cartridge `.sav` files yet.
+> Gen 2 players should keep the legacy host installed and continue there until
+> an upstream Gen 2 transfer path is available. Kanto Gear 2.1 remains compatible
 > with the final legacy host for this reason; the host itself is frozen and
 > will receive no further feature releases.
 

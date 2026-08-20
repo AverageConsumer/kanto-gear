@@ -64,8 +64,9 @@ local game = {
   data = run.data,
   save = {
     generation = 2,
+    version = "silver",
     player = {
-      name = "GOLD", id = 25, money = 1234, map = "FIX_ROUTE",
+      name = "SILVER", id = 25, money = 1234, map = "FIX_ROUTE",
       badges = { ZEPHYR = true }, kantoBadges = {},
     },
     party = { {
@@ -127,7 +128,7 @@ for _ = 1, 10 do
   })
 end
 mapDraws:stop()
-T.check(true, "Gold-shaped save and world render every companion tab")
+T.check(true, "Silver-shaped save and world render every companion tab")
 local firstBadge, lastBadge = false, false
 for _, call in ipairs(rectangles) do
   local _, x, y, w, h = unpack(call)

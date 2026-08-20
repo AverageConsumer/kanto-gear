@@ -13,6 +13,6 @@
   "optional_dependencies": [],
   "conflicts": [],
   "permissions": ["engine_internals"],
-  "description": "Flexible companion UI for Gen 1 and Pokemon Gold on single- and dual-screen Gen1Recomp hosts.",
+  "description": "Flexible companion UI for Gen 1 and Pokemon Gold/Silver on single- and dual-screen Gen1Recomp hosts.",
   "github": "AverageConsumer/kanto-gear"
 }

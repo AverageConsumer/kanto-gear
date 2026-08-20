@@ -1456,7 +1456,9 @@ return function(mod)
     return game and game.save and game.save.generation == 2
   end
 
-  compat.romCodes = { red = "RD", blue = "BL", yellow = "YL", gold = "GD" }
+  compat.romCodes = {
+    red = "RD", blue = "BL", yellow = "YL", gold = "GD", silver = "SV",
+  }
 
   function compat.systemId(version, release)
     version = version or (game and game.save and game.save.version)
@@ -1468,6 +1470,8 @@ return function(mod)
   end
   assert(compat.systemId("gold", "1.8.0-rc.8") == "SLS-GD-1.8.0-RC8",
     "Silph Link system identifier")
+  assert(compat.systemId("silver", "2.2.0") == "SLS-SV-2.2.0",
+    "Silver Silph Link system identifier")
 
   function compat.titleChoice(top)
     return top and top.screenId == "Gen2MainMenu" and top.phase == "menu"
