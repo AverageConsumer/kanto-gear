@@ -124,6 +124,9 @@ return {
   -- Kanto Gear settings. Theme and product names stay recognizable while
   -- descriptive labels follow the selected language.
   ["THEME"] = "DESIGN",
+  ["CLOCK"] = "UHR",
+  ["GAME"] = "SPIEL",
+  ["SYSTEM"] = "SYSTEM",
   ["PURIST"] = "PURISTISCH",
   ["ENHANCED"] = "ERWEITERT",
   ["SAVED CUSTOM"] = "GESPEICHERT",

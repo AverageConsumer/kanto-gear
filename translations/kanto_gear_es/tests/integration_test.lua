@@ -20,6 +20,8 @@ T.eq(run.data.strings["JOHTO MAP"], "MAPA DE JOHTO",
   "companion mod translates Gold map headings")
 T.eq(run.data.strings["BATTLE VIEW"], "VISTA DE COMBATE",
   "companion mod translates Kanto Gear settings")
+T.eq(run.data.strings["CLOCK"], "RELOJ",
+  "companion mod translates the clock source")
 T.eq(run.data.strings["ENEMY INFO"], "INFO. RIVAL",
   "companion mod translates enemy information")
 T.eq(run.data.strings["WEIGHT %.1f KG"], "PESO %.1f KG",

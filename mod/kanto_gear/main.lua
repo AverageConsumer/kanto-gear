@@ -1218,6 +1218,10 @@ return function(mod)
         { "SGB", "sgb" }, { "ADVANCED", "advanced" },
         { "VERSION COLOR", "version" },
       } },
+    { key = "clock_source", label = "CLOCK", type = "choice",
+      default = "game", choices = {
+        { "GAME", "game" }, { "SYSTEM", "system" },
+      } },
     { key = "info_level", label = "INFO", type = "choice",
       default = infoDefault, choices = infoChoices },
     { key = "local_map", label = "AREA MAP",
@@ -1455,6 +1459,33 @@ return function(mod)
   function compat.isGen2()
     return game and game.save and game.save.generation == 2
   end
+
+  function compat.clockTimestamp(currentGame, source, now)
+    if source ~= "game" or not (currentGame and currentGame.save
+        and currentGame.save.generation == 2) then return now end
+    local world = currentGame.world
+    if not (world and type(world.hour) == "function"
+        and type(world.minute) == "function") then return now end
+    local okHour, hour = pcall(world.hour, world)
+    local okMinute, minute = pcall(world.minute, world)
+    local current = os.date("*t", now)
+    if not (okHour and okMinute and type(hour) == "number"
+        and type(minute) == "number" and type(current) == "table") then
+      return now
+    end
+    current.hour, current.min, current.sec = hour % 24, minute % 60, 0
+    local ok, timestamp = pcall(os.time, current)
+    return ok and timestamp or now
+  end
+  assert(os.date("%H:%M", compat.clockTimestamp({
+      save = { generation = 2 }, world = {
+        hour = function() return 21 end,
+        minute = function() return 5 end,
+      } }, "game", os.time({ year = 2026, month = 1, day = 15,
+        hour = 12, min = 34, sec = 56 }))) == "21:05"
+    and compat.clockTimestamp({ save = { generation = 1 } }, "game", 123) == 123
+    and compat.clockTimestamp({ save = { generation = 2 } }, "game", 123) == 123,
+    "game clock source with safe fallback")
 
   compat.romCodes = {
     red = "RD", blue = "BL", yellow = "YL", gold = "GD", silver = "SV",
@@ -2119,7 +2150,9 @@ return function(mod)
     else
       text(fit(title, 14), 5, 6, foreground)
     end
-    local clock = compactClock(mod.datetime:time(game, os.time()))
+    local now = os.time()
+    local clock = compactClock(mod.datetime:time(game,
+      compat.clockTimestamp(game, mod.options:get("clock_source"), now)))
     local clockX = 117 - math.floor(#clock * 3)
     text(clock, clockX, 6, foreground)
     battery(143, foreground)
