@@ -2874,18 +2874,34 @@ return function(mod)
   end
 
   local function drawCaughtBall(x, y)
-    local raw = battleState()
-    if raw and raw.drawCaughtBall then
-      raw:drawCaughtBall(x, y)
-      return
+    if spriteCache.__caughtBall == nil then
+      local data = game and game.data or {}
+      local path, size
+      if compat.isGen2() then
+        local hud = data.gen2MenuGfx and data.gen2MenuGfx.battleHud
+        path = hud and hud.balls
+        size = 8
+      else
+        path = data.icons and data.icons.icons and data.icons.icons.BALL
+        size = 16
+      end
+      local ok, asset = false, nil
+      if path then
+        ok, asset = pcall(function()
+          local image = require("src.render.Assets").image(path)
+          local width, height = image:getDimensions()
+          size = math.min(size, width, height)
+          return { image = image,
+            quad = G.newQuad(0, 0, size, size, width, height), scale = 8 / size }
+        end)
+      end
+      spriteCache.__caughtBall = ok and asset or false
     end
-    box("fill", x + 2, y, 4, 1, INK)
-    box("fill", x + 1, y + 1, 6, 1, INK)
-    box("fill", x, y + 2, 8, 4, INK)
-    box("fill", x + 1, y + 6, 6, 1, INK)
-    box("fill", x + 2, y + 7, 4, 1, INK)
-    box("fill", x + 1, y + 3, 6, 2, PAPER)
-    box("fill", x + 3, y + 3, 2, 2, DARK)
+    local asset = spriteCache.__caughtBall
+    if not asset then return false end
+    G.setColor(1, 1, 1, 1)
+    G.draw(asset.image, asset.quad, x, y, 0, asset.scale, asset.scale)
+    return true
   end
 
   local function drawGuide()
@@ -2912,15 +2928,16 @@ return function(mod)
         local tint = not row.caught and DARK or nil
         drawSprite(row.species, "front", 5, y + 1, 27, 27, tint)
         text(fit(row.name, 12), 35, y + 3, INK)
-        if guide.timed then
+        local caughtBall = row.caught and drawCaughtBall(147, y + 2)
+        if guide.timed and (not row.caught or caughtBall) then
           local times = {}
           for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
             times[#times + 1] = (row.allTimes or row.times and row.times[time])
               and fit(time, 1, false) or "-"
           end
           text(table.concat(times, " "), 112, y + 3, DARK)
-          if row.caught then drawCaughtBall(147, y + 2) end
-        elseif row.caught then
+        end
+        if row.caught and not caughtBall then
           text(fit("CAUGHT", 7), 113, y + 3, DARK)
         end
         local levels = row.minLevel == row.maxLevel
@@ -5057,6 +5074,7 @@ return function(mod)
     game = payload.game
     spriteCache.__badges = nil
     spriteCache.__gen2Badges = nil
+    spriteCache.__caughtBall = nil
     refreshTheme(true)
     reloadSteps()
     local player = game.save and game.save.player

@@ -51,6 +51,15 @@ T.check(type(entry) == "function",
   "Kanto Gear loads while a translation catalog is already active")
 T.check(not source:find("+%d MORE", 1, true),
   "INFO previews link to complete tables instead of hiding +more rows")
+T.check(source:find("data.icons.icons.BALL", 1, true),
+  "Gen 1 GUIDE uses its canonical ROM-provided Pokeball icon")
+T.check(source:find("game.data.gen2MenuGfx", 1, true)
+    and source:find("hud and hud.balls", 1, true),
+  "Gen 2 GUIDE uses its canonical battle HUD Pokeball asset")
+T.check(not source:find('box("fill", x + 2, y, 4, 1, INK)', 1, true),
+  "GUIDE no longer draws a handmade Pokeball substitute")
+T.check(source:find("row.caught and not caughtBall", 1, true),
+  "GUIDE falls back to its CAUGHT label when the asset is unavailable")
 local upvalues = debug.getinfo(entry, "u").nups
 local firstUpvalue = debug.getupvalue(entry, 1)
 if firstUpvalue == "_ENV" then upvalues = upvalues - 1 end
