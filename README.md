@@ -9,7 +9,7 @@ Kanto Gear adds maps, party data, battle controls and touch-friendly tools to
 inside a combined layout, or on a dedicated second display.
 
 <p>
-  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.0"><img src="https://img.shields.io/badge/release-v2.3.0-5c8a3c" alt="Latest release: v2.3.0"></a>
+  <a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.1"><img src="https://img.shields.io/badge/release-v2.3.1-5c8a3c" alt="Latest release: v2.3.1"></a>
   <a href="#display-mode-reference"><img src="https://img.shields.io/badge/platform-Android%20%7C%20Windows%20%7C%20Linux-3DDC84" alt="Platforms: Android, Windows and Linux"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/code-MIT-blue.svg" alt="Code license: MIT"></a>
 </p>
@@ -20,7 +20,7 @@ inside a combined layout, or on a dedicated second display.
   <img src="kanto-gear-full-gear-battle.png" width="32%" alt="Kanto Gear Full Gear battle controls and status panels">
 </p>
 
-<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.0">Download Kanto Gear</a></strong> · <strong><a href="#install">Install</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
+<p><strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.1">Download Kanto Gear</a></strong> · <strong><a href="#install">Install</a></strong> · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong></p>
 
 </div>
 
@@ -95,9 +95,9 @@ Pokémon Silver requires Gen1Recomp 0.2.10 or newer.
 | Download | Required | Purpose |
 | --- | :---: | --- |
 | [Gen1Recomp 0.1.99 or newer](https://github.com/bryanthaboi/gen1recomp/releases/latest) | **Yes** | Official host and platform packages |
-| [Kanto Gear 2.3.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.0) | **Yes** | Companion UI and display modes |
-| [Kanto Gear Deutsch 0.2.5](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.0) | No | German text for the Kanto Gear interface |
-| [Kanto Gear Español (España) 0.2.5](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.0) | No | Spanish (Spain) text for the Kanto Gear interface |
+| [Kanto Gear 2.3.1](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.1) | **Yes** | Companion UI and display modes |
+| [Kanto Gear Deutsch 0.2.5](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.1) | No | German text for the Kanto Gear interface |
+| [Kanto Gear Español (España) 0.2.5](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.1) | No | Spanish (Spain) text for the Kanto Gear interface |
 
 > [!IMPORTANT]
 > Gen1Recomp 0.1.99 is the first official release containing Kanto Gear's full
@@ -111,7 +111,7 @@ ROM or ROM-extracted game data is included.
 
 1. Install the [latest official Gen1Recomp release](https://github.com/bryanthaboi/gen1recomp/releases/latest)
    for your platform.
-2. Download [Kanto Gear 2.3.0](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.0).
+2. Download [Kanto Gear 2.3.1](https://github.com/AverageConsumer/kanto-gear/releases/tag/v2.3.1).
 3. Open the host's **MODS → Import mod .zip** screen and select the Kanto Gear
    ZIP.
 4. Enable **Kanto Gear** and start the game. Choose a display mode in Kanto
