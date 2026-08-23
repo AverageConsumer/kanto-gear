@@ -19,8 +19,8 @@ Windows and Linux—without requiring a custom host or 3D renderer.
 </p>
 
 <p>
-  <img src="docs/images/kanto-gear-hero-game.png" width="63%" alt="Pokémon Gold running at night on the primary AYN Thor display">
-  <img src="docs/images/kanto-gear-hero-local.png" width="35%" alt="Kanto Gear showing a terrain-colored local map on the secondary AYN Thor display">
+  <img src="screenshots/kanto-gear-hero-game.png" width="63%" alt="Pokémon Gold running at night on the primary AYN Thor display">
+  <img src="screenshots/kanto-gear-hero-local.png" width="35%" alt="Kanto Gear showing a terrain-colored local map on the secondary AYN Thor display">
 </p>
 
 <p>
@@ -45,7 +45,7 @@ game already knows.
 
 | Party at a glance | Know the opponent | Find what lives here |
 | --- | --- | --- |
-| <img src="docs/images/kanto-gear-party.png" alt="Kanto Gear party screen with native-color Pokémon and a correctly hidden Egg"> | <img src="docs/images/kanto-gear-enemy-info.png" alt="Kanto Gear Enemy Info showing known opponent data and type matchups"> | <img src="docs/images/kanto-gear-guide.png" alt="Kanto Gear area guide showing encounters and time-of-day availability"> |
+| <img src="screenshots/kanto-gear-party.png" alt="Kanto Gear party screen with native-color Pokémon and a correctly hidden Egg"> | <img src="screenshots/kanto-gear-enemy-info.png" alt="Kanto Gear Enemy Info showing known opponent data and type matchups"> | <img src="screenshots/kanto-gear-guide.png" alt="Kanto Gear area guide showing encounters and time-of-day availability"> |
 | Native-color sprites, HP, EXP, status and Eggs without revealing what will hatch. | Optional Pokédex identity and base type matchups while the original battle UI stays intact. | Encounter rates, levels, caught state and morning, day or night availability. |
 
 Kanto Gear uses native game palettes where the host exposes them, keeps unknown
@@ -62,8 +62,8 @@ Modern Light and Modern Dark.
 | **Separate Screens** | AYN Thor, RG DS, Retroid add-ons, desktops and multi-monitor setups | Routes Kanto Gear to a selected Android display or opens a normal movable desktop window. |
 
 <p align="center">
-  <img src="docs/images/kanto-gear-combined-side-by-side.png" width="49%" alt="Pokémon Gold and Kanto Gear sharing one Android display side by side">
-  <img src="docs/images/kanto-gear-combined-overlay.png" width="49%" alt="Kanto Gear local map displayed as a resizable overlay over Pokémon Gold">
+  <img src="screenshots/kanto-gear-combined-side-by-side.png" width="49%" alt="Pokémon Gold and Kanto Gear sharing one Android display side by side">
+  <img src="screenshots/kanto-gear-combined-overlay.png" width="49%" alt="Kanto Gear local map displayed as a resizable overlay over Pokémon Gold">
 </p>
 
 The game viewport and Android touch controls adapt when a combined layout makes
