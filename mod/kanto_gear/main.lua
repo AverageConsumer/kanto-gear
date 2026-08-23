@@ -3283,6 +3283,11 @@ return function(mod)
       return
     end
     local source = mon.source or mon
+    if source.isEgg then
+      compat.drawPokemonIcon(source, x + 2, y + 2)
+      text(fit(mon.name, 7), x + 29, y + 9, selected and PAPER or INK)
+      return
+    end
     if not drawSprite(mon.species, "front", x + 2, y + 4, 27, 27,
                       nil, source, true) then
       compat.drawPokemonIcon(source, x + 2, y + 2)
