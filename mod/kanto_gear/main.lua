@@ -317,6 +317,14 @@ local PC_LIST_KINDS = {
   pc_item_withdraw = true, pc_item_deposit = true, pc_item_toss = true,
 }
 
+local function rowsContract(rows)
+  if type(rows) ~= "table" then return false end
+  for _, row in ipairs(rows) do
+    if type(row) ~= "table" then return false end
+  end
+  return true
+end
+
 local function validPalette(palette)
   if type(palette) ~= "table" then return false end
   for i = 1, 4 do
@@ -423,7 +431,9 @@ end
 
 local function moveGridLayout(state, owned)
   if owned then return true end
-  return state and state.wideLayout and state:wideLayout() == true or false
+  if not (state and type(state.wideLayout) == "function") then return false end
+  local ok, wide = pcall(state.wideLayout, state)
+  return ok and wide == true or false
 end
 
 local function moveSlotAt(x, y, count, grid)
@@ -450,7 +460,9 @@ local function progressRatio(value, first, last)
 end
 
 local function pcListKind(state)
-  return state and PC_LIST_KINDS[state.kind] and state.kind or nil
+  return state and PC_LIST_KINDS[state.kind]
+    and rowsContract(state.items) and type(state.index) == "number"
+    and state.kind or nil
 end
 
 local function assistEnabled(profile, custom)
@@ -725,7 +737,13 @@ end
 
 local function supportedBattleUI(state)
   if not state then return false end
-  local kind = state.battleKind and state:battleKind() or state.kind
+  local kind = state.kind
+  if state.battleKind ~= nil then
+    if type(state.battleKind) ~= "function" then return false end
+    local ok, value = pcall(state.battleKind, state)
+    if not ok then return false end
+    kind = value
+  end
   return kind ~= "link" and kind ~= "oldman"
 end
 
@@ -740,7 +758,8 @@ local function bottomOwnsBattleUI(enabled, active, available, ready,
 end
 
 local function battleChoice(state)
-  return state and state.onChoose and state.index and not state.items or false
+  return state and type(state.onChoose) == "function"
+    and type(state.index) == "number" and state.items == nil or false
 end
 
 local function categorizedBag(state)
@@ -750,26 +769,98 @@ local function categorizedBag(state)
 end
 
 local function levelUpStatBox(state)
-  return state and state.mon and state.mon.stats and not state.screenId or false
+  return state and type(state.mon) == "table"
+    and type(state.mon.stats) == "table" and not state.screenId or false
 end
 
-local MIRRORED_BATTLE_IDS = {
-  BagMenu = true, Gen2PackMenu = true,
-  PartyMenu = true, Gen2PartyMenu = true,
-}
+local PARTY_MENU_IDS = { PartyMenu = true, Gen2PartyMenu = true }
+local BAG_MENU_IDS = { BagMenu = true, Gen2PackMenu = true }
 
-local function mirroredBattleMenu(state)
-  if state and state.screenId == "Gen2PackMenu" and state.message then
+local function battlePartyMenu(state)
+  if not (state and (PARTY_MENU_IDS[state.screenId]
+      or state.isPartyMenu == true))
+      or type(state.index) ~= "number" then return nil end
+  if state.isCancel ~= nil and type(state.isCancel) ~= "function" then
+    return nil
+  end
+  if type(state.isCancel) == "function" then
+    local ok = pcall(state.isCancel, state)
+    if not ok then return nil end
+  end
+  if state.submenu then
+    local submenu = type(state.submenu) == "table" and state.submenu or nil
+    local items = state.subItems or (submenu and submenu.items)
+    local index = state.subIndex or (submenu and submenu.index)
+    if not rowsContract(items) or type(index) ~= "number" then return nil end
+  end
+  return state
+end
+
+local function battleBagContract(state)
+  if not (state and BAG_MENU_IDS[state.screenId]) then return false end
+  if state.screenId == "Gen2PackMenu" then
+    if state.message ~= nil or not rowsContract(state.rows)
+        or type(state.index) ~= "number"
+        or type(state.pocket) ~= "function" then return false end
+    local ok, pocket = pcall(state.pocket, state)
+    return ok and type(pocket) == "table"
+  end
+  if not rowsContract(state.items) or type(state.index) ~= "number" then
     return false
   end
-  return state and (state.isPartyMenu or MIRRORED_BATTLE_IDS[state.screenId]
-    or state.kind == "pp_item_move" or battleChoice(state)
-    or levelUpStatBox(state)) or false
+  if state.__gen3uiBagViewRows ~= nil then
+    return rowsContract(state.__gen3uiBagViewRows)
+      and type(state.__gen3uiBagViewIndex) == "number"
+  end
+  return true
 end
 
-assert(mirroredBattleMenu({ screenId = "Gen2PackMenu" })
-       and mirroredBattleMenu({ screenId = "Gen2PartyMenu" })
-       and not mirroredBattleMenu({ screenId = "Gen2PackMenu", message = {} }),
+local function ppItemMoveMenu(state)
+  return state and state.kind == "pp_item_move"
+    and rowsContract(state.items) and type(state.index) == "number"
+    and state or nil
+end
+
+local function namingGrid(state)
+  if not (state and state.screenId == "NamingScreen")
+      or type(state.glyphs) ~= "table" or type(state.row) ~= "number"
+      or type(state.col) ~= "number" or type(state.grid) ~= "function" then
+    return nil
+  end
+  local ok, grid = pcall(state.grid, state)
+  if not ok or not rowsContract(grid) or #grid == 0 then return nil end
+  for _, row in ipairs(grid) do
+    if #row == 0 then return nil end
+  end
+  return grid
+end
+
+local function moveLearnMenu(state)
+  if not (state and state.screenId == "MoveLearnMenu")
+      or type(state.mon) ~= "table"
+      or type(state.mon.species) ~= "string" or state.newMoveId == nil
+      or type(state.index) ~= "number" then return nil end
+  if state.selecting and type(state.mon.moves) ~= "table" then return nil end
+  return state
+end
+
+local function screenContract(state, kind)
+  if kind == "party" then return battlePartyMenu(state) end
+  if kind == "bag" then return battleBagContract(state) and state or nil end
+  if kind == "pp" then return ppItemMoveMenu(state) end
+  if kind == "naming" then return namingGrid(state) end
+  if kind == "moveLearn" then return moveLearnMenu(state) end
+  return state and (battlePartyMenu(state) or battleBagContract(state)
+    or ppItemMoveMenu(state) or battleChoice(state) or levelUpStatBox(state))
+    or false
+end
+
+assert(screenContract({ screenId = "Gen2PackMenu", rows = {}, index = 1,
+                            pocket = function() return {} end })
+       and screenContract({ screenId = "Gen2PartyMenu", index = 1 })
+       and not screenContract({ screenId = "Gen2PackMenu", message = {} })
+       and not screenContract({ screenId = "PartyMenu" })
+       and not screenContract({ screenId = "BagMenu" }),
        "safe Gen 2 battle menu mirroring")
 assert(not choiceReady(0.31, 0.32) and choiceReady(0.32, 0.32),
        "choice quiet gate")
@@ -823,7 +914,9 @@ assert(progressRatio(15, 10, 20) == 0.5
 do
   local first, count = pageWindow(6, 9)
   assert(first == 5 and count == 4
-    and pcListKind({ kind = "pc_box_withdraw" }) == "pc_box_withdraw"
+    and pcListKind({ kind = "pc_box_withdraw", items = {}, index = 1 })
+      == "pc_box_withdraw"
+    and not pcListKind({ kind = "pc_box_withdraw" })
     and not pcListKind({ kind = "bag" }), "PC touch list identity")
 end
 assert(not assistEnabled("purist", true)
@@ -931,12 +1024,15 @@ do
     and not bottomOwnsBattleUI(true, true, true, true, state, nil)
     and not bottomOwnsBattleUI(true, true, true, false, state, {})
     and not bottomOwnsBattleUI(true, true, false, true, state, {})
-    and mirroredBattleMenu({ isPartyMenu = true })
-    and mirroredBattleMenu({ screenId = "BagMenu" })
-    and mirroredBattleMenu({ kind = "pp_item_move" })
-    and mirroredBattleMenu({ onChoose = function() end, index = 1 })
-    and mirroredBattleMenu({ mon = { stats = {} } })
-    and not mirroredBattleMenu({ screenId = "TownMap" }),
+    and screenContract({ isPartyMenu = true, index = 1 })
+    and screenContract({ screenId = "BagMenu", items = {}, index = 1 })
+    and screenContract({ kind = "pp_item_move", items = {}, index = 1 })
+    and screenContract({ onChoose = function() end, index = 1 })
+    and screenContract({ mon = { stats = {} } })
+    and not screenContract({ isPartyMenu = true })
+    and not screenContract({ screenId = "BagMenu" })
+    and not screenContract({ kind = "pp_item_move" })
+    and not screenContract({ screenId = "TownMap" }),
     "stable upper battle UI ownership")
 end
 
@@ -1485,13 +1581,14 @@ return function(mod)
   compat.bagLabels = { "ITEMS", "BALLS", "KEY", "TM/HM" }
 
   function compat.levelUpMon(state)
-    if state and state.mon and state.mon.stats and not state.screenId then
+    if state and type(state.mon) == "table"
+        and type(state.mon.stats) == "table" and not state.screenId then
       return state.mon
     end
     if state and state.screenId == "Gen2BattleState"
         and state.phase == "stats-box" then
       local mon = state.statsBoxMon
-      return mon and mon.stats and mon or nil
+      return type(mon) == "table" and type(mon.stats) == "table" and mon or nil
     end
   end
 
@@ -2283,23 +2380,40 @@ return function(mod)
     if not top then return end
     local field
     top, field = compat.choiceView(top)
+    if type(top) ~= "table" then return end
     if field ~= "index" and field ~= "script" and field ~= "cursor" then
-      return top, { "YES", "NO" }, field
+      if type(top[field]) == "number" then
+        return top, { "YES", "NO" }, field
+      end
+      return
     end
-    if top.onChoose and top.index and not top.items then
+    if battleChoice(top) then
       return top, { "YES", "NO" }, field
     end
     if top.screenId == "Gen2ElevatorMenu" then
+      if type(top.floors) ~= "table" or type(top.index) ~= "number" then
+        return
+      end
       local labels = {}
-      for i, row in ipairs(top.floors or {}) do
-        labels[i] = top.floorName and top.floorName(top.floorNames, row.floorId)
-          or row.label or tostring(row.floorId or i)
+      for i, row in ipairs(top.floors) do
+        if type(row) ~= "table" then return end
+        local label
+        if type(top.floorName) == "function" then
+          local ok
+          ok, label = pcall(top.floorName, top.floorNames, row.floorId)
+          if not ok then return end
+        end
+        labels[i] = label or row.label or tostring(row.floorId or i)
       end
       if #labels > 0 then return top, labels, field end
     end
-    if top.items and (field == "script" or field == "cursor"
+    if type(top.items) == "table" and (field == "script" or field == "cursor"
         or not top.screenId)
         and not pcListKind(top) then
+      if field == "script" and (type(top.row) ~= "number"
+          or type(top.col) ~= "number" or type(top.cols) ~= "number"
+          or top.cols < 1) then return end
+      if field ~= "script" and type(top[field]) ~= "number" then return end
       local labels = {}
       for i, item in ipairs(top.items) do
         labels[i] = type(item) == "table" and (item.label or tostring(i))
@@ -2386,13 +2500,13 @@ return function(mod)
                     y + 3)
   end
 
-  local function drawNaming(top)
+  local function drawNaming(top, grid)
     header("NAME INPUT")
     local name = table.concat(top.glyphs or {})
     name = name == "" and "-" or name
     color(DARK)
     EngineFont.draw(name, math.floor((WIDTH - EngineFont.width(name)) / 2), 24)
-    for row, cells in ipairs(top:grid()) do
+    for row, cells in ipairs(grid) do
       local y = 36 + (row - 1) * 17
       for col, label in ipairs(cells) do
         local left = 3 + math.floor((col - 1) * 154 / #cells)
@@ -3422,7 +3536,7 @@ return function(mod)
 
   local function drawBattleParty(menu)
     if menu.submenu then
-      header(fit((battle.party[menu.index] or {}).name or "POKEMON", 12), true)
+      header(fit(((battle.party or {})[menu.index] or {}).name or "POKEMON", 12), true)
       local submenu = type(menu.submenu) == "table" and menu.submenu or nil
       local items = menu.subItems or (submenu and submenu.items) or {}
       local index = menu.subIndex or (submenu and submenu.index)
@@ -3432,19 +3546,25 @@ return function(mod)
       end
       return
     end
-    local cancel = menu.isCancel and menu:isCancel()
+    local cancel
+    if menu.isCancel then
+      local ok
+      ok, cancel = pcall(menu.isCancel, menu)
+      if not ok then return end
+    end
     local selected = not cancel and menu.index or nil
     drawParty(battle.party or {}, cancel and "CANCEL" or "PARTY", true, nil,
       selected)
   end
 
   function compat.battleBagMenu(menu)
+    if not screenContract(menu, "bag") then return nil end
     -- Gen 3 UI 1.4 keeps its categorized cursor beside the native BagMenu.
     local rows = menu and menu.__gen3uiBagViewRows
     local viewIndex = menu and menu.__gen3uiBagViewIndex
     if menu and menu.screenId == "BagMenu" and type(rows) == "table"
         and type(viewIndex) == "number" then
-      local nativeIndex = menu.index or 1
+      local nativeIndex = menu.index
       local previous = compat.bagViews[menu]
       local mode = previous and previous.mode or "view"
       if previous then
@@ -3489,7 +3609,8 @@ return function(mod)
       }
     end
     items[#items + 1] = { label = "CANCEL", cancel = true }
-    local pocket = menu.pocket and menu:pocket() or {}
+    local ok, pocket = pcall(menu.pocket, menu)
+    if not ok or type(pocket) ~= "table" then return nil end
     return {
       screenId = menu.screenId,
       items = items,
@@ -3653,9 +3774,13 @@ return function(mod)
     button(103, 125, 53, 15, page < view.pages and "NEXT" or "CLOSE", false)
   end
 
-  local function drawTopSummaryControls(summary)
-    header("STATS ON TOP", true)
+  local function drawTopSummaryControls(_, generic)
+    header(generic and "MENU ON TOP" or "STATS ON TOP", true)
     centered("FOLLOW TOP SCREEN", 58, DARK)
+    if generic then
+      centered("INPUT STAYS ON TOP", 78, INK)
+      return
+    end
     button(14, 94, 132, 34, "BACK", false)
   end
 
@@ -3780,17 +3905,23 @@ return function(mod)
 
   local function drawPc(kind, root, top)
     local list = pcList()
-    if kind == "items" and top and top.qty and top.max and top.onDone then
+    local activeList = list and top == list and list or nil
+    local quantity = kind == "items" and list and top
+      and type(top.qty) == "number" and type(top.max) == "number"
+      and type(top.onDone) == "function"
+    if quantity then
       drawPcQuantity(top, list)
-    elseif list and list.kind == "pc_box_deposit" then
-      drawParty(partyData(), "DEPOSIT", true, nil, list.index)
-    elseif list and (list.kind == "pc_box_withdraw"
-        or list.kind == "pc_box_release") then
-      drawPcBoxList(list)
-    elseif list and list.kind == "pc_box_change" then
-      drawPcBoxChange(list)
-    elseif list and list.kind:find("^pc_item_") then
-      drawPcItemList(list)
+    elseif activeList and activeList.kind == "pc_box_deposit" then
+      drawParty(partyData(), "DEPOSIT", true, nil, activeList.index)
+    elseif activeList and (activeList.kind == "pc_box_withdraw"
+        or activeList.kind == "pc_box_release") then
+      drawPcBoxList(activeList)
+    elseif activeList and activeList.kind == "pc_box_change" then
+      drawPcBoxChange(activeList)
+    elseif activeList and activeList.kind:find("^pc_item_") then
+      drawPcItemList(activeList)
+    elseif top ~= root then
+      drawTopSummaryControls(nil, true)
     else
       drawPcRoot(kind, root)
     end
@@ -3950,19 +4081,21 @@ return function(mod)
     end
     local top = game and game.stack and game.stack:top()
     local raw = battleState()
-    local party = compat.isScreen(top, "party") and top
-    local bag = compat.isScreen(top, "bag") and top
-    local ppMoves = top and top.kind == "pp_item_move" and top
+    local party = screenContract(top, "party")
+    local bag = compat.battleBagMenu(top)
+    local ppMoves = screenContract(top, "pp")
     local summary = compat.isScreen(top, "summary") and top
     if ppMoves then
       drawPpItemMoves(ppMoves)
     elseif party then
       drawBattleParty(party)
     elseif bag then
-      drawBattleItems(compat.battleBagMenu(bag))
+      drawBattleItems(bag)
     elseif summary then
       if compat.summary.supports(summary, game) then drawBattleSummary(summary)
       else drawTopSummaryControls(summary) end
+    elseif top and top ~= raw and not top.isTextBox then
+      drawTopSummaryControls(nil, true)
     elseif battle.prompt == "safari" then
       if fullBottomBattleUI() then drawFullSafari() else drawSafari() end
     elseif battle.prompt == "mimic" then
@@ -4040,16 +4173,22 @@ return function(mod)
     G.clear(PAPER[1], PAPER[2], PAPER[3], PAPER[4])
     G.setLineWidth(1)
     local mode, top, fade = screenState()
-    local learn = screenById("MoveLearnMenu")
+    local learnScreen = screenById("MoveLearnMenu")
+    local learn = screenContract(learnScreen, "moveLearn")
     local pcKind, pcRoot = pcSession()
     local choice, labels, choiceField = dialogueChoice()
-    local naming = not compat.isGen2()
-      and compat.isScreen(top, "naming") and top
+    local namingKeys = not compat.isGen2() and screenContract(top, "naming")
+    local naming = namingKeys and top or nil
+    local unsupportedSpecial = (learnScreen and not learn)
+      or (not compat.isGen2() and top and top.screenId == "NamingScreen"
+        and not naming)
     local levelStats = battle and compat.levelUpMon(top)
     if learn then
       drawLearnMove(learn, top)
     elseif naming then
-      drawNaming(naming)
+      drawNaming(naming, namingKeys)
+    elseif unsupportedSpecial then
+      drawTopSummaryControls(nil, true)
     elseif levelStats then
       drawLevelUpStats(levelStats)
     elseif choice then
@@ -4164,12 +4303,13 @@ return function(mod)
       nextBattle.menuIndex = raw and raw.menuIndex
       nextBattle.moveIndex = raw and raw.moveIndex
       nextBattle.mimicIndex = raw and raw.mimicIndex
-      nextBattle.partyIndex = compat.isScreen(top, "party") and top.index or nil
-      local submenu = compat.isScreen(top, "party")
-        and type(top.submenu) == "table" and top.submenu or nil
-      nextBattle.subIndex = compat.isScreen(top, "party") and top.submenu
-        and (top.subIndex or (submenu and submenu.index)) or nil
-      local bag = compat.isScreen(top, "bag") and compat.battleBagMenu(top) or nil
+      local party = screenContract(top, "party")
+      nextBattle.partyIndex = party and party.index or nil
+      local submenu = party and type(party.submenu) == "table"
+        and party.submenu or nil
+      nextBattle.subIndex = party and party.submenu
+        and (party.subIndex or (submenu and submenu.index)) or nil
+      local bag = compat.battleBagMenu(top)
       nextBattle.itemIndex = bag and bag.index or nil
       nextBattle.itemPocket = bag
         and (bag.__pocketIndex or bag.pocketIndex) or nil
@@ -4177,9 +4317,9 @@ return function(mod)
       nextBattle.summaryPage = compat.isScreen(top, "summary")
         and top.page or nil
       if battleChoice(top) and not nextBattle.message
-          and raw and raw.visibleText then
-        local visible = raw:visibleText()
-        if visible then
+          and raw and type(raw.visibleText) == "function" then
+        local ok, visible = pcall(raw.visibleText, raw)
+        if ok and type(visible) == "table" then
           nextBattle.message = {}
           for i, line in ipairs(visible) do
             nextBattle.message[i] = tostring(line)
@@ -4355,14 +4495,15 @@ return function(mod)
       return
     end
     local top = game and game.stack and game.stack:top()
-    if top and top.kind == "pp_item_move" then
+    local ppMoves = screenContract(top, "pp")
+    if ppMoves then
       if y < HEADER and x < 24 then
         press("b")
       else
         local row = math.floor((y - 25) / 28) + 1
         if x >= 8 and x < 152 and row >= 1
-            and row <= #(top.items or {}) then
-          top.index = row
+            and row <= #ppMoves.items then
+          ppMoves.index = row
           press("a")
         end
       end
@@ -4380,30 +4521,31 @@ return function(mod)
       end
       return
     end
-    if compat.isScreen(top, "party") then
+    local party = screenContract(top, "party")
+    if party then
       if y < HEADER and x < 24 then
         press("b")
-      elseif top.submenu then
-        local submenu = type(top.submenu) == "table" and top.submenu or nil
-        local items = top.subItems or (submenu and submenu.items) or {}
+      elseif party.submenu then
+        local submenu = type(party.submenu) == "table" and party.submenu or nil
+        local items = party.subItems or (submenu and submenu.items) or {}
         local index = math.floor((y - 29) / 35) + 1
         if x >= 14 and x < 146 and index >= 1
             and index <= #items then
-          if submenu then submenu.index = index else top.subIndex = index end
+          if submenu then submenu.index = index else party.subIndex = index end
           press("a")
         end
       elseif y >= 23 then
         local col, row = x >= 81 and 1 or 0, math.floor((y - 23) / 39)
         local slot = row * 2 + col + 1
-        if battle.party[slot] then
-          top.index = slot
+        if (battle.party or {})[slot] then
+          party.index = slot
           press("a")
         end
       end
       return
     end
-    if compat.isScreen(top, "bag") then
-      local menu = compat.battleBagMenu(top)
+    local menu = compat.battleBagMenu(top)
+    if menu then
       if y < HEADER then
         if categorizedBag(top) then
           if x < 18 then
@@ -4424,6 +4566,10 @@ return function(mod)
           press("a")
         end
       end
+      return
+    end
+    local raw = battleState()
+    if top and top ~= raw and not top.isTextBox then
       return
     end
     if battle.prompt == "safari" then
@@ -4494,7 +4640,8 @@ return function(mod)
 
   local function tapPc(kind, root, top, x, y)
     local list = pcList()
-    if kind == "items" and top and top.qty and top.max and top.onDone then
+    if kind == "items" and list and top and type(top.qty) == "number"
+        and type(top.max) == "number" and type(top.onDone) == "function" then
       if y < HEADER and x < 24 then
         press("b")
       elseif inside(x, y, 8, 51, 43, 38) then
@@ -4552,7 +4699,9 @@ return function(mod)
       return
     end
 
-    if top ~= root then return end
+    if top ~= root then
+      return
+    end
     if kind == "items" then
       for i = 1, 4 do
         local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
@@ -4609,13 +4758,15 @@ return function(mod)
     end
     if not selected then return end
     compat.choiceIndex(top, field, selected)
-    if top.clampScroll then top:clampScroll() end
+    if type(top.clampScroll) == "function" then
+      pcall(top.clampScroll, top)
+    end
     choiceCommitted = top
     press("a")
   end
 
-  local function tapNaming(top, x, y)
-    local row, col = namingCell(x, y, top:grid())
+  local function tapNaming(top, grid, x, y)
+    local row, col = namingCell(x, y, grid)
     if not row then return end
     top.row, top.col = row, col
     press("a")
@@ -4624,7 +4775,8 @@ return function(mod)
 
   local function changePage(direction)
     if pendingFly or pendingAction or fieldChoice or partyActionSlot
-        or partyMoveFrom or screenById("MoveLearnMenu")
+        or partyMoveFrom
+        or screenContract(screenById("MoveLearnMenu"), "moveLearn")
         or dialogueChoice() or radarOpen then return end
     if not pageSwipeAllowed(screenState(), battle) then return end
     if trainerStepsOpen then
@@ -4774,9 +4926,12 @@ return function(mod)
       end
       return
     end
-    local learn = screenById("MoveLearnMenu")
+    local learnScreen = screenById("MoveLearnMenu")
+    local learn = screenContract(learnScreen, "moveLearn")
     if learn then
       tapLearn(learn, game.stack:top(), x, y)
+      return
+    elseif learnScreen then
       return
     end
     local battleTop = game and game.stack and game.stack:top()
@@ -4793,8 +4948,11 @@ return function(mod)
       return
     end
     local mode, top = screenState()
-    if not compat.isGen2() and compat.isScreen(top, "naming") then
-      tapNaming(top, x, y)
+    local namingKeys = not compat.isGen2() and screenContract(top, "naming")
+    if namingKeys then
+      tapNaming(top, namingKeys, x, y)
+      return
+    elseif not compat.isGen2() and top and top.screenId == "NamingScreen" then
       return
     end
     if mode == "title" then
@@ -4992,8 +5150,8 @@ return function(mod)
       dirty = true
       return
     end
-    if not compat.isGen2() and compat.isScreen(top, "bag")
-        and #(top.items or {}) > 4 then
+    if not compat.isGen2() and screenContract(top, "bag")
+        and #top.items > 4 then
       top.index = pagedIndex(top.index, #top.items, dy < 0 and 1 or -1)
       dirty = true
       return
@@ -5002,7 +5160,9 @@ return function(mod)
     if choice and #labels > 4 then
       compat.choiceIndex(choice, field, pagedIndex(
         compat.choiceIndex(choice, field), #labels, dy < 0 and 1 or -1))
-      if choice.clampScroll then choice:clampScroll() end
+      if type(choice.clampScroll) == "function" then
+        pcall(choice.clampScroll, choice)
+      end
       dirty = true
       return
     end
@@ -5024,9 +5184,10 @@ return function(mod)
         pageSwipe = pageSwipeAllowed(mode, battle),
         textSpeed = speed,
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
-          or (not compat.isGen2() and compat.isScreen(top, "naming"))
+          or (not compat.isGen2() and screenContract(top, "naming"))
           or dialogueChoice() or compat.isScreen(top, "summary")
-          or screenById("MoveLearnMenu") or pcSession() }
+          or screenContract(screenById("MoveLearnMenu"), "moveLearn")
+          or pcSession() }
       if speed then holdTextSpeed(true) end
     elseif action == "cancel" then
       textSpeedReleasePending = false
@@ -5449,7 +5610,7 @@ return function(mod)
 
   mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
     if next(state) == true then return true end
-    return bottomOwnsBattleUI(
+    return screenContract(state, "party") ~= nil and bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
       hasDisplay(), displayReady, battleState(), battle)
   end)
@@ -5476,7 +5637,7 @@ return function(mod)
     local owned = bottomOwnsBattleUI(
       hideUpperBattleUI(), active,
       hasDisplay(), displayReady, battleState(), battle)
-    return not (owned and mirroredBattleMenu(state))
+    return not (owned and screenContract(state))
   end)
 
   mod.events:on("battle.ended", function(payload)
@@ -5563,7 +5724,7 @@ return function(mod)
           or not (game.save.party or {})[partyActionSlot]) then
         partyActionSlot, dirty = nil, true
       end
-      local learn = screenById("MoveLearnMenu")
+      local learn = screenContract(screenById("MoveLearnMenu"), "moveLearn")
       local currentPcList = pcList()
       local currentChoice, _, currentChoiceField = dialogueChoice()
       if trackChoice(currentChoice, now) then dirty = true end
@@ -5584,7 +5745,8 @@ return function(mod)
          tostring(currentChoice and compat.choiceIndex(
            currentChoice, currentChoiceField)),
          tostring(top and top.row), tostring(top and top.col), tostring(top and top.lower),
-         tostring(top and top.glyphs and table.concat(top.glyphs)),
+         tostring(top and type(top.glyphs) == "table"
+           and table.concat(top.glyphs)),
          tostring(top and top.qty), tostring(top and top.page),
          tostring(top and top.moveDetail), tostring(top and top.moveIndex),
          tostring(top and top.mon),

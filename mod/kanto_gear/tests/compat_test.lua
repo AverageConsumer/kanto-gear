@@ -645,30 +645,43 @@ T.eq(desktopFrames, 1,
   "desktop hosts submit a synchronous fallback frame")
 do
   local previousStates = game.stack.states
-  local replacement = {
-    screenId = "BoxMenu", holdsUIAnchors = true,
-    draw = function() end, update = function() end,
-  }
-  game.stack.states = { world, replacement }
-  run.loader.events:emit("screen.pushed", { state = replacement })
   function modCanvas:newImageData() return {} end
   local composeHook
   for _, hook in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
     if hook.owner == "kanto_gear" then composeHook = hook.callback end
   end
-  local ok, err = pcall(function()
-    composeHook(function() return false end, {}, {
-      secondScreen = {
-        detected = function() return true end,
-        pollTouch = function() return nil end,
-        push = function() return true end,
-      },
-    })
-  end)
+  local root = { screenId = "BoxMenu", items = {}, index = 1 }
+  local replacements = {
+    { { world, { screenId = "BoxMenu", holdsUIAnchors = true } },
+      "replacement PC root" },
+    { { world, { screenId = "NamingScreen", glyphs = {}, row = 1, col = 1 } },
+      "replacement naming screen" },
+    { { world, { screenId = "MoveLearnMenu" } },
+      "replacement move-learning screen" },
+    { { world, root, { kind = "pc_box_withdraw" } },
+      "replacement PC sublist" },
+  }
+  local ok, err = true
+  for _, case in ipairs(replacements) do
+    game.stack.states = case[1]
+    local rendered, renderErr = pcall(function()
+      composeHook(function() return false end, {}, {
+        secondScreen = {
+          detected = function() return true end,
+          pollTouch = function() return nil end,
+          push = function() return true end,
+        },
+      })
+    end)
+    if not rendered then
+      ok, err = false, case[2] .. ": " .. tostring(renderErr)
+      break
+    end
+  end
   modCanvas.newImageData = nil
   game.stack.states = previousStates
   T.check(ok,
-    "replacement PC screens fall back safely: " .. tostring(err))
+    "replacement menu screens fall back safely: " .. tostring(err))
 end
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
@@ -715,6 +728,41 @@ do
   T.eq(run.loader.hooks:call("screen.render_visible",
     function() return true end, summary), false,
     "Gen 1 battle summaries render only on the companion screen")
+  local raw = { isBattleState = true, kind = "wild" }
+  local invalidParty = { screenId = "PartyMenu" }
+  local throwingParty = { screenId = "PartyMenu", index = 1,
+    isCancel = function() error("replacement contract") end }
+  local validParty = { screenId = "PartyMenu", index = 1 }
+  local invalidBag = { screenId = "BagMenu" }
+  local validBag = { screenId = "BagMenu", items = {}, index = 1 }
+  run.loader.modOptions.kanto_gear.battle_view = "gear"
+  game.stack.states = { world, raw, invalidParty }
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, invalidParty), true,
+    "replacement battle party menus remain visible on the top screen")
+  game.stack.states = { world, raw, throwingParty }
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, throwingParty), true,
+    "throwing replacement party contracts fail closed")
+  game.stack.states = { world, raw, validParty }
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, validParty), false,
+    "native-contract battle party menus can move to the companion screen")
+  game.stack.states = { world, raw, invalidBag }
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, invalidBag), true,
+    "replacement battle bag menus remain visible on the top screen")
+  game.stack.states = { world, raw, validBag }
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, validBag), false,
+    "native-contract battle bag menus can move to the companion screen")
+  T.eq(run.loader.hooks:call("ui.party.grid_navigation",
+    function() return false end, invalidParty), false,
+    "replacement battle party menus retain native navigation")
+  T.eq(run.loader.hooks:call("ui.party.grid_navigation",
+    function() return false end, validParty), true,
+    "native-contract battle party menus opt into companion navigation")
+  run.loader.modOptions.kanto_gear.battle_view = nil
   debug.setupvalue(summaryHook, battleUpvalue, previousBattle)
   debug.setupvalue(summaryHook, readyUpvalue, previousReady)
   game.stack.states = previousStates
@@ -823,6 +871,11 @@ do
       { value = "ANTIDOTE", label = "ANTIDOTE", right = "x1" },
     },
   }
+  T.eq(compat.battleBagMenu({ screenId = "BagMenu" }), nil,
+    "replacement battle bags without the native list contract are ignored")
+  T.eq(compat.battleBagMenu({ screenId = "Gen2PackMenu", rows = {}, index = 1,
+    pocket = function() error("replacement contract") end }), nil,
+    "throwing replacement Gen 2 pack contracts fail closed")
   T.eq(compat.battleBagMenu(virtualBag).index, 1,
     "virtual categorized bags start on their visible selection")
   virtualBag.__gen3uiBagViewIndex = 2
