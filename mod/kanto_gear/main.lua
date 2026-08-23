@@ -1728,10 +1728,28 @@ return function(mod)
       or playerSprites.walk or "SPRITE_RED"
     local sprites = compat.isGen2() and data.gen2Sprites or data.sprites
     local def = sprites and sprites[id]
-    local key = def and (id .. ":" .. tostring(def.image))
+    local daytime, colors
+    if def and compat.isGen2() then
+      local _, palettes = compat.gen2PaletteModules()
+      local world = game and game.world
+      daytime = world and world.daytime
+      if not daytime and palettes and type(palettes.clockDaytime) == "function" then
+        daytime = palettes.clockDaytime(world and world.hour)
+      end
+      colors = palettes and type(palettes.spritePalette) == "function"
+        and palettes.spritePalette(data.gen2Palettes, daytime, def)
+    end
+    local key = def and table.concat({ id, tostring(def.image),
+      tostring(daytime) }, ":")
     if key and (not compat.mapMarker or compat.mapMarker.key ~= key) then
       local ok, renderer = pcall(function()
-        return require("src.render.SpriteRenderer").new(def, "kanto-gear-map")
+        local value = require("src.render.SpriteRenderer").new(
+          def, "kanto-gear-map")
+        if colors and type(value.setObjPalette) == "function" then
+          value:setObjPalette(colors, ("gen2:%s:%d"):format(
+            tostring(daytime), def.paletteId or 0))
+        end
+        return value
       end)
       compat.mapMarker = { key = key, renderer = ok and renderer or false }
     end

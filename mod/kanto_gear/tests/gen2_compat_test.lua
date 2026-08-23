@@ -57,8 +57,12 @@ run.data.gen2MenuGfx = { pokegear = {
   maps = { johto = johtoMap, kanto = johtoMap },
 } }
 run.data.gen2Sprites = { SPRITE_CHRIS = {
-  image = "gold-player.png", frames = 1, trueColor = true,
+  image = "gold-player.png", frames = 1, trueColor = true, paletteId = 0,
 } }
+local playerColors = {
+  { 255, 255, 255 }, { 248, 80, 56 }, { 200, 32, 24 }, { 0, 0, 0 },
+}
+run.data.gen2Palettes = { objects = { DAY = { playerColors } } }
 
 local game = {
   data = run.data,
@@ -80,6 +84,7 @@ local game = {
   world = {
     map = { id = "FIX_ROUTE" },
     player = { cellX = 2, cellY = 3, facing = "down" },
+    daytime = "DAY",
   },
   stack = { states = {}, top = function(self)
     return self.states[#self.states]
@@ -105,16 +110,34 @@ local companion = {
   pollTouch = function() return table.remove(touchEvents, 1) end,
   push = function() return true end,
 }
+local SpriteRenderer = require("src.render.SpriteRenderer")
+local rendererNew = SpriteRenderer.new
+local markerPalette
+SpriteRenderer.new = function(def, seed)
+  local renderer = rendererNew(def, seed)
+  if seed == "kanto-gear-map" then
+    local setObjPalette = renderer.setObjPalette
+    renderer.setObjPalette = function(self, colors, group)
+      markerPalette = { colors = colors, group = group }
+      return setObjPalette(self, colors, group)
+    end
+  end
+  return renderer
+end
 local mapDraws = T.record.draw()
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
 })
+SpriteRenderer.new = rendererNew
 T.check(#mapDraws:fromPath("gold-map.png") > 0,
   "Gold map renders the extracted Pokegear town-map tiles")
 local playerMarker = mapDraws:fromPath("gold-player.png")[1]
 T.check(playerMarker and playerMarker.args[2] == 44
     and playerMarker.args[3] == 56 and playerMarker.args[5] == 0.75,
   "Gold map uses the native player sprite at the scaled landmark")
+T.check(markerPalette and markerPalette.colors == playerColors
+    and markerPalette.group == "gen2:DAY:0",
+  "Gold map applies the native daytime player palette")
 for _ = 1, 10 do
   trigger = 0.8
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
