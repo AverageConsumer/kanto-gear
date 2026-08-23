@@ -309,6 +309,27 @@ local RADAR_RED = { 220 / 255, 38 / 255, 28 / 255, 1 }
 local MAP_EXIT = { 0.20, 0.65, 1, 1 }
 local MAP_ITEM = { 1, 0.72, 0.10, 1 }
 local MAP_HIDDEN = { 0.90, 0.30, 0.85, 1 }
+THEME.localMap = {
+  [" "] = {
+    { 0.81, 0.84, 0.82, 1 }, { 0.56, 0.61, 0.60, 1 },
+    { 0.27, 0.32, 0.35, 1 }, { 0.09, 0.14, 0.18, 1 },
+  },
+  ["."] = {
+    { 0.90, 0.96, 0.72, 1 }, { 0.65, 0.84, 0.42, 1 },
+    { 0.30, 0.54, 0.28, 1 }, { 0.11, 0.25, 0.22, 1 },
+  },
+  ["~"] = {
+    { 0.84, 0.96, 0.95, 1 }, { 0.47, 0.81, 0.84, 1 },
+    { 0.21, 0.51, 0.72, 1 }, { 0.10, 0.24, 0.44, 1 },
+  },
+  ["+"] = {
+    { 0.98, 0.91, 0.64, 1 }, { 0.94, 0.78, 0.36, 1 },
+    { 0.69, 0.43, 0.20, 1 }, { 0.35, 0.23, 0.16, 1 },
+  },
+  border = { 0.06, 0.10, 0.14, 1 },
+  player = { 0.91, 0.14, 0.12, 1 },
+  playerCore = { 1, 0.96, 0.76, 1 },
+}
 local CHOICE_QUIET = 0.32
 local SECONDARY_BACKGROUND
 local PC_LIST_KINDS = {
@@ -721,6 +742,16 @@ local function localMapGrid(overview)
     return overview.tileRows, overview.tileWidth, overview.tileHeight, 2
   end
   return overview.rows, overview.width, overview.height, 1
+end
+
+function THEME:localMapColor(overview, x, y, density, shade)
+  density = math.max(1, tonumber(density) or 1)
+  local cellX = math.floor((x - 1) / density) + 1
+  local cellY = math.floor((y - 1) / density) + 1
+  local row = overview and overview.rows and overview.rows[cellY] or ""
+  local ramp = self.localMap[row:sub(cellX, cellX)] or self.localMap[" "]
+  local index = math.max(1, math.min(4, (tonumber(shade) or 3) + 1))
+  return ramp[index]
 end
 
 local function battleFocusChanged(a, b)
@@ -2727,7 +2758,7 @@ return function(mod)
     return localMap or nil
   end
 
-  local function loadLocalMapImage(rows, width, height)
+  local function loadLocalMapImage(overview, rows, width, height, density)
     if localMapImage ~= nil then return localMapImage or nil end
     if not (love.image and love.image.newImageData) then
       localMapImage = false
@@ -2735,10 +2766,10 @@ return function(mod)
     end
     local ok, image = pcall(function()
       local pixels = love.image.newImageData(width, height)
-      local shades = { PAPER, MID, DARK, INK }
       for y, row in ipairs(rows) do
         for x = 1, #row do
-          local c = shades[(tonumber(row:sub(x, x)) or 3) + 1]
+          local c = THEME:localMapColor(
+            overview, x, y, density, row:sub(x, x))
           pixels:setPixel(x - 1, y - 1, c[1], c[2], c[3], c[4])
         end
       end
@@ -2766,11 +2797,11 @@ return function(mod)
         and (pos.y + 0.5) * density
       local scale, left, top = localMapLayout(
         width, height, localMapZoom, focusX, focusY, density)
-      local shades = { PAPER, MID, DARK, INK }
       G.setScissor(2, 20, 156, 106)
       box("fill", left - 2, top - 2, width * scale + 4,
-          height * scale + 4, INK)
-      local image = density > 1 and loadLocalMapImage(rows, width, height)
+          height * scale + 4, THEME.localMap.border)
+      local image = density > 1
+        and loadLocalMapImage(overview, rows, width, height, density)
       if image then
         G.setColor(1, 1, 1, 1)
         G.draw(image, left, top, 0, scale, scale)
@@ -2778,14 +2809,16 @@ return function(mod)
         for y, row in ipairs(rows) do
           for x = 1, #row do
             local cell = row:sub(x, x)
-            local c = density > 1 and shades[(tonumber(cell) or 3) + 1]
-              or cell == "." and PAPER or cell == "~" and MID or DARK
+            local shade = density > 1 and cell or cell == " " and 2 or 1
+            local c = THEME:localMapColor(
+              overview, x, y, density, shade)
             box("fill", left + (x - 1) * scale, top + (y - 1) * scale,
                 scale, scale, c)
             if cell == "+" then
               box("fill", left + (x - 0.75) * scale,
                   top + (y - 0.75) * scale,
-                  math.max(1, scale / 2), math.max(1, scale / 2), PAPER)
+                  math.max(1, scale / 2), math.max(1, scale / 2),
+                  THEME.localMap.playerCore)
             end
           end
         end
@@ -2805,10 +2838,10 @@ return function(mod)
         local py = top + (pos.y + 0.5) * density * scale
         local direction = ({ up = { 0, -1 }, down = { 0, 1 },
           left = { -1, 0 }, right = { 1, 0 } })[pos.facing] or { 0, 1 }
-        box("fill", px - 1, py - 1, 3, 3, INK)
-        box("fill", px, py, 1, 1, PAPER)
+        box("fill", px - 1, py - 1, 3, 3, THEME.localMap.player)
+        box("fill", px, py, 1, 1, THEME.localMap.playerCore)
         box("fill", px + direction[1] * 2,
-            py + direction[2] * 2, 1, 1, INK)
+            py + direction[2] * 2, 1, 1, THEME.localMap.player)
       end
       G.setScissor()
       button(134, 22, 22, 16, localMapZoom == 1 and "+" or "-", false)
