@@ -19,8 +19,8 @@ Windows and Linux—without requiring a custom host or 3D renderer.
 </p>
 
 <p>
-  <img src="docs/images/kanto-gear-dual-screen-local-color.png" width="48%" alt="Pokémon Red and Kanto Gear showing a terrain-colored local map on an AYN Thor">
-  <img src="docs/images/kanto-gear-dual-screen-map-color.png" width="48%" alt="Pokémon Red with Kanto Gear's full-color Route 10 map on an AYN Thor">
+  <img src="docs/images/kanto-gear-hero-game.png" width="63%" alt="Pokémon Gold running at night on the primary AYN Thor display">
+  <img src="docs/images/kanto-gear-hero-local.png" width="35%" alt="Kanto Gear showing a terrain-colored local map on the secondary AYN Thor display">
 </p>
 
 <p>
@@ -43,9 +43,10 @@ game already knows.
 | --- | --- | --- | --- |
 | Region map, detailed local map, exits, visible items and hidden items | Party, Trainer Card, badges, Pokédex progress, area guide and step counter | Standard HUD, touch controls, Full Gear HUD and optional Enemy Info | Single screen, combined layouts, overlays and independent second displays |
 
-<p align="center">
-  <img src="docs/images/kanto-gear-party.png" width="60%" alt="Kanto Gear party screen with native-color Pokémon sprites, HP and EXP">
-</p>
+| Party at a glance | Know the opponent | Find what lives here |
+| --- | --- | --- |
+| <img src="docs/images/kanto-gear-party.png" alt="Kanto Gear party screen with native-color Pokémon and a correctly hidden Egg"> | <img src="docs/images/kanto-gear-enemy-info.png" alt="Kanto Gear Enemy Info showing known opponent data and type matchups"> | <img src="docs/images/kanto-gear-guide.png" alt="Kanto Gear area guide showing encounters and time-of-day availability"> |
+| Native-color sprites, HP, EXP, status and Eggs without revealing what will hatch. | Optional Pokédex identity and base type matchups while the original battle UI stays intact. | Encounter rates, levels, caught state and morning, day or night availability. |
 
 Kanto Gear uses native game palettes where the host exposes them, keeps unknown
 Pokémon as silhouettes and renders LOCAL terrain with consistent cartographic
@@ -56,13 +57,13 @@ Modern Light and Modern Dark.
 
 | Display mode | Best for | Behavior |
 | --- | --- | --- |
-| **Single Screen** | Phones and small one-screen handhelds | Keeps one view fullscreen and swaps between the game and Kanto Gear on demand. |
+| **Fullscreen Swap** | Phones and small one-screen handhelds | Keeps one view fullscreen and swaps between the game and Kanto Gear on demand. |
 | **Combined Screen** | Steam Deck-style devices, tablets and larger displays | Places both views side by side, stacked or in a movable, resizable overlay. |
-| **Dual Screen** | AYN Thor, RG DS, Retroid add-ons, desktops and multi-monitor setups | Routes Kanto Gear to a selected Android display or opens a normal movable desktop window. |
+| **Separate Screens** | AYN Thor, RG DS, Retroid add-ons, desktops and multi-monitor setups | Routes Kanto Gear to a selected Android display or opens a normal movable desktop window. |
 
 <p align="center">
-  <img src="docs/images/kanto-gear-combined-side-by-side.png" width="49%" alt="Pokémon Red and Kanto Gear sharing one Android display in Combined Screen mode">
-  <img src="docs/images/kanto-gear-desktop-dual-window.png" width="49%" alt="Pokémon Red and the Kanto Gear companion window running separately on Windows 11">
+  <img src="docs/images/kanto-gear-combined-side-by-side.png" width="49%" alt="Pokémon Gold and Kanto Gear sharing one Android display side by side">
+  <img src="docs/images/kanto-gear-combined-overlay.png" width="49%" alt="Kanto Gear local map displayed as a resizable overlay over Pokémon Gold">
 </p>
 
 The game viewport and Android touch controls adapt when a combined layout makes
@@ -80,8 +81,8 @@ not need the former Kanto host or any Voxel renderer.
    Mod Index, or import `kanto_gear-*.zip` from the
    [latest Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
 3. Enable Kanto Gear and start Pokémon Red, Blue, Yellow, Gold or Silver.
-4. Open Kanto Gear's settings and choose **Single Screen**, **Combined Screen**
-   or **Dual Screen**.
+4. Open Kanto Gear's settings and choose **Fullscreen Swap**,
+   **Combined Screen** or **Separate Screens**.
 
 You need your own supported game ROM. Kanto Gear contains no ROM, ROM-derived
 game data or save file.
@@ -138,7 +139,7 @@ bundle.
 | Action | Control |
 | --- | --- |
 | Change Kanto Gear page | Swipe left/right or tap the header arrows |
-| Swap the two views | Enable **SCREEN SWAP (Y)**, then press **Y** |
+| Swap the two views | Enable **QUICK SWAP (Y)**, then press **Y** |
 | Cycle pages with a controller | Enable **TRIGGER TABS**, then use **L2/R2** |
 | Hide or show the Combined Screen overlay | Press **R3** |
 | Zoom the local map | Tap **+ / −** |
@@ -150,7 +151,7 @@ bundle.
 - **BATTLE VIEW → STANDARD** keeps the original battle HUD.
 - **BATTLE VIEW → GEAR** moves duplicated battle controls to Kanto Gear.
 - **BATTLE VIEW → FULL GEAR** also moves HP and status panels.
-- **BATTLE VIEW → ENEMY INFO** keeps the original HUD and shows known opponent
+- **BATTLE VIEW → INFO** keeps the original HUD and shows known opponent
   data on the companion screen.
 - **INFO → PURIST** hides assistance; **ENHANCED** enables it.
 - **SCREEN SWAP (Y)** is off by default so other mods can keep using **Y**.
