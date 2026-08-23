@@ -643,6 +643,33 @@ T.eq(separateEnabled, true,
   "separate mode enables the host's companion display")
 T.eq(desktopFrames, 1,
   "desktop hosts submit a synchronous fallback frame")
+do
+  local previousStates = game.stack.states
+  local replacement = {
+    screenId = "BoxMenu", holdsUIAnchors = true,
+    draw = function() end, update = function() end,
+  }
+  game.stack.states = { world, replacement }
+  run.loader.events:emit("screen.pushed", { state = replacement })
+  function modCanvas:newImageData() return {} end
+  local composeHook
+  for _, hook in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
+    if hook.owner == "kanto_gear" then composeHook = hook.callback end
+  end
+  local ok, err = pcall(function()
+    composeHook(function() return false end, {}, {
+      secondScreen = {
+        detected = function() return true end,
+        pollTouch = function() return nil end,
+        push = function() return true end,
+      },
+    })
+  end)
+  modCanvas.newImageData = nil
+  game.stack.states = previousStates
+  T.check(ok,
+    "replacement PC screens fall back safely: " .. tostring(err))
+end
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
   "disabling one-window layout restores native output")

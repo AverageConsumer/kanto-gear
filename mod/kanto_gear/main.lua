@@ -2233,9 +2233,11 @@ return function(mod)
   local function pcSession()
     if compat.isGen2() then return end
     local root = screenById("pokemonPc")
-    if root then return "pokemon", root end
+    if root and type(root.items) == "table"
+        and type(root.index) == "number" then return "pokemon", root end
     root = screenById("itemPc")
-    if root then return "items", root end
+    if root and type(root.items) == "table"
+        and type(root.index) == "number" then return "items", root end
   end
 
   local function pcList()
