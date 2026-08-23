@@ -52,9 +52,13 @@ run.data.gen2Encounters = { grass = { FIX_ROUTE = { slots = {
 } } }, water = {} }
 local johtoMap = {}
 for i = 1, 20 * 18 do johtoMap[i] = 0 end
+local mapColors = {
+  { 255, 255, 255 }, { 104, 208, 88 }, { 32, 120, 64 }, { 0, 0, 0 },
+}
 run.data.gen2MenuGfx = { pokegear = {
   tiles = "gold-map.png", tilesWide = 1,
   maps = { johto = johtoMap, kanto = johtoMap },
+  palettes = { mapColors }, palMap = { [1] = 1 },
 } }
 run.data.gen2Sprites = { SPRITE_CHRIS = {
   image = "gold-player.png", frames = 1, trueColor = true, paletteId = 0,
@@ -111,8 +115,12 @@ local companion = {
   push = function() return true end,
 }
 local SpriteRenderer = require("src.render.SpriteRenderer")
+local GbcPalette = require("src.render.GbcPalette")
 local rendererNew = SpriteRenderer.new
+local paletteWith = GbcPalette.with
+local paletteAvailable = GbcPalette.available
 local markerPalette
+local mapPaletteUsed = false
 SpriteRenderer.new = function(def, seed)
   local renderer = rendererNew(def, seed)
   if seed == "kanto-gear-map" then
@@ -124,13 +132,21 @@ SpriteRenderer.new = function(def, seed)
   end
   return renderer
 end
+GbcPalette.with = function(colors, body)
+  if colors == mapColors then mapPaletteUsed = true end
+  return body()
+end
+GbcPalette.available = function() return true end
 local mapDraws = T.record.draw()
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
 })
 SpriteRenderer.new = rendererNew
+GbcPalette.with, GbcPalette.available = paletteWith, paletteAvailable
 T.check(#mapDraws:fromPath("gold-map.png") > 0,
   "Gold map renders the extracted Pokegear town-map tiles")
+T.check(mapPaletteUsed,
+  "Gold map applies its extracted per-tile town-map palettes")
 local playerMarker = mapDraws:fromPath("gold-player.png")[1]
 T.check(playerMarker and playerMarker.args[2] == 44
     and playerMarker.args[3] == 56 and playerMarker.args[5] == 0.75,

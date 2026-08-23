@@ -1015,6 +1015,16 @@ local fallbackPhase = false
 local fallbackImage
 local decodedFrames = 0
 local genericSprites, ownedSprites = 0, 0
+local PaletteFX = require("src.render.PaletteFX")
+local GbcPalette = require("src.render.GbcPalette")
+local monPal = PaletteFX.monPal
+local paletteWith = GbcPalette.with
+local paletteAvailable = GbcPalette.available
+local nativeMonColors = {
+  { 255, 255, 255 }, { 248, 184, 112 }, { 152, 80, 136 }, { 0, 0, 0 },
+}
+local nativeMonPaletteUses = 0
+local trueColorMonPalCalls = 0
 local originalIcons = game.data.icons
 game.data.icons = {
   bySpecies = { PIKACHU = "TEST_ICON" },
@@ -1048,6 +1058,11 @@ T.love.graphics.newImage = function(path, ...)
   if path == "official-icon.png" then fallbackImage = image end
   return image
 end
+PaletteFX.monPal = function(...)
+  trueColorMonPalCalls = trueColorMonPalCalls + 1
+  return monPal(...)
+end
+GbcPalette.available = function() return true end
 for _ = 1, 32 do
   trigger.right = 0.8
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
@@ -1067,6 +1082,33 @@ T.check(ownedSprites > 0,
   "owned Pokemon screens pass their live Pokemon to the sprite resolver")
 T.eq(fallbackIcons, 0,
   "decoded Party sprite frames do not use placeholder icons")
+T.eq(trueColorMonPalCalls, 0,
+  "full-color mod sprites bypass native palette remapping")
+PaletteFX.monPal = function() return nativeMonColors end
+GbcPalette.with = function(colors, body)
+  if colors == nativeMonColors then
+    nativeMonPaletteUses = nativeMonPaletteUses + 1
+  end
+  return body()
+end
+Sprites.path = function(_, _, _, opts)
+  if opts and opts.mon then ownedSprites = ownedSprites + 1
+  else genericSprites = genericSprites + 1 end
+  return "decoded-frame.png", false
+end
+for _ = 1, 32 do
+  trigger.right = 0.8
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  trigger.right = 0
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = { detected = function() return displayDetected end,
+                     pollTouch = function() return nil end },
+  })
+  if nativeMonPaletteUses > 0 then break end
+end
+T.check(nativeMonPaletteUses > 0,
+  "Gen 1 Pokemon sprites use their native species palette")
 Sprites.path = function() return "unavailable.gif", true end
 fallbackPhase = true
 Assets.imageData = function(path)
@@ -1085,6 +1127,8 @@ for _ = 1, 32 do
   if fallbackIcons > 0 then break end
 end
 Sprites.path, Assets.imageData = spritePath, imageData
+PaletteFX.monPal, GbcPalette.with = monPal, paletteWith
+GbcPalette.available = paletteAvailable
 T.love.graphics.newImage = newImage
 T.love.graphics.draw = drawImage
 game.data.icons = originalIcons
@@ -1094,6 +1138,8 @@ T.check(fallbackIsWhite, "fallback Party icons keep their original colors")
 
 do
   local badgeLoads, badgeAlphas = 0, {}
+  local badgePaletteUses = 0
+  local palette = PaletteFX.pal
   local draw = T.love.graphics.draw
   local TrainerCard = require("src.ui.TrainerCard")
   local trainerCardNew = TrainerCard.new
@@ -1106,6 +1152,18 @@ do
     { id = "VOLCANOBADGE" }, { id = "EARTHBADGE" },
   }
   game.save.inventory.TEST_BADGE = true
+  local badgeColors = {
+    { 255, 255, 255 }, { 248, 184, 112 }, { 152, 80, 136 }, { 0, 0, 0 },
+  }
+  PaletteFX.pal = function(data, name)
+    if name == "MEWMON" then return badgeColors end
+    return palette(data, name)
+  end
+  GbcPalette.available = function() return true end
+  GbcPalette.with = function(colors, body)
+    if colors == badgeColors then badgePaletteUses = badgePaletteUses + 1 end
+    return body()
+  end
   TrainerCard.new = function()
     badgeLoads = badgeLoads + 1
     local badges = { img = T.love.graphics.newImage({}), quads = {} }
@@ -1137,6 +1195,9 @@ do
     if #badgeAlphas >= 8 then break end
   end
   TrainerCard.new, T.love.graphics.draw = trainerCardNew, draw
+  PaletteFX.pal = palette
+  GbcPalette.with = paletteWith
+  GbcPalette.available = paletteAvailable
   game.data.constants.badges = dataBadges
   game.save.inventory.TEST_BADGE = nil
   T.eq(badgeLoads, 1, "Trainer badges reuse Recomp's Trainer Card sprites")
@@ -1148,6 +1209,8 @@ do
   end
   T.eq(solid, 1, "owned badges draw at full strength")
   T.eq(faded, 7, "unearned badges remain visible as faded silhouettes")
+  T.eq(badgePaletteUses, 1,
+    "owned Gen 1 badges use the native Trainer Card palette")
 end
 
 T.eq(run.loader.hooks:call("render.output_enabled",

@@ -2148,7 +2148,8 @@ return function(mod)
         quads[i] = G.newQuad((i % across) * 8, math.floor(i / across) * 8,
                              8, 8, iw, ih)
       end
-      mapAsset = { image = image, quads = quads, maps = gfx.maps, gen2 = true }
+      mapAsset = { image = image, quads = quads, maps = gfx.maps,
+        palettes = gfx.palettes, palMap = gfx.palMap, gen2 = true }
       return mapAsset
     end
     local townMap = game and game.data and game.data.field
@@ -2176,7 +2177,8 @@ return function(mod)
   end
 
   local function sprite(species, side, mon)
-    local path = PokemonSprites.path(game and game.data, species, side,
+    local path, trueColor = PokemonSprites.path(
+      game and game.data, species, side,
       { kind = "summary", mon = mon })
     if not path then return nil end
     local key = side .. ":" .. path
@@ -2190,12 +2192,12 @@ return function(mod)
       if ok and image then image:setFilter("nearest", "nearest") end
       spriteCache[key] = ok and image or false
     end
-    return spriteCache[key] or nil
+    return spriteCache[key] or nil, trueColor
   end
 
   local function drawSprite(species, side, x, y, maxW, maxH, tint,
                             mon, quiet)
-    local image = sprite(species, side, mon)
+    local image, trueColor = sprite(species, side, mon)
     if not image then
       if not quiet then box("fill", x + 4, y + 4, maxW - 8, maxH - 8, DARK) end
       return false
@@ -2207,11 +2209,20 @@ return function(mod)
       G.draw(image, x + (maxW - iw * scale) / 2,
              y + (maxH - ih * scale) / 2, 0, scale, scale)
     end
-    local gbc, palettes = compat.gen2PaletteModules()
-    local colors = palettes and palettes.monColors
-      and palettes.monColors(game.data.gen2Palettes, species,
-                             mon and mon.shiny)
-    if colors and gbc and gbc.available() then gbc.with(colors, paint)
+    local gbc = require("src.render.GbcPalette")
+    local colors
+    if not (tint or trueColor) then
+      if compat.isGen2() then
+        local _, palettes = compat.gen2PaletteModules()
+        colors = palettes and palettes.monColors
+          and palettes.monColors(game.data.gen2Palettes, species,
+                                 mon and mon.shiny)
+      else
+        colors = PaletteFX.monPal(game.data, species,
+          mon and mon.transformed)
+      end
+    end
+    if colors and gbc.available() then gbc.with(colors, paint)
     else paint() end
     return true
   end
@@ -2670,21 +2681,29 @@ return function(mod)
     local asset = loadMap()
     if asset then
       local cells = asset.map
+      local gbc = require("src.render.GbcPalette")
+      local mapColors = not asset.gen2
+        and PaletteFX.pal(game.data, "TOWNMAP") or nil
       if asset.gen2 then
         cells = asset.maps[region]
-        color(THEME.style == "modern_dark" and INK or PAPER)
-      else
-        color({ 1, 1, 1, 1 })
       end
       for i, tile in ipairs(cells or {}) do
         local quad = asset.quads[tile]
         if quad then
           local col, row = (i - 1) % 20, math.floor((i - 1) / 20)
-          if asset.gen2 then
-            G.draw(asset.image, quad, 20 + col * 6, 20 + row * 6,
-                   0, 0.75, 0.75)
-          elseif row > 0 then
-            G.draw(asset.image, quad, 20 + col * 6, 22 + (row - 1) * 6, 0, 0.75, 0.75)
+          local y = asset.gen2 and 20 + row * 6 or 22 + (row - 1) * 6
+          local colors = asset.gen2 and asset.palettes
+            and asset.palettes[(asset.palMap and asset.palMap[tile + 1]) or 1]
+            or mapColors
+          local function paint()
+            color(colors and { 1, 1, 1, 1 }
+              or asset.gen2 and (THEME.style == "modern_dark" and INK or PAPER)
+              or { 1, 1, 1, 1 })
+            G.draw(asset.image, quad, 20 + col * 6, y, 0, 0.75, 0.75)
+          end
+          if (asset.gen2 or row > 0) then
+            if colors and gbc.available() then gbc.with(colors, paint)
+            else paint() end
           end
         end
       end
@@ -2939,6 +2958,8 @@ return function(mod)
       spriteCache.__badges = ok and card and card.badges or false
     end
     local badgeAsset = spriteCache.__badges
+    local gen1BadgeColors = not compat.isGen2()
+      and PaletteFX.pal(game.data, "MEWMON") or nil
 
     header("TRAINER", false, true)
     box("fill", 4, 22, 152, 50, MID)
@@ -2960,11 +2981,18 @@ return function(mod)
             badgeOwned and PAPER or DARK)
         end
       elseif quad then
-        local tint = badgeOwned and INK or DARK
-        G.setColor(tint[1], tint[2], tint[3], badgeOwned and 1 or 0.25)
         local x = math.floor(5 + (i - 1) * 134
           / math.max(1, #badges - 1))
-        G.draw(badgeAsset.img, quad, x, 56)
+        local colors = badgeOwned and gen1BadgeColors
+        local function paint()
+          local tint = badgeOwned and INK or DARK
+          if colors then G.setColor(1, 1, 1, 1)
+          else G.setColor(tint[1], tint[2], tint[3], badgeOwned and 1 or 0.25) end
+          G.draw(badgeAsset.img, quad, x, 56)
+        end
+        local gbc = require("src.render.GbcPalette")
+        if colors and gbc.available() then gbc.with(colors, paint)
+        else paint() end
       else
         local badgeGap = 152 / math.max(1, #badges)
         local x = math.floor(4 + (i - 1) * badgeGap)
