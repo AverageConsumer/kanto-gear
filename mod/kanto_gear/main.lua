@@ -3419,11 +3419,11 @@ return function(mod)
       end
     end
     if not row then displayRuntime.guideDetail = nil; drawGuide(); return end
-    displayRuntime.guideDetail.page = math.max(1,
-      math.min(displayRuntime.guideDetail.page, row.detailPages))
+    local pages = math.max(1, tonumber(row.detailPages) or 1)
+    local current = tonumber(displayRuntime.guideDetail.page) or 1
+    displayRuntime.guideDetail.page = math.max(1, math.min(current, pages))
     header(THEME:format("WHERE %d/%d", displayRuntime.guideDetail.page,
-      row.detailPages),
-      true, row.detailPages > 1)
+      pages), true, pages > 1)
     text(fit(row.name, 17), 5, 24, INK)
     text(row.availability == "now" and THEME:translate("NOW")
       or row.availability == "time" and guide.time
@@ -4551,8 +4551,7 @@ return function(mod)
     end
   end
 
-  local function draw()
-    G.push("all")
+  displayRuntime.drawContents = function()
     G.setCanvas(canvas)
     G.origin()
     G.setScissor()
@@ -4632,7 +4631,13 @@ return function(mod)
       outline(1, 1, WIDTH - 2, HEIGHT - 2, INK)
     end
     G.setCanvas()
+  end
+
+  local function draw()
+    G.push("all")
+    local ok, err = pcall(displayRuntime.drawContents)
     G.pop()
+    if not ok then error(err, 0) end
   end
 
   local function pumpDisplay()
@@ -5198,9 +5203,11 @@ return function(mod)
         end
       end
       if row and row.detailPages > 1 then
-        displayRuntime.guideDetail.page = carouselSubpage(
-          displayRuntime.guideDetail.page, row.detailPages, direction)
-        dirty = true
+        local nextPage = carouselSubpage(displayRuntime.guideDetail.page,
+          row.detailPages, direction)
+        if nextPage then
+          displayRuntime.guideDetail.page, dirty = nextPage, true
+        end
       end
       return
     end
@@ -5465,13 +5472,15 @@ return function(mod)
           end
         end
         if row and row.detailPages > 1 then
+          local nextPage
           if x >= 22 and x < 48 then
-            displayRuntime.guideDetail.page = carouselSubpage(
+            nextPage = carouselSubpage(
               displayRuntime.guideDetail.page, row.detailPages, -1)
           elseif x >= 80 and x < 106 then
-            displayRuntime.guideDetail.page = carouselSubpage(
+            nextPage = carouselSubpage(
               displayRuntime.guideDetail.page, row.detailPages, 1)
           end
+          if nextPage then displayRuntime.guideDetail.page = nextPage end
         end
       end
       dirty = true

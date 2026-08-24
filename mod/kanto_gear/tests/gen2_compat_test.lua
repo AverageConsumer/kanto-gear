@@ -318,12 +318,71 @@ do
       if name == target then return value end
     end
   end
+  local function setUpvalue(fn, target, value)
+    for index = 1, debug.getinfo(fn, "u").nups do
+      if debug.getupvalue(fn, index) == target then
+        debug.setupvalue(fn, index, value)
+        return true
+      end
+    end
+  end
   local inputHook
   for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
     if entry.owner == "kanto_gear" then inputHook = entry.callback end
   end
   local changePage = upvalue(upvalue(inputHook, "pollTriggerTabs"),
     "changePage")
+
+  local composeHook
+  for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
+    if entry.owner == "kanto_gear" then composeHook = entry.callback end
+  end
+  local touchEvent = upvalue(composeHook, "touchEvent")
+  local tap = upvalue(touchEvent, "tap")
+  local displayRuntime = upvalue(changePage, "displayRuntime")
+  local guideData = upvalue(changePage, "guideData")
+  T.check(setUpvalue(changePage, "page", "GUIDE"),
+    "Guide regression can select the GUIDE tab")
+  T.check(guideData().rows[1].detailPages > 1,
+    "Guide regression fixture has multiple detail pages")
+  tap(10, 50)
+  T.eq(displayRuntime.guideDetail.page, 1,
+    "tapping a Guide row opens its first detail page")
+  changePage(-1)
+  T.eq(displayRuntime.guideDetail.page, 1,
+    "swiping back at the first detail boundary keeps a valid page")
+  tap(30, 10)
+  T.eq(displayRuntime.guideDetail.page, 1,
+    "tapping back at the first detail boundary keeps a valid page")
+  local lastDetailPage = guideData().rows[1].detailPages
+  displayRuntime.guideDetail.page = lastDetailPage
+  tap(90, 10)
+  T.eq(displayRuntime.guideDetail.page, lastDetailPage,
+    "tapping forward at the last detail boundary keeps a valid page")
+  displayRuntime.guideDetail = nil
+  setUpvalue(changePage, "page", "MAP")
+
+  local pumpDisplay = upvalue(composeHook, "pumpDisplay")
+  local draw = upvalue(pumpDisplay, "draw")
+  local drawContents = displayRuntime.drawContents
+  local push, pop = T.love.graphics.push, T.love.graphics.pop
+  local graphicsDepth = 0
+  T.love.graphics.push = function(...)
+    graphicsDepth = graphicsDepth + 1
+    return push(...)
+  end
+  T.love.graphics.pop = function(...)
+    graphicsDepth = graphicsDepth - 1
+    return pop(...)
+  end
+  displayRuntime.drawContents = function() error("expected draw failure") end
+  local ok = pcall(draw)
+  displayRuntime.drawContents = drawContents
+  T.love.graphics.push, T.love.graphics.pop = push, pop
+  T.check(not ok, "companion draw failures remain observable")
+  T.eq(graphicsDepth, 0,
+    "companion draw failures restore the graphics stack")
+
   for _ = 1, 6 do changePage(1) end
 
   local previousParty, previousIcons = game.save.party, run.data.gen2Icons
