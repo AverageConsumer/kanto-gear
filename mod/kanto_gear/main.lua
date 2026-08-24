@@ -3281,7 +3281,7 @@ return function(mod)
         end
         text(methods1, 35, y + 13, DARK)
         text(methods2, 35, y + 21, DARK)
-        text(levels, 122, y + 15, DARK)
+        text(levels, 156 - #glyphList(levels) * 6, y + 15, DARK)
       end
     end
   end
@@ -3318,7 +3318,7 @@ return function(mod)
         local levels = appearance.minLevel == appearance.maxLevel
           and THEME:format("L%d", appearance.minLevel)
           or THEME:format("L%d-%d", appearance.minLevel, appearance.maxLevel)
-        text(levels, 122, y + 15, DARK)
+        text(levels, 156 - #glyphList(levels) * 6, y + 15, DARK)
       end
     end
   end
