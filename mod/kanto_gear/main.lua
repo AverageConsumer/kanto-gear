@@ -1683,6 +1683,16 @@ return function(mod)
     return game and game.save and game.save.generation == 2
   end
 
+  function compat.timePeriod(world)
+    local period = world and tostring(world.tod or world.daytime or ""):upper()
+    if period == "DARK" then period = "NITE" end
+    return (period == "MORN" or period == "DAY" or period == "NITE")
+      and period or nil
+  end
+  assert(compat.timePeriod({ daytime = "day" }) == "DAY"
+    and compat.timePeriod({ tod = "DARK" }) == "NITE"
+    and compat.timePeriod({}) == nil, "Gen 2 time period labels")
+
   function compat.clockTimestamp(currentGame, source, now)
     if source ~= "game" or not (currentGame and currentGame.save
         and currentGame.save.generation == 2) then return now end
@@ -2102,10 +2112,7 @@ return function(mod)
     end
 
     local ownedDex = compat.caughtDex(game.save)
-    local areaCaught, currentTime = 0, game.world
-      and (game.world.tod or game.world.daytime)
-    currentTime = tostring(currentTime or "DAY"):upper()
-    if currentTime == "DARK" then currentTime = "NITE" end
+    local areaCaught, currentTime = 0, compat.timePeriod(game.world) or "DAY"
     for order, row in ipairs(rows) do
       local def = data.pokemon[row.species] or {}
       row.name, row.caught = def.name or row.species, ownedDex[row.species] == true
@@ -2489,6 +2496,8 @@ return function(mod)
     local now = os.time()
     local clock = compactClock(mod.datetime:time(game,
       compat.clockTimestamp(game, mod.options:get("clock_source"), now)))
+    local period = compat.isGen2() and compat.timePeriod(game.world)
+    if period then clock = clock .. " " .. period:sub(1, 1) end
     local clockX = 117 - math.floor(#clock * 3)
     text(clock, clockX, 6, foreground)
     battery(143, foreground)

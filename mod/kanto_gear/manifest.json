@@ -1,7 +1,7 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",
