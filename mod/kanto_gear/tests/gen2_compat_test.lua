@@ -34,6 +34,7 @@ run.data.gen2Landmarks = { landmarks = {
 } }
 run.data.gen2Maps = { FIX_ROUTE = {
   landmark = 2,
+  fishGroup = "FISHGROUP_POND",
   objects = {
     { eventFlag = 12, itemball = { item = 1 } },
     { trainer = { class = 3, member = 1, event = 11 } },
@@ -49,7 +50,21 @@ run.data.gen2Encounters = { grass = { FIX_ROUTE = { slots = {
   MORN = { { species = "FIXMON_A", level = 2 } },
   DAY = { { species = "FIXMON_A", level = 3 } },
   NITE = { { species = "FIXMON_B", level = 4 } },
-} } }, water = {} }
+} } }, water = {}, fishGroups = { FISHGROUP_POND = {
+  old = {
+    { chance = 179, species = "FIXMON_A", level = 10 },
+    { chance = 255, species = "FIXMON_B", level = 10 },
+  },
+  good = {
+    { chance = 255, species = 0, level = 1, timeGroup = 1 },
+  },
+  super = {
+    { chance = 255, species = "FIXMON_B", level = 20 },
+  },
+} }, timeFishGroups = { [1] = {
+  day = { species = "FIXMON_A", level = 20 },
+  nite = { species = "FIXMON_B", level = 20 },
+} } }
 local johtoMap = {}
 for i = 1, 20 * 18 do johtoMap[i] = 0 end
 local mapColors = {
@@ -114,6 +129,23 @@ do
     "pollTriggerTabs"), "changePage"), "guideData")
   T.check(guideData ~= nil, "Guide data remains reachable from navigation")
 
+  local guide = guideData()
+  local fish = {}
+  for _, row in ipairs(guide.rows) do fish[row.species] = row end
+  local function method(row, name)
+    for _, entry in ipairs(row.currentMethods) do
+      if entry.name == name then return entry end
+    end
+  end
+  T.check(method(fish.FIXMON_A, "GOOD") ~= nil,
+    "Gen 2 Guide includes the current daytime fishing table")
+  T.eq(method(fish.FIXMON_A, "OLD").min, 70,
+    "Gen 2 Guide derives Old Rod odds from cumulative slots")
+  T.check(method(fish.FIXMON_B, "OLD") ~= nil,
+    "Gen 2 Guide includes every species in a fishing group")
+  T.check(method(fish.FIXMON_B, "SUPER") ~= nil,
+    "Gen 2 Guide includes all three rod tables")
+
   local landmarks, maps, encounters = run.data.gen2Landmarks,
     run.data.gen2Maps, run.data.gen2Encounters
   run.data.gen2Landmarks = { landmarks = { DARK_CAVE = {
@@ -141,7 +173,7 @@ do
   game.world.daytime = "DAY"
   run.loader.events:emit("map.entered",
     { mapId = "DARK_CAVE_BLACKTHORN_ENTRANCE" })
-  local guide = guideData()
+  guide = guideData()
   local wobbuffet, remoteOnly
   for _, row in ipairs(guide.rows) do
     if row.species == "FIXMON_B" then wobbuffet = row end

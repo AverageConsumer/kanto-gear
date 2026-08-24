@@ -525,36 +525,42 @@ local function addEncounters(rows, bySpecies, slots, method, buckets, context)
     local threshold = buckets and buckets[index]
     local weight = threshold and threshold - previous or 1
     previous = threshold or previous
-    weights[slot.species] = (weights[slot.species] or 0) + weight
-    local range = levels[slot.species]
-    if range then
-      range.min, range.max = math.min(range.min, slot.level),
-        math.max(range.max, slot.level)
-    else
-      levels[slot.species] = { min = slot.level, max = slot.level }
-    end
-    local row = bySpecies[slot.species]
-    if not row then
-      row = { species = slot.species, minLevel = slot.level,
-              maxLevel = slot.level, methods = {}, methodSet = {}, appearances = {} }
-      rows[#rows + 1], bySpecies[slot.species] = row, row
-    else
-      row.minLevel = math.min(row.minLevel, slot.level)
-      row.maxLevel = math.max(row.maxLevel, slot.level)
-    end
-    if context and context.time then
-      row.times = row.times or {}
-      row.times[context.time] = true
-    else
-      row.allTimes = true
+    local species = slot.species
+    if species and species ~= 0 and species ~= "NO_ITEM" then
+      weights[species] = (weights[species] or 0) + weight
+      local range = levels[species]
+      if range then
+        range.min, range.max = math.min(range.min, slot.level),
+          math.max(range.max, slot.level)
+      else
+        levels[species] = { min = slot.level, max = slot.level }
+      end
+      local row = bySpecies[species]
+      if not row then
+        row = { species = species, minLevel = slot.level,
+                maxLevel = slot.level, methods = {}, methodSet = {},
+                appearances = {} }
+        rows[#rows + 1], bySpecies[species] = row, row
+      else
+        row.minLevel = math.min(row.minLevel, slot.level)
+        row.maxLevel = math.max(row.maxLevel, slot.level)
+      end
+      if context and context.time then
+        row.times = row.times or {}
+        row.times[context.time] = true
+      else
+        row.allTimes = true
+      end
     end
   end
   local total, seen = buckets and buckets[#slots] or #slots, {}
   for _, slot in ipairs(slots) do
-    if not seen[slot.species] then
-      seen[slot.species] = true
-      local chance = math.floor(weights[slot.species] * 100 / total + 0.5)
-      local row, odds = bySpecies[slot.species]
+    local species = slot.species
+    if species and species ~= 0 and species ~= "NO_ITEM"
+        and not seen[species] then
+      seen[species] = true
+      local chance = math.floor(weights[species] * 100 / total + 0.5)
+      local row, odds = bySpecies[species]
       odds = row.methodSet[method]
       if odds then
         odds.min, odds.max = math.min(odds.min, chance), math.max(odds.max, chance)
@@ -564,7 +570,7 @@ local function addEncounters(rows, bySpecies, slots, method, buckets, context)
         row.methods[#row.methods + 1] = odds
       end
       if context then
-        local range = levels[slot.species]
+        local range = levels[species]
         row.appearances[#row.appearances + 1] = {
           method = method, chance = chance, time = context.time,
           mapId = context.mapId, section = context.section,
@@ -2088,6 +2094,34 @@ return function(mod)
           { 30, 60, 80, 90, 95, 99, 100 })
         addGold(encounters.water and encounters.water[id], "SURF",
           { 60, 90, 100 })
+        local map = data.gen2Maps and data.gen2Maps[id]
+        local group = map and encounters.fishGroups
+          and encounters.fishGroups[map.fishGroup]
+        for _, rod in ipairs({ { "old", "OLD" }, { "good", "GOOD" },
+                               { "super", "SUPER" } }) do
+          local source = group and group[rod[1]] or {}
+          local timed = false
+          for _, slot in ipairs(source) do
+            timed = timed or slot.day ~= nil or slot.nite ~= nil
+              or slot.timeGroup ~= nil
+          end
+          local periods = timed and { "MORN", "DAY", "NITE" } or { false }
+          for _, time in ipairs(periods) do
+            local slots, weights = {}, {}
+            for _, row in ipairs(source) do
+              local slot = row
+              if time then
+                local key = time == "NITE" and "nite" or "day"
+                local timeGroup = encounters.timeFishGroups
+                  and encounters.timeFishGroups[row.timeGroup]
+                slot = row[key] or (timeGroup and timeGroup[key]) or row
+              end
+              slots[#slots + 1], weights[#weights + 1] = slot, row.chance
+            end
+            addEncounters(rows, bySpecies, slots, rod[2], weights,
+              { time = time or nil, mapId = id, section = sectionName(id) })
+          end
+        end
       else
         addEncounters(rows, bySpecies,
           encounter and encounter.grass and encounter.grass.slots, "WALK",
@@ -2099,7 +2133,7 @@ return function(mod)
           { mapId = id, section = sectionName(id) })
       end
       local super = field.superRod and field.superRod[id]
-      if (encounter and encounter.water) or super then
+      if not compat.isGen2() and ((encounter and encounter.water) or super) then
         for _, rod in ipairs({ "OLD_ROD", "GOOD_ROD", "SUPER_ROD" }) do
           local def = fishing[rod] or {}
           local slots = def.always and { def.always } or def.pool
