@@ -2387,7 +2387,9 @@ return function(mod)
         path = name and icons.icons and icons.icons[name]
       end
     end
-    path = PokemonSprites.iconPath(data, mon, path, { name = name })
+    if not mon.isEgg then
+      path = PokemonSprites.iconPath(data, mon, path, { name = name })
+    end
     if not path then return false end
     local key = "icon:" .. path
     if spriteCache[key] == nil then

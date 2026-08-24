@@ -189,6 +189,48 @@ local companion = {
   pollTouch = function() return table.remove(touchEvents, 1) end,
   push = function() return true end,
 }
+do
+  local function upvalue(fn, target)
+    for index = 1, debug.getinfo(fn, "u").nups do
+      local name, value = debug.getupvalue(fn, index)
+      if name == target then return value end
+    end
+  end
+  local inputHook
+  for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
+    if entry.owner == "kanto_gear" then inputHook = entry.callback end
+  end
+  local changePage = upvalue(upvalue(inputHook, "pollTriggerTabs"),
+    "changePage")
+  for _ = 1, 6 do changePage(1) end
+
+  local previousParty, previousIcons = game.save.party, run.data.gen2Icons
+  local egg = { species = "FIXMON_B", nickname = "EGG", isEgg = true }
+  game.save.party = { egg }
+  run.data.gen2Icons = { species = {}, icons = {
+    ICON_EGG = { image = "native-egg.png" },
+  } }
+  local PokemonSprites = require("src.pokemon.Sprites")
+  local iconPath, iconHookCalls = PokemonSprites.iconPath, 0
+  PokemonSprites.iconPath = function(...)
+    iconHookCalls = iconHookCalls + 1
+    return "revealed-hatchling.png"
+  end
+  local eggDraws = T.record.draw()
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = companion,
+  })
+  eggDraws:stop()
+  PokemonSprites.iconPath = iconPath
+  game.save.party, run.data.gen2Icons = previousParty, previousIcons
+  for _ = 1, 6 do changePage(-1) end
+
+  T.eq(iconHookCalls, 0, "party eggs bypass species icon replacements")
+  T.check(#eggDraws:fromPath("native-egg.png") > 0,
+    "party eggs render the native egg icon")
+  T.eq(#eggDraws:fromPath("revealed-hatchling.png"), 0,
+    "party eggs never reveal the hidden hatchling")
+end
 local SpriteRenderer = require("src.render.SpriteRenderer")
 local GbcPalette = require("src.render.GbcPalette")
 local rendererNew = SpriteRenderer.new
