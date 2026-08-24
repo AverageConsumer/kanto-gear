@@ -527,23 +527,24 @@ local function addEncounters(rows, bySpecies, slots, method, buckets, context)
     previous = threshold or previous
     local species = slot.species
     if species and species ~= 0 and species ~= "NO_ITEM" then
+      local minLevel, maxLevel = slot.min or slot.level, slot.max or slot.level
       weights[species] = (weights[species] or 0) + weight
       local range = levels[species]
       if range then
-        range.min, range.max = math.min(range.min, slot.level),
-          math.max(range.max, slot.level)
+        range.min, range.max = math.min(range.min, minLevel),
+          math.max(range.max, maxLevel)
       else
-        levels[species] = { min = slot.level, max = slot.level }
+        levels[species] = { min = minLevel, max = maxLevel }
       end
       local row = bySpecies[species]
       if not row then
-        row = { species = species, minLevel = slot.level,
-                maxLevel = slot.level, methods = {}, methodSet = {},
+        row = { species = species, minLevel = minLevel,
+                maxLevel = maxLevel, methods = {}, methodSet = {},
                 appearances = {} }
         rows[#rows + 1], bySpecies[species] = row, row
       else
-        row.minLevel = math.min(row.minLevel, slot.level)
-        row.maxLevel = math.max(row.maxLevel, slot.level)
+        row.minLevel = math.min(row.minLevel, minLevel)
+        row.maxLevel = math.max(row.maxLevel, maxLevel)
       end
       if context and context.time then
         row.times = row.times or {}
@@ -2064,6 +2065,35 @@ return function(mod)
     local rows, bySpecies = {}, {}
     local data, field = game.data, game.data.field or {}
     local fishing = field.fishing or {}
+    local gen2 = compat.isGen2()
+    local modules = displayRuntime.gen2GuideModules
+    if gen2 and not modules then
+      modules = {
+        encounter = select(2, pcall(require, "src.battle.gen2.Encounter")),
+        roamers = select(2, pcall(require, "src.core.gen2.Roamers")),
+        contest = select(2, pcall(require, "src.core.gen2.BugContest")),
+      }
+      for key, value in pairs(modules) do
+        if type(value) ~= "table" then modules[key] = nil end
+      end
+      displayRuntime.gen2GuideModules = modules
+    end
+    local Gen2Encounter = modules and modules.encounter
+    local Roamers = modules and modules.roamers
+    local BugContest = modules and modules.contest
+    local function addWeighted(slots, method, context)
+      local selected, cumulative, total = {}, {}, 0
+      for _, slot in ipairs(slots or {}) do
+        local chance = math.max(0, tonumber(slot.chance) or 0)
+        chance = math.min(chance, math.max(0, 100 - total))
+        if chance > 0 then
+          selected[#selected + 1], total = slot, total + chance
+          cumulative[#cumulative + 1] = total
+        end
+        if total >= 100 then break end
+      end
+      addEncounters(rows, bySpecies, selected, method, cumulative, context)
+    end
     local function sectionName(id)
       local section = tostring(id or "OTHER AREA"):gsub("_", " ")
       local entry = locationEntry(id)
@@ -2076,8 +2106,12 @@ return function(mod)
     for _, id in ipairs(areaMaps(mapId)) do
       local encounter = data.encounters and data.encounters[id]
       local buckets = data.constants and data.constants.encounterBuckets
-      if compat.isGen2() then
+      if gen2 then
         local encounters = data.gen2Encounters or {}
+        local active = encounters
+        if Roamers and Roamers.Swarm then
+          active = Roamers.Swarm.tables(game.save, encounters, id)
+        end
         local function addGold(entry, method, weights)
           local slots = entry and entry.slots or {}
           if slots.MORN or slots.DAY or slots.NITE then
@@ -2090,13 +2124,26 @@ return function(mod)
               { mapId = id, section = sectionName(id) })
           end
         end
-        addGold(encounters.grass and encounters.grass[id], "WALK",
-          { 30, 60, 80, 90, 95, 99, 100 })
-        addGold(encounters.water and encounters.water[id], "SURF",
-          { 60, 90, 100 })
+        local contest = id == mapId and game.save.bugContest
+          and game.save.bugContest.active == true
+        if contest then
+          addWeighted(encounters.bugContest or (BugContest and BugContest.MONS),
+            "CONTEST",
+            { mapId = id, section = sectionName(id) })
+        else
+          addGold(active.grass and active.grass[id], "WALK",
+            { 30, 60, 80, 90, 95, 99, 100 })
+          addGold(active.water and active.water[id], "SURF",
+            { 60, 90, 100 })
+        end
         local map = data.gen2Maps and data.gen2Maps[id]
-        local group = map and encounters.fishGroups
-          and encounters.fishGroups[map.fishGroup]
+        local groupId = map and map.fishGroup
+        if groupId and Gen2Encounter and Roamers and Roamers.Swarm then
+          groupId = Gen2Encounter.fishGroupFor(encounters, groupId,
+            Roamers.Swarm.fishing(game.save))
+        end
+        local group = groupId and encounters.fishGroups
+          and encounters.fishGroups[groupId]
         for _, rod in ipairs({ { "old", "OLD" }, { "good", "GOOD" },
                                { "super", "SUPER" } }) do
           local source = group and group[rod[1]] or {}
@@ -2122,6 +2169,29 @@ return function(mod)
               { time = time or nil, mapId = id, section = sectionName(id) })
           end
         end
+        local treeSet = encounters.treeSets
+          and encounters.treeSets[encounters.trees and encounters.trees[id]]
+        if treeSet then
+          addWeighted(treeSet.common, "HEADBUTT",
+            { mapId = id, section = sectionName(id) })
+          addWeighted(treeSet.rare, "RARE TREE",
+            { mapId = id, section = sectionName(id) })
+        end
+        local rockSet = encounters.treeSets
+          and encounters.treeSets[encounters.rocks and encounters.rocks[id]]
+        if rockSet then
+          addWeighted(rockSet.common, "ROCK SMASH",
+            { mapId = id, section = sectionName(id) })
+        end
+        for _, roamer in ipairs(game.save.roamers or {}) do
+          if roamer.species and roamer.map == id then
+            addEncounters(rows, bySpecies, {
+              { species = roamer.species, level = roamer.level or 40 },
+              { species = 0, level = roamer.level or 40 },
+            }, "ROAMING", { 10, 100 },
+              { mapId = id, section = sectionName(id) })
+          end
+        end
       else
         addEncounters(rows, bySpecies,
           encounter and encounter.grass and encounter.grass.slots, "WALK",
@@ -2133,7 +2203,7 @@ return function(mod)
           { mapId = id, section = sectionName(id) })
       end
       local super = field.superRod and field.superRod[id]
-      if not compat.isGen2() and ((encounter and encounter.water) or super) then
+      if not gen2 and ((encounter and encounter.water) or super) then
         for _, rod in ipairs({ "OLD_ROD", "GOOD_ROD", "SUPER_ROD" }) do
           local def = fishing[rod] or {}
           local slots = def.always and { def.always } or def.pool

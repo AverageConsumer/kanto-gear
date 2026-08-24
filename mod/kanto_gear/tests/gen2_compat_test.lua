@@ -133,6 +133,7 @@ do
   local fish = {}
   for _, row in ipairs(guide.rows) do fish[row.species] = row end
   local function method(row, name)
+    if not row then return nil end
     for _, entry in ipairs(row.currentMethods) do
       if entry.name == name then return entry end
     end
@@ -146,7 +147,96 @@ do
   T.check(method(fish.FIXMON_B, "SUPER") ~= nil,
     "Gen 2 Guide includes all three rod tables")
 
-  local landmarks, maps, encounters = run.data.gen2Landmarks,
+  local encounters = run.data.gen2Encounters
+  encounters.swarmGrass = { FIX_ROUTE = { slots = {
+    MORN = {}, DAY = {}, NITE = {},
+  } } }
+  for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
+    local slots = encounters.swarmGrass.FIX_ROUTE.slots[time]
+    for _ = 1, 7 do
+      slots[#slots + 1] = { species = "FIXMON_B", level = 8 }
+    end
+  end
+  encounters.fishGroups.FISHGROUP_QWILFISH = {
+    old = { { chance = 255, species = "FIXMON_A", level = 10 } },
+    good = {}, super = {},
+  }
+  encounters.fishGroups.FISHGROUP_QWILFISH_SWARM = {
+    old = { { chance = 255, species = "FIXMON_B", level = 10 } },
+    good = {}, super = {},
+  }
+  run.data.gen2Maps.FIX_ROUTE.fishGroup = "FISHGROUP_QWILFISH"
+  game.save.dailyFlags = { swarm = true, fishingSwarm = 1 }
+  game.save.swarmMap = "FIX_ROUTE"
+  guide = guideData()
+  fish = {}
+  for _, row in ipairs(guide.rows) do fish[row.species] = row end
+  T.check(method(fish.FIXMON_B, "WALK") ~= nil
+      and method(fish.FIXMON_A, "WALK") == nil,
+    "Guide replaces ordinary grass with the active swarm table")
+  T.check(method(fish.FIXMON_B, "OLD") ~= nil
+      and method(fish.FIXMON_A, "OLD") == nil,
+    "Guide uses the active fishing swarm group")
+
+  game.save.dailyFlags, game.save.swarmMap = nil, nil
+  run.data.gen2Maps.FIX_ROUTE.fishGroup = "FISHGROUP_POND"
+  encounters.trees = { FIX_ROUTE = "TREE_SET" }
+  encounters.rocks = { FIX_ROUTE = "ROCK_SET" }
+  encounters.treeSets = {
+    TREE_SET = {
+      common = {
+        { chance = 80, species = "FIXMON_A", level = 6 },
+        { chance = 20, species = "FIXMON_B", level = 7 },
+      },
+      rare = { { chance = 100, species = "FIXMON_B", level = 9 } },
+    },
+    ROCK_SET = {
+      common = {
+        { chance = 90, species = "FIXMON_B", level = 12 },
+        { chance = 10, species = "FIXMON_A", level = 12 },
+      },
+      rare = {},
+    },
+  }
+  game.save.roamers = {
+    { species = "REMOTE", map = "FIX_ROUTE", level = 40 },
+  }
+  guide = guideData()
+  fish = {}
+  for _, row in ipairs(guide.rows) do fish[row.species] = row end
+  T.eq(method(fish.FIXMON_A, "HEADBUTT").min, 80,
+    "Guide includes common Headbutt trees")
+  T.eq(method(fish.FIXMON_B, "RARE TREE").min, 100,
+    "Guide distinguishes rare Headbutt trees")
+  T.eq(method(fish.FIXMON_B, "ROCK SMASH").min, 90,
+    "Guide includes Rock Smash encounters")
+  T.eq(method(fish.REMOTE, "ROAMING").min, 10,
+    "Guide reports an active roamer on its current map")
+
+  encounters.bugContest = {
+    { chance = 60, species = "FIXMON_A", min = 7, max = 18 },
+    { chance = 40, species = "FIXMON_B", min = 9, max = 14 },
+    { chance = 255, species = "REMOTE", min = 30, max = 40 },
+  }
+  game.save.bugContest = { active = true }
+  guide = guideData()
+  fish = {}
+  for _, row in ipairs(guide.rows) do fish[row.species] = row end
+  T.check(method(fish.FIXMON_A, "CONTEST") ~= nil
+      and method(fish.FIXMON_A, "WALK") == nil,
+    "an active Bug Contest replaces the ordinary walking table")
+  local contestAppearance
+  for _, appearance in ipairs(fish.FIXMON_A.appearances) do
+    if appearance.method == "CONTEST" then contestAppearance = appearance end
+  end
+  T.check(contestAppearance and contestAppearance.minLevel == 7
+      and contestAppearance.maxLevel == 18,
+    "Guide preserves Bug Contest level ranges")
+  T.check(fish.REMOTE and method(fish.REMOTE, "CONTEST") == nil,
+    "the unreachable Bug Contest fallback row stays hidden")
+  game.save.bugContest, game.save.roamers = nil, nil
+
+  local landmarks, maps, savedEncounters = run.data.gen2Landmarks,
     run.data.gen2Maps, run.data.gen2Encounters
   run.data.gen2Landmarks = { landmarks = { DARK_CAVE = {
     index = 9, name = "DARK CAVE", x = 20, y = 20,
@@ -201,7 +291,7 @@ do
     "unavailable current-time encounters do not show a misleading rate")
 
   run.data.gen2Landmarks, run.data.gen2Maps, run.data.gen2Encounters =
-    landmarks, maps, encounters
+    landmarks, maps, savedEncounters
   game.world.daytime = "DAY"
   run.loader.events:emit("map.entered", { mapId = "FIX_ROUTE" })
 end
