@@ -2025,14 +2025,13 @@ return function(mod)
     local data, field = game.data, game.data.field or {}
     local fishing = field.fishing or {}
     local function sectionName(id)
-      if id == mapId then return "HERE" end
       local section = tostring(id or "OTHER AREA"):gsub("_", " ")
       local entry = locationEntry(id)
       local name = entry and tostring(entry.name or entry.label or "") or ""
       for word in name:upper():gmatch("[%w]+") do
         section = section:gsub("^" .. word .. " ?", "")
       end
-      return section ~= "" and section or "OTHER AREA"
+      return section ~= "" and section or name ~= "" and name or "OTHER AREA"
     end
     for _, id in ipairs(areaMaps(mapId)) do
       local encounter = data.encounters and data.encounters[id]
@@ -2145,7 +2144,7 @@ return function(mod)
       complete = #rows > 0 and areaCaught == #rows,
       dexCaught = owned, dexTotal = dexTotal,
       pages = math.max(1, math.ceil(#rows / 3)), timed = compat.isGen2(),
-      time = currentTime }
+      time = currentTime, section = sectionName(mapId) }
   end
 
   local function areaData()
@@ -3206,11 +3205,10 @@ return function(mod)
          94, 23, INK)
 
     box("fill", 4, 34, 152, 12, guide.complete and DARK or MID)
-    local status = guide.complete and "+ AREA COMPLETE +"
-      or #guide.rows > 0 and THEME:format("AREA %d/%d",
-        guide.caught, #guide.rows)
+    local status = #guide.rows > 0 and THEME:format("%s %d/%d",
+        guide.section, guide.caught, #guide.rows)
       or "NO WILD ENCOUNTERS"
-    centered(status, 37, guide.complete and PAPER or INK)
+    centered(fit(status, 25), 37, guide.complete and PAPER or INK)
 
     for slot = 1, 3 do
       local row = guide.rows[(guidePage - 1) * 3 + slot]

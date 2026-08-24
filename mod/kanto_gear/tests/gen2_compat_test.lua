@@ -151,6 +151,10 @@ do
     "current Dark Cave section is available now")
   T.eq(wobbuffet.currentMethods[1].min, 15,
     "Guide uses Gold's 10% + 5% weighted Wobbuffet slots")
+  T.eq(guide.section, "BLACKTHORN ENTRANCE",
+    "Guide exposes the current internal map section")
+  T.eq(wobbuffet.appearances[1].section, "BLACKTHORN ENTRANCE",
+    "encounter details name the current section instead of only saying here")
   T.eq(remoteOnly.availability, "area",
     "encounters from another internal section stay visible but unavailable")
 
