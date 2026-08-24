@@ -517,26 +517,34 @@ local function hasUnlockedTool(save)
   return false
 end
 
-local function addEncounters(rows, bySpecies, slots, method, buckets, time)
+local function addEncounters(rows, bySpecies, slots, method, buckets, context)
   slots = slots or {}
-  local weights, previous = {}, 0
+  if type(context) ~= "table" then context = context and { time = context } end
+  local weights, levels, previous = {}, {}, 0
   for index, slot in ipairs(slots) do
     local threshold = buckets and buckets[index]
     local weight = threshold and threshold - previous or 1
     previous = threshold or previous
     weights[slot.species] = (weights[slot.species] or 0) + weight
+    local range = levels[slot.species]
+    if range then
+      range.min, range.max = math.min(range.min, slot.level),
+        math.max(range.max, slot.level)
+    else
+      levels[slot.species] = { min = slot.level, max = slot.level }
+    end
     local row = bySpecies[slot.species]
     if not row then
       row = { species = slot.species, minLevel = slot.level,
-              maxLevel = slot.level, methods = {}, methodSet = {} }
+              maxLevel = slot.level, methods = {}, methodSet = {}, appearances = {} }
       rows[#rows + 1], bySpecies[slot.species] = row, row
     else
       row.minLevel = math.min(row.minLevel, slot.level)
       row.maxLevel = math.max(row.maxLevel, slot.level)
     end
-    if time then
+    if context and context.time then
       row.times = row.times or {}
-      row.times[time] = true
+      row.times[context.time] = true
     else
       row.allTimes = true
     end
@@ -554,6 +562,14 @@ local function addEncounters(rows, bySpecies, slots, method, buckets, time)
         odds = { name = method, min = chance, max = chance }
         row.methodSet[method] = odds
         row.methods[#row.methods + 1] = odds
+      end
+      if context then
+        local range = levels[slot.species]
+        row.appearances[#row.appearances + 1] = {
+          method = method, chance = chance, time = context.time,
+          mapId = context.mapId, section = context.section,
+          minLevel = range.min, maxLevel = range.max,
+        }
       end
     end
   end
@@ -1037,6 +1053,21 @@ do
     "guide encounter time merge")
   addEncounters(rows, by, { { species = "TEST", level = 5 } }, "SURF")
   assert(rows[1].allTimes, "guide unrestricted encounter availability")
+end
+do
+  local rows, by = {}, {}
+  addEncounters(rows, by, {
+    { species = "OTHER", level = 2 }, { species = "OTHER", level = 3 },
+    { species = "OTHER", level = 4 }, { species = "WOBBUFFET", level = 5 },
+    { species = "WOBBUFFET", level = 6 }, { species = "OTHER", level = 7 },
+    { species = "OTHER", level = 8 },
+  }, "WALK", { 30, 60, 80, 90, 95, 99, 100 },
+    { time = "NITE", mapId = "DARK_CAVE_BLACKTHORN_ENTRANCE" })
+  assert(by.WOBBUFFET.methods[1].min == 15
+    and by.WOBBUFFET.appearances[1].chance == 15
+    and by.WOBBUFFET.appearances[1].minLevel == 5
+    and by.WOBBUFFET.appearances[1].maxLevel == 6,
+    "Gen 2 guide uses native weighted encounter slots")
 end
 assert(not battleFocusChanged({}, {})
        and battleFocusChanged({ moveIndex = 1 }, { moveIndex = 2 })
@@ -1993,30 +2024,46 @@ return function(mod)
     local rows, bySpecies = {}, {}
     local data, field = game.data, game.data.field or {}
     local fishing = field.fishing or {}
+    local function sectionName(id)
+      if id == mapId then return "HERE" end
+      local section = tostring(id or "OTHER AREA"):gsub("_", " ")
+      local entry = locationEntry(id)
+      local name = entry and tostring(entry.name or entry.label or "") or ""
+      for word in name:upper():gmatch("[%w]+") do
+        section = section:gsub("^" .. word .. " ?", "")
+      end
+      return section ~= "" and section or "OTHER AREA"
+    end
     for _, id in ipairs(areaMaps(mapId)) do
       local encounter = data.encounters and data.encounters[id]
       local buckets = data.constants and data.constants.encounterBuckets
       if compat.isGen2() then
         local encounters = data.gen2Encounters or {}
-        local function addGold(entry, method)
+        local function addGold(entry, method, weights)
           local slots = entry and entry.slots or {}
           if slots.MORN or slots.DAY or slots.NITE then
             for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
-              addEncounters(rows, bySpecies, slots[time], method, nil, time)
+              addEncounters(rows, bySpecies, slots[time], method, weights,
+                { time = time, mapId = id, section = sectionName(id) })
             end
           else
-            addEncounters(rows, bySpecies, slots, method)
+            addEncounters(rows, bySpecies, slots, method, weights,
+              { mapId = id, section = sectionName(id) })
           end
         end
-        addGold(encounters.grass and encounters.grass[id], "WALK")
-        addGold(encounters.water and encounters.water[id], "SURF")
+        addGold(encounters.grass and encounters.grass[id], "WALK",
+          { 30, 60, 80, 90, 95, 99, 100 })
+        addGold(encounters.water and encounters.water[id], "SURF",
+          { 60, 90, 100 })
       else
         addEncounters(rows, bySpecies,
           encounter and encounter.grass and encounter.grass.slots, "WALK",
-          encounter and encounter.grass and (encounter.grass.buckets or buckets))
+          encounter and encounter.grass and (encounter.grass.buckets or buckets),
+          { mapId = id, section = sectionName(id) })
         addEncounters(rows, bySpecies,
           encounter and encounter.water and encounter.water.slots, "SURF",
-          encounter and encounter.water and (encounter.water.buckets or buckets))
+          encounter and encounter.water and (encounter.water.buckets or buckets),
+          { mapId = id, section = sectionName(id) })
       end
       local super = field.superRod and field.superRod[id]
       if (encounter and encounter.water) or super then
@@ -2025,7 +2072,8 @@ return function(mod)
           local slots = def.always and { def.always } or def.pool
           if def.perMap then slots = field[def.perMap] and field[def.perMap][id] end
           addEncounters(rows, bySpecies, slots,
-            ({ OLD_ROD = "OLD", GOOD_ROD = "GOOD", SUPER_ROD = "SUPER" })[rod])
+            ({ OLD_ROD = "OLD", GOOD_ROD = "GOOD", SUPER_ROD = "SUPER" })[rod],
+            nil, { mapId = id, section = sectionName(id) })
         end
       end
     end
@@ -2038,16 +2086,66 @@ return function(mod)
         if ownedDex[species] then owned = owned + 1 end
       end
     end
-    local areaCaught = 0
-    for _, row in ipairs(rows) do
+    local areaCaught, currentTime = 0, game.world
+      and (game.world.tod or game.world.daytime)
+    currentTime = tostring(currentTime or "DAY"):upper()
+    if currentTime == "DARK" then currentTime = "NITE" end
+    for order, row in ipairs(rows) do
       local def = data.pokemon[row.species] or {}
       row.name, row.caught = def.name or row.species, ownedDex[row.species] == true
       if row.caught then areaCaught = areaCaught + 1 end
+      row.order, row.currentMethods, row.mapTimes = order, {}, {}
+      local currentSet, sameMap = {}, false
+      for _, appearance in ipairs(row.appearances) do
+        local here = appearance.mapId == mapId
+        local now = here and (not appearance.time or appearance.time == currentTime)
+        appearance.rank = now and 1 or here and 2 or 3
+        sameMap = sameMap or here
+        if here then
+          if appearance.time then row.mapTimes[appearance.time] = true
+          else row.mapAllTimes = true end
+        end
+        if now then
+          row.currentMinLevel = math.min(row.currentMinLevel or appearance.minLevel,
+            appearance.minLevel)
+          row.currentMaxLevel = math.max(row.currentMaxLevel or appearance.maxLevel,
+            appearance.maxLevel)
+          local odds = currentSet[appearance.method]
+          if not odds then
+            odds = { name = appearance.method, min = appearance.chance,
+              max = appearance.chance }
+            currentSet[appearance.method] = odds
+            row.currentMethods[#row.currentMethods + 1] = odds
+          else
+            odds.min, odds.max = math.min(odds.min, appearance.chance),
+              math.max(odds.max, appearance.chance)
+          end
+        end
+      end
+      table.sort(row.appearances, function(a, b)
+        if a.rank ~= b.rank then return a.rank < b.rank end
+        if a.section ~= b.section then return a.section < b.section end
+        if (a.time or "") ~= (b.time or "") then
+          return (a.time or "") < (b.time or "")
+        end
+        return a.method < b.method
+      end)
+      row.availability = #row.currentMethods > 0 and "now"
+        or sameMap and "time" or "area"
+      row.detailPages = math.max(1, math.ceil(#row.appearances / 3))
     end
+    table.sort(rows, function(a, b)
+      local rank = { now = 1, time = 2, area = 3 }
+      if rank[a.availability] ~= rank[b.availability] then
+        return rank[a.availability] < rank[b.availability]
+      end
+      return a.order < b.order
+    end)
     return { name = areaName(mapId), rows = rows, caught = areaCaught,
       complete = #rows > 0 and areaCaught == #rows,
       dexCaught = owned, dexTotal = dexTotal,
-      pages = math.max(1, math.ceil(#rows / 3)), timed = compat.isGen2() }
+      pages = math.max(1, math.ceil(#rows / 3)), timed = compat.isGen2(),
+      time = currentTime }
   end
 
   local function areaData()
@@ -3127,7 +3225,7 @@ return function(mod)
         if guide.timed and (not row.caught or caughtBall) then
           local times = {}
           for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
-            times[#times + 1] = (row.allTimes or row.times and row.times[time])
+            times[#times + 1] = (row.mapAllTimes or row.mapTimes[time])
               and fit(time, 1, false) or "-"
           end
           text(table.concat(times, " "), 112, y + 3, DARK)
@@ -3135,12 +3233,66 @@ return function(mod)
         if row.caught and not caughtBall then
           text(fit("CAUGHT", 7), 113, y + 3, DARK)
         end
-        local levels = row.minLevel == row.maxLevel
-          and THEME:format("L%d", row.minLevel)
-          or THEME:format("L%d-%d", row.minLevel, row.maxLevel)
-        local methods1, methods2 = methodLines(row.methods)
+        local minLevel = row.currentMinLevel or row.minLevel
+        local maxLevel = row.currentMaxLevel or row.maxLevel
+        local levels = minLevel == maxLevel and THEME:format("L%d", minLevel)
+          or THEME:format("L%d-%d", minLevel, maxLevel)
+        local methods1, methods2
+        if row.availability == "now" then
+          methods1, methods2 = methodLines(row.currentMethods)
+        elseif row.availability == "time" then
+          local shown, seen = {}, {}
+          for _, appearance in ipairs(row.appearances) do
+            if appearance.rank == 2 then
+              local label = THEME:format("%s %d%%",
+                appearance.time or "ALL", appearance.chance)
+              if not seen[label] then shown[#shown + 1], seen[label] = label, true end
+            end
+          end
+          methods1 = fit(shown[1] or THEME:translate("NOT NOW"), 14)
+          methods2 = fit(shown[2] or "", 14)
+        else
+          methods1, methods2 = fit(THEME:translate("OTHER AREA"), 14), ""
+        end
         text(methods1, 35, y + 13, DARK)
         text(methods2, 35, y + 21, DARK)
+        text(levels, 122, y + 15, DARK)
+      end
+    end
+  end
+
+  displayRuntime.drawGuideDetail = function()
+    local guide, row = guideData()
+    for _, candidate in ipairs(guide.rows) do
+      if candidate.species == displayRuntime.guideDetail.species then
+        row = candidate break
+      end
+    end
+    if not row then displayRuntime.guideDetail = nil; drawGuide(); return end
+    displayRuntime.guideDetail.page = math.max(1,
+      math.min(displayRuntime.guideDetail.page, row.detailPages))
+    header(THEME:format("WHERE %d/%d", displayRuntime.guideDetail.page,
+      row.detailPages),
+      true, row.detailPages > 1)
+    text(fit(row.name, 17), 5, 24, INK)
+    text(row.availability == "now" and THEME:translate("NOW")
+      or row.availability == "time" and guide.time
+      or THEME:translate("AREA"), 124, 24, DARK)
+    for slot = 1, 3 do
+      local appearance = row.appearances[
+        (displayRuntime.guideDetail.page - 1) * 3 + slot]
+      if appearance then
+        local y = 36 + (slot - 1) * 33
+        box("fill", 3, y, 154, 31, appearance.rank == 1 and MID or PAPER)
+        outline(3, y, 154, 31, INK)
+        text(fit(THEME:translate(appearance.section), 23), 7, y + 4, INK)
+        local time = appearance.time or THEME:translate("ALL")
+        local method = THEME:translate(appearance.method)
+        text(fit(THEME:format("%s %s %d%%", time, method,
+          appearance.chance), 18), 7, y + 15, DARK)
+        local levels = appearance.minLevel == appearance.maxLevel
+          and THEME:format("L%d", appearance.minLevel)
+          or THEME:format("L%d-%d", appearance.minLevel, appearance.maxLevel)
         text(levels, 122, y + 15, DARK)
       end
     end
@@ -4292,7 +4444,11 @@ return function(mod)
     elseif page == "LOCAL" then
       drawLocalMap()
     elseif page == "GUIDE" then
-      drawGuide()
+      if displayRuntime.guideDetail then
+        displayRuntime.drawGuideDetail()
+      else
+        drawGuide()
+      end
     elseif page == "AREA" then
       drawArea()
     elseif page == "TRAINER" then
@@ -4461,7 +4617,9 @@ return function(mod)
   end
 
   local function back()
-    if battleInfoDetail then
+    if displayRuntime.guideDetail then
+      displayRuntime.guideDetail = nil
+    elseif battleInfoDetail then
       battleInfoDetail = nil
     elseif moveInfo then
       moveInfo = nil
@@ -4867,6 +5025,20 @@ return function(mod)
       trainerStepsOpen, dirty = false, true
       return
     end
+    if displayRuntime.guideDetail then
+      local guide, row = guideData()
+      for _, candidate in ipairs(guide.rows) do
+        if candidate.species == displayRuntime.guideDetail.species then
+          row = candidate break
+        end
+      end
+      if row and row.detailPages > 1 then
+        displayRuntime.guideDetail.page = carouselSubpage(
+          displayRuntime.guideDetail.page, row.detailPages, direction)
+        dirty = true
+      end
+      return
+    end
     refreshTools()
     local current, count
     if page == "GUIDE" then
@@ -5117,6 +5289,29 @@ return function(mod)
       end
       return
     end
+    if displayRuntime.guideDetail then
+      if y < HEADER and x < 22 then
+        displayRuntime.guideDetail = nil
+      elseif y < HEADER and displayRuntime.guideDetail.page then
+        local guide, row = guideData()
+        for _, candidate in ipairs(guide.rows) do
+          if candidate.species == displayRuntime.guideDetail.species then
+            row = candidate break
+          end
+        end
+        if row and row.detailPages > 1 then
+          if x >= 22 and x < 48 then
+            displayRuntime.guideDetail.page = carouselSubpage(
+              displayRuntime.guideDetail.page, row.detailPages, -1)
+          elseif x >= 80 and x < 106 then
+            displayRuntime.guideDetail.page = carouselSubpage(
+              displayRuntime.guideDetail.page, row.detailPages, 1)
+          end
+        end
+      end
+      dirty = true
+      return
+    end
     if trainerStepsOpen then
       if y < HEADER and x < 22 then
         trainerStepsOpen, dirty = false, true
@@ -5154,7 +5349,15 @@ return function(mod)
       if best then pendingFly, dirty = best, true end
       return
     end
-    if page == "AREA" and assist("item_radar") then
+    if page == "GUIDE" and y >= 48 and y < 141 then
+      local guide = guideData()
+      local slot = math.floor((y - 48) / 31) + 1
+      local row = guide.rows[(guidePage - 1) * 3 + slot]
+      if row then
+        displayRuntime.guideDetail, dirty = { species = row.species, page = 1 }, true
+      end
+      return
+    elseif page == "AREA" and assist("item_radar") then
       local area = areaData()
       local screen = area.screens[math.max(1, math.min(areaPage, area.pages))]
       if screen.name == "HIDDEN" and hasItemfinder()
@@ -5345,7 +5548,7 @@ return function(mod)
     mapId, pendingFly, pendingAction, fieldChoice, dirty =
       payload.mapId, nil, nil, nil, true
     invalidateLocalMap()
-    guidePage, areaPage = 1, 1
+    guidePage, displayRuntime.guideDetail, areaPage = 1, nil, 1
     radarOpen = false
   end)
 
@@ -5376,7 +5579,7 @@ return function(mod)
             and currentBattleUIMode() == "info") then moveInfo = nil end
       if payload.key == "battle_view" then battleInfoDetail = nil end
       if page == "GUIDE" and not assist("guide") then
-        page = "MAP"
+        page, displayRuntime.guideDetail = "MAP", nil
       end
       if page == "AREA" and not assist("area") then page = "MAP" end
       if page == "LOCAL"
@@ -5389,7 +5592,7 @@ return function(mod)
   end)
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
-    if moveInfo or battleInfoDetail then
+    if moveInfo or battleInfoDetail or displayRuntime.guideDetail then
       local queue = stepGame and stepGame.input
         and stepGame.input.pressQueue
       local consumed
@@ -5841,6 +6044,10 @@ return function(mod)
         tostring(pendingAction and pendingAction.id),
         tostring(partyActionSlot), tostring(partyMoveFrom),
         tostring(trainerStepsOpen), tostring(battleInfoDetail),
+        tostring(displayRuntime.guideDetail
+          and displayRuntime.guideDetail.species),
+        tostring(displayRuntime.guideDetail and displayRuntime.guideDetail.page),
+        tostring(game.world and (game.world.tod or game.world.daytime)),
         tostring(fieldChoice and fieldChoice.kind),
         tostring(fieldChoice and fieldChoice.source
           and fieldChoice.source.slot) }, ":")

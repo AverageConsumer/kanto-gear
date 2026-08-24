@@ -99,6 +99,77 @@ run.loader.modOptions.kanto_gear = { trigger_tabs = true }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "trigger_tabs" })
 
+do
+  local function upvalue(fn, target)
+    for index = 1, debug.getinfo(fn, "u").nups do
+      local name, value = debug.getupvalue(fn, index)
+      if name == target then return value end
+    end
+  end
+  local inputHook
+  for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
+    if entry.owner == "kanto_gear" then inputHook = entry.callback end
+  end
+  local guideData = upvalue(upvalue(upvalue(inputHook,
+    "pollTriggerTabs"), "changePage"), "guideData")
+  T.check(guideData ~= nil, "Guide data remains reachable from navigation")
+
+  local landmarks, maps, encounters = run.data.gen2Landmarks,
+    run.data.gen2Maps, run.data.gen2Encounters
+  run.data.gen2Landmarks = { landmarks = { DARK_CAVE = {
+    index = 9, name = "DARK CAVE", x = 20, y = 20,
+  } } }
+  run.data.gen2Maps = {
+    DARK_CAVE_BLACKTHORN_ENTRANCE = { landmark = 9 },
+    DARK_CAVE_VIOLET_ENTRANCE = { landmark = 9 },
+  }
+  local other = { species = "FIXMON_A", level = 4 }
+  local wob = { species = "FIXMON_B", level = 5 }
+  local remote = { species = "REMOTE", level = 6 }
+  run.data.gen2Encounters = { grass = {
+    DARK_CAVE_BLACKTHORN_ENTRANCE = { slots = {
+      MORN = { other, other, other, wob, wob, other, other },
+      DAY = { other, other, other, wob, wob, other, other },
+      NITE = { other, other, other, wob, wob, other, other },
+    } },
+    DARK_CAVE_VIOLET_ENTRANCE = { slots = {
+      MORN = { wob, other, other, other, other, other, other },
+      DAY = { other, other, other, other, other, other, remote },
+      NITE = { wob, other, other, other, other, other, other },
+    } },
+  }, water = {} }
+  game.world.daytime = "DAY"
+  run.loader.events:emit("map.entered",
+    { mapId = "DARK_CAVE_BLACKTHORN_ENTRANCE" })
+  local guide = guideData()
+  local wobbuffet, remoteOnly
+  for _, row in ipairs(guide.rows) do
+    if row.species == "FIXMON_B" then wobbuffet = row end
+    if row.species == "REMOTE" then remoteOnly = row end
+  end
+  T.eq(wobbuffet.availability, "now",
+    "current Dark Cave section is available now")
+  T.eq(wobbuffet.currentMethods[1].min, 15,
+    "Guide uses Gold's 10% + 5% weighted Wobbuffet slots")
+  T.eq(remoteOnly.availability, "area",
+    "encounters from another internal section stay visible but unavailable")
+
+  run.loader.events:emit("map.entered", { mapId = "DARK_CAVE_VIOLET_ENTRANCE" })
+  guide = guideData()
+  for _, row in ipairs(guide.rows) do
+    if row.species == "FIXMON_B" then wobbuffet = row end
+  end
+  T.eq(wobbuffet.availability, "time",
+    "same section at another time is distinguished from another area")
+  T.eq(#wobbuffet.currentMethods, 0,
+    "unavailable current-time encounters do not show a misleading rate")
+
+  run.data.gen2Landmarks, run.data.gen2Maps, run.data.gen2Encounters =
+    landmarks, maps, encounters
+  game.world.daytime = "DAY"
+  run.loader.events:emit("map.entered", { mapId = "FIX_ROUTE" })
+end
+
 local trigger = 0
 T.love.joystick = { getJoysticks = function()
   return { {
