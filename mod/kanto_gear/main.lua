@@ -3236,7 +3236,7 @@ return function(mod)
         outline(3, y, 154, 29, INK)
         local tint = not row.caught and DARK or nil
         drawSprite(row.species, "front", 5, y + 1, 27, 27, tint)
-        text(fit(row.name, 12), 35, y + 3, INK)
+        text(fit(row.name, 11) .. ">", 35, y + 3, INK)
         local caughtBall = row.caught and drawCaughtBall(147, y + 2)
         if guide.timed and (not row.caught or caughtBall) then
           local times = {}
@@ -3443,7 +3443,7 @@ return function(mod)
     return out
   end
 
-  local function partyCard(mon, x, y, selected)
+  local function partyCard(mon, x, y, selected, details)
     box("fill", x, y, 75, 36, selected and DARK or MID)
     outline(x, y, 75, 36, INK)
     if not mon then
@@ -3451,16 +3451,17 @@ return function(mod)
       return
     end
     local source = mon.source or mon
+    local name = fit(mon.name, details and 6 or 7) .. (details and ">" or "")
     if source.isEgg then
       compat.drawPokemonIcon(source, x + 2, y + 2)
-      text(fit(mon.name, 7), x + 29, y + 9, selected and PAPER or INK)
+      text(name, x + 29, y + 9, selected and PAPER or INK)
       return
     end
     if not drawSprite(mon.species, "front", x + 2, y + 4, 27, 27,
                       nil, source, true) then
       compat.drawPokemonIcon(source, x + 2, y + 2)
     end
-    text(fit(mon.name, 7), x + 29, y + 4, selected and PAPER or INK)
+    text(name, x + 29, y + 4, selected and PAPER or INK)
     text(THEME:format("L%d", mon.level or 0), x + 29, y + 14,
          selected and PAPER or DARK)
     hpBar(x + 29, y + 25, 41, mon.hp, mon.maxHp)
@@ -3482,7 +3483,8 @@ return function(mod)
       partyCard(mon, 3 + col * 78, 23 + row * 39,
                 selectedSlot and selectedSlot == i
                   or (not selectedSlot and mon and (mon.active
-                    or (activeSpecies and mon.species == activeSpecies))))
+                    or (activeSpecies and mon.species == activeSpecies))),
+                paged and not back)
     end
   end
 
