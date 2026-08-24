@@ -724,13 +724,17 @@ end
 
 local function localMapLayout(width, height, zoom, focusX, focusY, density)
   width, height = math.max(1, width or 1), math.max(1, height or 1)
+  zoom = tonumber(zoom) or 1
   density = math.max(1, tonumber(density) or 4)
   local scale = math.min(3, 148 / width, 98 / height)
   if scale >= 1 then scale = math.floor(scale) end
-  if zoom == 2 then scale = math.max(scale * 2, 8 / density) end
+  local zoomScale = zoom == 2 and 1.5 or zoom == 3 and 2
+  if zoom > 1 then
+    scale = math.max(scale * zoomScale, zoomScale * 4 / density)
+  end
   local left = 4 + (152 - width * scale) / 2
   local top = 22 + (102 - height * scale) / 2
-  if zoom == 2 and focusX and focusY then
+  if zoom > 1 and focusX and focusY then
     left = 80 - focusX * scale
     top = 73 - focusY * scale
     if width * scale > 152 then
@@ -1004,10 +1008,14 @@ do
   assert(scale == 2 and x == 40 and y == 37,
          "local map fits the companion canvas")
   scale, x, y = localMapLayout(40, 36, 2, 20, 18)
+  assert(scale == 3 and x == 20 and y == 19,
+         "local map medium zoom follows the player")
+  scale, x, y = localMapLayout(40, 36, 3, 20, 18)
   assert(scale == 4 and x == 0 and y == 1,
-         "local map zoom follows the player without leaving empty edges")
-  scale = localMapLayout(48, 196, 2, 24, 98, 4)
-  assert(scale == 2, "thin local maps keep a useful zoom level")
+         "local map close zoom follows the player without empty edges")
+  assert(localMapLayout(48, 196, 2, 24, 98, 4) == 1.5
+    and localMapLayout(48, 196, 3, 24, 98, 4) == 2,
+    "thin local maps keep useful medium and close zoom levels")
 end
 assert(localMapMode(false) == "off" and localMapMode(true) == "map"
        and localMapMode("enhanced") == "enhanced",
@@ -2970,7 +2978,7 @@ return function(mod)
             py + direction[2] * 2, 1, 1, THEME.localMap.player)
       end
       G.setScissor()
-      button(134, 22, 22, 16, localMapZoom == 1 and "+" or "-", false)
+      button(134, 22, 22, 16, localMapZoom .. "x", false)
     end
     box("fill", 4, 126, 152, 14, DARK)
     if enhanced then
@@ -5375,7 +5383,7 @@ return function(mod)
       return
     end
     if page == "LOCAL" and inside(x, y, 126, 18, 34, 30) then
-      localMapZoom = localMapZoom == 1 and 2 or 1
+      localMapZoom = localMapZoom % 3 + 1
       dirty = true
       return
     end
