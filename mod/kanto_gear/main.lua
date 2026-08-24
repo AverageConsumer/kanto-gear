@@ -2363,11 +2363,19 @@ return function(mod)
     return true
   end
 
+  function compat.partyEgg(mon)
+    if not mon then return false end
+    if mon.isEgg == true then return true end
+    local live = mon.slot and game and game.save and game.save.party
+      and game.save.party[mon.slot]
+    return live and live.isEgg == true or false
+  end
+
   function compat.drawPokemonIcon(mon, x, y)
     local data = game and game.data or {}
-    local name, path
+    local name, path, isEgg = nil, nil, compat.partyEgg(mon)
     if data.gen2Icons then
-      name = mon.isEgg and "ICON_EGG"
+      name = isEgg and "ICON_EGG"
         or data.gen2Icons.species and data.gen2Icons.species[mon.species]
       local entry = name and data.gen2Icons.icons
         and data.gen2Icons.icons[name]
@@ -2387,7 +2395,7 @@ return function(mod)
         path = name and icons.icons and icons.icons[name]
       end
     end
-    if not mon.isEgg then
+    if not isEgg then
       path = PokemonSprites.iconPath(data, mon, path, { name = name })
     end
     if not path then return false end
@@ -3454,7 +3462,7 @@ return function(mod)
     end
     local source = mon.source or mon
     local name = fit(mon.name, details and 6 or 7) .. (details and ">" or "")
-    if source.isEgg then
+    if compat.partyEgg(source) then
       compat.drawPokemonIcon(source, x + 2, y + 2)
       text(name, x + 29, y + 9, selected and PAPER or INK)
       return

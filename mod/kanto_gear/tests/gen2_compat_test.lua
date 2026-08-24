@@ -494,6 +494,33 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 })
 T.check(true, "Gold party CANCEL renders as navigation instead of a Pokemon")
 
+do
+  local previousParty, previousBattleParty, previousPlayer =
+    game.save.party, battle.party, battle.player
+  local previousIcons = run.data.gen2Icons
+  local egg = { species = "FIXMON_B", nickname = "EGG", isEgg = true,
+    level = 5, hp = 0, stats = { hp = 18 }, exp = 0 }
+  game.save.party, battle.party, battle.player = { egg }, { egg }, egg
+  party.index = 1
+  run.data.gen2Icons = { species = {}, icons = {
+    ICON_EGG = { image = "native-egg.png" },
+  } }
+  game.stack.states = { screen, party }
+  now = now + 1
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  local battleEggDraws = T.record.draw()
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = companion,
+  })
+  battleEggDraws:stop()
+  T.check(#battleEggDraws:fromPath("native-egg.png") > 0,
+    "Gold battle party restores egg identity from the live party slot")
+  game.save.party, battle.party, battle.player =
+    previousParty, previousBattleParty, previousPlayer
+  run.data.gen2Icons = previousIcons
+  party.index = #game.save.party + 1
+end
+
 local summary = {
   screenId = "Gen2SummaryMenu", page = 3, mon = game.save.party[1],
   itemName = function() return "BERRY" end,
