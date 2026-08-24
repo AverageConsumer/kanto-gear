@@ -1729,6 +1729,7 @@ return function(mod)
 
   compat.romCodes = {
     red = "RD", blue = "BL", yellow = "YL", gold = "GD", silver = "SV",
+    crystal = "CR",
   }
 
   function compat.systemId(version, release)
@@ -1743,6 +1744,8 @@ return function(mod)
     "Silph Link system identifier")
   assert(compat.systemId("silver", "2.2.0") == "SLS-SV-2.2.0",
     "Silver Silph Link system identifier")
+  assert(compat.systemId("crystal", "2.5.0") == "SLS-CR-2.5.0",
+    "Crystal Silph Link system identifier")
 
   function compat.titleChoice(top)
     return top and top.screenId == "Gen2MainMenu" and top.phase == "menu"
