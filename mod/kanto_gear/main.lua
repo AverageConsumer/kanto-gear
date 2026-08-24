@@ -2094,13 +2094,6 @@ return function(mod)
     end
 
     local ownedDex = compat.caughtDex(game.save)
-    local owned, dexTotal = 0, (data.constants and data.constants.dexSize) or 0
-    for species, def in pairs(data.pokemon or {}) do
-      if def.dex then
-        dexTotal = math.max(dexTotal, tonumber(def.dex) or 0)
-        if ownedDex[species] then owned = owned + 1 end
-      end
-    end
     local areaCaught, currentTime = 0, game.world
       and (game.world.tod or game.world.daytime)
     currentTime = tostring(currentTime or "DAY"):upper()
@@ -2158,7 +2151,6 @@ return function(mod)
     end)
     return { name = areaName(mapId), rows = rows, caught = areaCaught,
       complete = #rows > 0 and areaCaught == #rows,
-      dexCaught = owned, dexTotal = dexTotal,
       pages = math.max(1, math.ceil(#rows / 3)), timed = compat.isGen2(),
       time = currentTime, section = sectionName(mapId) }
   end
@@ -3228,12 +3220,11 @@ return function(mod)
     guidePage = math.max(1, math.min(guidePage, guide.pages))
     header(THEME:format("GUIDE %d/%d", guidePage, guide.pages), false, true)
     text(fit(guide.name, 15), 4, 23, DARK)
-    text(THEME:format("DEX %d/%d", guide.dexCaught, guide.dexTotal),
-         94, 23, INK)
+    local progress = THEME:format("%d/%d", guide.caught, #guide.rows)
+    text(progress, 156 - #glyphList(progress) * 6, 23, INK)
 
     box("fill", 4, 34, 152, 12, guide.complete and DARK or MID)
-    local status = #guide.rows > 0 and THEME:format("%s %d/%d",
-        guide.section, guide.caught, #guide.rows)
+    local status = #guide.rows > 0 and guide.section
       or "NO WILD ENCOUNTERS"
     centered(fit(status, 25), 37, guide.complete and PAPER or INK)
 
