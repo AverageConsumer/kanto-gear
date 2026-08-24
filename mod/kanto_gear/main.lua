@@ -1772,6 +1772,22 @@ return function(mod)
   assert(compat.choiceIndex({ row = 2, col = 1, cols = 1 }, "script") == 2,
     "Gold choice index adapter")
 
+  function compat.choiceGrid(top, field, count)
+    if field ~= "script" or top.style ~= "2d"
+        or type(top.rows) ~= "number" or type(top.cols) ~= "number"
+        or top.rows < 1 or top.cols < 2
+        or top.rows * top.cols ~= count then return end
+    local gap, left, topY, width, height = 4, 6, 28, 148, 104
+    local cellW = math.floor((width - (top.cols - 1) * gap) / top.cols)
+    local cellH = math.floor((height - (top.rows - 1) * gap) / top.rows)
+    if cellW < 36 or cellH < 20 then return end
+    return top.rows, top.cols, left, topY, cellW, cellH, gap
+  end
+  assert(compat.choiceGrid({ style = "2d", rows = 3, cols = 2 },
+      "script", 6) == 3
+    and not compat.choiceGrid({ style = "vertical", rows = 6, cols = 1 },
+      "script", 6), "Gold 2D choice layout adapter")
+
   function compat.gen2PaletteModules()
     if not compat.isGen2() then return nil end
     if compat.gen2GbcPalette == nil then
@@ -2679,7 +2695,18 @@ return function(mod)
   local function drawDialogueChoice(top, labels, prompt, field)
     header("CHOOSE")
     local selected = compat.choiceIndex(top, field)
-    if #labels == 2 then
+    local rows, cols, left, topY, cellW, cellH, gap =
+      compat.choiceGrid(top, field, #labels)
+    if rows then
+      for row = 1, rows do
+        for col = 1, cols do
+          local index = (row - 1) * cols + col
+          button(left + (col - 1) * (cellW + gap),
+                 topY + (row - 1) * (cellH + gap), cellW, cellH,
+                 labels[index], selected == index)
+        end
+      end
+    elseif #labels == 2 then
       local lines = THEME:messageLines(prompt, 24, 3)
       if #lines > 0 then
         local y = 35 - (#lines - 1) * 6
@@ -4983,7 +5010,20 @@ return function(mod)
     end
 
     local selected
-    if #labels == 2 then
+    local rows, cols, left, topY, cellW, cellH, gap =
+      compat.choiceGrid(top, field, #labels)
+    if rows then
+      for row = 1, rows do
+        for col = 1, cols do
+          if inside(x, y, left + (col - 1) * (cellW + gap),
+              topY + (row - 1) * (cellH + gap), cellW, cellH) then
+            selected = (row - 1) * cols + col
+            break
+          end
+        end
+        if selected then break end
+      end
+    elseif #labels == 2 then
       if inside(x, y, 24, 54, 112, 32) then selected = 1 end
       if inside(x, y, 24, 90, 112, 32) then selected = 2 end
     else
@@ -5443,8 +5483,16 @@ return function(mod)
     end
     local choice, labels, field = dialogueChoice()
     if choice and #labels > 4 then
-      compat.choiceIndex(choice, field, pagedIndex(
-        compat.choiceIndex(choice, field), #labels, dy < 0 and 1 or -1))
+      local _, cols = compat.choiceGrid(choice, field, #labels)
+      local current = compat.choiceIndex(choice, field)
+      local nextIndex
+      if cols then
+        nextIndex = math.max(1, math.min(#labels,
+          current + (dy < 0 and cols or -cols)))
+      else
+        nextIndex = pagedIndex(current, #labels, dy < 0 and 1 or -1)
+      end
+      compat.choiceIndex(choice, field, nextIndex)
       if type(choice.clampScroll) == "function" then
         pcall(choice.clampScroll, choice)
       end

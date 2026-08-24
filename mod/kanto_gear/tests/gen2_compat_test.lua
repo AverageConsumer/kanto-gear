@@ -488,7 +488,7 @@ summary.moveDetail = false
 
 local scriptChoice = {
   screenId = "Gen2ScriptMenu", items = { "ONE", "TWO", "THREE" },
-  row = 2, col = 1, cols = 1,
+  style = "vertical", row = 2, col = 1, rows = 3, cols = 1,
 }
 game.stack.states = { scriptChoice }
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
@@ -497,6 +497,39 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 })
 T.eq(scriptChoice.row, 2,
   "Gold script choices share the companion choice renderer")
+
+local blackboard = {
+  screenId = "Gen2ScriptMenu", style = "2d",
+  items = { "PSN", "PAR", "SLP", "BRN", "FRZ", "QUIT" },
+  row = 1, col = 1, rows = 3, cols = 2,
+}
+game.stack.states = { blackboard }
+rectangles = {}
+now = now + 1
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+local cells = {}
+for _, call in ipairs(rectangles) do
+  local mode, x, y, w, h = unpack(call)
+  if mode == "fill" and w == 72 and h == 32 then
+    cells[x .. ":" .. y] = true
+  end
+end
+T.check(cells["6:28"] and cells["82:28"]
+    and cells["6:64"] and cells["82:64"]
+    and cells["6:100"] and cells["82:100"],
+  "Gold 2D choices mirror the native three-by-two grid")
+game.input.sourcePress = function() end
+game.input.sourceRelease = function() end
+touchEvents[1] = "tap,120,115"
+now = now + 1
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.eq(blackboard.row, 3, "Gold 2D touch selects the matching row")
+T.eq(blackboard.col, 2, "Gold 2D touch selects the matching column")
 
 local nestedChoice = { screenId = "Gen2PackMenu",
   confirm = { choice = 2 } }
