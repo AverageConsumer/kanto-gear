@@ -1,7 +1,7 @@
 {
   "id": "kanto_gear_es",
   "name": "Kanto Gear Español (España)",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",
