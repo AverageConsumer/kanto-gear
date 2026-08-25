@@ -383,6 +383,41 @@ do
   T.eq(graphicsDepth, 0,
     "companion draw failures restore the graphics stack")
 
+  local naming = require("src.ui.gen2.NamingScreen").new(game, {
+    type = "nickname",
+  })
+  naming.screenId, naming.text = "Gen2NamingScreen", "AB"
+  local screenContract = upvalue(displayRuntime.drawContents, "screenContract")
+  local keyboard = screenContract and screenContract(naming, "naming")
+  T.eq(keyboard and #keyboard, 5,
+    "Gold naming adds CASE, DEL, and END to the mirrored keyboard")
+  T.eq(keyboard and keyboard[5][2], "DEL",
+    "Gold naming preserves the native delete target")
+  T.eq(screenContract({
+    screenId = "Gen2NamingScreen", text = "", row = 0, col = 0,
+    rows = function() return { { "A" } } end,
+  }, "naming"), nil, "foreign Gold naming layouts fall back safely")
+  local previousStack = game.stack.states
+  game.stack.states = { naming }
+  T.check(pcall(displayRuntime.drawContents),
+    "Gold naming renders on the companion screen")
+  local pressed
+  local previousInput = game.input
+  game.input = {}
+  game.input.sourcePress = function(_, button) pressed = button end
+  game.input.sourceRelease = function() end
+  tap(30, 40)
+  T.eq(naming.row, 0, "Gold naming touch selects the native letter row")
+  T.eq(naming.col, 1, "Gold naming touch selects the native letter column")
+  T.eq(pressed, "a", "Gold naming touch confirms through native input")
+  pressed = nil
+  tap(80, 110)
+  T.eq(naming.row, 4, "Gold naming touch reaches the native action row")
+  T.eq(naming.col, 3, "Gold naming touch selects the native DEL target")
+  T.eq(pressed, "a", "Gold naming actions confirm through native input")
+  game.input = previousInput
+  game.stack.states = previousStack
+
   for _ = 1, 6 do changePage(1) end
 
   local previousParty, previousIcons = game.save.party, run.data.gen2Icons

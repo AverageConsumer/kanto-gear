@@ -900,13 +900,34 @@ local function ppItemMoveMenu(state)
 end
 
 local function namingGrid(state)
-  if not (state and state.screenId == "NamingScreen")
-      or type(state.glyphs) ~= "table" or type(state.row) ~= "number"
-      or type(state.col) ~= "number" or type(state.grid) ~= "function" then
+  if not state or type(state.row) ~= "number"
+      or type(state.col) ~= "number" then return nil end
+  local grid
+  if state.screenId == "NamingScreen" then
+    if type(state.glyphs) ~= "table" or type(state.grid) ~= "function" then
+      return nil
+    end
+    local ok
+    ok, grid = pcall(state.grid, state)
+    if not ok then return nil end
+  elseif state.screenId == "Gen2NamingScreen" then
+    if type(state.text) ~= "string" or type(state.rows) ~= "function" then
+      return nil
+    end
+    local ok, rows = pcall(state.rows, state)
+    if not ok or not rowsContract(rows) or #rows == 0 then return nil end
+    grid = {}
+    for index, row in ipairs(rows) do
+      if #row ~= 9 then return nil end
+      grid[index] = row
+    end
+    grid[#grid + 1] = {
+      state.lower and "UPPER CASE" or "lower case", "DEL", "END",
+    }
+  else
     return nil
   end
-  local ok, grid = pcall(state.grid, state)
-  if not ok or not rowsContract(grid) or #grid == 0 then return nil end
+  if not rowsContract(grid) or #grid == 0 then return nil end
   for _, row in ipairs(grid) do
     if #row == 0 then return nil end
   end
@@ -2829,7 +2850,8 @@ return function(mod)
 
   local function drawNaming(top, grid)
     header("NAME INPUT")
-    local name = table.concat(top.glyphs or {})
+    local gen2 = top.screenId == "Gen2NamingScreen"
+    local name = gen2 and top.text or table.concat(top.glyphs or {})
     name = name == "" and "-" or name
     color(DARK)
     EngineFont.draw(name, math.floor((WIDTH - EngineFont.width(name)) / 2), 24)
@@ -2840,8 +2862,15 @@ return function(mod)
         local right = 3 + math.floor(col * 154 / #cells)
         local shown = label == "lower case" and "TO LOWER"
           or label == "UPPER CASE" and "TO UPPER" or label
-        namingKey(left, y, right - left, shown,
-                  top.row == row and top.col == col)
+        local selected
+        if gen2 then
+          selected = top.row == row - 1
+            and (row < #grid and top.col == col - 1
+              or row == #grid and math.floor(top.col / 3) + 1 == col)
+        else
+          selected = top.row == row and top.col == col
+        end
+        namingKey(left, y, right - left, shown, selected)
       end
     end
   end
@@ -4604,11 +4633,10 @@ return function(mod)
     local learn = screenContract(learnScreen, "moveLearn")
     local pcKind, pcRoot = pcSession()
     local choice, labels, choiceField = dialogueChoice()
-    local namingKeys = not compat.isGen2() and screenContract(top, "naming")
+    local namingKeys = screenContract(top, "naming")
     local naming = namingKeys and top or nil
     local unsupportedSpecial = (learnScreen and not learn)
-      or (not compat.isGen2() and top and top.screenId == "NamingScreen"
-        and not naming)
+      or (compat.isScreen(top, "naming") and not naming)
     local levelStats = battle and compat.levelUpMon(top)
     if learn then
       drawLearnMove(learn, top)
@@ -5233,7 +5261,12 @@ return function(mod)
   local function tapNaming(top, grid, x, y)
     local row, col = namingCell(x, y, grid)
     if not row then return end
-    top.row, top.col = row, col
+    if top.screenId == "Gen2NamingScreen" then
+      top.row = row - 1
+      top.col = row == #grid and (col - 1) * 3 or col - 1
+    else
+      top.row, top.col = row, col
+    end
     press("a")
     dirty = true
   end
@@ -5429,11 +5462,11 @@ return function(mod)
       return
     end
     local mode, top = screenState()
-    local namingKeys = not compat.isGen2() and screenContract(top, "naming")
+    local namingKeys = screenContract(top, "naming")
     if namingKeys then
       tapNaming(top, namingKeys, x, y)
       return
-    elseif not compat.isGen2() and top and top.screenId == "NamingScreen" then
+    elseif compat.isScreen(top, "naming") then
       return
     end
     if mode == "title" then
@@ -5706,7 +5739,7 @@ return function(mod)
         pageSwipe = pageSwipeAllowed(mode, battle),
         textSpeed = speed,
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
-          or (not compat.isGen2() and screenContract(top, "naming"))
+          or screenContract(top, "naming")
           or dialogueChoice() or compat.isScreen(top, "summary")
           or screenContract(screenById("MoveLearnMenu"), "moveLearn")
           or pcSession() }
