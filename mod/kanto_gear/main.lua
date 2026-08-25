@@ -2839,17 +2839,20 @@ return function(mod)
     end
   end
 
-  local function namingKey(x, y, w, label, selected)
-    label = THEME:translate(label)
-    local background = selected and DARK or MID
-    local backgroundLuma = background[1] * 0.2126
-      + background[2] * 0.7152 + background[3] * 0.0722
+  local function namingKey(x, y, w, label, selected, raw)
+    label = raw and tostring(label) or THEME:translate(label)
     local paperLuma = PAPER[1] * 0.2126
       + PAPER[2] * 0.7152 + PAPER[3] * 0.0722
     local inkLuma = INK[1] * 0.2126
       + INK[2] * 0.7152 + INK[3] * 0.0722
-    local foreground = math.abs(paperLuma - backgroundLuma)
-      >= math.abs(inkLuma - backgroundLuma) and PAPER or INK
+    local midLuma = MID[1] * 0.2126
+      + MID[2] * 0.7152 + MID[3] * 0.0722
+    local darkLuma = DARK[1] * 0.2126
+      + DARK[2] * 0.7152 + DARK[3] * 0.0722
+    local background = selected
+      and (midLuma >= darkLuma and MID or DARK)
+      or (paperLuma >= inkLuma and PAPER or INK)
+    local foreground = paperLuma < inkLuma and PAPER or INK
     box("fill", x, y, w, 15, background)
     outline(x, y, w, 15, foreground)
     color(foreground)
@@ -2862,8 +2865,9 @@ return function(mod)
     local gen2 = top.screenId == "Gen2NamingScreen"
     local name = gen2 and top.text or table.concat(top.glyphs or {})
     name = name == "" and "-" or name
-    color(DARK)
-    EngineFont.draw(name, math.floor((WIDTH - EngineFont.width(name)) / 2), 24)
+    local nameWidth = math.max(24, EngineFont.width(name) + 8)
+    namingKey(math.floor((WIDTH - nameWidth) / 2), 20, nameWidth,
+      name, false, true)
     for row, cells in ipairs(grid) do
       local y = 36 + (row - 1) * 17
       for col, label in ipairs(cells) do
