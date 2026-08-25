@@ -3210,11 +3210,10 @@ return function(mod)
       local remaining = areaData({ overview and overview.mapId or mapId }).remaining
       box("fill", 8, 132, 3, 3, MAP_EXIT)
       text(fit("EXIT", 7), 14, 130, PAPER)
-      text(THEME:format("TRN%d", remaining[1] or 0), 43, 130, PAPER)
-      box("fill", 75, 132, 3, 3, MAP_ITEM)
-      text(THEME:format("ITM%d", remaining[2] or 0), 81, 130, PAPER)
-      box("fill", 112, 132, 3, 3, MAP_HIDDEN)
-      text(THEME:format("HID%d", remaining[3] or 0), 118, 130, PAPER)
+      box("fill", 60, 132, 3, 3, MAP_ITEM)
+      text(THEME:format("ITM%d", remaining[2] or 0), 66, 130, PAPER)
+      box("fill", 111, 132, 3, 3, MAP_HIDDEN)
+      text(THEME:format("HID%d", remaining[3] or 0), 117, 130, PAPER)
     else
       centered(areaName(mapId), 130, PAPER)
     end
