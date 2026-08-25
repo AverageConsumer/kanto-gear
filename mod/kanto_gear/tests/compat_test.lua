@@ -60,17 +60,46 @@ T.check(not source:find('box("fill", x + 2, y, 4, 1, INK)', 1, true),
   "GUIDE no longer draws a handmade Pokeball substitute")
 T.check(source:find("row.caught and not caughtBall", 1, true),
   "GUIDE falls back to its CAUGHT label when the asset is unavailable")
+T.check(source:find("local dark = selected and not disabled", 1, true),
+  "disabled moves never reuse the selected visual state")
+T.check(source:find("elseif not disabled then\n        submit(\"move\"", 1, true),
+  "disabled moves cannot be submitted from the companion touch UI")
 local upvalues = debug.getinfo(entry, "u").nups
 local firstUpvalue = debug.getupvalue(entry, 1)
 if firstUpvalue == "_ENV" then upvalues = upvalues - 1 end
 T.check(upvalues <= 60,
   "Kanto Gear stays within LuaJIT's 60-upvalue function limit")
-local fit
+local fit, prepareBattleSnapshot
 for index = 1, debug.getinfo(entry, "u").nups do
   local name, value = debug.getupvalue(entry, index)
-  if name == "fit" then fit = value break end
+  if name == "fit" then fit = value
+  elseif name == "prepareBattleSnapshot" then prepareBattleSnapshot = value end
 end
 T.check(type(fit) == "function", "Kanto Gear text fitter is available")
+T.check(type(prepareBattleSnapshot) == "function",
+  "Kanto Gear battle focus synchronizer is available")
+local rawMoves = { moveIndex = 1 }
+local focusedMoves = { prompt = "moves", moveIndex = 1, moves = {
+  { pp = 10, disabled = true }, { pp = 5 }, { pp = 0 }, { pp = 8 },
+} }
+prepareBattleSnapshot(nil, focusedMoves, rawMoves, {}, true)
+T.eq(rawMoves.moveIndex, 2,
+  "owned move menu skips forward from a disabled attack")
+rawMoves.moveIndex, focusedMoves.moveIndex = 3, 3
+prepareBattleSnapshot(nil, focusedMoves, rawMoves, {}, true)
+T.eq(rawMoves.moveIndex, 4,
+  "owned move menu skips forward from a zero-PP attack")
+rawMoves.moveIndex, focusedMoves.moveIndex = 1, 1
+prepareBattleSnapshot(nil, focusedMoves, rawMoves, {}, false)
+T.eq(rawMoves.moveIndex, 1,
+  "native move menu focus stays untouched when Kanto Gear does not own it")
+local unavailableMoves = { prompt = "moves", moveIndex = 2, moves = {
+  { pp = 0 }, { pp = 5, disabled = true },
+} }
+rawMoves.moveIndex = 2
+prepareBattleSnapshot(nil, unavailableMoves, rawMoves, {}, true)
+T.eq(rawMoves.moveIndex, 2,
+  "move focus stays native when no usable attack exists")
 T.eq(fit("¿ÁÉÍÓÚÜ Ñ¡", 20), "¿ÁÉÍÓÚÜ Ñ¡",
   "Spanish punctuation and accented letters survive text fitting")
 T.eq(fit("MORN", 1, false), "M",
@@ -109,6 +138,12 @@ T.eq(#theme.gen2Badges.johto + #theme.gen2Badges.kanto, 16,
 T.eq(theme:moveName({ id = "TACKLE", name = "TACKLE" }, {
   moves = { TACKLE = { name = "TACKLE-DE" } },
 }), "TACKLE-DE", "move cards use the live translated move name")
+T.eq(theme:moveUnavailableReason({ pp = 10, disabled = true }), "DISABLED",
+  "disabled moves expose an explicit card label")
+T.eq(theme:moveUnavailableReason({ pp = 0 }), "NO PP",
+  "empty moves expose an explicit card label")
+T.eq(theme:moveUnavailableReason({ pp = 1 }), nil,
+  "usable moves do not expose an unavailable label")
 T.eq(theme:typeName("POISON", { type_chart = {
   get = function(_, id) return id == "POISON" and { name = "GIFT" } end,
 } }), "GIFT", "move details use the translated type registry")

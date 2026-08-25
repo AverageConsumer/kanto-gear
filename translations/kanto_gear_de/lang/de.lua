@@ -177,6 +177,8 @@ return {
   ["SAFARI BALLS %d"] = "SAFARIBÄLLE %d",
   ["MOVES"] = "ATTACKEN",
   ["MOVE"] = "ATTACKE",
+  ["DISABLED"] = "GESPERRT",
+  ["NO PP"] = "KEINE AP",
   ["POWER"] = "STÄRKE",
   ["HIT"] = "TREFFER",
   ["MATCHUP"] = "WIRKUNG",

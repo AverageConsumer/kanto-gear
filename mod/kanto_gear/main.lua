@@ -92,6 +92,11 @@ function THEME:moveName(move, data)
   return def and def.name or move and (move.name or move.id) or "MOVE"
 end
 
+function THEME:moveUnavailableReason(move)
+  if move and move.disabled then return "DISABLED" end
+  if not move or (move.pp or 0) <= 0 then return "NO PP" end
+end
+
 function THEME:translate(source)
   return self.strings and self.strings:get(source) or source
 end
@@ -797,7 +802,23 @@ function THEME:localMapColor(overview, x, y, density, shade)
   return ramp[index]
 end
 
-local function prepareBattleSnapshot(a, b, state, data)
+local function prepareBattleSnapshot(a, b, state, data, ownsMoveFocus)
+  if ownsMoveFocus and b and state and b.prompt == "moves" then
+    local moves = b.moves or {}
+    local current = math.max(1, math.min(#moves,
+      tonumber(state.moveIndex) or 1))
+    local move = moves[current]
+    if THEME:moveUnavailableReason(move) then
+      for offset = 1, #moves - 1 do
+        local index = (current + offset - 1) % #moves + 1
+        move = moves[index]
+        if move and not THEME:moveUnavailableReason(move) then
+          state.moveIndex, b.moveIndex = index, index
+          break
+        end
+      end
+    end
+  end
   if b and state and state.phase == "choose-forget"
       and (state.messageTimer or 0) <= 0 then
     local pending = state.pendingLearn
@@ -3789,13 +3810,15 @@ return function(mod)
   end
 
   local function moveCard(move, x, y, selected)
-    local disabled = move.disabled or move.pp <= 0
-    local dark = disabled or selected
-    box("fill", x, y, 76, 53, dark and DARK or MID)
-    outline(x, y, 76, 53, INK)
+    local unavailable = THEME:moveUnavailableReason(move)
+    local disabled = unavailable ~= nil
+    local dark = selected and not disabled
+    box("fill", x, y, 76, 53, disabled and PAPER or dark and DARK or MID)
+    outline(x, y, 76, 53, disabled and DARK or INK)
     text(fit(THEME:moveName(move, game and game.data), 10),
          x + 4, y + 4, dark and PAPER or INK)
-    text(THEME:format("PP %d/%d", move.pp or 0, move.maxPp or 0),
+    text(unavailable and fit(THEME:translate(unavailable), 10, false)
+         or THEME:format("PP %d/%d", move.pp or 0, move.maxPp or 0),
          x + 4, y + 19, dark and PAPER or DARK)
     text(fit(THEME:typeName(move.type, mod.content), 7), x + 4, y + 34,
          dark and PAPER or DARK)
@@ -3809,13 +3832,15 @@ return function(mod)
   end
 
   local function moveRow(move, y, selected)
-    local disabled = move.disabled or move.pp <= 0
-    local dark = disabled or selected
-    box("fill", 8, y, 144, 27, dark and DARK or MID)
-    outline(8, y, 144, 27, INK)
+    local unavailable = THEME:moveUnavailableReason(move)
+    local disabled = unavailable ~= nil
+    local dark = selected and not disabled
+    box("fill", 8, y, 144, 27, disabled and PAPER or dark and DARK or MID)
+    outline(8, y, 144, 27, disabled and DARK or INK)
     text(fit(THEME:moveName(move, game and game.data), 11),
          12, y + 3, dark and PAPER or INK)
-    text(THEME:format("PP %d/%d", move.pp or 0, move.maxPp or 0),
+    text(unavailable and fit(THEME:translate(unavailable), 8, false)
+         or THEME:format("PP %d/%d", move.pp or 0, move.maxPp or 0),
          88, y + 3, dark and PAPER or DARK)
     text(fit(THEME:typeName(move.type, mod.content), 7), 12, y + 15,
          dark and PAPER or DARK)
@@ -4869,7 +4894,9 @@ return function(mod)
       nextBattle.itemTitle = bag and bag.title or nil
       nextBattle.summaryPage = compat.isScreen(top, "summary")
         and top.page or nil
-      prepareBattleSnapshot(nil, nextBattle, raw, game.data)
+      prepareBattleSnapshot(nil, nextBattle, raw, game.data,
+        bottomOwnsBattleUI(hideUpperBattleUI(), active, hasDisplay(),
+          displayReady, raw, nextBattle))
       if battleChoice(top) and not nextBattle.message
           and raw and type(raw.visibleText) == "function" then
         local ok, visible = pcall(raw.visibleText, raw)
@@ -5202,14 +5229,15 @@ return function(mod)
         x, y, #(battle.moves or {}), grid)
       local move = battle.moves[slot]
       if not move then return end
+      local disabled = THEME:moveUnavailableReason(move) ~= nil
       if assist("move_details")
           and inside(x, y, cardX + (grid and 62 or 130),
                      cardY + (grid and 0 or 13), 14, 14) then
         local raw = battleState()
-        if raw then raw.moveIndex = slot end
+        if raw and not disabled then raw.moveIndex = slot end
         moveInfo = move
         dirty = true
-      else
+      elseif not disabled then
         submit("move", { slot = slot })
       end
       return

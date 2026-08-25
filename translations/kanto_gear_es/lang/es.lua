@@ -169,6 +169,8 @@ return {
   ["SAFARI BALLS %d"] = "SAFARI BALLS %d",
   ["MOVES"] = "MOVIMIENTOS",
   ["MOVE"] = "MOVIMIENTO",
+  ["DISABLED"] = "BLOQ.",
+  ["NO PP"] = "SIN PP",
   ["POWER"] = "POTENC.",
   ["HIT"] = "IMPACTO",
   ["MATCHUP"] = "EFECTIVIDAD",
