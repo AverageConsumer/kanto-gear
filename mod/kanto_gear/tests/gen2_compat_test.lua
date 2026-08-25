@@ -568,6 +568,45 @@ run.loader.modOptions.kanto_gear.battle_view = "full"
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "battle_view" })
 
+do
+  local mon = game.save.party[1]
+  local previousMoves = mon.moves
+  mon.moves = {
+    { id = "FIX_HM" }, { id = "FIX_OLD_2" },
+    { id = "FIX_OLD_3" }, { id = "FIX_OLD_4" },
+  }
+  for _, id in ipairs({ "FIX_HM", "FIX_OLD_2", "FIX_OLD_3",
+                         "FIX_OLD_4", "FIX_NEW" }) do
+    run.data.moves[id] = { id = id, name = id, type = "NORMAL" }
+  end
+  screen.phase = "choose-forget"
+  screen.message = "Which move should\nbe forgotten?"
+  screen.messageTimer = 0
+  screen.forgetIndex = 1
+  screen.pendingLearn = {
+    index = 1, move = { id = "FIX_NEW" }, moveName = "FIX_NEW",
+  }
+  now = now + 1
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = companion,
+  })
+  local pressed
+  game.input.sourcePress = function(_, button) pressed = button end
+  game.input.sourceRelease = function() end
+  touchEvents[1] = "tap,20,95"
+  now = now + 1
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = companion,
+  })
+  T.eq(screen.forgetIndex, 3,
+    "Gold move learning exposes every forget slot on the companion")
+  T.eq(pressed, "a",
+    "tapping a visible forget row confirms that exact native slot")
+  screen.phase, screen.message, screen.messageTimer = "menu", nil, nil
+  screen.pendingLearn, screen.forgetIndex = nil, nil
+  mon.moves = previousMoves
+end
+
 -- Gold resolves the turn before its native HP bar finishes chasing the new
 -- value.  The companion must follow screen.shownHp, not jump straight to the
 -- already-final battle mon HP.

@@ -781,7 +781,26 @@ function THEME:localMapColor(overview, x, y, density, shade)
   return ramp[index]
 end
 
-local function battleFocusChanged(a, b)
+local function prepareBattleSnapshot(a, b, state, data)
+  if b and state and state.phase == "choose-forget"
+      and (state.messageTimer or 0) <= 0 then
+    local pending = state.pendingLearn
+    local party = state.battle and state.battle.party
+    local mon = pending and party and party[pending.index]
+    if mon and type(mon.moves) == "table" and #mon.moves > 0 then
+      b.prompt = "forget"
+      b.forgetIndex = math.max(1, math.min(#mon.moves,
+        tonumber(state.forgetIndex) or 1))
+      b.forgetMoves = {}
+      for slot, move in ipairs(mon.moves) do
+        local def = (data.moves or {})[move.id] or {}
+        b.forgetMoves[slot] = def.name or move.id
+      end
+      local move = pending.move or {}
+      local def = (data.moves or {})[move.id] or {}
+      b.learningMove = pending.moveName or def.name or move.id
+    end
+  end
   return (a and a.menuIndex) ~= (b and b.menuIndex)
     or (a and a.moveIndex) ~= (b and b.moveIndex)
     or (a and a.partyIndex) ~= (b and b.partyIndex)
@@ -791,6 +810,7 @@ local function battleFocusChanged(a, b)
     or (a and a.itemTitle) ~= (b and b.itemTitle)
     or (a and a.summaryPage) ~= (b and b.summaryPage)
     or (a and a.mimicIndex) ~= (b and b.mimicIndex)
+    or (a and a.forgetIndex) ~= (b and b.forgetIndex)
 end
 
 local function supportedBattleUI(state)
@@ -908,6 +928,13 @@ local function screenContract(state, kind)
   if kind == "pp" then return ppItemMoveMenu(state) end
   if kind == "naming" then return namingGrid(state) end
   if kind == "moveLearn" then return moveLearnMenu(state) end
+  if kind == "forget" then
+    local pending = state and state.phase == "choose-forget"
+      and (state.messageTimer or 0) <= 0 and state.pendingLearn
+    local party = state and state.battle and state.battle.party
+    local mon = pending and party and party[pending.index]
+    return mon and type(mon.moves) == "table" and #mon.moves > 0 and mon or nil
+  end
   return state and (battlePartyMenu(state) or battleBagContract(state)
     or ppItemMoveMenu(state) or battleChoice(state) or levelUpStatBox(state))
     or false
@@ -1084,11 +1111,12 @@ do
     and by.WOBBUFFET.appearances[1].maxLevel == 6,
     "Gen 2 guide uses native weighted encounter slots")
 end
-assert(not battleFocusChanged({}, {})
-       and battleFocusChanged({ moveIndex = 1 }, { moveIndex = 2 })
-       and battleFocusChanged({ itemIndex = 1 }, { itemIndex = 2 })
-       and battleFocusChanged({ itemPocket = 1 }, { itemPocket = 2 })
-       and battleFocusChanged({ itemTitle = "MEDICINE" },
+assert(not prepareBattleSnapshot({}, {})
+       and prepareBattleSnapshot({ moveIndex = 1 }, { moveIndex = 2 })
+       and prepareBattleSnapshot({ itemIndex = 1 }, { itemIndex = 2 })
+       and prepareBattleSnapshot({ forgetIndex = 1 }, { forgetIndex = 2 })
+       and prepareBattleSnapshot({ itemPocket = 1 }, { itemPocket = 2 })
+       and prepareBattleSnapshot({ itemTitle = "MEDICINE" },
                               { itemTitle = "POKE BALLS" }),
        "battle focus sync")
 assert(categorizedBag({ __pocketIndex = 1 })
@@ -4395,6 +4423,16 @@ return function(mod)
     drawFullBattleActions({ "BALL", "BAIT", "ROCK", "RUN" })
   end
 
+  displayRuntime.drawForgetMoves = function()
+    header("FORGET MOVE", true)
+    text(fit(THEME:format("NEW %s", battle.learningMove or "MOVE"), 18),
+         8, 25, DARK)
+    for slot, name in ipairs(battle.forgetMoves or {}) do
+      button(8, 38 + (slot - 1) * 25, 144, 22,
+             fit(name or "-", 17), battle.forgetIndex == slot)
+    end
+  end
+
   local function drawBattle()
     if currentBattleUIMode() == "info" then
       local info = compat.enemyInfo(battle.enemy, game.data, game.save)
@@ -4490,6 +4528,8 @@ return function(mod)
       drawMimic()
     elseif moveInfo then
       drawMoveInfo(moveInfo)
+    elseif battle.prompt == "forget" then
+      displayRuntime.drawForgetMoves()
     elseif battle.prompt == "moves" then
       drawMoves()
     elseif battle.prompt ~= "menu" then
@@ -4713,6 +4753,7 @@ return function(mod)
       nextBattle.itemTitle = bag and bag.title or nil
       nextBattle.summaryPage = compat.isScreen(top, "summary")
         and top.page or nil
+      prepareBattleSnapshot(nil, nextBattle, raw, game.data)
       if battleChoice(top) and not nextBattle.message
           and raw and type(raw.visibleText) == "function" then
         local ok, visible = pcall(raw.visibleText, raw)
@@ -4747,7 +4788,7 @@ return function(mod)
     end
     local changed = (not battle) ~= (not nextBattle)
       or (battle and nextBattle and battle.revision ~= nextBattle.revision)
-      or (battle and nextBattle and battleFocusChanged(battle, nextBattle))
+      or (battle and nextBattle and prepareBattleSnapshot(battle, nextBattle))
       or (battle and nextBattle and (
         (battle.player and battle.player.hp) ~= (nextBattle.player and nextBattle.player.hp)
         or (battle.enemy and battle.enemy.hp) ~= (nextBattle.enemy and nextBattle.enemy.hp)))
@@ -4990,6 +5031,18 @@ return function(mod)
           and index <= #(battle.mimicMoves or {}) then
         submit("mimic", { index = index })
       end
+      return
+    end
+    if battle.prompt == "forget" then
+      if y < HEADER and x < 24 then
+        press("b")
+      elseif raw and screenContract(raw, "forget")
+          and x >= 8 and x < 152 and y >= 38
+          and y < 38 + #screenContract(raw, "forget").moves * 25 then
+        raw.forgetIndex = math.floor((y - 38) / 25) + 1
+        press("a")
+      end
+      dirty = true
       return
     end
     if y < HEADER and x < 24
