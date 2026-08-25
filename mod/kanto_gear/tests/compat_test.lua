@@ -834,6 +834,41 @@ do
       if name == target then return value end
     end
   end
+  local displayRuntime = upvalue(inputHook, "displayRuntime")
+  T.check(type(displayRuntime.learningMoveInfo) == "function",
+    "move-learning details reuse the shared move-info path")
+  local previousStates = game.stack.states
+  local learnMon = {
+    species = "PIKACHU",
+    moves = { { id = "TACKLE", pp = 12 }, { id = "FIX_EMBERISH", pp = 8 } },
+  }
+  local learn = {
+    screenId = "MoveLearnMenu", mon = learnMon,
+    newMoveId = "FIX_EMBERISH", selecting = false, index = 1,
+  }
+  game.stack.states = { world, learn }
+  T.eq(displayRuntime.learningMoveInfo().id, "FIX_EMBERISH",
+    "Gen 1 move learning inspects the new move before selection")
+  learn.selecting = true
+  T.eq(displayRuntime.learningMoveInfo().id, "TACKLE",
+    "Gen 1 move learning inspects the highlighted old move")
+  learn.index = #learnMon.moves + 1
+  T.eq(displayRuntime.learningMoveInfo().id, "FIX_EMBERISH",
+    "the move-learning cancel row keeps the new move inspectable")
+
+  local gen2Learn = {
+    screenId = "Gen2BattleState", phase = "ask-forget", messageTimer = 0,
+    pendingLearn = { index = 1, move = "TACKLE", moveName = "TACKLE" },
+    forgetIndex = 2, battle = { party = { learnMon } },
+  }
+  game.stack.states = { world, gen2Learn }
+  T.eq(displayRuntime.learningMoveInfo().id, "TACKLE",
+    "Gen 2 move learning inspects the new move before selection")
+  gen2Learn.phase = "choose-forget"
+  T.eq(displayRuntime.learningMoveInfo().id, "FIX_EMBERISH",
+    "Gen 2 move learning inspects the highlighted old move")
+  game.stack.states = previousStates
+
   local pollTriggerTabs = upvalue(inputHook, "pollTriggerTabs")
   local changePage = upvalue(pollTriggerTabs, "changePage")
   local refreshTools = upvalue(changePage, "refreshTools")

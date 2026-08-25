@@ -3763,6 +3763,11 @@ return function(mod)
     return ("%.1f%%"):format(chance)
   end
 
+  displayRuntime.moveInfoBadge = function(x, y, dark)
+    outline(x, y, 11, 11, dark and PAPER or INK)
+    text("X", x + 3, y + 2, dark and PAPER or INK)
+  end
+
   local function moveCard(move, x, y, selected)
     local disabled = move.disabled or move.pp <= 0
     local dark = disabled or selected
@@ -3779,8 +3784,7 @@ return function(mod)
            dark and PAPER or INK)
     end
     if assist("move_details") then
-      outline(x + 63, y + 2, 11, 11, dark and PAPER or INK)
-      text("X", x + 66, y + 4, dark and PAPER or INK)
+      displayRuntime.moveInfoBadge(x + 63, y + 2, dark)
     end
   end
 
@@ -3800,8 +3804,7 @@ return function(mod)
            dark and PAPER or INK)
     end
     if assist("move_details") then
-      outline(139, y + 14, 11, 11, dark and PAPER or INK)
-      text("X", 142, y + 16, dark and PAPER or INK)
+      displayRuntime.moveInfoBadge(139, y + 14, dark)
     end
   end
 
@@ -3957,6 +3960,18 @@ return function(mod)
       if #lines > 0 then return lines end
     end
     return THEME:moveDescription(move, def, ruleset)
+  end
+
+  function compat.moveInfoEntry(move)
+    if type(move) ~= "table" then move = { id = move } end
+    if not move.id then return nil end
+    local entry = {}
+    for key, value in pairs(move) do entry[key] = value end
+    local def = game and game.data and game.data.moves
+      and game.data.moves[entry.id] or {}
+    if entry.pp == nil then entry.pp = def.pp or 0 end
+    if entry.maxPp == nil then entry.maxPp = def.pp or entry.pp end
+    return entry
   end
 
   local function drawMoveInfo(move)
@@ -4469,9 +4484,17 @@ return function(mod)
     header("FORGET MOVE", true)
     text(fit(THEME:format("NEW %s", battle.learningMove or "MOVE"), 18),
          8, 25, DARK)
+    if assist("move_details") then displayRuntime.moveInfoBadge(139, 24, false) end
     for slot, name in ipairs(battle.forgetMoves or {}) do
-      button(8, 38 + (slot - 1) * 25, 144, 22,
-             fit(name or "-", 17), battle.forgetIndex == slot)
+      local selected = battle.forgetIndex == slot
+      local y = 38 + (slot - 1) * 25
+      button(8, y, 144, 22, "", selected)
+      text(fit(name or "-", 17), 14, y + 8,
+           selected and (THEME.style ~= "classic" and THEME.white or PAPER)
+             or INK)
+      if assist("move_details") then
+        displayRuntime.moveInfoBadge(139, y + 2, selected)
+      end
     end
   end
 
@@ -4590,6 +4613,28 @@ return function(mod)
     return game and game.data and game.data.moves and game.data.moves[id]
   end
 
+  displayRuntime.learningMoveInfo = function()
+    local learn = screenContract(screenById("MoveLearnMenu"), "moveLearn")
+    if learn then
+      local moves = learn.mon.moves or {}
+      if learn.selecting and learn.index <= #moves then
+        return compat.moveInfoEntry(moves[learn.index])
+      end
+      return compat.moveInfoEntry(learn.newMoveId)
+    end
+
+    local raw = battleState()
+    local pending = raw and raw.pendingLearn
+    if not pending then return nil end
+    if raw.phase == "choose-forget" then
+      local party = raw.battle and raw.battle.party
+      local mon = party and party[pending.index]
+      local moves = mon and mon.moves or {}
+      return compat.moveInfoEntry(moves[raw.forgetIndex or 1])
+    end
+    return compat.moveInfoEntry(pending.move)
+  end
+
   local function drawLearnMove(learn, top)
     local newDef = moveDef(learn.newMoveId) or {}
     local newName = newDef.name or learn.newMoveId or "MOVE"
@@ -4599,14 +4644,21 @@ return function(mod)
     end
     if learn.selecting and top == learn then
       header("FORGET MOVE")
-      text(fit(newName, 14), 5, 25, INK)
-      text(fit(THEME:typeName(newDef.type, mod.content), 8), 101, 25, DARK)
+      text(fit(newName, 13), 5, 25, INK)
+      text(fit(THEME:typeName(newDef.type, mod.content), 7), 95, 25, DARK)
+      if assist("move_details") then
+        displayRuntime.moveInfoBadge(139, 24, false)
+      end
       for i = 1, 4 do
         local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
         local mv = learn.mon.moves[i]
         local def = mv and moveDef(mv.id) or {}
+        local selected = learn.index == i
         button(3 + col * 78, 43 + row * 33, 76, 29,
-               def.name or (mv and mv.id) or "-", learn.index == i)
+               def.name or (mv and mv.id) or "-", selected)
+        if mv and assist("move_details") then
+          displayRuntime.moveInfoBadge(66 + col * 78, 59 + row * 33, selected)
+        end
       end
       button(34, 112, 92, 25, "CANCEL", learn.index == 5)
       return
@@ -4618,10 +4670,11 @@ return function(mod)
     local monDef = game.data.pokemon[learn.mon.species] or {}
     text(fit(learn.mon.nickname or monDef.name or learn.mon.species, 16),
          51, 27, DARK)
-    text(fit(newName, 16), 51, 42, INK)
+    text(fit(newName, 14), 51, 42, INK)
     if assist("move_details") then
       text(fit(THEME:typeName(newDef.type, mod.content), 9), 51, 56, DARK)
       text(THEME:format("PP %d", newDef.pp or 0), 112, 56, DARK)
+      displayRuntime.moveInfoBadge(145, 41, false)
     end
     box("fill", 7, 75, 146, 1, DARK)
     centered("FOLLOW TOP SCREEN", 83, INK)
@@ -4651,7 +4704,9 @@ return function(mod)
     local unsupportedSpecial = (learnScreen and not learn)
       or (compat.isScreen(top, "naming") and not naming)
     local levelStats = battle and compat.levelUpMon(top)
-    if learn then
+    if moveInfo then
+      drawMoveInfo(moveInfo)
+    elseif learn then
       drawLearnMove(learn, top)
     elseif naming then
       drawNaming(naming, namingKeys)
@@ -4926,6 +4981,17 @@ return function(mod)
   end
 
   local function tapLearn(learn, top, x, y)
+    if assist("move_details") then
+      if learn.selecting and inside(x, y, 137, 22, 17, 15) then
+        moveInfo = compat.moveInfoEntry(learn.newMoveId)
+        dirty = moveInfo ~= nil or dirty
+        return
+      elseif not learn.selecting and inside(x, y, 143, 39, 15, 15) then
+        moveInfo = compat.moveInfoEntry(learn.newMoveId)
+        dirty = moveInfo ~= nil or dirty
+        return
+      end
+    end
     if top and top.isTextBox then
       if top.waiting or (top.done and not top.choice) then press("a") end
       return
@@ -4940,7 +5006,14 @@ return function(mod)
       end
       if slot and slot <= #learn.mon.moves + 1 then
         learn.index = slot
-        press("a")
+        local col, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
+        if slot <= #learn.mon.moves and assist("move_details")
+            and inside(x, y, 64 + col * 78, 57 + row * 33, 15, 15) then
+          moveInfo = compat.moveInfoEntry(learn.mon.moves[slot])
+          dirty = moveInfo ~= nil or dirty
+        else
+          press("a")
+        end
       end
       return
     end
@@ -5075,13 +5148,20 @@ return function(mod)
       return
     end
     if battle.prompt == "forget" then
+      local mon = raw and screenContract(raw, "forget")
       if y < HEADER and x < 24 then
         press("b")
-      elseif raw and screenContract(raw, "forget")
-          and x >= 8 and x < 152 and y >= 38
-          and y < 38 + #screenContract(raw, "forget").moves * 25 then
+      elseif raw and assist("move_details")
+          and inside(x, y, 137, 22, 17, 15) then
+        moveInfo = compat.moveInfoEntry(raw.pendingLearn and raw.pendingLearn.move)
+      elseif mon and x >= 8 and x < 152 and y >= 38
+          and y < 38 + #mon.moves * 25 then
         raw.forgetIndex = math.floor((y - 38) / 25) + 1
-        press("a")
+        if assist("move_details") and x >= 137 then
+          moveInfo = compat.moveInfoEntry(mon.moves[raw.forgetIndex])
+        else
+          press("a")
+        end
       end
       dirty = true
       return
@@ -5434,6 +5514,10 @@ return function(mod)
   end
 
   local function tap(x, y)
+    if moveInfo then
+      if y < HEADER and x < 24 then back() end
+      return
+    end
     local summary = screenById("summary")
     if summary and game.stack:top() == summary then
       if not battle then return end
@@ -5892,10 +5976,13 @@ return function(mod)
       if moveInfo then
         moveInfo = nil
         dirty = true
-      elseif battle and battle.prompt == "moves" then
-        local raw = battleState()
-        local index = raw and raw.moveIndex or battle.moveIndex or 1
-        moveInfo = battle.moves and battle.moves[index]
+      else
+        moveInfo = displayRuntime.learningMoveInfo()
+        if not moveInfo and battle and battle.prompt == "moves" then
+          local raw = battleState()
+          local index = raw and raw.moveIndex or battle.moveIndex or 1
+          moveInfo = battle.moves and battle.moves[index]
+        end
         dirty = moveInfo ~= nil or dirty
       end
     end
@@ -6224,6 +6311,10 @@ return function(mod)
       battle = nil
       moveInfo = nil
       battleInfoDetail = nil
+      dirty = true
+    elseif payload and payload.state
+        and payload.state.screenId == "MoveLearnMenu" then
+      moveInfo = nil
       dirty = true
     end
   end)
