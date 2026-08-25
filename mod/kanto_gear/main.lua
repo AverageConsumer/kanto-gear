@@ -6004,34 +6004,31 @@ return function(mod)
   end)
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
-    if moveInfo or battleInfoDetail or displayRuntime.guideDetail then
+    local modalMoveInfo = moveInfo ~= nil
+    if modalMoveInfo or battleInfoDetail or displayRuntime.guideDetail then
       local queue = stepGame and stepGame.input
         and stepGame.input.pressQueue
       local consumed
       for i = #(queue or {}), 1, -1 do
-        if queue[i] == "b" then
+        if queue[i] == "b" then consumed = true end
+        if modalMoveInfo or queue[i] == "b" then
           table.remove(queue, i)
-          consumed = true
         end
       end
       if consumed then back() end
+      if modalMoveInfo then return next(stepGame, dt) end
     end
     pollTriggerTabs()
     local swapPressed, infoPressed, overlayPressed = pollScreenSwap()
     if infoPressed and assist("move_details")
         and currentBattleUIMode() ~= "info" then
-      if moveInfo then
-        moveInfo = nil
-        dirty = true
-      else
-        moveInfo = displayRuntime.learningMoveInfo()
-        if not moveInfo and battle and battle.prompt == "moves" then
-          local raw = battleState()
-          local index = raw and raw.moveIndex or battle.moveIndex or 1
-          moveInfo = battle.moves and battle.moves[index]
-        end
-        dirty = moveInfo ~= nil or dirty
+      moveInfo = displayRuntime.learningMoveInfo()
+      if not moveInfo and battle and battle.prompt == "moves" then
+        local raw = battleState()
+        local index = raw and raw.moveIndex or battle.moveIndex or 1
+        moveInfo = battle.moves and battle.moves[index]
       end
+      dirty = moveInfo ~= nil or dirty
     end
     if active and (inlineDisplay() or hasDisplay()) and swapPressed then
       displayRuntime.swapped = not displayRuntime.swapped

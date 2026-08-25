@@ -827,10 +827,20 @@ do
   swapPressed = false
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   swapPressed = previousSwapPressed
-  T.eq(table.concat(game.input.pressQueue, ","), "a",
-    "B closes move info without leaking into the battle menu")
+  T.eq(#game.input.pressQueue, 0,
+    "move info consumes every input queued behind its closing B")
   local _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
   T.eq(openMoveInfo, nil, "B closes the move-info overlay")
+
+  debug.setupvalue(inputHook, moveInfoUpvalue, { name = "TACKLE" })
+  game.input = { pressQueue = { "a", "down" } }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
+  T.eq(#game.input.pressQueue, 0,
+    "move info consumes selection and navigation inputs")
+  T.eq(openMoveInfo.name, "TACKLE",
+    "inputs other than B leave move info open")
+  debug.setupvalue(inputHook, moveInfoUpvalue, nil)
 
   local battleUpvalue
   for i = 1, debug.getinfo(inputHook, "u").nups do
@@ -858,7 +868,11 @@ do
   infoPressed = true
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
-  T.eq(openMoveInfo, nil, "pressing X again closes move details")
+  T.eq(openMoveInfo.id, "TACKLE", "only B closes move details")
+  game.input = { pressQueue = { "b" } }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
+  T.eq(openMoveInfo, nil, "B closes details opened with X")
   infoPressed = false
   swapPressed = previousSwapPressed
   debug.setupvalue(inputHook, battleUpvalue, previousBattle)
