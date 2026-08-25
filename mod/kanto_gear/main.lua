@@ -2841,9 +2841,18 @@ return function(mod)
 
   local function namingKey(x, y, w, label, selected)
     label = THEME:translate(label)
-    box("fill", x, y, w, 15, selected and DARK or MID)
-    outline(x, y, w, 15, INK)
-    color(selected and PAPER or INK)
+    local background = selected and DARK or MID
+    local backgroundLuma = background[1] * 0.2126
+      + background[2] * 0.7152 + background[3] * 0.0722
+    local paperLuma = PAPER[1] * 0.2126
+      + PAPER[2] * 0.7152 + PAPER[3] * 0.0722
+    local inkLuma = INK[1] * 0.2126
+      + INK[2] * 0.7152 + INK[3] * 0.0722
+    local foreground = math.abs(paperLuma - backgroundLuma)
+      >= math.abs(inkLuma - backgroundLuma) and PAPER or INK
+    box("fill", x, y, w, 15, background)
+    outline(x, y, w, 15, foreground)
+    color(foreground)
     EngineFont.draw(label, x + math.floor((w - EngineFont.width(label)) / 2),
                     y + 3)
   end
@@ -2860,8 +2869,8 @@ return function(mod)
       for col, label in ipairs(cells) do
         local left = 3 + math.floor((col - 1) * 154 / #cells)
         local right = 3 + math.floor(col * 154 / #cells)
-        local shown = label == "lower case" and "TO LOWER"
-          or label == "UPPER CASE" and "TO UPPER" or label
+        local shown = label == "lower case" and "LOWER"
+          or label == "UPPER CASE" and "UPPER" or label
         local selected
         if gen2 then
           selected = top.row == row - 1
