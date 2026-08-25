@@ -701,6 +701,18 @@ function Area.gen2Rows(data, save, world, mapIds)
   return rows
 end
 
+function Area.remaining(sections)
+  local out = {}
+  for index, section in ipairs(sections) do
+    local remaining = 0
+    for _, row in ipairs(section.rows) do
+      if not row.done then remaining = remaining + 1 end
+    end
+    out[index] = remaining
+  end
+  return out
+end
+
 do
   local flags = { [11] = true, [13] = true }
   local data = {
@@ -723,9 +735,13 @@ do
   }
   local world = { getFlag = function(_, id) return flags[id] end }
   local rows = Area.gen2Rows(data, {}, world, { "TEST" })
+  local remaining = Area.remaining({
+    { rows = rows[1] }, { rows = rows[2] }, { rows = rows[3] },
+  })
   assert(rows[1][1].label == "YOUNGSTER JOEY" and rows[1][1].done
     and rows[2][1].label == "POTION" and not rows[2][1].done
-    and rows[3][1].label == "BERRY" and rows[3][1].done,
+    and rows[3][1].label == "BERRY" and rows[3][1].done
+    and remaining[1] == 0 and remaining[2] == 1 and remaining[3] == 0,
     "Gen 2 area checklist data")
 end
 
@@ -2326,18 +2342,19 @@ return function(mod)
       time = currentTime, section = sectionName(mapId) }
   end
 
-  local function areaData()
+  local function areaData(mapIds)
     local sections = { { name = "TRAINERS", rows = {} },
       { name = "ITEMS", rows = {} }, { name = "HIDDEN", rows = {},
         perPage = assist("item_radar") and 3 or 4 } }
     local data, save = game.data, game.save
     local field = data.field or {}
-    local maps = areaMaps(mapId)
+    local maps = mapIds or areaMaps(mapId)
     if compat.isGen2() then
       local rows = Area.gen2Rows(data, save, mod.world, maps)
       for index = 1, 3 do sections[index].rows = rows[index] end
       local screens = checklistPages(sections)
-      return { name = areaName(mapId), screens = screens, pages = #screens }
+      return { name = areaName(mapId), screens = screens, pages = #screens,
+        remaining = Area.remaining(sections) }
     end
     for _, id in ipairs(maps) do
       local map = data.maps and data.maps[id]
@@ -2393,7 +2410,8 @@ return function(mod)
       end
     end
     local screens = checklistPages(sections)
-    return { name = areaName(mapId), screens = screens, pages = #screens }
+    return { name = areaName(mapId), screens = screens, pages = #screens,
+      remaining = Area.remaining(sections) }
   end
 
   local function hasItemfinder()
@@ -3168,12 +3186,14 @@ return function(mod)
     end
     box("fill", 4, 126, 152, 14, DARK)
     if enhanced then
+      local remaining = areaData({ overview and overview.mapId or mapId }).remaining
       box("fill", 8, 132, 3, 3, MAP_EXIT)
       text(fit("EXIT", 7), 14, 130, PAPER)
-      box("fill", 57, 132, 3, 3, MAP_ITEM)
-      text(fit("ITEM", 7), 63, 130, PAPER)
-      box("fill", 105, 132, 3, 3, MAP_HIDDEN)
-      text(fit("HIDDEN", 7), 111, 130, PAPER)
+      text(THEME:format("TRN%d", remaining[1] or 0), 43, 130, PAPER)
+      box("fill", 75, 132, 3, 3, MAP_ITEM)
+      text(THEME:format("ITM%d", remaining[2] or 0), 81, 130, PAPER)
+      box("fill", 112, 132, 3, 3, MAP_HIDDEN)
+      text(THEME:format("HID%d", remaining[3] or 0), 118, 130, PAPER)
     else
       centered(areaName(mapId), 130, PAPER)
     end
