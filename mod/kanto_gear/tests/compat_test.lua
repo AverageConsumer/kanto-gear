@@ -102,6 +102,8 @@ T.eq(rawMoves.moveIndex, 2,
   "move focus stays native when no usable attack exists")
 T.eq(fit("¿ÁÉÍÓÚÜ Ñ¡", 20), "¿ÁÉÍÓÚÜ Ñ¡",
   "Spanish punctuation and accented letters survive text fitting")
+T.eq(fit("WITHDRAW <PK><MN>", 22), "WITHDRAW PKMN",
+  "Game Boy Pokémon glyph tokens use the companion font abbreviation")
 T.eq(fit("MORN", 1, false), "M",
   "compact labels keep their first glyph instead of an ellipsis")
 local methodLines
@@ -718,6 +720,67 @@ do
       break
     end
   end
+  local touchEvent
+  for i = 1, debug.getinfo(composeHook, "u").nups do
+    local name, value = debug.getupvalue(composeHook, i)
+    if name == "touchEvent" then touchEvent = value break end
+  end
+  T.check(type(touchEvent) == "function",
+    "PC regression tests reach the companion touch path")
+  local previousInput, previousBoxes, previousBox = game.input,
+    game.save.boxes, game.save.currentBox
+  local pressed
+  game.input = {
+    sourcePress = function(_, button) pressed = button end,
+    sourceRelease = function() end,
+  }
+  game.save.currentBox = 1
+  game.save.boxes = { {
+    { species = "PIKACHU", nickname = "ONE", level = 5 },
+    { species = "PIKACHU", nickname = "TWO", level = 6 },
+    { species = "PIKACHU", nickname = "THREE", level = 7 },
+    { species = "PIKACHU", nickname = "FOUR", level = 8 },
+    { species = "PIKACHU", nickname = "FIVE", level = 9 },
+  } }
+  local pcRoot = { screenId = "BoxMenu", index = 1, items = {
+    { label = "WITHDRAW <PK><MN>" }, { label = "DEPOSIT <PK><MN>" },
+    { label = "RELEASE <PK><MN>" }, { label = "CHANGE BOX" },
+    { label = "PRINT BOX" }, { label = "SEE YA!" },
+  } }
+  game.stack.states = { world, pcRoot }
+  touchEvent("tap,120,25")
+  T.eq(pcRoot.index, 1,
+    "wide PC root rows keep right-side touch on the native first item")
+  T.eq(pressed, "a", "PC root touch confirms through native input")
+
+  local deposit = { kind = "pc_box_deposit", index = 1, items = {
+    { value = 1 }, { value = 2 }, { value = 3 }, { value = 4 },
+  } }
+  game.stack.states = { world, pcRoot, deposit }
+  pressed = nil
+  touchEvent("tap,120,40")
+  T.eq(deposit.index, 1,
+    "deposit mirrors the native vertical list instead of a party grid")
+  T.eq(pressed, "a", "deposit touch confirms through native input")
+
+  local withdraw = { kind = "pc_box_withdraw", index = 1, items = {
+    { value = 1 }, { value = 2 }, { value = 3 }, { value = 4 },
+  } }
+  game.stack.states = { world, pcRoot, withdraw }
+  touchEvent("tap,120,64")
+  T.eq(withdraw.index, 2,
+    "box Pokémon rows follow the native up/down cursor order")
+
+  local change = { kind = "pc_box_change", index = 5, items = {} }
+  for i = 1, 12 do
+    change.items[i] = { label = "BOX " .. i, right = "0/20", value = i }
+  end
+  game.stack.states = { world, pcRoot, change }
+  touchEvent("tap,120,35")
+  T.eq(change.index, 5,
+    "change-box touch stays on the first visible native list row")
+  game.input, game.save.boxes, game.save.currentBox = previousInput,
+    previousBoxes, previousBox
   modCanvas.newImageData = nil
   game.stack.states = previousStates
   T.check(ok,

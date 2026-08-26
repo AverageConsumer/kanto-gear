@@ -1280,8 +1280,9 @@ local function normalize(value)
 end
 
 local function clean(value)
-  value = tostring(value or "")
-  return normalize(THEME:translate(value))
+  value = THEME:translate(tostring(value or ""))
+    :gsub("<PK><MN>", "PKMN")
+  return normalize(value)
 end
 
 assert(normalize("40%") == "40%"
@@ -4303,61 +4304,52 @@ return function(mod)
   end
 
   local function drawPcRoot(kind, root)
-    if kind == "items" then
-      header("ITEM PC")
-      local labels = { "WITHDRAW", "DEPOSIT", "TOSS", "LOG OFF" }
-      for i, label in ipairs(labels) do
-        local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
-        button(3 + col * 78, 24 + row * 57, 76, row == 0 and 54 or 56,
-               label, root.index == i)
-      end
-      return
-    end
-
     local boxes = game.save.boxes or {}
     local current = game.save.currentBox or 1
-    header("POKEMON PC")
-    centered(THEME:format("BOX %d  %d/20", current,
-                          #(boxes[current] or {})),
-             22, DARK)
-    local labels = { "WITHDRAW", "DEPOSIT", "RELEASE", "BOXES" }
-    for i, label in ipairs(labels) do
-      local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
-      button(3 + col * 78, 34 + row * 40, 76, 36, label, root.index == i)
+    header(kind == "items" and "ITEM PC"
+      or THEME:format("PC BOX %d %d/20", current, #(boxes[current] or {})))
+    local count = #root.items
+    if count == 0 then
+      centered("NOTHING HERE", 61, INK)
+      return
     end
-    local extras = #root.items - 4
-    if extras == 1 then
-      button(18, 116, 124, 24, "LOG OFF", root.index == 5)
-    else
-      button(3, 116, 76, 24, "PRINT", root.index == 5)
-      button(81, 116, 76, 24, "LOG OFF", root.index == 6)
+    local rowHeight = math.floor(116 / count)
+    for i, item in ipairs(root.items) do
+      button(8, 23 + (i - 1) * rowHeight, 144, rowHeight - 3,
+             item.label or tostring(i), root.index == i)
     end
   end
 
   local function pcMonCard(mon, x, y, selected)
-    box("fill", x, y, 76, 45, selected and DARK or MID)
-    outline(x, y, 76, 45, INK)
+    box("fill", x, y, 144, 22, selected and DARK or MID)
+    outline(x, y, 144, 22, INK)
     if not mon then return end
     local def = game.data.pokemon[mon.species] or {}
-    drawSprite(mon.species, "front", x + 2, y + 3, 32, 32,
+    drawSprite(mon.species, "front", x + 2, y + 1, 20, 20,
                nil, mon.source or mon)
-    text(fit(mon.nickname or def.name or mon.species, 6), x + 35, y + 9,
+    text(fit(mon.nickname or def.name or mon.species, 13), x + 26, y + 4,
          selected and PAPER or INK)
-    text(THEME:format("LV.%d", mon.level or 0), x + 35, y + 25,
+    text(THEME:format("LV.%d", mon.level or 0), x + 111, y + 4,
          selected and PAPER or DARK)
   end
 
   local function drawPcBoxList(list)
     local boxes = game.save.boxes or {}
     local current = game.save.currentBox or 1
-    local mons = boxes[current] or {}
+    local deposit = list.kind == "pc_box_deposit"
+    local mons = deposit and (game.save.party or {}) or (boxes[current] or {})
     local first, count = pageWindow(list.index, #list.items)
     local action = ({ pc_box_withdraw = "WITHDRAW",
-      pc_box_release = "RELEASE" })[list.kind] or "POKEMON"
+      pc_box_deposit = "DEPOSIT", pc_box_release = "RELEASE" })[list.kind]
+      or "POKEMON"
     header(action, true)
     local pages = math.max(1, math.ceil(#list.items / 4))
-    centered(THEME:format("BOX %d  %d/20  %d/%d", current, #mons,
-      math.floor((math.max(1, list.index) - 1) / 4) + 1, pages), 22, DARK)
+    local page = math.floor((math.max(1, list.index) - 1) / 4) + 1
+    local summary = deposit
+      and THEME:format("PARTY %d/6  %d/%d", #mons, page, pages)
+      or THEME:format("BOX %d  %d/20  %d/%d",
+                      current, #mons, page, pages)
+    centered(summary, 22, DARK)
     if #list.items == 0 then
       centered("NOTHING HERE", 61, INK)
       button(34, 101, 92, 28, "BACK", false)
@@ -4365,25 +4357,26 @@ return function(mod)
     end
     for slot = 1, count do
       local index = first + slot - 1
-      local col, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
       local item = list.items[index]
       pcMonCard(mons[item and item.value or index],
-        3 + col * 78, 38 + row * 49, list.index == index)
+        8, 38 + (slot - 1) * 24, list.index == index)
     end
   end
 
   local function drawPcBoxChange(list)
     local boxes = game.save.boxes or {}
-    local current = game.save.currentBox or 1
     header("CHANGE BOX", true)
-    centered("BOX  USED", 22, DARK)
-    for i = 1, 12 do
-      local col, row = (i - 1) % 3, math.floor((i - 1) / 3)
-      local label = (i == current and "*" or "")
-        .. i .. " " .. #(boxes[i] or {})
-      button(3 + col * 52, 33 + row * 27, 50, 24,
-             label, list.index == i)
+    local first, count = pageWindow(list.index, #list.items)
+    for row = 1, count do
+      local index, item = first + row - 1, list.items[first + row - 1]
+      button(8, 25 + (row - 1) * 25, 144, 22,
+             THEME:format("%s %s", item.label or tostring(index),
+                          item.right or (#(boxes[index] or {}) .. "/20")),
+             list.index == index)
     end
+    centered(THEME:format("PAGE %d/%d",
+      math.floor((list.index - 1) / 4) + 1,
+      math.max(1, math.ceil(#list.items / 4))), 132, DARK)
   end
 
   local function drawPcItemList(list)
@@ -4398,14 +4391,14 @@ return function(mod)
     local first, count = pageWindow(list.index, #list.items)
     for row = 1, count do
       local index, item = first + row - 1, list.items[first + row - 1]
-      button(8, 25 + (row - 1) * 28, 144, 25,
+      button(8, 25 + (row - 1) * 25, 144, 22,
              THEME:format("%s %s", item.label or tostring(index),
                           item.right or ""),
              list.index == index)
     end
     centered(THEME:format("PAGE %d/%d",
       math.floor((list.index - 1) / 4) + 1,
-      math.max(1, math.ceil(#list.items / 4))), 136, DARK)
+      math.max(1, math.ceil(#list.items / 4))), 132, DARK)
   end
 
   local function drawPcQuantity(quantity, list)
@@ -4429,9 +4422,8 @@ return function(mod)
       and type(top.onDone) == "function"
     if quantity then
       drawPcQuantity(top, list)
-    elseif activeList and activeList.kind == "pc_box_deposit" then
-      drawParty(partyData(), "DEPOSIT", true, nil, activeList.index)
     elseif activeList and (activeList.kind == "pc_box_withdraw"
+        or activeList.kind == "pc_box_deposit"
         or activeList.kind == "pc_box_release") then
       drawPcBoxList(activeList)
     elseif activeList and activeList.kind == "pc_box_change" then
@@ -5284,36 +5276,34 @@ return function(mod)
       elseif #list.items == 0 then
         if inside(x, y, 34, kind == "items" and 94 or 101,
                   92, kind == "items" and 30 or 28) then press("b") end
-      elseif list.kind == "pc_box_deposit" and y >= 23 then
-        local col, row = x >= 81 and 1 or 0, math.floor((y - 23) / 39)
-        local index = row * 2 + col + 1
-        if list.items[index] then list.index = index; press("a") end
       elseif list.kind == "pc_box_withdraw"
+          or list.kind == "pc_box_deposit"
           or list.kind == "pc_box_release" then
         local first, count = pageWindow(list.index, #list.items)
         for slot = 1, count do
-          local col, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
-          if inside(x, y, 3 + col * 78, 38 + row * 49, 76, 45) then
+          if inside(x, y, 8, 38 + (slot - 1) * 24, 144, 22) then
             list.index = first + slot - 1
             press("a")
             break
           end
         end
       elseif list.kind == "pc_box_change" then
-        for i = 1, math.min(12, #list.items) do
-          local col, row = (i - 1) % 3, math.floor((i - 1) / 3)
-          if inside(x, y, 3 + col * 52, 33 + row * 27, 50, 24) then
-            list.index = i
+        local first, count = pageWindow(list.index, #list.items)
+        for row = 1, count do
+          if inside(x, y, 8, 25 + (row - 1) * 25, 144, 22) then
+            list.index = first + row - 1
             press("a")
             break
           end
         end
       else
         local first, count = pageWindow(list.index, #list.items)
-        local row = math.floor((y - 25) / 28) + 1
-        if x >= 8 and x < 152 and row >= 1 and row <= count then
-          list.index = first + row - 1
-          press("a")
+        for row = 1, count do
+          if inside(x, y, 8, 25 + (row - 1) * 25, 144, 22) then
+            list.index = first + row - 1
+            press("a")
+            break
+          end
         end
       end
       dirty = true
@@ -5323,31 +5313,16 @@ return function(mod)
     if top ~= root then
       return
     end
-    if kind == "items" then
-      for i = 1, 4 do
-        local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
-        if inside(x, y, 3 + col * 78, 24 + row * 57,
-                  76, row == 0 and 54 or 56) then
-          root.index = i
-          press("a")
-          break
-        end
+    local count = #root.items
+    if count > 0 then
+      local rowHeight = math.floor(116 / count)
+      local row = math.floor((y - 23) / rowHeight) + 1
+      if x >= 8 and x < 152 and row >= 1 and row <= count
+          and inside(x, y, 8, 23 + (row - 1) * rowHeight,
+                     144, rowHeight - 3) then
+        root.index = row
+        press("a")
       end
-    else
-      for i = 1, 4 do
-        local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
-        if inside(x, y, 3 + col * 78, 34 + row * 40, 76, 36) then
-          root.index = i
-          press("a")
-          dirty = true
-          return
-        end
-      end
-    end
-    if kind == "pokemon" and y >= 116 then
-      local extras = #root.items - 4
-      local index = extras == 1 and 5 or (x >= 81 and 6 or 5)
-      if root.items[index] then root.index = index; press("a") end
     end
     dirty = true
   end
