@@ -903,6 +903,92 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 T.eq(nameChoice.cursor, 2,
   "Gold name choices share the companion choice renderer")
 
+do
+  local function upvalue(fn, target)
+    for index = 1, debug.getinfo(fn, "u").nups do
+      local name, value = debug.getupvalue(fn, index)
+      if name == target then return value end
+    end
+  end
+  local composeHook
+  for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
+    if entry.owner == "kanto_gear" then composeHook = entry.callback end
+  end
+  local touchEvent = upvalue(composeHook, "touchEvent")
+  local previousStates, previousInput = game.stack.states, game.input
+  local previousBoxes, previousBox, previousParty = game.save.boxes,
+    game.save.currentBox, game.save.party
+  local pressed
+  game.input = {
+    sourcePress = function(_, button) pressed = button end,
+    sourceRelease = function() end,
+  }
+  game.save.currentBox = 1
+  game.save.party = {
+    { species = "FIXMON_A", nickname = "PARTY ONE", level = 5 },
+    { species = "FIXMON_B", nickname = "PARTY TWO", level = 6 },
+  }
+  game.save.boxes = { {
+    { species = "FIXMON_A", nickname = "BOX ONE", level = 7 },
+    { species = "FIXMON_B", nickname = "BOX TWO", level = 8 },
+  } }
+
+  local root = { screenId = "Gen2PcMenu", index = 1, entries = {
+    { label = "WITHDRAW <PK><MN>" }, { label = "DEPOSIT <PK><MN>" },
+    { label = "CHANGE BOX" }, { label = "MOVE <PK><MN> W/O MAIL" },
+    { label = "SEE YA!" },
+  } }
+  game.stack.states = { root }
+  T.check(pcall(function()
+    run.loader.hooks:call("render.compose", function() return false end, {}, {
+      secondScreen = companion,
+    })
+  end), "Gold PC root mirrors its native entry contract")
+  touchEvent("tap,120,25")
+  T.eq(root.index, 1, "Gold PC root touch keeps the native vertical row")
+  T.eq(pressed, "a", "Gold PC root touch confirms through native input")
+
+  local box = { screenId = "Gen2BoxMenu", mode = "withdraw",
+    boxIndex = 1, index = 1 }
+  game.stack.states = { root, box }
+  pressed = nil
+  touchEvent("tap,120,64")
+  T.eq(box.index, 2, "Gold box touch follows the native up/down list")
+  T.eq(pressed, "a", "Gold box touch confirms through native input")
+
+  box.mode, box.boxIndex, box.index = "move", 0, 1
+  touchEvent("tap,120,88")
+  T.eq(box.index, 3,
+    "Gold MOVE includes the native PARTY cancel row in cursor order")
+
+  root.picking, root.pickIndex = true, 5
+  game.stack.states = { root }
+  touchEvent("tap,120,35")
+  T.eq(root.pickIndex, 5,
+    "Gold change-box touch stays on the first visible box row")
+
+  local itemPc = { screenId = "Gen2ItemPcMenu", index = 1,
+    entries = { { label = "WITHDRAW ITEM" }, { label = "TOSS ITEM" } },
+    phase = "withdraw", listIndex = 1,
+    rows = { { name = "POTION", count = 2 },
+      { name = "ANTIDOTE", count = 1 } },
+  }
+  game.stack.states = { itemPc }
+  touchEvent("tap,120,51")
+  T.eq(itemPc.listIndex, 2,
+    "Gold item PC touch follows the native vertical item list")
+
+  box.phase, box.index = "submenu", 1
+  game.stack.states = { root, box }
+  touchEvent("tap,120,64")
+  T.eq(box.index, 1,
+    "Gold PC submenus stay owned by the top screen instead of splitting focus")
+
+  game.stack.states, game.input = previousStates, previousInput
+  game.save.boxes, game.save.currentBox, game.save.party =
+    previousBoxes, previousBox, previousParty
+end
+
 run.release()
 T.love.graphics.rectangle = rectangle
 T.love.timer.getTime = getTime

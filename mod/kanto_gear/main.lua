@@ -486,9 +486,25 @@ local function progressRatio(value, first, last)
 end
 
 local function pcListKind(state)
-  return state and PC_LIST_KINDS[state.kind]
-    and rowsContract(state.items) and type(state.index) == "number"
-    and state.kind or nil
+  if not state then return nil end
+  if PC_LIST_KINDS[state.kind] and rowsContract(state.items)
+      and type(state.index) == "number" then return state.kind end
+  if state.screenId == "Gen2PcMenu" and state.picking
+      and not state.savePhase and type(state.pickIndex) == "number" then
+    return "gen2_box_change"
+  end
+  if state.screenId == "Gen2BoxMenu" and not state.phase
+      and not state.message and type(state.index) == "number"
+      and (state.mode == "withdraw" or state.mode == "deposit"
+        or state.mode == "move") then
+    return "gen2_box_" .. state.mode
+  end
+  if state.screenId == "Gen2ItemPcMenu" and not state.message
+      and not state.qtyState and not state.confirm
+      and (state.phase == "withdraw" or state.phase == "toss")
+      and rowsContract(state.rows) and type(state.listIndex) == "number" then
+    return "gen2_item_" .. state.phase
+  end
 end
 
 local function assistEnabled(profile, custom)
@@ -1737,7 +1753,7 @@ return function(mod)
     summary = { SummaryMenu = true, Gen2SummaryMenu = true },
     bag = { BagMenu = true, Gen2PackMenu = true },
     naming = { NamingScreen = true, Gen2NamingScreen = true },
-    pokemonPc = { BoxMenu = true, Gen2PcMenu = true },
+    pokemonPc = { BoxMenu = true, Gen2CenterPcMenu = true, Gen2PcMenu = true },
     itemPc = { PlayerPC = true, Gen2ItemPcMenu = true },
     trainerCard = { TrainerCard = true, Gen2TrainerCard = true },
   } }
@@ -2582,9 +2598,10 @@ return function(mod)
     return live and live.isEgg == true or false
   end
 
-  function compat.drawPokemonIcon(mon, x, y)
+  function compat.drawPokemonIcon(mon, x, y, size)
     local data = game and game.data or {}
     local name, path, isEgg = nil, nil, compat.partyEgg(mon)
+    size = size or 27
     if data.gen2Icons then
       name = isEgg and "ICON_EGG"
         or data.gen2Icons.species and data.gen2Icons.species[mon.species]
@@ -2626,11 +2643,11 @@ return function(mod)
     local iw, ih = image:getDimensions()
     local fw, fh = math.min(16, iw), math.min(16, ih)
     local quad = G.newQuad(0, 0, fw, fh, iw, ih)
-    local scale = math.min(27 / fw, 27 / fh)
+    local scale = math.min(size / fw, size / fh)
     local function paint()
       color({ 1, 1, 1, 1 })
-      G.draw(image, quad, x + (27 - fw * scale) / 2,
-        y + (27 - fh * scale) / 2, 0, scale, scale)
+      G.draw(image, quad, x + (size - fw * scale) / 2,
+        y + (size - fh * scale) / 2, 0, scale, scale)
     end
     local gbc = compat.gen2PaletteModules()
     local colors = data.gen2Palettes and data.gen2Palettes.partyMenu
@@ -2716,13 +2733,12 @@ return function(mod)
   end
 
   local function pcSession()
-    if compat.isGen2() then return end
-    local root = screenById("pokemonPc")
-    if root and type(root.items) == "table"
-        and type(root.index) == "number" then return "pokemon", root end
-    root = screenById("itemPc")
-    if root and type(root.items) == "table"
+    local root = screenById("itemPc")
+    if root and type(root.items or root.entries) == "table"
         and type(root.index) == "number" then return "items", root end
+    root = screenById("pokemonPc")
+    if root and type(root.items or root.entries) == "table"
+        and type(root.index) == "number" then return "pokemon", root end
   end
 
   local function pcList()
@@ -4306,15 +4322,17 @@ return function(mod)
   local function drawPcRoot(kind, root)
     local boxes = game.save.boxes or {}
     local current = game.save.currentBox or 1
-    header(kind == "items" and "ITEM PC"
+    local items = root.items or root.entries or {}
+    header(root.screenId == "Gen2CenterPcMenu" and "PC"
+      or kind == "items" and "ITEM PC"
       or THEME:format("PC BOX %d %d/20", current, #(boxes[current] or {})))
-    local count = #root.items
+    local count = #items
     if count == 0 then
       centered("NOTHING HERE", 61, INK)
       return
     end
     local rowHeight = math.floor(116 / count)
-    for i, item in ipairs(root.items) do
+    for i, item in ipairs(items) do
       button(8, 23 + (i - 1) * rowHeight, 144, rowHeight - 3,
              item.label or tostring(i), root.index == i)
     end
@@ -4325,8 +4343,12 @@ return function(mod)
     outline(x, y, 144, 22, INK)
     if not mon then return end
     local def = game.data.pokemon[mon.species] or {}
-    drawSprite(mon.species, "front", x + 2, y + 1, 20, 20,
-               nil, mon.source or mon)
+    if compat.partyEgg(mon) then
+      compat.drawPokemonIcon(mon, x + 2, y + 1, 20)
+    else
+      drawSprite(mon.species, "front", x + 2, y + 1, 20, 20,
+                 nil, mon.source or mon)
+    end
     text(fit(mon.nickname or def.name or mon.species, 13), x + 26, y + 4,
          selected and PAPER or INK)
     text(THEME:format("LV.%d", mon.level or 0), x + 111, y + 4,
@@ -4335,70 +4357,96 @@ return function(mod)
 
   local function drawPcBoxList(list)
     local boxes = game.save.boxes or {}
-    local current = game.save.currentBox or 1
-    local deposit = list.kind == "pc_box_deposit"
-    local mons = deposit and (game.save.party or {}) or (boxes[current] or {})
-    local first, count = pageWindow(list.index, #list.items)
+    local kind = pcListKind(list)
+    local gen2 = kind and kind:find("^gen2_box_") ~= nil
+    local current = gen2 and (list.boxIndex or game.save.currentBox or 1)
+      or (game.save.currentBox or 1)
+    local deposit = kind == "pc_box_deposit" or kind == "gen2_box_deposit"
+    local mons = (deposit or (gen2 and current == 0))
+      and (game.save.party or {}) or (boxes[current] or {})
+    local total = gen2 and (#mons + 1) or #(list.items or {})
+    local first, count = pageWindow(list.index, total)
     local action = ({ pc_box_withdraw = "WITHDRAW",
-      pc_box_deposit = "DEPOSIT", pc_box_release = "RELEASE" })[list.kind]
+      pc_box_deposit = "DEPOSIT", pc_box_release = "RELEASE",
+      gen2_box_withdraw = "WITHDRAW", gen2_box_deposit = "DEPOSIT",
+      gen2_box_move = "MOVE" })[kind]
       or "POKEMON"
     header(action, true)
-    local pages = math.max(1, math.ceil(#list.items / 4))
+    local pages = math.max(1, math.ceil(total / 4))
     local page = math.floor((math.max(1, list.index) - 1) / 4) + 1
-    local summary = deposit
+    local summary = (deposit or (gen2 and current == 0))
       and THEME:format("PARTY %d/6  %d/%d", #mons, page, pages)
       or THEME:format("BOX %d  %d/20  %d/%d",
                       current, #mons, page, pages)
     centered(summary, 22, DARK)
-    if #list.items == 0 then
+    if total == 0 then
       centered("NOTHING HERE", 61, INK)
       button(34, 101, 92, 28, "BACK", false)
       return
     end
     for slot = 1, count do
       local index = first + slot - 1
-      local item = list.items[index]
-      pcMonCard(mons[item and item.value or index],
-        8, 38 + (slot - 1) * 24, list.index == index)
+      local item = list.items and list.items[index]
+      if gen2 and index > #mons then
+        button(8, 38 + (slot - 1) * 24, 144, 22, "BACK",
+               list.index == index)
+      else
+        pcMonCard(mons[item and item.value or index],
+          8, 38 + (slot - 1) * 24, list.index == index)
+      end
     end
   end
 
   local function drawPcBoxChange(list)
     local boxes = game.save.boxes or {}
+    local gen2 = list.screenId == "Gen2PcMenu"
+    local items = list.items or {}
+    local selected = gen2 and list.pickIndex or list.index
+    local total = gen2 and 14 or #items
     header("CHANGE BOX", true)
-    local first, count = pageWindow(list.index, #list.items)
+    local first, count = pageWindow(selected, total)
     for row = 1, count do
-      local index, item = first + row - 1, list.items[first + row - 1]
+      local index, item = first + row - 1, items[first + row - 1]
+      local label = item and item.label
+        or ((game.save.boxNames or {})[index] or ("BOX" .. index))
       button(8, 25 + (row - 1) * 25, 144, 22,
-             THEME:format("%s %s", item.label or tostring(index),
-                          item.right or (#(boxes[index] or {}) .. "/20")),
-             list.index == index)
+             THEME:format("%s %s", label,
+                          item and item.right or (#(boxes[index] or {}) .. "/20")),
+             selected == index)
     end
     centered(THEME:format("PAGE %d/%d",
-      math.floor((list.index - 1) / 4) + 1,
-      math.max(1, math.ceil(#list.items / 4))), 132, DARK)
+      math.floor((selected - 1) / 4) + 1,
+      math.max(1, math.ceil(total / 4))), 132, DARK)
   end
 
   local function drawPcItemList(list)
     local titles = { pc_item_withdraw = "WITHDRAW",
-      pc_item_deposit = "DEPOSIT", pc_item_toss = "TOSS" }
-    header(titles[list.kind] or "ITEMS", true)
-    if #list.items == 0 then
+      pc_item_deposit = "DEPOSIT", pc_item_toss = "TOSS",
+      gen2_item_withdraw = "WITHDRAW", gen2_item_toss = "TOSS" }
+    local kind = pcListKind(list)
+    local gen2 = kind and kind:find("^gen2_item_") ~= nil
+    local items = gen2 and (list.rows or {}) or (list.items or {})
+    local selected = gen2 and list.listIndex or list.index
+    local total = #items + (gen2 and 1 or 0)
+    header(titles[kind] or "ITEMS", true)
+    if total == 0 then
       centered("NOTHING HERE", 56, INK)
       button(34, 94, 92, 30, "BACK", false)
       return
     end
-    local first, count = pageWindow(list.index, #list.items)
+    local first, count = pageWindow(selected, total)
     for row = 1, count do
-      local index, item = first + row - 1, list.items[first + row - 1]
+      local index, item = first + row - 1, items[first + row - 1]
       button(8, 25 + (row - 1) * 25, 144, 22,
-             THEME:format("%s %s", item.label or tostring(index),
-                          item.right or ""),
-             list.index == index)
+             item and THEME:format("%s %s",
+               item.label or item.name or tostring(index),
+               item.right or (gen2 and ("x" .. (item.count or 0)) or ""))
+               or "BACK",
+             selected == index)
     end
     centered(THEME:format("PAGE %d/%d",
-      math.floor((list.index - 1) / 4) + 1,
-      math.max(1, math.ceil(#list.items / 4))), 132, DARK)
+      math.floor((selected - 1) / 4) + 1,
+      math.max(1, math.ceil(total / 4))), 132, DARK)
   end
 
   local function drawPcQuantity(quantity, list)
@@ -4417,19 +4465,26 @@ return function(mod)
   local function drawPc(kind, root, top)
     local list = pcList()
     local activeList = list and top == list and list or nil
+    local activeKind = pcListKind(activeList)
     local quantity = kind == "items" and list and top
       and type(top.qty) == "number" and type(top.max) == "number"
       and type(top.onDone) == "function"
     if quantity then
       drawPcQuantity(top, list)
-    elseif activeList and (activeList.kind == "pc_box_withdraw"
-        or activeList.kind == "pc_box_deposit"
-        or activeList.kind == "pc_box_release") then
-      drawPcBoxList(activeList)
-    elseif activeList and activeList.kind == "pc_box_change" then
+    elseif activeList and (activeKind == "pc_box_change"
+        or activeKind == "gen2_box_change") then
       drawPcBoxChange(activeList)
-    elseif activeList and activeList.kind:find("^pc_item_") then
+    elseif activeList and activeKind and activeKind:find("_box_") then
+      drawPcBoxList(activeList)
+    elseif activeList and activeKind and activeKind:find("_item_") then
       drawPcItemList(activeList)
+    elseif root.screenId == "Gen2PcMenu"
+        and (root.message or root.savePhase) then
+      drawTopSummaryControls(nil, true)
+    elseif root.screenId == "Gen2ItemPcMenu"
+        and (root.phase ~= "menu" or root.message
+          or root.qtyState or root.confirm) then
+      drawTopSummaryControls(nil, true)
     elseif top ~= root then
       drawTopSummaryControls(nil, true)
     else
@@ -5253,6 +5308,7 @@ return function(mod)
 
   local function tapPc(kind, root, top, x, y)
     local list = pcList()
+    local listKind = pcListKind(list)
     if kind == "items" and list and top and type(top.qty) == "number"
         and type(top.max) == "number" and type(top.onDone) == "function" then
       if y < HEADER and x < 24 then
@@ -5273,12 +5329,43 @@ return function(mod)
     if list and top == list then
       if y < HEADER and x < 24 then
         press("b")
-      elseif #list.items == 0 then
+      elseif listKind == "gen2_box_change" then
+        local first, count = pageWindow(list.pickIndex, 14)
+        for row = 1, count do
+          if inside(x, y, 8, 25 + (row - 1) * 25, 144, 22) then
+            list.pickIndex = first + row - 1
+            press("a")
+            break
+          end
+        end
+      elseif listKind and listKind:find("^gen2_box_") then
+        local mons = (list.mode == "deposit" or list.boxIndex == 0)
+          and (game.save.party or {})
+          or ((game.save.boxes or {})[list.boxIndex or game.save.currentBox or 1]
+            or {})
+        local first, count = pageWindow(list.index, #mons + 1)
+        for row = 1, count do
+          if inside(x, y, 8, 38 + (row - 1) * 24, 144, 22) then
+            list.index = first + row - 1
+            press("a")
+            break
+          end
+        end
+      elseif listKind and listKind:find("^gen2_item_") then
+        local first, count = pageWindow(list.listIndex, #(list.rows or {}) + 1)
+        for row = 1, count do
+          if inside(x, y, 8, 25 + (row - 1) * 25, 144, 22) then
+            list.listIndex = first + row - 1
+            press("a")
+            break
+          end
+        end
+      elseif #(list.items or {}) == 0 then
         if inside(x, y, 34, kind == "items" and 94 or 101,
                   92, kind == "items" and 30 or 28) then press("b") end
-      elseif list.kind == "pc_box_withdraw"
-          or list.kind == "pc_box_deposit"
-          or list.kind == "pc_box_release" then
+      elseif listKind == "pc_box_withdraw"
+          or listKind == "pc_box_deposit"
+          or listKind == "pc_box_release" then
         local first, count = pageWindow(list.index, #list.items)
         for slot = 1, count do
           if inside(x, y, 8, 38 + (slot - 1) * 24, 144, 22) then
@@ -5287,7 +5374,7 @@ return function(mod)
             break
           end
         end
-      elseif list.kind == "pc_box_change" then
+      elseif listKind == "pc_box_change" then
         local first, count = pageWindow(list.index, #list.items)
         for row = 1, count do
           if inside(x, y, 8, 25 + (row - 1) * 25, 144, 22) then
@@ -5313,7 +5400,11 @@ return function(mod)
     if top ~= root then
       return
     end
-    local count = #root.items
+    if root.screenId == "Gen2PcMenu"
+        and (root.message or root.savePhase or root.picking) then return end
+    if root.screenId == "Gen2ItemPcMenu" and root.phase ~= "menu" then return end
+    local items = root.items or root.entries or {}
+    local count = #items
     if count > 0 then
       local rowHeight = math.floor(116 / count)
       local row = math.floor((y - 23) / rowHeight) + 1
@@ -5812,10 +5903,25 @@ return function(mod)
       return
     end
     local top = game and game.stack and game.stack:top()
-    if pcSession() and pcListKind(top) and #(top.items or {}) > 4 then
-      top.index = pagedIndex(top.index, #top.items, dy < 0 and 1 or -1)
-      dirty = true
-      return
+    local pcKind = pcSession() and pcListKind(top)
+    if pcKind then
+      local count, field = #(top.items or {}), "index"
+      if pcKind == "gen2_box_change" then
+        count, field = 14, "pickIndex"
+      elseif pcKind:find("^gen2_box_") then
+        local mons = (top.mode == "deposit" or top.boxIndex == 0)
+          and (game.save.party or {})
+          or ((game.save.boxes or {})[top.boxIndex or game.save.currentBox or 1]
+            or {})
+        count = #mons + 1
+      elseif pcKind:find("^gen2_item_") then
+        count, field = #(top.rows or {}) + 1, "listIndex"
+      end
+      if count > 4 then
+        top[field] = pagedIndex(top[field], count, dy < 0 and 1 or -1)
+        dirty = true
+        return
+      end
     end
     if not compat.isGen2() and screenContract(top, "bag")
         and #top.items > 4 then
