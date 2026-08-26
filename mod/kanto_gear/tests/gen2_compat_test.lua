@@ -865,6 +865,34 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 T.eq(nestedChoice.confirm.choice, 2,
   "Gold nested confirmations share the companion choice renderer")
 
+local presses = 0
+game.input.sourcePress = function(_, button)
+  if button == "a" then presses = presses + 1 end
+end
+local saveChoice = { screenId = "Gen2SaveMenu", phase = "confirm", choice = 1 }
+game.stack.states = { saveChoice }
+now = now + 1
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+now = now + 1
+touchEvents[1] = "tap,80,70"
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+saveChoice.phase = "overwrite"
+now = now + 1
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+now = now + 1
+touchEvents[1] = "tap,80,70"
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = companion,
+})
+T.eq(presses, 2,
+  "Gold save overwrite accepts touch after the prompt changes in place")
+
 local nameChoice = { screenId = "Gen2NamePick",
   items = { "NEW NAME", "GOLD" }, cursor = 2 }
 game.stack.states = { nameChoice }

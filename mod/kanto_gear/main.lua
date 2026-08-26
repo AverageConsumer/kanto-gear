@@ -2811,8 +2811,9 @@ return function(mod)
   end
 
   local function trackChoice(top, now)
-    if top == choiceTop then return false end
-    choiceTop = top
+    if choiceTop and choiceTop[1] == top
+        and choiceTop[2] == (top and top.phase) then return false end
+    choiceTop = top and { top, top.phase } or nil
     choiceCommitted = nil
     choiceNudgeUntil = 0
     choiceReadyAt = top and now + CHOICE_QUIET or 0
