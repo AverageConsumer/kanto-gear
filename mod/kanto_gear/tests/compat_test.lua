@@ -836,6 +836,37 @@ do
   touchEvent("tap,80,140")
   T.eq(pressed, nil,
     "TM/HM replacement has no invalid fifth cancel slot")
+  local gen1Learn = { screenId = "MoveLearnMenu", mon = learnMon,
+    newMoveId = "FIX_EMBERISH", selecting = false, index = 1 }
+  local learnChoice = { isTextBox = true, index = 2,
+    onChoose = function() end }
+  game.stack.states = { world, gen1Learn, learnChoice }
+  local tapFn
+  for i = 1, debug.getinfo(touchEvent, "u").nups do
+    local name, value = debug.getupvalue(touchEvent, i)
+    if name == "tap" then tapFn = value break end
+  end
+  local choiceFn
+  for i = 1, debug.getinfo(tapFn, "u").nups do
+    local name, value = debug.getupvalue(tapFn, i)
+    if name == "dialogueChoice" then choiceFn = value break end
+  end
+  T.eq(choiceFn(), learnChoice,
+    "Gen 1 move learning exposes the shared YES/NO choice")
+  local oldTime = T.love.timer.getTime
+  T.love.timer.getTime = function() return 1000 end
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = { detected = function() return displayDetected end,
+                     pollTouch = function() return nil end },
+  })
+  T.love.timer.getTime = function() return 1001 end
+  tapFn(80, 60)
+  T.love.timer.getTime = function() return 1002 end
+  tapFn(80, 60)
+  T.love.timer.getTime = oldTime
+  T.eq(learnChoice.index, 1,
+    "Gen 1 move learning uses the shared YES/NO touch layout")
+  T.eq(pressed, "a", "the shared move-learning choice confirms natively")
   game.data.items.TM_FIX = oldMachine
   game.input, game.save.boxes, game.save.currentBox = previousInput,
     previousBoxes, previousBox
@@ -1206,11 +1237,14 @@ do
   local PromptSprites = require("src.pokemon.Sprites")
   local promptSpritePath = PromptSprites.path
   local promptSprites = 0
-  game.stack.states = { world, {
+  local learnPrompt = {
     screenId = "MoveLearnMenu", mon = game.save.party[1],
     newMoveId = "FIX_EMBERISH", selecting = false, index = 1,
-  }, { isTextBox = true, waiting = true } }
-  T.love.timer.getTime = function() return 1 end
+  }
+  game.stack.states = { world, learnPrompt,
+    { isTextBox = true, waiting = true } }
+  local fakeTime = 1
+  T.love.timer.getTime = function() return fakeTime end
   PromptSprites.path = function(...)
     promptSprites = promptSprites + 1
     return promptSpritePath(...)
@@ -1222,6 +1256,17 @@ do
     secondScreen = { detected = function() return displayDetected end,
                      pollTouch = function() return nil end },
   })
+  local beforeChoice = promptSprites
+  fakeTime = 2
+  game.stack.states = { world, learnPrompt, {
+    isTextBox = true, index = 1, onChoose = function() end,
+  } }
+  run.loader.hooks:call("render.compose", function() return false end, {}, {
+    secondScreen = { detected = function() return displayDetected end,
+                     pollTouch = function() return nil end },
+  })
+  T.eq(promptSprites, beforeChoice,
+    "Gen 1 and Gen 2 move-learning choices share the normal dialogue layout")
   PromptSprites.path = promptSpritePath
   T.love.timer.getTime = getTime
   game.stack.states = previousStates

@@ -4821,7 +4821,7 @@ return function(mod)
     local levelStats = battle and compat.levelUpMon(top)
     if moveInfo then
       drawMoveInfo(moveInfo)
-    elseif learn then
+    elseif learn and not choice then
       drawLearnMove(learn, top)
     elseif naming then
       drawNaming(naming, namingKeys)
@@ -5668,13 +5668,14 @@ return function(mod)
       end
       return
     end
+    local choice, labels, field = dialogueChoice()
     local learnScreen = screenById("MoveLearnMenu")
       or screenById("Gen2MoveDeleter")
     local learn = displayRuntime.moveLearnScreen()
-    if learn then
+    if learn and not choice then
       tapLearn(learn, game.stack:top(), x, y)
       return
-    elseif learnScreen then
+    elseif learnScreen and not choice then
       return
     end
     local battleTop = game and game.stack and game.stack:top()
@@ -5685,7 +5686,6 @@ return function(mod)
       if inside(x, y, 24, buttonY, 112, 27) then press("a") end
       return
     end
-    local choice, labels, field = dialogueChoice()
     if choice then
       tapDialogueChoice(choice, labels, x, y, field)
       return
