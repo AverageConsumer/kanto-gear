@@ -2828,6 +2828,7 @@ return function(mod)
   end
 
   local function trackChoice(top, now)
+    if not choiceTop and not top then return false end
     if choiceTop and choiceTop[1] == top
         and choiceTop[2] == (top and top.phase) then return false end
     choiceTop = top and { top, top.phase } or nil

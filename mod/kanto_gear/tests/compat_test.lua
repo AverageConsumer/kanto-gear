@@ -679,13 +679,22 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
                    push = function() desktopFrames = desktopFrames + 1 return true end,
                    setEnabled = function(on) separateEnabled = on end },
 })
+local steadyTime = T.love.timer.getTime
+T.love.timer.getTime = function() return 1 end
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = { detected = function() return displayDetected end,
+                   pollTouch = function() return nil end,
+                   push = function() desktopFrames = desktopFrames + 1 return true end,
+                   setEnabled = function(on) separateEnabled = on end },
+})
+T.love.timer.getTime = steadyTime
 modCanvas.requestImageData, modCanvas.pollImageData = requestImageData,
   pollImageData
 modCanvas.newImageData = nil
 T.eq(separateEnabled, true,
   "separate mode enables the host's companion display")
 T.eq(desktopFrames, 1,
-  "desktop hosts submit a synchronous fallback frame")
+  "an idle page does not resubmit a frame when no choice exists")
 run.loader.modOptions.kanto_gear = {
   display_mode = "separate", display_target = "handheld",
 }
