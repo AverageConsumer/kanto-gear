@@ -2732,6 +2732,26 @@ return function(mod)
     end
   end
 
+  function displayRuntime.moveLearnScreen()
+    local learn = screenContract(screenById("MoveLearnMenu"), "moveLearn")
+    if learn then return learn end
+
+    local picker = screenById("Gen2MoveDeleter")
+    local pack = screenById("Gen2PackMenu")
+    if not (picker and type(picker.mon) == "table"
+        and type(picker.list) == "table" and picker.list == picker.mon.moves
+        and type(picker.row) == "number" and pack
+        and type(pack.rows) == "table" and type(pack.index) == "number") then
+      return nil
+    end
+    local row = pack and pack.rows and pack.rows[pack.index]
+    local items = game and game.data and game.data.items
+    local item = row and items and items[row.id]
+    if not (item and item.teaches) then return nil end
+    return { native = picker, mon = picker.mon, newMoveId = item.teaches,
+             selecting = true, index = picker.row }
+  end
+
   local function pcSession()
     local root = screenById("itemPc")
     if root and type(root.items or root.entries) == "table"
@@ -4707,7 +4727,7 @@ return function(mod)
   end
 
   displayRuntime.learningMoveInfo = function()
-    local learn = screenContract(screenById("MoveLearnMenu"), "moveLearn")
+    local learn = displayRuntime.moveLearnScreen()
     if learn then
       local moves = learn.mon.moves or {}
       if learn.selecting and learn.index <= #moves then
@@ -4735,7 +4755,7 @@ return function(mod)
       drawBattleLocked("NEW MOVE")
       return
     end
-    if learn.selecting and top == learn then
+    if learn.selecting and top == (learn.native or learn) then
       header("FORGET MOVE")
       text(fit(newName, 13), 5, 25, INK)
       text(fit(THEME:typeName(newDef.type, mod.content), 7), 95, 25, DARK)
@@ -4789,7 +4809,8 @@ return function(mod)
     G.setLineWidth(1)
     local mode, top, fade = screenState()
     local learnScreen = screenById("MoveLearnMenu")
-    local learn = screenContract(learnScreen, "moveLearn")
+      or screenById("Gen2MoveDeleter")
+    local learn = displayRuntime.moveLearnScreen()
     local pcKind, pcRoot = pcSession()
     local choice, labels, choiceField = dialogueChoice()
     local namingKeys = screenContract(top, "naming")
@@ -5091,7 +5112,7 @@ return function(mod)
       if top.waiting or (top.done and not top.choice) then press("a") end
       return
     end
-    if learn.selecting and top == learn then
+    if learn.selecting and top == (learn.native or learn) then
       local slot
       if inside(x, y, 34, 112, 92, 25) then
         slot = #learn.mon.moves + 1
@@ -5101,6 +5122,7 @@ return function(mod)
       end
       if slot and slot <= #learn.mon.moves + 1 then
         learn.index = slot
+        if learn.native then learn.native.row = slot end
         local col, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
         if slot <= #learn.mon.moves and assist("move_details")
             and inside(x, y, 64 + col * 78, 57 + row * 33, 15, 15) then
@@ -5482,7 +5504,7 @@ return function(mod)
   local function changePage(direction)
     if pendingFly or pendingAction or fieldChoice or partyActionSlot
         or partyMoveFrom
-        or screenContract(screenById("MoveLearnMenu"), "moveLearn")
+        or displayRuntime.moveLearnScreen()
         or dialogueChoice() or radarOpen then return end
     if not pageSwipeAllowed(screenState(), battle) then return end
     if trainerStepsOpen then
@@ -5653,7 +5675,8 @@ return function(mod)
       return
     end
     local learnScreen = screenById("MoveLearnMenu")
-    local learn = screenContract(learnScreen, "moveLearn")
+      or screenById("Gen2MoveDeleter")
+    local learn = displayRuntime.moveLearnScreen()
     if learn then
       tapLearn(learn, game.stack:top(), x, y)
       return
@@ -5968,7 +5991,7 @@ return function(mod)
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
           or screenContract(top, "naming")
           or dialogueChoice() or compat.isScreen(top, "summary")
-          or screenContract(screenById("MoveLearnMenu"), "moveLearn")
+          or displayRuntime.moveLearnScreen()
           or pcSession() }
       if speed then holdTextSpeed(true) end
     elseif action == "cancel" then
@@ -6441,7 +6464,8 @@ return function(mod)
       battleInfoDetail = nil
       dirty = true
     elseif payload and payload.state
-        and payload.state.screenId == "MoveLearnMenu" then
+        and (payload.state.screenId == "MoveLearnMenu"
+          or payload.state.screenId == "Gen2MoveDeleter") then
       moveInfo = nil
       dirty = true
     end
@@ -6511,7 +6535,7 @@ return function(mod)
           or not (game.save.party or {})[partyActionSlot]) then
         partyActionSlot, dirty = nil, true
       end
-      local learn = screenContract(screenById("MoveLearnMenu"), "moveLearn")
+      local learn = displayRuntime.moveLearnScreen()
       local currentPcList = pcList()
       local currentChoice, _, currentChoiceField = dialogueChoice()
       if trackChoice(currentChoice, now) then dirty = true end

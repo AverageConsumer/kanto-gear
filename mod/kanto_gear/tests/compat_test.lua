@@ -1004,6 +1004,29 @@ do
   T.eq(displayRuntime.learningMoveInfo().id, "FIX_EMBERISH",
     "the move-learning cancel row keeps the new move inspectable")
 
+  local previousItems = game.data.items
+  game.data.items = { TM_FIX = { teaches = "FIX_EMBERISH" } }
+  local gen2Pack = {
+    screenId = "Gen2PackMenu", index = 1,
+    rows = { { id = "TM_FIX" } },
+  }
+  local gen2Picker = {
+    screenId = "Gen2MoveDeleter", mon = learnMon,
+    list = learnMon.moves, row = 1,
+  }
+  game.stack.states = { world, gen2Pack, gen2Picker }
+  local bagLearn = displayRuntime.moveLearnScreen()
+  T.eq(bagLearn.newMoveId, "FIX_EMBERISH",
+    "Gen 2 bag TMs reuse the shared move-learning screen")
+  T.eq(bagLearn.native, gen2Picker,
+    "the companion keeps the native Gen 2 move picker authoritative")
+  T.eq(displayRuntime.learningMoveInfo().id, "TACKLE",
+    "Gen 2 bag move learning inspects the highlighted old move")
+  gen2Pack.rows[1].id = "NOT_A_MACHINE"
+  T.eq(displayRuntime.moveLearnScreen(), nil,
+    "unrelated Gen 2 move deleters stay on the native top screen")
+  game.data.items = previousItems
+
   local gen2Learn = {
     screenId = "Gen2BattleState", phase = "ask-forget", messageTimer = 0,
     pendingLearn = { index = 1, move = "TACKLE", moveName = "TACKLE" },
