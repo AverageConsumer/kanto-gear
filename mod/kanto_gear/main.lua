@@ -4763,17 +4763,18 @@ return function(mod)
         displayRuntime.moveInfoBadge(139, 24, false)
       end
       for i = 1, 4 do
-        local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
         local mv = learn.mon.moves[i]
         local def = mv and moveDef(mv.id) or {}
         local selected = learn.index == i
-        button(3 + col * 78, 43 + row * 33, 76, 29,
-               def.name or (mv and mv.id) or "-", selected)
+        local y = 38 + (i - 1) * 25
+        button(8, y, 144, 22, "", selected)
+        text(fit(def.name or (mv and mv.id) or "-", 17), 14, y + 8,
+             selected and (THEME.style ~= "classic" and THEME.white or PAPER)
+               or INK)
         if mv and assist("move_details") then
-          displayRuntime.moveInfoBadge(66 + col * 78, 59 + row * 33, selected)
+          displayRuntime.moveInfoBadge(139, y + 2, selected)
         end
       end
-      button(34, 112, 92, 25, "CANCEL", learn.index == 5)
       return
     end
 
@@ -5113,19 +5114,12 @@ return function(mod)
       return
     end
     if learn.selecting and top == (learn.native or learn) then
-      local slot
-      if inside(x, y, 34, 112, 92, 25) then
-        slot = #learn.mon.moves + 1
-      elseif y >= 43 and y < 109 then
-        local col, row = x >= 81 and 1 or 0, math.floor((y - 43) / 33)
-        slot = row * 2 + col + 1
-      end
-      if slot and slot <= #learn.mon.moves + 1 then
+      if x >= 8 and x < 152 and y >= 38
+          and y < 38 + #learn.mon.moves * 25 then
+        local slot = math.floor((y - 38) / 25) + 1
         learn.index = slot
         if learn.native then learn.native.row = slot end
-        local col, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
-        if slot <= #learn.mon.moves and assist("move_details")
-            and inside(x, y, 64 + col * 78, 57 + row * 33, 15, 15) then
+        if assist("move_details") and x >= 137 then
           moveInfo = compat.moveInfoEntry(learn.mon.moves[slot])
           dirty = moveInfo ~= nil or dirty
         else

@@ -815,6 +815,28 @@ do
   touchEvent("tap,120,35")
   T.eq(change.index, 5,
     "change-box touch stays on the first visible native list row")
+
+  local oldMachine = game.data.items.TM_FIX
+  game.data.items.TM_FIX = { teaches = "FIX_EMBERISH" }
+  local learnMon = { species = "PIKACHU", moves = {
+    { id = "TACKLE" }, { id = "FIX_EMBERISH" },
+    { id = "TACKLE" }, { id = "FIX_EMBERISH" },
+  } }
+  local pack = { screenId = "Gen2PackMenu", index = 1,
+    rows = { { id = "TM_FIX" } } }
+  local picker = { screenId = "Gen2MoveDeleter", mon = learnMon,
+    list = learnMon.moves, row = 1 }
+  game.stack.states = { world, pack, picker }
+  pressed = nil
+  touchEvent("tap,20,90")
+  T.eq(picker.row, 3,
+    "TM/HM replacement rows follow the native vertical move order")
+  T.eq(pressed, "a", "TM/HM replacement confirms the native move slot")
+  pressed = nil
+  touchEvent("tap,80,140")
+  T.eq(pressed, nil,
+    "TM/HM replacement has no invalid fifth cancel slot")
+  game.data.items.TM_FIX = oldMachine
   game.input, game.save.boxes, game.save.currentBox = previousInput,
     previousBoxes, previousBox
   modCanvas.newImageData = nil
