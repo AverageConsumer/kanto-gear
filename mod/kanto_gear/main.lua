@@ -6282,6 +6282,7 @@ return function(mod)
     G.setColor(1, 1, 1, 1)
     G.draw(canvas, dx, dy, 0, scale, scale)
     G.pop()
+    displayReady = true
     return true
   end, 1000)
 

@@ -5,6 +5,7 @@ local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
 local sourceFile = assert(io.open(path .. "/main.lua", "rb"))
 local source = sourceFile:read("*a")
 sourceFile:close()
+source = source:gsub("\r\n", "\n")
 local Summary = assert(loadfile(path .. "/summary.lua"))()
 local gen1Summary = Summary.view({ screenId = "SummaryMenu", page = 2,
   mon = { species = "MON", level = 5, hp = 18, exp = 125,
@@ -685,6 +686,32 @@ T.eq(separateEnabled, true,
   "separate mode enables the host's companion display")
 T.eq(desktopFrames, 1,
   "desktop hosts submit a synchronous fallback frame")
+run.loader.modOptions.kanto_gear = {
+  display_mode = "separate", display_target = "handheld",
+}
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "display_target" })
+run.loader.hooks:call("render.compose", function() return false end, {}, {
+  secondScreen = { detected = function() return true end,
+                   pollTouch = function() return nil end },
+})
+T.eq(run.loader.hooks:call("render.output", function() return false end, {
+  canvas = outputCanvas, width = 1280, height = 720,
+}), true, "handheld target draws the Gear frame through final output")
+local outputHook
+for _, hook in ipairs(run.loader.hooks.chains["render.output"] or {}) do
+  if hook.owner == "kanto_gear" then outputHook = hook.callback end
+end
+local handheldReady
+for i = 1, debug.getinfo(outputHook, "u").nups do
+  local name, value = debug.getupvalue(outputHook, i)
+  if name == "displayReady" then handheldReady = value break end
+end
+T.eq(handheldReady, true,
+  "a rendered handheld frame stays clean until its contents change")
+run.loader.modOptions.kanto_gear = { display_mode = "separate" }
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "display_target" })
 do
   local previousStates = game.stack.states
   function modCanvas:newImageData() return {} end
