@@ -215,7 +215,6 @@ return function(ui)
     local colors = self.colors
     box("fill", 0, 0, 240, 30, colors.bandLight)
     box("fill", 0, 0, 240, 2, colors.white)
-    box("fill", 0, 27, 240, 1, colors.green)
     clipped(5, 4, 232, 21, colors.shadow)
     clipped(4, 3, 232, 21, colors.surface)
     box("fill", 6, 5, 228, 2, colors.white)
@@ -395,7 +394,7 @@ return function(ui)
   function H:partyPosition(slot)
     local index = slot - 1
     local col, row = index % 2, math.floor(index / 2)
-    return 5 + col * 118, 35 + row * 58 + (col == 1 and 4 or 0)
+    return 5 + col * 118, 32 + row * 58 + (col == 1 and 4 or 0)
   end
 
   function H:partyCard(mon, x, y, selected, details, drawPortrait)
