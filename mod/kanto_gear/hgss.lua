@@ -529,9 +529,9 @@ return function(ui)
     local edge = fainted and self.colors.silverDark or self.colors.outline
     local dual = mon.type2 and mon.type2 ~= mon.type
     if not dual then
-      clipped(x + 11, y, 22, 10, left)
-      border(x + 11, y, 22, 10, edge)
-      self:partyType(leftText, x + 11, y - 1, leftInk, 22)
+      clipped(x + 10, y, 22, 10, left)
+      border(x + 10, y, 22, 10, edge)
+      self:partyType(leftText, x + 10, y - 1, leftInk, 22)
       return
     end
     local right, rightInk, rightText = typeBadgeStyle(
