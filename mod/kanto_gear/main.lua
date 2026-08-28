@@ -3800,49 +3800,25 @@ return function(mod)
 
   local function partyCard(mon, x, y, selected, details)
     if THEME.style == "hgss" then
-      THEME.hgss:partyPanel(x, y, 112, 52, selected)
-      if not mon then
-        THEME.hgss:label("-", x, y + 18, THEME.hgss.colors.ink,
-          112, "center")
-        return
-      end
-      local source = mon.source or mon
-      local name = fit(mon.name, details and 9 or 10)
-      THEME.hgss:partyPortrait(x + 3, y + 4, selected)
-      if compat.partyEgg(source) then
-        compat.drawPokemonIcon(source, x + 5, y + 11, 30)
-        THEME.hgss:label(name, x + 41, y + 5, THEME.hgss.colors.white)
-        if details then
-          THEME.hgss:label(">", x + 102, y + 5, THEME.hgss.colors.white)
-        end
-        return
-      end
-      if not drawSprite(mon.species, "front", x + 5, y + 11, 30, 30,
-          nil, source, true) then
-        compat.drawPokemonIcon(source, x + 5, y + 11, 30)
-      end
-      THEME.hgss:label(name, x + 41, y + 5, THEME.hgss.colors.white)
-      if details then
-        THEME.hgss:label(">", x + 102, y + 5, THEME.hgss.colors.white)
-      end
-      if mon.gender == "male" then
-        THEME.hgss:partyInfo("M", x + 100, y + 23, THEME.hgss.colors.male)
-      elseif mon.gender == "female" then
-        THEME.hgss:partyInfo("F", x + 100, y + 23, THEME.hgss.colors.female)
-      end
-      THEME.hgss:partyInfo(THEME:format("L%d", mon.level or 0), x + 41, y + 23,
-        THEME.hgss.colors.ink)
       local status = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content)
-      if status then
-        THEME.hgss:partyInfo(fit(status, 3), x + 67, y + 23,
-          THEME.hgss.colors.red)
-      end
-      THEME.hgss:partyInfo("HP", x + 41, y + 34, THEME.hgss.colors.green)
-      THEME.hgss:hpBar(x + 55, y + 36, 51, mon.hp, mon.maxHp)
-      local hp = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0)
-      THEME.hgss:partyInfo(hp, x + 41, y + 42, THEME.hgss.colors.ink,
-        65, "right")
+      local source = mon and (mon.source or mon)
+      local view = mon and {
+        name = mon.name, egg = compat.partyEgg(source),
+        gender = mon.gender, hp = mon.hp, maxHp = mon.maxHp,
+        status = status,
+        levelText = THEME:format("L%d", mon.level or 0),
+        hpText = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0),
+      }
+      THEME.hgss:partyCard(view, x, y, selected, details,
+        function(_, portraitX, portraitY, size)
+          if compat.partyEgg(source) then
+            compat.drawPokemonIcon(source, portraitX, portraitY, size)
+          elseif not drawSprite(mon.species, "front", portraitX, portraitY,
+              size, size, nil, source, true) then
+            compat.drawPokemonIcon(source, portraitX, portraitY, size)
+          end
+        end)
       return
     end
     box("fill", x, y, 75, 36, selected and DARK or MID)
@@ -3882,10 +3858,9 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       for i = 1, 6 do
-        local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
         local mon = list[i]
-        partyCard(mon, 5 + col * 118,
-          30 + row * 54 + (col == 1 and 4 or 0),
+        local x, y = THEME.hgss:partyPosition(i)
+        partyCard(mon, x, y,
           selectedSlot and selectedSlot == i
             or (not selectedSlot and mon and (mon.active
               or (activeSpecies and mon.species == activeSpecies))),

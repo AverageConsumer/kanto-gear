@@ -173,12 +173,45 @@ return function(ui)
     border(x, y, 33, 44, self.colors.silverDark)
   end
 
+  function H:partyPosition(slot)
+    local index = slot - 1
+    local col, row = index % 2, math.floor(index / 2)
+    return 5 + col * 118, 30 + row * 54 + (col == 1 and 4 or 0)
+  end
+
+  function H:partyCard(mon, x, y, selected, details, drawPortrait)
+    self:partyPanel(x, y, 112, 52, selected)
+    if not mon then
+      self:label("-", x, y + 18, self.colors.ink, 112, "center")
+      return
+    end
+    self:partyPortrait(x + 3, y + 4, selected)
+    drawPortrait(mon, x + 5, y + 11, 30)
+    local name = fit(mon.name, details and 9 or 10)
+    self:label(name, x + 41, y + 5, self.colors.white)
+    if details then self:label(">", x + 102, y + 5, self.colors.white) end
+    if mon.egg then return end
+    if mon.gender == "male" then
+      self:partyInfo("M", x + 100, y + 23, self.colors.male)
+    elseif mon.gender == "female" then
+      self:partyInfo("F", x + 100, y + 23, self.colors.female)
+    end
+    self:partyInfo(mon.levelText, x + 41, y + 23, self.colors.ink)
+    if mon.status then
+      self:partyInfo(fit(mon.status, 3), x + 67, y + 23, self.colors.red)
+    end
+    self:partyInfo("HP", x + 41, y + 34, self.colors.green)
+    self:hpBar(x + 55, y + 36, 51, mon.hp, mon.maxHp)
+    self:partyInfo(mon.hpText, x + 41, y + 42, self.colors.ink,
+      65, "right")
+  end
+
   function H:partySlot(x, y, count)
     local hx, hy = x * 1.5, y * 1.5
     local col = hx >= 120 and 1 or 0
     for row = 0, 2 do
-      local top = 30 + row * 54 + (col == 1 and 4 or 0)
       local slot = row * 2 + col + 1
+      local _, top = self:partyPosition(slot)
       if slot <= count and hy >= top and hy < top + 52 then return slot end
     end
   end
