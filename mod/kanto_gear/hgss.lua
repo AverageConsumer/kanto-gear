@@ -548,7 +548,7 @@ return function(ui)
     box("fill", x + 21, y + 2, 21, 6, right)
     border(x, y, 42, 10, edge)
     box("fill", x + 21, y + 1, 1, 8, edge)
-    self:partyType(leftText, x, y - 1, leftInk, 21)
+    self:partyType(leftText, x + 1, y - 1, leftInk, 20)
     self:partyType(rightText, x + 22, y - 1, rightInk, 20)
   end
 
