@@ -323,17 +323,23 @@ return function(ui)
     G.setLineWidth(selected and 2 or 1)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 6, 6)
     G.setLineWidth(1)
-    color(accent)
-    if fainted then
-      G.setColor(accent[1] * 0.55, accent[2] * 0.55, accent[3] * 0.55, 1)
-    end
-    G.rectangle("fill", x + 3, y + 7, 4, h - 14, 2, 2)
-    color(secondary)
-    if fainted then
-      G.setColor(secondary[1] * 0.55, secondary[2] * 0.55,
-        secondary[3] * 0.55, 1)
-    end
-    G.rectangle("fill", x + 12, y + 3, 24, 4, 2, 2)
+    local shade = fainted and 0.55 or 1
+    G.setColor(accent[1] * shade, accent[2] * shade,
+      accent[3] * shade, 1)
+    G.rectangle("fill", x + 4, y + 7, 2, 1)
+    G.rectangle("fill", x + 3, y + 8, 4, 19)
+    G.setColor((accent[1] * 2 + secondary[1]) / 3 * shade,
+      (accent[2] * 2 + secondary[2]) / 3 * shade,
+      (accent[3] * 2 + secondary[3]) / 3 * shade, 1)
+    G.rectangle("fill", x + 3, y + 27, 4, 1)
+    G.setColor((accent[1] + secondary[1] * 2) / 3 * shade,
+      (accent[2] + secondary[2] * 2) / 3 * shade,
+      (accent[3] + secondary[3] * 2) / 3 * shade, 1)
+    G.rectangle("fill", x + 3, y + 28, 4, 1)
+    G.setColor(secondary[1] * shade, secondary[2] * shade,
+      secondary[3] * shade, 1)
+    G.rectangle("fill", x + 3, y + 29, 4, 19)
+    G.rectangle("fill", x + 4, y + 48, 2, 1)
   end
 
   function H:partyPortrait(x, y, selected, typeId)
@@ -354,7 +360,7 @@ return function(ui)
   function H:partyPosition(slot)
     local index = slot - 1
     local col, row = index % 2, math.floor(index / 2)
-    return 5 + col * 118, 37 + row * 58
+    return 5 + col * 118, 35 + row * 58 + (col == 1 and 4 or 0)
   end
 
   function H:partyCard(mon, x, y, selected, details, drawPortrait)
