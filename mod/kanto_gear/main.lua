@@ -1728,6 +1728,11 @@ return function(mod)
       and THEME.hgss:battleChoice(20, 105) == 3
       and THEME.hgss:battleChoice(80, 120) == 4,
     "HGSS battle action hitboxes")
+  assert(THEME.hgss:partySlot(4, 21, 6) == 1
+      and THEME.hgss:partySlot(82, 25, 6) == 2
+      and THEME.hgss:partySlot(4, 57, 6) == 3
+      and THEME.hgss:partySlot(82, 101, 5) == nil,
+    "HGSS party hitboxes follow staggered cards")
 
   local PaletteFX = require("src.render.PaletteFX")
   local PokemonSprites = require("src.pokemon.Sprites")
@@ -3777,7 +3782,7 @@ return function(mod)
         name = mon.nickname or (def and def.name) or mon.species,
         level = level, hp = mon.hp,
         maxHp = mon.stats and mon.stats.hp or mon.hp,
-        status = mon.status,
+        status = mon.status, gender = mon.gender,
         expProgress = level >= 100 and 1
           or progressRatio(mon.exp, currentExp, nextExp),
       }
@@ -3787,33 +3792,42 @@ return function(mod)
 
   local function partyCard(mon, x, y, selected, details)
     if THEME.style == "hgss" then
-      THEME.hgss:partyPanel(x, y, 112, 54, selected)
+      THEME.hgss:partyPanel(x, y, 112, 47, selected)
       if not mon then
-        text("-", x + 54, y + 23, THEME.hgss.colors.silverDark)
+        text("-", x + 55, y + 20, THEME.hgss.colors.white)
         return
       end
       local source = mon.source or mon
-      local name = fit(mon.name, details and 9 or 10)
+      local name = fit(mon.name, details and 8 or 9)
+      THEME.hgss:partyBall(x + 15, y + 14, selected)
       if compat.partyEgg(source) then
-        compat.drawPokemonIcon(source, x + 5, y + 9, 34)
-        text(name, x + 43, y + 18, THEME.hgss.colors.ink)
-        if details then text(">", x + 101, y + 18, THEME.hgss.colors.red) end
+        compat.drawPokemonIcon(source, x + 4, y + 6, 32)
+        text(name, x + 42, y + 18, THEME.hgss.colors.white)
+        if details then text(">", x + 101, y + 18, THEME.hgss.colors.white) end
         return
       end
-      if not drawSprite(mon.species, "front", x + 5, y + 10, 32, 32,
+      if not drawSprite(mon.species, "front", x + 5, y + 7, 32, 32,
           nil, source, true) then
-        compat.drawPokemonIcon(source, x + 5, y + 9, 34)
+        compat.drawPokemonIcon(source, x + 4, y + 6, 32)
       end
-      text(name, x + 43, y + 7, THEME.hgss.colors.ink)
-      if details then text(">", x + 101, y + 7, THEME.hgss.colors.red) end
-      text(THEME:format("L%d", mon.level or 0), x + 43, y + 19,
-        THEME.hgss.colors.ink)
+      text(name, x + 42, y + 6, THEME.hgss.colors.partyDark)
+      text(name, x + 41, y + 5, THEME.hgss.colors.white)
+      if details then text(">", x + 101, y + 5, THEME.hgss.colors.white) end
+      if mon.gender == "male" then
+        text("M", x + 101, y + 16, THEME.hgss.colors.male)
+      elseif mon.gender == "female" then
+        text("F", x + 101, y + 16, THEME.hgss.colors.female)
+      end
+      text(THEME:format("L%d", mon.level or 0), x + 41, y + 17,
+        THEME.hgss.colors.white)
       local status = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content)
-      if status then text(fit(status, 3), x + 82, y + 19, THEME.hgss.colors.ink) end
-      text("HP", x + 43, y + 31, THEME.hgss.colors.green)
-      THEME.hgss:hpBar(x + 58, y + 32, 47, mon.hp, mon.maxHp)
-      THEME.hgss:expBar(x + 43, y + 46, 62, mon.expProgress)
+      if status then text(fit(status, 3), x + 79, y + 17, THEME.hgss.colors.white) end
+      text("HP", x + 41, y + 27, THEME.hgss.colors.amberLight)
+      THEME.hgss:hpBar(x + 56, y + 28, 49, mon.hp, mon.maxHp)
+      local hp = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0)
+      text(hp, x + 105 - #glyphList(hp) * 6, y + 38,
+        THEME.hgss.colors.white)
       return
     end
     box("fill", x, y, 75, 36, selected and DARK or MID)
@@ -3855,12 +3869,14 @@ return function(mod)
       for i = 1, 6 do
         local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
         local mon = list[i]
-        partyCard(mon, 5 + col * 118, 34 + row * 57,
+        partyCard(mon, 5 + col * 118,
+          30 + row * 52 + (col == 1 and 7 or 0),
           selectedSlot and selectedSlot == i
             or (not selectedSlot and mon and (mon.active
               or (activeSpecies and mon.species == activeSpecies))),
           paged and not back)
       end
+      THEME.hgss:partyFooter(THEME:translate("SELECT A POKEMON"))
       G.pop()
       return
     end
@@ -6049,7 +6065,9 @@ return function(mod)
         return
       end
       local party = game.save.party or {}
-      local slot = partySlotAt(x, y, #party)
+      local slot = THEME.style == "hgss"
+        and THEME.hgss:partySlot(x, y, #party)
+        or partySlotAt(x, y, #party)
       local mon = slot and party[slot]
       if mon and partyMoveFrom then
         local from = partyMoveFrom

@@ -26,6 +26,11 @@ return function(ui)
       hpMid = { 0.96, 0.68, 0.10, 1 },
       hpLow = { 0.91, 0.20, 0.20, 1 },
       exp = { 0.24, 0.69, 0.92, 1 },
+      party = { 0.10, 0.54, 0.26, 1 },
+      partyLight = { 0.19, 0.70, 0.36, 1 },
+      partyDark = { 0.05, 0.31, 0.17, 1 },
+      male = { 0.15, 0.55, 0.91, 1 },
+      female = { 0.94, 0.35, 0.57, 1 },
     },
     battleActions = {
       [1] = { x = 22, y = 25, w = 116, h = 62, color = "red" },
@@ -122,12 +127,47 @@ return function(ui)
   end
 
   function H:partyPanel(x, y, w, h, selected)
-    local fill = selected and self.colors.bandLight or self.colors.surface
+    local fill = selected and self.colors.partyLight or self.colors.party
     clipped(x + 1, y + 1, w, h, self.colors.shadow)
     clipped(x, y, w, h, fill)
-    box("fill", x + 2, y + 2, w - 4, 2, self.colors.white)
-    border(x, y, w, h, selected and self.colors.red or self.colors.ink)
-    if selected then box("fill", x, y + 5, 2, h - 10, self.colors.red) end
+    box("fill", x + 3, y + 2, w - 6, 3,
+      selected and self.colors.white or self.colors.greenLight)
+    box("fill", x + 3, y + h - 4, w - 6, 2, self.colors.partyDark)
+    border(x, y, w, h, selected and self.colors.redLight
+      or self.colors.partyDark)
+    if selected then
+      border(x + 2, y + 2, w - 4, h - 4, self.colors.white)
+    end
+  end
+
+  function H:partyBall(x, y, selected)
+    local G, colors = ui.graphics, self.colors
+    ui.color(selected and colors.redLight or colors.female)
+    G.circle("fill", x, y, 14)
+    ui.color(colors.white)
+    G.circle("fill", x, y + 4, 13)
+    box("fill", x - 13, y - 1, 26, 4, colors.partyDark)
+    ui.color(colors.white)
+    G.circle("fill", x, y + 1, 5)
+    ui.color(colors.partyDark)
+    G.circle("line", x, y + 1, 5)
+  end
+
+  function H:partyFooter(label)
+    self:panel(5, 191, 230, 21, false, self.colors.blue)
+    local shown = fit(label, 34)
+    text(shown, 120 - math.floor(#glyphs(shown) * 3), 198,
+      self.colors.ink)
+  end
+
+  function H:partySlot(x, y, count)
+    local hx, hy = x * 1.5, y * 1.5
+    local col = hx >= 120 and 1 or 0
+    for row = 0, 2 do
+      local top = 30 + row * 52 + (col == 1 and 7 or 0)
+      local slot = row * 2 + col + 1
+      if slot <= count and hy >= top and hy < top + 47 then return slot end
+    end
   end
 
   function H:hpBar(x, y, w, hp, maxHp)
