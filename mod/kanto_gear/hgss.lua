@@ -587,7 +587,7 @@ return function(ui)
     self:partyInfo(mon.hpText, x + 45, y + 27, quiet, 62, "right")
     self:hpBar(x + 45, y + 38, 62, mon.hp, mon.maxHp)
     self:partyInfo(mon.expLabel or "EXP", x + 45, y + 41, quiet)
-    self:expBar(x + 65, y + 48, 42, mon.expProgress)
+    self:expBar(x + 65, y + 45, 42, mon.expProgress)
   end
 
   function H:partySlot(x, y, count)
