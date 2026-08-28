@@ -20,7 +20,17 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count >= 200, "El catálogo de traducción está incompleto")
+assert(count == 337, "El catálogo de traducción está incompleto")
+
+for _, source in ipairs({
+  "NEW GAME", "OPTION", "EXIT GAME", "INPUT STAYS ON TOP",
+  "TOOLS %d/%d", "ITM%d", "HID%d", "%s  L%d", "L%d", "L%d-%d",
+  "LV.%d", "EXP %d", "NO.%03d %s", "NO.%03d LV.%d", "OT %s",
+  "ID %05d", "MIMIC", "DVS >", "NEW %s", "PC BOX %d %d/20",
+  "PARTY %d/6  %d/%d", "BOX %d  %d/20  %d/%d",
+}) do
+  assert(catalog[source], "Falta texto de interfaz: " .. source)
+end
 
 local function glyphs(value)
   return select(2, value:gsub("[^\128-\193]", ""))

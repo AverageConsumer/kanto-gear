@@ -14,6 +14,12 @@ T.eq(#run.errors, 0,
   "Kanto Gear und deutsche Begleitmod laden gemeinsam unter Gold")
 T.eq(kg("START GAME"), "SPIEL STARTEN",
   "Begleitmod registriert eigene Kanto-Gear-Texte")
+T.eq(kg("NEW GAME"), "NEUES SPIEL",
+  "Begleitmod übersetzt das gespiegelte Titelmenü")
+T.eq(kg("OPTION"), "OPTIONEN",
+  "Begleitmod übersetzt die Titeloptionen")
+T.eq(kg("EXIT GAME"), "SPIEL BEENDEN",
+  "Begleitmod übersetzt das Beenden im Titelmenü")
 T.eq(run.data.strings["START GAME"], nil,
   "Begleitmod verändert gleich benannten Host-Text nicht")
 T.eq(kg("DEALS %d FIXED DAMAGE"),

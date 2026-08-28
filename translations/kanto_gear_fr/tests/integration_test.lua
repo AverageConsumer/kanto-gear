@@ -14,6 +14,12 @@ T.eq(#run.errors, 0,
   "Kanto Gear and the French companion mod load together under Gold")
 T.eq(kg("START GAME"), "COMMENCER",
   "companion mod registers Kanto Gear text")
+T.eq(kg("NEW GAME"), "NOUVELLE PARTIE",
+  "companion mod translates the mirrored title menu")
+T.eq(kg("OPTION"), "OPTIONS",
+  "companion mod translates the title options row")
+T.eq(kg("EXIT GAME"), "QUITTER LE JEU",
+  "companion mod translates the title exit row")
 T.eq(run.data.strings["START GAME"], nil,
   "companion mod does not translate matching host text")
 T.eq(kg("DEALS %d FIXED DAMAGE"),
