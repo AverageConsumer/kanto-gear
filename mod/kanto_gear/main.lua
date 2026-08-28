@@ -2745,8 +2745,8 @@ return function(mod)
       G.pop()
       return
     end
-    box("line", x + 0.5, 6.5, 12, 7, foreground)
-    box("fill", x + 12, 9, 2, 3, foreground)
+    box("line", x + 0.5, 6.5, 11, 7, foreground)
+    box("fill", x + 11, 9, 2, 3, foreground)
     if not low or tick % 2 == 0 then
       for segment = 0, segments - 1 do
         box("fill", x + 2 + segment * 3, 8, 2, 4, foreground)
