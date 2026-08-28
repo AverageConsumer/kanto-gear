@@ -67,6 +67,50 @@ return function(ui)
     return partyFont:getWidth(tostring(value))
   end
 
+  function H:periodIcon(period, x, y)
+    local colors = self.colors
+    period = tostring(period or ""):upper()
+    if period == "DAY" then
+      box("fill", x + 3, y + 3, 3, 3, colors.amberLight)
+      box("fill", x + 4, y, 1, 2, colors.amber)
+      box("fill", x + 4, y + 7, 1, 2, colors.amber)
+      box("fill", x, y + 4, 2, 1, colors.amber)
+      box("fill", x + 7, y + 4, 2, 1, colors.amber)
+      box("fill", x + 1, y + 1, 1, 1, colors.amber)
+      box("fill", x + 7, y + 1, 1, 1, colors.amber)
+      box("fill", x + 1, y + 7, 1, 1, colors.amber)
+      box("fill", x + 7, y + 7, 1, 1, colors.amber)
+    elseif period == "MORN" then
+      box("fill", x + 3, y + 3, 3, 1, colors.amberLight)
+      box("fill", x + 2, y + 4, 5, 2, colors.amberLight)
+      box("fill", x, y + 6, 9, 1, colors.amber)
+      box("fill", x + 4, y, 1, 2, colors.amber)
+      box("fill", x + 1, y + 2, 1, 1, colors.amber)
+      box("fill", x + 7, y + 2, 1, 1, colors.amber)
+    elseif period == "NITE" then
+      box("fill", x + 3, y, 2, 1, colors.blueLight)
+      box("fill", x + 1, y + 1, 3, 1, colors.blueLight)
+      box("fill", x, y + 2, 3, 4, colors.blueLight)
+      box("fill", x + 1, y + 6, 3, 1, colors.blueLight)
+      box("fill", x + 3, y + 7, 2, 1, colors.blueLight)
+      box("fill", x + 7, y + 1, 1, 3, colors.blueLight)
+      box("fill", x + 6, y + 2, 3, 1, colors.blueLight)
+    else
+      return false
+    end
+    return true
+  end
+
+  function H:headerClock(value, period, left, width, y)
+    local iconWidth = period and 11 or 0
+    local textWidth = self:labelWidth(value)
+    local x = left + math.floor((width - textWidth - iconWidth) / 2)
+    self:label(value, x, y, self.colors.ink)
+    if iconWidth > 0 then
+      self:periodIcon(period, x + textWidth + 2, y + 3)
+    end
+  end
+
   function H:fitLabel(value, width)
     local chars = glyphs(tostring(value or ""))
     if partyFont:getWidth(table.concat(chars)) <= width then

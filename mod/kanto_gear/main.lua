@@ -2751,11 +2751,19 @@ return function(mod)
     local foreground = hgss and THEME.hgss.colors.ink
       or modern and THEME.white or PAPER
     local function put(value, x, y)
-      if hgss then THEME.hgss:label(value, x, y - 2, foreground)
-      else text(value, x, y, foreground) end
+      if hgss then
+        G.push()
+        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:label(value, x * THEME.hgssScale,
+          (y - 2) * THEME.hgssScale, foreground)
+        G.pop()
+      else
+        text(value, x, y, foreground)
+      end
     end
     local function halfWidth(value)
-      return hgss and math.floor(THEME.hgss:labelWidth(value) / 2)
+      return hgss and math.floor(THEME.hgss:labelWidth(value)
+        / THEME.hgssScale / 2)
         or math.floor(#glyphList(value) * 3)
     end
     box("fill", 0, 0, WIDTH, HEADER, background)
@@ -2786,9 +2794,16 @@ return function(mod)
     local clock = compactClock(mod.datetime:time(game,
       compat.clockTimestamp(game, mod.options:get("clock_source"), now)))
     local period = compat.isGen2() and compat.timePeriod(game.world)
-    if period then clock = clock .. " " .. period:sub(1, 1) end
-    local clockX = 117 - halfWidth(clock)
-    put(clock, clockX, 6)
+    if hgss then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:headerClock(clock, period, 94 * THEME.hgssScale,
+        45 * THEME.hgssScale, 4 * THEME.hgssScale)
+      G.pop()
+    else
+      if period then clock = clock .. " " .. period:sub(1, 1) end
+      put(clock, 117 - halfWidth(clock), 6)
+    end
     battery(143, foreground)
   end
 
