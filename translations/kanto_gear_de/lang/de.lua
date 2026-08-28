@@ -25,6 +25,7 @@ return {
   ["OK"] = "OK",
   ["INFO"] = "INFO",
   ["ENEMY INFO"] = "GEGNER-INFO",
+  ["ENEMY DVS"] = "GEGNER-DVS",
   ["CANCEL"] = "ABBRUCH",
 
   -- Map, guide, area and tools.
@@ -77,6 +78,7 @@ return {
   ["WEAK"] = "SCHWACH",
   ["RESIST"] = "RESIST.",
   ["BASE MATCHUP"] = "BASIS-WIRKUNG",
+  ["RANGE 0-15"] = "BEREICH 0-15",
   ["TYPE %s"] = "TYP %s",
   ["+%d MORE"] = "+%d MEHR",
   ["HEIGHT %.1f M"] = "GRÖSSE %.1f M",

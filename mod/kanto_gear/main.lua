@@ -3926,7 +3926,26 @@ return function(mod)
     return multiplier
   end
 
-  function compat.enemyInfo(enemy, data, save)
+  function compat.enemyDvs(mon)
+    local source = type(mon) == "table" and mon.dvs
+    if type(source) ~= "table" then return nil end
+    local out = {}
+    for _, key in ipairs({ "attack", "defense", "speed", "special" }) do
+      local value = tonumber(source[key])
+      if not value or value % 1 ~= 0 or value < 0 or value > 15 then return nil end
+      out[key] = value
+    end
+    local hp = tonumber(source.hp)
+    if hp == nil then
+      hp = (out.attack % 2) * 8 + (out.defense % 2) * 4
+        + (out.speed % 2) * 2 + (out.special % 2)
+    end
+    if hp % 1 ~= 0 or hp < 0 or hp > 15 then return nil end
+    out.hp = hp
+    return out
+  end
+
+  function compat.enemyInfo(enemy, data, save, mon)
     enemy, data = enemy or {}, data or {}
     local species = enemy.species
     local def = species and data.pokemon and data.pokemon[species] or {}
@@ -3943,6 +3962,7 @@ return function(mod)
       types = {},
       seen = species and not not seen[species] or false,
       caught = species and not not caught[species] or false,
+      dvs = compat.enemyDvs(mon or enemy),
       weak = {}, resist = {},
       kind = entry and entry.kind,
       description = {},
@@ -4611,9 +4631,16 @@ return function(mod)
     end
   end
 
+  displayRuntime.enemyInfo = function()
+    local raw = battleState()
+    local source = raw and (raw.enemy or (raw.battle and raw.battle.enemy))
+    local mon = source and (source.mon or source)
+    return compat.enemyInfo(battle and battle.enemy, game.data, game.save, mon)
+  end
+
   local function drawBattle()
     if currentBattleUIMode() == "info" then
-      local info = compat.enemyInfo(battle.enemy, game.data, game.save)
+      local info = displayRuntime.enemyInfo()
       if battleInfoDetail == "profile" then
         header("POKEDEX", true)
         centered(fit(info.name, 24), 25, INK)
@@ -4628,6 +4655,26 @@ return function(mod)
           for i = 1, math.min(8, #info.description) do
             centered(info.description[i], 80 + (i - 1) * 8, INK)
           end
+        end
+        return
+      elseif battleInfoDetail == "dvs" then
+        header(THEME:translate("ENEMY DVS"), true)
+        centered(fit(info.name, 24), 25, INK)
+        box("fill", 4, 34, 152, 1, DARK)
+        if not info.dvs then
+          centered("NO DETAILS AVAILABLE", 80, DARK)
+        else
+          local rows = {
+            { "HP", info.dvs.hp }, { "ATTACK", info.dvs.attack },
+            { "DEFENSE", info.dvs.defense }, { "SPEED", info.dvs.speed },
+            { "SPECIAL", info.dvs.special },
+          }
+          for i, row in ipairs(rows) do
+            local y = 42 + (i - 1) * 17
+            text(fit(THEME:translate(row[1]), 15), 18, y, INK)
+            text(tostring(row[2]), 130, y, DARK)
+          end
+          centered(THEME:translate("RANGE 0-15"), 130, DARK)
         end
         return
       elseif battleInfoDetail == "weak" or battleInfoDetail == "resist" then
@@ -4661,7 +4708,8 @@ return function(mod)
         #typeNames > 0 and table.concat(typeNames, "/") or "--"), 17),
         52, 46, DARK)
       text("CAUGHT", 52, 57, DARK)
-      text(info.caught and "YES" or "NO", 112, 57, INK)
+      text(info.caught and "YES" or "NO", info.dvs and 96 or 112, 57, INK)
+      if info.dvs then text("DVS >", 123, 57, DARK) end
       box("fill", 4, 78, 152, 1, DARK)
       centered("BASE MATCHUP", 81, DARK)
       box("fill", 79, 90, 1, 52, MID)
@@ -5152,6 +5200,8 @@ return function(mod)
     if currentBattleUIMode() == "info" then
       if battleInfoDetail then
         if y < HEADER and x < 22 then battleInfoDetail, dirty = nil, true end
+      elseif y >= 52 and y < 72 and x >= 118 and displayRuntime.enemyInfo().dvs then
+        battleInfoDetail, dirty = "dvs", true
       elseif y >= HEADER and y < 79 then
         battleInfoDetail, dirty = "profile", true
       elseif y >= 90 then

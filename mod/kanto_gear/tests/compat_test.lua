@@ -1107,7 +1107,7 @@ do
     species = "FIXMON_B", name = "FIXMON B", level = 9,
   }, game.data, { pokedex = {
     seen = { FIXMON_B = true }, owned = { FIXMON_B = true },
-  } })
+  } }, { dvs = { attack = 15, defense = 14, speed = 13, special = 12 } })
   T.eq(enemyInfo.dex, 2, "enemy info reads the species Pokédex number")
   T.eq(enemyInfo.types[1], "FIRE", "enemy info reads the species base type")
   T.check(enemyInfo.seen and enemyInfo.caught,
@@ -1116,6 +1116,13 @@ do
     "enemy info derives weaknesses from the active type chart")
   T.eq(enemyInfo.resist[1].type, "GRASS",
     "enemy info derives resistances from the active type chart")
+  T.eq(enemyInfo.dvs.hp, 10,
+    "enemy info derives the HP DV from the four stored DVs")
+  T.eq(enemyInfo.dvs.special, 12,
+    "enemy info exposes the shared Gen 1 and Gen 2 special DV")
+  T.eq(compat.enemyDvs({ dvs = { attack = 16, defense = 1,
+    speed = 1, special = 1 } }), nil,
+    "enemy info hides invalid DV data instead of drawing corrupted values")
   local originalTypes = game.data.pokemon.FIXMON_B.types
   game.data.pokemon.FIXMON_B.types = { "NORMAL", "NORMAL" }
   local monoInfo = compat.enemyInfo({ species = "FIXMON_B" }, game.data, {})
