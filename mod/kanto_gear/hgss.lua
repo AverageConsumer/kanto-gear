@@ -107,9 +107,12 @@ return function(ui)
     or ui.graphics.newFont(9)
   local partyInfoFont = ui.font and ui.graphics.newFont(ui.font, 9)
     or ui.graphics.newFont(9)
+  local partyTypeFont = ui.font and ui.graphics.newFont(ui.font, 8)
+    or ui.graphics.newFont(8)
   partyFont:setFilter("linear", "linear")
   partyNameFont:setFilter("linear", "linear")
   partyInfoFont:setFilter("linear", "linear")
+  partyTypeFont:setFilter("linear", "linear")
 
   function H:label(value, x, y, tint, width, align)
     local G, previous = ui.graphics, ui.graphics.getFont()
@@ -235,6 +238,14 @@ return function(ui)
     if previous then G.setFont(previous) end
   end
 
+  function H:partyType(value, x, y, tint, width)
+    local G, previous = ui.graphics, ui.graphics.getFont()
+    ui.color(tint)
+    G.setFont(partyTypeFont)
+    G.printf(tostring(value), x, y, width, "center")
+    if previous then G.setFont(previous) end
+  end
+
   function H:genderIcon(gender, x, y)
     local G = ui.graphics
     local function paint(tint, width)
@@ -279,6 +290,13 @@ return function(ui)
     if right then G.line(x - 2, y - 4, x + 2, y, x - 2, y + 4)
     else G.line(x + 2, y - 4, x - 2, y, x + 2, y + 4) end
     G.setLineWidth(1)
+  end
+
+  function H:detailChevron(x, y, tint)
+    local G = ui.graphics
+    color(tint)
+    G.setLineWidth(1)
+    G.line(x, y, x + 3, y + 2, x, y + 4)
   end
 
   function H:headerBar(title, back, paged)
@@ -493,8 +511,8 @@ return function(ui)
     G.circle("line", x + 17, y + 20, 17)
   end
 
-  function H:typeBadge(typeId, label, x, y, fainted)
-    local tint = self:typeColor(typeId)
+  local function typeBadgeStyle(theme, typeId, label, fainted)
+    local tint = theme:typeColor(typeId)
     local shade = fainted and 0.48 or 1
     local fill = { tint[1] * shade, tint[2] * shade, tint[3] * shade, 1 }
     local chars = glyphs(tostring(label or typeId or "---"))
@@ -503,13 +521,32 @@ return function(ui)
     local darkLabel = luminance > 0.54
       and tostring(typeId or ""):upper() ~= "FLYING"
     local labelColor = darkLabel
-      and self.colors.statusInk or self.colors.white
-    if fainted then labelColor = self.colors.silverDark end
-    clipped(x, y, 20, 11, fill)
-    border(x, y, 20, 11,
-      fainted and self.colors.silverDark or self.colors.outline)
-    self:partyInfo(table.concat(chars), x, y - 1,
-      labelColor, 20, "center")
+      and theme.colors.statusInk or theme.colors.white
+    if fainted then labelColor = theme.colors.silverDark end
+    return fill, labelColor, table.concat(chars)
+  end
+
+  function H:typeBadges(mon, x, y, fainted)
+    local left, leftInk, leftText = typeBadgeStyle(
+      self, mon.type, mon.typeLabel, fainted)
+    local edge = fainted and self.colors.silverDark or self.colors.outline
+    local dual = mon.type2 and mon.type2 ~= mon.type
+    if not dual then
+      clipped(x + 11, y, 22, 9, left)
+      border(x + 11, y, 22, 9, edge)
+      self:partyType(leftText, x + 11, y - 1, leftInk, 22)
+      return
+    end
+    local right, rightInk, rightText = typeBadgeStyle(
+      self, mon.type2, mon.type2Label, fainted)
+    clipped(x, y, 42, 9, left)
+    box("fill", x + 21, y, 19, 9, right)
+    box("fill", x + 21, y + 1, 20, 7, right)
+    box("fill", x + 21, y + 2, 21, 5, right)
+    border(x, y, 42, 9, edge)
+    box("fill", x + 21, y + 1, 1, 7, edge)
+    self:partyType(leftText, x, y - 1, leftInk, 21)
+    self:partyType(rightText, x + 22, y - 1, rightInk, 20)
   end
 
   function H:partyPosition(slot)
@@ -530,16 +567,10 @@ return function(ui)
     drawPortrait(mon, x + 6, y + 4, 32, fainted)
     local ink = self.colors.white
     local quiet = selected and self.colors.white or self.colors.silver
-    self:partyName(mon.name, x + 44, y + 4, ink, details and 60 or 67)
-    if details then self:label(">", x + 105, y + 1, ink) end
+    self:partyName(mon.name, x + 44, y + 4, ink, details and 61 or 67)
+    if details then self:detailChevron(x + 105, y + 7, ink) end
     if mon.egg then return end
-    local dualType = mon.type2 and mon.type2 ~= mon.type
-    if dualType then
-      self:typeBadge(mon.type, mon.typeLabel, x + 2, y + 43, fainted)
-      self:typeBadge(mon.type2, mon.type2Label, x + 23, y + 43, fainted)
-    else
-      self:typeBadge(mon.type, mon.typeLabel, x + 12, y + 43, fainted)
-    end
+    self:typeBadges(mon, x + 2, y + 41, fainted)
     if mon.gender == "male" then
       self:genderIcon("male", x + 99, y + 19)
     elseif mon.gender == "female" then
