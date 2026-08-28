@@ -2831,7 +2831,7 @@ return function(mod)
     if hgss then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:headerClock(clock, period, 140, 71, 6)
+      THEME.hgss:headerClock(clock, period, 139, 72, 6)
       G.pop()
     else
       if period then clock = clock .. " " .. period:sub(1, 1) end

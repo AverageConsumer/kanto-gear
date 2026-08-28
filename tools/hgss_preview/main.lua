@@ -168,12 +168,17 @@ function love.load()
   love.graphics.clear(theme.colors.bg)
   local context = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") == "context"
   theme:headerBar(language.title, context, not context)
-  local clockX, periodX, clockWidth = theme:headerClock("20:04",
-    os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE", 140, 71, 6)
-  assert(math.abs(clockX - 140 - (71 - clockWidth - (clockX - 140))) <= 1,
-    "clock group stays centered")
-  assert(periodX - 1 - (clockX + theme:labelWidth("20:04")) == 4,
-    "clock and period icon keep four visible pixels apart")
+  local clockLeft, clockWidth = 139, 72
+  local clockX, periodX = theme:headerClock("20:04",
+    os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
+    clockLeft, clockWidth, 6)
+  local textWidth, iconWidth = theme:labelWidth("20:04"), 11
+  local gaps = { clockX - clockLeft,
+    periodX - 1 - (clockX + textWidth),
+    clockLeft + clockWidth - (periodX - 1 + iconWidth) }
+  table.sort(gaps)
+  assert(gaps[3] - gaps[1] <= 1,
+    "clock, period icon, and dividers keep equal spacing")
   theme:battery(214, 8, 4, nil, true, theme.colors.ink,
     theme.colors.greenLight)
   theme:partyBackdrop()
