@@ -71,6 +71,7 @@ return function(ui)
   function H:periodIcon(period, x, y)
     local colors = self.colors
     period = tostring(period or ""):upper()
+    if period == "MORN" or period == "NITE" then y = y + 1 end
     if period == "DAY" then
       box("fill", x + 3, y + 3, 3, 3, colors.amberLight)
       box("fill", x + 4, y, 1, 2, colors.amber)
@@ -103,12 +104,12 @@ return function(ui)
   end
 
   function H:headerClock(value, period, left, width, y)
-    local iconWidth = period and 11 or 0
+    local iconWidth = period and 12 or 0
     local textWidth = self:labelWidth(value)
     local x = left + math.floor((width - textWidth - iconWidth) / 2)
     self:label(value, x, y, self.colors.ink)
     if iconWidth > 0 then
-      self:periodIcon(period, x + textWidth + 2, y + 3)
+      self:periodIcon(period, x + textWidth + 3, y + 3)
     end
   end
 
@@ -414,9 +415,9 @@ return function(ui)
     if details then self:label(">", x + 102, y + 1, ink) end
     if mon.egg then return end
     if mon.gender == "male" then
-      self:genderIcon("male", x + 99, y + 17)
+      self:genderIcon("male", x + 99, y + 19)
     elseif mon.gender == "female" then
-      self:genderIcon("female", x + 99, y + 17)
+      self:genderIcon("female", x + 99, y + 19)
     end
     self:partyInfo(mon.levelText, x + 45, y + 17, quiet)
     if mon.status then
