@@ -3934,6 +3934,29 @@ return function(mod)
   local function drawPartyAction()
     local mon = partyData()[partyActionSlot]
     if not mon then drawNormalParty(); return end
+    if THEME.style == "hgss" then
+      local canSwap = #(game.save.party or {}) > 1
+        and mod.world and mod.world.canReorderParty
+        and mod.world:canReorderParty()
+      local count = canSwap and 2 or 1
+      local offset = THEME.hgss:partyActionOffset(love.timer.getTime())
+      header(THEME:translate("PARTY"), true)
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:partyBackdrop()
+      partyCard(mon, 64, THEME.hgss:partyActionHeroY(count)
+        + math.floor(offset / 2), true, false)
+      local x, y, w, h = THEME.hgss:partyActionRow(1, count)
+      THEME.hgss:actionRow(x, y, w, h, THEME:translate("STATS"),
+        "stats", offset)
+      if canSwap then
+        x, y, w, h = THEME.hgss:partyActionRow(2, count)
+        THEME.hgss:actionRow(x, y, w, h, THEME:translate("SWAP"),
+          "swap", offset)
+      end
+      G.pop()
+      return
+    end
     header(fit(mon.name, 18), true)
     button(14, 37, 132, 38, "STATS", false)
     if #(game.save.party or {}) > 1 then
@@ -5954,9 +5977,15 @@ return function(mod)
     if partyActionSlot then
       local slot = partyActionSlot
       local mon = game.save.party and game.save.party[slot]
+      local canSwap = mon and #(game.save.party or {}) > 1
+        and mod.world and mod.world.canReorderParty
+        and mod.world:canReorderParty()
+      local action = THEME.style == "hgss" and THEME.hgss:partyActionAt(
+        x * THEME.hgssScale, y * THEME.hgssScale, canSwap and 2 or 1)
       if y < HEADER and x < 24 then
         partyActionSlot = nil
-      elseif mon and inside(x, y, 14, 37, 132, 38) then
+      elseif mon and (action == 1
+          or THEME.style ~= "hgss" and inside(x, y, 14, 37, 132, 38)) then
         partyActionSlot = nil
         if compat.isGen2() then
           mod.ui.push(game, compat.screenName("summary", true), {
@@ -5966,9 +5995,8 @@ return function(mod)
         else
           mod.ui.push(game, compat.screenName("summary", false), mon)
         end
-      elseif mon and inside(x, y, 14, 84, 132, 38)
-          and mod.world and mod.world.canReorderParty
-          and mod.world:canReorderParty() then
+      elseif canSwap and (action == 2
+          or THEME.style ~= "hgss" and inside(x, y, 14, 84, 132, 38)) then
         partyActionSlot, partyMoveFrom = nil, slot
       end
       dirty = true
@@ -6113,6 +6141,9 @@ return function(mod)
         dirty = true
       elseif mon then
         partyActionSlot, dirty = slot, true
+        if THEME.style == "hgss" then
+          THEME.hgss:beginPartyAction(love.timer.getTime())
+        end
       end
     elseif page == "TOOLS" then
       local first = ((tools.page or 1) - 1) * 6 + 1
@@ -6824,6 +6855,8 @@ return function(mod)
         lastScreenKey, dirty = screenKey, true
       end
     end
+    if THEME.style == "hgss"
+        and THEME.hgss:partyActionAnimating(now) then dirty = true end
     if now >= nextClock then
       local title = screenState() == "title"
       nextClock = now + (title and 0.5

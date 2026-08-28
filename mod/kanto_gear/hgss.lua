@@ -356,6 +356,63 @@ return function(ui)
       y + math.floor((h - 7) / 2), self.colors.ink)
   end
 
+  function H:partyActionRow(index, count)
+    return 18, count == 1 and 139 or 112 + (index - 1) * 49, 204, 40
+  end
+
+  function H:partyActionHeroY(count)
+    return count == 1 and 67 or 44
+  end
+
+  function H:partyActionAt(x, y, count)
+    for index = 1, count do
+      local left, top, width, height = self:partyActionRow(index, count)
+      if x >= left and x < left + width and y >= top
+          and y < top + height then return index end
+    end
+  end
+
+  function H:beginPartyAction(now)
+    self.partyActionStarted = now
+  end
+
+  function H:partyActionAnimating(now)
+    return self.partyActionStarted
+      and now - self.partyActionStarted < 0.14
+  end
+
+  function H:partyActionOffset(now)
+    if not self:partyActionAnimating(now) then return 0 end
+    local remaining = 1 - (now - self.partyActionStarted) / 0.14
+    return math.floor(6 * remaining * remaining + 0.5)
+  end
+
+  function H:actionRow(x, y, w, h, label, kind, offset)
+    local G, colors = ui.graphics, self.colors
+    local accent = kind == "swap" and colors.amberLight or colors.blueLight
+    y = y + (offset or 0)
+    clipped(x + 1, y + 2, w, h, colors.shadow)
+    clipped(x, y, w, h, colors.surface)
+    box("fill", x + 2, y + 2, w - 4, 2, colors.highlight)
+    border(x, y, w, h, colors.outline)
+    box("fill", x + 2, y + 5, 4, h - 10, accent)
+    if kind == "swap" then
+      color(accent)
+      G.setLineWidth(2)
+      G.line(x + 15, y + 14, x + 29, y + 14, x + 25, y + 10)
+      G.line(x + 29, y + 25, x + 15, y + 25, x + 19, y + 29)
+      G.setLineWidth(1)
+    else
+      box("fill", x + 15, y + 22, 3, 7, accent)
+      box("fill", x + 21, y + 17, 3, 12, accent)
+      box("fill", x + 27, y + 12, 3, 17, accent)
+      box("fill", x + 13, y + 29, 19, 1, colors.outline)
+    end
+    local shown = self:fitLabel(label, w - 69)
+    self:label(shown, x + 43, y + 13, colors.ink)
+    self:detailChevron(x + w - 14, y + 18, colors.ink)
+  end
+
   function H:action(index, label, selected)
     local action = self.battleActions[index]
     local dark = self.colors[action.color]

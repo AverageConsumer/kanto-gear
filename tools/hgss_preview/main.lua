@@ -37,13 +37,13 @@ end
 
 local languages = {
   en = {
-    title = "PARTY", hp = "HP", exp = "EXP",
+    title = "PARTY", hp = "HP", exp = "EXP", stats = "STATS", swap = "SWAP",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
     types = {},
   },
   de = {
-    title = "TEAM", hp = "KP", exp = "EP",
+    title = "TEAM", hp = "KP", exp = "EP", stats = "WERTE", swap = "TAUSCHEN",
     names = { "IMPERGATOR", "PAPUNGHA", "TAUBOGA", "SANDAMER",
       "TRAUMATO", "TAUROS" },
     types = { WATER = "WASSER", GRASS = "PFLANZE", FLYING = "FLUG",
@@ -51,13 +51,14 @@ local languages = {
   },
   es = {
     title = "EQUIPO", hp = "PS", exp = "EXP",
+    stats = "ESTADÍSTICAS", swap = "CAMBIAR",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
     types = { WATER = "AGUA", GRASS = "PLANTA", FLYING = "VOLADOR",
       NORMAL = "NORMAL", GROUND = "TIERRA", PSYCHIC = "PSÍQUICO" },
   },
   fr = {
-    title = "ÉQUIPE", hp = "PV", exp = "EXP",
+    title = "ÉQUIPE", hp = "PV", exp = "EXP", stats = "STATS", swap = "ÉCHANGER",
     names = { "ALIGATUEUR", "COTOVOL", "ROUCOUPS", "SABLAIREAU",
       "SOPORIFIK", "TAUROS" },
     types = { WATER = "EAU", GRASS = "PLANTE", FLYING = "VOL",
@@ -147,6 +148,12 @@ function love.load()
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
   assert(theme:statusColor("FNT") ~= theme:statusColor("SLP"),
     "fainted and sleep status colors must stay distinct")
+  local actionX, actionY, actionW, actionH = theme:partyActionRow(1, 2)
+  assert(theme:partyActionAt(actionX + actionW / 2,
+    actionY + actionH / 2, 2) == 1, "first party action hitbox")
+  theme:beginPartyAction(1)
+  assert(theme:partyActionOffset(1) == 6
+    and theme:partyActionOffset(1.14) == 0, "party action animation bounds")
   local sprites = {}
   for slot, id in ipairs(species) do
     local data = love.image.newImageData("local/" .. id .. ".png")
@@ -159,14 +166,14 @@ function love.load()
   canvas:setFilter("nearest", "nearest")
   love.graphics.setCanvas(canvas)
   love.graphics.clear(theme.colors.bg)
-  theme:headerBar(language.title, false, true)
+  local context = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") == "context"
+  theme:headerBar(language.title, context, not context)
   theme:headerClock("20:04", os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
     140, 71, 6)
   theme:battery(214, 8, 3, true, theme.colors.ink)
   theme:partyBackdrop()
-  for slot, mon in ipairs(party) do
-    local x, y = theme:partyPosition(slot)
-    theme:partyCard(mon, x, y, slot == 1, true,
+  local function drawMon(slot, x, y, selected, details)
+    theme:partyCard(party[slot], x, y, selected, details,
       function(_, portraitX, portraitY, size, fainted)
         local sprite = sprites[slot]
         local scale = size / math.max(sprite.width, sprite.height)
@@ -176,6 +183,21 @@ function love.load()
           portraitX + (size - sprite.width * scale) / 2,
           portraitY + (size - sprite.height * scale) / 2, 0, scale, scale)
       end)
+  end
+  if context then
+    local actionCount = tonumber(os.getenv("KANTO_GEAR_PREVIEW_ACTIONS")) or 2
+    drawMon(1, 64, theme:partyActionHeroY(actionCount), true, false)
+    local x, y, w, h = theme:partyActionRow(1, actionCount)
+    theme:actionRow(x, y, w, h, language.stats, "stats", 0)
+    if actionCount > 1 then
+      x, y, w, h = theme:partyActionRow(2, actionCount)
+      theme:actionRow(x, y, w, h, language.swap, "swap", 0)
+    end
+  else
+    for slot = 1, #party do
+      local x, y = theme:partyPosition(slot)
+      drawMon(slot, x, y, slot == 1, true)
+    end
   end
   love.graphics.setCanvas()
   local preview = love.graphics.newCanvas(960, 864, { dpiscale = 1 })
