@@ -33,6 +33,8 @@ return function(ui)
       female = { 0.94, 0.35, 0.57, 1 },
       selected = { 0.91, 0.31, 0.25, 1 },
       selectedDark = { 0.59, 0.12, 0.11, 1 },
+      fainted = { 0.25, 0.33, 0.28, 1 },
+      faintedOverlay = { 0.04, 0.07, 0.05, 0.34 },
     },
     battleActions = {
       [1] = { x = 22, y = 25, w = 116, h = 62, color = "red" },
@@ -309,18 +311,19 @@ return function(ui)
     G.circle("fill", 2, 202, 45)
   end
 
-  function H:partyPanel(x, y, w, h, selected, typeId)
+  function H:partyPanel(x, y, w, h, selected, typeId, fainted)
     local G, colors = ui.graphics, self.colors
     local accent = self:typeColor(typeId)
     color(colors.shadow)
     G.rectangle("fill", x + 1, y + 2, w, h, 6, 6)
-    color(selected and colors.selected or colors.party)
+    color(fainted and colors.fainted
+      or selected and colors.selected or colors.party)
     G.rectangle("fill", x, y, w, h, 6, 6)
     color(selected and colors.selectedDark or colors.partyDark)
     G.setLineWidth(selected and 2 or 1)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 6, 6)
     G.setLineWidth(1)
-    color(accent)
+    color(fainted and colors.silverDark or accent)
     G.rectangle("fill", x + 3, y + 7, 4, h - 14, 2, 2)
   end
 
@@ -346,13 +349,19 @@ return function(ui)
   end
 
   function H:partyCard(mon, x, y, selected, details, drawPortrait)
-    self:partyPanel(x, y, 112, 56, selected, mon and mon.type)
+    local fainted = mon and (mon.statusId == "FNT" or mon.status == "FNT"
+      or mon.hp ~= nil and mon.hp <= 0)
+    self:partyPanel(x, y, 112, 56, selected, mon and mon.type, fainted)
     if not mon then
       self:label("-", x, y + 18, self.colors.ink, 112, "center")
       return
     end
     self:partyPortrait(x + 7, y + 6, selected, mon.type)
     drawPortrait(mon, x + 8, y + 10, 32)
+    if fainted then
+      color(self.colors.faintedOverlay)
+      ui.graphics.circle("fill", x + 24, y + 26, 17)
+    end
     local ink = self.colors.white
     local quiet = selected and self.colors.white or self.colors.silver
     self:partyName(mon.name, x + 45, y + 6, ink, details and 57 or 64)
