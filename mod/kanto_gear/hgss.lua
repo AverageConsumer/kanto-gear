@@ -285,6 +285,18 @@ return function(ui)
       or typeColors.NORMAL
   end
 
+  function H:statusColor(statusId)
+    statusId = tostring(statusId or ""):upper()
+    return statusId == "FNT" and self.colors.silver
+      or statusId == "SLP" and self.colors.blueLight
+      or statusId == "PAR" and self.colors.amberLight
+      or (statusId == "PSN" or statusId == "TOX")
+        and self:typeColor("POISON")
+      or statusId == "BRN" and self.colors.redLight
+      or statusId == "FRZ" and self:typeColor("ICE")
+      or self.colors.white
+  end
+
   function H:partyBackdrop()
     local G = ui.graphics
     color({ 0.90, 0.95, 0.91, 1 })
@@ -308,8 +320,6 @@ return function(ui)
     G.setLineWidth(selected and 2 or 1)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 6, 6)
     G.setLineWidth(1)
-    color(selected and colors.redLight or colors.partyLight)
-    G.rectangle("fill", x + 8, y + 3, w - 13, 3, 2, 2)
     color(accent)
     G.rectangle("fill", x + 3, y + 7, 4, h - 14, 2, 2)
   end
@@ -332,7 +342,7 @@ return function(ui)
   function H:partyPosition(slot)
     local index = slot - 1
     local col, row = index % 2, math.floor(index / 2)
-    return 5 + col * 118, 30 + row * 58 + (col == 1 and 4 or 0)
+    return 5 + col * 118, 37 + row * 58
   end
 
   function H:partyCard(mon, x, y, selected, details, drawPortrait)
@@ -356,7 +366,7 @@ return function(ui)
     self:partyInfo(mon.levelText, x + 45, y + 19, quiet)
     if mon.status then
       self:partyInfo(fit(mon.status, 3), x + 69, y + 19,
-        selected and self.colors.white or self.colors.amberLight)
+        self:statusColor(mon.statusId or mon.status))
     end
     self:partyInfo("HP", x + 45, y + 29, quiet)
     self:partyInfo(mon.hpText, x + 45, y + 29, quiet, 62, "right")

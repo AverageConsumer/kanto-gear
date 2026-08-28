@@ -3835,6 +3835,7 @@ return function(mod)
         name = mon.name, egg = compat.partyEgg(source),
         gender = mon.gender, hp = mon.hp, maxHp = mon.maxHp,
         expProgress = mon.expProgress,
+        statusId = (mon.hp or 0) <= 0 and "FNT" or mon.status,
         status = status, type = mon.types and mon.types[1]
           or def.types and def.types[1],
         levelText = THEME:format("L%d", mon.level or 0),

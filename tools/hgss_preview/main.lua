@@ -87,6 +87,8 @@ function love.load()
     graphics = love.graphics, box = box, text = text,
     fit = fit, glyphs = glyphs, color = color, font = font,
   })
+  assert(theme:statusColor("FNT") ~= theme:statusColor("SLP"),
+    "fainted and sleep status colors must stay distinct")
   local sprites = {}
   for slot, id in ipairs(species) do
     local data = love.image.newImageData("local/" .. id .. ".png")
