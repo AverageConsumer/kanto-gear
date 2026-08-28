@@ -43,7 +43,6 @@ return function(ui)
     partyBg = { 0.90, 0.95, 0.91, 1 },
     partyBand = { 0.86, 0.93, 0.88, 1 },
     partyEmboss = { 0.73, 0.85, 0.78, 1 },
-    partyHighlight = { 0.94, 0.97, 0.94, 1 },
   }
   local darkColors = {
     bg = { 0.055, 0.085, 0.09, 1 },
@@ -81,7 +80,6 @@ return function(ui)
     partyBg = { 0.035, 0.06, 0.06, 1 },
     partyBand = { 0.055, 0.105, 0.095, 1 },
     partyEmboss = { 0.10, 0.19, 0.16, 1 },
-    partyHighlight = { 0.15, 0.26, 0.215, 1 },
   }
   local H = {
     palette = lightPalette,
@@ -482,8 +480,6 @@ return function(ui)
     G.line(136, 121, 214, 121)
     G.circle("line", 120, 121, 16)
     G.circle("line", 120, 121, 7)
-    color(colors.partyHighlight)
-    G.arc("line", "open", 120, 121, 88, math.pi * 1.08, math.pi * 1.92)
     G.setLineWidth(1)
   end
 
