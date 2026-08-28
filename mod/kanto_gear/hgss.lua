@@ -169,13 +169,17 @@ return function(ui)
   end
 
   function H:headerClock(value, period, left, width, y)
-    local iconWidth = period and 12 or 0
     local textWidth = self:labelWidth(value)
-    local x = left + math.floor((width - textWidth - iconWidth) / 2)
+    local gap, iconWidth = period and 4 or 0, period and 11 or 0
+    local groupWidth = textWidth + gap + iconWidth
+    local x = left + math.floor((width - groupWidth) / 2)
     self:label(value, x, y, self.colors.ink)
+    local iconX
     if iconWidth > 0 then
-      self:periodIcon(period, x + textWidth + 3, y + 3)
+      iconX = x + textWidth + gap + 1
+      self:periodIcon(period, iconX, y + 3)
     end
+    return x, iconX, groupWidth
   end
 
   function H:battery(x, y, segments, blink, blinkVisible, tint, fill)
