@@ -32,29 +32,61 @@ local function text(value, x, y, tint)
   love.graphics.print(value, x, y)
 end
 
+local languages = {
+  en = {
+    title = "PARTY", hp = "HP", exp = "EXP", fainted = "FNT",
+    names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
+      "DROWZEE", "TAUROS" },
+  },
+  de = {
+    title = "TEAM", hp = "KP", exp = "EP", fainted = "K.O.",
+    names = { "IMPERGATOR", "PAPUNGHA", "TAUBOGA", "SANDAMER",
+      "TRAUMATO", "TAUROS" },
+  },
+  es = {
+    title = "EQUIPO", hp = "PS", exp = "EXP", fainted = "K.O.",
+    names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
+      "DROWZEE", "TAUROS" },
+  },
+  fr = {
+    title = "ÉQUIPE", hp = "PV", exp = "EXP", fainted = "K.O.",
+    names = { "ALIGATUEUR", "COTOVOL", "ROUCOUPS", "SABLAIREAU",
+      "SOPORIFIK", "TAUROS" },
+  },
+}
+local language = languages[os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "en"]
+  or languages.en
+
 local party = {
-  { name = "FERALIGATR", levelText = "L35", hp = 92, maxHp = 117,
+  { levelText = "L35", hp = 92, maxHp = 117,
     hpText = "92/117", status = "PAR", gender = "male", type = "WATER",
     type2 = "WATER",
     expProgress = 0.72 },
-  { name = "JUMPLUFF", levelText = "L28", hp = 90, maxHp = 90,
+  { levelText = "L28", hp = 90, maxHp = 90,
     hpText = "90/90", gender = "female", type = "GRASS", type2 = "FLYING",
     expProgress = 0.18 },
-  { name = "PIDGEOTTO", levelText = "L28", hp = 81, maxHp = 81,
+  { levelText = "L28", hp = 81, maxHp = 81,
     hpText = "81/81", gender = "male", type = "NORMAL", type2 = "FLYING",
     expProgress = 0.91 },
-  { name = "SANDSLASH", levelText = "L25", hp = 67, maxHp = 80,
+  { levelText = "L25", hp = 67, maxHp = 80,
     hpText = "67/80", gender = "male", type = "GROUND", type2 = "GROUND",
     expProgress = 0.47 },
-  { name = "DROWZEE", levelText = "L16", hp = 0, maxHp = 49,
-    hpText = "0/49", status = "FNT", gender = "female", type = "PSYCHIC",
+  { levelText = "L16", hp = 0, maxHp = 49,
+    hpText = "0/49", status = language.fainted, statusId = "FNT",
+    gender = "female", type = "PSYCHIC",
     type2 = "PSYCHIC",
     expProgress = 0.33 },
-  { name = "TAUROS", levelText = "L16", hp = 17, maxHp = 51,
+  { levelText = "L16", hp = 17, maxHp = 51,
     hpText = "17/51", status = "SLP", gender = "male", type = "NORMAL",
     type2 = "NORMAL",
     expProgress = 0.62 },
 }
+
+for slot, mon in ipairs(party) do
+  mon.name = language.names[slot]
+  mon.hpLabel = language.hp
+  mon.expLabel = language.exp
+end
 
 local species = { 160, 189, 17, 28, 96, 128 }
 
@@ -90,6 +122,7 @@ function love.load()
     graphics = love.graphics, box = box, text = text,
     fit = fit, glyphs = glyphs, color = color, font = font,
   })
+  theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
   assert(theme:statusColor("FNT") ~= theme:statusColor("SLP"),
     "fainted and sleep status colors must stay distinct")
   local sprites = {}
@@ -104,7 +137,7 @@ function love.load()
   canvas:setFilter("nearest", "nearest")
   love.graphics.setCanvas(canvas)
   love.graphics.clear(theme.colors.bg)
-  theme:headerBar("PARTY", false, true)
+  theme:headerBar(language.title, false, true)
   theme:headerClock("20:04", os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
     140, 71, 6)
   theme:battery(214, 8, 3, true, theme.colors.ink)

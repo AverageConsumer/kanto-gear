@@ -1229,13 +1229,16 @@ T.love.graphics.newCanvas = function(...)
   latestCanvas = canvas
   return canvas
 end
-for _, theme in ipairs({ "hgss", "modern_light", "modern_dark", "kanto" }) do
+for _, theme in ipairs({
+  "hgss", "hgss_dark", "modern_light", "modern_dark", "kanto",
+}) do
   run.loader.modOptions.kanto_gear.theme = theme
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "theme" })
-  T.eq(latestCanvas:getWidth(), theme == "hgss" and 240 or 160,
+  local hgss = theme == "hgss" or theme == "hgss_dark"
+  T.eq(latestCanvas:getWidth(), hgss and 240 or 160,
     "theme canvas width follows its renderer")
-  T.eq(latestCanvas:getHeight(), theme == "hgss" and 216 or 144,
+  T.eq(latestCanvas:getHeight(), hgss and 216 or 144,
     "theme canvas height follows its renderer")
 end
 T.love.graphics.newCanvas = newCanvas

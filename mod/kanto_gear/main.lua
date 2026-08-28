@@ -1576,7 +1576,7 @@ return function(mod)
     { key = "theme", label = "THEME", type = "choice",
       default = "kanto", choices = {
         { "KANTO GREEN", "kanto" }, { "MATCH GAME", "match" },
-        { "HGSS", "hgss" },
+        { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" },
         { "MODERN LIGHT", "modern_light" },
         { "MODERN DARK", "modern_dark" },
         { "OG", "og" }, { "OG INVERTED", "og_inv" },
@@ -2085,7 +2085,9 @@ return function(mod)
         classic = "kanto",
       })[PaletteFX.mode] or "kanto"
     end
-    if theme == "hgss" then return THEME.hgss.palette end
+    if theme == "hgss" or theme == "hgss_dark" then
+      return THEME.hgss.palette
+    end
     if theme == "og" then return PaletteFX.GRAYS end
     if theme == "modern_light" then return THEME.light end
     if theme == "modern_dark" then return THEME.dark end
@@ -2109,9 +2111,11 @@ return function(mod)
     local theme = mod.options:get("theme") or "kanto"
     local key = theme .. (theme == "match" and (":" .. PaletteFX.mode) or "")
     if not force and key == themeKey then return end
-    THEME.style = theme == "hgss" and "hgss"
+    local hgss = theme == "hgss" or theme == "hgss_dark"
+    THEME.style = hgss and "hgss"
       or theme == "modern_light" and "modern_light"
       or theme == "modern_dark" and "modern_dark" or "classic"
+    THEME.hgss:setVariant(theme == "hgss_dark")
     local scale = THEME.style == "hgss" and THEME.hgssScale or 1
     local width, height = WIDTH * scale, HEIGHT * scale
     if canvas:getWidth() ~= width or canvas:getHeight() ~= height then
@@ -3844,6 +3848,8 @@ return function(mod)
           or def.types and (def.types[2] or def.types[1]),
         levelText = THEME:format("L%d", mon.level or 0),
         hpText = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0),
+        hpLabel = THEME:translate("HP"),
+        expLabel = THEME:translate("EXP"),
       }
       THEME.hgss:partyCard(view, x, y, selected, details,
         function(_, portraitX, portraitY, size, fainted)
