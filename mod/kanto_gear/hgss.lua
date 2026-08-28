@@ -178,9 +178,10 @@ return function(ui)
     end
   end
 
-  function H:battery(x, y, segments, visible, tint)
+  function H:battery(x, y, segments, blink, blinkVisible, tint, fill)
     x, y = math.floor(x + 0.5), math.floor(y + 0.5)
     tint = tint or self.colors.ink
+    fill = fill or tint
     box("fill", x + 2, y, 13, 1, tint)
     box("fill", x + 2, y + 10, 13, 1, tint)
     box("fill", x, y + 2, 1, 7, tint)
@@ -190,9 +191,9 @@ return function(ui)
     box("fill", x + 1, y + 9, 1, 1, tint)
     box("fill", x + 15, y + 9, 1, 1, tint)
     box("fill", x + 17, y + 4, 2, 3, tint)
-    if visible then
-      for segment = 0, segments - 1 do
-        box("fill", x + 3 + segment * 4, y + 3, 3, 5, tint)
+    for segment = 1, 4 do
+      if segment <= segments or segment == blink and blinkVisible then
+        box("fill", x + 3 + (segment - 1) * 3, y + 3, 2, 5, fill)
       end
     end
   end

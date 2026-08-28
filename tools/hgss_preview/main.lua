@@ -170,7 +170,8 @@ function love.load()
   theme:headerBar(language.title, context, not context)
   theme:headerClock("20:04", os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
     140, 71, 6)
-  theme:battery(214, 8, 3, true, theme.colors.ink)
+  theme:battery(214, 8, 4, nil, true, theme.colors.ink,
+    theme.colors.greenLight)
   theme:partyBackdrop()
   local function drawMon(slot, x, y, selected, details)
     theme:partyCard(party[slot], x, y, selected, details,

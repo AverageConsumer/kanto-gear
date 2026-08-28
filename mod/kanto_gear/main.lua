@@ -19,6 +19,8 @@ local THEME = {
   red = { 227 / 255, 27 / 255, 35 / 255, 1 },
   blue = { 52 / 255, 53 / 255, 143 / 255, 1 },
   white = { 248 / 255, 249 / 255, 252 / 255, 1 },
+  batteryGreen = { 0.20, 0.72, 0.34, 1 },
+  batteryAmber = { 0.96, 0.62, 0.12, 1 },
 }
 
 THEME.highCritMoves = {
@@ -104,6 +106,33 @@ function THEME:translate(source)
   return self.strings:get(STRING_PREFIX .. source)
     or self.strings:get(source)
     or source
+end
+
+function THEME:batteryState(state, percent, tick)
+  percent = math.max(0, math.min(100, tonumber(percent) or 100))
+  tick = math.floor(tonumber(tick) or 0)
+  if state == "charged" then return 4, nil, true, "green", false end
+  if state == "charging" then
+    local solid = math.min(4, math.floor(percent / 25))
+    local blink = solid < 4 and solid + 1 or nil
+    return solid, blink, tick % 2 == 0, "green", blink ~= nil
+  end
+  local level = math.max(1, math.ceil(percent / 25))
+  local low = percent <= 10
+  local tone = level >= 3 and "green" or level == 2 and "amber" or "red"
+  return low and 0 or level, low and 1 or nil, tick % 2 == 0, tone, low
+end
+
+do
+  local solid, blink, _, tone = THEME:batteryState("battery", 50, 0)
+  assert(solid == 2 and blink == nil and tone == "amber",
+    "battery quarter and color mapping")
+  solid, blink, _, tone = THEME:batteryState("battery", 10, 0)
+  assert(solid == 0 and blink == 1 and tone == "red",
+    "critical battery blink")
+  solid, blink, _, tone = THEME:batteryState("charging", 50, 0)
+  assert(solid == 2 and blink == 3 and tone == "green",
+    "charging previews the next quarter")
 end
 
 local function formatSpecifierCount(value)
@@ -1531,14 +1560,6 @@ return function(mod)
   THEME.strings = mod.content.strings
 
   local RADAR_FRAMES = 16
-  local function isLowBattery(state, percent)
-    percent = tonumber(percent)
-    return percent ~= nil and percent <= 20
-      and state ~= "charging" and state ~= "charged"
-  end
-  assert(isLowBattery("battery", 20) and not isLowBattery("battery", 21)
-         and not isLowBattery("charging", 5), "low battery warning")
-
   local function compactSteps(value)
     if value < 100000 then return tostring(value) end
     if value < 10000000 then
@@ -2725,31 +2746,29 @@ return function(mod)
   local function battery(x, foreground)
     foreground = foreground or PAPER
     local state, percent = mod.device:powerInfo()
-    percent = tonumber(percent) or 100
-    local low = isLowBattery(state, percent)
-    local charging = state == "charging"
-    local animated = low or charging
+    local tick = math.floor(love.timer.getTime())
+    local segments, blink, blinkVisible, tone, animated =
+      THEME:batteryState(state, percent, tick)
     if animated ~= batteryAnimated then nextClock = 0 end
     batteryAnimated = animated
-    local tick = math.floor(love.timer.getTime())
-    local segments = state == "charging" and tick % 3 + 1
-      or state == "charged" and 3
-      or percent and percent > 66 and 3
-      or percent and percent > 33 and 2
-      or percent and percent > 0 and 1 or 0
     if THEME.style == "hgss" then
+      local colors = THEME.hgss.colors
+      local fill = tone == "green" and colors.greenLight
+        or tone == "amber" and colors.amberLight or colors.redLight
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:battery(214, 8, segments,
-        not low or tick % 2 == 0, foreground)
+      THEME.hgss:battery(214, 8, segments, blink, blinkVisible,
+        foreground, fill)
       G.pop()
       return
     end
-    box("line", x + 0.5, 6.5, 11, 7, foreground)
-    box("fill", x + 11, 9, 2, 3, foreground)
-    if not low or tick % 2 == 0 then
-      for segment = 0, segments - 1 do
-        box("fill", x + 2 + segment * 3, 8, 2, 4, foreground)
+    local fill = tone == "green" and THEME.batteryGreen
+      or tone == "amber" and THEME.batteryAmber or THEME.red
+    box("line", x + 0.5, 6.5, 14, 7, foreground)
+    box("fill", x + 14, 9, 2, 3, foreground)
+    for segment = 1, 4 do
+      if segment <= segments or segment == blink and blinkVisible then
+        box("fill", x + 2 + (segment - 1) * 3, 8, 2, 4, fill)
       end
     end
   end
