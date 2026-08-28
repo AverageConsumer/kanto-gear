@@ -529,19 +529,19 @@ return function(ui)
     local edge = fainted and self.colors.silverDark or self.colors.outline
     local dual = mon.type2 and mon.type2 ~= mon.type
     if not dual then
-      clipped(x + 11, y, 22, 9, left)
-      border(x + 11, y, 22, 9, edge)
+      clipped(x + 11, y, 22, 10, left)
+      border(x + 11, y, 22, 10, edge)
       self:partyType(leftText, x + 11, y - 2, leftInk, 22)
       return
     end
     local right, rightInk, rightText = typeBadgeStyle(
       self, mon.type2, mon.type2Label, fainted)
-    clipped(x, y, 42, 9, left)
-    box("fill", x + 21, y, 19, 9, right)
-    box("fill", x + 21, y + 1, 20, 7, right)
-    box("fill", x + 21, y + 2, 21, 5, right)
-    border(x, y, 42, 9, edge)
-    box("fill", x + 21, y + 1, 1, 7, edge)
+    clipped(x, y, 42, 10, left)
+    box("fill", x + 21, y, 19, 10, right)
+    box("fill", x + 21, y + 1, 20, 8, right)
+    box("fill", x + 21, y + 2, 21, 6, right)
+    border(x, y, 42, 10, edge)
+    box("fill", x + 21, y + 1, 1, 8, edge)
     self:partyType(leftText, x, y - 2, leftInk, 21)
     self:partyType(rightText, x + 22, y - 2, rightInk, 20)
   end
@@ -581,7 +581,7 @@ return function(ui)
     self:partyInfo(mon.hpText, x + 45, y + 27, quiet, 62, "right")
     self:hpBar(x + 45, y + 38, 62, mon.hp, mon.maxHp)
     self:partyInfo(mon.expLabel or "EXP", x + 45, y + 41, quiet)
-    self:expBar(x + 65, y + 46, 42, mon.expProgress)
+    self:expBar(x + 65, y + 47, 42, mon.expProgress)
   end
 
   function H:partySlot(x, y, count)
