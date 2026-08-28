@@ -2776,7 +2776,6 @@ return function(mod)
     end
     box("fill", 0, 0, WIDTH, HEADER, background)
     if hgss then
-      box("fill", 0, 0, WIDTH, 3, THEME.hgss.colors.green)
       box("fill", 0, HEADER - 2, WIDTH, 1, THEME.hgss.colors.silver)
       box("fill", 0, HEADER - 1, WIDTH, 1, THEME.hgss.colors.ink)
     elseif modern then
