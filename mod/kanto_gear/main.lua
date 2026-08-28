@@ -1721,7 +1721,7 @@ return function(mod)
 
   if runtime.filesystem and runtime.filesystem.newFileData then
     THEME.hgssFont = runtime.filesystem.newFileData(
-      mod:read("nunito.ttf"), "nunito.ttf")
+      mod:read("rounded_mplus.ttf"), "rounded_mplus.ttf")
   end
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
@@ -3826,6 +3826,7 @@ return function(mod)
       local view = mon and {
         name = mon.name, egg = compat.partyEgg(source),
         gender = mon.gender, hp = mon.hp, maxHp = mon.maxHp,
+        expProgress = mon.expProgress,
         status = status, type = mon.types and mon.types[1]
           or def.types and def.types[1],
         levelText = THEME:format("L%d", mon.level or 0),

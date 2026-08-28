@@ -48,8 +48,8 @@ return function(ui)
     or ui.graphics.newFont(11)
   local partyNameFont = ui.font and ui.graphics.newFont(ui.font, 9)
     or ui.graphics.newFont(9)
-  local partyInfoFont = ui.font and ui.graphics.newFont(ui.font, 8)
-    or ui.graphics.newFont(8)
+  local partyInfoFont = ui.font and ui.graphics.newFont(ui.font, 9)
+    or ui.graphics.newFont(9)
   partyFont:setFilter("linear", "linear")
   partyNameFont:setFilter("linear", "linear")
   partyInfoFont:setFilter("linear", "linear")
@@ -124,12 +124,11 @@ return function(ui)
   function H:partyName(value, x, y, tint, width)
     local G, previous = ui.graphics, ui.graphics.getFont()
     local chars = glyphs(tostring(value or ""))
-    local scaleX = 0.9
-    while partyNameFont:getWidth(table.concat(chars)) * scaleX > width
+    while partyNameFont:getWidth(table.concat(chars)) > width
         and #chars > 0 do table.remove(chars) end
     local shown = table.concat(chars)
     if shown ~= tostring(value or "") then
-      while partyNameFont:getWidth(shown .. "…") * scaleX > width
+      while partyNameFont:getWidth(shown .. "…") > width
           and #chars > 0 do
         table.remove(chars)
         shown = table.concat(chars)
@@ -138,7 +137,7 @@ return function(ui)
     end
     color(tint)
     G.setFont(partyNameFont)
-    G.print(shown, x, y, 0, scaleX, 1)
+    G.print(shown, x, y)
     if previous then G.setFont(previous) end
   end
 
@@ -149,6 +148,21 @@ return function(ui)
     if width then G.printf(tostring(value), x, y, width, align or "left")
     else G.print(tostring(value), x, y) end
     if previous then G.setFont(previous) end
+  end
+
+  function H:genderIcon(gender, x, y)
+    local G = ui.graphics
+    color(gender == "male" and self.colors.male or self.colors.female)
+    G.setLineWidth(1)
+    if gender == "male" then
+      G.circle("line", x + 2.5, y + 4.5, 2)
+      G.line(x + 4, y + 3, x + 7, y)
+      G.line(x + 5, y, x + 7, y, x + 7, y + 2)
+    elseif gender == "female" then
+      G.circle("line", x + 3.5, y + 2.5, 2)
+      G.line(x + 3.5, y + 4.5, x + 3.5, y + 8)
+      G.line(x + 1.5, y + 6.5, x + 5.5, y + 6.5)
+    end
   end
 
   local function clipped(x, y, w, h, fill)
@@ -316,9 +330,9 @@ return function(ui)
     if details then self:label(">", x + 102, y + 3, ink) end
     if mon.egg then return end
     if mon.gender == "male" then
-      self:partyInfo("M", x + 100, y + 19, self.colors.male)
+      self:genderIcon("male", x + 99, y + 19)
     elseif mon.gender == "female" then
-      self:partyInfo("F", x + 100, y + 19, self.colors.female)
+      self:genderIcon("female", x + 99, y + 19)
     end
     self:partyInfo(mon.levelText, x + 45, y + 19, quiet)
     if mon.status then
@@ -327,6 +341,7 @@ return function(ui)
     end
     self:hpBar(x + 45, y + 31, 62, mon.hp, mon.maxHp)
     self:partyInfo(mon.hpText, x + 45, y + 38, quiet, 62, "right")
+    self:expBar(x + 45, y + 49, 62, mon.expProgress)
   end
 
   function H:partySlot(x, y, count)

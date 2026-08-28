@@ -34,17 +34,23 @@ end
 
 local party = {
   { name = "FERALIGATR", levelText = "L35", hp = 92, maxHp = 117,
-    hpText = "92/117", status = "PAR", gender = "male", type = "WATER" },
+    hpText = "92/117", status = "PAR", gender = "male", type = "WATER",
+    expProgress = 0.72 },
   { name = "JUMPLUFF", levelText = "L28", hp = 90, maxHp = 90,
-    hpText = "90/90", gender = "female", type = "GRASS" },
+    hpText = "90/90", gender = "female", type = "GRASS",
+    expProgress = 0.18 },
   { name = "PIDGEOTTO", levelText = "L28", hp = 81, maxHp = 81,
-    hpText = "81/81", gender = "male", type = "NORMAL" },
+    hpText = "81/81", gender = "male", type = "NORMAL",
+    expProgress = 0.91 },
   { name = "SANDSLASH", levelText = "L25", hp = 67, maxHp = 80,
-    hpText = "67/80", gender = "male", type = "GROUND" },
+    hpText = "67/80", gender = "male", type = "GROUND",
+    expProgress = 0.47 },
   { name = "DROWZEE", levelText = "L16", hp = 0, maxHp = 49,
-    hpText = "0/49", status = "FNT", gender = "female", type = "PSYCHIC" },
+    hpText = "0/49", status = "FNT", gender = "female", type = "PSYCHIC",
+    expProgress = 0.33 },
   { name = "TAUROS", levelText = "L16", hp = 17, maxHp = 51,
-    hpText = "17/51", status = "SLP", gender = "male", type = "NORMAL" },
+    hpText = "17/51", status = "SLP", gender = "male", type = "NORMAL",
+    expProgress = 0.62 },
 }
 
 local species = { 160, 189, 17, 28, 96, 128 }
@@ -74,7 +80,9 @@ end
 
 function love.load()
   local chunk = assert(loadfile(root .. "/mod/kanto_gear/hgss.lua"))
-  local font = fileData(root .. "/mod/kanto_gear/nunito.ttf", "nunito.ttf")
+  local fontPath = os.getenv("KANTO_GEAR_PREVIEW_FONT")
+    or root .. "/mod/kanto_gear/rounded_mplus.ttf"
+  local font = fileData(fontPath, "preview.ttf")
   local theme = chunk()({
     graphics = love.graphics, box = box, text = text,
     fit = fit, glyphs = glyphs, color = color, font = font,
