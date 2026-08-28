@@ -104,20 +104,10 @@ function love.load()
   canvas:setFilter("nearest", "nearest")
   love.graphics.setCanvas(canvas)
   love.graphics.clear(theme.colors.bg)
-  love.graphics.push()
-  love.graphics.scale(1.5, 1.5)
-  box("fill", 0, 0, 160, 20, theme.colors.surface)
-  box("fill", 0, 18, 160, 1, theme.colors.silver)
-  box("fill", 0, 19, 160, 1, theme.colors.ink)
-  love.graphics.pop()
-  theme:label("<", 6, 6, theme.colors.ink)
-  local title = "PARTY"
-  theme:label(title, 72 - math.floor(theme:labelWidth(title) / 2), 6,
-    theme.colors.ink)
-  theme:label(">", 127.5, 6, theme.colors.ink)
+  theme:headerBar("PARTY", false, true)
   theme:headerClock("20:04", os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
-    141, 67.5, 6)
-  theme:battery(215, 9, 3, true, theme.colors.ink)
+    140, 71, 6)
+  theme:battery(214, 8, 3, true, theme.colors.ink)
   theme:partyBackdrop()
   for slot, mon in ipairs(party) do
     local x, y = theme:partyPosition(slot)

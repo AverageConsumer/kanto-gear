@@ -2736,7 +2736,7 @@ return function(mod)
     if THEME.style == "hgss" then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:battery(x * THEME.hgssScale, 9, segments,
+      THEME.hgss:battery(214, 8, segments,
         not low or tick % 2 == 0, foreground)
       G.pop()
       return
@@ -2774,27 +2774,31 @@ return function(mod)
         / THEME.hgssScale / 2)
         or math.floor(#glyphList(value) * 3)
     end
-    box("fill", 0, 0, WIDTH, HEADER, background)
     if hgss then
-      box("fill", 0, HEADER - 2, WIDTH, 1, THEME.hgss.colors.silver)
-      box("fill", 0, HEADER - 1, WIDTH, 1, THEME.hgss.colors.ink)
-    elseif modern then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:headerBar(title, back, paged)
+      G.pop()
+    else
+      box("fill", 0, 0, WIDTH, HEADER, background)
+    end
+    if modern and not hgss then
       box("fill", 0, HEADER - 2, WIDTH, 2, THEME.blue)
       box("fill", 0, HEADER - 2, 42, 2, THEME.red)
     end
-    if back then
+    if back and not hgss then
       put("<", 4, 6)
       box("fill", 16, 4, 1, 12, foreground)
     end
-    if paged then
+    if paged and not hgss then
       local label = fit(title, back and 8 or 10)
       local left, center = back and 22 or 4, back and 57 or 48
       put("<", left, 6)
       put(label, center - halfWidth(label), 6)
       put(">", 85, 6)
-    elseif back then
+    elseif back and not hgss then
       put(fit(title, 11), 22, 6)
-    else
+    elseif not hgss then
       put(fit(title, 14), 5, 6)
     end
     local now = os.time()
@@ -2804,8 +2808,7 @@ return function(mod)
     if hgss then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:headerClock(clock, period, 94 * THEME.hgssScale,
-        45 * THEME.hgssScale, 4 * THEME.hgssScale)
+      THEME.hgss:headerClock(clock, period, 140, 71, 6)
       G.pop()
     else
       if period then clock = clock .. " " .. period:sub(1, 1) end

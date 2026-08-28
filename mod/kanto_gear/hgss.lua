@@ -202,6 +202,44 @@ return function(ui)
     box("fill", x + w - 2, y + h - 2, 1, 1, color)
   end
 
+  function H:chevron(x, y, right)
+    local G = ui.graphics
+    color(self.colors.green)
+    G.setLineWidth(2)
+    if right then G.line(x - 2, y - 4, x + 2, y, x - 2, y + 4)
+    else G.line(x + 2, y - 4, x - 2, y, x + 2, y + 4) end
+    G.setLineWidth(1)
+  end
+
+  function H:headerBar(title, back, paged)
+    local colors = self.colors
+    box("fill", 0, 0, 240, 30, colors.bandLight)
+    box("fill", 0, 0, 240, 2, colors.white)
+    box("fill", 0, 27, 240, 1, colors.green)
+    clipped(5, 4, 232, 21, colors.shadow)
+    clipped(4, 3, 232, 21, colors.surface)
+    box("fill", 6, 5, 228, 2, colors.white)
+    border(4, 3, 232, 21, colors.green)
+    box("fill", 138, 4, 1, 19, colors.band)
+    box("fill", 211, 4, 1, 19, colors.band)
+
+    local left, right, center = 15, 127, 71
+    if back then
+      self:chevron(14, 13, false)
+      box("fill", 25, 6, 1, 15, colors.band)
+      left, center = 36, 82
+    end
+    if paged then
+      self:chevron(left, 13, false)
+      self:chevron(right, 13, true)
+    end
+    local width = paged and (back and 76 or 88) or (back and 100 or 124)
+    local shown = self:fitLabel(title, width)
+    local x = paged and center - math.floor(self:labelWidth(shown) / 2)
+      or back and 31 or 71 - math.floor(self:labelWidth(shown) / 2)
+    self:label(shown, x, 6, colors.ink)
+  end
+
   function H:backdrop(top)
     top = top or 0
     box("fill", 0, top, 160, 144 - top, self.colors.bg)
@@ -323,22 +361,20 @@ return function(ui)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 6, 6)
     G.setLineWidth(1)
     local shade = fainted and 0.55 or 1
+    color(colors.ink)
+    G.rectangle("fill", x + 4, y + 6, 2, 1)
+    G.rectangle("fill", x + 3, y + 7, 4, 39)
+    G.rectangle("fill", x + 4, y + 46, 2, 1)
     G.setColor(accent[1] * shade, accent[2] * shade,
       accent[3] * shade, 1)
-    G.rectangle("fill", x + 4, y + 7, 2, 1)
-    G.rectangle("fill", x + 3, y + 8, 4, 19)
-    G.setColor((accent[1] * 2 + secondary[1]) / 3 * shade,
-      (accent[2] * 2 + secondary[2]) / 3 * shade,
-      (accent[3] * 2 + secondary[3]) / 3 * shade, 1)
-    G.rectangle("fill", x + 3, y + 27, 4, 1)
-    G.setColor((accent[1] + secondary[1] * 2) / 3 * shade,
-      (accent[2] + secondary[2] * 2) / 3 * shade,
-      (accent[3] + secondary[3] * 2) / 3 * shade, 1)
-    G.rectangle("fill", x + 3, y + 28, 4, 1)
+    G.rectangle("fill", x + 4, y + 7, 2, 19)
+    G.setColor((accent[1] + secondary[1]) / 2 * shade,
+      (accent[2] + secondary[2]) / 2 * shade,
+      (accent[3] + secondary[3]) / 2 * shade, 1)
+    G.rectangle("fill", x + 4, y + 26, 2, 1)
     G.setColor(secondary[1] * shade, secondary[2] * shade,
       secondary[3] * shade, 1)
-    G.rectangle("fill", x + 3, y + 29, 4, 19)
-    G.rectangle("fill", x + 4, y + 48, 2, 1)
+    G.rectangle("fill", x + 4, y + 27, 2, 19)
   end
 
   function H:partyPortrait(x, y, selected, typeId)
@@ -371,8 +407,8 @@ return function(ui)
       self:label("-", x, y + 18, self.colors.ink, 112, "center")
       return
     end
-    self:partyPortrait(x + 7, y + 6, selected, mon.type)
-    drawPortrait(mon, x + 8, y + 10, 32, fainted)
+    self:partyPortrait(x + 8, y + 6, selected, mon.type)
+    drawPortrait(mon, x + 9, y + 10, 32, fainted)
     local ink = self.colors.white
     local quiet = selected and self.colors.white or self.colors.silver
     self:partyName(mon.name, x + 45, y + 4, ink, details and 57 or 64)
