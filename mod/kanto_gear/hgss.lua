@@ -71,35 +71,43 @@ return function(ui)
   function H:periodIcon(period, x, y)
     local colors = self.colors
     period = tostring(period or ""):upper()
-    if period == "MORN" or period == "NITE" then y = y + 1 end
-    if period == "DAY" then
-      box("fill", x + 3, y + 3, 3, 3, colors.amberLight)
-      box("fill", x + 4, y, 1, 2, colors.amber)
-      box("fill", x + 4, y + 7, 1, 2, colors.amber)
-      box("fill", x, y + 4, 2, 1, colors.amber)
-      box("fill", x + 7, y + 4, 2, 1, colors.amber)
-      box("fill", x + 1, y + 1, 1, 1, colors.amber)
-      box("fill", x + 7, y + 1, 1, 1, colors.amber)
-      box("fill", x + 1, y + 7, 1, 1, colors.amber)
-      box("fill", x + 7, y + 7, 1, 1, colors.amber)
-    elseif period == "MORN" then
-      box("fill", x + 3, y + 3, 3, 1, colors.amberLight)
-      box("fill", x + 2, y + 4, 5, 2, colors.amberLight)
-      box("fill", x, y + 6, 9, 1, colors.amber)
-      box("fill", x + 4, y, 1, 2, colors.amber)
-      box("fill", x + 1, y + 2, 1, 1, colors.amber)
-      box("fill", x + 7, y + 2, 1, 1, colors.amber)
-    elseif period == "NITE" then
-      box("fill", x + 3, y, 2, 1, colors.blueLight)
-      box("fill", x + 1, y + 1, 3, 1, colors.blueLight)
-      box("fill", x, y + 2, 3, 4, colors.blueLight)
-      box("fill", x + 1, y + 6, 3, 1, colors.blueLight)
-      box("fill", x + 3, y + 7, 2, 1, colors.blueLight)
-      box("fill", x + 7, y + 1, 1, 3, colors.blueLight)
-      box("fill", x + 6, y + 2, 3, 1, colors.blueLight)
-    else
+    if period ~= "DAY" and period ~= "MORN" and period ~= "NITE" then
       return false
     end
+    if period == "MORN" or period == "NITE" then y = y + 1 end
+    local function paint(dx, dy, outlined)
+      local dark = outlined and colors.ink or colors.amber
+      local light = outlined and colors.ink or colors.amberLight
+      if period == "DAY" then
+        box("fill", x + 3 + dx, y + 3 + dy, 3, 3, light)
+        box("fill", x + 4 + dx, y + dy, 1, 2, dark)
+        box("fill", x + 4 + dx, y + 7 + dy, 1, 2, dark)
+        box("fill", x + dx, y + 4 + dy, 2, 1, dark)
+        box("fill", x + 7 + dx, y + 4 + dy, 2, 1, dark)
+        box("fill", x + 1 + dx, y + 1 + dy, 1, 1, dark)
+        box("fill", x + 7 + dx, y + 1 + dy, 1, 1, dark)
+        box("fill", x + 1 + dx, y + 7 + dy, 1, 1, dark)
+        box("fill", x + 7 + dx, y + 7 + dy, 1, 1, dark)
+      elseif period == "MORN" then
+        box("fill", x + 3 + dx, y + 3 + dy, 3, 1, light)
+        box("fill", x + 2 + dx, y + 4 + dy, 5, 2, light)
+        box("fill", x + dx, y + 6 + dy, 9, 1, dark)
+        box("fill", x + 4 + dx, y + dy, 1, 2, dark)
+        box("fill", x + 1 + dx, y + 2 + dy, 1, 1, dark)
+        box("fill", x + 7 + dx, y + 2 + dy, 1, 1, dark)
+      else
+        light = outlined and colors.ink or colors.blueLight
+        box("fill", x + 3 + dx, y + dy, 2, 1, light)
+        box("fill", x + 1 + dx, y + 1 + dy, 3, 1, light)
+        box("fill", x + dx, y + 2 + dy, 3, 4, light)
+        box("fill", x + 1 + dx, y + 6 + dy, 3, 1, light)
+        box("fill", x + 3 + dx, y + 7 + dy, 2, 1, light)
+        box("fill", x + 7 + dx, y + 1 + dy, 1, 3, light)
+        box("fill", x + 6 + dx, y + 2 + dy, 3, 1, light)
+      end
+    end
+    paint(-1, 0, true); paint(1, 0, true)
+    paint(0, -1, true); paint(0, 1, true); paint(0, 0, false)
     return true
   end
 
@@ -173,17 +181,22 @@ return function(ui)
 
   function H:genderIcon(gender, x, y)
     local G = ui.graphics
-    color(gender == "male" and self.colors.male or self.colors.female)
-    G.setLineWidth(1)
-    if gender == "male" then
-      G.circle("line", x + 2.5, y + 4.5, 2)
-      G.line(x + 4, y + 3, x + 7, y)
-      G.line(x + 5, y, x + 7, y, x + 7, y + 2)
-    elseif gender == "female" then
-      G.circle("line", x + 3.5, y + 2.5, 2)
-      G.line(x + 3.5, y + 4.5, x + 3.5, y + 8)
-      G.line(x + 1.5, y + 6.5, x + 5.5, y + 6.5)
+    local function paint(tint, width)
+      color(tint)
+      G.setLineWidth(width)
+      if gender == "male" then
+        G.circle("line", x + 2.5, y + 4.5, 2)
+        G.line(x + 4, y + 3, x + 7, y)
+        G.line(x + 5, y, x + 7, y, x + 7, y + 2)
+      elseif gender == "female" then
+        G.circle("line", x + 3.5, y + 2.5, 2)
+        G.line(x + 3.5, y + 4.5, x + 3.5, y + 8)
+        G.line(x + 1.5, y + 6.5, x + 5.5, y + 6.5)
+      end
     end
+    paint(self.colors.ink, 2)
+    paint(gender == "male" and self.colors.male or self.colors.female, 1)
+    G.setLineWidth(1)
   end
 
   local function clipped(x, y, w, h, fill)
