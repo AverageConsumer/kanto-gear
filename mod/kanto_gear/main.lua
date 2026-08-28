@@ -3837,6 +3837,8 @@ return function(mod)
         statusId = (mon.hp or 0) <= 0 and "FNT" or mon.status,
         status = status, type = mon.types and mon.types[1]
           or def.types and def.types[1],
+        type2 = mon.types and (mon.types[2] or mon.types[1])
+          or def.types and (def.types[2] or def.types[1]),
         levelText = THEME:format("L%d", mon.level or 0),
         hpText = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0),
       }

@@ -311,9 +311,9 @@ return function(ui)
     G.circle("fill", 2, 202, 45)
   end
 
-  function H:partyPanel(x, y, w, h, selected, typeId, fainted)
+  function H:partyPanel(x, y, w, h, selected, typeId, type2, fainted)
     local G, colors = ui.graphics, self.colors
-    local accent = self:typeColor(typeId)
+    local accent, secondary = self:typeColor(typeId), self:typeColor(type2 or typeId)
     color(colors.shadow)
     G.rectangle("fill", x + 1, y + 2, w, h, 6, 6)
     color(fainted and colors.fainted
@@ -323,8 +323,17 @@ return function(ui)
     G.setLineWidth(selected and 2 or 1)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 6, 6)
     G.setLineWidth(1)
-    color(fainted and colors.silverDark or accent)
+    color(accent)
+    if fainted then
+      G.setColor(accent[1] * 0.55, accent[2] * 0.55, accent[3] * 0.55, 1)
+    end
     G.rectangle("fill", x + 3, y + 7, 4, h - 14, 2, 2)
+    color(secondary)
+    if fainted then
+      G.setColor(secondary[1] * 0.55, secondary[2] * 0.55,
+        secondary[3] * 0.55, 1)
+    end
+    G.rectangle("fill", x + 12, y + 3, 24, 4, 2, 2)
   end
 
   function H:partyPortrait(x, y, selected, typeId)
@@ -351,7 +360,8 @@ return function(ui)
   function H:partyCard(mon, x, y, selected, details, drawPortrait)
     local fainted = mon and (mon.statusId == "FNT" or mon.status == "FNT"
       or mon.hp ~= nil and mon.hp <= 0)
-    self:partyPanel(x, y, 112, 56, selected, mon and mon.type, fainted)
+    self:partyPanel(x, y, 112, 56, selected, mon and mon.type,
+      mon and mon.type2, fainted)
     if not mon then
       self:label("-", x, y + 18, self.colors.ink, 112, "center")
       return
