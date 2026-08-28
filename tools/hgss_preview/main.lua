@@ -1,6 +1,7 @@
 local root = assert(os.getenv("KANTO_GEAR_ROOT"), "KANTO_GEAR_ROOT is missing")
 local output = assert(os.getenv("KANTO_GEAR_PREVIEW_OUT"),
   "KANTO_GEAR_PREVIEW_OUT is missing")
+local utf8 = require("utf8")
 
 function love.errorhandler(message)
   local file = io.open(output .. ".error.txt", "wb")
@@ -19,7 +20,9 @@ local function box(mode, x, y, w, h, tint)
 end
 local function glyphs(value)
   local out = {}
-  for char in tostring(value):gmatch(".") do out[#out + 1] = char end
+  for _, code in utf8.codes(tostring(value)) do
+    out[#out + 1] = utf8.char(code)
+  end
   return out
 end
 local function fit(value, limit)
@@ -34,24 +37,31 @@ end
 
 local languages = {
   en = {
-    title = "PARTY", hp = "HP", exp = "EXP", fainted = "FNT",
+    title = "PARTY", hp = "HP", exp = "EXP",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
+    types = {},
   },
   de = {
-    title = "TEAM", hp = "KP", exp = "EP", fainted = "K.O.",
+    title = "TEAM", hp = "KP", exp = "EP",
     names = { "IMPERGATOR", "PAPUNGHA", "TAUBOGA", "SANDAMER",
       "TRAUMATO", "TAUROS" },
+    types = { WATER = "WASSER", GRASS = "PFLANZE", FLYING = "FLUG",
+      NORMAL = "NORMAL", GROUND = "BODEN", PSYCHIC = "PSYCHO" },
   },
   es = {
-    title = "EQUIPO", hp = "PS", exp = "EXP", fainted = "K.O.",
+    title = "EQUIPO", hp = "PS", exp = "EXP",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
+    types = { WATER = "AGUA", GRASS = "PLANTA", FLYING = "VOLADOR",
+      NORMAL = "NORMAL", GROUND = "TIERRA", PSYCHIC = "PSÍQUICO" },
   },
   fr = {
-    title = "ÉQUIPE", hp = "PV", exp = "EXP", fainted = "K.O.",
+    title = "ÉQUIPE", hp = "PV", exp = "EXP",
     names = { "ALIGATUEUR", "COTOVOL", "ROUCOUPS", "SABLAIREAU",
       "SOPORIFIK", "TAUROS" },
+    types = { WATER = "EAU", GRASS = "PLANTE", FLYING = "VOL",
+      NORMAL = "NORMAL", GROUND = "SOL", PSYCHIC = "PSY" },
   },
 }
 local language = languages[os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "en"]
@@ -59,7 +69,7 @@ local language = languages[os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "en"]
 
 local party = {
   { levelText = "L35", hp = 92, maxHp = 117,
-    hpText = "92/117", status = "PAR", gender = "male", type = "WATER",
+    hpText = "92/117", statusId = "PAR", gender = "male", type = "WATER",
     type2 = "WATER",
     expProgress = 0.72 },
   { levelText = "L28", hp = 90, maxHp = 90,
@@ -72,12 +82,12 @@ local party = {
     hpText = "67/80", gender = "male", type = "GROUND", type2 = "GROUND",
     expProgress = 0.47 },
   { levelText = "L16", hp = 0, maxHp = 49,
-    hpText = "0/49", status = language.fainted, statusId = "FNT",
+    hpText = "0/49", statusId = "FNT",
     gender = "female", type = "PSYCHIC",
     type2 = "PSYCHIC",
     expProgress = 0.33 },
   { levelText = "L16", hp = 17, maxHp = 51,
-    hpText = "17/51", status = "SLP", gender = "male", type = "NORMAL",
+    hpText = "17/51", statusId = "SLP", gender = "male", type = "NORMAL",
     type2 = "NORMAL",
     expProgress = 0.62 },
 }
@@ -86,6 +96,18 @@ for slot, mon in ipairs(party) do
   mon.name = language.names[slot]
   mon.hpLabel = language.hp
   mon.expLabel = language.exp
+  mon.typeLabel = language.types[mon.type] or mon.type
+  mon.type2Label = language.types[mon.type2] or mon.type2
+end
+if os.getenv("KANTO_GEAR_PREVIEW_STATUSES") == "all" then
+  for slot, status in ipairs({ "PAR", "SLP", "PSN", "BRN", "FRZ", "FNT" }) do
+    party[slot].statusId = status
+    if status == "FNT" then
+      party[slot].hp, party[slot].hpText = 0, "0/51"
+    elseif party[slot].hp == 0 then
+      party[slot].hp, party[slot].hpText = 31, "31/49"
+    end
+  end
 end
 
 local species = { 160, 189, 17, 28, 96, 128 }

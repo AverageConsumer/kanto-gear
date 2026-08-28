@@ -309,13 +309,6 @@ return function(ui)
     self:label(shown, x, 6, colors.ink)
   end
 
-  function H:statusBadge(value, x, y, statusId)
-    clipped(x, y, 25, 11, self:statusColor(statusId))
-    border(x, y, 25, 11, self.colors.outline)
-    self:partyInfo(value, x, y - 1,
-      self.colors.statusInk, 25, "center")
-  end
-
   function H:backdrop(top)
     top = top or 0
     box("fill", 0, top, 160, 144 - top, self.colors.bg)
@@ -412,6 +405,45 @@ return function(ui)
       or self.colors.white
   end
 
+  local statusPatterns = {
+    PAR = { "...##..", "..##...", ".#####.", "...##..", "..##...",
+      ".##....", "##....." },
+    SLP = { "######.", "....##.", "...##..", "..##...", ".##....",
+      "######." },
+    PSN = { ".#...#.", ".......", "...#...", "..###..", ".#####.",
+      "#######", ".#####." },
+    TOX = { ".#...#.", ".......", "...#...", "..###..", ".#####.",
+      "#######", ".#####." },
+    BRN = { "...#...", "..##...", ".####..", ".#####.", "#######",
+      ".#####.", "..###.." },
+    FRZ = { "...#...", "#..#..#", ".#.#.#.", "..###..", ".#.#.#.",
+      "#..#..#", "...#..." },
+    FNT = { "#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..",
+      ".#...#.", "#.....#" },
+  }
+
+  function H:statusIcon(statusId, x, y)
+    statusId = tostring(statusId or ""):upper()
+    local pattern = statusPatterns[statusId]
+    if not pattern then return end
+    for row, pixels in ipairs(pattern) do
+      for column = 1, #pixels do
+        if pixels:sub(column, column) == "#" then
+          local px, py = x + column - 1, y + row - 1
+          box("fill", px + 1, py + 1, 1, 1, self.colors.outline)
+        end
+      end
+    end
+    for row, pixels in ipairs(pattern) do
+      for column = 1, #pixels do
+        if pixels:sub(column, column) == "#" then
+          box("fill", x + column - 1, y + row - 1, 1, 1,
+            self:statusColor(statusId))
+        end
+      end
+    end
+  end
+
   function H:partyBackdrop()
     local G, colors = ui.graphics, self.colors
     color(colors.partyBg)
@@ -429,9 +461,8 @@ return function(ui)
     G.setLineWidth(1)
   end
 
-  function H:partyPanel(x, y, w, h, selected, typeId, type2, fainted)
+  function H:partyPanel(x, y, w, h, selected, fainted)
     local G, colors = ui.graphics, self.colors
-    local accent, secondary = self:typeColor(typeId), self:typeColor(type2 or typeId)
     color(colors.shadow)
     G.rectangle("fill", x + 1, y + 2, w, h, 6, 6)
     color(fainted and colors.fainted
@@ -441,36 +472,44 @@ return function(ui)
     G.setLineWidth(selected and 2 or 1)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 6, 6)
     G.setLineWidth(1)
-    local shade = fainted and 0.55 or 1
-    color(colors.outline)
-    G.rectangle("fill", x + 4, y + 6, 2, 1)
-    G.rectangle("fill", x + 3, y + 7, 4, 39)
-    G.rectangle("fill", x + 4, y + 46, 2, 1)
-    G.setColor(accent[1] * shade, accent[2] * shade,
-      accent[3] * shade, 1)
-    G.rectangle("fill", x + 4, y + 7, 2, 19)
-    G.setColor((accent[1] + secondary[1]) / 2 * shade,
-      (accent[2] + secondary[2]) / 2 * shade,
-      (accent[3] + secondary[3]) / 2 * shade, 1)
-    G.rectangle("fill", x + 4, y + 26, 2, 1)
-    G.setColor(secondary[1] * shade, secondary[2] * shade,
-      secondary[3] * shade, 1)
-    G.rectangle("fill", x + 4, y + 27, 2, 19)
   end
 
-  function H:partyPortrait(x, y, selected, typeId)
-    local G, accent = ui.graphics, self:typeColor(typeId)
-    color(self.colors.redLight)
+  function H:partyPortrait(x, y, selected, fainted)
+    local G, shade = ui.graphics, fainted and 0.45 or 1
+    local function tint(value)
+      G.setColor(value[1] * shade, value[2] * shade,
+        value[3] * shade, value[4] or 1)
+    end
+    tint(self.colors.redLight)
     G.circle("fill", x + 17, y + 20, 17)
-    color(self.colors.white)
+    tint(self.colors.white)
     G.arc("fill", x + 17, y + 20, 16, 0, math.pi)
-    color(selected and self.colors.selectedDark or self.colors.partyDark)
+    tint(selected and self.colors.selectedDark or self.colors.partyDark)
     G.line(x + 1, y + 20, x + 33, y + 20)
-    color(self.colors.white)
+    tint(self.colors.white)
     G.circle("fill", x + 17, y + 20, 4)
-    color(selected and self.colors.selectedDark or self.colors.partyDark)
+    tint(selected and self.colors.selectedDark or self.colors.partyDark)
     G.circle("line", x + 17, y + 20, 4)
     G.circle("line", x + 17, y + 20, 17)
+  end
+
+  function H:typeBadge(typeId, label, x, y, fainted)
+    local tint = self:typeColor(typeId)
+    local shade = fainted and 0.48 or 1
+    local fill = { tint[1] * shade, tint[2] * shade, tint[3] * shade, 1 }
+    local chars = glyphs(tostring(label or typeId or "---"))
+    while #chars > 3 do table.remove(chars) end
+    local luminance = tint[1] * 0.299 + tint[2] * 0.587 + tint[3] * 0.114
+    local darkLabel = luminance > 0.54
+      and tostring(typeId or ""):upper() ~= "FLYING"
+    local labelColor = darkLabel
+      and self.colors.statusInk or self.colors.white
+    if fainted then labelColor = self.colors.silverDark end
+    clipped(x, y, 20, 11, fill)
+    border(x, y, 20, 11,
+      fainted and self.colors.silverDark or self.colors.outline)
+    self:partyInfo(table.concat(chars), x, y - 1,
+      labelColor, 20, "center")
   end
 
   function H:partyPosition(slot)
@@ -480,30 +519,35 @@ return function(ui)
   end
 
   function H:partyCard(mon, x, y, selected, details, drawPortrait)
-    local fainted = mon and (mon.statusId == "FNT" or mon.status == "FNT"
+    local fainted = mon and (mon.statusId == "FNT"
       or mon.hp ~= nil and mon.hp <= 0)
-    self:partyPanel(x, y, 112, 56, selected, mon and mon.type,
-      mon and mon.type2, fainted)
+    self:partyPanel(x, y, 112, 56, selected, fainted)
     if not mon then
       self:label("-", x, y + 18, self.colors.ink, 112, "center")
       return
     end
-    self:partyPortrait(x + 8, y + 6, selected, mon.type)
-    drawPortrait(mon, x + 9, y + 10, 32, fainted)
+    self:partyPortrait(x + 5, y + 2, selected, fainted)
+    drawPortrait(mon, x + 6, y + 4, 32, fainted)
     local ink = self.colors.white
     local quiet = selected and self.colors.white or self.colors.silver
     self:partyName(mon.name, x + 44, y + 4, ink, details and 60 or 67)
     if details then self:label(">", x + 105, y + 1, ink) end
     if mon.egg then return end
+    local dualType = mon.type2 and mon.type2 ~= mon.type
+    if dualType then
+      self:typeBadge(mon.type, mon.typeLabel, x + 2, y + 43, fainted)
+      self:typeBadge(mon.type2, mon.type2Label, x + 23, y + 43, fainted)
+    else
+      self:typeBadge(mon.type, mon.typeLabel, x + 12, y + 43, fainted)
+    end
     if mon.gender == "male" then
       self:genderIcon("male", x + 99, y + 19)
     elseif mon.gender == "female" then
       self:genderIcon("female", x + 99, y + 19)
     end
     self:partyInfo(mon.levelText, x + 45, y + 17, quiet)
-    if mon.status then
-      self:statusBadge(mon.status, x + 68, y + 17,
-        mon.statusId or mon.status)
+    if mon.statusId then
+      self:statusIcon(mon.statusId, x + 70, y + 18)
     end
     self:partyInfo(mon.hpLabel or "HP", x + 45, y + 27, quiet)
     self:partyInfo(mon.hpText, x + 45, y + 27, quiet, 62, "right")
