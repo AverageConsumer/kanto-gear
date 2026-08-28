@@ -248,19 +248,25 @@ return function(ui)
 
   function H:genderIcon(gender, x, y)
     local G = ui.graphics
-    local function paint(tint, width)
+    local function paint(tint, width, offset)
+      offset = offset or 0
       color(tint)
       G.setLineWidth(width)
       if gender == "male" then
-        G.circle("line", x + 2.5, y + 4.5, 2)
-        G.line(x + 4, y + 3, x + 7, y)
-        G.line(x + 5, y, x + 7, y, x + 7, y + 2)
+        G.circle("line", x + 2.5 + offset, y + 4.5 + offset, 2)
+        G.line(x + 4 + offset, y + 3 + offset,
+          x + 7 + offset, y + offset)
+        G.line(x + 5 + offset, y + offset, x + 7 + offset, y + offset,
+          x + 7 + offset, y + 2 + offset)
       elseif gender == "female" then
-        G.circle("line", x + 3.5, y + 2.5, 2)
-        G.line(x + 3.5, y + 4.5, x + 3.5, y + 8)
-        G.line(x + 1.5, y + 6.5, x + 5.5, y + 6.5)
+        G.circle("line", x + 3.5 + offset, y + 2.5 + offset, 2)
+        G.line(x + 3.5 + offset, y + 4.5 + offset,
+          x + 3.5 + offset, y + 8 + offset)
+        G.line(x + 1.5 + offset, y + 6.5 + offset,
+          x + 5.5 + offset, y + 6.5 + offset)
       end
     end
+    paint(self.colors.outline, 2, 1)
     paint(self.colors.outline, 2)
     paint(gender == "male" and self.colors.male or self.colors.female, 1)
     G.setLineWidth(1)
@@ -426,8 +432,8 @@ return function(ui)
   local statusPatterns = {
     PAR = { "...##..", "..##...", ".#####.", "...##..", "..##...",
       ".##....", "##....." },
-    SLP = { "######.", "....##.", "...##..", "..##...", ".##....",
-      "######." },
+    SLP = { ".......", "######.", "....##.", "...##..", "..##...",
+      ".##....", "######." },
     PSN = { ".#...#.", ".......", "...#...", "..###..", ".#####.",
       "#######", ".#####." },
     TOX = { ".#...#.", ".......", "...#...", "..###..", ".#####.",
