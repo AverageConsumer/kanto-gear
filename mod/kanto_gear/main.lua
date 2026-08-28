@@ -1494,6 +1494,10 @@ local function expBar(x, y, w, ratio, selected)
 end
 
 local function button(x, y, w, h, label, selected)
+  if THEME.style == "hgss" then
+    THEME.hgss:button(x, y, w, h, label, selected)
+    return
+  end
   local modern = THEME.style ~= "classic"
   box("fill", x, y, w, h, modern and selected and THEME.red
     or selected and DARK or MID)
@@ -1571,6 +1575,7 @@ return function(mod)
     { key = "theme", label = "THEME", type = "choice",
       default = "kanto", choices = {
         { "KANTO GREEN", "kanto" }, { "MATCH GAME", "match" },
+        { "HGSS", "hgss" },
         { "MODERN LIGHT", "modern_light" },
         { "MODERN DARK", "modern_dark" },
         { "OG", "og" }, { "OG INVERTED", "og_inv" },
@@ -1712,6 +1717,16 @@ return function(mod)
     mod.log:warn("host has no graphics runtime; mod stays inactive")
     return
   end
+
+  THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
+    graphics = G, box = box, text = text, fit = fit,
+    glyphs = glyphList, color = color,
+  })
+  assert(THEME.hgss:battleChoice(80, 40) == 1
+      and THEME.hgss:battleChoice(125, 105) == 2
+      and THEME.hgss:battleChoice(20, 105) == 3
+      and THEME.hgss:battleChoice(80, 120) == 4,
+    "HGSS battle action hitboxes")
 
   local PaletteFX = require("src.render.PaletteFX")
   local PokemonSprites = require("src.pokemon.Sprites")
@@ -2060,6 +2075,7 @@ return function(mod)
         classic = "kanto",
       })[PaletteFX.mode] or "kanto"
     end
+    if theme == "hgss" then return THEME.hgss.palette end
     if theme == "og" then return PaletteFX.GRAYS end
     if theme == "modern_light" then return THEME.light end
     if theme == "modern_dark" then return THEME.dark end
@@ -2083,7 +2099,8 @@ return function(mod)
     local theme = mod.options:get("theme") or "kanto"
     local key = theme .. (theme == "match" and (":" .. PaletteFX.mode) or "")
     if not force and key == themeKey then return end
-    THEME.style = theme == "modern_light" and "modern_light"
+    THEME.style = theme == "hgss" and "hgss"
+      or theme == "modern_light" and "modern_light"
       or theme == "modern_dark" and "modern_dark" or "classic"
     usePalette(themePalette(theme))
     invalidateLocalMap()
@@ -2710,11 +2727,18 @@ return function(mod)
 
   local function header(title, back, paged)
     local modern = THEME.style ~= "classic"
-    local background = modern and (THEME.style == "modern_dark" and MID or DARK)
+    local hgss = THEME.style == "hgss"
+    local background = hgss and THEME.hgss.colors.surface
+      or modern and (THEME.style == "modern_dark" and MID or DARK)
       or DARK
-    local foreground = modern and THEME.white or PAPER
+    local foreground = hgss and THEME.hgss.colors.ink
+      or modern and THEME.white or PAPER
     box("fill", 0, 0, WIDTH, HEADER, background)
-    if modern then
+    if hgss then
+      box("fill", 0, 0, WIDTH, 3, THEME.hgss.colors.green)
+      box("fill", 0, HEADER - 2, WIDTH, 1, THEME.hgss.colors.silver)
+      box("fill", 0, HEADER - 1, WIDTH, 1, THEME.hgss.colors.ink)
+    elseif modern then
       box("fill", 0, HEADER - 2, WIDTH, 2, THEME.blue)
       box("fill", 0, HEADER - 2, 42, 2, THEME.red)
     end
@@ -3754,6 +3778,33 @@ return function(mod)
   end
 
   local function partyCard(mon, x, y, selected, details)
+    if THEME.style == "hgss" then
+      THEME.hgss:partyPanel(x, y, 75, 36, selected)
+      if not mon then
+        text("-", x + 35, y + 14, THEME.hgss.colors.ink)
+        return
+      end
+      local source = mon.source or mon
+      local name = fit(mon.name, details and 6 or 7) .. (details and ">" or "")
+      if compat.partyEgg(source) then
+        compat.drawPokemonIcon(source, x + 2, y + 3, 24)
+        text(name, x + 29, y + 9, THEME.hgss.colors.ink)
+        return
+      end
+      if not drawSprite(mon.species, "front", x + 3, y + 5, 24, 24,
+          nil, source, true) then
+        compat.drawPokemonIcon(source, x + 2, y + 3, 24)
+      end
+      text(name, x + 29, y + 4, THEME.hgss.colors.ink)
+      text(THEME:format("L%d", mon.level or 0), x + 29, y + 14,
+        THEME.hgss.colors.ink)
+      local status = (mon.hp or 0) <= 0 and "FNT"
+        or THEME:statusName(mon.status, mod.content)
+      if status then text(fit(status, 3), x + 52, y + 14, THEME.hgss.colors.ink) end
+      THEME.hgss:hpBar(x + 29, y + 25, 41, mon.hp, mon.maxHp)
+      THEME.hgss:expBar(x + 29, y + 31, 41, mon.expProgress)
+      return
+    end
     box("fill", x, y, 75, 36, selected and DARK or MID)
     outline(x, y, 75, 36, INK)
     if not mon then
@@ -3829,6 +3880,23 @@ return function(mod)
   end
 
   local function drawBattleRoot()
+    if THEME.style == "hgss" then
+      header(battle.kind == "wild" and "Wild battle"
+        or battle.kind == "trainer" and "Trainer battle" or "BATTLE")
+      for index, label in ipairs({ "FIGHT", "PKMN", "ITEM", "RUN" }) do
+        THEME.hgss:action(index, label, battle.menuIndex == index)
+      end
+      local player = battle.player or {}
+      if not drawSprite(player.species, "front", 31, 41, 28, 28,
+          nil, player, true)
+          and not compat.drawPokemonIcon(player, 31, 41, 28) then
+        text("?", 41, 50, THEME.hgss.colors.white)
+      end
+      text("FIGHT", 69, 43, THEME.hgss.colors.white, 2)
+      text(fit(player.name or player.species or "POKEMON", 10),
+        68, 68, THEME.hgss.colors.white)
+      return
+    end
     header(battle.kind == "wild" and "Wild battle"
       or battle.kind == "trainer" and "Trainer battle" or "BATTLE")
     button(3, 24, 76, 54, "FIGHT", battle.menuIndex == 1)
@@ -4883,6 +4951,7 @@ return function(mod)
     G.setBlendMode("alpha")
     G.clear(PAPER[1], PAPER[2], PAPER[3], PAPER[4])
     G.setLineWidth(1)
+    if THEME.style == "hgss" then THEME.hgss:backdrop() end
     local mode, top, fade = screenState()
     local learnScreen = screenById("MoveLearnMenu")
       or screenById("Gen2MoveDeleter")
@@ -4949,7 +5018,11 @@ return function(mod)
       if pendingFly then drawFlyPrompt()
       elseif pendingAction then drawActionPrompt() end
     end
-    if THEME.style ~= "classic" then
+    if THEME.style == "hgss" then
+      outline(1, 1, WIDTH - 2, HEIGHT - 2, THEME.hgss.colors.silverDark)
+      box("fill", 4, 1, 20, 1, THEME.hgss.colors.redLight)
+      box("fill", WIDTH - 24, HEIGHT - 2, 20, 1, THEME.hgss.colors.green)
+    elseif THEME.style ~= "classic" then
       outline(1, 1, WIDTH - 2, HEIGHT - 2, THEME.blue)
       box("fill", 3, 1, 16, 1, THEME.red)
       box("fill", WIDTH - 19, HEIGHT - 2, 16, 1, THEME.red)
@@ -5387,6 +5460,8 @@ return function(mod)
     local choice
     if fullBottomBattleUI() then
       choice = fullBattleChoice(x, y)
+    elseif THEME.style == "hgss" then
+      choice = THEME.hgss:battleChoice(x, y)
     elseif y >= 24 then
       local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
       choice = row * 2 + col + 1
