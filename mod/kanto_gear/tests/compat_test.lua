@@ -107,6 +107,8 @@ T.eq(fit("ÀÂÇÈÉÊËÎÏÔÙÛÜŸ", 20), "ÀÂÇÈÉÊËÎÏÔÙÛÜŸ",
   "French accented letters survive text fitting")
 T.eq(fit("D'ÉCRAN, 33,2 % (Y)", 22), "D'ÉCRAN, 33,2 % (Y)",
   "French punctuation survives text fitting")
+T.check(source:find("156 - #glyphList(status) * 6", 1, true),
+  "AREA status labels keep a one-pixel inset at every translated width")
 T.eq(fit("WITHDRAW <PK><MN>", 22), "WITHDRAW PKMN",
   "Game Boy Pokémon glyph tokens use the companion font abbreviation")
 T.eq(fit("MORN", 1, false), "M",

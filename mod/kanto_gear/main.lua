@@ -3641,8 +3641,8 @@ return function(mod)
         box("fill", 3, y, 154, 20, row.done and MID or PAPER)
         outline(3, y, 154, 20, INK)
         text(fit(row.label, 18), 8, y + 7, INK)
-        text(fit(row.status or (row.done and "DONE" or "OPEN"), 5),
-             127, y + 7, DARK)
+        local status = fit(row.status or (row.done and "DONE" or "OPEN"), 5)
+        text(status, 156 - #glyphList(status) * 6, y + 7, DARK)
       end
     end
     if screen.name == "HIDDEN" and assist("item_radar") then
