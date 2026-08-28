@@ -571,7 +571,7 @@ return function(ui)
     local ink = self.colors.white
     local quiet = selected and self.colors.white or self.colors.silver
     self:partyName(mon.name, x + 44, y + 4, ink, details and 61 or 67)
-    if details then self:detailChevron(x + 105, y + 7, ink) end
+    if details then self:detailChevron(x + 105, y + 8, ink) end
     if mon.egg then return end
     self:typeBadges(mon, x + 2, y + 42, fainted)
     if mon.gender == "male" then
