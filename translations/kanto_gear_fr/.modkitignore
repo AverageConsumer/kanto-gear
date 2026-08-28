@@ -1,1 +1,2 @@
-tests/
+tests/catalog_test.lua
+tests/integration_test.lua
