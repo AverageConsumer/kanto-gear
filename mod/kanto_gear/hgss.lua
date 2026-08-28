@@ -305,11 +305,12 @@ return function(ui)
     G.setLineWidth(1)
   end
 
-  function H:detailChevron(x, y, tint)
+  function H:detailChevron(x, y, tint, large)
     local G = ui.graphics
     color(tint)
-    G.setLineWidth(2)
-    G.line(x, y, x + 5, y + 4, x, y + 8)
+    G.setLineWidth(large and 2 or 1)
+    if large then G.line(x, y, x + 5, y + 4, x, y + 8)
+    else G.line(x, y, x + 3, y + 2, x, y + 4) end
     G.setLineWidth(1)
   end
 
@@ -336,9 +337,11 @@ return function(ui)
     end
     local width = paged and (back and 76 or 88) or (back and 100 or 124)
     local shown = self:fitLabel(title, width)
-    local x = paged and center - math.floor(self:labelWidth(shown) / 2)
-      or back and 31 or 71 - math.floor(self:labelWidth(shown) / 2)
+    local x = (paged or back)
+      and center - math.floor(self:labelWidth(shown) / 2)
+      or 71 - math.floor(self:labelWidth(shown) / 2)
     self:label(shown, x, 6, colors.ink)
+    return x, self:labelWidth(shown)
   end
 
   function H:backdrop(top)
@@ -420,7 +423,7 @@ return function(ui)
     end
     local shown = self:fitLabel(label, w - 69)
     self:label(shown, x + 43, y + 13, colors.ink)
-    self:detailChevron(x + w - 16, y + 16, colors.ink)
+    self:detailChevron(x + w - 16, y + 16, colors.ink, true)
   end
 
   function H:action(index, label, selected)
@@ -634,7 +637,7 @@ return function(ui)
     local ink = self.colors.white
     local quiet = selected and self.colors.white or self.colors.silver
     self:partyName(mon.name, x + 44, y + 4, ink, details and 61 or 67)
-    if details then self:detailChevron(x + 102, y + 6, ink) end
+    if details then self:detailChevron(x + 105, y + 8, ink) end
     if mon.egg then return end
     self:typeBadges(mon, x + 2, y + 42, fainted)
     if mon.gender == "male" then

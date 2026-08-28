@@ -167,7 +167,13 @@ function love.load()
   love.graphics.setCanvas(canvas)
   love.graphics.clear(theme.colors.bg)
   local context = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") == "context"
-  theme:headerBar(language.title, context, not context)
+  local titleX, titleWidth = theme:headerBar(language.title, context,
+    not context)
+  if context then
+    local left, width = 26, 112
+    assert(math.abs(titleX - left - (width - titleWidth - (titleX - left)))
+      <= 1, "context title stays centered between dividers")
+  end
   local clockLeft, clockWidth = 139, 72
   local clockX, periodX = theme:headerClock("20:04",
     os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
