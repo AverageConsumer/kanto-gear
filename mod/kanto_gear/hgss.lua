@@ -42,7 +42,7 @@ return function(ui)
     fainted = { 0.25, 0.33, 0.28, 1 },
     partyBg = { 0.90, 0.95, 0.91, 1 },
     partyBand = { 0.86, 0.93, 0.88, 1 },
-    partyEmboss = { 0.78, 0.88, 0.82, 1 },
+    partyEmboss = { 0.73, 0.85, 0.78, 1 },
     partyHighlight = { 0.94, 0.97, 0.94, 1 },
   }
   local darkColors = {
@@ -472,8 +472,10 @@ return function(ui)
     color(colors.partyEmboss)
     G.setLineWidth(2)
     G.circle("line", 120, 121, 94)
-    G.line(26, 121, 214, 121)
+    G.line(26, 121, 104, 121)
+    G.line(136, 121, 214, 121)
     G.circle("line", 120, 121, 16)
+    G.circle("line", 120, 121, 7)
     color(colors.partyHighlight)
     G.arc("line", "open", 120, 121, 88, math.pi * 1.08, math.pi * 1.92)
     G.setLineWidth(1)
@@ -517,12 +519,7 @@ return function(ui)
     local fill = { tint[1] * shade, tint[2] * shade, tint[3] * shade, 1 }
     local chars = glyphs(tostring(label or typeId or "---"))
     while #chars > 3 do table.remove(chars) end
-    local luminance = tint[1] * 0.299 + tint[2] * 0.587 + tint[3] * 0.114
-    local darkLabel = luminance > 0.54
-      and tostring(typeId or ""):upper() ~= "FLYING"
-    local labelColor = darkLabel
-      and theme.colors.statusInk or theme.colors.white
-    if fainted then labelColor = theme.colors.silverDark end
+    local labelColor = fainted and theme.colors.silver or theme.colors.white
     return fill, labelColor, table.concat(chars)
   end
 
@@ -534,7 +531,7 @@ return function(ui)
     if not dual then
       clipped(x + 11, y, 22, 9, left)
       border(x + 11, y, 22, 9, edge)
-      self:partyType(leftText, x + 11, y - 1, leftInk, 22)
+      self:partyType(leftText, x + 11, y - 2, leftInk, 22)
       return
     end
     local right, rightInk, rightText = typeBadgeStyle(
@@ -545,8 +542,8 @@ return function(ui)
     box("fill", x + 21, y + 2, 21, 5, right)
     border(x, y, 42, 9, edge)
     box("fill", x + 21, y + 1, 1, 7, edge)
-    self:partyType(leftText, x, y - 1, leftInk, 21)
-    self:partyType(rightText, x + 22, y - 1, rightInk, 20)
+    self:partyType(leftText, x, y - 2, leftInk, 21)
+    self:partyType(rightText, x + 22, y - 2, rightInk, 20)
   end
 
   function H:partyPosition(slot)
