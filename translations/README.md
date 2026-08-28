@@ -8,6 +8,7 @@ Included language packs:
 
 - `kanto_gear_de` — German
 - `kanto_gear_es` — Spanish (Spain), contributed by **Desierto La Espada**
+- `kanto_gear_fr` — French, contributed by **Blastheaven2**
 
 To add a language:
 

@@ -1,0 +1,22 @@
+{
+  "id": "kanto_gear_fr",
+  "name": "Kanto Gear Français",
+  "version": "0.1.0",
+  "api": 2,
+  "entry": "main.lua",
+  "category": "UI",
+  "profile": "content",
+  "games": [
+    "gen1",
+    "gen2"
+  ],
+  "game_version": "0.0.0-dev || >=0.1.75 <2.0.0",
+  "affects_link": false,
+  "dependencies": [],
+  "optional_dependencies": [
+    "kanto_gear"
+  ],
+  "conflicts": [],
+  "permissions": [],
+  "description": "Traduction française de l'interface dessinée par Kanto Gear."
+}

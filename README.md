@@ -87,9 +87,9 @@ not need the former Kanto host or any Voxel renderer.
 You need your own supported game ROM. Kanto Gear contains no ROM, ROM-derived
 game data or save file.
 
-Optional German and Spanish (Spain) interface packs are attached to every
-release. Import one only if you want that language. Other translations can use
-the small [language-pack template](translations/README.md).
+Optional German, Spanish (Spain) and French interface packs are attached to
+every release. Import one only if you want that language. Other translations
+can use the small [language-pack template](translations/README.md).
 
 ## Games and host requirements
 
@@ -194,6 +194,7 @@ Retroid Pocket 5 testing and diagnostics, and to
 [CustCast](https://github.com/CustCast/PokeRogue-App-Android-Thor) for sharing
 the artwork that inspired the optional Modern Light and Modern Dark themes.
 The Spanish (Spain) translation was contributed by **Desierto La Espada**.
+The French translation was contributed by **Blastheaven2**.
 
 Pokémon and related names are trademarks of their respective owners. This is a
 fan project and is not affiliated with Nintendo, Game Freak, The Pokémon
