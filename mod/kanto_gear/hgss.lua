@@ -531,7 +531,7 @@ return function(ui)
     if not dual then
       clipped(x + 11, y, 22, 10, left)
       border(x + 11, y, 22, 10, edge)
-      self:partyType(leftText, x + 11, y - 2, leftInk, 22)
+      self:partyType(leftText, x + 11, y - 1, leftInk, 22)
       return
     end
     local right, rightInk, rightText = typeBadgeStyle(
@@ -542,8 +542,8 @@ return function(ui)
     box("fill", x + 21, y + 2, 21, 6, right)
     border(x, y, 42, 10, edge)
     box("fill", x + 21, y + 1, 1, 8, edge)
-    self:partyType(leftText, x, y - 2, leftInk, 21)
-    self:partyType(rightText, x + 22, y - 2, rightInk, 20)
+    self:partyType(leftText, x, y - 1, leftInk, 21)
+    self:partyType(rightText, x + 22, y - 1, rightInk, 20)
   end
 
   function H:partyPosition(slot)
@@ -567,7 +567,7 @@ return function(ui)
     self:partyName(mon.name, x + 44, y + 4, ink, details and 61 or 67)
     if details then self:detailChevron(x + 105, y + 7, ink) end
     if mon.egg then return end
-    self:typeBadges(mon, x + 2, y + 41, fainted)
+    self:typeBadges(mon, x + 2, y + 42, fainted)
     if mon.gender == "male" then
       self:genderIcon("male", x + 99, y + 19)
     elseif mon.gender == "female" then
@@ -581,7 +581,7 @@ return function(ui)
     self:partyInfo(mon.hpText, x + 45, y + 27, quiet, 62, "right")
     self:hpBar(x + 45, y + 38, 62, mon.hp, mon.maxHp)
     self:partyInfo(mon.expLabel or "EXP", x + 45, y + 41, quiet)
-    self:expBar(x + 65, y + 47, 42, mon.expProgress)
+    self:expBar(x + 65, y + 48, 42, mon.expProgress)
   end
 
   function H:partySlot(x, y, count)
