@@ -253,6 +253,12 @@ return function(ui)
     self:label(shown, x, 6, colors.ink)
   end
 
+  function H:statusBadge(value, x, y, statusId)
+    clipped(x, y, 25, 11, self:statusColor(statusId))
+    border(x, y, 25, 11, self.colors.ink)
+    self:partyInfo(fit(value, 3), x, y - 1, self.colors.ink, 25, "center")
+  end
+
   function H:backdrop(top)
     top = top or 0
     box("fill", 0, top, 160, 144 - top, self.colors.bg)
@@ -434,8 +440,8 @@ return function(ui)
     end
     self:partyInfo(mon.levelText, x + 45, y + 17, quiet)
     if mon.status then
-      self:partyInfo(fit(mon.status, 3), x + 69, y + 17,
-        self:statusColor(mon.statusId or mon.status))
+      self:statusBadge(mon.status, x + 68, y + 17,
+        mon.statusId or mon.status)
     end
     self:partyInfo("HP", x + 45, y + 27, quiet)
     self:partyInfo(mon.hpText, x + 45, y + 27, quiet, 62, "right")
