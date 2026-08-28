@@ -575,7 +575,7 @@ return function(ui)
     end
     self:partyInfo(mon.levelText, x + 45, y + 17, quiet)
     if mon.statusId then
-      self:statusIcon(mon.statusId, x + 70, y + 18)
+      self:statusIcon(mon.statusId, x + 70, y + 19)
     end
     self:partyInfo(mon.hpLabel or "HP", x + 45, y + 27, quiet)
     self:partyInfo(mon.hpText, x + 45, y + 27, quiet, 62, "right")
