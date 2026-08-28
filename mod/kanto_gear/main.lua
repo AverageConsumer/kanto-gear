@@ -3800,9 +3800,9 @@ return function(mod)
 
   local function partyCard(mon, x, y, selected, details)
     if THEME.style == "hgss" then
-      THEME.hgss:partyPanel(x, y, 112, 47, selected)
+      THEME.hgss:partyPanel(x, y, 112, 52, selected)
       if not mon then
-        THEME.hgss:label("-", x, y + 15, THEME.hgss.colors.white,
+        THEME.hgss:label("-", x, y + 18, THEME.hgss.colors.ink,
           112, "center")
         return
       end
@@ -3810,38 +3810,38 @@ return function(mod)
       local name = fit(mon.name, details and 9 or 10)
       THEME.hgss:partyPortrait(x + 3, y + 4, selected)
       if compat.partyEgg(source) then
-        compat.drawPokemonIcon(source, x + 6, y + 9, 28)
+        compat.drawPokemonIcon(source, x + 5, y + 11, 30)
         THEME.hgss:label(name, x + 41, y + 5, THEME.hgss.colors.white)
         if details then
           THEME.hgss:label(">", x + 102, y + 5, THEME.hgss.colors.white)
         end
         return
       end
-      if not drawSprite(mon.species, "front", x + 6, y + 9, 28, 28,
+      if not drawSprite(mon.species, "front", x + 5, y + 11, 30, 30,
           nil, source, true) then
-        compat.drawPokemonIcon(source, x + 6, y + 9, 28)
+        compat.drawPokemonIcon(source, x + 5, y + 11, 30)
       end
       THEME.hgss:label(name, x + 41, y + 5, THEME.hgss.colors.white)
       if details then
         THEME.hgss:label(">", x + 102, y + 5, THEME.hgss.colors.white)
       end
       if mon.gender == "male" then
-        THEME.hgss:label("M", x + 99, y + 20, THEME.hgss.colors.male)
+        THEME.hgss:partyInfo("M", x + 100, y + 23, THEME.hgss.colors.male)
       elseif mon.gender == "female" then
-        THEME.hgss:label("F", x + 99, y + 20, THEME.hgss.colors.female)
+        THEME.hgss:partyInfo("F", x + 100, y + 23, THEME.hgss.colors.female)
       end
-      THEME.hgss:label(THEME:format("L%d", mon.level or 0), x + 41, y + 20,
+      THEME.hgss:partyInfo(THEME:format("L%d", mon.level or 0), x + 41, y + 23,
         THEME.hgss.colors.ink)
       local status = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content)
       if status then
-        THEME.hgss:label(fit(status, 3), x + 69, y + 20,
+        THEME.hgss:partyInfo(fit(status, 3), x + 67, y + 23,
           THEME.hgss.colors.red)
       end
-      THEME.hgss:label("HP", x + 41, y + 30, THEME.hgss.colors.green)
-      THEME.hgss:hpBar(x + 57, y + 33, 49, mon.hp, mon.maxHp)
+      THEME.hgss:partyInfo("HP", x + 41, y + 34, THEME.hgss.colors.green)
+      THEME.hgss:hpBar(x + 55, y + 36, 51, mon.hp, mon.maxHp)
       local hp = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0)
-      THEME.hgss:label(hp, x + 41, y + 37, THEME.hgss.colors.ink,
+      THEME.hgss:partyInfo(hp, x + 41, y + 42, THEME.hgss.colors.ink,
         65, "right")
       return
     end
@@ -3885,7 +3885,7 @@ return function(mod)
         local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
         local mon = list[i]
         partyCard(mon, 5 + col * 118,
-          30 + row * 52 + (col == 1 and 7 or 0),
+          30 + row * 54 + (col == 1 and 4 or 0),
           selectedSlot and selectedSlot == i
             or (not selectedSlot and mon and (mon.active
               or (activeSpecies and mon.species == activeSpecies))),

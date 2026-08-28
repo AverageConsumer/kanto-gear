@@ -41,8 +41,10 @@ return function(ui)
   }
 
   local box, text, fit, glyphs = ui.box, ui.text, ui.fit, ui.glyphs
-  local partyFont = ui.graphics.newFont(11)
+  local partyFont = ui.graphics.newFont(11, "mono")
+  local partyInfoFont = ui.graphics.newFont(9, "mono")
   partyFont:setFilter("nearest", "nearest")
+  partyInfoFont:setFilter("nearest", "nearest")
 
   function H:label(value, x, y, tint, width, align)
     local G, previous = ui.graphics, ui.graphics.getFont()
@@ -55,6 +57,15 @@ return function(ui)
 
   function H:labelWidth(value)
     return partyFont:getWidth(tostring(value))
+  end
+
+  function H:partyInfo(value, x, y, tint, width, align)
+    local G, previous = ui.graphics, ui.graphics.getFont()
+    ui.color(tint)
+    G.setFont(partyInfoFont)
+    if width then G.printf(tostring(value), x, y, width, align or "left")
+    else G.print(tostring(value), x, y) end
+    if previous then G.setFont(previous) end
   end
 
   local function clipped(x, y, w, h, fill)
@@ -145,9 +156,9 @@ return function(ui)
     local fill = selected and self.colors.bandLight or self.colors.surface
     clipped(x + 1, y + 1, w, h, self.colors.shadow)
     clipped(x, y, w, h, fill)
-    box("fill", x + 38, y + 3, w - 41, 15,
+    box("fill", x + 38, y + 3, w - 41, 16,
       selected and self.colors.red or self.colors.green)
-    box("fill", x + 38, y + 18, w - 41, 2,
+    box("fill", x + 38, y + 19, w - 41, 2,
       selected and self.colors.redLight or self.colors.greenLight)
     border(x, y, w, h, selected and self.colors.red or self.colors.silverDark)
     if selected then
@@ -156,19 +167,19 @@ return function(ui)
   end
 
   function H:partyPortrait(x, y, selected)
-    clipped(x, y, 33, 39, self.colors.white)
+    clipped(x, y, 33, 44, self.colors.white)
     box("fill", x + 2, y + 2, 29, 3,
       selected and self.colors.redLight or self.colors.band)
-    border(x, y, 33, 39, self.colors.silverDark)
+    border(x, y, 33, 44, self.colors.silverDark)
   end
 
   function H:partySlot(x, y, count)
     local hx, hy = x * 1.5, y * 1.5
     local col = hx >= 120 and 1 or 0
     for row = 0, 2 do
-      local top = 30 + row * 52 + (col == 1 and 7 or 0)
+      local top = 30 + row * 54 + (col == 1 and 4 or 0)
       local slot = row * 2 + col + 1
-      if slot <= count and hy >= top and hy < top + 47 then return slot end
+      if slot <= count and hy >= top and hy < top + 52 then return slot end
     end
   end
 
