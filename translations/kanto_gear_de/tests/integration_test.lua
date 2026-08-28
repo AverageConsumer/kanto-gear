@@ -16,7 +16,7 @@ T.eq(run.data.strings["DEALS %d FIXED DAMAGE"],
   "Begleitmod registriert formatierte Attackendetails")
 T.eq(run.data.strings["CANCEL"], "ABBRUCH",
   "Begleitmod übersetzt Gold-Menüaktionen")
-T.eq(run.data.strings["JOHTO MAP"], "JOHTO-KARTE",
+T.eq(run.data.strings["JOHTO MAP"], "JOHTO",
   "Begleitmod übersetzt Gold-Kartenüberschriften")
 T.eq(run.data.strings["BATTLE VIEW"], "KAMPFANSICHT",
   "Begleitmod übersetzt Kanto-Gear-Einstellungen")

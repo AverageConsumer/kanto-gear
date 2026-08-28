@@ -28,6 +28,11 @@ end
 
 local layoutLimits = {
   ["LOADING AREA"] = 16,
+  ["MAP + FLY"] = 10,
+  ["JOHTO MAP"] = 10,
+  ["JOHTO FLY"] = 10,
+  ["KANTO MAP"] = 10,
+  ["KANTO FLY"] = 10,
   ["EXIT"] = 7,
   ["ITEM"] = 7,
   ["HIDDEN"] = 7,

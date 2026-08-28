@@ -16,7 +16,7 @@ T.eq(run.data.strings["DEALS %d FIXED DAMAGE"],
   "companion mod registers formatted move details")
 T.eq(run.data.strings["CANCEL"], "CANCELAR",
   "companion mod translates Gold menu actions")
-T.eq(run.data.strings["JOHTO MAP"], "MAPA DE JOHTO",
+T.eq(run.data.strings["JOHTO MAP"], "JOHTO",
   "companion mod translates Gold map headings")
 T.eq(run.data.strings["BATTLE VIEW"], "VISTA DE COMBATE",
   "companion mod translates Kanto Gear settings")

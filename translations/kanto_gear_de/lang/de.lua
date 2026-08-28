@@ -30,11 +30,11 @@ return {
 
   -- Map, guide, area and tools.
   ["AREA MAP"] = "GEBIETSKARTE",
-  ["MAP + FLY"] = "KARTE + FLUG",
-  ["JOHTO MAP"] = "JOHTO-KARTE",
-  ["JOHTO FLY"] = "JOHTO-FLUG",
-  ["KANTO MAP"] = "KANTO-KARTE",
-  ["KANTO FLY"] = "KANTO-FLUG",
+  ["MAP + FLY"] = "KARTE+FLUG",
+  ["JOHTO MAP"] = "JOHTO",
+  ["JOHTO FLY"] = "FLUG JOHTO",
+  ["KANTO MAP"] = "KANTO",
+  ["KANTO FLY"] = "FLUG KANTO",
   ["FLY TO"] = "FLIEGEN NACH",
   ["CONTEXT REQUIRED"] = "KONTEXT NÖTIG",
   ["NO ACTION HERE"] = "KEINE AKTION HIER",
