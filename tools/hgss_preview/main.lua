@@ -122,10 +122,11 @@ function love.load()
   for slot, mon in ipairs(party) do
     local x, y = theme:partyPosition(slot)
     theme:partyCard(mon, x, y, slot == 1, true,
-      function(_, portraitX, portraitY, size)
+      function(_, portraitX, portraitY, size, fainted)
         local sprite = sprites[slot]
         local scale = size / math.max(sprite.width, sprite.height)
-        love.graphics.setColor(1, 1, 1, 1)
+        local brightness = fainted and 0.48 or 1
+        love.graphics.setColor(brightness, brightness, brightness, 1)
         love.graphics.draw(sprite.image, sprite.quad,
           portraitX + (size - sprite.width * scale) / 2,
           portraitY + (size - sprite.height * scale) / 2, 0, scale, scale)

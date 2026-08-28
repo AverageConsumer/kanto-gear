@@ -34,7 +34,6 @@ return function(ui)
       selected = { 0.91, 0.31, 0.25, 1 },
       selectedDark = { 0.59, 0.12, 0.11, 1 },
       fainted = { 0.25, 0.33, 0.28, 1 },
-      faintedOverlay = { 0.04, 0.07, 0.05, 0.34 },
     },
     battleActions = {
       [1] = { x = 22, y = 25, w = 116, h = 62, color = "red" },
@@ -373,31 +372,27 @@ return function(ui)
       return
     end
     self:partyPortrait(x + 7, y + 6, selected, mon.type)
-    drawPortrait(mon, x + 8, y + 10, 32)
-    if fainted then
-      color(self.colors.faintedOverlay)
-      ui.graphics.circle("fill", x + 24, y + 26, 17)
-    end
+    drawPortrait(mon, x + 8, y + 10, 32, fainted)
     local ink = self.colors.white
     local quiet = selected and self.colors.white or self.colors.silver
-    self:partyName(mon.name, x + 45, y + 6, ink, details and 57 or 64)
-    if details then self:label(">", x + 102, y + 3, ink) end
+    self:partyName(mon.name, x + 45, y + 4, ink, details and 57 or 64)
+    if details then self:label(">", x + 102, y + 1, ink) end
     if mon.egg then return end
     if mon.gender == "male" then
-      self:genderIcon("male", x + 99, y + 19)
+      self:genderIcon("male", x + 99, y + 17)
     elseif mon.gender == "female" then
-      self:genderIcon("female", x + 99, y + 19)
+      self:genderIcon("female", x + 99, y + 17)
     end
-    self:partyInfo(mon.levelText, x + 45, y + 19, quiet)
+    self:partyInfo(mon.levelText, x + 45, y + 17, quiet)
     if mon.status then
-      self:partyInfo(fit(mon.status, 3), x + 69, y + 19,
+      self:partyInfo(fit(mon.status, 3), x + 69, y + 17,
         self:statusColor(mon.statusId or mon.status))
     end
-    self:partyInfo("HP", x + 45, y + 29, quiet)
-    self:partyInfo(mon.hpText, x + 45, y + 29, quiet, 62, "right")
-    self:hpBar(x + 45, y + 40, 62, mon.hp, mon.maxHp)
-    self:partyInfo("EXP", x + 45, y + 43, quiet)
-    self:expBar(x + 65, y + 48, 42, mon.expProgress)
+    self:partyInfo("HP", x + 45, y + 27, quiet)
+    self:partyInfo(mon.hpText, x + 45, y + 27, quiet, 62, "right")
+    self:hpBar(x + 45, y + 38, 62, mon.hp, mon.maxHp)
+    self:partyInfo("EXP", x + 45, y + 41, quiet)
+    self:expBar(x + 65, y + 46, 42, mon.expProgress)
   end
 
   function H:partySlot(x, y, count)

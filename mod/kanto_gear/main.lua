@@ -2620,7 +2620,7 @@ return function(mod)
   end
 
   local function drawSprite(species, side, x, y, maxW, maxH, tint,
-                            mon, quiet)
+                            mon, quiet, brightness)
     local image, trueColor = sprite(species, side, mon)
     if not image then
       if not quiet then box("fill", x + 4, y + 4, maxW - 8, maxH - 8, DARK) end
@@ -2629,7 +2629,7 @@ return function(mod)
     local iw, ih = image:getDimensions()
     local scale = math.min(maxW / iw, maxH / ih)
     local function paint()
-      color(tint or { 1, 1, 1, 1 })
+      color(tint or { brightness or 1, brightness or 1, brightness or 1, 1 })
       G.draw(image, x + (maxW - iw * scale) / 2,
              y + (maxH - ih * scale) / 2, 0, scale, scale)
     end
@@ -2659,7 +2659,7 @@ return function(mod)
     return live and live.isEgg == true or false
   end
 
-  function compat.drawPokemonIcon(mon, x, y, size)
+  function compat.drawPokemonIcon(mon, x, y, size, brightness)
     local data = game and game.data or {}
     local name, path, isEgg = nil, nil, compat.partyEgg(mon)
     size = size or 27
@@ -2706,7 +2706,7 @@ return function(mod)
     local quad = G.newQuad(0, 0, fw, fh, iw, ih)
     local scale = math.min(size / fw, size / fh)
     local function paint()
-      color({ 1, 1, 1, 1 })
+      color({ brightness or 1, brightness or 1, brightness or 1, 1 })
       G.draw(image, quad, x + (size - fw * scale) / 2,
         y + (size - fh * scale) / 2, 0, scale, scale)
     end
@@ -3843,12 +3843,14 @@ return function(mod)
         hpText = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0),
       }
       THEME.hgss:partyCard(view, x, y, selected, details,
-        function(_, portraitX, portraitY, size)
+        function(_, portraitX, portraitY, size, fainted)
           if compat.partyEgg(source) then
-            compat.drawPokemonIcon(source, portraitX, portraitY, size)
+            compat.drawPokemonIcon(source, portraitX, portraitY, size,
+              fainted and 0.48 or nil)
           elseif not drawSprite(mon.species, "front", portraitX, portraitY,
-              size, size, nil, source, true) then
-            compat.drawPokemonIcon(source, portraitX, portraitY, size)
+              size, size, nil, source, true, fainted and 0.48 or nil) then
+            compat.drawPokemonIcon(source, portraitX, portraitY, size,
+              fainted and 0.48 or nil)
           end
         end)
       return
