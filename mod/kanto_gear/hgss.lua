@@ -41,6 +41,21 @@ return function(ui)
   }
 
   local box, text, fit, glyphs = ui.box, ui.text, ui.fit, ui.glyphs
+  local partyFont = ui.graphics.newFont(11)
+  partyFont:setFilter("linear", "linear")
+
+  function H:label(value, x, y, tint, width, align)
+    local G, previous = ui.graphics, ui.graphics.getFont()
+    ui.color(tint)
+    G.setFont(partyFont)
+    if width then G.printf(tostring(value), x, y, width, align or "left")
+    else G.print(tostring(value), x, y) end
+    if previous then G.setFont(previous) end
+  end
+
+  function H:labelWidth(value)
+    return partyFont:getWidth(tostring(value))
+  end
 
   local function clipped(x, y, w, h, fill)
     box("fill", x + 2, y, w - 4, h, fill)
@@ -143,21 +158,14 @@ return function(ui)
   function H:partyBall(x, y, selected)
     local G, colors = ui.graphics, self.colors
     ui.color(selected and colors.redLight or colors.female)
-    G.circle("fill", x, y, 14)
+    G.circle("fill", x, y, 15)
     ui.color(colors.white)
-    G.circle("fill", x, y + 4, 13)
-    box("fill", x - 13, y - 1, 26, 4, colors.partyDark)
+    G.circle("fill", x, y + 4, 14)
+    box("fill", x - 14, y - 1, 28, 4, colors.partyDark)
     ui.color(colors.white)
     G.circle("fill", x, y + 1, 5)
     ui.color(colors.partyDark)
     G.circle("line", x, y + 1, 5)
-  end
-
-  function H:partyFooter(label)
-    self:panel(5, 191, 230, 21, false, self.colors.blue)
-    local shown = fit(label, 34)
-    text(shown, 120 - math.floor(#glyphs(shown) * 3), 198,
-      self.colors.ink)
   end
 
   function H:partySlot(x, y, count)

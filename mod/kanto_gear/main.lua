@@ -2746,6 +2746,14 @@ return function(mod)
       or DARK
     local foreground = hgss and THEME.hgss.colors.ink
       or modern and THEME.white or PAPER
+    local function put(value, x, y)
+      if hgss then THEME.hgss:label(value, x, y - 2, foreground)
+      else text(value, x, y, foreground) end
+    end
+    local function halfWidth(value)
+      return hgss and math.floor(THEME.hgss:labelWidth(value) / 2)
+        or math.floor(#glyphList(value) * 3)
+    end
     box("fill", 0, 0, WIDTH, HEADER, background)
     if hgss then
       box("fill", 0, 0, WIDTH, 3, THEME.hgss.colors.green)
@@ -2756,27 +2764,27 @@ return function(mod)
       box("fill", 0, HEADER - 2, 42, 2, THEME.red)
     end
     if back then
-      text("<", 4, 6, foreground)
+      put("<", 4, 6)
       box("fill", 16, 4, 1, 12, foreground)
     end
     if paged then
       local label = fit(title, back and 8 or 10)
       local left, center = back and 22 or 4, back and 57 or 48
-      text("<", left, 6, foreground)
-      text(label, center - math.floor(#label * 3), 6, foreground)
-      text(">", 85, 6, foreground)
+      put("<", left, 6)
+      put(label, center - halfWidth(label), 6)
+      put(">", 85, 6)
     elseif back then
-      text(fit(title, 11), 22, 6, foreground)
+      put(fit(title, 11), 22, 6)
     else
-      text(fit(title, 14), 5, 6, foreground)
+      put(fit(title, 14), 5, 6)
     end
     local now = os.time()
     local clock = compactClock(mod.datetime:time(game,
       compat.clockTimestamp(game, mod.options:get("clock_source"), now)))
     local period = compat.isGen2() and compat.timePeriod(game.world)
     if period then clock = clock .. " " .. period:sub(1, 1) end
-    local clockX = 117 - math.floor(#clock * 3)
-    text(clock, clockX, 6, foreground)
+    local clockX = 117 - halfWidth(clock)
+    put(clock, clockX, 6)
     battery(143, foreground)
   end
 
@@ -3794,40 +3802,47 @@ return function(mod)
     if THEME.style == "hgss" then
       THEME.hgss:partyPanel(x, y, 112, 47, selected)
       if not mon then
-        text("-", x + 55, y + 20, THEME.hgss.colors.white)
+        THEME.hgss:label("-", x, y + 15, THEME.hgss.colors.white,
+          112, "center")
         return
       end
       local source = mon.source or mon
-      local name = fit(mon.name, details and 8 or 9)
+      local name = fit(mon.name, details and 10 or 11)
       THEME.hgss:partyBall(x + 15, y + 14, selected)
       if compat.partyEgg(source) then
-        compat.drawPokemonIcon(source, x + 4, y + 6, 32)
-        text(name, x + 42, y + 18, THEME.hgss.colors.white)
-        if details then text(">", x + 101, y + 18, THEME.hgss.colors.white) end
+        compat.drawPokemonIcon(source, x + 16, y + 11, 26)
+        THEME.hgss:label(name, x + 44, y + 16, THEME.hgss.colors.white)
+        if details then
+          THEME.hgss:label(">", x + 102, y + 16, THEME.hgss.colors.white)
+        end
         return
       end
-      if not drawSprite(mon.species, "front", x + 5, y + 7, 32, 32,
+      if not drawSprite(mon.species, "front", x + 16, y + 11, 26, 26,
           nil, source, true) then
-        compat.drawPokemonIcon(source, x + 4, y + 6, 32)
+        compat.drawPokemonIcon(source, x + 16, y + 10, 26)
       end
-      text(name, x + 42, y + 6, THEME.hgss.colors.partyDark)
-      text(name, x + 41, y + 5, THEME.hgss.colors.white)
-      if details then text(">", x + 101, y + 5, THEME.hgss.colors.white) end
+      THEME.hgss:label(name, x + 44, y + 3, THEME.hgss.colors.white)
+      if details then
+        THEME.hgss:label(">", x + 102, y + 3, THEME.hgss.colors.white)
+      end
       if mon.gender == "male" then
-        text("M", x + 101, y + 16, THEME.hgss.colors.male)
+        THEME.hgss:label("M", x + 102, y + 15, THEME.hgss.colors.male)
       elseif mon.gender == "female" then
-        text("F", x + 101, y + 16, THEME.hgss.colors.female)
+        THEME.hgss:label("F", x + 102, y + 15, THEME.hgss.colors.female)
       end
-      text(THEME:format("L%d", mon.level or 0), x + 41, y + 17,
+      THEME.hgss:label(THEME:format("L%d", mon.level or 0), x + 44, y + 15,
         THEME.hgss.colors.white)
       local status = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content)
-      if status then text(fit(status, 3), x + 79, y + 17, THEME.hgss.colors.white) end
-      text("HP", x + 41, y + 27, THEME.hgss.colors.amberLight)
-      THEME.hgss:hpBar(x + 56, y + 28, 49, mon.hp, mon.maxHp)
+      if status then
+        THEME.hgss:label(fit(status, 3), x + 77, y + 15,
+          THEME.hgss.colors.white)
+      end
+      THEME.hgss:label("HP", x + 44, y + 26, THEME.hgss.colors.amberLight)
+      THEME.hgss:hpBar(x + 60, y + 29, 45, mon.hp, mon.maxHp)
       local hp = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0)
-      text(hp, x + 105 - #glyphList(hp) * 6, y + 38,
-        THEME.hgss.colors.white)
+      THEME.hgss:label(hp, x + 44, y + 35, THEME.hgss.colors.white,
+        61, "right")
       return
     end
     box("fill", x, y, 75, 36, selected and DARK or MID)
@@ -3876,7 +3891,6 @@ return function(mod)
               or (activeSpecies and mon.species == activeSpecies))),
           paged and not back)
       end
-      THEME.hgss:partyFooter(THEME:translate("SELECT A POKEMON"))
       G.pop()
       return
     end
