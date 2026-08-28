@@ -5999,10 +5999,15 @@ return function(mod)
       local canSwap = mon and #(game.save.party or {}) > 1
         and mod.world and mod.world.canReorderParty
         and mod.world:canReorderParty()
+      if THEME.style == "hgss" and THEME.hgss.partyActionClosing then return end
       local action = THEME.style == "hgss" and THEME.hgss:partyActionAt(
         x * THEME.hgssScale, y * THEME.hgssScale, canSwap and 2 or 1)
       if y < HEADER and x < 24 then
-        partyActionSlot = nil
+        if THEME.style == "hgss" then
+          THEME.hgss:endPartyAction(love.timer.getTime())
+        else
+          partyActionSlot = nil
+        end
       elseif mon and (action == 1
           or THEME.style ~= "hgss" and inside(x, y, 14, 37, 132, 38)) then
         partyActionSlot = nil
@@ -6822,6 +6827,10 @@ return function(mod)
       end
       if partyActionSlot and (page ~= "PARTY" or mode ~= "active"
           or not (game.save.party or {})[partyActionSlot]) then
+        partyActionSlot, dirty = nil, true
+      end
+      if partyActionSlot and THEME.style == "hgss"
+          and THEME.hgss:partyActionClosed(now) then
         partyActionSlot, dirty = nil, true
       end
       local learn = displayRuntime.moveLearnScreen()

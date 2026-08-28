@@ -387,6 +387,14 @@ return function(ui)
 
   function H:beginPartyAction(now)
     self.partyActionStarted = now
+    self.partyActionClosing = false
+    self.partyActionCloseFrom = nil
+  end
+
+  function H:endPartyAction(now)
+    self.partyActionCloseFrom = self:partyActionOffset(now)
+    self.partyActionStarted = now
+    self.partyActionClosing = true
   end
 
   function H:partyActionAnimating(now)
@@ -396,8 +404,18 @@ return function(ui)
 
   function H:partyActionOffset(now)
     if not self:partyActionAnimating(now) then return 0 end
-    local remaining = 1 - (now - self.partyActionStarted) / 0.14
+    local progress = (now - self.partyActionStarted) / 0.14
+    if self.partyActionClosing then
+      local first = self.partyActionCloseFrom or 0
+      return math.floor(first + (6 - first) * progress * progress + 0.5)
+    end
+    local remaining = 1 - progress
     return math.floor(6 * remaining * remaining + 0.5)
+  end
+
+  function H:partyActionClosed(now)
+    return self.partyActionClosing
+      and now - self.partyActionStarted >= 0.14
   end
 
   function H:actionRow(x, y, w, h, label, kind, offset)
@@ -408,7 +426,9 @@ return function(ui)
     clipped(x, y, w, h, colors.surface)
     box("fill", x + 2, y + 2, w - 4, 2, colors.highlight)
     border(x, y, w, h, colors.outline)
-    box("fill", x + 2, y + 5, 4, h - 10, accent)
+    box("fill", x, y + 2, 5, h - 4, accent)
+    box("fill", x + 1, y + 1, 4, 1, accent)
+    box("fill", x + 1, y + h - 2, 4, 1, accent)
     if kind == "swap" then
       color(accent)
       G.setLineWidth(2)

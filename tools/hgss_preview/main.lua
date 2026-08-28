@@ -154,6 +154,12 @@ function love.load()
   theme:beginPartyAction(1)
   assert(theme:partyActionOffset(1) == 6
     and theme:partyActionOffset(1.14) == 0, "party action animation bounds")
+  theme:endPartyAction(2)
+  assert(theme:partyActionOffset(2) == 0
+    and theme:partyActionOffset(2.139) == 6
+    and theme:partyActionOffset(2.14) == 0
+    and theme:partyActionClosed(2.14), "party action close animation bounds")
+  theme:beginPartyAction(3)
   local sprites = {}
   for slot, id in ipairs(species) do
     local data = love.image.newImageData("local/" .. id .. ".png")
