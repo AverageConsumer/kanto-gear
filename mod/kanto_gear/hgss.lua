@@ -304,8 +304,9 @@ return function(ui)
   function H:detailChevron(x, y, tint)
     local G = ui.graphics
     color(tint)
+    G.setLineWidth(2)
+    G.line(x, y, x + 5, y + 4, x, y + 8)
     G.setLineWidth(1)
-    G.line(x, y, x + 3, y + 2, x, y + 4)
   end
 
   function H:headerBar(title, back, paged)
@@ -404,8 +405,8 @@ return function(ui)
     if kind == "swap" then
       color(accent)
       G.setLineWidth(2)
-      G.line(x + 15, y + 14, x + 29, y + 14, x + 25, y + 10)
-      G.line(x + 29, y + 25, x + 15, y + 25, x + 19, y + 29)
+      G.line(x + 15, y + 17, x + 29, y + 17, x + 25, y + 13)
+      G.line(x + 29, y + 23, x + 15, y + 23, x + 19, y + 27)
       G.setLineWidth(1)
     else
       box("fill", x + 15, y + 22, 3, 7, accent)
@@ -415,7 +416,7 @@ return function(ui)
     end
     local shown = self:fitLabel(label, w - 69)
     self:label(shown, x + 43, y + 13, colors.ink)
-    self:detailChevron(x + w - 14, y + 18, colors.ink)
+    self:detailChevron(x + w - 16, y + 16, colors.ink)
   end
 
   function H:action(index, label, selected)
@@ -629,7 +630,7 @@ return function(ui)
     local ink = self.colors.white
     local quiet = selected and self.colors.white or self.colors.silver
     self:partyName(mon.name, x + 44, y + 4, ink, details and 61 or 67)
-    if details then self:detailChevron(x + 105, y + 8, ink) end
+    if details then self:detailChevron(x + 102, y + 6, ink) end
     if mon.egg then return end
     self:typeBadges(mon, x + 2, y + 42, fainted)
     if mon.gender == "male" then
