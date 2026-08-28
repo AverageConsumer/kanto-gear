@@ -21,4 +21,6 @@ To add a language:
    catch translations that would overflow Kanto Gear's compact UI.
 
 Missing entries safely remain in English. No Kanto Gear source changes are
-needed for another language.
+needed for another language. The companion `main.lua` namespaces its entries
+so they cannot accidentally translate matching text in the base game or
+another mod.

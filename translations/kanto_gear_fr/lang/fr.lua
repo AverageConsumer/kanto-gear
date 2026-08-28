@@ -5,7 +5,7 @@ return {
   ["LOADING AREA"] = "CHARGEMENT ZONE",
   ["KEEP EXPLORING"] = "CONTINUEZ L'EXPLORATION",
   ["MAP"] = "CARTE",
-  ["LOCAL"] = "LOCAL",
+  ["LOCAL"] = "PLAN",
   ["GUIDE"] = "GUIDE",
   ["AREA"] = "ZONE",
   ["TRAINER"] = "DRESSEUR",

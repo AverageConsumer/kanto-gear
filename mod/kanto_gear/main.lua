@@ -1,5 +1,6 @@
 local WIDTH, HEIGHT = 160, 144
 local HEADER = 20
+local STRING_PREFIX = "kanto_gear|"
 local G
 
 local INK, DARK, MID, PAPER
@@ -98,7 +99,10 @@ function THEME:moveUnavailableReason(move)
 end
 
 function THEME:translate(source)
-  return self.strings and self.strings:get(source) or source
+  if not self.strings then return source end
+  return self.strings:get(STRING_PREFIX .. source)
+    or self.strings:get(source)
+    or source
 end
 
 local function formatSpecifierCount(value)

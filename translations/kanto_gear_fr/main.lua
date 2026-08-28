@@ -4,7 +4,7 @@ return function(mod)
   local translations = assert(chunk())
   local count = 0
   for source, translated in pairs(translations) do
-    mod.content.strings:override(source, translated)
+    mod.content.strings:override("kanto_gear|" .. source, translated)
     count = count + 1
   end
   mod.log:info("Kanto Gear Français : %d textes chargés", count)

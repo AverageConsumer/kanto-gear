@@ -272,16 +272,16 @@ end
 theme.strings = {
   get = function(_, source)
     return ({
-      ["LEVEL UP"] = "LEVEL AUF",
-      ["Trainer battle"] = "TRAINER-KAMPF",
-      ["BADGES"] = "ORDEN",
-      ["PP %d"] = "AP",
+      ["kanto_gear|LEVEL UP"] = "LEVEL AUF",
+      ["kanto_gear|Trainer battle"] = "TRAINER-KAMPF",
+      ["kanto_gear|BADGES"] = "ORDEN",
+      ["kanto_gear|PP %d"] = "AP",
       ["TO LOWER"] = "KLEIN",
     })[source]
   end,
 }
 T.eq(fit("LEVEL UP", 20), "LEVEL AUF",
-  "Kanto Gear reads the public Recomp strings registry")
+  "Kanto Gear reads its scoped entries from the Recomp strings registry")
 T.eq(fit("Trainer battle", 20), "TRAINER-KAMPF",
   "battle headers use the catalog's canonical source spelling")
 T.eq(fit("KANTO GEAR", 20), "KANTO GEAR",
@@ -291,7 +291,7 @@ T.eq(theme:format("%s %d/%d", theme:translate("BADGES"), 3, 8),
 T.eq(theme:format("PP %d", 12), "PP 12",
   "malformed dynamic translations fall back without losing values")
 T.eq(theme:translate("TO LOWER"), "KLEIN",
-  "non-tile-font controls use the same translation source")
+  "a full-game translation remains a compatible fallback")
 theme.strings = nil
 for _, stale in ipairs({
   'newDef.type or "STATUS"',
