@@ -34,32 +34,59 @@ end
 
 local party = {
   { name = "FERALIGATR", levelText = "L35", hp = 92, maxHp = 117,
-    hpText = "92/117", status = "PAR", gender = "male" },
+    hpText = "92/117", status = "PAR", gender = "male", type = "WATER" },
   { name = "JUMPLUFF", levelText = "L28", hp = 90, maxHp = 90,
-    hpText = "90/90", gender = "female" },
+    hpText = "90/90", gender = "female", type = "GRASS" },
   { name = "PIDGEOTTO", levelText = "L28", hp = 81, maxHp = 81,
-    hpText = "81/81", gender = "male" },
+    hpText = "81/81", gender = "male", type = "NORMAL" },
   { name = "SANDSLASH", levelText = "L25", hp = 67, maxHp = 80,
-    hpText = "67/80", gender = "male" },
+    hpText = "67/80", gender = "male", type = "GROUND" },
   { name = "DROWZEE", levelText = "L16", hp = 0, maxHp = 49,
-    hpText = "0/49", status = "FNT", gender = "female" },
+    hpText = "0/49", status = "FNT", gender = "female", type = "PSYCHIC" },
   { name = "TAUROS", levelText = "L16", hp = 17, maxHp = 51,
-    hpText = "17/51", status = "SLP", gender = "male" },
+    hpText = "17/51", status = "SLP", gender = "male", type = "NORMAL" },
 }
 
-local crops = {
-  { 70, 195 }, { 665, 235 }, { 70, 455 },
-  { 660, 495 }, { 70, 720 }, { 665, 755 },
-}
+local species = { 160, 189, 17, 28, 96, 128 }
+
+local function fileData(path, name)
+  local file = assert(io.open(path, "rb"))
+  local bytes = file:read("*a")
+  file:close()
+  return love.filesystem.newFileData(bytes, name)
+end
+
+local function spriteView(data)
+  local width, height = data:getDimensions()
+  local left, top, right, bottom = width, height, 0, 0
+  for y = 0, height - 1 do
+    for x = 0, width - 1 do
+      local _, _, _, alpha = data:getPixel(x, y)
+      if alpha > 0.05 then
+        left, top = math.min(left, x), math.min(top, y)
+        right, bottom = math.max(right, x), math.max(bottom, y)
+      end
+    end
+  end
+  return love.graphics.newQuad(left, top, right - left + 1, bottom - top + 1,
+    width, height), right - left + 1, bottom - top + 1
+end
 
 function love.load()
   local chunk = assert(loadfile(root .. "/mod/kanto_gear/hgss.lua"))
+  local font = fileData(root .. "/mod/kanto_gear/nunito.ttf", "nunito.ttf")
   local theme = chunk()({
     graphics = love.graphics, box = box, text = text,
-    fit = fit, glyphs = glyphs, color = color,
+    fit = fit, glyphs = glyphs, color = color, font = font,
   })
-  local source = love.graphics.newImage("local/party-source.png")
-  source:setFilter("nearest", "nearest")
+  local sprites = {}
+  for slot, id in ipairs(species) do
+    local data = love.image.newImageData("local/" .. id .. ".png")
+    local image = love.graphics.newImage(data)
+    image:setFilter("nearest", "nearest")
+    local quad, width, height = spriteView(data)
+    sprites[slot] = { image = image, quad = quad, width = width, height = height }
+  end
   local canvas = love.graphics.newCanvas(240, 216, { dpiscale = 1 })
   canvas:setFilter("nearest", "nearest")
   love.graphics.setCanvas(canvas)
@@ -69,16 +96,17 @@ function love.load()
   theme:label("<", 6, 7, theme.colors.ink)
   theme:label("PARTY", 51, 7, theme.colors.ink)
   theme:label("> 20:04 N", 127, 7, theme.colors.ink)
+  theme:partyBackdrop()
   for slot, mon in ipairs(party) do
     local x, y = theme:partyPosition(slot)
     theme:partyCard(mon, x, y, slot == 1, true,
       function(_, portraitX, portraitY, size)
-        local crop = crops[slot]
-        local quad = love.graphics.newQuad(crop[1], crop[2], 150, 150,
-          source:getDimensions())
+        local sprite = sprites[slot]
+        local scale = size / math.max(sprite.width, sprite.height)
         love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(source, quad, portraitX, portraitY, 0,
-          size / 150, size / 150)
+        love.graphics.draw(sprite.image, sprite.quad,
+          portraitX + (size - sprite.width * scale) / 2,
+          portraitY + (size - sprite.height * scale) / 2, 0, scale, scale)
       end)
   end
   love.graphics.setCanvas()

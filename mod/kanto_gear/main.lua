@@ -1719,9 +1719,13 @@ return function(mod)
     return
   end
 
+  if runtime.filesystem and runtime.filesystem.newFileData then
+    THEME.hgssFont = runtime.filesystem.newFileData(
+      mod:read("nunito.ttf"), "nunito.ttf")
+  end
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
-    glyphs = glyphList, color = color,
+    glyphs = glyphList, color = color, font = THEME.hgssFont,
   })
   assert(THEME.hgss:battleChoice(80, 40) == 1
       and THEME.hgss:battleChoice(125, 105) == 2
@@ -3803,10 +3807,12 @@ return function(mod)
       local status = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content)
       local source = mon and (mon.source or mon)
+      local def = mon and game.data.pokemon[mon.species] or {}
       local view = mon and {
         name = mon.name, egg = compat.partyEgg(source),
         gender = mon.gender, hp = mon.hp, maxHp = mon.maxHp,
-        status = status,
+        status = status, type = mon.types and mon.types[1]
+          or def.types and def.types[1],
         levelText = THEME:format("L%d", mon.level or 0),
         hpText = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0),
       }
@@ -3857,6 +3863,7 @@ return function(mod)
     if THEME.style == "hgss" then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:partyBackdrop()
       for i = 1, 6 do
         local mon = list[i]
         local x, y = THEME.hgss:partyPosition(i)

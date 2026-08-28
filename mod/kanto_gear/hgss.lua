@@ -31,6 +31,8 @@ return function(ui)
       partyDark = { 0.05, 0.31, 0.17, 1 },
       male = { 0.15, 0.55, 0.91, 1 },
       female = { 0.94, 0.35, 0.57, 1 },
+      selected = { 0.91, 0.31, 0.25, 1 },
+      selectedDark = { 0.59, 0.12, 0.11, 1 },
     },
     battleActions = {
       [1] = { x = 22, y = 25, w = 116, h = 62, color = "red" },
@@ -40,11 +42,17 @@ return function(ui)
     },
   }
 
-  local box, text, fit, glyphs = ui.box, ui.text, ui.fit, ui.glyphs
-  local partyFont = ui.graphics.newFont(11, "mono")
-  local partyInfoFont = ui.graphics.newFont(9, "mono")
-  partyFont:setFilter("nearest", "nearest")
-  partyInfoFont:setFilter("nearest", "nearest")
+  local box, text, fit, glyphs, color =
+    ui.box, ui.text, ui.fit, ui.glyphs, ui.color
+  local partyFont = ui.font and ui.graphics.newFont(ui.font, 11)
+    or ui.graphics.newFont(11)
+  local partyNameFont = ui.font and ui.graphics.newFont(ui.font, 9)
+    or ui.graphics.newFont(9)
+  local partyInfoFont = ui.font and ui.graphics.newFont(ui.font, 8)
+    or ui.graphics.newFont(8)
+  partyFont:setFilter("linear", "linear")
+  partyNameFont:setFilter("linear", "linear")
+  partyInfoFont:setFilter("linear", "linear")
 
   function H:label(value, x, y, tint, width, align)
     local G, previous = ui.graphics, ui.graphics.getFont()
@@ -57,6 +65,37 @@ return function(ui)
 
   function H:labelWidth(value)
     return partyFont:getWidth(tostring(value))
+  end
+
+  function H:fitLabel(value, width)
+    local chars = glyphs(tostring(value or ""))
+    if partyFont:getWidth(table.concat(chars)) <= width then
+      return table.concat(chars)
+    end
+    repeat table.remove(chars) until #chars == 0
+      or partyFont:getWidth(table.concat(chars) .. "…") <= width
+    return table.concat(chars) .. "…"
+  end
+
+  function H:partyName(value, x, y, tint, width)
+    local G, previous = ui.graphics, ui.graphics.getFont()
+    local chars = glyphs(tostring(value or ""))
+    local scaleX = 0.9
+    while partyNameFont:getWidth(table.concat(chars)) * scaleX > width
+        and #chars > 0 do table.remove(chars) end
+    local shown = table.concat(chars)
+    if shown ~= tostring(value or "") then
+      while partyNameFont:getWidth(shown .. "…") * scaleX > width
+          and #chars > 0 do
+        table.remove(chars)
+        shown = table.concat(chars)
+      end
+      shown = shown .. "…"
+    end
+    color(tint)
+    G.setFont(partyNameFont)
+    G.print(shown, x, y, 0, scaleX, 1)
+    if previous then G.setFont(previous) end
   end
 
   function H:partyInfo(value, x, y, tint, width, align)
@@ -152,25 +191,65 @@ return function(ui)
     G.circle("line", x, y, 3)
   end
 
-  function H:partyPanel(x, y, w, h, selected)
-    local fill = selected and self.colors.bandLight or self.colors.surface
-    clipped(x + 1, y + 1, w, h, self.colors.shadow)
-    clipped(x, y, w, h, fill)
-    box("fill", x + 38, y + 3, w - 41, 16,
-      selected and self.colors.red or self.colors.green)
-    box("fill", x + 38, y + 19, w - 41, 2,
-      selected and self.colors.redLight or self.colors.greenLight)
-    border(x, y, w, h, selected and self.colors.red or self.colors.silverDark)
-    if selected then
-      box("fill", x + 2, y + 4, 2, h - 8, self.colors.redLight)
-    end
+  local typeColors = {
+    NORMAL = { 0.61, 0.62, 0.54, 1 }, FIRE = { 0.92, 0.34, 0.22, 1 },
+    WATER = { 0.23, 0.52, 0.89, 1 }, ELECTRIC = { 0.93, 0.72, 0.12, 1 },
+    GRASS = { 0.34, 0.68, 0.28, 1 }, ICE = { 0.35, 0.75, 0.79, 1 },
+    FIGHTING = { 0.72, 0.20, 0.18, 1 }, POISON = { 0.62, 0.31, 0.65, 1 },
+    GROUND = { 0.74, 0.55, 0.24, 1 }, FLYING = { 0.46, 0.57, 0.83, 1 },
+    PSYCHIC = { 0.90, 0.28, 0.52, 1 }, BUG = { 0.57, 0.65, 0.15, 1 },
+    ROCK = { 0.64, 0.55, 0.27, 1 }, GHOST = { 0.42, 0.36, 0.66, 1 },
+    DRAGON = { 0.42, 0.31, 0.87, 1 }, DARK = { 0.36, 0.29, 0.25, 1 },
+    STEEL = { 0.57, 0.59, 0.66, 1 }, FAIRY = { 0.89, 0.50, 0.64, 1 },
+  }
+
+  function H:typeColor(typeId)
+    return typeColors[tostring(typeId or "NORMAL"):upper()]
+      or typeColors.NORMAL
   end
 
-  function H:partyPortrait(x, y, selected)
-    clipped(x, y, 33, 44, self.colors.white)
-    box("fill", x + 2, y + 2, 29, 3,
-      selected and self.colors.redLight or self.colors.band)
-    border(x, y, 33, 44, self.colors.silverDark)
+  function H:partyBackdrop()
+    local G = ui.graphics
+    color({ 0.90, 0.95, 0.91, 1 })
+    G.rectangle("fill", 0, 28, 240, 188)
+    color({ 0.80, 0.90, 0.84, 1 })
+    G.circle("fill", 232, 102, 72)
+    G.circle("fill", 2, 202, 62)
+    color({ 0.86, 0.93, 0.88, 1 })
+    G.circle("fill", 232, 102, 54)
+    G.circle("fill", 2, 202, 45)
+  end
+
+  function H:partyPanel(x, y, w, h, selected, typeId)
+    local G, colors = ui.graphics, self.colors
+    local accent = self:typeColor(typeId)
+    color(colors.shadow)
+    G.rectangle("fill", x + 1, y + 2, w, h, 6, 6)
+    color(selected and colors.selected or colors.party)
+    G.rectangle("fill", x, y, w, h, 6, 6)
+    color(selected and colors.selectedDark or colors.partyDark)
+    G.setLineWidth(selected and 2 or 1)
+    G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 6, 6)
+    G.setLineWidth(1)
+    color(selected and colors.redLight or colors.partyLight)
+    G.rectangle("fill", x + 8, y + 3, w - 13, 3, 2, 2)
+    color(accent)
+    G.rectangle("fill", x + 3, y + 7, 4, h - 14, 2, 2)
+  end
+
+  function H:partyPortrait(x, y, selected, typeId)
+    local G, accent = ui.graphics, self:typeColor(typeId)
+    color(self.colors.redLight)
+    G.circle("fill", x + 17, y + 20, 17)
+    color(self.colors.white)
+    G.arc("fill", x + 17, y + 20, 16, 0, math.pi)
+    color(selected and self.colors.selectedDark or self.colors.partyDark)
+    G.line(x + 1, y + 20, x + 33, y + 20)
+    color(self.colors.white)
+    G.circle("fill", x + 17, y + 20, 4)
+    color(selected and self.colors.selectedDark or self.colors.partyDark)
+    G.circle("line", x + 17, y + 20, 4)
+    G.circle("line", x + 17, y + 20, 17)
   end
 
   function H:partyPosition(slot)
@@ -180,30 +259,30 @@ return function(ui)
   end
 
   function H:partyCard(mon, x, y, selected, details, drawPortrait)
-    self:partyPanel(x, y, 112, 52, selected)
+    self:partyPanel(x, y, 112, 52, selected, mon and mon.type)
     if not mon then
       self:label("-", x, y + 18, self.colors.ink, 112, "center")
       return
     end
-    self:partyPortrait(x + 3, y + 4, selected)
-    drawPortrait(mon, x + 5, y + 11, 30)
-    local name = fit(mon.name, details and 9 or 10)
-    self:label(name, x + 41, y + 5, self.colors.white)
-    if details then self:label(">", x + 102, y + 5, self.colors.white) end
+    self:partyPortrait(x + 7, y + 6, selected, mon.type)
+    drawPortrait(mon, x + 8, y + 10, 32)
+    local ink = self.colors.white
+    local quiet = selected and self.colors.white or self.colors.silver
+    self:partyName(mon.name, x + 45, y + 6, ink, details and 57 or 64)
+    if details then self:label(">", x + 102, y + 3, ink) end
     if mon.egg then return end
     if mon.gender == "male" then
-      self:partyInfo("M", x + 100, y + 23, self.colors.male)
+      self:partyInfo("M", x + 100, y + 19, self.colors.male)
     elseif mon.gender == "female" then
-      self:partyInfo("F", x + 100, y + 23, self.colors.female)
+      self:partyInfo("F", x + 100, y + 19, self.colors.female)
     end
-    self:partyInfo(mon.levelText, x + 41, y + 23, self.colors.ink)
+    self:partyInfo(mon.levelText, x + 45, y + 19, quiet)
     if mon.status then
-      self:partyInfo(fit(mon.status, 3), x + 67, y + 23, self.colors.red)
+      self:partyInfo(fit(mon.status, 3), x + 69, y + 19,
+        selected and self.colors.white or self.colors.amberLight)
     end
-    self:partyInfo("HP", x + 41, y + 34, self.colors.green)
-    self:hpBar(x + 55, y + 36, 51, mon.hp, mon.maxHp)
-    self:partyInfo(mon.hpText, x + 41, y + 42, self.colors.ink,
-      65, "right")
+    self:hpBar(x + 45, y + 31, 62, mon.hp, mon.maxHp)
+    self:partyInfo(mon.hpText, x + 45, y + 38, quiet, 62, "right")
   end
 
   function H:partySlot(x, y, count)
