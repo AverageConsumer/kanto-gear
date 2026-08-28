@@ -305,11 +305,13 @@ for _, stale in ipairs({
 end
 local newCanvas = T.love.graphics.newCanvas
 local modCanvas
+local latestCanvas
 T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)
   function canvas:requestImageData() return true end
   function canvas:pollImageData() return nil end
   modCanvas = modCanvas or canvas
+  latestCanvas = canvas
   return canvas
 end
 local run = T.sdk.loadMod(path, { data = T.fixtures.load() })
@@ -1220,11 +1222,23 @@ T.eq(run.loader.hooks:call("battle.caught_marker_visible",
   function() return false end, {}), false,
   "disabling Kanto's icon does not force the native marker")
 run.loader.modOptions.kanto_gear.caught_icon = true
+T.love.graphics.newCanvas = function(...)
+  local canvas = newCanvas(...)
+  function canvas:requestImageData() return true end
+  function canvas:pollImageData() return nil end
+  latestCanvas = canvas
+  return canvas
+end
 for _, theme in ipairs({ "hgss", "modern_light", "modern_dark", "kanto" }) do
   run.loader.modOptions.kanto_gear.theme = theme
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "theme" })
+  T.eq(latestCanvas:getWidth(), theme == "hgss" and 240 or 160,
+    "theme canvas width follows its renderer")
+  T.eq(latestCanvas:getHeight(), theme == "hgss" and 216 or 144,
+    "theme canvas height follows its renderer")
 end
+T.love.graphics.newCanvas = newCanvas
 T.eq(#run.errors, 0, "theme changes apply live without mod errors")
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 swapPressed = false

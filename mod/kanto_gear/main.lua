@@ -6,6 +6,7 @@ local G
 local INK, DARK, MID, PAPER
 local THEME = {
   style = "classic",
+  hgssScale = 1.5,
   classic = {
     { 155, 188, 15 }, { 139, 172, 15 }, { 48, 98, 48 }, { 15, 56, 15 },
   },
@@ -2102,6 +2103,13 @@ return function(mod)
     THEME.style = theme == "hgss" and "hgss"
       or theme == "modern_light" and "modern_light"
       or theme == "modern_dark" and "modern_dark" or "classic"
+    local scale = THEME.style == "hgss" and THEME.hgssScale or 1
+    local width, height = WIDTH * scale, HEIGHT * scale
+    if canvas:getWidth() ~= width or canvas:getHeight() ~= height then
+      canvas = G.newCanvas(width, height, { dpiscale = 1 })
+      canvas:setFilter("nearest", "nearest")
+      readbackPending, displayReady = false, false
+    end
     usePalette(themePalette(theme))
     invalidateLocalMap()
     themeKey, dirty = key, true
@@ -3779,30 +3787,33 @@ return function(mod)
 
   local function partyCard(mon, x, y, selected, details)
     if THEME.style == "hgss" then
-      THEME.hgss:partyPanel(x, y, 75, 36, selected)
+      THEME.hgss:partyPanel(x, y, 112, 54, selected)
       if not mon then
-        text("-", x + 35, y + 14, THEME.hgss.colors.ink)
+        text("-", x + 54, y + 23, THEME.hgss.colors.silverDark)
         return
       end
       local source = mon.source or mon
-      local name = fit(mon.name, details and 6 or 7) .. (details and ">" or "")
+      local name = fit(mon.name, details and 9 or 10)
       if compat.partyEgg(source) then
-        compat.drawPokemonIcon(source, x + 2, y + 3, 24)
-        text(name, x + 29, y + 9, THEME.hgss.colors.ink)
+        compat.drawPokemonIcon(source, x + 5, y + 9, 34)
+        text(name, x + 43, y + 18, THEME.hgss.colors.ink)
+        if details then text(">", x + 101, y + 18, THEME.hgss.colors.red) end
         return
       end
-      if not drawSprite(mon.species, "front", x + 3, y + 5, 24, 24,
+      if not drawSprite(mon.species, "front", x + 5, y + 10, 32, 32,
           nil, source, true) then
-        compat.drawPokemonIcon(source, x + 2, y + 3, 24)
+        compat.drawPokemonIcon(source, x + 5, y + 9, 34)
       end
-      text(name, x + 29, y + 4, THEME.hgss.colors.ink)
-      text(THEME:format("L%d", mon.level or 0), x + 29, y + 14,
+      text(name, x + 43, y + 7, THEME.hgss.colors.ink)
+      if details then text(">", x + 101, y + 7, THEME.hgss.colors.red) end
+      text(THEME:format("L%d", mon.level or 0), x + 43, y + 19,
         THEME.hgss.colors.ink)
       local status = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content)
-      if status then text(fit(status, 3), x + 52, y + 14, THEME.hgss.colors.ink) end
-      THEME.hgss:hpBar(x + 29, y + 25, 41, mon.hp, mon.maxHp)
-      THEME.hgss:expBar(x + 29, y + 31, 41, mon.expProgress)
+      if status then text(fit(status, 3), x + 82, y + 19, THEME.hgss.colors.ink) end
+      text("HP", x + 43, y + 31, THEME.hgss.colors.green)
+      THEME.hgss:hpBar(x + 58, y + 32, 47, mon.hp, mon.maxHp)
+      THEME.hgss:expBar(x + 43, y + 46, 62, mon.expProgress)
       return
     end
     box("fill", x, y, 75, 36, selected and DARK or MID)
@@ -3838,6 +3849,21 @@ return function(mod)
   local function drawParty(list, title, back, activeSpecies, selectedSlot,
                            paged)
     header(title or "PARTY", back, paged)
+    if THEME.style == "hgss" then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      for i = 1, 6 do
+        local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+        local mon = list[i]
+        partyCard(mon, 5 + col * 118, 34 + row * 57,
+          selectedSlot and selectedSlot == i
+            or (not selectedSlot and mon and (mon.active
+              or (activeSpecies and mon.species == activeSpecies))),
+          paged and not back)
+      end
+      G.pop()
+      return
+    end
     for i = 1, 6 do
       local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
       local mon = list[i]
@@ -4951,6 +4977,10 @@ return function(mod)
     G.setBlendMode("alpha")
     G.clear(PAPER[1], PAPER[2], PAPER[3], PAPER[4])
     G.setLineWidth(1)
+    local highResolution = THEME.style == "hgss"
+    if highResolution then
+      G.push(); G.scale(THEME.hgssScale, THEME.hgssScale)
+    end
     if THEME.style == "hgss" then THEME.hgss:backdrop() end
     local mode, top, fade = screenState()
     local learnScreen = screenById("MoveLearnMenu")
@@ -5029,6 +5059,7 @@ return function(mod)
     else
       outline(1, 1, WIDTH - 2, HEIGHT - 2, INK)
     end
+    if highResolution then G.pop() end
     G.setCanvas()
   end
 
@@ -5049,7 +5080,8 @@ return function(mod)
       if not canvas.newImageData then return false end
       local ok, image = pcall(canvas.newImageData, canvas)
       if not ok or not image then return false end
-      shown = companion.push(image, WIDTH, HEIGHT, SECONDARY_BACKGROUND,
+      shown = companion.push(image, canvas:getWidth(), canvas:getHeight(),
+        SECONDARY_BACKGROUND,
         displayPreference())
       displayReady = shown
       if not shown then
@@ -5071,7 +5103,8 @@ return function(mod)
     if readbackPending then
       local image = canvas:pollImageData()
       if image then
-        shown = companion.push(image, WIDTH, HEIGHT, SECONDARY_BACKGROUND,
+        shown = companion.push(image, canvas:getWidth(), canvas:getHeight(),
+          SECONDARY_BACKGROUND,
           displayPreference())
         readbackPending = false
         displayReady = shown
@@ -6119,12 +6152,18 @@ return function(mod)
     end
   end
 
-  local function touchEvent(value)
+  local function touchEvent(value, sourceWidth, sourceHeight)
     local action, sx, sy = value:match("^(%a+),(%d+),(%d+)$")
     local x, y = tonumber(sx), tonumber(sy)
     if not action then
       sx, sy = value:match("^(%d+),(%d+)$")
       x, y, action = tonumber(sx), tonumber(sy), "tap"
+    end
+    if x and sourceWidth and sourceHeight then
+      x = math.max(0, math.min(WIDTH - 1,
+        math.floor(x * WIDTH / sourceWidth)))
+      y = math.max(0, math.min(HEIGHT - 1,
+        math.floor(y * HEIGHT / sourceHeight)))
     end
     if action == "down" and x then
       textSpeedReleasePending = false
@@ -6437,8 +6476,8 @@ return function(mod)
     if dirty then draw(); dirty = false end
     local ww = math.max(1, context.width or G.getWidth())
     local wh = math.max(1, context.height or G.getHeight())
-    local scale = math.min(ww / WIDTH, wh / HEIGHT)
-    local dw, dh = WIDTH * scale, HEIGHT * scale
+    local scale = math.min(ww / canvas:getWidth(), wh / canvas:getHeight())
+    local dw, dh = canvas:getWidth() * scale, canvas:getHeight() * scale
     local dx, dy = math.floor((ww - dw) / 2), math.floor((wh - dh) / 2)
     primaryBottomRect = { x = dx, y = dy, w = dw, h = dh }
 
@@ -6667,7 +6706,9 @@ return function(mod)
         for _ = 1, 32 do
           local event = companion.pollTouch()
           if not event then break end
-          if not bottomOnHandheld() then touchEvent(event) end
+          if not bottomOnHandheld() then
+            touchEvent(event, canvas:getWidth(), canvas:getHeight())
+          end
         end
       end
       refreshBattle()
