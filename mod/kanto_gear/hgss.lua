@@ -42,7 +42,7 @@ return function(ui)
 
   local box, text, fit, glyphs = ui.box, ui.text, ui.fit, ui.glyphs
   local partyFont = ui.graphics.newFont(11)
-  partyFont:setFilter("linear", "linear")
+  partyFont:setFilter("nearest", "nearest")
 
   function H:label(value, x, y, tint, width, align)
     local G, previous = ui.graphics, ui.graphics.getFont()
@@ -142,30 +142,24 @@ return function(ui)
   end
 
   function H:partyPanel(x, y, w, h, selected)
-    local fill = selected and self.colors.partyLight or self.colors.party
+    local fill = selected and self.colors.bandLight or self.colors.surface
     clipped(x + 1, y + 1, w, h, self.colors.shadow)
     clipped(x, y, w, h, fill)
-    box("fill", x + 3, y + 2, w - 6, 3,
-      selected and self.colors.white or self.colors.greenLight)
-    box("fill", x + 3, y + h - 4, w - 6, 2, self.colors.partyDark)
-    border(x, y, w, h, selected and self.colors.redLight
-      or self.colors.partyDark)
+    box("fill", x + 38, y + 3, w - 41, 15,
+      selected and self.colors.red or self.colors.green)
+    box("fill", x + 38, y + 18, w - 41, 2,
+      selected and self.colors.redLight or self.colors.greenLight)
+    border(x, y, w, h, selected and self.colors.red or self.colors.silverDark)
     if selected then
-      border(x + 2, y + 2, w - 4, h - 4, self.colors.white)
+      box("fill", x + 2, y + 4, 2, h - 8, self.colors.redLight)
     end
   end
 
-  function H:partyBall(x, y, selected)
-    local G, colors = ui.graphics, self.colors
-    ui.color(selected and colors.redLight or colors.female)
-    G.circle("fill", x, y, 15)
-    ui.color(colors.white)
-    G.circle("fill", x, y + 4, 14)
-    box("fill", x - 14, y - 1, 28, 4, colors.partyDark)
-    ui.color(colors.white)
-    G.circle("fill", x, y + 1, 5)
-    ui.color(colors.partyDark)
-    G.circle("line", x, y + 1, 5)
+  function H:partyPortrait(x, y, selected)
+    clipped(x, y, 33, 39, self.colors.white)
+    box("fill", x + 2, y + 2, 29, 3,
+      selected and self.colors.redLight or self.colors.band)
+    border(x, y, 33, 39, self.colors.silverDark)
   end
 
   function H:partySlot(x, y, count)

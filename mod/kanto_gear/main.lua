@@ -3807,42 +3807,42 @@ return function(mod)
         return
       end
       local source = mon.source or mon
-      local name = fit(mon.name, details and 10 or 11)
-      THEME.hgss:partyBall(x + 15, y + 14, selected)
+      local name = fit(mon.name, details and 9 or 10)
+      THEME.hgss:partyPortrait(x + 3, y + 4, selected)
       if compat.partyEgg(source) then
-        compat.drawPokemonIcon(source, x + 16, y + 11, 26)
-        THEME.hgss:label(name, x + 44, y + 16, THEME.hgss.colors.white)
+        compat.drawPokemonIcon(source, x + 6, y + 9, 28)
+        THEME.hgss:label(name, x + 41, y + 5, THEME.hgss.colors.white)
         if details then
-          THEME.hgss:label(">", x + 102, y + 16, THEME.hgss.colors.white)
+          THEME.hgss:label(">", x + 102, y + 5, THEME.hgss.colors.white)
         end
         return
       end
-      if not drawSprite(mon.species, "front", x + 16, y + 11, 26, 26,
+      if not drawSprite(mon.species, "front", x + 6, y + 9, 28, 28,
           nil, source, true) then
-        compat.drawPokemonIcon(source, x + 16, y + 10, 26)
+        compat.drawPokemonIcon(source, x + 6, y + 9, 28)
       end
-      THEME.hgss:label(name, x + 44, y + 3, THEME.hgss.colors.white)
+      THEME.hgss:label(name, x + 41, y + 5, THEME.hgss.colors.white)
       if details then
-        THEME.hgss:label(">", x + 102, y + 3, THEME.hgss.colors.white)
+        THEME.hgss:label(">", x + 102, y + 5, THEME.hgss.colors.white)
       end
       if mon.gender == "male" then
-        THEME.hgss:label("M", x + 102, y + 15, THEME.hgss.colors.male)
+        THEME.hgss:label("M", x + 99, y + 20, THEME.hgss.colors.male)
       elseif mon.gender == "female" then
-        THEME.hgss:label("F", x + 102, y + 15, THEME.hgss.colors.female)
+        THEME.hgss:label("F", x + 99, y + 20, THEME.hgss.colors.female)
       end
-      THEME.hgss:label(THEME:format("L%d", mon.level or 0), x + 44, y + 15,
-        THEME.hgss.colors.white)
+      THEME.hgss:label(THEME:format("L%d", mon.level or 0), x + 41, y + 20,
+        THEME.hgss.colors.ink)
       local status = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content)
       if status then
-        THEME.hgss:label(fit(status, 3), x + 77, y + 15,
-          THEME.hgss.colors.white)
+        THEME.hgss:label(fit(status, 3), x + 69, y + 20,
+          THEME.hgss.colors.red)
       end
-      THEME.hgss:label("HP", x + 44, y + 26, THEME.hgss.colors.amberLight)
-      THEME.hgss:hpBar(x + 60, y + 29, 45, mon.hp, mon.maxHp)
+      THEME.hgss:label("HP", x + 41, y + 30, THEME.hgss.colors.green)
+      THEME.hgss:hpBar(x + 57, y + 33, 49, mon.hp, mon.maxHp)
       local hp = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0)
-      THEME.hgss:label(hp, x + 44, y + 35, THEME.hgss.colors.white,
-        61, "right")
+      THEME.hgss:label(hp, x + 41, y + 37, THEME.hgss.colors.ink,
+        65, "right")
       return
     end
     box("fill", x, y, 75, 36, selected and DARK or MID)
