@@ -2727,14 +2727,22 @@ return function(mod)
     local animated = low or charging
     if animated ~= batteryAnimated then nextClock = 0 end
     batteryAnimated = animated
-    box("line", x + 0.5, 6.5, 12, 7, foreground)
-    box("fill", x + 12, 9, 2, 3, foreground)
     local tick = math.floor(love.timer.getTime())
     local segments = state == "charging" and tick % 3 + 1
       or state == "charged" and 3
       or percent and percent > 66 and 3
       or percent and percent > 33 and 2
       or percent and percent > 0 and 1 or 0
+    if THEME.style == "hgss" then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:battery(x * THEME.hgssScale, 9, segments,
+        not low or tick % 2 == 0, foreground)
+      G.pop()
+      return
+    end
+    box("line", x + 0.5, 6.5, 12, 7, foreground)
+    box("fill", x + 12, 9, 2, 3, foreground)
     if not low or tick % 2 == 0 then
       for segment = 0, segments - 1 do
         box("fill", x + 2 + segment * 3, 8, 2, 4, foreground)

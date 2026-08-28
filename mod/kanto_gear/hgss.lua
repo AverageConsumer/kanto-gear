@@ -111,6 +111,25 @@ return function(ui)
     end
   end
 
+  function H:battery(x, y, segments, visible, tint)
+    x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+    tint = tint or self.colors.ink
+    box("fill", x + 2, y, 14, 1, tint)
+    box("fill", x + 2, y + 10, 14, 1, tint)
+    box("fill", x, y + 2, 1, 7, tint)
+    box("fill", x + 17, y + 2, 1, 7, tint)
+    box("fill", x + 1, y + 1, 1, 1, tint)
+    box("fill", x + 16, y + 1, 1, 1, tint)
+    box("fill", x + 1, y + 9, 1, 1, tint)
+    box("fill", x + 16, y + 9, 1, 1, tint)
+    box("fill", x + 18, y + 4, 2, 3, tint)
+    if visible then
+      for segment = 0, segments - 1 do
+        box("fill", x + 3 + segment * 4, y + 3, 3, 5, tint)
+      end
+    end
+  end
+
   function H:fitLabel(value, width)
     local chars = glyphs(tostring(value or ""))
     if partyFont:getWidth(table.concat(chars)) <= width then
@@ -313,11 +332,11 @@ return function(ui)
   function H:partyPosition(slot)
     local index = slot - 1
     local col, row = index % 2, math.floor(index / 2)
-    return 5 + col * 118, 30 + row * 54 + (col == 1 and 4 or 0)
+    return 5 + col * 118, 30 + row * 58 + (col == 1 and 4 or 0)
   end
 
   function H:partyCard(mon, x, y, selected, details, drawPortrait)
-    self:partyPanel(x, y, 112, 52, selected, mon and mon.type)
+    self:partyPanel(x, y, 112, 56, selected, mon and mon.type)
     if not mon then
       self:label("-", x, y + 18, self.colors.ink, 112, "center")
       return
@@ -339,9 +358,11 @@ return function(ui)
       self:partyInfo(fit(mon.status, 3), x + 69, y + 19,
         selected and self.colors.white or self.colors.amberLight)
     end
-    self:hpBar(x + 45, y + 31, 62, mon.hp, mon.maxHp)
-    self:partyInfo(mon.hpText, x + 45, y + 38, quiet, 62, "right")
-    self:expBar(x + 45, y + 49, 62, mon.expProgress)
+    self:partyInfo("HP", x + 45, y + 29, quiet)
+    self:partyInfo(mon.hpText, x + 45, y + 29, quiet, 62, "right")
+    self:hpBar(x + 45, y + 40, 62, mon.hp, mon.maxHp)
+    self:partyInfo("EXP", x + 45, y + 43, quiet)
+    self:expBar(x + 65, y + 48, 42, mon.expProgress)
   end
 
   function H:partySlot(x, y, count)
@@ -350,7 +371,7 @@ return function(ui)
     for row = 0, 2 do
       local slot = row * 2 + col + 1
       local _, top = self:partyPosition(slot)
-      if slot <= count and hy >= top and hy < top + 52 then return slot end
+      if slot <= count and hy >= top and hy < top + 56 then return slot end
     end
   end
 
@@ -365,8 +386,10 @@ return function(ui)
 
   function H:expBar(x, y, w, ratio)
     ratio = math.max(0, math.min(1, ratio or 0))
-    box("fill", x, y, w, 2, self.colors.ink)
-    box("fill", x + 1, y, math.floor((w - 1) * ratio), 1, self.colors.exp)
+    box("fill", x, y, w, 4, self.colors.ink)
+    box("fill", x + 1, y + 1, w - 2, 2, self.colors.silverDark)
+    box("fill", x + 1, y + 1, math.floor((w - 2) * ratio), 2,
+      self.colors.exp)
   end
 
   return H

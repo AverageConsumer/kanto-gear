@@ -105,11 +105,6 @@ function love.load()
   box("fill", 0, 0, 160, 3, theme.colors.green)
   box("fill", 0, 18, 160, 1, theme.colors.silver)
   box("fill", 0, 19, 160, 1, theme.colors.ink)
-  box("line", 143.5, 6.5, 12, 7, theme.colors.ink)
-  box("fill", 155, 9, 2, 3, theme.colors.ink)
-  for segment = 0, 2 do
-    box("fill", 145 + segment * 3, 8, 2, 4, theme.colors.ink)
-  end
   love.graphics.pop()
   theme:label("<", 6, 6, theme.colors.ink)
   local title = "PARTY"
@@ -118,6 +113,7 @@ function love.load()
   theme:label(">", 127.5, 6, theme.colors.ink)
   theme:headerClock("20:04", os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
     141, 67.5, 6)
+  theme:battery(215, 9, 3, true, theme.colors.ink)
   theme:partyBackdrop()
   for slot, mon in ipairs(party) do
     local x, y = theme:partyPosition(slot)
