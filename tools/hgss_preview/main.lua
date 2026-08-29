@@ -288,7 +288,12 @@ function love.load()
   if battleRoot or battleMessage or battlePartyTransition or battlePartyMenu
       or battleMoves or battleMovesTransition or battleMoveInfo
       or battleMoveInfoTransition or battleBag or battleBagTransition then
-    theme:battleBackdrop()
+    -- Match the real app's 160x144 base rendered at the HGSS 1.5x scale.
+    -- Individual screens may deliberately paint a foreground backdrop over it.
+    love.graphics.push()
+    love.graphics.scale(1.5, 1.5)
+    theme:backdrop()
+    love.graphics.pop()
   else
     theme:partyBackdrop()
   end

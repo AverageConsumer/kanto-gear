@@ -395,13 +395,25 @@ return function(ui)
     return x, self:labelWidth(shown)
   end
 
-  function H:backdrop(top)
-    top = top or 0
-    box("fill", 0, top, 160, 144 - top, self.colors.bg)
-    box("fill", 0, top, 160, 2, self.colors.band)
-    box("fill", 0, 132, 160, 12, self.colors.bandLight)
-    box("fill", 0, 132, 51, 2, self.colors.band)
-    box("fill", 109, 140, 51, 2, self.colors.band)
+  local function pokeballBackdrop(colors, width, height, centerY, lineWidth)
+    local G, scale = ui.graphics, width / 240
+    color(colors.partyBg)
+    G.rectangle("fill", 0, 0, width, height)
+    color(colors.partyEmboss)
+    G.setLineWidth(lineWidth)
+    G.circle("line", width / 2, centerY, 94 * scale)
+    G.line(26 * scale, centerY, 104 * scale, centerY)
+    G.line(136 * scale, centerY, 214 * scale, centerY)
+    G.circle("line", width / 2, centerY, 16 * scale)
+    G.circle("line", width / 2, centerY, 7 * scale)
+    G.setLineWidth(1)
+  end
+
+  function H:backdrop()
+    -- This base is rendered at 1.5x by the app. Keep it geometrically
+    -- identical to battleBackdrop so every HGSS screen starts from the same
+    -- Poké Ball visual language.
+    pokeballBackdrop(self.colors, 160, 144, 72, 4 / 3)
   end
 
   function H:focusSurface(selected, base, accent)
@@ -614,9 +626,10 @@ return function(ui)
       and WILD_LEFT + WILD_WIDTH / 2 == FOE_CENTER,
     "HGSS trainer and wild battle strips share centered spacing")
 
-  function H:battleTeamStrip(playerTeam, enemyTeam)
+  function H:battleTeamStrip(playerTeam, enemyTeam, canGoBack)
     local colors = self.colors
     self:panel(5, 3, 230, 25, false)
+    if canGoBack then self:chevron(15, 15, false) end
     for slot = 1, 6 do
       self:battleTeamBall(TEAM_LEFT + 4 + (slot - 1) * 11, 20,
         playerTeam and playerTeam[slot])
@@ -934,17 +947,7 @@ return function(ui)
   end
 
   function H:battleBackdrop()
-    local G, colors = ui.graphics, self.colors
-    color(colors.partyBg)
-    G.rectangle("fill", 0, 0, 240, 216)
-    color(colors.partyEmboss)
-    G.setLineWidth(2)
-    G.circle("line", 120, 108, 94)
-    G.line(26, 108, 104, 108)
-    G.line(136, 108, 214, 108)
-    G.circle("line", 120, 108, 16)
-    G.circle("line", 120, 108, 7)
-    G.setLineWidth(1)
+    pokeballBackdrop(self.colors, 240, 216, 108, 2)
   end
 
   function H:battleBagTransition(mon, drawPortrait, playerTeam, enemyTeam,
@@ -1028,7 +1031,7 @@ return function(ui)
   end
 
   function H:battleMoves(mon, playerTeam, enemyTeam)
-    self:battleTeamStrip(playerTeam, enemyTeam)
+    self:battleTeamStrip(playerTeam, enemyTeam, true)
     for slot = 1, 4 do
       local column, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
       local move = mon.moves[slot] or {}
@@ -1051,9 +1054,8 @@ return function(ui)
     box("fill", 7, 35, 5, 165, accent)
     box("fill", 8, 34, 4, 1, accent)
     box("fill", 8, 200, 4, 1, accent)
-    self:chevron(20, 51, false)
-    self:partyName(self:fitLabel(move.name or "-", 128),
-      36, 42, colors.ink, 128)
+    self:partyName(self:fitLabel(move.name or "-", 144),
+      20, 42, colors.ink, 144)
     self:moveTypeBadge(move, 176, 43)
     box("fill", 16, 63, 208, 1, colors.band)
 
@@ -1103,7 +1105,7 @@ return function(ui)
 
   function H:battleMoveInfo(move, stab, playerTeam, enemyTeam)
     self:battleMoveInfoBody(move, stab)
-    self:battleTeamStrip(playerTeam, enemyTeam)
+    self:battleTeamStrip(playerTeam, enemyTeam, true)
   end
 
   function H:battleMoveInfoTransition(mon, playerTeam, enemyTeam, progress)
@@ -1128,7 +1130,7 @@ return function(ui)
     G.translate(math.floor(240 * (1 - infoProgress) + 0.5), 0)
     self:battleMoveInfoBody(move, self:moveHasStab(mon, move))
     G.pop()
-    self:battleTeamStrip(playerTeam, enemyTeam)
+    self:battleTeamStrip(playerTeam, enemyTeam, true)
   end
 
   function H:battleMovesTransition(mon, drawPortrait, playerTeam, enemyTeam,
@@ -1159,7 +1161,7 @@ return function(ui)
       self:battleMoveCard(move, x, 33 + row * 85,
         mon.moveIndex == slot, self:moveHasStab(mon, move))
     end
-    self:battleTeamStrip(playerTeam, enemyTeam)
+    self:battleTeamStrip(playerTeam, enemyTeam, true)
   end
 
   function H:battlePartyTransition(mon, drawPortrait, playerTeam, enemyTeam,
