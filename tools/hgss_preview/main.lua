@@ -144,9 +144,13 @@ function love.load()
   local fontPath = os.getenv("KANTO_GEAR_PREVIEW_FONT")
     or root .. "/mod/kanto_gear/rounded_mplus.ttf"
   local font = fileData(fontPath, "preview.ttf")
+  local bagIcon = love.graphics.newImage(fileData(
+    root .. "/mod/kanto_gear/kanto_bag.png", "kanto_bag.png"))
+  bagIcon:setFilter("nearest", "nearest")
   local theme = chunk()({
     graphics = love.graphics, box = box, text = text,
     fit = fit, glyphs = glyphs, color = color, font = font,
+    bagIcon = bagIcon,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
   assert(theme:partySlot(4, 22, 6) == 1

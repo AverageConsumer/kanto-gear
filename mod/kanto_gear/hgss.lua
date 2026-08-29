@@ -644,82 +644,8 @@ return function(ui)
   end
 
   function H:battleBagIcon(x, y)
-    local colors = self.colors
-    local tan = { 0.66, 0.43, 0.17, 1 }
-    local tanLight = { 0.84, 0.61, 0.30, 1 }
-    local tanDark = { 0.34, 0.19, 0.10, 1 }
-    local tanShade = { 0.48, 0.29, 0.13, 1 }
-    local strap = { 0.67, 0.22, 0.09, 1 }
-    local strapLight = { 0.94, 0.39, 0.16, 1 }
-    local metal = { 0.67, 0.71, 0.72, 1 }
-    local metalLight = { 0.91, 0.94, 0.94, 1 }
-
-    -- Shoulder straps attach behind the top and hang down around the pack.
-    box("fill", x + 5, y + 4, 6, 3, colors.outline)
-    box("fill", x + 2, y + 6, 6, 5, colors.outline)
-    box("fill", x, y + 9, 4, 17, colors.outline)
-    box("fill", x + 1, y + 24, 5, 5, colors.outline)
-    box("fill", x + 4, y + 28, 6, 4, colors.outline)
-    box("fill", x + 6, y + 5, 4, 2, strap)
-    box("fill", x + 3, y + 7, 4, 3, strapLight)
-    box("fill", x + 1, y + 10, 2, 15, strapLight)
-    box("fill", x + 2, y + 25, 3, 3, strap)
-    box("fill", x + 5, y + 29, 4, 2, strapLight)
-
-    box("fill", x + 19, y + 3, 6, 3, colors.outline)
-    box("fill", x + 22, y + 5, 6, 5, colors.outline)
-    box("fill", x + 25, y + 8, 5, 18, colors.outline)
-    box("fill", x + 23, y + 24, 6, 5, colors.outline)
-    box("fill", x + 20, y + 28, 6, 4, colors.outline)
-    box("fill", x + 20, y + 4, 4, 2, strap)
-    box("fill", x + 23, y + 6, 4, 3, strapLight)
-    box("fill", x + 26, y + 9, 3, 16, strapLight)
-    box("fill", x + 24, y + 25, 4, 3, strap)
-    box("fill", x + 21, y + 29, 4, 2, strapLight)
-
-    -- Compact three-quarter pack: front face left, dark side face right.
-    box("fill", x + 4, y + 6, 19, 1, colors.outline)
-    box("fill", x + 2, y + 7, 23, 3, colors.outline)
-    box("fill", x + 1, y + 10, 25, 5, colors.outline)
-    box("fill", x + 2, y + 14, 24, 10, colors.outline)
-    box("fill", x + 3, y + 24, 22, 4, colors.outline)
-    box("fill", x + 3, y + 28, 21, 2, colors.outline)
-    box("fill", x + 4, y + 7, 17, 20, tan)
-    box("fill", x + 3, y + 8, 18, 19, tan)
-    box("fill", x + 2, y + 10, 19, 17, tan)
-    box("fill", x + 3, y + 14, 18, 10, tan)
-    box("fill", x + 3, y + 27, 19, 1, tanDark)
-    box("fill", x + 4, y + 28, 19, 1, tanDark)
-    box("fill", x + 21, y + 8, 3, 19, tanShade)
-    box("fill", x + 23, y + 10, 1, 15, tanDark)
-    box("fill", x + 20, y + 12, 2, 13, tanShade)
-
-    -- Sloped flap and stitched front compartment.
-    box("fill", x + 5, y + 7, 15, 1, tanLight)
-    box("fill", x + 4, y + 8, 17, 2, tanLight)
-    box("fill", x + 3, y + 10, 18, 3, tanLight)
-    box("fill", x + 2, y + 13, 19, 3, tanLight)
-    box("fill", x + 2, y + 16, 18, 2, tanShade)
-    box("fill", x + 2, y + 18, 18, 8, tan)
-    box("fill", x + 3, y + 26, 17, 1, tanShade)
-    box("fill", x + 6, y + 18, 1, 8, tanShade)
-    box("fill", x + 7, y + 18, 1, 8, tanLight)
-    box("fill", x + 15, y + 18, 1, 8, tanShade)
-    box("fill", x + 16, y + 18, 1, 8, tanLight)
-
-    -- Side pocket and round silver clasp.
-    box("fill", x + 21, y + 17, 3, 9, tanDark)
-    box("fill", x + 22, y + 18, 1, 6, tanShade)
-    box("fill", x + 21, y + 17, 3, 1, tanLight)
-    box("fill", x + 22, y + 24, 1, 1, metal)
-    box("fill", x + 8, y + 13, 5, 1, colors.outline)
-    box("fill", x + 7, y + 14, 7, 5, colors.outline)
-    box("fill", x + 8, y + 19, 5, 1, colors.outline)
-    box("fill", x + 9, y + 14, 3, 1, metalLight)
-    box("fill", x + 8, y + 15, 5, 3, metal)
-    box("fill", x + 9, y + 18, 3, 1, metal)
-    box("fill", x + 9, y + 15, 2, 2, metalLight)
-    box("fill", x + 11, y + 17, 1, 1, colors.silverDark)
+    color({ 1, 1, 1, 1 })
+    ui.graphics.draw(ui.bagIcon, x, y)
   end
 
   function H:battleBagAction(mon, selected, offsetX, offsetY)
@@ -728,7 +654,7 @@ return function(ui)
     G.push()
     G.translate(offsetX, offsetY)
     self:battleActionPanel(6, 149, 68, 52, "amber", selected)
-    self:battleBagIcon(25, 149)
+    self:battleBagIcon(27, 154)
     self:label(mon.bagLabel or "BAG", 6, 183, colors.white, 68, "center")
     G.pop()
   end

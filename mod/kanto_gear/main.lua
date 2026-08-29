@@ -1743,10 +1743,14 @@ return function(mod)
   if runtime.filesystem and runtime.filesystem.newFileData then
     THEME.hgssFont = runtime.filesystem.newFileData(
       mod:read("rounded_mplus.ttf"), "rounded_mplus.ttf")
+    THEME.hgssBagIcon = G.newImage(runtime.filesystem.newFileData(
+      mod:read("kanto_bag.png"), "kanto_bag.png"))
+    THEME.hgssBagIcon:setFilter("nearest", "nearest")
   end
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
+    bagIcon = THEME.hgssBagIcon,
   })
   assert(THEME.hgss:battleChoice(120, 80) == 1
       and THEME.hgss:battleChoice(200, 170) == 2
