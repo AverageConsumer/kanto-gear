@@ -455,8 +455,6 @@ return function(ui)
     local colors = self.colors
     border(x, y, w, h, colors.outline)
     border(x + 1, y + 1, w - 2, h - 2, colors.white)
-    box("fill", x + 2, y + 2, 2, 5, colors.amberLight)
-    box("fill", x + w - 4, y + h - 7, 2, 5, colors.amberLight)
   end
 
   function H:actionRow(x, y, w, h, label, kind, offset, selected)
