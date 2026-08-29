@@ -807,7 +807,7 @@ return function(ui)
       box("fill", x + 7, y + 13, 3, 1, tint)
       box("fill", x + 7, y + 6, 3, 5, colors.outline)
       box("fill", x + 6, y + 7, 5, 3, colors.outline)
-      box("fill", x + 8, y + 8, 1, 1, colors.white)
+      box("fill", x + 7, y + 7, 3, 3, colors.bandLight)
     else
       box("fill", x + 5, y + 2, 6, 1, colors.outline)
       box("fill", x + 4, y + 3, 8, 4, colors.outline)
