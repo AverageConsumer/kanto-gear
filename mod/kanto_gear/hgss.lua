@@ -102,7 +102,7 @@ return function(ui)
   local box, text, fit, glyphs, color =
     ui.box, ui.text, ui.fit, ui.glyphs, ui.color
   local runnerParts = {
-    { 119, 155, 2, 4 }, { 118, 156, 4, 2 }, { 119, 159, 2, 2 },
+    { 119, 155, 3, 5 }, { 118, 156, 5, 3 }, { 119, 159, 2, 2 },
     { 118, 161, 4, 9 },
     { 114, 163, 4, 2 }, { 113, 165, 2, 6 },
     { 121, 163, 2, 2 }, { 122, 164, 3, 2 },
