@@ -992,15 +992,12 @@ return function(ui)
     local disabled = move.disabled
     local accent = disabled and colors.silverDark or self:typeColor(move.type)
     self:panel(x, y, 112, 80, selected and not disabled, accent)
-    box("fill", x + 1, y + 2, 4, 76, accent)
-    box("fill", x + 2, y + 1, 3, 1, accent)
-    box("fill", x + 2, y + 78, 3, 1, accent)
 
     local ink = disabled and colors.silverDark or colors.ink
     self:partyName(self:fitLabel(move.name or "-", 88),
       x + 9, y + 7, ink, 88)
-    self:detailChevron(x + 99, y + 8, ink)
-    self:moveTypeBadge(move, x + 9, y + 25)
+    self:detailChevron(x + 99, y + 11, ink)
+    self:moveTypeBadge(move, x + 9, y + 26)
     self:partyInfo(move.ppLabel or "PP", x + 61, y + 25, colors.green)
     self:partyInfo(move.ppText or "--", x + 76, y + 25,
       ink, 29, "right")
