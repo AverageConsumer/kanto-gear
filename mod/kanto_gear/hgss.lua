@@ -282,9 +282,11 @@ return function(ui)
 
   function H:partyType(value, x, y, tint, width)
     local G, previous = ui.graphics, ui.graphics.getFont()
+    local shown = tostring(value)
     ui.color(tint)
     G.setFont(partyTypeFont)
-    G.printf(tostring(value), x, y, width, "center")
+    G.print(shown, x + math.floor((width - partyTypeFont:getWidth(shown))
+      / 2 + 0.5), y)
     if previous then G.setFont(previous) end
   end
 
