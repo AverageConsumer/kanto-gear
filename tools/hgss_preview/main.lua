@@ -154,6 +154,8 @@ function love.load()
     bagIcon = bagIcon,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  assert(theme.backdropCenterY == 121,
+    "every HGSS Pokeball backdrop shares the Party screen center")
   local blueFocus = theme:focusSurface(true, theme.colors.surface,
     theme.colors.blueLight)
   local redFocus = theme:focusSurface(true, theme.colors.red,

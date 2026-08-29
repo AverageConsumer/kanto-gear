@@ -83,9 +83,11 @@ return function(ui)
     partyBand = { 0.055, 0.105, 0.095, 1 },
     partyEmboss = { 0.10, 0.19, 0.16, 1 },
   }
+  local BACKDROP_CENTER_Y = 121
   local H = {
     palette = lightPalette,
     colors = lightColors,
+    backdropCenterY = BACKDROP_CENTER_Y,
     battleBagOffsetY = 8,
     battleActions = {
       [1] = { x = 22, y = 32, w = 196, h = 122, color = "red" },
@@ -396,10 +398,8 @@ return function(ui)
     return x, self:labelWidth(shown)
   end
 
-  local function pokeballBackdrop(colors, width, height, centerY, lineWidth)
+  local function pokeballEmboss(colors, width, centerY, lineWidth)
     local G, scale = ui.graphics, width / 240
-    color(colors.partyBg)
-    G.rectangle("fill", 0, 0, width, height)
     color(colors.partyEmboss)
     G.setLineWidth(lineWidth)
     G.circle("line", width / 2, centerY, 94 * scale)
@@ -410,11 +410,18 @@ return function(ui)
     G.setLineWidth(1)
   end
 
+  local function pokeballBackdrop(colors, width, height, lineWidth)
+    color(colors.partyBg)
+    ui.graphics.rectangle("fill", 0, 0, width, height)
+    pokeballEmboss(colors, width, BACKDROP_CENTER_Y * width / 240,
+      lineWidth)
+  end
+
   function H:backdrop()
     -- This base is rendered at 1.5x by the app. Keep it geometrically
     -- identical to battleBackdrop so every HGSS screen starts from the same
     -- Poké Ball visual language.
-    pokeballBackdrop(self.colors, 160, 144, 72, 4 / 3)
+    pokeballBackdrop(self.colors, 160, 144, 4 / 3)
   end
 
   function H:focusSurface(selected, base, accent)
@@ -951,7 +958,7 @@ return function(ui)
   end
 
   function H:battleBackdrop()
-    pokeballBackdrop(self.colors, 240, 216, 108, 2)
+    pokeballBackdrop(self.colors, 240, 216, 2)
   end
 
   function H:battleBagTransition(mon, drawPortrait, playerTeam, enemyTeam,
@@ -1288,14 +1295,7 @@ return function(ui)
     color(colors.partyBand)
     G.polygon("fill", 0, 42, 240, 28, 240, 39, 0, 53)
     G.polygon("fill", 0, 194, 240, 180, 240, 191, 0, 205)
-    color(colors.partyEmboss)
-    G.setLineWidth(2)
-    G.circle("line", 120, 121, 94)
-    G.line(26, 121, 104, 121)
-    G.line(136, 121, 214, 121)
-    G.circle("line", 120, 121, 16)
-    G.circle("line", 120, 121, 7)
-    G.setLineWidth(1)
+    pokeballEmboss(colors, 240, BACKDROP_CENTER_Y, 2)
   end
 
   function H:partyPanel(x, y, w, h, selected, fainted, focused)
