@@ -421,7 +421,6 @@ return function(ui)
     clipped(x + 1, y + 1, w, h, colors.shadow)
     clipped(x, y, w, h,
       self:focusSurface(selected, colors.surface, focusAccent))
-    box("fill", x + 2, y + 2, w - 4, 2, colors.highlight)
     border(x, y, w, h, colors.ink)
     if selected then self:focusFrame(x, y, w, h) end
   end
@@ -509,7 +508,6 @@ return function(ui)
     clipped(x + 1, y + 2, w, h, colors.shadow)
     clipped(x, y, w, h,
       self:focusSurface(selected, colors.surface, accent))
-    box("fill", x + 2, y + 2, w - 4, 2, colors.highlight)
     border(x, y, w, h, colors.outline)
     if kind == "swap" or kind == "switch" then
       color(accent)
@@ -659,8 +657,6 @@ return function(ui)
     self:panel(MESSAGE_X, 38, MESSAGE_WIDTH, 165, false)
     clipped(16, 45, 208, 150, colors.bandLight)
     border(16, 45, 208, 150, colors.band)
-    box("fill", 19, 48, 202, 2, colors.highlight)
-
     local contentTop, contentHeight = 53, prompt and 105 or 134
     if title then
       local shown = self:fitPartyInfo(title, 190)
@@ -890,7 +886,6 @@ return function(ui)
     if selected and not disabled then
       clipped(9, y + 2, 222, 27,
         self:focusSurface(true, colors.surface, iconTint))
-      box("fill", 11, y + 3, 218, 1, colors.highlight)
     end
     clipped(14, y + 5, 21, 21, colors.bandLight)
     border(14, y + 5, 21, 21, colors.band)
