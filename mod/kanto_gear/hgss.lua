@@ -403,20 +403,21 @@ return function(ui)
     box("fill", 109, 140, 51, 2, self.colors.band)
   end
 
-  function H:panel(x, y, w, h, selected, accent)
+  function H:focusSurface(selected, fallback)
+    return selected and self.colors.focus or fallback
+  end
+
+  function H:panel(x, y, w, h, selected)
     local colors = self.colors
     clipped(x + 1, y + 1, w, h, colors.shadow)
-    clipped(x, y, w, h, selected and colors.focus or colors.surface)
+    clipped(x, y, w, h, self:focusSurface(selected, colors.surface))
     box("fill", x + 2, y + 2, w - 4, 2, colors.highlight)
     border(x, y, w, h, colors.ink)
-    if selected then
-      box("fill", x, y + 4, 2, math.max(1, h - 8), accent)
-      self:focusFrame(x, y, w, h)
-    end
+    if selected then self:focusFrame(x, y, w, h) end
   end
 
   function H:button(x, y, w, h, label, selected)
-    self:panel(x, y, w, h, selected, self.colors.blue)
+    self:panel(x, y, w, h, selected)
     local shown = fit(label, math.floor((w - 8) / 6))
     text(shown, x + math.floor((w - #glyphs(shown) * 6) / 2),
       y + math.floor((h - 7) / 2), self.colors.ink)
@@ -501,7 +502,7 @@ return function(ui)
       and colors.amberLight or colors.blueLight
     y = y + (offset or 0)
     clipped(x + 1, y + 2, w, h, colors.shadow)
-    clipped(x, y, w, h, selected and colors.focus or colors.surface)
+    clipped(x, y, w, h, self:focusSurface(selected, colors.surface))
     box("fill", x + 2, y + 2, w - 4, 2, colors.highlight)
     border(x, y, w, h, colors.outline)
     box("fill", x + 1, y + 2, 4, h - 4, accent)
@@ -527,18 +528,21 @@ return function(ui)
 
   function H:action(index, label, selected)
     local action = self.battleActions[index]
-    local dark = self.colors[action.color]
-    local light = self.colors[action.color .. "Light"]
+    local colors = self.colors
+    local dark = self:focusSurface(selected, colors[action.color])
+    local light = selected and colors.amberLight
+      or colors[action.color .. "Light"]
     clipped(action.x + 1, action.y + 1, action.w, action.h, self.colors.shadow)
     clipped(action.x, action.y, action.w, action.h, dark)
     box("fill", action.x + 2, action.y + 2, action.w - 4,
       math.max(2, math.floor(action.h * 0.34)), light)
-    border(action.x, action.y, action.w, action.h, self.colors.ink)
+    border(action.x, action.y, action.w, action.h, colors.ink)
     if selected then self:focusFrame(action.x, action.y, action.w, action.h) end
     if index ~= 1 then
       local shown = fit(label, math.floor((action.w - 5) / 6))
       text(shown, action.x + math.floor((action.w - #glyphs(shown) * 6) / 2),
-        action.y + math.floor((action.h - 7) / 2), self.colors.white)
+        action.y + math.floor((action.h - 7) / 2),
+        selected and colors.ink or colors.white)
     end
   end
 
@@ -585,8 +589,9 @@ return function(ui)
 
   function H:battleActionPanel(x, y, w, h, colorName, selected)
     local colors = self.colors
-    local fill = colors[colorName]
-    local light = colors[colorName .. "Light"]
+    local fill = self:focusSurface(selected, colors[colorName])
+    local light = selected and colors.amberLight
+      or colors[colorName .. "Light"]
     battleButtonShape(x + 2, y + 3, w, h, colors.outline)
     battleButtonShape(x, y, w, h, colors.outline)
     battleButtonShape(x + 1, y + 1, w - 2, h - 2, fill)
@@ -719,7 +724,7 @@ return function(ui)
     drawPortrait(mon, 91, 50, 58, false)
     local fight = self:fitLabel(mon.fightLabel or "FIGHT", 96)
     self:label(fight, 120 - math.floor(self:labelWidth(fight) / 2),
-      126, colors.white)
+      126, selected and colors.ink or colors.white)
     G.pop()
   end
 
@@ -735,7 +740,8 @@ return function(ui)
     G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(6, 149, 68, 52, "amber", selected)
     self:battleBagIcon(27, 154)
-    self:label(mon.bagLabel or "BAG", 6, 183, colors.white, 68, "center")
+    self:label(mon.bagLabel or "BAG", 6, 183,
+      selected and colors.ink or colors.white, 68, "center")
     G.pop()
   end
 
@@ -749,7 +755,7 @@ return function(ui)
     self:battleTeamBall(200, 164, true)
     self:battleTeamBall(215, 169, true)
     self:label(mon.partyLabel or "POKEMON", 166, 183,
-      colors.white, 68, "center")
+      selected and colors.ink or colors.white, 68, "center")
     G.pop()
   end
 
@@ -766,9 +772,11 @@ return function(ui)
       end
     end
     for _, part in ipairs(runnerParts) do
-      box("fill", part[1], part[2] + 1, part[3], part[4], colors.white)
+      box("fill", part[1], part[2] + 1, part[3], part[4],
+        selected and colors.ink or colors.white)
     end
-    self:label(mon.runLabel or "RUN", 86, 183, colors.white, 68, "center")
+    self:label(mon.runLabel or "RUN", 86, 183,
+      selected and colors.ink or colors.white, 68, "center")
     G.pop()
   end
 
@@ -990,8 +998,7 @@ return function(ui)
   function H:battleMoveCard(move, x, y, selected, stab)
     local colors = self.colors
     local disabled = move.disabled
-    local accent = disabled and colors.silverDark or self:typeColor(move.type)
-    self:panel(x, y, 112, 80, selected and not disabled, accent)
+    self:panel(x, y, 112, 80, selected and not disabled)
 
     local ink = disabled and colors.silverDark or colors.ink
     self:partyName(self:fitLabel(move.name or "-", 88),
@@ -1295,8 +1302,9 @@ return function(ui)
     local G, colors = ui.graphics, self.colors
     color(colors.shadow)
     G.rectangle("fill", x + 1, y + 2, w, h, 6, 6)
-    color(fainted and colors.fainted
-      or selected and colors.selected or colors.party)
+    local fill = fainted and colors.fainted
+      or selected and colors.selected or colors.party
+    color(self:focusSurface(focused and not fainted, fill))
     G.rectangle("fill", x, y, w, h, 6, 6)
     color(selected and colors.selectedDark or colors.partyDark)
     G.setLineWidth(selected and 2 or 1)
@@ -1383,8 +1391,9 @@ return function(ui)
     end
     self:partyPortrait(x + 5, y + 2, selected, fainted)
     drawPortrait(mon, x + 6, y + 4, 32, fainted)
-    local ink = self.colors.white
-    local quiet = selected and self.colors.white or self.colors.silver
+    local ink = focused and not fainted and self.colors.ink or self.colors.white
+    local quiet = focused and not fainted and self.colors.ink
+      or selected and self.colors.white or self.colors.silver
     self:partyName(mon.name, x + 44, y + 4, ink,
       details == true and 61 or 67)
     if details == true then self:detailChevron(x + 105, y + 8, ink)
@@ -1596,11 +1605,7 @@ return function(ui)
 
   function H:summaryMoveRow(move, x, y, selected)
     local colors = self.colors
-    self:panel(x, y, 228, 34, selected, colors.selected)
-    local accent = self:typeColor(move.type)
-    box("fill", x + 1, y + 2, 4, 30, accent)
-    box("fill", x + 2, y + 1, 3, 1, accent)
-    box("fill", x + 2, y + 32, 3, 1, accent)
+    self:panel(x, y, 228, 34, selected)
     self:moveTypeBadge(move, x + 8, y + 12)
     self:partyName(move.name or "-", x + 64, y + 4, colors.ink, 88)
     self:partyInfo(move.ppLabel or "PP", x + 157, y + 4, colors.green)

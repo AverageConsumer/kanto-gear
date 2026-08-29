@@ -153,6 +153,9 @@ function love.load()
     bagIcon = bagIcon,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  assert(theme:focusSurface(true, theme.colors.red) == theme.colors.focus
+      and theme:focusSurface(false, theme.colors.red) == theme.colors.red,
+    "every HGSS focus surface uses the shared focus color")
   assert(theme:partySlot(4, 22, 6) == 1
       and theme:partySlot(82, 25, 6) == 2
       and theme:partySlot(4, 60, 6) == 3
