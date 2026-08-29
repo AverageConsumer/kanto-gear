@@ -793,10 +793,13 @@ return function(ui)
     self:partyInfo(self:fitPartyInfo(bag.title or "BAG",
       bag.categorized and 96 or 112), bag.categorized and 74 or 65,
       42, colors.ink, bag.categorized and 99 or 114, "center")
-    clipped(187, 40, 40, 16, colors.bandLight)
-    border(187, 40, 40, 16, colors.outline)
-    self:partyInfo(("%d/%d"):format(bag.index or 1, #(bag.items or {})),
-      187, 42, colors.ink, 40, "center")
+    local pageX, pageWidth = 185, 44
+    local pageText = ("%d/%d"):format(bag.index or 1, #(bag.items or {}))
+    clipped(pageX, 39, pageWidth, 18, colors.bandLight)
+    border(pageX, 39, pageWidth, 18, colors.outline)
+    self:partyInfo(pageText, pageX
+      + math.floor((pageWidth - self:partyInfoWidth(pageText)) / 2) + 1,
+      42, colors.ink)
     G.pop()
   end
 
