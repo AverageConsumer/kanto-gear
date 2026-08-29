@@ -102,8 +102,8 @@ return function(ui)
   local box, text, fit, glyphs, color =
     ui.box, ui.text, ui.fit, ui.glyphs, ui.color
   local runnerParts = {
-    { 119, 155, 3, 5 }, { 118, 156, 5, 3 }, { 119, 159, 2, 2 },
-    { 118, 161, 4, 9 },
+    { 119, 155, 3, 5 }, { 118, 156, 5, 3 },
+    { 118, 163, 4, 7 },
     { 114, 163, 4, 2 }, { 113, 165, 2, 6 },
     { 121, 163, 2, 2 }, { 122, 164, 3, 2 },
     { 124, 165, 5, 2 },
@@ -696,12 +696,12 @@ return function(ui)
     self:battleActionPanel(86, 149, 68, 52, "blue", selected)
     for _, offset in ipairs(runnerOutline) do
       for _, part in ipairs(runnerParts) do
-        box("fill", part[1] + offset[1], part[2] + offset[2],
+        box("fill", part[1] + offset[1], part[2] + offset[2] + 1,
           part[3], part[4], colors.outline)
       end
     end
     for _, part in ipairs(runnerParts) do
-      box("fill", part[1], part[2], part[3], part[4], colors.white)
+      box("fill", part[1], part[2] + 1, part[3], part[4], colors.white)
     end
     self:label(mon.runLabel or "RUN", 86, 183, colors.white, 68, "center")
     G.pop()
