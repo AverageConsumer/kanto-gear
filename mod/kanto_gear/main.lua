@@ -1748,14 +1748,14 @@ return function(mod)
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
   })
-  assert(THEME.hgss:battleChoice(80, 40) == 1
-      and THEME.hgss:battleChoice(125, 105) == 2
-      and THEME.hgss:battleChoice(20, 105) == 3
-      and THEME.hgss:battleChoice(80, 120) == 4,
+  assert(THEME.hgss:battleChoice(120, 80) == 1
+      and THEME.hgss:battleChoice(200, 170) == 2
+      and THEME.hgss:battleChoice(40, 170) == 3
+      and THEME.hgss:battleChoice(120, 185) == 4,
     "HGSS battle action hitboxes")
-  assert(THEME.hgss:partySlot(4, 21, 6) == 1
+  assert(THEME.hgss:partySlot(4, 22, 6) == 1
       and THEME.hgss:partySlot(82, 25, 6) == 2
-      and THEME.hgss:partySlot(4, 57, 6) == 3
+      and THEME.hgss:partySlot(4, 60, 6) == 3
       and THEME.hgss:partySlot(82, 101, 5) == nil,
     "HGSS party hitboxes follow staggered cards")
 
@@ -1810,6 +1810,7 @@ return function(mod)
   local fieldChoice = nil
   local partyMoveFrom = nil
   local partyActionSlot = nil
+  local hgssRuntime = {}
   local choiceTop = nil
   local choiceReadyAt = 0
   local choiceNudgeUntil = 0
@@ -1820,6 +1821,54 @@ return function(mod)
   local displayReady = false
   local nextPresentAttempt = 0
   local themeKey = nil
+
+  function hgssRuntime.beginAnimation(kind, data)
+    if THEME.style ~= "hgss" then return end
+    data = data or {}
+    data.kind, data.queued = kind, love.timer.getTime()
+    data.started = nil
+    data.duration = data.duration or 0.34
+    hgssRuntime.animation, dirty = data, true
+  end
+
+  function hgssRuntime.progress(kind)
+    local animation = hgssRuntime.animation
+    if not (animation and animation.kind == kind) then return nil end
+    if not animation.started then
+      animation.started = love.timer.getTime()
+      return 0
+    end
+    return math.max(0, math.min(1,
+      (love.timer.getTime() - animation.started) / animation.duration))
+  end
+
+  function hgssRuntime.partySubmenuActions(menu)
+    local submenu = type(menu and menu.submenu) == "table" and menu.submenu
+      or nil
+    local items = menu and (menu.subItems or (submenu and submenu.items)) or {}
+    local actions = {}
+    for index = 1, math.min(2, #items) do
+      actions[#actions + 1] = { index = index, item = items[index] }
+    end
+    return actions, submenu
+  end
+
+  function hgssRuntime.rootDirection(index, direction)
+    local targets = {
+      [1] = { left = 3, right = 2, up = 1, down = 4 },
+      [2] = { left = 4, right = 2, up = 1, down = 2 },
+      [3] = { left = 3, right = 4, up = 1, down = 3 },
+      [4] = { left = 3, right = 2, up = 1, down = 4 },
+    }
+    return (targets[index] or targets[1])[direction]
+  end
+
+  assert(hgssRuntime.rootDirection(1, "left") == 3
+      and hgssRuntime.rootDirection(1, "down") == 4
+      and hgssRuntime.rootDirection(3, "right") == 4
+      and hgssRuntime.rootDirection(4, "right") == 2
+      and hgssRuntime.rootDirection(2, "up") == 1,
+    "HGSS battle root navigation follows its visible geometry")
 
   local compat = { screens = {
     party = { PartyMenu = true, Gen2PartyMenu = true },
@@ -2137,6 +2186,7 @@ return function(mod)
       or theme == "modern_light" and "modern_light"
       or theme == "modern_dark" and "modern_dark" or "classic"
     THEME.hgss:setVariant(theme == "hgss_dark")
+    if not hgss then hgssRuntime.animation = nil end
     local scale = THEME.style == "hgss" and THEME.hgssScale or 1
     local width, height = WIDTH * scale, HEIGHT * scale
     if canvas:getWidth() ~= width or canvas:getHeight() ~= height then
@@ -3945,6 +3995,34 @@ return function(mod)
   end
 
   local function drawNormalParty()
+    local swapCommit = THEME.style == "hgss"
+      and hgssRuntime.animation
+      and hgssRuntime.animation.kind == "party_swap_commit"
+      and hgssRuntime.progress("party_swap_commit")
+    if THEME.style == "hgss" and (partyMoveFrom or swapCommit) then
+      local source = partyMoveFrom or hgssRuntime.animation.source
+      local list = swapCommit and hgssRuntime.animation.party or partyData()
+      header(THEME:translate("SWAP WITH?"), true)
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:partyBackdrop()
+      local function drawSwapCard(slot, x, y, selected, details)
+        partyCard(list[slot], x, y, selected, details)
+      end
+      local entering = hgssRuntime.progress("party_swap")
+      if entering then
+        THEME.hgss:partySwapTransition(drawSwapCard, source, source,
+          entering, hgssRuntime.animation.actionCount or 2,
+          THEME:translate("STATS"), THEME:translate("SWAP"))
+      elseif swapCommit then
+        THEME.hgss:partySwapCommitTransition(drawSwapCard,
+          hgssRuntime.animation.source, hgssRuntime.animation.target, swapCommit)
+      else
+        THEME.hgss:partySwap(drawSwapCard, source, source)
+      end
+      G.pop()
+      return
+    end
     drawParty(partyData(), partyMoveFrom and "MOVE WHERE?" or "PARTY",
               partyMoveFrom ~= nil,
               nil, partyMoveFrom, partyMoveFrom == nil)
@@ -3997,22 +4075,221 @@ return function(mod)
       and "HEAL WITH" or "HEAL TARGET", true)
   end
 
+  function hgssRuntime.numberLabel(value)
+    value = tonumber(value)
+    if not value then return "--" end
+    if value == math.floor(value) then return tostring(value) end
+    return ("%.1f"):format(value)
+  end
+
+  function hgssRuntime.battleMon()
+    local player = battle and battle.player or {}
+    local def = game.data.pokemon[player.species] or {}
+    local view = {
+      species = player.species, source = player,
+      name = player.name or def.name or player.species or "POKEMON",
+      types = def.types or {},
+      fightLabel = THEME:translate("FIGHT"),
+      bagLabel = THEME:translate("BAG"),
+      partyLabel = THEME:translate("POKEMON"),
+      runLabel = THEME:translate("RUN"),
+      moveIndex = battle.moveIndex or 1,
+      moves = {},
+    }
+    for slot = 1, 4 do
+      local move = (battle.moves or {})[slot] or {}
+      view.moves[slot] = {
+        id = move.id,
+        name = THEME:moveName(move, game.data),
+        type = move.type,
+        typeLabel = THEME:typeName(move.type, mod.content),
+        ppLabel = THEME:translate("PP"),
+        ppText = THEME:format("%d/%d", move.pp or 0, move.maxPp or 0),
+        powerLabel = THEME:translate("PWR"),
+        power = move.displayPower,
+        powerText = hgssRuntime.numberLabel(move.displayPower),
+        accuracyLabel = THEME:translate("ACC"),
+        accuracyText = hgssRuntime.numberLabel(move.hitChance or move.accuracy),
+        effectiveness = move.effectiveness,
+        disabled = THEME:moveUnavailableReason(move) ~= nil,
+        descriptionLines = compat.moveInfoLines(move,
+          game.data.moves[move.id] or {}, battleState() and battleState().ruleset),
+      }
+    end
+    return view
+  end
+
+  function hgssRuntime.battlePortrait(mon, x, y, size, fainted)
+    if not drawSprite(mon.species, "front", x, y, size, size,
+        nil, mon.source or mon, true, fainted and 0.48 or nil) then
+      compat.drawPokemonIcon(mon.source or mon, x, y, size,
+        fainted and 0.48 or nil)
+    end
+  end
+
+  function hgssRuntime.battleTeams()
+    local playerTeam, enemyTeam = {}, {}
+    for slot, mon in ipairs(battle.party or {}) do
+      playerTeam[slot] = (mon.hp or 0) > 0
+    end
+    local raw = battleState()
+    local enemies = raw and (raw.enemyParty
+      or raw.battle and raw.battle.enemyParty) or nil
+    if enemies then
+      for slot, mon in ipairs(enemies) do
+        enemyTeam[slot] = (mon.hp or 0) > 0
+      end
+    elseif battle.enemy then
+      enemyTeam[1] = (battle.enemy.hp or 0) > 0
+    end
+    return playerTeam, enemyTeam
+  end
+
+  function hgssRuntime.clock()
+    local now = os.time()
+    return compactClock(mod.datetime:time(game,
+      compat.clockTimestamp(game, mod.options:get("clock_source"), now))),
+      compat.isGen2() and compat.timePeriod(game.world) or nil
+  end
+
+  function hgssRuntime.bagView(menu)
+    local odds, kinds = {}, {}
+    for _, item in ipairs(battle.items or {}) do
+      odds[item.id], kinds[item.id] = item.catchChance,
+        item.ball and "ball" or item.needsTarget and "medicine" or nil
+    end
+    local items = {}
+    for index, item in ipairs(menu.items or {}) do
+      items[index] = {
+        value = item.value, label = item.label or tostring(index),
+        right = item.right, cancel = item.cancel,
+        catchChance = assist("catch_odds") and odds[item.value] or nil,
+        catchLabel = THEME:translate("CATCH"), icon = kinds[item.value],
+      }
+    end
+    return {
+      title = menu.title or "BAG", items = items,
+      index = menu.index or 1, categorized = categorizedBag(menu),
+    }
+  end
+
+  function hgssRuntime.summaryView(summary)
+    local view = compat.summary.view(summary, game)
+    if not view then return nil end
+    local mon, def = view.mon, view.def
+    local types = view.types or {}
+    local level = view.level or 0
+    local growth = def.growthRate
+      and mod.content.growth_rates:get(def.growthRate)
+      or mod.content.growth_rates:get("MEDIUM_FAST")
+    local currentLevelExp = growth and growth.expForLevel
+      and growth.expForLevel(level) or view.experience
+    local nextLevelExp = level < 100 and growth and growth.expForLevel
+      and growth.expForLevel(level + 1) or currentLevelExp
+    local nextValue = level < 100 and (view.nextExp
+      or math.max(0, nextLevelExp - view.experience)) or nil
+    local out = {
+      source = mon, species = mon.species, name = view.name,
+      gender = mon.gender, statusId = THEME:statusName(view.status, mod.content),
+      type = types[1], type2 = types[2] or types[1],
+      typeLabel = THEME:typeName(types[1], mod.content),
+      type2Label = THEME:typeName(types[2] or types[1], mod.content),
+      dexText = THEME:format("NO.%03d", view.dex or 0),
+      levelText = THEME:format("L%d", level),
+      hp = view.hp, maxHp = view.maxHp,
+      hpLabel = THEME:translate("HP"),
+      hpText = THEME:format("%d/%d", view.hp, view.maxHp),
+      expLabel = THEME:translate("EXP"),
+      expProgress = level >= 100 and 1
+        or progressRatio(view.experience, currentLevelExp, nextLevelExp),
+      nextLabel = THEME:translate("NEXT"),
+      nextValue = nextValue and tostring(nextValue) or nil,
+      infoLabel = view.gen2 and THEME:translate("ITEM") or "OT",
+      infoText = view.gen2 and (view.item or "---") or view.ot,
+      info2Label = view.gen2 and nil or "ID",
+      info2Text = view.gen2 and nil or ("%05d"):format(view.otId or 0),
+      statsTitle = THEME:translate("BATTLE STATS"),
+      moves = {}, stats = {},
+      memoTitle = THEME:translate("TRAINER MEMO"),
+      otLabel = THEME:translate("ORIGINAL TRAINER"),
+      otText = view.ot,
+      idLabel = THEME:translate("ID NO."),
+      idText = ("%05d"):format(view.otId or 0),
+      growthTitle = THEME:translate("GROWTH RECORD"),
+      totalExpLabel = THEME:translate("TOTAL EXP"),
+      experienceText = tostring(view.experience or 0),
+      nextLevelLabel = THEME:translate("NEXT LEVEL"),
+      nextLevelText = level < 100 and THEME:format("L%d", level + 1) or "MAX",
+      nextExpLabel = THEME:translate("TO NEXT"),
+    }
+    local stats = view.stats or {}
+    local rows = view.gen2 and {
+      { "ATTACK", stats.attack }, { "DEFENSE", stats.defense },
+      { "SPEED", stats.speed }, { "SP. ATK", stats.specialAttack },
+      { "SP. DEF", stats.specialDefense }, { "MAX HP", view.maxHp },
+    } or {
+      { "ATTACK", stats.attack }, { "SPEED", stats.speed },
+      { "DEFENSE", stats.defense }, { "SPECIAL", stats.special },
+    }
+    for _, row in ipairs(rows) do
+      out.stats[#out.stats + 1] = {
+        label = THEME:translate(row[1]), value = row[2] or 0,
+      }
+    end
+    for slot = 1, 4 do
+      local source = mon.moves and mon.moves[slot] or {}
+      local move = game.data.moves[source.id] or {}
+      out.moves[slot] = {
+        name = move.name or source.id or "-", type = move.type,
+        typeLabel = THEME:typeName(move.type, mod.content),
+        ppLabel = THEME:translate("PP"),
+        ppText = source.id and THEME:format("%d/%d",
+          source.pp or 0, view.moves[slot].maxPp or move.pp or 0) or "--",
+        powerLabel = THEME:translate("PWR"),
+        powerText = move.power and move.power > 0 and tostring(move.power) or "--",
+        accuracyLabel = THEME:translate("ACC"),
+        accuracyText = move.accuracy and tostring(move.accuracy) or "--",
+      }
+    end
+    out.moveIndex = summary.moveIndex or 1
+    return out, view
+  end
+
+  function hgssRuntime.summaryPortrait(mon, x, y, size, fainted)
+    if not drawSprite(mon.species, "front", x, y, size, size,
+        nil, mon.source or mon, true, fainted and 0.48 or nil) then
+      compat.drawPokemonIcon(mon.source or mon, x, y, size,
+        fainted and 0.48 or nil)
+    end
+  end
+
   local function drawBattleRoot()
     if THEME.style == "hgss" then
-      header(battle.kind == "wild" and "Wild battle"
-        or battle.kind == "trainer" and "Trainer battle" or "BATTLE")
-      for index, label in ipairs({ "FIGHT", "PKMN", "ITEM", "RUN" }) do
-        THEME.hgss:action(index, label, battle.menuIndex == index)
+      local mon = hgssRuntime.battleMon()
+      local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      local movesClose = hgssRuntime.progress("battle_moves_close")
+      local bagClose = hgssRuntime.progress("battle_bag_close")
+      local partyClose = hgssRuntime.progress("battle_party_close")
+      if movesClose then
+        THEME.hgss:battleMovesTransition(mon, hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, 1 - movesClose)
+      elseif bagClose and hgssRuntime.lastBag then
+        THEME.hgss:battleBagTransition(mon, hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, hgssRuntime.lastBag, 1 - bagClose)
+      elseif partyClose then
+        local list = battle.party or {}
+        local clock, period = hgssRuntime.clock()
+        THEME.hgss:battlePartyTransition(mon, hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, function(slot, x, y, focused, details)
+            partyCard(list[slot], x, y, focused, details)
+          end, 1 - partyClose, THEME:translate("PARTY"), clock, period)
+      else
+        THEME.hgss:battleRoot(mon, hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, battle.menuIndex)
       end
-      local player = battle.player or {}
-      if not drawSprite(player.species, "front", 31, 41, 28, 28,
-          nil, player, true)
-          and not compat.drawPokemonIcon(player, 31, 41, 28) then
-        text("?", 41, 50, THEME.hgss.colors.white)
-      end
-      text("FIGHT", 69, 43, THEME.hgss.colors.white, 2)
-      text(fit(player.name or player.species or "POKEMON", 10),
-        68, 68, THEME.hgss.colors.white)
+      G.pop()
       return
     end
     header(battle.kind == "wild" and "Wild battle"
@@ -4105,6 +4382,26 @@ return function(mod)
   end
 
   local function drawMoves()
+    if THEME.style == "hgss" then
+      local mon = hgssRuntime.battleMon()
+      local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      local progress = hgssRuntime.progress("battle_moves")
+      local closing = hgssRuntime.progress("battle_moves_close")
+      local infoClose = hgssRuntime.progress("battle_move_info_close")
+      if infoClose then
+        THEME.hgss:battleMoveInfoTransition(mon, playerTeam, enemyTeam,
+          1 - infoClose)
+      elseif progress or closing then
+        THEME.hgss:battleMovesTransition(mon, hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, closing and 1 - closing or progress)
+      else
+        THEME.hgss:battleMoves(mon, playerTeam, enemyTeam)
+      end
+      G.pop()
+      return
+    end
     header("MOVES", true)
     local grid = companionMoveGrid(battleState())
     for i = 1, 4 do
@@ -4291,6 +4588,24 @@ return function(mod)
   end
 
   local function drawMoveInfo(move)
+    if THEME.style == "hgss" and battle and battle.prompt == "moves" then
+      local mon = hgssRuntime.battleMon()
+      local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+      local progress = hgssRuntime.progress("battle_move_info")
+      local closing = hgssRuntime.progress("battle_move_info_close")
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      if progress or closing then
+        THEME.hgss:battleMoveInfoTransition(mon, playerTeam, enemyTeam,
+          closing and 1 - closing or progress)
+      else
+        local selected = mon.moves[mon.moveIndex] or mon.moves[1] or {}
+        THEME.hgss:battleMoveInfo(selected,
+          THEME.hgss:moveHasStab(mon, selected), playerTeam, enemyTeam)
+      end
+      G.pop()
+      return
+    end
     local def = game and game.data and game.data.moves
       and game.data.moves[move.id] or {}
     local raw = battleState()
@@ -4325,6 +4640,27 @@ return function(mod)
 
   local function drawBattleParty(menu)
     if menu.submenu then
+      if THEME.style == "hgss" then
+        local mon = (battle.party or {})[menu.index]
+        if not mon then return end
+        local actions, submenu = hgssRuntime.partySubmenuActions(menu)
+        local selected = menu.subIndex or (submenu and submenu.index)
+          or (actions[1] and actions[1].index)
+        header(THEME:translate("PARTY"), true)
+        G.push()
+        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:partyBackdrop()
+        partyCard(mon, 64, THEME.hgss:partyActionHeroY(#actions), true, false)
+        for row, action in ipairs(actions) do
+          local x, y, w, h = THEME.hgss:partyActionRow(row, #actions)
+          local label = action.item.label or tostring(action.index)
+          THEME.hgss:actionRow(x, y, w, h, label,
+            row == 1 and "switch" or "stats", 0,
+            selected == action.index)
+        end
+        G.pop()
+        return
+      end
       header(fit(((battle.party or {})[menu.index] or {}).name or "POKEMON", 12), true)
       local submenu = type(menu.submenu) == "table" and menu.submenu or nil
       local items = menu.subItems or (submenu and submenu.items) or {}
@@ -4342,6 +4678,26 @@ return function(mod)
       if not ok then return end
     end
     local selected = not cancel and menu.index or nil
+    if THEME.style == "hgss" then
+      local list = battle.party or {}
+      local progress = hgssRuntime.progress("battle_party")
+      if progress then
+        local mon = hgssRuntime.battleMon()
+        local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+        local clock, period = hgssRuntime.clock()
+        G.push()
+        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:battlePartyTransition(mon, hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, function(slot, x, y, focused, details)
+            partyCard(list[slot], x, y,
+              selected and selected == slot or not selected and focused,
+              details)
+          end, progress, cancel and THEME:translate("CANCEL")
+            or THEME:translate("PARTY"), clock, period)
+        G.pop()
+        return
+      end
+    end
     drawParty(battle.party or {}, cancel and "CANCEL" or "PARTY", true, nil,
       selected)
   end
@@ -4424,6 +4780,23 @@ return function(mod)
   end
 
   local function drawBattleItems(menu)
+    if THEME.style == "hgss" then
+      local view = hgssRuntime.bagView(menu)
+      local mon = hgssRuntime.battleMon()
+      local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+      hgssRuntime.lastBag = view
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      local progress = hgssRuntime.progress("battle_bag")
+      if progress then
+        THEME.hgss:battleBagTransition(mon, hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, view, progress)
+      else
+        THEME.hgss:battleBag(view, playerTeam, enemyTeam)
+      end
+      G.pop()
+      return
+    end
     header(menu.title or "ITEMS", true, categorizedBag(menu))
     local odds = {}
     if assist("catch_odds") then
@@ -4454,6 +4827,47 @@ return function(mod)
   end
 
   local function drawBattleSummary(summary)
+    if THEME.style == "hgss" then
+      local mon, view = hgssRuntime.summaryView(summary)
+      if not mon then return end
+      local pageLabels = { "STATS", "MOVES", "TRAINER" }
+      header(THEME:format("%s %d/%d",
+        THEME:translate(pageLabels[view.page] or "STATS"),
+        view.page, view.pages), true, true)
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      local open = hgssRuntime.progress("summary_open")
+      local pageProgress = hgssRuntime.progress("summary_page")
+      if open and view.page == 1 then
+        THEME.hgss:summaryTransition(mon, hgssRuntime.summaryPortrait, open,
+          hgssRuntime.animation.actionCount or 2,
+          THEME:translate("STATS"), THEME:translate("SWAP"))
+      elseif pageProgress and hgssRuntime.animation.from == 1
+          and hgssRuntime.animation.to == 2 then
+        THEME.hgss:summaryMovesTransition(mon, hgssRuntime.summaryPortrait,
+          pageProgress)
+      elseif pageProgress and hgssRuntime.animation.from == 2
+          and hgssRuntime.animation.to == 1 then
+        THEME.hgss:summaryMovesTransition(mon, hgssRuntime.summaryPortrait,
+          1 - pageProgress)
+      elseif pageProgress and hgssRuntime.animation.from == 2
+          and hgssRuntime.animation.to == 3 then
+        THEME.hgss:summaryMemoTransition(mon, hgssRuntime.summaryPortrait,
+          pageProgress)
+      elseif pageProgress and hgssRuntime.animation.from == 3
+          and hgssRuntime.animation.to == 2 then
+        THEME.hgss:summaryMemoTransition(mon, hgssRuntime.summaryPortrait,
+          1 - pageProgress)
+      elseif view.page == 1 then
+        THEME.hgss:summaryPage(mon, hgssRuntime.summaryPortrait)
+      elseif view.page == 2 then
+        THEME.hgss:summaryMoves(mon, hgssRuntime.summaryPortrait)
+      else
+        THEME.hgss:summaryMemo(mon, hgssRuntime.summaryPortrait)
+      end
+      G.pop()
+      return
+    end
     local view = compat.summary.view(summary, game)
     local mon, def = view.mon, view.def
     local page, level = view.page, view.level
@@ -5075,6 +5489,9 @@ return function(mod)
     end
     if THEME.style == "hgss" then THEME.hgss:backdrop() end
     local mode, top, fade = screenState()
+    local summary = compat.isScreen(top, "summary") and top or nil
+    local hgssSummary = THEME.style == "hgss" and summary
+      and compat.summary.supports(summary, game)
     local learnScreen = screenById("MoveLearnMenu")
       or screenById("Gen2MoveDeleter")
     local learn = displayRuntime.moveLearnScreen()
@@ -5099,6 +5516,8 @@ return function(mod)
       drawDialogueChoice(choice, labels, battle and battle.message, choiceField)
     elseif battle then
       drawBattle()
+    elseif hgssSummary then
+      drawBattleSummary(summary)
     elseif pcKind then
       drawPc(pcKind, pcRoot, top)
     elseif fieldChoice then
@@ -5127,6 +5546,7 @@ return function(mod)
       drawTools()
     end
     if not learn and not naming and not battle and not choice
+        and not hgssSummary
         and not (pcKind and mode == "locked")
         and mode ~= "title" and mode ~= "active" then
       drawDim(fade, mode == "textbox" and textPrompt(top))
@@ -5278,11 +5698,54 @@ return function(mod)
       or (battle and nextBattle and (
         (battle.player and battle.player.hp) ~= (nextBattle.player and nextBattle.player.hp)
         or (battle.enemy and battle.enemy.hp) ~= (nextBattle.enemy and nextBattle.enemy.hp)))
+    if THEME.style == "hgss" and battle and nextBattle then
+      local oldParty, newParty = battle.partyIndex ~= nil,
+        nextBattle.partyIndex ~= nil
+      local oldBag, newBag = battle.itemIndex ~= nil,
+        nextBattle.itemIndex ~= nil
+      if battle.prompt ~= "moves" and nextBattle.prompt == "moves" then
+        if not (hgssRuntime.animation
+            and hgssRuntime.animation.kind == "battle_moves") then
+          hgssRuntime.beginAnimation("battle_moves")
+        end
+      elseif battle.prompt == "moves" and nextBattle.prompt == "menu" then
+        if not (hgssRuntime.animation
+            and hgssRuntime.animation.kind == "battle_moves_close") then
+          hgssRuntime.beginAnimation("battle_moves_close")
+        end
+      elseif not oldParty and newParty then
+        if not (hgssRuntime.animation
+            and hgssRuntime.animation.kind == "battle_party") then
+          hgssRuntime.beginAnimation("battle_party", { duration = 0.42 })
+        end
+      elseif oldParty and not newParty and nextBattle.prompt == "menu" then
+        if not (hgssRuntime.animation
+            and hgssRuntime.animation.kind == "battle_party_close") then
+          hgssRuntime.beginAnimation("battle_party_close")
+        end
+      elseif not oldBag and newBag then
+        if not (hgssRuntime.animation
+            and hgssRuntime.animation.kind == "battle_bag") then
+          hgssRuntime.beginAnimation("battle_bag")
+        end
+      elseif oldBag and not newBag and nextBattle.prompt == "menu" then
+        if not (hgssRuntime.animation
+            and hgssRuntime.animation.kind == "battle_bag_close") then
+          hgssRuntime.beginAnimation("battle_bag_close")
+        end
+      elseif battle.summaryPage and nextBattle.summaryPage
+          and battle.summaryPage ~= nextBattle.summaryPage then
+        hgssRuntime.beginAnimation("summary_page", {
+          from = battle.summaryPage, to = nextBattle.summaryPage,
+        })
+      end
+    end
     battle = nextBattle
     if changed then
       if not battle then
         moveInfo = nil
         battleInfoDetail = nil
+        hgssRuntime.animation = nil
       else
         radarOpen = false
       end
@@ -5306,6 +5769,9 @@ return function(mod)
     elseif battleInfoDetail then
       battleInfoDetail = nil
     elseif moveInfo then
+      if battle and battle.prompt == "moves" then
+        hgssRuntime.beginAnimation("battle_move_info_close")
+      end
       moveInfo = nil
     elseif battle and battle.prompt == "moves" then
       submit("back")
@@ -5450,7 +5916,16 @@ return function(mod)
       return
     end
     if compat.isScreen(top, "summary") then
-      if y < HEADER and x < 24 then
+      if THEME.style == "hgss" then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        if hy < 30 and hx < 27 then
+          press("b")
+        elseif hy < 30 and hx < 82 then
+          press("left")
+        elseif hy < 30 and hx < 139 then
+          press("right")
+        end
+      elseif y < HEADER and x < 24 then
         press("b")
       elseif compat.summary.supports(top, game)
           and inside(x, y, 103, 125, 53, 15) then
@@ -5466,17 +5941,34 @@ return function(mod)
       if y < HEADER and x < 24 then
         press("b")
       elseif party.submenu then
-        local submenu = type(party.submenu) == "table" and party.submenu or nil
-        local items = party.subItems or (submenu and submenu.items) or {}
-        local index = math.floor((y - 29) / 35) + 1
-        if x >= 14 and x < 146 and index >= 1
-            and index <= #items then
-          if submenu then submenu.index = index else party.subIndex = index end
-          press("a")
+        if THEME.style == "hgss" then
+          local actions, submenu = hgssRuntime.partySubmenuActions(party)
+          local row = THEME.hgss:partyActionAt(
+            x * THEME.hgssScale, y * THEME.hgssScale, #actions)
+          local action = row and actions[row]
+          if action then
+            if submenu then submenu.index = action.index
+            else party.subIndex = action.index end
+            press("a")
+          end
+        else
+          local submenu = type(party.submenu) == "table" and party.submenu or nil
+          local items = party.subItems or (submenu and submenu.items) or {}
+          local index = math.floor((y - 29) / 35) + 1
+          if x >= 14 and x < 146 and index >= 1
+              and index <= #items then
+            if submenu then submenu.index = index else party.subIndex = index end
+            press("a")
+          end
         end
       elseif y >= 23 then
-        local col, row = x >= 81 and 1 or 0, math.floor((y - 23) / 39)
-        local slot = row * 2 + col + 1
+        local slot
+        if THEME.style == "hgss" then
+          slot = THEME.hgss:partySlot(x, y, #(battle.party or {}))
+        else
+          local col, row = x >= 81 and 1 or 0, math.floor((y - 23) / 39)
+          slot = row * 2 + col + 1
+        end
         if (battle.party or {})[slot] then
           party.index = slot
           press("a")
@@ -5486,6 +5978,27 @@ return function(mod)
     end
     local menu = compat.battleBagMenu(top)
     if menu then
+      if THEME.style == "hgss" then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        if hy < 63 then
+          if hx < 29 then
+            press("b")
+          elseif categorizedBag(top) and hx >= 62 and hx < 92 then
+            press("left")
+          elseif categorizedBag(top) and hx >= 158 and hx < 187 then
+            press("right")
+          end
+        elseif hx >= 7 and hx < 233 and hy >= 66 and hy < 197 then
+          local view = hgssRuntime.bagView(menu)
+          local first, count = THEME.hgss:battleBagWindow(view)
+          local row = math.floor((hy - 66) / 33) + 1
+          if row >= 1 and row <= count then
+            compat.selectBattleBagItem(top, first + row - 1)
+            press("a")
+          end
+        end
+        return
+      end
       if y < HEADER then
         if categorizedBag(top) then
           if x < 18 then
@@ -5563,6 +6076,31 @@ return function(mod)
       return
     end
     if battle.prompt == "moves" then
+      if THEME.style == "hgss" then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        if hy < 30 and hx < 28 then back(); return end
+        if hy < 33 or hy >= 198 then return end
+        local column = hx >= 120 and 1 or 0
+        local row = hy >= 118 and 1 or 0
+        local slot = row * 2 + column + 1
+        local move = battle.moves[slot]
+        if not move then return end
+        local disabled = THEME:moveUnavailableReason(move) ~= nil
+        local cardX, cardY = 6 + column * 116, 33 + row * 85
+        if assist("move_details") and hx >= cardX + 94
+            and hx < cardX + 112 and hy >= cardY
+            and hy < cardY + 24 then
+          local raw = battleState()
+          if raw and not disabled then raw.moveIndex = slot end
+          battle.moveIndex = slot
+          moveInfo = move
+          hgssRuntime.beginAnimation("battle_move_info")
+          dirty = true
+        elseif not disabled then
+          submit("move", { slot = slot })
+        end
+        return
+      end
       local grid = companionMoveGrid(battleState())
       local slot, cardX, cardY = moveSlotAt(
         x, y, #(battle.moves or {}), grid)
@@ -5575,6 +6113,7 @@ return function(mod)
         local raw = battleState()
         if raw and not disabled then raw.moveIndex = slot end
         moveInfo = move
+        hgssRuntime.beginAnimation("battle_move_info")
         dirty = true
       elseif not disabled then
         submit("move", { slot = slot })
@@ -5586,7 +6125,8 @@ return function(mod)
     if fullBottomBattleUI() then
       choice = fullBattleChoice(x, y)
     elseif THEME.style == "hgss" then
-      choice = THEME.hgss:battleChoice(x, y)
+      choice = THEME.hgss:battleChoice(
+        x * THEME.hgssScale, y * THEME.hgssScale)
     elseif y >= 24 then
       local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
       choice = row * 2 + col + 1
@@ -5928,8 +6468,18 @@ return function(mod)
     end
     local summary = screenById("summary")
     if summary and game.stack:top() == summary then
-      if not battle then return end
-      if y < HEADER and x < 24 then
+      if THEME.style == "hgss" and compat.summary.supports(summary, game) then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        if hy < 30 and hx < 27 then
+          press("b")
+        elseif hy < 30 and hx < 82 then
+          press("left")
+        elseif hy < 30 and hx < 139 then
+          press("right")
+        end
+      elseif not battle then
+        return
+      elseif y < HEADER and x < 24 then
         press("b")
       elseif compat.summary.supports(summary, game)
           and inside(x, y, 103, 125, 53, 15) then
@@ -6010,6 +6560,11 @@ return function(mod)
         end
       elseif mon and (action == 1
           or THEME.style ~= "hgss" and inside(x, y, 14, 37, 132, 38)) then
+        if THEME.style == "hgss" then
+          hgssRuntime.beginAnimation("summary_open", {
+            actionCount = canSwap and 2 or 1,
+          })
+        end
         partyActionSlot = nil
         if compat.isGen2() then
           mod.ui.push(game, compat.screenName("summary", true), {
@@ -6021,6 +6576,11 @@ return function(mod)
         end
       elseif canSwap and (action == 2
           or THEME.style ~= "hgss" and inside(x, y, 14, 84, 132, 38)) then
+        if THEME.style == "hgss" then
+          hgssRuntime.beginAnimation("party_swap", {
+            source = slot, actionCount = 2,
+          })
+        end
         partyActionSlot, partyMoveFrom = nil, slot
       end
       dirty = true
@@ -6157,6 +6717,12 @@ return function(mod)
       local mon = slot and party[slot]
       if mon and partyMoveFrom then
         local from = partyMoveFrom
+        if THEME.style == "hgss" and from ~= slot then
+          hgssRuntime.beginAnimation("party_swap_commit", {
+            source = from, target = slot, party = partyData(),
+            duration = 0.30,
+          })
+        end
         partyMoveFrom = nil
         local ok, err = mod.world:reorderParty(from, slot)
         if not ok then
@@ -6401,7 +6967,90 @@ return function(mod)
     end
   end)
 
+  function hgssRuntime.remapBattleRootInput(stepGame)
+    if stepGame ~= game or THEME.style ~= "hgss"
+        or not battle then return end
+    local raw = battleState()
+    local top = game.stack:top()
+    local queue = stepGame and stepGame.input and stepGame.input.pressQueue
+    if not raw or type(queue) ~= "table"
+        or not bottomOwnsBattleUI(hideUpperBattleUI(), active,
+          hasDisplay(), displayReady, raw, battle) then return end
+    local party = screenContract(top, "party")
+    if party and party.submenu then
+      local actions, submenu = hgssRuntime.partySubmenuActions(party)
+      if #actions < 2 then return end
+      local current = party.subIndex or (submenu and submenu.index)
+        or actions[1].index
+      for i = 1, #queue do
+        local target = queue[i] == "up" and actions[1]
+          or queue[i] == "down" and actions[2] or nil
+        if target then
+          table.remove(queue, i)
+          if submenu then submenu.index = target.index
+          else party.subIndex = target.index end
+          dirty = true
+          return true
+        end
+      end
+      return
+    end
+    if battle.prompt ~= "menu" or top ~= raw then return end
+    for i = 1, #queue do
+      local target = hgssRuntime.rootDirection(
+        raw.menuIndex or battle.menuIndex or 1, queue[i])
+      if target then
+        table.remove(queue, i)
+        raw.menuIndex, battle.menuIndex = target, target
+        dirty = true
+        return true
+      end
+    end
+  end
+
+  function hgssRuntime.openingBattlePanel(stepGame)
+    if stepGame ~= game or THEME.style ~= "hgss"
+        or not battle or battle.prompt ~= "menu" then return false end
+    local raw = battleState()
+    local queue = stepGame and stepGame.input and stepGame.input.pressQueue
+    if not raw or game.stack:top() ~= raw or type(queue) ~= "table"
+        or not bottomOwnsBattleUI(hideUpperBattleUI(), active,
+          hasDisplay(), displayReady, raw, battle) then return false end
+    local index = raw.menuIndex or battle.menuIndex or 1
+    local kind = index == 1 and "battle_moves"
+      or index == 2 and "battle_party"
+      or index == 3 and "battle_bag" or nil
+    if not kind then return false end
+    for i = 1, #queue do
+      if queue[i] == "a" then return kind end
+    end
+    return false
+  end
+
+  function hgssRuntime.closingBattlePanel(stepGame)
+    if stepGame ~= game or THEME.style ~= "hgss" or not battle then return end
+    local raw, top = battleState(), game.stack:top()
+    local queue = stepGame and stepGame.input and stepGame.input.pressQueue
+    if not raw or type(queue) ~= "table"
+        or not bottomOwnsBattleUI(hideUpperBattleUI(), active,
+          hasDisplay(), displayReady, raw, battle) then return end
+    local kind
+    if compat.battleBagMenu(top) then kind = "battle_bag_close"
+    else
+      local party = screenContract(top, "party")
+      if party and not party.submenu then kind = "battle_party_close"
+      elseif top == raw and battle.prompt == "moves" then
+        kind = "battle_moves_close"
+      end
+    end
+    if not kind then return end
+    for i = 1, #queue do
+      if queue[i] == "b" then return kind end
+    end
+  end
+
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
+    hgssRuntime.remapBattleRootInput(stepGame)
     local modalMoveInfo = moveInfo ~= nil
     if modalMoveInfo or battleInfoDetail or displayRuntime.guideDetail then
       local queue = stepGame and stepGame.input
@@ -6416,6 +7065,8 @@ return function(mod)
       if consumed then back() end
       if modalMoveInfo then return next(stepGame, dt) end
     end
+    local openingPanel = hgssRuntime.openingBattlePanel(stepGame)
+    local closingPanel = hgssRuntime.closingBattlePanel(stepGame)
     pollTriggerTabs()
     local swapPressed, infoPressed, overlayPressed = pollScreenSwap()
     if infoPressed and assist("move_details")
@@ -6425,6 +7076,9 @@ return function(mod)
         local raw = battleState()
         local index = raw and raw.moveIndex or battle.moveIndex or 1
         moveInfo = battle.moves and battle.moves[index]
+      end
+      if moveInfo and battle and battle.prompt == "moves" then
+        hgssRuntime.beginAnimation("battle_move_info")
       end
       dirty = moveInfo ~= nil or dirty
     end
@@ -6442,7 +7096,13 @@ return function(mod)
       mod.log:info("overlay %s",
         displayRuntime.overlayHidden and "hidden" or "shown")
     end
-    return next(stepGame, dt)
+    if closingPanel then hgssRuntime.beginAnimation(closingPanel) end
+    local result = next(stepGame, dt)
+    if openingPanel then
+      hgssRuntime.beginAnimation(openingPanel,
+        openingPanel == "battle_party" and { duration = 0.42 } or nil)
+    end
+    return result
   end, 1000)
 
   mod.hooks:wrap("render.viewport", function(next, context)
@@ -6821,6 +7481,22 @@ return function(mod)
       refreshBattle()
       if page == "TOOLS" or pendingAction then refreshTools() end
       local mode, top = screenState()
+      local currentSummary = compat.isScreen(top, "summary")
+        and compat.summary.supports(top, game) and top or nil
+      if THEME.style == "hgss" and currentSummary and not battle then
+        local currentPage = tonumber(currentSummary.page) or 1
+        if hgssRuntime.summaryState == currentSummary
+            and hgssRuntime.summaryPage
+            and hgssRuntime.summaryPage ~= currentPage then
+          hgssRuntime.beginAnimation("summary_page", {
+            from = hgssRuntime.summaryPage, to = currentPage,
+          })
+        end
+        hgssRuntime.summaryState, hgssRuntime.summaryPage =
+          currentSummary, currentPage
+      else
+        hgssRuntime.summaryState, hgssRuntime.summaryPage = nil, nil
+      end
       if partyMoveFrom and (page ~= "PARTY" or not mod.world
           or not mod.world.canReorderParty or not mod.world:canReorderParty()) then
         partyMoveFrom, dirty = nil, true
@@ -6885,6 +7561,17 @@ return function(mod)
     end
     if THEME.style == "hgss"
         and THEME.hgss:partyActionAnimating(now) then dirty = true end
+    if hgssRuntime.animation then
+      local started = hgssRuntime.animation.started
+      local queued = hgssRuntime.animation.queued or now
+      if started and now - started < hgssRuntime.animation.duration
+          or not started and now - queued
+            < hgssRuntime.animation.duration + 0.5 then
+        dirty = true
+      else
+        hgssRuntime.animation, dirty = nil, true
+      end
+    end
     if now >= nextClock then
       local title = screenState() == "title"
       nextClock = now + (title and 0.5

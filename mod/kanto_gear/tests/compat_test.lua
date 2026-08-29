@@ -324,10 +324,14 @@ T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
 T.eq(#options, 16, "Kanto Gear keeps one compact display hierarchy")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
-T.eq(#options[1].choices, 10, "classic and modern themes share one setting")
+T.eq(#options[1].choices, 11, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "hgss", "HGSS theme is available")
-T.eq(options[1].choices[4][2], "modern_light", "modern light theme is available")
-T.eq(options[1].choices[5][2], "modern_dark", "modern dark theme is available")
+T.eq(options[1].choices[4][2], "hgss_dark",
+  "HGSS dark theme is available")
+T.eq(options[1].choices[5][2], "modern_light",
+  "modern light theme is available")
+T.eq(options[1].choices[6][2], "modern_dark",
+  "modern dark theme is available")
 T.eq(options[2].label, "CLOCK", "clock source is one compact choice")
 T.eq(options[2].default, "game", "Gen 2 follows its encounter clock by default")
 T.eq(options[3].label, "INFO", "assist features use one preset")

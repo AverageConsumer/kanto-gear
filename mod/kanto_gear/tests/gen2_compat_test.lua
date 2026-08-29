@@ -542,6 +542,115 @@ T.eq(run.loader.hooks:call("battle.bottom_ui_visible",
 T.eq(run.loader.hooks:call("battle.status_hud_visible",
     function() return true end, screen), true,
   "GEAR leaves Gold's native status HUD visible")
+do
+  local previousInput = game.input
+  local previousTheme = run.loader.modOptions.kanto_gear.theme
+  local inputHook
+  for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
+    if entry.owner == "kanto_gear" then inputHook = entry.callback end
+  end
+  local runtime
+  for i = 1, debug.getinfo(inputHook, "u").nups do
+    local name, value = debug.getupvalue(inputHook, i)
+    if name == "hgssRuntime" then runtime = value break end
+  end
+  local readyUpvalue
+  for i = 1, debug.getinfo(runtime.remapBattleRootInput, "u").nups do
+    local name = debug.getupvalue(runtime.remapBattleRootInput, i)
+    if name == "displayReady" then readyUpvalue = i break end
+  end
+  T.check(readyUpvalue ~= nil,
+    "HGSS battle navigation observes companion readiness")
+  run.loader.modOptions.kanto_gear.theme = "hgss"
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "theme" })
+  debug.setupvalue(runtime.remapBattleRootInput, readyUpvalue, true)
+  screen.menuIndex = 1
+  game.input = { pressQueue = { "down" } }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  T.eq(screen.menuIndex, 4,
+    "owned HGSS battle root maps DOWN from FIGHT to RUN")
+  game.input.pressQueue = { "right" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  T.eq(screen.menuIndex, 2,
+    "owned HGSS battle root maps RIGHT from RUN to POKEMON")
+  run.loader.modOptions.kanto_gear.battle_view = "standard"
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "battle_view" })
+  screen.menuIndex = 1
+  game.input.pressQueue = { "down" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  T.eq(screen.menuIndex, 1,
+    "STANDARD leaves the native 2x2 battle cursor untouched")
+  T.eq(game.input.pressQueue[1], "down",
+    "STANDARD leaves native directional input in the queue")
+  run.loader.modOptions.kanto_gear.battle_view = "full"
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "battle_view" })
+  screen.menuIndex = 1
+  game.input.pressQueue = { "left" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  T.eq(screen.menuIndex, 3,
+    "FULL GEAR maps LEFT from FIGHT to BAG")
+  local partyMenu = {
+    screenId = "Gen2PartyMenu", index = 1,
+    submenu = { index = 3, items = {
+      { label = "SWITCH" }, { label = "STATS" }, { label = "CANCEL" },
+    } },
+  }
+  screen.menuIndex = 2
+  game.input.pressQueue = { "a" }
+  run.loader.hooks:call("input.step", function()
+    game.stack.states = { screen, partyMenu }
+  end, game, 1 / 60)
+  T.eq(runtime.animation and runtime.animation.kind, "battle_party",
+    "HGSS starts the party transition in the input frame")
+  T.eq(runtime.animation and runtime.animation.started, nil,
+    "HGSS preserves the first rendered party transition frame")
+  runtime.animation = nil
+  screen.menuIndex = 3
+  local bagMenu = {
+    screenId = "Gen2PackMenu", rows = {}, index = 1,
+    pocket = function() return { label = "ITEMS" } end,
+  }
+  game.stack.states = { screen }
+  game.input.pressQueue = { "a" }
+  run.loader.hooks:call("input.step", function()
+    game.stack.states = { screen, bagMenu }
+  end, game, 1 / 60)
+  T.eq(runtime.animation and runtime.animation.kind, "battle_bag",
+    "HGSS starts the Bag transition in the input frame")
+  runtime.animation = nil
+  game.input.pressQueue = { "b" }
+  local closeStartedBeforeNative
+  run.loader.hooks:call("input.step", function()
+    closeStartedBeforeNative = runtime.animation
+      and runtime.animation.kind == "battle_bag_close"
+    game.stack.states = { screen }
+  end, game, 1 / 60)
+  T.check(closeStartedBeforeNative,
+    "HGSS arms the Bag close before the native screen is removed")
+  T.eq(runtime.animation and runtime.animation.kind, "battle_bag_close",
+    "HGSS starts the Bag close transition in the input frame")
+  runtime.animation = nil
+  game.stack.states = { screen, partyMenu }
+  game.input.pressQueue = { "down" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  T.eq(partyMenu.submenu.index, 2,
+    "owned HGSS battle party menu maps DOWN to visible STATS")
+  T.eq(#game.input.pressQueue, 0,
+    "owned HGSS battle party menu consumes remapped direction")
+  game.input.pressQueue = { "up" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  T.eq(partyMenu.submenu.index, 1,
+    "owned HGSS battle party menu maps UP to visible SWITCH")
+  game.stack.states = { screen }
+  game.input = previousInput
+  run.loader.modOptions.kanto_gear.theme = previousTheme
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "theme" })
+  debug.setupvalue(runtime.remapBattleRootInput, readyUpvalue, true)
+end
 run.loader.modOptions.kanto_gear.battle_view = "full"
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "battle_view" })

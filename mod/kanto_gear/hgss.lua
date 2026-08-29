@@ -85,10 +85,10 @@ return function(ui)
     palette = lightPalette,
     colors = lightColors,
     battleActions = {
-      [1] = { x = 22, y = 25, w = 116, h = 62, color = "red" },
-      [2] = { x = 107, y = 92, w = 49, h = 38, color = "green" },
-      [3] = { x = 4, y = 92, w = 49, h = 38, color = "amber" },
-      [4] = { x = 57, y = 104, w = 46, h = 28, color = "blue" },
+      [1] = { x = 22, y = 32, w = 196, h = 112, color = "red" },
+      [2] = { x = 166, y = 149, w = 68, h = 52, color = "green" },
+      [3] = { x = 6, y = 149, w = 68, h = 52, color = "amber" },
+      [4] = { x = 82, y = 166, w = 76, h = 35, color = "blue" },
     },
   }
 
@@ -245,6 +245,20 @@ return function(ui)
     if previous then G.setFont(previous) end
   end
 
+  function H:partyInfoWidth(value)
+    return partyInfoFont:getWidth(tostring(value or ""))
+  end
+
+  function H:fitPartyInfo(value, width)
+    local chars = glyphs(tostring(value or ""))
+    if partyInfoFont:getWidth(table.concat(chars)) <= width then
+      return table.concat(chars)
+    end
+    repeat table.remove(chars) until #chars == 0
+      or partyInfoFont:getWidth(table.concat(chars) .. "…") <= width
+    return table.concat(chars) .. "…"
+  end
+
   function H:partyType(value, x, y, tint, width)
     local G, previous = ui.graphics, ui.graphics.getFont()
     ui.color(tint)
@@ -305,6 +319,14 @@ return function(ui)
     G.setLineWidth(1)
   end
 
+  function H:pageChevron(x, y, right)
+    local G = ui.graphics
+    color(self.colors.amberLight)
+    G.setLineWidth(1)
+    if right then G.line(x - 2, y - 3, x + 1, y, x - 2, y + 3)
+    else G.line(x + 2, y - 3, x - 1, y, x + 2, y + 3) end
+  end
+
   function H:detailChevron(x, y, tint, large)
     local G = ui.graphics
     color(tint)
@@ -332,8 +354,13 @@ return function(ui)
       left, center = 36, 82
     end
     if paged then
-      self:chevron(left, 13, false)
-      self:chevron(right, 13, true)
+      if back then
+        self:pageChevron(left + 5, 13, false)
+        self:pageChevron(right, 13, true)
+      else
+        self:chevron(left, 13, false)
+        self:chevron(right, 13, true)
+      end
     end
     local width = paged and (back and 76 or 88) or (back and 100 or 124)
     local shown = self:fitLabel(title, width)
@@ -418,9 +445,18 @@ return function(ui)
       and now - self.partyActionStarted >= 0.14
   end
 
-  function H:actionRow(x, y, w, h, label, kind, offset)
+  function H:battleFocusFrame(x, y, w, h)
+    local colors = self.colors
+    border(x, y, w, h, colors.outline)
+    border(x + 1, y + 1, w - 2, h - 2, colors.white)
+    box("fill", x + 2, y + 2, 2, 5, colors.amberLight)
+    box("fill", x + w - 4, y + h - 7, 2, 5, colors.amberLight)
+  end
+
+  function H:actionRow(x, y, w, h, label, kind, offset, selected)
     local G, colors = ui.graphics, self.colors
-    local accent = kind == "swap" and colors.amberLight or colors.blueLight
+    local accent = (kind == "swap" or kind == "switch")
+      and colors.amberLight or colors.blueLight
     y = y + (offset or 0)
     clipped(x + 1, y + 2, w, h, colors.shadow)
     clipped(x, y, w, h, colors.surface)
@@ -429,7 +465,7 @@ return function(ui)
     box("fill", x + 1, y + 2, 4, h - 4, accent)
     box("fill", x + 2, y + 1, 3, 1, accent)
     box("fill", x + 2, y + h - 2, 3, 1, accent)
-    if kind == "swap" then
+    if kind == "swap" or kind == "switch" then
       color(accent)
       G.setLineWidth(2)
       G.line(x + 15, y + 17, x + 29, y + 17, x + 25, y + 13)
@@ -444,6 +480,7 @@ return function(ui)
     local shown = self:fitLabel(label, w - 69)
     self:label(shown, x + 43, y + 13, colors.ink)
     self:detailChevron(x + w - 16, y + 16, colors.ink, true)
+    if selected then self:battleFocusFrame(x, y, w, h) end
   end
 
   function H:action(index, label, selected)
@@ -472,6 +509,523 @@ return function(ui)
       if x >= action.x and x < action.x + action.w
           and y >= action.y and y < action.y + action.h then return index end
     end
+  end
+
+  function H:battleTeamBall(x, y, alive)
+    local colors = self.colors
+    local left, top = x - 4, y - 4
+    local upper = alive and colors.redLight or colors.silverDark
+    local lower = alive and colors.white or colors.silver
+    box("fill", left + 2, top, 5, 1, colors.outline)
+    box("fill", left + 1, top + 1, 7, 1, colors.outline)
+    box("fill", left, top + 2, 9, 5, colors.outline)
+    box("fill", left + 1, top + 7, 7, 1, colors.outline)
+    box("fill", left + 2, top + 8, 5, 1, colors.outline)
+    box("fill", left + 2, top + 1, 5, 1, upper)
+    box("fill", left + 1, top + 2, 7, 2, upper)
+    box("fill", left + 1, top + 5, 7, 2, lower)
+    box("fill", left + 2, top + 7, 5, 1, lower)
+    box("fill", left + 1, top + 4, 7, 1, colors.outline)
+    box("fill", left + 3, top + 3, 3, 3, colors.outline)
+    box("fill", left + 4, top + 4, 1, 1, colors.white)
+  end
+
+  function H:battleActionPanel(x, y, w, h, colorName, selected)
+    local colors = self.colors
+    local fill = colors[colorName]
+    local light = colors[colorName .. "Light"]
+    clipped(x + 1, y + 2, w, h, colors.shadow)
+    clipped(x, y, w, h, fill)
+    box("fill", x + 2, y + 2, w - 4, math.max(2, math.floor(h * 0.22)),
+      light)
+    border(x, y, w, h, colors.outline)
+    if selected then self:battleFocusFrame(x, y, w, h) end
+  end
+
+  function H:battleTeamStrip(playerTeam, enemyTeam)
+    local colors = self.colors
+    self:panel(5, 3, 230, 25, false)
+    for slot = 1, 6 do
+      self:battleTeamBall(42 + (slot - 1) * 11, 15,
+        playerTeam and playerTeam[slot])
+      self:battleTeamBall(143 + (slot - 1) * 11, 15,
+        enemyTeam and enemyTeam[slot])
+    end
+    self:partyInfo("YOU", 10, 9, colors.green)
+    self:partyInfo("VS", 112, 9, colors.ink, 16, "center")
+    self:partyInfo("FOE", 207, 9, colors.green, 20, "right")
+  end
+
+  function H:battleFightAction(mon, drawPortrait, selected, offsetX, offsetY)
+    local G, colors = ui.graphics, self.colors
+    offsetX, offsetY = offsetX or 0, offsetY or 0
+    G.push()
+    G.translate(offsetX, offsetY)
+    self:battleActionPanel(22, 32, 196, 112, "red", selected)
+    color(colors.selectedDark)
+    G.circle("fill", 120, 78, 36)
+    color(colors.surface)
+    G.circle("fill", 120, 78, 33)
+    box("fill", 87, 77, 66, 2, colors.selectedDark)
+    color(colors.surface)
+    G.circle("fill", 120, 78, 7)
+    color(colors.selectedDark)
+    G.circle("line", 120, 78, 7)
+    drawPortrait(mon, 91, 45, 58, false)
+    local fight = self:fitLabel(mon.fightLabel or "FIGHT", 96)
+    self:label(fight, 120 - math.floor(self:labelWidth(fight) / 2),
+      121, colors.white)
+    G.pop()
+  end
+
+  function H:battleBagIcon(x, y)
+    local colors = self.colors
+    box("fill", x + 7, y, 12, 1, colors.outline)
+    box("fill", x + 5, y + 1, 16, 5, colors.outline)
+    box("fill", x + 7, y + 2, 12, 4, colors.white)
+    box("fill", x + 3, y + 5, 20, 1, colors.outline)
+    box("fill", x + 1, y + 6, 24, 2, colors.outline)
+    box("fill", x, y + 8, 26, 16, colors.outline)
+    box("fill", x + 1, y + 24, 24, 2, colors.outline)
+    box("fill", x + 3, y + 26, 20, 1, colors.outline)
+    box("fill", x + 3, y + 6, 20, 2, colors.white)
+    box("fill", x + 2, y + 8, 22, 16, colors.white)
+    box("fill", x + 3, y + 24, 20, 1, colors.white)
+    clipped(x + 3, y + 9, 20, 7, colors.redLight)
+    border(x + 3, y + 9, 20, 7, colors.outline)
+    clipped(x + 5, y + 17, 16, 7, colors.silver)
+    border(x + 5, y + 17, 16, 7, colors.outline)
+    box("fill", x + 12, y + 18, 2, 2, colors.redLight)
+  end
+
+  function H:battleBagAction(mon, selected, offsetX, offsetY)
+    local G, colors = ui.graphics, self.colors
+    offsetX, offsetY = offsetX or 0, offsetY or 0
+    G.push()
+    G.translate(offsetX, offsetY)
+    self:battleActionPanel(6, 149, 68, 52, "amber", selected)
+    self:battleBagIcon(27, 154)
+    self:label(mon.bagLabel or "BAG", 6, 183, colors.white, 68, "center")
+    G.pop()
+  end
+
+  function H:battlePartyAction(mon, selected, offsetX, offsetY)
+    local G, colors = ui.graphics, self.colors
+    offsetX, offsetY = offsetX or 0, offsetY or 0
+    G.push()
+    G.translate(offsetX, offsetY)
+    self:battleActionPanel(166, 149, 68, 52, "green", selected)
+    self:battleTeamBall(185, 169, true)
+    self:battleTeamBall(200, 164, true)
+    self:battleTeamBall(215, 169, true)
+    self:label(mon.partyLabel or "POKEMON", 166, 183,
+      colors.white, 68, "center")
+    G.pop()
+  end
+
+  function H:battleRunAction(mon, selected, offsetX, offsetY)
+    local G, colors = ui.graphics, self.colors
+    offsetX, offsetY = offsetX or 0, offsetY or 0
+    G.push()
+    G.translate(offsetX, offsetY)
+    self:battleActionPanel(82, 166, 76, 35, "blue", selected)
+    for offset = 0, 1 do
+      box("fill", 96 + offset * 7, 174, 2, 2, colors.white)
+      box("fill", 98 + offset * 7, 176, 2, 2, colors.white)
+      box("fill", 100 + offset * 7, 178, 2, 2, colors.white)
+      box("fill", 98 + offset * 7, 180, 2, 2, colors.white)
+      box("fill", 96 + offset * 7, 182, 2, 2, colors.white)
+    end
+    self:label(mon.runLabel or "RUN", 119, 174, colors.white)
+    G.pop()
+  end
+
+  function H:battleRoot(mon, drawPortrait, playerTeam, enemyTeam, selected)
+    selected = selected or 1
+    self:battleTeamStrip(playerTeam, enemyTeam)
+    self:battleFightAction(mon, drawPortrait, selected == 1)
+    self:battleBagAction(mon, selected == 3)
+    self:battlePartyAction(mon, selected == 2)
+    self:battleRunAction(mon, selected == 4)
+  end
+
+  function H:battleBagWindow(bag)
+    local items = bag.items or {}
+    local count = math.min(4, #items)
+    local first = math.max(1, math.min((bag.index or 1) - 1,
+      #items - count + 1))
+    return first, count
+  end
+
+  function H:battleCatchLabel(chance)
+    if chance == nil then return nil end
+    if chance == math.floor(chance) then return ("%d%%"):format(chance) end
+    return ("%.1f%%"):format(chance)
+  end
+
+  function H:battleItemIcon(item, x, y, tint)
+    local colors = self.colors
+    if item.cancel then
+      self:chevron(x + 8, y + 8, false)
+    elseif item.icon == "ball" then
+      self:battleTeamBall(x + 8, y + 8, true)
+    elseif item.icon == "medicine" then
+      box("fill", x + 5, y + 1, 6, 2, colors.outline)
+      box("fill", x + 3, y + 3, 10, 12, colors.outline)
+      box("fill", x + 4, y + 4, 8, 10, colors.white)
+      box("fill", x + 4, y + 6, 8, 5, colors.redLight)
+      box("fill", x + 7, y + 7, 2, 3, colors.white)
+    elseif item.icon == "status" then
+      clipped(x + 1, y + 1, 14, 14, colors.white)
+      border(x + 1, y + 1, 14, 14, colors.outline)
+      box("fill", x + 7, y + 4, 3, 8, tint)
+      box("fill", x + 4, y + 7, 9, 3, tint)
+    else
+      clipped(x + 2, y + 2, 12, 12, colors.white)
+      border(x + 2, y + 2, 12, 12, colors.outline)
+      box("fill", x + 5, y + 5, 6, 6, tint)
+    end
+  end
+
+  function H:battleBagHeader(bag, offsetX)
+    local G, colors = ui.graphics, self.colors
+    G.push()
+    G.translate(offsetX or 0, 0)
+    self:panel(5, 33, 230, 30, false)
+    self:chevron(15, 48, false)
+    box("fill", 27, 36, 1, 24, colors.band)
+    self:battleBagIcon(32, 35)
+    box("fill", 61, 36, 1, 24, colors.band)
+    if bag.categorized then
+      self:pageChevron(69, 48, false)
+      self:pageChevron(178, 48, true)
+    end
+    self:partyInfo(self:fitPartyInfo(bag.title or "BAG",
+      bag.categorized and 96 or 112), bag.categorized and 74 or 65,
+      43, colors.ink, bag.categorized and 99 or 114, "center")
+    clipped(187, 40, 40, 16, colors.bandLight)
+    border(187, 40, 40, 16, colors.outline)
+    self:partyInfo(("%d/%d"):format(bag.index or 1, #(bag.items or {})),
+      187, 43, colors.ink, 40, "center")
+    G.pop()
+  end
+
+  function H:battleBagRow(item, index, y, selected, offsetX)
+    local G, colors = ui.graphics, self.colors
+    local disabled = item.disabled
+    local accent = disabled and colors.silverDark or colors.amberLight
+    local ink = disabled and colors.silverDark or colors.ink
+    G.push()
+    G.translate(offsetX or 0, 0)
+    self:panel(7, y, 226, 31, false, accent)
+    if selected and not disabled then
+      clipped(12, y + 3, 216, 25, colors.amberLight)
+      box("fill", 12, y + 3, 216, 2, colors.white)
+    end
+    box("fill", 8, y + 3, 4, 25, accent)
+    box("fill", 9, y + 2, 3, 1, accent)
+    box("fill", 9, y + 28, 3, 1, accent)
+    self:battleItemIcon(item, 17, y + 7, accent)
+    box("fill", 39, y + 4, 1, 23, colors.band)
+
+    local chance = self:battleCatchLabel(item.catchChance)
+    local labelY = (chance or disabled) and y + 4 or y + 9
+    local right = item.right and tostring(item.right) or ""
+    local rightWidth = right ~= ""
+      and math.min(110, math.max(12, self:partyInfoWidth(right))) or 0
+    local labelWidth = 178 - rightWidth - (rightWidth > 0 and 6 or 0)
+    self:partyName(item.label or tostring(index), 46, labelY, ink, labelWidth)
+    if item.right and item.right ~= "" then
+      self:partyInfo(self:fitPartyInfo(right, rightWidth),
+        224 - rightWidth, labelY, ink, rightWidth, "right")
+    end
+    if chance then
+      self:partyInfo(item.catchLabel or "CATCH", 46, y + 17,
+        colors.green, 37)
+      clipped(84, y + 16, 42, 12, colors.greenLight)
+      border(84, y + 16, 42, 12, colors.outline)
+      self:partyType(chance, 86, y + 16, colors.white, 38)
+    elseif disabled then
+      self:partyInfo(item.disabledLabel or "UNUSABLE", 46, y + 17,
+        colors.silverDark)
+    end
+    if selected and not disabled then self:battleFocusFrame(7, y, 226, 31) end
+    G.pop()
+  end
+
+  function H:battleBagRows(bag, rowOffset)
+    local first, count = self:battleBagWindow(bag)
+    for row = 1, count do
+      local index = first + row - 1
+      self:battleBagRow(bag.items[index], index,
+        66 + (row - 1) * 33, bag.index == index,
+        type(rowOffset) == "function" and rowOffset(row) or rowOffset)
+    end
+  end
+
+  function H:battleBag(bag, playerTeam, enemyTeam)
+    self:battleBagHeader(bag)
+    self:battleBagRows(bag)
+    self:battleTeamStrip(playerTeam, enemyTeam)
+  end
+
+  function H:battleBackdrop()
+    local colors = self.colors
+    box("fill", 0, 0, 240, 216, colors.bg)
+    box("fill", 0, 0, 240, 3, colors.band)
+    box("fill", 0, 198, 240, 18, colors.bandLight)
+    box("fill", 0, 198, 77, 3, colors.band)
+    box("fill", 164, 210, 76, 3, colors.band)
+  end
+
+  function H:battleBagTransition(mon, drawPortrait, playerTeam, enemyTeam,
+      bag, progress)
+    local G = ui.graphics
+    progress = math.max(0, math.min(1, progress or 0))
+    local pageProgress = progress * progress * (3 - 2 * progress)
+
+    G.push()
+    G.translate(math.floor(240 * pageProgress + 0.5), 0)
+    self:battleRoot(mon, drawPortrait, playerTeam, enemyTeam, 3)
+    G.pop()
+
+    G.push()
+    G.translate(math.floor(-240 * (1 - pageProgress) + 0.5), 0)
+    self:battleBackdrop()
+    self:battleBag(bag, playerTeam, enemyTeam)
+    G.pop()
+  end
+
+  function H:battleEffectLabel(move)
+    local effectiveness = move.effectiveness
+    if move.power == 0 or move.powerText == "--" then effectiveness = nil end
+    local effectLabel = effectiveness == nil and "--"
+      or effectiveness == 0 and "0X"
+      or effectiveness >= 40 and "4X"
+      or effectiveness > 10 and "2X"
+      or effectiveness <= 2 and "1/4"
+      or effectiveness < 10 and "1/2"
+      or "1X"
+    return effectLabel, effectiveness
+  end
+
+  function H:moveHasStab(mon, move)
+    if not (mon and move and move.type)
+        or move.power == 0 or move.powerText == "--" then return false end
+    local moveType = tostring(move.type):upper()
+    for _, monType in ipairs(mon.types or { mon.type, mon.type2 }) do
+      if tostring(monType):upper() == moveType then return true end
+    end
+    return false
+  end
+
+  function H:battleMoveCard(move, x, y, selected, stab)
+    local colors = self.colors
+    local disabled = move.disabled
+    local accent = disabled and colors.silverDark or self:typeColor(move.type)
+    self:panel(x, y, 112, 80, false, accent)
+    box("fill", x + 1, y + 2, 4, 76, accent)
+    box("fill", x + 2, y + 1, 3, 1, accent)
+    box("fill", x + 2, y + 78, 3, 1, accent)
+
+    local ink = disabled and colors.silverDark or colors.ink
+    self:partyName(self:fitLabel(move.name or "-", 88),
+      x + 9, y + 7, ink, 88)
+    self:detailChevron(x + 99, y + 8, ink)
+    self:moveTypeBadge(move, x + 9, y + 25)
+    self:partyInfo(move.ppLabel or "PP", x + 61, y + 25, colors.green)
+    self:partyInfo(move.ppText or "--", x + 76, y + 25,
+      ink, 29, "right")
+    box("fill", x + 9, y + 42, 94, 1, colors.band)
+    self:partyInfo(move.powerLabel or "PWR", x + 9, y + 51, colors.green)
+    self:partyInfo(move.powerText or "--", x + 35, y + 51,
+      ink, 22, "right")
+    self:partyInfo(move.accuracyLabel or "ACC", x + 62, y + 51,
+      colors.green)
+    self:partyInfo(move.accuracyText or "--", x + 84, y + 51,
+      ink, 19, "right")
+
+    local effectLabel, effectiveness = self:battleEffectLabel(move)
+    local effectFill = effectiveness == 0 and colors.red
+      or effectiveness and effectiveness > 10 and colors.greenLight
+      or effectiveness and effectiveness < 10 and colors.amber
+      or colors.silverDark
+    local effectX = stab and x + 59 or x + 43
+    if stab then
+      clipped(x + 26, y + 66, 34, 10, self:typeColor(move.type))
+      border(x + 26, y + 66, 34, 10, colors.outline)
+      self:partyType("STAB", x + 28, y + 65, colors.white, 30)
+    end
+    clipped(effectX, y + 66, 27, 10, effectFill)
+    border(effectX, y + 66, 27, 10, colors.outline)
+    self:partyType(effectLabel, effectX + 2, y + 65, colors.white, 23)
+    if selected and not disabled then self:battleFocusFrame(x, y, 112, 80) end
+  end
+
+  function H:battleMoves(mon, playerTeam, enemyTeam)
+    self:battleTeamStrip(playerTeam, enemyTeam)
+    for slot = 1, 4 do
+      local column, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
+      local move = mon.moves[slot] or {}
+      self:battleMoveCard(move, 6 + column * 116,
+        33 + row * 85, mon.moveIndex == slot, self:moveHasStab(mon, move))
+    end
+  end
+
+  function H:battleMoveInfoStat(x, label, value)
+    local colors = self.colors
+    self:panel(x, 70, 66, 41, false)
+    self:partyInfo(label, x, 76, colors.green, 66, "center")
+    self:partyInfo(value, x, 91, colors.ink, 66, "center")
+  end
+
+  function H:battleMoveInfoBody(move, stab)
+    local colors = self.colors
+    local accent = self:typeColor(move.type)
+    self:panel(6, 33, 228, 169, false)
+    box("fill", 7, 35, 5, 165, accent)
+    box("fill", 8, 34, 4, 1, accent)
+    box("fill", 8, 200, 4, 1, accent)
+    self:chevron(20, 51, false)
+    self:partyName(self:fitLabel(move.name or "-", 128),
+      36, 42, colors.ink, 128)
+    self:moveTypeBadge(move, 176, 43)
+    box("fill", 16, 63, 208, 1, colors.band)
+
+    local accuracy = tostring(move.accuracyText or "--")
+    if accuracy ~= "--" and not accuracy:find("%%") then
+      accuracy = accuracy .. "%"
+    end
+    self:battleMoveInfoStat(14, move.powerLabel or "PWR",
+      tostring(move.powerText or "--"))
+    self:battleMoveInfoStat(87, move.accuracyLabel or "ACC", accuracy)
+    self:battleMoveInfoStat(160, move.ppLabel or "PP",
+      tostring(move.ppText or "--"))
+
+    self:panel(14, 117, 103, 36, false)
+    self:partyInfo(move.stabLabel or "STAB", 14, 122,
+      colors.green, 103, "center")
+    local stabFill = stab and accent or colors.silverDark
+    clipped(48, 137, 35, 11, stabFill)
+    border(48, 137, 35, 11, colors.outline)
+    self:partyType(stab and "1.5X" or "--", 50, 136,
+      colors.white, 31)
+
+    self:panel(123, 117, 103, 36, false)
+    self:partyInfo(move.matchupLabel or "MATCHUP", 123, 122,
+      colors.green, 103, "center")
+    local effectLabel, effectiveness = self:battleEffectLabel(move)
+    local effectFill = effectiveness == 0 and colors.red
+      or effectiveness and effectiveness > 10 and colors.greenLight
+      or effectiveness and effectiveness < 10 and colors.amber
+      or colors.silverDark
+    clipped(161, 137, 27, 11, effectFill)
+    border(161, 137, 27, 11, colors.outline)
+    self:partyType(effectLabel, 163, 136, colors.white, 23)
+
+    self:panel(14, 158, 212, 36, false)
+    local lines = move.descriptionLines or { move.description or "--" }
+    if lines[2] then
+      self:partyInfo(self:fitPartyInfo(lines[1], 196),
+        22, 165, colors.ink, 196, "center")
+      self:partyInfo(self:fitPartyInfo(lines[2], 196),
+        22, 177, colors.ink, 196, "center")
+    else
+      self:partyInfo(self:fitPartyInfo(lines[1], 196),
+        22, 171, colors.ink, 196, "center")
+    end
+  end
+
+  function H:battleMoveInfo(move, stab, playerTeam, enemyTeam)
+    self:battleMoveInfoBody(move, stab)
+    self:battleTeamStrip(playerTeam, enemyTeam)
+  end
+
+  function H:battleMoveInfoTransition(mon, playerTeam, enemyTeam, progress)
+    local G = ui.graphics
+    progress = math.max(0, math.min(1, progress or 0))
+    local cardsProgress = math.min(1, progress / 0.62)
+    cardsProgress = cardsProgress * cardsProgress * (3 - 2 * cardsProgress)
+    for slot = 1, 4 do
+      local column, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
+      local direction = column == 0 and -1 or 1
+      local move = mon.moves[slot] or {}
+      local x = 6 + column * 116
+        + math.floor(direction * 122 * cardsProgress + 0.5)
+      self:battleMoveCard(move, x, 33 + row * 85,
+        mon.moveIndex == slot, self:moveHasStab(mon, move))
+    end
+
+    local infoProgress = math.max(0, math.min(1, (progress - 0.24) / 0.76))
+    infoProgress = 1 - (1 - infoProgress) ^ 3
+    local move = mon.moves[mon.moveIndex or 1] or {}
+    G.push()
+    G.translate(math.floor(240 * (1 - infoProgress) + 0.5), 0)
+    self:battleMoveInfoBody(move, self:moveHasStab(mon, move))
+    G.pop()
+    self:battleTeamStrip(playerTeam, enemyTeam)
+  end
+
+  function H:battleMovesTransition(mon, drawPortrait, playerTeam, enemyTeam,
+      progress)
+    progress = math.max(0, math.min(1, progress or 0))
+    local rootProgress = math.min(1, progress / 0.48)
+    rootProgress = rootProgress * rootProgress * (3 - 2 * rootProgress)
+
+    self:battleFightAction(mon, drawPortrait, true, 0,
+      math.floor(-116 * rootProgress + 0.5))
+    self:battleBagAction(mon, false,
+      math.floor(-76 * rootProgress + 0.5), 0)
+    self:battlePartyAction(mon, false,
+      math.floor(76 * rootProgress + 0.5), 0)
+    self:battleRunAction(mon, false, 0,
+      math.floor(52 * rootProgress + 0.5))
+
+    for slot = 1, 4 do
+      local start = slot <= 2 and 0.32 or 0.40
+      local cardProgress = math.max(0, math.min(1,
+        (progress - start) / (1 - start)))
+      cardProgress = 1 - (1 - cardProgress) ^ 3
+      local column, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
+      local direction = column == 0 and -1 or 1
+      local x = 6 + column * 116
+        + math.floor(direction * 122 * (1 - cardProgress) + 0.5)
+      local move = mon.moves[slot] or {}
+      self:battleMoveCard(move, x, 33 + row * 85,
+        mon.moveIndex == slot, self:moveHasStab(mon, move))
+    end
+    self:battleTeamStrip(playerTeam, enemyTeam)
+  end
+
+  function H:battlePartyTransition(mon, drawPortrait, playerTeam, enemyTeam,
+      drawPartyCard, progress, title, clock, period)
+    local G = ui.graphics
+    progress = math.max(0, math.min(1, progress or 0))
+    local pageProgress = progress
+    pageProgress = pageProgress * pageProgress * (3 - 2 * pageProgress)
+
+    G.push()
+    G.translate(math.floor(-240 * pageProgress + 0.5), 0)
+      self:battleRoot(mon, drawPortrait, playerTeam, enemyTeam, 2)
+    G.pop()
+
+    G.push()
+    G.translate(math.floor(240 * (1 - pageProgress) + 0.5), 0)
+    self:partyBackdrop()
+    self:headerBar(title or "PARTY", true, false)
+    self:headerClock(clock or "20:04", period, 139, 72, 6)
+    self:battery(214, 8, 4, nil, true, self.colors.ink,
+      self.colors.greenLight)
+    for slot = 1, 6 do
+      local start = (slot - 1) * 0.025
+      local cardProgress = math.max(0, math.min(1,
+        (pageProgress - start) / (1 - start)))
+      cardProgress = 1 - (1 - cardProgress) ^ 3
+      local x, y = self:partyPosition(slot)
+      drawPartyCard(slot, x + math.floor(14 * (1 - cardProgress) + 0.5),
+        y, slot == 1, false)
+    end
+    G.pop()
   end
 
   function H:ball(x, y, selected)
@@ -644,6 +1198,14 @@ return function(ui)
     return 5 + col * 118, 32 + row * 58 + (col == 1 and 4 or 0)
   end
 
+  function H:swapSourceMarker(x, y)
+    local G, colors = ui.graphics, self.colors
+    color(colors.amberLight)
+    G.setLineWidth(2)
+    G.rectangle("line", x + 1, y + 1, 110, 54, 6, 6)
+    G.setLineWidth(1)
+  end
+
   function H:partyCard(mon, x, y, selected, details, drawPortrait)
     local fainted = mon and (mon.statusId == "FNT"
       or mon.hp ~= nil and mon.hp <= 0)
@@ -656,8 +1218,10 @@ return function(ui)
     drawPortrait(mon, x + 6, y + 4, 32, fainted)
     local ink = self.colors.white
     local quiet = selected and self.colors.white or self.colors.silver
-    self:partyName(mon.name, x + 44, y + 4, ink, details and 61 or 67)
-    if details then self:detailChevron(x + 105, y + 8, ink) end
+    self:partyName(mon.name, x + 44, y + 4, ink,
+      details == true and 61 or 67)
+    if details == true then self:detailChevron(x + 105, y + 8, ink)
+    elseif details == "swap" then self:swapSourceMarker(x, y) end
     if mon.egg then return end
     self:typeBadges(mon, x + 2, y + 42, fainted)
     if mon.gender == "male" then
@@ -674,6 +1238,434 @@ return function(ui)
     self:hpBar(x + 45, y + 38, 62, mon.hp, mon.maxHp)
     self:partyInfo(mon.expLabel or "EXP", x + 45, y + 41, quiet)
     self:expBar(x + 65, y + 45, 42, mon.expProgress)
+  end
+
+  function H:partySwap(drawPartyCard, source, target)
+    for slot = 1, 6 do
+      local x, y = self:partyPosition(slot)
+      drawPartyCard(slot, x, y, slot == target,
+        slot == source and "swap" or false)
+    end
+  end
+
+  function H:partySwapTransition(drawPartyCard, source, target, progress,
+      actionCount, statsLabel, swapLabel)
+    progress = math.max(0, math.min(1, progress or 0))
+    local eased = 1 - (1 - progress) ^ 3
+    local sourceX, sourceY = self:partyPosition(source)
+    local heroY = self:partyActionHeroY(actionCount)
+    drawPartyCard(source,
+      64 + (sourceX - 64) * eased,
+      heroY + (sourceY - heroY) * eased,
+      progress < 0.45, progress >= 0.45 and "swap" or false)
+
+    for slot = 1, 6 do
+      if slot ~= source then
+        local start = 0.18 + math.max(0, slot - 2) * 0.025
+        local cardProgress = math.max(0, math.min(1,
+          (progress - start) / (1 - start)))
+        cardProgress = 1 - (1 - cardProgress) ^ 3
+        local x, y = self:partyPosition(slot)
+        local column = (slot - 1) % 2
+        local direction = column == 0 and -1 or 1
+        drawPartyCard(slot,
+          x + direction * 122 * (1 - cardProgress), y,
+          slot == target and cardProgress > 0.62, false)
+      end
+    end
+
+    local actionOffset = math.floor(230 * eased + 0.5)
+    local x, y, w, h = self:partyActionRow(1, actionCount)
+    self:actionRow(x + actionOffset, y, w, h, statsLabel, "stats", 0)
+    if actionCount > 1 then
+      x, y, w, h = self:partyActionRow(2, actionCount)
+      self:actionRow(x + actionOffset, y, w, h, swapLabel, "swap", 0)
+    end
+  end
+
+  function H:partySwapCommitTransition(drawPartyCard, source, target,
+      progress)
+    local G = ui.graphics
+    progress = math.max(0, math.min(1, progress or 0))
+    local scale = math.abs(1 - progress * 2)
+    for position = 1, 6 do
+      local slot = position
+      if progress >= 0.5 then
+        if position == source then slot = target
+        elseif position == target then slot = source end
+      end
+      local x, y = self:partyPosition(position)
+      if position == source or position == target then
+        G.push()
+        G.translate(x + 56, 0)
+        G.scale(math.max(0.03, scale), 1)
+        G.translate(-(x + 56), 0)
+        drawPartyCard(slot, x, y, progress < 0.5 and position == target,
+          progress < 0.5 and position == source and "swap" or false)
+        G.pop()
+      else
+        drawPartyCard(slot, x, y, false, false)
+      end
+    end
+  end
+
+  function H:summaryBall(cx, cy, radius)
+    local G, colors = ui.graphics, self.colors
+    color(colors.outline)
+    G.circle("fill", cx, cy, radius)
+    color(colors.redLight)
+    G.circle("fill", cx, cy, radius - 1)
+    color(colors.white)
+    G.arc("fill", cx, cy, radius - 2, 0, math.pi)
+    local line = math.max(1, math.floor(radius / 9))
+    box("fill", cx - radius + 2, cy - math.floor(line / 2),
+      radius * 2 - 4, line, colors.outline)
+    local button = math.max(2, math.floor(radius / 5 + 0.5))
+    color(colors.white)
+    G.circle("fill", cx, cy, button)
+    color(colors.outline)
+    G.circle("line", cx, cy, button)
+  end
+
+  function H:summaryTop(mon, drawPortrait)
+    local colors = self.colors
+    self:panel(6, 34, 228, 80, false)
+    self:summaryBall(38, 69, 29)
+    drawPortrait(mon, 14, 44, 48, false)
+
+    self:partyName(mon.name, 72, 39, colors.ink, 139)
+    if mon.gender == "male" then
+      self:genderIcon("male", 219, 42)
+    elseif mon.gender == "female" then
+      self:genderIcon("female", 219, 42)
+    end
+    self:partyInfo(mon.dexText, 72, 53, colors.green)
+    self:partyInfo(mon.levelText, 132, 53, colors.ink)
+    if mon.statusId then self:statusIcon(mon.statusId, 191, 55) end
+    self:typeBadges(mon, 72, 66, false)
+    if mon.info2Label then
+      self:partyInfo(mon.infoLabel, 121, 66, colors.green)
+      self:partyInfo(self:fitPartyInfo(mon.infoText, 27),
+        139, 66, colors.ink, 27, "right")
+      self:partyInfo(mon.info2Label, 171, 66, colors.green)
+      self:partyInfo(self:fitPartyInfo(mon.info2Text, 37),
+        190, 66, colors.ink, 37, "right")
+    else
+      self:partyInfo(mon.infoLabel or "ITEM", 121, 66, colors.green)
+      self:partyInfo(self:fitPartyInfo(mon.infoText or "---", 76),
+        151, 66, colors.ink, 76, "right")
+    end
+    self:partyInfo(mon.hpLabel or "HP", 72, 79, colors.green)
+    self:partyInfo(mon.hpText, 72, 79, colors.ink, 155, "right")
+    self:hpBar(72, 90, 155, mon.hp, mon.maxHp)
+    self:partyInfo(mon.expLabel or "EXP", 72, 98, colors.green)
+    if mon.expProgress then
+      self:expBar(99, 103, mon.nextValue and 64 or 128, mon.expProgress)
+    elseif mon.expText then
+      self:partyInfo(mon.expText, 99, 98, colors.ink, 128, "right")
+    end
+    if mon.nextValue then
+      self:partyInfo(mon.nextLabel or "NEXT", 168, 98, colors.green)
+      self:partyInfo(mon.nextValue, 195, 98, colors.ink, 32, "right")
+    end
+  end
+
+  function H:summaryStats(mon)
+    local colors = self.colors
+    self:panel(6, 118, 228, 92, false)
+    self:label(mon.statsTitle or "BATTLE STATS", 12, 121, colors.ink)
+    box("fill", 11, 137, 218, 1, colors.band)
+    box("fill", 120, 138, 1, 66, colors.band)
+    local rows = math.max(1, math.ceil(#mon.stats / 2))
+    local firstY, step = rows == 2 and 151 or 143, rows == 2 and 29 or 21
+    for row = 1, rows do
+      local y = firstY + (row - 1) * step
+      if row > 1 then
+        box("fill", 11, y - math.floor(step / 2), 218, 1, colors.bandLight)
+      end
+      for column = 1, 2 do
+        local entry = mon.stats[row + (column - 1) * rows]
+        if entry then
+          local x, width = column == 1 and 13 or 127, column == 1 and 99 or 100
+          self:partyInfo(self:fitLabel(entry.label, 61), x, y,
+            colors.green)
+          self:partyInfo(tostring(entry.value), x, y, colors.ink,
+            width, "right")
+        end
+      end
+    end
+  end
+
+  function H:summaryPage(mon, drawPortrait)
+    self:summaryTop(mon, drawPortrait)
+    self:summaryStats(mon)
+  end
+
+  function H:summaryIdentity(mon, drawPortrait)
+    local colors = self.colors
+    self:panel(6, 34, 228, 25, false)
+    self:summaryBall(20, 46, 10)
+    drawPortrait(mon, 10, 36, 20, false)
+    self:partyName(mon.name, 36, 37, colors.ink, 108)
+    if mon.gender == "male" then
+      self:genderIcon("male", 145, 40)
+    elseif mon.gender == "female" then
+      self:genderIcon("female", 145, 40)
+    end
+    self:partyInfo(mon.levelText, 158, 39, colors.ink)
+    if mon.statusId then self:statusIcon(mon.statusId, 194, 40) end
+    self:partyInfo(mon.hpLabel or "HP", 36, 47, colors.green)
+    self:hpBar(55, 50, 96, mon.hp, mon.maxHp)
+    self:partyInfo(mon.hpText, 158, 47, colors.ink, 69, "right")
+  end
+
+  function H:moveTypeBadge(move, x, y)
+    local fill = self:typeColor(move.type)
+    clipped(x, y, 48, 10, fill)
+    border(x, y, 48, 10, self.colors.outline)
+    self:partyType(self:fitPartyInfo(move.typeLabel or move.type, 44),
+      x + 2, y - 1, self.colors.white, 44)
+  end
+
+  function H:summaryMoveRow(move, x, y, selected)
+    local colors = self.colors
+    self:panel(x, y, 228, 34, selected, colors.selected)
+    local accent = self:typeColor(move.type)
+    box("fill", x + 1, y + 2, 4, 30, accent)
+    box("fill", x + 2, y + 1, 3, 1, accent)
+    box("fill", x + 2, y + 32, 3, 1, accent)
+    self:moveTypeBadge(move, x + 8, y + 12)
+    self:partyName(move.name or "-", x + 64, y + 4, colors.ink, 88)
+    self:partyInfo(move.ppLabel or "PP", x + 157, y + 4, colors.green)
+    self:partyInfo(move.ppText or "--", x + 177, y + 4,
+      colors.ink, 35, "right")
+    self:detailChevron(x + 217, y + 6, colors.ink)
+    self:partyInfo(move.powerLabel or "PWR", x + 64, y + 18,
+      colors.green)
+    local power = move.powerText
+    if not power or power == "--" then
+      box("fill", x + 101, y + 23, 7, 1, colors.ink)
+    else
+      self:partyInfo(power, x + 90, y + 18,
+        colors.ink, 26, "right")
+    end
+    self:partyInfo(move.accuracyLabel or "ACC", x + 126, y + 18,
+      colors.green)
+    self:partyInfo(move.accuracyText or "--", x + 153, y + 18,
+      colors.ink, 32, "right")
+  end
+
+  function H:summaryMoves(mon, drawPortrait)
+    self:summaryIdentity(mon, drawPortrait)
+    for slot = 1, 4 do
+      self:summaryMoveRow(mon.moves[slot] or {}, 6,
+        63 + (slot - 1) * 37, mon.moveIndex == slot)
+    end
+  end
+
+  function H:summaryTrainerMemo(mon)
+    local colors = self.colors
+    self:panel(6, 63, 228, 62, false)
+    box("fill", 7, 65, 4, 58, colors.blue)
+    box("fill", 8, 64, 3, 1, colors.blue)
+    box("fill", 8, 123, 3, 1, colors.blue)
+    self:partyInfo(mon.memoTitle or "TRAINER MEMO", 17, 68, colors.green)
+    box("fill", 16, 82, 208, 1, colors.band)
+    self:partyInfo(mon.otLabel or "ORIGINAL TRAINER", 17, 88, colors.green)
+    self:partyName(mon.otText or "---", 17, 101, colors.ink, 109)
+    box("fill", 136, 86, 1, 31, colors.bandLight)
+    self:partyInfo(mon.idLabel or "ID NO.", 146, 88, colors.green)
+    self:partyName(mon.idText or "00000", 146, 101, colors.ink, 77)
+  end
+
+  function H:summaryGrowthMemo(mon)
+    local colors = self.colors
+    self:panel(6, 130, 228, 80, false)
+    box("fill", 7, 132, 4, 76, colors.exp)
+    box("fill", 8, 131, 3, 1, colors.exp)
+    box("fill", 8, 208, 3, 1, colors.exp)
+    self:partyInfo(mon.growthTitle or "GROWTH RECORD", 17, 135,
+      colors.green)
+    box("fill", 16, 149, 208, 1, colors.band)
+    self:partyInfo(mon.totalExpLabel or "TOTAL EXP", 17, 156,
+      colors.green)
+    self:label(mon.experienceText or "0", 17, 169, colors.ink)
+    box("fill", 124, 153, 1, 39, colors.bandLight)
+    self:partyInfo(mon.nextLevelLabel or "NEXT LEVEL", 134, 156,
+      colors.green)
+    self:label(mon.nextLevelText or "MAX", 134, 169, colors.ink)
+    self:partyInfo(mon.nextExpLabel or "TO NEXT", 17, 193, colors.green)
+    self:partyInfo(mon.nextValue or "0", 66, 193, colors.ink,
+      158, "right")
+  end
+
+  function H:summaryMemo(mon, drawPortrait)
+    self:summaryIdentity(mon, drawPortrait)
+    self:summaryTrainerMemo(mon)
+    self:summaryGrowthMemo(mon)
+  end
+
+  function H:summaryMemoTransition(mon, drawPortrait, progress)
+    local G = ui.graphics
+    progress = math.max(0, math.min(1, progress or 0))
+    self:summaryIdentity(mon, drawPortrait)
+
+    for slot = 1, 4 do
+      local start = (slot - 1) * 0.025
+      local rowProgress = math.max(0, math.min(1,
+        (progress - start) / 0.58))
+      rowProgress = rowProgress * rowProgress * (3 - 2 * rowProgress)
+      G.push()
+      G.translate(math.floor(-240 * rowProgress + 0.5), 0)
+      self:summaryMoveRow(mon.moves[slot] or {}, 6,
+        63 + (slot - 1) * 37, mon.moveIndex == slot)
+      G.pop()
+    end
+
+    local function enter(start, draw)
+      local cardProgress = math.max(0, math.min(1,
+        (progress - start) / (1 - start)))
+      cardProgress = 1 - (1 - cardProgress) ^ 3
+      G.push()
+      G.translate(math.floor(240 * (1 - cardProgress) + 0.5), 0)
+      draw(self, mon)
+      G.pop()
+    end
+    enter(0.32, H.summaryTrainerMemo)
+    enter(0.38, H.summaryGrowthMemo)
+  end
+
+  function H:summaryIdentityTransition(mon, drawPortrait, progress)
+    local G, colors = ui.graphics, self.colors
+    progress = math.max(0, math.min(1, progress or 0))
+    progress = 1 - (1 - progress) ^ 3
+    local function mix(first, last)
+      return math.floor(first + (last - first) * progress + 0.5)
+    end
+    local height = mix(80, 25)
+    self:panel(6, 34, 228, height, false)
+    self:summaryBall(mix(38, 20), mix(69, 46), mix(29, 10))
+    drawPortrait(mon, mix(14, 10), mix(44, 36), mix(48, 20), false)
+
+    self:partyName(mon.name, mix(72, 36), mix(39, 37), colors.ink,
+      mix(139, 108))
+    if mon.gender == "male" then
+      self:genderIcon("male", mix(219, 145), mix(42, 40))
+    elseif mon.gender == "female" then
+      self:genderIcon("female", mix(219, 145), mix(42, 40))
+    end
+    self:partyInfo(mon.levelText, mix(132, 158), mix(53, 39), colors.ink)
+    if mon.statusId then
+      self:statusIcon(mon.statusId, mix(191, 194), mix(55, 40))
+    end
+    self:partyInfo(mon.hpLabel or "HP", mix(72, 36), mix(79, 47),
+      colors.green)
+    self:partyInfo(mon.hpText, mix(72, 158), mix(79, 47), colors.ink,
+      mix(155, 69), "right")
+    self:hpBar(mix(72, 55), mix(90, 50), mix(155, 96), mon.hp, mon.maxHp)
+
+    local clipX, clipY = G.transformPoint(6, 34)
+    local clipRight, clipBottom = G.transformPoint(234, 34 + height)
+    local oldX, oldY, oldWidth, oldHeight = G.getScissor()
+    G.setScissor(clipX, clipY, clipRight - clipX, clipBottom - clipY)
+    G.push()
+    G.translate(math.floor(240 * progress + 0.5), 0)
+    self:partyInfo(mon.dexText, 72, 53, colors.green)
+    self:typeBadges(mon, 72, 66, false)
+    if mon.info2Label then
+      self:partyInfo(mon.infoLabel, 121, 66, colors.green)
+      self:partyInfo(mon.infoText, 139, 66, colors.ink, 27, "right")
+      self:partyInfo(mon.info2Label, 171, 66, colors.green)
+      self:partyInfo(mon.info2Text, 190, 66, colors.ink, 37, "right")
+    else
+      self:partyInfo(mon.infoLabel or "ITEM", 121, 66, colors.green)
+      self:partyInfo(mon.infoText or "---", 151, 66, colors.ink,
+        76, "right")
+    end
+    self:partyInfo(mon.expLabel or "EXP", 72, 98, colors.green)
+    if mon.expProgress then
+      self:expBar(99, 103, mon.nextValue and 64 or 128, mon.expProgress)
+    end
+    if mon.nextValue then
+      self:partyInfo(mon.nextLabel or "NEXT", 168, 98, colors.green)
+      self:partyInfo(mon.nextValue, 195, 98, colors.ink, 32, "right")
+    end
+    G.pop()
+    if oldX then G.setScissor(oldX, oldY, oldWidth, oldHeight)
+    else G.setScissor() end
+  end
+
+  function H:summaryMovesTransition(mon, drawPortrait, progress)
+    progress = math.max(0, math.min(1, progress or 0))
+    local topProgress = math.min(1, progress / 0.40)
+    self:summaryIdentityTransition(mon, drawPortrait, topProgress)
+
+    local exitProgress = math.min(1, progress / 0.55)
+    local slide = exitProgress * exitProgress * (3 - 2 * exitProgress)
+    ui.graphics.push()
+    ui.graphics.translate(math.floor(-240 * slide + 0.5), 0)
+    self:summaryStats(mon)
+    ui.graphics.pop()
+
+    for slot = 1, 4 do
+      local start = 0.28 + (slot - 1) * 0.04
+      local rowProgress = math.max(0, math.min(1,
+        (progress - start) / (1 - start)))
+      rowProgress = 1 - (1 - rowProgress) ^ 3
+      ui.graphics.push()
+      ui.graphics.translate(math.floor(240 * (1 - rowProgress) + 0.5), 0)
+      self:summaryMoveRow(mon.moves[slot] or {}, 6,
+        63 + (slot - 1) * 37, mon.moveIndex == slot)
+      ui.graphics.pop()
+    end
+  end
+
+  function H:summaryTransition(mon, drawPortrait, progress, actionCount,
+      statsLabel, swapLabel)
+    local G = ui.graphics
+    progress = math.max(0, math.min(1, progress or 0))
+    local eased = 1 - (1 - progress) ^ 3
+    local heroY = self:partyActionHeroY(actionCount)
+    local actionOffset = math.floor(132 * eased + 0.5)
+
+    local anchorProgress = math.min(1, progress / 0.20)
+    local anchorX = 64 - 12 * anchorProgress
+    local anchorY = heroY + (42 - heroY) * anchorProgress
+    if progress < 0.20 then
+      self:partyCard(mon, anchorX, anchorY, true, false, drawPortrait)
+    else
+      local panelProgress = (progress - 0.20) / 0.80
+      panelProgress = 1 - (1 - panelProgress) ^ 3
+      local x = 52 + (6 - 52) * panelProgress
+      local y = 42 + (34 - 42) * panelProgress
+      local width = 112 + (228 - 112) * panelProgress
+      local height = 56 + (80 - 56) * panelProgress
+      local clipX, clipY = G.transformPoint(x, y)
+      local clipRight, clipBottom = G.transformPoint(x + width, y + height)
+      local oldX, oldY, oldWidth, oldHeight = G.getScissor()
+      G.setScissor(clipX, clipY, clipRight - clipX, clipBottom - clipY)
+      G.push()
+      G.translate(x - 6, y - 34)
+      self:summaryTop(mon, drawPortrait)
+      G.pop()
+      if oldX then G.setScissor(oldX, oldY, oldWidth, oldHeight)
+      else G.setScissor() end
+    end
+
+    local left, top, width, height = self:partyActionRow(1, actionCount)
+    self:actionRow(left, top, width, height, statsLabel, "stats", actionOffset)
+    if actionCount > 1 then
+      left, top, width, height = self:partyActionRow(2, actionCount)
+      self:actionRow(left, top, width, height, swapLabel, "swap", actionOffset)
+    end
+
+    local statsProgress = math.max(0, math.min(1,
+      (progress - 0.28) / 0.72))
+    statsProgress = 1 - (1 - statsProgress) ^ 3
+    G.push()
+    G.translate(0, math.floor(98 * (1 - statsProgress) + 0.5))
+    self:summaryStats(mon)
+    G.pop()
   end
 
   function H:partySlot(x, y, count)
