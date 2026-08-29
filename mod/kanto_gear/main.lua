@@ -5207,10 +5207,13 @@ return function(mod)
     if THEME.style == "hgss" then
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       local lines = THEME:messageLines(battle.message or {}, 24, 4)
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:battleMessage(lines,
         battle.prompt == "advance" and THEME:translate("TAP TO CONTINUE")
           or nil,
         playerTeam, enemyTeam, title and THEME:translate(title) or nil)
+      G.pop()
       return
     end
     header(title or (battle.kind == "wild" and "Wild battle"

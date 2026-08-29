@@ -65,6 +65,9 @@ T.check(source:find("local dark = selected and not disabled", 1, true),
   "disabled moves never reuse the selected visual state")
 T.check(source:find("elseif not disabled then\n        submit(\"move\"", 1, true),
   "disabled moves cannot be submitted from the companion touch UI")
+T.check(source:find("G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)\n"
+    .. "      THEME.hgss:battleMessage", 1, true),
+  "HGSS battle messages use the high-resolution canvas scale")
 local upvalues = debug.getinfo(entry, "u").nups
 local firstUpvalue = debug.getupvalue(entry, 1)
 if firstUpvalue == "_ENV" then upvalues = upvalues - 1 end
