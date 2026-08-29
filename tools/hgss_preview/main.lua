@@ -346,8 +346,8 @@ function love.load()
     return {
       title = "ITEM POCKET", categorized = true, index = 2,
       items = {
-        { label = "TM02", right = "DYNAMIC PUNCH" },
-        { label = "HM03", right = "WHIRLPOOL" },
+        { label = "TM02", right = "DYNAMIC PUNCH", icon = "machine" },
+        { label = "HM03", right = "WHIRLPOOL", icon = "machine" },
         { label = "GREAT BALL", right = "x8", icon = "ball",
           catchChance = 79.7 },
         { label = "PARLYZ HEAL", right = "x2", icon = "status" },

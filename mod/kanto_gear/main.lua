@@ -4179,16 +4179,27 @@ return function(mod)
   function hgssRuntime.bagView(menu)
     local odds, kinds = {}, {}
     for _, item in ipairs(battle.items or {}) do
-      odds[item.id], kinds[item.id] = item.catchChance,
-        item.ball and "ball" or item.needsTarget and "medicine" or nil
+      local id = tostring(item.id or ""):upper()
+      local kind = item.ball and "ball"
+        or (id:match("^TM%d") or id:match("^HM%d")) and "machine"
+        or (id:find("HEAL", 1, true) or id == "ANTIDOTE"
+          or id == "AWAKENING") and "status"
+        or item.needsTarget and "medicine" or "item"
+      odds[item.id], kinds[item.id] = item.catchChance, kind
     end
     local items = {}
     for index, item in ipairs(menu.items or {}) do
+      local label = item.label or tostring(index)
+      local icon = kinds[item.value]
+      local upper = tostring(label):upper()
+      if upper:match("^TM%d") or upper:match("^HM%d") then
+        icon = "machine"
+      end
       items[index] = {
-        value = item.value, label = item.label or tostring(index),
+        value = item.value, label = label,
         right = item.right, cancel = item.cancel,
         catchChance = assist("catch_odds") and odds[item.value] or nil,
-        catchLabel = THEME:translate("CATCH"), icon = kinds[item.value],
+        catchLabel = THEME:translate("CATCH"), icon = icon or "item",
       }
     end
     return {

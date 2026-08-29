@@ -747,10 +747,24 @@ return function(ui)
       border(x + 1, y + 1, 14, 14, colors.outline)
       box("fill", x + 7, y + 4, 3, 8, tint)
       box("fill", x + 4, y + 7, 9, 3, tint)
+    elseif item.icon == "machine" then
+      box("fill", x + 5, y + 1, 6, 1, colors.outline)
+      box("fill", x + 3, y + 2, 10, 1, colors.outline)
+      box("fill", x + 2, y + 3, 12, 10, colors.outline)
+      box("fill", x + 3, y + 13, 10, 1, colors.outline)
+      box("fill", x + 5, y + 14, 6, 1, colors.outline)
+      box("fill", x + 3, y + 3, 10, 10, tint)
+      box("fill", x + 5, y + 2, 6, 12, tint)
+      box("fill", x + 6, y + 6, 4, 4, colors.outline)
+      box("fill", x + 7, y + 7, 2, 2, colors.white)
     else
-      clipped(x + 2, y + 2, 12, 12, colors.white)
-      border(x + 2, y + 2, 12, 12, colors.outline)
-      box("fill", x + 5, y + 5, 6, 6, tint)
+      box("fill", x + 5, y + 2, 6, 1, colors.outline)
+      box("fill", x + 4, y + 3, 8, 4, colors.outline)
+      box("fill", x + 6, y + 4, 4, 3, colors.white)
+      box("fill", x + 2, y + 6, 12, 9, colors.outline)
+      box("fill", x + 3, y + 7, 10, 7, colors.white)
+      box("fill", x + 3, y + 7, 10, 3, tint)
+      box("fill", x + 7, y + 10, 2, 2, colors.outline)
     end
   end
 
@@ -780,19 +794,23 @@ return function(ui)
   function H:battleBagRow(item, index, y, selected, offsetX)
     local G, colors = ui.graphics, self.colors
     local disabled = item.disabled
-    local accent = disabled and colors.silverDark or colors.amberLight
     local ink = disabled and colors.silverDark or colors.ink
+    local iconTint = disabled and colors.silverDark
+      or item.icon == "ball" and colors.redLight
+      or item.icon == "medicine" and colors.blueLight
+      or item.icon == "status" and colors.greenLight
+      or item.icon == "machine" and colors.amberLight
+      or colors.blueLight
     G.push()
     G.translate(offsetX or 0, 0)
-    self:panel(7, y, 226, 31, false, accent)
+    self:panel(7, y, 226, 31, false)
     if selected and not disabled then
-      clipped(12, y + 3, 216, 25, colors.amberLight)
-      box("fill", 12, y + 3, 216, 2, colors.white)
+      clipped(9, y + 2, 222, 27, colors.focus)
+      box("fill", 11, y + 3, 218, 1, colors.highlight)
     end
-    box("fill", 8, y + 3, 4, 25, accent)
-    box("fill", 9, y + 2, 3, 1, accent)
-    box("fill", 9, y + 28, 3, 1, accent)
-    self:battleItemIcon(item, 17, y + 7, accent)
+    clipped(14, y + 5, 21, 21, colors.bandLight)
+    border(14, y + 5, 21, 21, colors.band)
+    self:battleItemIcon(item, 16, y + 7, iconTint)
     box("fill", 39, y + 4, 1, 23, colors.band)
 
     local chance = self:battleCatchLabel(item.catchChance)
