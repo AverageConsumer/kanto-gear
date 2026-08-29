@@ -1601,15 +1601,16 @@ return function(ui)
       x + 2, y - 1, self.colors.white, 44)
   end
 
-  function H:summaryMoveRow(move, x, y, selected)
+  function H:summaryMoveRow(move, x, y, selected, interactive)
     local colors = self.colors
-    self:panel(x, y, 228, 34, selected, self:typeColor(move.type))
+    self:panel(x, y, 228, 34, interactive and selected,
+      self:typeColor(move.type))
     self:moveTypeBadge(move, x + 8, y + 12)
     self:partyName(move.name or "-", x + 64, y + 4, colors.ink, 88)
     self:partyInfo(move.ppLabel or "PP", x + 157, y + 4, colors.green)
     self:partyInfo(move.ppText or "--", x + 177, y + 4,
       colors.ink, 35, "right")
-    self:detailChevron(x + 217, y + 6, colors.ink)
+    if interactive then self:detailChevron(x + 217, y + 6, colors.ink) end
     self:partyInfo(move.powerLabel or "PWR", x + 64, y + 18,
       colors.green)
     local power = move.powerText
@@ -1628,8 +1629,10 @@ return function(ui)
   function H:summaryMoves(mon, drawPortrait)
     self:summaryIdentity(mon, drawPortrait)
     for slot = 1, 4 do
-      self:summaryMoveRow(mon.moves[slot] or {}, 6,
-        63 + (slot - 1) * 37, mon.moveIndex == slot)
+      local move = mon.moves[slot] or {}
+      local interactive = mon.moveDetails and move.available
+      self:summaryMoveRow(move, 6, 63 + (slot - 1) * 37,
+        interactive and mon.moveIndex == slot, interactive)
     end
   end
 
@@ -1687,8 +1690,10 @@ return function(ui)
       rowProgress = rowProgress * rowProgress * (3 - 2 * rowProgress)
       G.push()
       G.translate(math.floor(-240 * rowProgress + 0.5), 0)
-      self:summaryMoveRow(mon.moves[slot] or {}, 6,
-        63 + (slot - 1) * 37, mon.moveIndex == slot)
+      local move = mon.moves[slot] or {}
+      local interactive = mon.moveDetails and move.available
+      self:summaryMoveRow(move, 6, 63 + (slot - 1) * 37,
+        interactive and mon.moveIndex == slot, interactive)
       G.pop()
     end
 
@@ -1784,8 +1789,10 @@ return function(ui)
       rowProgress = 1 - (1 - rowProgress) ^ 3
       ui.graphics.push()
       ui.graphics.translate(math.floor(240 * (1 - rowProgress) + 0.5), 0)
-      self:summaryMoveRow(mon.moves[slot] or {}, 6,
-        63 + (slot - 1) * 37, mon.moveIndex == slot)
+      local move = mon.moves[slot] or {}
+      local interactive = mon.moveDetails and move.available
+      self:summaryMoveRow(move, 6, 63 + (slot - 1) * 37,
+        interactive and mon.moveIndex == slot, interactive)
       ui.graphics.pop()
     end
   end

@@ -1070,9 +1070,73 @@ do
   battleMove = hgssRuntime.battleMon().moves[1]
   T.eq(battleMove.powerText, "--",
     "HGSS battle cards keep status move power empty")
+  local summaryReadyUpvalue
+  for i = 1, debug.getinfo(hgssRuntime.remapSummaryMovesInput, "u").nups do
+    if debug.getupvalue(hgssRuntime.remapSummaryMovesInput, i)
+        == "displayReady" then
+      summaryReadyUpvalue = i
+      break
+    end
+  end
+  T.check(summaryReadyUpvalue ~= nil,
+    "HGSS Gen 1 summary navigation observes companion readiness")
+  local _, previousSummaryReady = debug.getupvalue(
+    hgssRuntime.remapSummaryMovesInput, summaryReadyUpvalue)
+  local previousTheme = run.loader.modOptions.kanto_gear.theme
+  local previousMoveDetails = run.loader.modOptions.kanto_gear.move_details
+  local previousStates = game.stack.states
+  local previousSummaryInput = game.input
+  local summaryMon = game.save.party[1]
+  local previousMoves = summaryMon.moves
+  local oldSecondMove = game.data.moves.FIX_SUMMARY_2
+  game.data.moves.TACKLE.power = 35
+  game.data.moves.FIX_SUMMARY_2 = {
+    name = "SECOND MOVE", type = "FIRE", pp = 15,
+    power = 60, accuracy = 95,
+  }
+  summaryMon.moves = {
+    { id = "TACKLE", pp = 30 },
+    { id = "FIX_SUMMARY_2", pp = 10 },
+  }
+  local rawSummaryBattle = { isBattleState = true }
+  local summaryState = {
+    screenId = "SummaryMenu", page = 2, moveIndex = 1,
+    mon = summaryMon,
+  }
+  run.loader.modOptions.kanto_gear.theme = "hgss"
+  run.loader.modOptions.kanto_gear.move_details = true
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "theme" })
+  debug.setupvalue(hgssRuntime.remapSummaryMovesInput,
+    summaryReadyUpvalue, true)
+  game.stack.states = { world, rawSummaryBattle, summaryState }
+  game.input = { pressQueue = { "down" } }
+  hgssRuntime.remapSummaryMovesInput(game)
+  T.eq(summaryState.moveIndex, 2,
+    "owned HGSS Gen 1 battle summary moves focus with the D-pad")
+  T.eq(hgssRuntime.summaryMove(summaryState, 2).id, "FIX_SUMMARY_2",
+    "Gen 1 summary exposes the focused move to the shared detail path")
+  game.input.pressQueue = { "a" }
+  hgssRuntime.remapSummaryMovesInput(game)
+  T.eq(#game.input.pressQueue, 0,
+    "owned HGSS Gen 1 summary consumes confirm input")
+  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
+  T.eq(openMoveInfo and openMoveInfo.id, "FIX_SUMMARY_2",
+    "A opens the focused Gen 1 summary move description")
+  debug.setupvalue(inputHook, moveInfoUpvalue, nil)
+  summaryMon.moves = previousMoves
+  game.data.moves.FIX_SUMMARY_2 = oldSecondMove
+  game.stack.states = previousStates
+  game.input = previousSummaryInput
+  run.loader.modOptions.kanto_gear.theme = previousTheme
+  run.loader.modOptions.kanto_gear.move_details = previousMoveDetails
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "theme" })
+  debug.setupvalue(hgssRuntime.remapSummaryMovesInput,
+    summaryReadyUpvalue, previousSummaryReady)
   game.data.moves.TACKLE = oldTackle
   debug.setupvalue(inputHook, battleUpvalue, previousBattle)
-  local previousStates = game.stack.states
+  previousStates = game.stack.states
   local learnMon = {
     species = "PIKACHU",
     moves = { { id = "TACKLE", pp = 12 }, { id = "FIX_EMBERISH", pp = 8 } },

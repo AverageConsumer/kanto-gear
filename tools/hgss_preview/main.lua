@@ -529,6 +529,8 @@ function love.load()
         }
       end
       mon.moveIndex = 1
+      mon.moveDetails = true
+      for _, move in ipairs(mon.moves) do move.available = true end
       if memoTransition then
         assert(not gen1, "Gen 1 summaries only have two pages")
         theme:summaryMemoTransition(mon, summaryPortrait, transitionProgress)

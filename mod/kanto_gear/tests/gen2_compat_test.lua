@@ -551,9 +551,14 @@ do
     if entry.owner == "kanto_gear" then inputHook = entry.callback end
   end
   local runtime
+  local moveInfoIndex
   for i = 1, debug.getinfo(inputHook, "u").nups do
     local name, value = debug.getupvalue(inputHook, i)
     if name == "hgssRuntime" then runtime = value break end
+  end
+  for i = 1, debug.getinfo(inputHook, "u").nups do
+    local name = debug.getupvalue(inputHook, i)
+    if name == "moveInfo" then moveInfoIndex = i break end
   end
   local playerTeam, wildTeam = runtime.battleTeams()
   T.check(type(playerTeam[1]) == "table"
@@ -653,6 +658,73 @@ do
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   T.eq(partyMenu.submenu.index, 1,
     "owned HGSS battle party menu maps UP to visible SWITCH")
+
+  local summaryMon = game.save.party[1]
+  local summaryState = {
+    screenId = "Gen2SummaryMenu", page = 2, moveIndex = 1,
+    mon = summaryMon,
+    itemName = function() return "BERRY" end,
+    expToNext = function() return 20 end,
+    otName = function() return "GOLD" end,
+    otId = function() return 25 end,
+  }
+  local previousMoves = summaryMon.moves
+  local previousFirst = run.data.moves.FIX_SUMMARY_1
+  local previousSecond = run.data.moves.FIX_SUMMARY_2
+  local previousMoveDetails = run.loader.modOptions.kanto_gear.move_details
+  summaryMon.moves = {
+    { id = "FIX_SUMMARY_1", pp = 20 },
+    { id = "FIX_SUMMARY_2", pp = 10 },
+  }
+  run.data.moves.FIX_SUMMARY_1 = {
+    name = "FIRST MOVE", type = "NORMAL", pp = 35,
+    power = 40, accuracy = 100, description = "FIRST MOVE DESCRIPTION",
+  }
+  run.data.moves.FIX_SUMMARY_2 = {
+    name = "SECOND MOVE", type = "FIRE", pp = 15,
+    power = 60, accuracy = 95, description = "SECOND MOVE DESCRIPTION",
+  }
+  run.loader.modOptions.kanto_gear.move_details = true
+  game.stack.states = { screen, partyMenu, summaryState }
+  game.input.pressQueue = { "down" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  T.eq(summaryState.moveIndex, 2,
+    "owned HGSS battle summary moves focus with the D-pad")
+  T.eq(#game.input.pressQueue, 0,
+    "owned HGSS battle summary consumes remapped direction")
+  game.input.pressQueue = { "a" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  local _, selectedMove = debug.getupvalue(inputHook, moveInfoIndex)
+  T.eq(selectedMove and selectedMove.id, "FIX_SUMMARY_2",
+    "A opens the focused battle summary move description")
+  T.eq(#game.input.pressQueue, 0,
+    "battle summary move descriptions consume confirm input")
+  game.input.pressQueue = { "b" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  _, selectedMove = debug.getupvalue(inputHook, moveInfoIndex)
+  T.eq(selectedMove, nil,
+    "B closes move details without leaving the battle summary")
+  local composeHook
+  for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
+    if entry.owner == "kanto_gear" then composeHook = entry.callback end
+  end
+  local function upvalue(fn, target)
+    for index = 1, debug.getinfo(fn, "u").nups do
+      local name, value = debug.getupvalue(fn, index)
+      if name == target then return value end
+    end
+  end
+  local touchEvent = upvalue(composeHook, "touchEvent")
+  local tap = upvalue(touchEvent, "tap")
+  tap(80, 50)
+  _, selectedMove = debug.getupvalue(inputHook, moveInfoIndex)
+  T.eq(selectedMove and selectedMove.id, "FIX_SUMMARY_1",
+    "touch opens the tapped battle summary move description")
+  debug.setupvalue(inputHook, moveInfoIndex, nil)
+  summaryMon.moves = previousMoves
+  run.data.moves.FIX_SUMMARY_1 = previousFirst
+  run.data.moves.FIX_SUMMARY_2 = previousSecond
+  run.loader.modOptions.kanto_gear.move_details = previousMoveDetails
   game.stack.states = { screen }
   game.input = previousInput
   run.loader.modOptions.kanto_gear.theme = previousTheme

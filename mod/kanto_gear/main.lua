@@ -4263,6 +4263,7 @@ return function(mod)
       nextLevelLabel = THEME:translate("NEXT LEVEL"),
       nextLevelText = level < 100 and THEME:format("L%d", level + 1) or "MAX",
       nextExpLabel = THEME:translate("TO NEXT"),
+      moveDetails = battle ~= nil and assist("move_details"),
     }
     local stats = view.stats or {}
     local rows = view.gen2 and {
@@ -4282,6 +4283,7 @@ return function(mod)
       local source = mon.moves and mon.moves[slot] or {}
       local move = game.data.moves[source.id] or {}
       out.moves[slot] = {
+        available = source.id ~= nil,
         name = move.name or source.id or "-", type = move.type,
         typeLabel = THEME:typeName(move.type, mod.content),
         ppLabel = THEME:translate("PP"),
@@ -4629,6 +4631,17 @@ return function(mod)
     return entry
   end
 
+  function hgssRuntime.summaryMove(summary, index)
+    local view = compat.summary.view(summary, game)
+    local source = view and view.mon and view.mon.moves
+      and view.mon.moves[index]
+    local entry = compat.moveInfoEntry(source)
+    if entry and view.moves and view.moves[index] then
+      entry.maxPp = view.moves[index].maxPp or entry.maxPp
+    end
+    return entry, view
+  end
+
   local function drawMoveInfo(move)
     if THEME.style == "hgss" and battle and battle.prompt == "moves" then
       local mon = hgssRuntime.battleMon()
@@ -4657,6 +4670,42 @@ return function(mod)
     if power == 0 then power = nil end
     local accuracy = move.hitChance
     if accuracy == nil then accuracy = move.accuracy or def.accuracy end
+    local summary = screenById("summary")
+    if THEME.style == "hgss" and battle and summary
+        and compat.summary.supports(summary, game) then
+      local _, view = hgssRuntime.summaryMove(summary,
+        summary.moveIndex or 1)
+      local moveType = move.type or def.type
+      local enemy = battle.enemy
+      local enemyDef = enemy and game.data.pokemon
+        and game.data.pokemon[enemy.species]
+      local enemyTypes = enemy and enemy.types
+        or enemyDef and enemyDef.types
+      local info = {
+        name = THEME:moveName(move, game and game.data),
+        type = moveType,
+        typeLabel = THEME:typeName(moveType, mod.content),
+        ppLabel = THEME:translate("PP"),
+        ppText = THEME:format("%d/%d", move.pp or 0, move.maxPp or 0),
+        power = power or 0,
+        powerLabel = THEME:translate("PWR"),
+        powerText = power and tostring(power) or "--",
+        accuracyLabel = THEME:translate("ACC"),
+        accuracyText = accuracy and tostring(accuracy) or "--",
+        stabLabel = "STAB",
+        matchupLabel = THEME:translate("MATCHUP"),
+        effectiveness = assist("type_hints") and compat.typeEffectiveness(
+          moveType, enemyTypes, game.data.type_chart) or nil,
+        descriptionLines = lines,
+      }
+      header(THEME:translate("MOVES"), true)
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:battleMoveInfoBody(info,
+        THEME.hgss:moveHasStab({ types = view and view.types }, info))
+      G.pop()
+      return
+    end
     header(fit(THEME:moveName(move, game and game.data), 12), true)
     box("fill", 12, 25, 136, 112, MID)
     outline(12, 25, 136, 112, INK)
@@ -5427,6 +5476,8 @@ return function(mod)
       drawBattleParty(party)
     elseif bag then
       drawBattleItems(bag)
+    elseif summary and moveInfo then
+      drawMoveInfo(moveInfo)
     elseif summary then
       if compat.summary.supports(summary, game) then drawBattleSummary(summary)
       else drawTopSummaryControls(summary) end
@@ -6533,6 +6584,19 @@ return function(mod)
           press("left")
         elseif hy < 30 and hx < 139 then
           press("right")
+        elseif battle and assist("move_details")
+            and tonumber(summary.page) == 2 then
+          for slot = 1, 4 do
+            local rowY = 63 + (slot - 1) * 37
+            if inside(hx, hy, 6, rowY, 228, 34) then
+              local selected = hgssRuntime.summaryMove(summary, slot)
+              if selected then
+                summary.moveIndex, moveInfo = slot, selected
+                dirty = true
+              end
+              break
+            end
+          end
         end
       elseif not battle then
         return
@@ -7065,6 +7129,44 @@ return function(mod)
     end
   end
 
+  function hgssRuntime.remapSummaryMovesInput(stepGame)
+    if stepGame ~= game or THEME.style ~= "hgss" or not battle
+        or not assist("move_details") then return end
+    local summary = screenById("summary")
+    local raw, top = battleState(), game.stack:top()
+    local queue = stepGame and stepGame.input and stepGame.input.pressQueue
+    if not raw or top ~= summary or tonumber(summary and summary.page) ~= 2
+        or type(queue) ~= "table" or not compat.summary.supports(summary, game)
+        or not (active and hasDisplay() and displayReady) then return end
+    local view = compat.summary.view(summary, game)
+    local moves = view and view.mon and view.mon.moves or {}
+    local current = tonumber(summary.moveIndex) or 1
+    for i = 1, #queue do
+      local direction = queue[i] == "up" and -1
+        or queue[i] == "down" and 1 or nil
+      if direction then
+        for offset = 1, 4 do
+          local target = (current - 1 + direction * offset) % 4 + 1
+          if moves[target] and moves[target].id then
+            summary.moveIndex = target
+            table.remove(queue, i)
+            dirty = true
+            return true
+          end
+        end
+      elseif queue[i] == "a" then
+        local selected = hgssRuntime.summaryMove(summary, current)
+        if selected then
+          summary.moveIndex = current
+          moveInfo = selected
+          table.remove(queue, i)
+          dirty = true
+          return true
+        end
+      end
+    end
+  end
+
   function hgssRuntime.openingBattlePanel(stepGame)
     if stepGame ~= game or THEME.style ~= "hgss"
         or not battle or battle.prompt ~= "menu" then return false end
@@ -7108,6 +7210,7 @@ return function(mod)
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
     hgssRuntime.remapBattleRootInput(stepGame)
+    hgssRuntime.remapSummaryMovesInput(stepGame)
     local modalMoveInfo = moveInfo ~= nil
     if modalMoveInfo or battleInfoDetail or displayRuntime.guideDetail then
       local queue = stepGame and stepGame.input
@@ -7133,6 +7236,15 @@ return function(mod)
         local raw = battleState()
         local index = raw and raw.moveIndex or battle.moveIndex or 1
         moveInfo = battle.moves and battle.moves[index]
+      end
+      if not moveInfo and battle then
+        local summary = screenById("summary")
+        if summary and game.stack:top() == summary
+            and tonumber(summary.page) == 2
+            and compat.summary.supports(summary, game) then
+          moveInfo = hgssRuntime.summaryMove(summary,
+            summary.moveIndex or 1)
+        end
       end
       if moveInfo and battle and battle.prompt == "moves" then
         hgssRuntime.beginAnimation("battle_move_info")
