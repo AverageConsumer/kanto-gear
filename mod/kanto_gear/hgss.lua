@@ -649,42 +649,69 @@ return function(ui)
     local tanLight = { 0.84, 0.61, 0.30, 1 }
     local tanDark = { 0.34, 0.19, 0.10, 1 }
     local tanShade = { 0.48, 0.29, 0.13, 1 }
+    local strap = { 0.44, 0.20, 0.10, 1 }
+    local strapLight = { 0.67, 0.32, 0.16, 1 }
     local metal = { 0.67, 0.71, 0.72, 1 }
     local metalLight = { 0.91, 0.94, 0.94, 1 }
 
-    -- Main pack and the darker side pouch.
-    box("fill", x + 3, y + 1, 17, 1, colors.outline)
-    box("fill", x + 2, y + 2, 20, 3, colors.outline)
-    box("fill", x + 1, y + 5, 23, 20, colors.outline)
-    box("fill", x + 3, y + 25, 19, 2, colors.outline)
-    box("fill", x + 24, y + 8, 2, 14, colors.outline)
-    box("fill", x + 2, y + 5, 20, 19, tan)
-    box("fill", x + 3, y + 24, 18, 1, tanDark)
-    box("fill", x + 21, y + 6, 3, 18, tanShade)
-    box("fill", x + 24, y + 9, 1, 12, tanDark)
-    box("fill", x + 20, y + 8, 2, 14, tanDark)
-    box("fill", x + 21, y + 9, 2, 3, tanShade)
-    box("fill", x + 21, y + 20, 2, 3, tanShade)
+    -- Shoulder straps sit behind the pack and expose its three-quarter angle.
+    box("fill", x + 7, y, 8, 1, colors.outline)
+    box("fill", x + 5, y + 1, 12, 3, colors.outline)
+    box("fill", x + 4, y + 3, 5, 4, colors.outline)
+    box("fill", x + 15, y + 2, 6, 3, colors.outline)
+    box("fill", x + 19, y + 3, 5, 5, colors.outline)
+    box("fill", x + 22, y + 6, 4, 17, colors.outline)
+    box("fill", x + 20, y + 21, 5, 4, colors.outline)
+    box("fill", x + 7, y + 1, 8, 2, strapLight)
+    box("fill", x + 5, y + 3, 4, 3, strap)
+    box("fill", x + 16, y + 3, 5, 2, strapLight)
+    box("fill", x + 20, y + 4, 3, 4, strap)
+    box("fill", x + 23, y + 7, 2, 15, strapLight)
+    box("fill", x + 21, y + 22, 3, 2, strap)
 
-    -- Broad Kanto-style flap with a stitched lower compartment.
-    box("fill", x + 3, y + 3, 17, 2, tanLight)
-    box("fill", x + 2, y + 5, 19, 7, tanLight)
-    box("fill", x + 3, y + 12, 17, 2, tanShade)
-    box("fill", x + 3, y + 15, 17, 9, tan)
-    box("fill", x + 7, y + 16, 1, 7, tanShade)
-    box("fill", x + 8, y + 16, 1, 7, tanLight)
-    box("fill", x + 15, y + 16, 1, 7, tanShade)
-    box("fill", x + 16, y + 16, 1, 7, tanLight)
+    -- Stepped silhouette: broad front at left, recessed side at right.
+    box("fill", x + 3, y + 4, 17, 1, colors.outline)
+    box("fill", x + 2, y + 5, 20, 2, colors.outline)
+    box("fill", x + 1, y + 7, 22, 4, colors.outline)
+    box("fill", x, y + 11, 23, 11, colors.outline)
+    box("fill", x + 1, y + 22, 21, 3, colors.outline)
+    box("fill", x + 3, y + 25, 18, 2, colors.outline)
+    box("fill", x + 3, y + 5, 16, 20, tan)
+    box("fill", x + 2, y + 7, 17, 17, tan)
+    box("fill", x + 1, y + 11, 18, 11, tan)
+    box("fill", x + 4, y + 25, 16, 1, tanDark)
+    box("fill", x + 19, y + 6, 2, 19, tanShade)
+    box("fill", x + 21, y + 8, 1, 15, tanDark)
+    box("fill", x + 18, y + 10, 2, 13, tanShade)
+
+    -- Sloped flap and the stitched lower front compartment.
+    box("fill", x + 4, y + 5, 14, 1, tanLight)
+    box("fill", x + 3, y + 6, 16, 2, tanLight)
+    box("fill", x + 2, y + 8, 17, 4, tanLight)
+    box("fill", x + 1, y + 12, 17, 2, tanLight)
+    box("fill", x + 2, y + 14, 16, 2, tanShade)
+    box("fill", x + 2, y + 16, 16, 7, tan)
+    box("fill", x + 3, y + 23, 15, 1, tanShade)
+    box("fill", x + 6, y + 16, 1, 7, tanShade)
+    box("fill", x + 7, y + 16, 1, 7, tanLight)
+    box("fill", x + 14, y + 16, 1, 7, tanShade)
+    box("fill", x + 15, y + 16, 1, 7, tanLight)
+
+    -- Small side pocket reinforces the visible depth.
+    box("fill", x + 19, y + 15, 3, 8, tanDark)
+    box("fill", x + 20, y + 16, 2, 5, tanShade)
+    box("fill", x + 19, y + 15, 3, 1, tanLight)
+    box("fill", x + 20, y + 21, 1, 1, metal)
 
     -- Round silver clasp, offset like the original Kanto pack.
-    box("fill", x + 8, y + 9, 5, 1, colors.outline)
-    box("fill", x + 7, y + 10, 7, 5, colors.outline)
-    box("fill", x + 8, y + 15, 5, 1, colors.outline)
-    box("fill", x + 9, y + 10, 3, 1, metalLight)
-    box("fill", x + 8, y + 11, 5, 3, metal)
-    box("fill", x + 9, y + 14, 3, 1, metal)
-    box("fill", x + 9, y + 11, 2, 2, metalLight)
-    box("fill", x + 11, y + 13, 1, 1, colors.silverDark)
+    box("fill", x + 7, y + 11, 5, 1, colors.outline)
+    box("fill", x + 6, y + 12, 7, 5, colors.outline)
+    box("fill", x + 7, y + 17, 5, 1, colors.outline)
+    box("fill", x + 8, y + 12, 3, 1, metalLight)
+    box("fill", x + 7, y + 13, 5, 3, metal)
+    box("fill", x + 8, y + 16, 3, 1, metal)
+    box("fill", x + 8, y + 13, 2, 2, metalLight)
+    box("fill", x + 10, y + 15, 1, 1, colors.silverDark)
   end
 
   function H:battleBagAction(mon, selected, offsetX, offsetY)
