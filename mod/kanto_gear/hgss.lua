@@ -1354,18 +1354,18 @@ return function(ui)
     local edge = fainted and self.colors.silverDark or self.colors.outline
     local dual = mon.type2 and mon.type2 ~= mon.type
     if not dual then
-      clipped(x + 10, y, 22, 10, left)
-      border(x + 10, y, 22, 10, edge)
-      self:partyType(leftText, x + 10, y - 1, leftInk, 22)
+      clipped(x + 10, y, 23, 10, left)
+      border(x + 10, y, 23, 10, edge)
+      self:partyType(leftText, x + 10, y - 1, leftInk, 23)
       return
     end
     local right, rightInk, rightText = typeBadgeStyle(
       self, mon.type2, mon.type2Label, fainted)
-    clipped(x, y, 42, 10, left)
-    box("fill", x + 21, y, 19, 10, right)
-    box("fill", x + 21, y + 1, 20, 8, right)
-    box("fill", x + 21, y + 2, 21, 6, right)
-    border(x, y, 42, 10, edge)
+    clipped(x, y, 43, 10, left)
+    box("fill", x + 21, y, 20, 10, right)
+    box("fill", x + 21, y + 1, 21, 8, right)
+    box("fill", x + 21, y + 2, 22, 6, right)
+    border(x, y, 43, 10, edge)
     box("fill", x + 21, y + 1, 1, 8, edge)
     self:partyType(leftText, x + 1, y - 1, leftInk, 20)
     self:partyType(rightText, x + 22, y - 1, rightInk, 20)
@@ -1403,7 +1403,7 @@ return function(ui)
     if details == true then self:detailChevron(x + 105, y + 8, ink)
     elseif details == "swap" then self:swapSourceMarker(x, y) end
     if mon.egg then return end
-    self:typeBadges(mon, x + 2, y + 42, fainted)
+    self:typeBadges(mon, x + 1, y + 42, fainted)
     if mon.gender == "male" then
       self:genderIcon("male", x + 99, y + 19)
     elseif mon.gender == "female" then
