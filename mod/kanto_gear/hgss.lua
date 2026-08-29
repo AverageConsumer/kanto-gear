@@ -789,6 +789,7 @@ return function(ui)
       box("fill", x + 7, y + 4, 3, 9, tint)
       box("fill", x + 4, y + 7, 9, 3, tint)
     elseif item.icon == "machine" then
+      x, y = x + 1, y + 1
       box("fill", x + 6, y + 1, 4, 1, colors.outline)
       box("fill", x + 4, y + 2, 8, 1, colors.outline)
       box("fill", x + 3, y + 3, 10, 1, colors.outline)
