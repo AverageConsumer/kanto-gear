@@ -407,7 +407,7 @@ return function(ui)
   function H:focusSurface(selected, base, accent)
     if not selected then return base end
     if not accent then return self.colors.focus end
-    local amount = self.dark and 0.38 or 0.22
+    local amount = 0.65
     return {
       base[1] + (accent[1] - base[1]) * amount,
       base[2] + (accent[2] - base[2]) * amount,
