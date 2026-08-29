@@ -445,7 +445,8 @@ function love.load()
     local slot = gen1 and 6 or 1
     theme:battleRoot(mon, function(_, x, y, size, fainted)
       drawPortrait(slot, x, y, size, fainted)
-    end, playerTeam, enemyTeam, 1)
+    end, playerTeam, enemyTeam,
+      tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 1)
   elseif partySwapTransition then
     theme:partySwapTransition(function(slot, x, y, selected, details)
       drawMon(slot, x, y, selected, details)
@@ -556,6 +557,8 @@ function love.load()
   local preview = love.graphics.newCanvas(960, 864, { dpiscale = 1 })
   preview:setFilter("nearest", "nearest")
   love.graphics.setCanvas(preview)
+  love.graphics.origin()
+  love.graphics.setScissor()
   love.graphics.clear(0.05, 0.06, 0.07, 1)
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(canvas, 0, 0, 0, 4, 4)
