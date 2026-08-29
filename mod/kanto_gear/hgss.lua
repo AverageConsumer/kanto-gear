@@ -486,7 +486,6 @@ return function(ui)
     local colors = self.colors
     border(x, y, w, h, colors.outline)
     border(x + 1, y + 1, w - 2, h - 2, colors.amberLight)
-    border(x + 2, y + 2, w - 4, h - 4, colors.white)
   end
 
   function H:roundedFocusFrame(x, y, w, h, radius)
@@ -499,10 +498,6 @@ return function(ui)
     G.setLineWidth(2)
     G.rectangle("line", x + 2, y + 2, w - 4, h - 4,
       math.max(1, radius - 1), math.max(1, radius - 1))
-    color(colors.white)
-    G.setLineWidth(1)
-    G.rectangle("line", x + 3.5, y + 3.5, w - 7, h - 7,
-      math.max(1, radius - 2), math.max(1, radius - 2))
     G.setLineWidth(1)
   end
 
