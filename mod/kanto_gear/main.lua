@@ -3921,7 +3921,8 @@ return function(mod)
         name = mon.name, egg = compat.partyEgg(source),
         gender = mon.gender, hp = mon.hp, maxHp = mon.maxHp,
         expProgress = mon.expProgress,
-        statusId = (mon.hp or 0) <= 0 and "FNT" or mon.status,
+        statusId = (mon.hp or 0) <= 0 and "FNT"
+          or THEME:statusName(mon.status, mod.content),
         type = type1, type2 = type2,
         typeLabel = THEME:typeName(type1, mod.content),
         type2Label = THEME:typeName(type2, mod.content),
