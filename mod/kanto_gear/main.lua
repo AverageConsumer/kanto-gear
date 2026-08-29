@@ -422,11 +422,16 @@ local function fillerColor(palette)
     and palette[3] or darkest
 end
 
-local function usePalette(palette)
+local function usePalette(palette, normalizedBackground)
   palette = validPalette(palette) and palette or THEME.classic
   PAPER, MID, DARK, INK = rgba(palette[1]), rgba(palette[2]),
                            rgba(palette[3]), rgba(palette[4])
-  SECONDARY_BACKGROUND = rgb24(fillerColor(palette))
+  local background = normalizedBackground and {
+    normalizedBackground[1] * 255 + 0.5,
+    normalizedBackground[2] * 255 + 0.5,
+    normalizedBackground[3] * 255 + 0.5,
+  } or fillerColor(palette)
+  SECONDARY_BACKGROUND = rgb24(background)
 end
 
 usePalette(THEME.classic)
@@ -436,6 +441,10 @@ assert(validPalette(THEME.classic)
        and inverted(THEME.classic)[1] == THEME.classic[4]
        and fillerColor({ { 255, 255, 255 }, { 200, 100, 100 },
                          { 120, 20, 80 }, { 0, 0, 0 } })[1] == 120
+       and rgb24({ 0.90 * 255 + 0.5, 0.95 * 255 + 0.5,
+                   0.91 * 255 + 0.5 }) == 0xE6F2E8
+       and rgb24({ 0.035 * 255 + 0.5, 0.06 * 255 + 0.5,
+                   0.06 * 255 + 0.5 }) == 0x090F0F
        and SECONDARY_BACKGROUND == 0x0F380F, "theme palette helpers")
 
 local function choiceReady(now, readyAt)
@@ -2203,7 +2212,7 @@ return function(mod)
       canvas:setFilter("nearest", "nearest")
       readbackPending, displayReady = false, false
     end
-    usePalette(themePalette(theme))
+    usePalette(themePalette(theme), hgss and THEME.hgss.colors.partyBg)
     invalidateLocalMap()
     themeKey, dirty = key, true
   end
