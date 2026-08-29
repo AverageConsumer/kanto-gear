@@ -676,15 +676,15 @@ return function(ui)
     box("fill", x + 15, y + 16, 1, 7, tanShade)
     box("fill", x + 16, y + 16, 1, 7, tanLight)
 
-    -- Round silver clasp, centered over the flap seam.
-    box("fill", x + 10, y + 9, 5, 1, colors.outline)
-    box("fill", x + 9, y + 10, 7, 5, colors.outline)
-    box("fill", x + 10, y + 15, 5, 1, colors.outline)
-    box("fill", x + 11, y + 10, 3, 1, metalLight)
-    box("fill", x + 10, y + 11, 5, 3, metal)
-    box("fill", x + 11, y + 14, 3, 1, metal)
-    box("fill", x + 11, y + 11, 2, 2, metalLight)
-    box("fill", x + 13, y + 13, 1, 1, colors.silverDark)
+    -- Round silver clasp, offset like the original Kanto pack.
+    box("fill", x + 8, y + 9, 5, 1, colors.outline)
+    box("fill", x + 7, y + 10, 7, 5, colors.outline)
+    box("fill", x + 8, y + 15, 5, 1, colors.outline)
+    box("fill", x + 9, y + 10, 3, 1, metalLight)
+    box("fill", x + 8, y + 11, 5, 3, metal)
+    box("fill", x + 9, y + 14, 3, 1, metal)
+    box("fill", x + 9, y + 11, 2, 2, metalLight)
+    box("fill", x + 11, y + 13, 1, 1, colors.silverDark)
   end
 
   function H:battleBagAction(mon, selected, offsetX, offsetY)
