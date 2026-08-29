@@ -655,14 +655,14 @@ return function(ui)
     local metalLight = { 0.91, 0.94, 0.94, 1 }
 
     -- Two bright, outlined shoulder straps behind the pack.
-    box("fill", x + 8, y, 8, 1, colors.outline)
-    box("fill", x + 6, y + 1, 12, 2, colors.outline)
-    box("fill", x + 5, y + 3, 4, 7, colors.outline)
-    box("fill", x + 16, y + 2, 4, 8, colors.outline)
-    box("fill", x + 8, y + 1, 7, 1, strapLight)
-    box("fill", x + 7, y + 2, 9, 1, strap)
-    box("fill", x + 6, y + 3, 2, 6, strapLight)
-    box("fill", x + 17, y + 3, 2, 6, strap)
+    box("fill", x + 10, y + 2, 5, 1, colors.outline)
+    box("fill", x + 8, y + 3, 9, 1, colors.outline)
+    box("fill", x + 7, y + 4, 3, 6, colors.outline)
+    box("fill", x + 15, y + 3, 4, 7, colors.outline)
+    box("fill", x + 10, y + 3, 5, 1, strapLight)
+    box("fill", x + 9, y + 4, 6, 1, strap)
+    box("fill", x + 8, y + 5, 1, 4, strapLight)
+    box("fill", x + 16, y + 4, 2, 5, strap)
 
     box("fill", x + 21, y + 1, 5, 1, colors.outline)
     box("fill", x + 19, y + 2, 9, 2, colors.outline)
