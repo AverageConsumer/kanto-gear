@@ -26,6 +26,7 @@ return function(ui)
     greenLight = { 0.37, 0.67, 0.42, 1 },
     amber = { 0.76, 0.48, 0.08, 1 },
     amberLight = { 0.96, 0.70, 0.25, 1 },
+    focus = { 1.00, 0.91, 0.68, 1 },
     blue = { 0.14, 0.37, 0.62, 1 },
     blueLight = { 0.39, 0.62, 0.82, 1 },
     hp = { 0.15, 0.77, 0.29, 1 },
@@ -63,6 +64,7 @@ return function(ui)
     greenLight = { 0.38, 0.82, 0.54, 1 },
     amber = { 0.83, 0.55, 0.10, 1 },
     amberLight = { 0.98, 0.72, 0.24, 1 },
+    focus = { 0.24, 0.16, 0.055, 1 },
     blue = { 0.20, 0.48, 0.78, 1 },
     blueLight = { 0.40, 0.68, 0.94, 1 },
     hp = { 0.13, 0.82, 0.34, 1 },
@@ -389,10 +391,13 @@ return function(ui)
   function H:panel(x, y, w, h, selected, accent)
     local colors = self.colors
     clipped(x + 1, y + 1, w, h, colors.shadow)
-    clipped(x, y, w, h, colors.surface)
+    clipped(x, y, w, h, selected and colors.focus or colors.surface)
     box("fill", x + 2, y + 2, w - 4, 2, colors.highlight)
-    border(x, y, w, h, selected and accent or colors.ink)
-    if selected then box("fill", x, y + 4, 2, math.max(1, h - 8), accent) end
+    border(x, y, w, h, colors.ink)
+    if selected then
+      box("fill", x, y + 4, 2, math.max(1, h - 8), accent)
+      self:focusFrame(x, y, w, h)
+    end
   end
 
   function H:button(x, y, w, h, label, selected)
@@ -451,10 +456,28 @@ return function(ui)
       and now - self.partyActionStarted >= 0.14
   end
 
-  function H:battleFocusFrame(x, y, w, h)
+  function H:focusFrame(x, y, w, h)
     local colors = self.colors
     border(x, y, w, h, colors.outline)
-    border(x + 1, y + 1, w - 2, h - 2, colors.white)
+    border(x + 1, y + 1, w - 2, h - 2, colors.amberLight)
+    border(x + 2, y + 2, w - 4, h - 4, colors.white)
+  end
+
+  function H:roundedFocusFrame(x, y, w, h, radius)
+    local G, colors = ui.graphics, self.colors
+    color(colors.outline)
+    G.setLineWidth(1)
+    G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1,
+      radius, radius)
+    color(colors.amberLight)
+    G.setLineWidth(2)
+    G.rectangle("line", x + 2, y + 2, w - 4, h - 4,
+      math.max(1, radius - 1), math.max(1, radius - 1))
+    color(colors.white)
+    G.setLineWidth(1)
+    G.rectangle("line", x + 3.5, y + 3.5, w - 7, h - 7,
+      math.max(1, radius - 2), math.max(1, radius - 2))
+    G.setLineWidth(1)
   end
 
   function H:actionRow(x, y, w, h, label, kind, offset, selected)
@@ -463,7 +486,7 @@ return function(ui)
       and colors.amberLight or colors.blueLight
     y = y + (offset or 0)
     clipped(x + 1, y + 2, w, h, colors.shadow)
-    clipped(x, y, w, h, colors.surface)
+    clipped(x, y, w, h, selected and colors.focus or colors.surface)
     box("fill", x + 2, y + 2, w - 4, 2, colors.highlight)
     border(x, y, w, h, colors.outline)
     box("fill", x + 1, y + 2, 4, h - 4, accent)
@@ -484,7 +507,7 @@ return function(ui)
     local shown = self:fitLabel(label, w - 69)
     self:label(shown, x + 43, y + 13, colors.ink)
     self:detailChevron(x + w - 16, y + 16, colors.ink, true)
-    if selected then self:battleFocusFrame(x, y, w, h) end
+    if selected then self:focusFrame(x, y, w, h) end
   end
 
   function H:action(index, label, selected)
@@ -495,12 +518,8 @@ return function(ui)
     clipped(action.x, action.y, action.w, action.h, dark)
     box("fill", action.x + 2, action.y + 2, action.w - 4,
       math.max(2, math.floor(action.h * 0.34)), light)
-    border(action.x, action.y, action.w, action.h,
-      selected and self.colors.white or self.colors.ink)
-    if selected then
-      box("fill", action.x, action.y + 5, 2, math.max(1, action.h - 10),
-        self.colors.white)
-    end
+    border(action.x, action.y, action.w, action.h, self.colors.ink)
+    if selected then self:focusFrame(action.x, action.y, action.w, action.h) end
     if index ~= 1 then
       local shown = fit(label, math.floor((action.w - 5) / 6))
       text(shown, action.x + math.floor((action.w - #glyphs(shown) * 6) / 2),
@@ -561,7 +580,7 @@ return function(ui)
     box("fill", x + w - 5, y + 4, 2, 2, light)
     box("fill", x + 3, y + h - 7, w - 6, 3, colors.shadow)
     box("fill", x + 5, y + h - 4, w - 10, 2, colors.shadow)
-    if selected then self:battleFocusFrame(x, y, w, h) end
+    if selected then self:focusFrame(x, y, w, h) end
   end
 
   local PLAYER_CENTER, VS_CENTER, FOE_CENTER = 60, 120, 180
@@ -795,7 +814,7 @@ return function(ui)
       self:partyInfo(item.disabledLabel or "UNUSABLE", 46, y + 17,
         colors.silverDark)
     end
-    if selected and not disabled then self:battleFocusFrame(7, y, 226, 31) end
+    if selected and not disabled then self:focusFrame(7, y, 226, 31) end
     G.pop()
   end
 
@@ -869,7 +888,7 @@ return function(ui)
     local colors = self.colors
     local disabled = move.disabled
     local accent = disabled and colors.silverDark or self:typeColor(move.type)
-    self:panel(x, y, 112, 80, false, accent)
+    self:panel(x, y, 112, 80, selected and not disabled, accent)
     box("fill", x + 1, y + 2, 4, 76, accent)
     box("fill", x + 2, y + 1, 3, 1, accent)
     box("fill", x + 2, y + 78, 3, 1, accent)
@@ -905,7 +924,6 @@ return function(ui)
     clipped(effectX, y + 66, 27, 10, effectFill)
     border(effectX, y + 66, 27, 10, colors.outline)
     self:partyType(effectLabel, effectX + 2, y + 65, colors.white, 23)
-    if selected and not disabled then self:battleFocusFrame(x, y, 112, 80) end
   end
 
   function H:battleMoves(mon, playerTeam, enemyTeam)
@@ -1173,7 +1191,7 @@ return function(ui)
     G.setLineWidth(1)
   end
 
-  function H:partyPanel(x, y, w, h, selected, fainted)
+  function H:partyPanel(x, y, w, h, selected, fainted, focused)
     local G, colors = ui.graphics, self.colors
     color(colors.shadow)
     G.rectangle("fill", x + 1, y + 2, w, h, 6, 6)
@@ -1184,6 +1202,8 @@ return function(ui)
     G.setLineWidth(selected and 2 or 1)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 6, 6)
     G.setLineWidth(1)
+    if focused == nil then focused = selected end
+    if focused then self:roundedFocusFrame(x, y, w, h, 6) end
   end
 
   function H:partyPortrait(x, y, selected, fainted)
@@ -1252,10 +1272,11 @@ return function(ui)
     G.setLineWidth(1)
   end
 
-  function H:partyCard(mon, x, y, selected, details, drawPortrait)
+  function H:partyCard(mon, x, y, selected, details, drawPortrait, focused)
     local fainted = mon and (mon.statusId == "FNT"
       or mon.hp ~= nil and mon.hp <= 0)
-    self:partyPanel(x, y, 112, 56, selected, fainted)
+    if focused == nil then focused = selected end
+    self:partyPanel(x, y, 112, 56, selected, fainted, focused)
     if not mon then
       self:label("-", x, y + 18, self.colors.ink, 112, "center")
       return

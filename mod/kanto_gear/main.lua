@@ -3905,7 +3905,7 @@ return function(mod)
     return out
   end
 
-  local function partyCard(mon, x, y, selected, details)
+  local function partyCard(mon, x, y, selected, details, focused)
     if THEME.style == "hgss" then
       local source = mon and (mon.source or mon)
       local def = mon and game.data.pokemon[mon.species] or {}
@@ -3936,7 +3936,7 @@ return function(mod)
             compat.drawPokemonIcon(source, portraitX, portraitY, size,
               fainted and 0.48 or nil)
           end
-        end)
+        end, focused)
       return
     end
     box("fill", x, y, 75, 36, selected and DARK or MID)
@@ -4047,7 +4047,7 @@ return function(mod)
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:partyBackdrop()
       partyCard(mon, 64, THEME.hgss:partyActionHeroY(count)
-        + math.floor(offset / 2), true, false)
+        + math.floor(offset / 2), true, false, false)
       local x, y, w, h = THEME.hgss:partyActionRow(1, count)
       THEME.hgss:actionRow(x, y, w, h, THEME:translate("STATS"),
         "stats", offset)
@@ -4670,7 +4670,8 @@ return function(mod)
         G.push()
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
         THEME.hgss:partyBackdrop()
-        partyCard(mon, 64, THEME.hgss:partyActionHeroY(#actions), true, false)
+        partyCard(mon, 64, THEME.hgss:partyActionHeroY(#actions), true, false,
+          false)
         for row, action in ipairs(actions) do
           local x, y, w, h = THEME.hgss:partyActionRow(row, #actions)
           local label = action.item.label or tostring(action.index)

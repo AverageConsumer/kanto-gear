@@ -279,11 +279,11 @@ function love.load()
       portraitX + (size - sprite.width * scale) / 2,
       portraitY + (size - sprite.height * scale) / 2, 0, scale, scale)
   end
-  local function drawMon(slot, x, y, selected, details)
+  local function drawMon(slot, x, y, selected, details, focused)
     theme:partyCard(party[slot], x, y, selected, details,
       function(_, portraitX, portraitY, size, fainted)
         drawPortrait(slot, portraitX, portraitY, size, fainted)
-      end)
+      end, focused)
   end
   local function battleMon()
     local mon = party[gen1 and 6 or 1]
@@ -403,7 +403,7 @@ function love.load()
   elseif battlePartyMenu then
     theme:headerBar("PARTY", true, false)
     local actionCount = 2
-    drawMon(1, 64, theme:partyActionHeroY(actionCount), true, false)
+    drawMon(1, 64, theme:partyActionHeroY(actionCount), true, false, false)
     local x, y, w, h = theme:partyActionRow(1, actionCount)
     theme:actionRow(x, y, w, h, "SWITCH", "switch", 0, true)
     x, y, w, h = theme:partyActionRow(2, actionCount)
@@ -507,9 +507,9 @@ function love.load()
     end
   elseif context then
     local actionCount = tonumber(os.getenv("KANTO_GEAR_PREVIEW_ACTIONS")) or 2
-    drawMon(1, 64, theme:partyActionHeroY(actionCount), true, false)
+    drawMon(1, 64, theme:partyActionHeroY(actionCount), true, false, false)
     local x, y, w, h = theme:partyActionRow(1, actionCount)
-    theme:actionRow(x, y, w, h, language.stats, "stats", 0)
+    theme:actionRow(x, y, w, h, language.stats, "stats", 0, true)
     if actionCount > 1 then
       x, y, w, h = theme:partyActionRow(2, actionCount)
       theme:actionRow(x, y, w, h, language.swap, "swap", 0)
