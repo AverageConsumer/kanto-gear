@@ -679,13 +679,18 @@ return function(ui)
     G.push()
     G.translate(offsetX, offsetY)
     self:battleActionPanel(86, 149, 68, 52, "blue", selected)
-    for offset = 0, 1 do
-      box("fill", 114 + offset * 7, 161, 2, 2, colors.white)
-      box("fill", 116 + offset * 7, 163, 2, 2, colors.white)
-      box("fill", 118 + offset * 7, 165, 2, 2, colors.white)
-      box("fill", 116 + offset * 7, 167, 2, 2, colors.white)
-      box("fill", 114 + offset * 7, 169, 2, 2, colors.white)
-    end
+    G.push("all")
+    color(colors.white)
+    G.setLineWidth(2)
+    G.setLineJoin("bevel")
+    G.line(118, 155, 122, 155, 123, 156, 123, 160,
+      122, 161, 118, 161, 117, 160, 117, 156, 118, 155)
+    G.line(119, 162, 117, 168, 118, 171)
+    G.line(118, 164, 114, 165, 111, 169)
+    G.line(119, 163, 123, 167, 128, 165)
+    G.line(118, 170, 114, 175, 110, 175)
+    G.line(118, 170, 122, 173, 123, 178)
+    G.pop()
     self:label(mon.runLabel or "RUN", 86, 183, colors.white, 68, "center")
     G.pop()
   end
@@ -820,12 +825,17 @@ return function(ui)
   end
 
   function H:battleBackdrop()
-    local colors = self.colors
-    box("fill", 0, 0, 240, 216, colors.bg)
-    box("fill", 0, 0, 240, 3, colors.band)
-    box("fill", 0, 198, 240, 18, colors.bandLight)
-    box("fill", 0, 198, 77, 3, colors.band)
-    box("fill", 164, 210, 76, 3, colors.band)
+    local G, colors = ui.graphics, self.colors
+    color(colors.partyBg)
+    G.rectangle("fill", 0, 0, 240, 216)
+    color(colors.partyEmboss)
+    G.setLineWidth(2)
+    G.circle("line", 120, 108, 94)
+    G.line(26, 108, 104, 108)
+    G.line(136, 108, 214, 108)
+    G.circle("line", 120, 108, 16)
+    G.circle("line", 120, 108, 7)
+    G.setLineWidth(1)
   end
 
   function H:battleBagTransition(mon, drawPortrait, playerTeam, enemyTeam,
