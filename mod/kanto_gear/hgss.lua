@@ -86,6 +86,7 @@ return function(ui)
   local H = {
     palette = lightPalette,
     colors = lightColors,
+    battleBagOffsetY = 8,
     battleActions = {
       [1] = { x = 22, y = 32, w = 196, h = 122, color = "red" },
       [2] = { x = 166, y = 159, w = 68, h = 52, color = "green" },
@@ -941,8 +942,11 @@ return function(ui)
   end
 
   function H:battleBag(bag, playerTeam, enemyTeam)
+    ui.graphics.push()
+    ui.graphics.translate(0, self.battleBagOffsetY)
     self:battleBagHeader(bag)
     self:battleBagRows(bag)
+    ui.graphics.pop()
     self:battleTeamStrip(playerTeam, enemyTeam)
   end
 

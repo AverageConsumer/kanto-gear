@@ -193,6 +193,10 @@ function love.load()
       and theme:battleCatchLabel(80) == "80%"
       and theme:battleCatchLabel(79.7) == "79.7%",
     "battle bag window and catch labels stay deterministic")
+  local bagTop = 33 + theme.battleBagOffsetY
+  local bagBottom = 66 + 3 * 33 + 31 + theme.battleBagOffsetY
+  assert(math.abs((bagTop - 28) - (216 - bagBottom)) <= 1,
+    "battle bag content keeps equal visible top and bottom spacing")
   local actionX, actionY, actionW, actionH = theme:partyActionRow(1, 2)
   assert(theme:partyActionAt(actionX + actionW / 2,
     actionY + actionH / 2, 2) == 1, "first party action hitbox")

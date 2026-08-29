@@ -6122,7 +6122,8 @@ return function(mod)
     if menu then
       if THEME.style == "hgss" then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
-        if hy < 63 then
+        local bagY = THEME.hgss.battleBagOffsetY or 0
+        if hy < 63 + bagY then
           if hx < 29 then
             press("b")
           elseif categorizedBag(top) and hx >= 62 and hx < 92 then
@@ -6130,10 +6131,11 @@ return function(mod)
           elseif categorizedBag(top) and hx >= 158 and hx < 187 then
             press("right")
           end
-        elseif hx >= 7 and hx < 233 and hy >= 66 and hy < 197 then
+        elseif hx >= 7 and hx < 233
+            and hy >= 66 + bagY and hy < 197 + bagY then
           local view = hgssRuntime.bagView(menu)
           local first, count = THEME.hgss:battleBagWindow(view)
-          local row = math.floor((hy - 66) / 33) + 1
+          local row = math.floor((hy - 66 - bagY) / 33) + 1
           if row >= 1 and row <= count then
             compat.selectBattleBagItem(top, first + row - 1)
             press("a")
