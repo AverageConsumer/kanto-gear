@@ -5681,15 +5681,11 @@ return function(mod)
       if pendingFly then drawFlyPrompt()
       elseif pendingAction then drawActionPrompt() end
     end
-    if THEME.style == "hgss" then
-      outline(1, 1, WIDTH - 2, HEIGHT - 2, THEME.hgss.colors.silverDark)
-      box("fill", 4, 1, 20, 1, THEME.hgss.colors.redLight)
-      box("fill", WIDTH - 24, HEIGHT - 2, 20, 1, THEME.hgss.colors.green)
-    elseif THEME.style ~= "classic" then
+    if THEME.style ~= "hgss" and THEME.style ~= "classic" then
       outline(1, 1, WIDTH - 2, HEIGHT - 2, THEME.blue)
       box("fill", 3, 1, 16, 1, THEME.red)
       box("fill", WIDTH - 19, HEIGHT - 2, 16, 1, THEME.red)
-    else
+    elseif THEME.style == "classic" then
       outline(1, 1, WIDTH - 2, HEIGHT - 2, INK)
     end
     if highResolution then G.pop() end
