@@ -361,6 +361,13 @@ do
     "tapping forward at the last detail boundary keeps a valid page")
   displayRuntime.guideDetail = nil
   setUpvalue(changePage, "page", "MAP")
+  tap(85, 10)
+  T.check(upvalue(changePage, "page") ~= "MAP",
+    "the visible top-right page arrow owns its centered touch target")
+  setUpvalue(changePage, "page", "MAP")
+  tap(100, 10)
+  T.eq(upvalue(changePage, "page"), "MAP",
+    "the old right-shifted page-arrow target is inactive")
 
   local pumpDisplay = upvalue(composeHook, "pumpDisplay")
   local draw = upvalue(pumpDisplay, "draw")

@@ -6827,8 +6827,8 @@ return function(mod)
     end
     if y < HEADER and not partyMoveFrom then
       if x < 22 then changePage(-1)
-      elseif x >= 86 and x < 108 then changePage(1) end
-      if page == "TOOLS" and x >= 22 and x < 86 and #tools > 6 then
+      elseif x >= 74 and x < 96 then changePage(1) end
+      if page == "TOOLS" and x >= 22 and x < 74 and #tools > 6 then
         local pages = math.ceil(#tools / 6)
         tools.page = (tools.page or 1) % pages + 1
         dirty = true
