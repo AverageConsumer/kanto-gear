@@ -330,12 +330,13 @@ function love.load()
     return mon
   end
   local function battleBagData()
+    local wild = os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild"
     if gen1 then
       return {
         title = "BAG", index = 2,
         items = {
           { label = "POKE BALL", right = "x12", icon = "ball",
-            catchChance = 64.8 },
+            catchChance = wild and 64.8 or nil },
           { label = "SUPER POTION", right = "x3", icon = "medicine" },
           { label = "ANTIDOTE", right = "x2", icon = "status" },
           { label = "ESCAPE ROPE", right = "x1" },
@@ -349,7 +350,7 @@ function love.load()
         { label = "TM02", right = "DYNAMIC PUNCH", icon = "machine" },
         { label = "HM03", right = "WHIRLPOOL", icon = "machine" },
         { label = "GREAT BALL", right = "x8", icon = "ball",
-          catchChance = 79.7 },
+          catchChance = wild and 79.7 or nil },
         { label = "PARLYZ HEAL", right = "x2", icon = "status" },
         { label = "CANCEL", cancel = true },
       },

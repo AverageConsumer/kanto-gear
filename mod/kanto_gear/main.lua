@@ -4178,6 +4178,8 @@ return function(mod)
 
   function hgssRuntime.bagView(menu)
     local odds, kinds = {}, {}
+    local showCatchOdds = assist("catch_odds")
+      and (caughtWild(battle.kind, true) or battle.wild == true)
     for _, item in ipairs(battle.items or {}) do
       local id = tostring(item.id or ""):upper()
       local kind = item.ball and "ball"
@@ -4198,7 +4200,7 @@ return function(mod)
       items[index] = {
         value = item.value, label = label,
         right = item.right, cancel = item.cancel,
-        catchChance = assist("catch_odds") and odds[item.value] or nil,
+        catchChance = showCatchOdds and odds[item.value] or nil,
         catchLabel = THEME:translate("CATCH"), icon = icon or "item",
       }
     end
@@ -4835,7 +4837,8 @@ return function(mod)
     end
     header(menu.title or "ITEMS", true, categorizedBag(menu))
     local odds = {}
-    if assist("catch_odds") then
+    if assist("catch_odds")
+        and (caughtWild(battle.kind, true) or battle.wild == true) then
       for _, item in ipairs(battle.items or {}) do
         odds[item.id] = item.catchChance
       end
