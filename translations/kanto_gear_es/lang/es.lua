@@ -23,6 +23,7 @@ return {
   ["CONFIRM"] = "CONFIRMAR",
   ["CHOOSE"] = "ELEGIR",
   ["USE"] = "USAR",
+  ["USE ITEM ON"] = "USAR OBJETO",
   ["SWAP"] = "CAMBIAR",
   ["RESET"] = "RESTABLECER",
   ["YES"] = "SÍ",

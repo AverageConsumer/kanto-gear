@@ -38,14 +38,14 @@ end
 local languages = {
   en = {
     title = "PARTY", hp = "HP", exp = "EXP", stats = "STATS", swap = "SWAP",
-    swapWith = "SWAP WITH?",
+    swapWith = "SWAP WITH?", useItemOn = "USE ITEM ON",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
     types = {},
   },
   de = {
     title = "TEAM", hp = "KP", exp = "EP", stats = "WERTE", swap = "TAUSCHEN",
-    swapWith = "TAUSCHEN MIT?",
+    swapWith = "TAUSCHEN MIT?", useItemOn = "ITEM NUTZEN",
     names = { "IMPERGATOR", "PAPUNGHA", "TAUBOGA", "SANDAMER",
       "TRAUMATO", "TAUROS" },
     types = { WATER = "WASSER", GRASS = "PFLANZE", FLYING = "FLUG",
@@ -54,6 +54,7 @@ local languages = {
   es = {
     title = "EQUIPO", hp = "PS", exp = "EXP",
     stats = "ESTADÍSTICAS", swap = "CAMBIAR", swapWith = "¿CAMBIAR POR?",
+    useItemOn = "USAR OBJETO",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
     types = { WATER = "AGUA", GRASS = "PLANTA", FLYING = "VOLADOR",
@@ -61,7 +62,7 @@ local languages = {
   },
   fr = {
     title = "ÉQUIPE", hp = "PV", exp = "EXP", stats = "STATS", swap = "ÉCHANGER",
-    swapWith = "ÉCHANGER AVEC?",
+    swapWith = "ÉCHANGER AVEC?", useItemOn = "UTILISER SUR",
     names = { "ALIGATUEUR", "COTOVOL", "ROUCOUPS", "SABLAIREAU",
       "SOPORIFIK", "TAUROS" },
     types = { WATER = "EAU", GRASS = "PLANTE", FLYING = "VOL",
@@ -242,7 +243,9 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
   local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
-  local title = partySwap and language.swapWith
+  local title = os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
+      and language.useItemOn
+    or partySwap and language.swapWith
     or partySwapTransition
       and (transitionProgress >= 0.45 and language.swapWith or language.title)
     or partySwapCommit

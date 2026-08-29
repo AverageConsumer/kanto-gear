@@ -4729,6 +4729,20 @@ return function(mod)
     end
   end
 
+  function compat.battlePartyTitle(menu, cancel)
+    if cancel then return "CANCEL" end
+    if menu and (menu.itemUse == true
+        or menu.prompt == "Use on which <PK><MN>?") then
+      return "USE ITEM ON"
+    end
+    return "PARTY"
+  end
+  assert(compat.battlePartyTitle({ itemUse = true }) == "USE ITEM ON"
+      and compat.battlePartyTitle({ prompt = "Use on which <PK><MN>?" })
+        == "USE ITEM ON"
+      and compat.battlePartyTitle({ battle = true }) == "PARTY",
+    "battle party title follows the native selection context")
+
   local function drawBattleParty(menu)
     if menu.submenu then
       if THEME.style == "hgss" then
@@ -4770,6 +4784,7 @@ return function(mod)
       if not ok then return end
     end
     local selected = not cancel and menu.index or nil
+    local title = THEME:translate(compat.battlePartyTitle(menu, cancel))
     if THEME.style == "hgss" then
       local list = battle.party or {}
       local progress = hgssRuntime.progress("battle_party")
@@ -4784,14 +4799,12 @@ return function(mod)
             partyCard(list[slot], x, y,
               selected and selected == slot or not selected and focused,
               details)
-          end, progress, cancel and THEME:translate("CANCEL")
-            or THEME:translate("PARTY"), clock, period)
+          end, progress, title, clock, period)
         G.pop()
         return
       end
     end
-    drawParty(battle.party or {}, cancel and "CANCEL" or "PARTY", true, nil,
-      selected)
+    drawParty(battle.party or {}, title, true, nil, selected)
   end
 
   function compat.battleBagMenu(menu)

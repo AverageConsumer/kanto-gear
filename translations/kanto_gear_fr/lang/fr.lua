@@ -21,6 +21,7 @@ return {
   ["CONFIRM"] = "CONFIRMER",
   ["CHOOSE"] = "CHOISIR",
   ["USE"] = "UTILISER",
+  ["USE ITEM ON"] = "UTILISER SUR",
   ["SWAP"] = "ÉCHANGER",
   ["RESET"] = "RÉINITIALISER",
   ["YES"] = "OUI",

@@ -20,11 +20,11 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count == 341, "El catálogo de traducción está incompleto")
+assert(count == 342, "El catálogo de traducción está incompleto")
 
 for _, source in ipairs({
   "NEW GAME", "OPTION", "EXIT GAME", "INPUT STAYS ON TOP",
-  "TAP ANYWHERE / A",
+  "TAP ANYWHERE / A", "USE ITEM ON",
   "TOOLS %d/%d", "ITM%d", "HID%d", "%s  L%d", "L%d", "L%d-%d",
   "LV.%d", "EXP", "EXP %d", "NO.%03d %s", "NO.%03d LV.%d", "OT %s",
   "ID %05d", "MIMIC", "DVS >", "NEW %s", "PC BOX %d %d/20",
@@ -38,6 +38,7 @@ local function glyphs(value)
 end
 
 local layoutLimits = {
+  ["USE ITEM ON"] = 14,
   ["LOADING AREA"] = 16,
   ["MAP + FLY"] = 10,
   ["JOHTO MAP"] = 10,
