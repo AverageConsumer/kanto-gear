@@ -1269,6 +1269,28 @@ do
     "companion touch resolves a virtual row to the native bag item")
   T.eq(virtualBag.__gen3uiBagViewIndex, 1,
     "companion touch also updates the virtual bag selection")
+  local directUses = 0
+  local directBag = {
+    screenId = "Gen2PackMenu", battle = true, index = 1,
+    rows = { { id = "POTION" } },
+    hasSubmenu = function() return true end,
+    submenuRows = function() return { "use", "quit" } end,
+    useSelected = function() directUses = directUses + 1 end,
+  }
+  local directQueue = { "a" }
+  T.check(compat.useBattleBagItemDirectly(directBag, directQueue),
+    "owned Gen 2 battle bags skip the hidden USE submenu")
+  T.eq(directUses, 1, "the visible item selection uses the item once")
+  T.eq(#directQueue, 0, "the direct item use consumes the original A press")
+  directBag.submenuRows = function() return { "quit" } end
+  directQueue = { "a" }
+  T.check(not compat.useBattleBagItemDirectly(directBag, directQueue),
+    "QUIT-only battle items retain their native refusal menu")
+  T.eq(#directQueue, 1, "unusable items retain their native A press")
+  directBag.submenuRows = function() return { "use", "quit" } end
+  directBag.hasSubmenu = function() return false end
+  T.check(not compat.useBattleBagItemDirectly(directBag, directQueue),
+    "older one-press battle bags keep their native input path")
   local oldWorld = rawget(api, "world")
   local oldBicycle = game.data.items.BICYCLE
   local oldCut = game.data.moves.CUT

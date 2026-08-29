@@ -4884,6 +4884,31 @@ return function(mod)
     end
   end
 
+  function compat.useBattleBagItemDirectly(menu, queue)
+    if not (menu and menu.screenId == "Gen2PackMenu" and menu.battle
+        and not menu.submenu and type(queue) == "table"
+        and type(menu.hasSubmenu) == "function"
+        and type(menu.submenuRows) == "function"
+        and type(menu.useSelected) == "function") then return false end
+    local row = menu.rows and menu.rows[menu.index]
+    if not row then return false end
+    local ok, hasSubmenu = pcall(menu.hasSubmenu, menu)
+    if not ok or not hasSubmenu then return false end
+    local rowsOk, rows = pcall(menu.submenuRows, menu, row.id)
+    if not rowsOk or type(rows) ~= "table" or rows[1] ~= "use" then
+      return false
+    end
+    for i, key in ipairs(queue) do
+      if key == "a" then
+        local used = pcall(menu.useSelected, menu)
+        if not used then return false end
+        table.remove(queue, i)
+        return true
+      end
+    end
+    return false
+  end
+
   local function drawBattleItems(menu)
     if THEME.style == "hgss" then
       local view = hgssRuntime.bagView(menu)
@@ -7218,6 +7243,12 @@ return function(mod)
   end
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
+    local top = game and game.stack and game.stack:top()
+    local queue = stepGame and stepGame.input and stepGame.input.pressQueue
+    if stepGame == game and battle and compat.battleBagMenu(top)
+        and bottomOwnsBattleUI(hideUpperBattleUI(), active,
+          hasDisplay(), displayReady, battleState(), battle)
+        and compat.useBattleBagItemDirectly(top, queue) then dirty = true end
     hgssRuntime.remapBattleRootInput(stepGame)
     hgssRuntime.remapSummaryMovesInput(stepGame)
     local modalMoveInfo = moveInfo ~= nil
