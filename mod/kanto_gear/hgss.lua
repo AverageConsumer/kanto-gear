@@ -645,22 +645,46 @@ return function(ui)
 
   function H:battleBagIcon(x, y)
     local colors = self.colors
-    box("fill", x + 7, y, 12, 1, colors.outline)
-    box("fill", x + 5, y + 1, 16, 5, colors.outline)
-    box("fill", x + 7, y + 2, 12, 4, colors.white)
-    box("fill", x + 3, y + 5, 20, 1, colors.outline)
-    box("fill", x + 1, y + 6, 24, 2, colors.outline)
-    box("fill", x, y + 8, 26, 16, colors.outline)
-    box("fill", x + 1, y + 24, 24, 2, colors.outline)
-    box("fill", x + 3, y + 26, 20, 1, colors.outline)
-    box("fill", x + 3, y + 6, 20, 2, colors.white)
-    box("fill", x + 2, y + 8, 22, 16, colors.white)
-    box("fill", x + 3, y + 24, 20, 1, colors.white)
-    clipped(x + 3, y + 9, 20, 7, colors.redLight)
-    border(x + 3, y + 9, 20, 7, colors.outline)
-    clipped(x + 5, y + 17, 16, 7, colors.silver)
-    border(x + 5, y + 17, 16, 7, colors.outline)
-    box("fill", x + 12, y + 18, 2, 2, colors.redLight)
+    local tan = { 0.66, 0.43, 0.17, 1 }
+    local tanLight = { 0.84, 0.61, 0.30, 1 }
+    local tanDark = { 0.34, 0.19, 0.10, 1 }
+    local tanShade = { 0.48, 0.29, 0.13, 1 }
+    local metal = { 0.67, 0.71, 0.72, 1 }
+    local metalLight = { 0.91, 0.94, 0.94, 1 }
+
+    -- Main pack and the darker side pouch.
+    box("fill", x + 3, y + 1, 17, 1, colors.outline)
+    box("fill", x + 2, y + 2, 20, 3, colors.outline)
+    box("fill", x + 1, y + 5, 23, 20, colors.outline)
+    box("fill", x + 3, y + 25, 19, 2, colors.outline)
+    box("fill", x + 24, y + 8, 2, 14, colors.outline)
+    box("fill", x + 2, y + 5, 20, 19, tan)
+    box("fill", x + 3, y + 24, 18, 1, tanDark)
+    box("fill", x + 21, y + 6, 3, 18, tanShade)
+    box("fill", x + 24, y + 9, 1, 12, tanDark)
+    box("fill", x + 20, y + 8, 2, 14, tanDark)
+    box("fill", x + 21, y + 9, 2, 3, tanShade)
+    box("fill", x + 21, y + 20, 2, 3, tanShade)
+
+    -- Broad Kanto-style flap with a stitched lower compartment.
+    box("fill", x + 3, y + 3, 17, 2, tanLight)
+    box("fill", x + 2, y + 5, 19, 7, tanLight)
+    box("fill", x + 3, y + 12, 17, 2, tanShade)
+    box("fill", x + 3, y + 15, 17, 9, tan)
+    box("fill", x + 7, y + 16, 1, 7, tanShade)
+    box("fill", x + 8, y + 16, 1, 7, tanLight)
+    box("fill", x + 15, y + 16, 1, 7, tanShade)
+    box("fill", x + 16, y + 16, 1, 7, tanLight)
+
+    -- Round silver clasp, centered over the flap seam.
+    box("fill", x + 10, y + 9, 5, 1, colors.outline)
+    box("fill", x + 9, y + 10, 7, 5, colors.outline)
+    box("fill", x + 10, y + 15, 5, 1, colors.outline)
+    box("fill", x + 11, y + 10, 3, 1, metalLight)
+    box("fill", x + 10, y + 11, 5, 3, metal)
+    box("fill", x + 11, y + 14, 3, 1, metal)
+    box("fill", x + 11, y + 11, 2, 2, metalLight)
+    box("fill", x + 13, y + 13, 1, 1, colors.silverDark)
   end
 
   function H:battleBagAction(mon, selected, offsetX, offsetY)
