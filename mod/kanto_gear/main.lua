@@ -5200,6 +5200,15 @@ return function(mod)
   end
 
   local function drawBattleLocked(title)
+    if THEME.style == "hgss" then
+      local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+      local lines = THEME:messageLines(battle.message or {}, 24, 4)
+      THEME.hgss:battleMessage(lines,
+        battle.prompt == "advance" and THEME:translate("TAP TO CONTINUE")
+          or nil,
+        playerTeam, enemyTeam, title and THEME:translate(title) or nil)
+      return
+    end
     header(title or (battle.kind == "wild" and "Wild battle"
       or battle.kind == "trainer" and "Trainer battle" or "BATTLE"))
     if hideUpperBattleUI()

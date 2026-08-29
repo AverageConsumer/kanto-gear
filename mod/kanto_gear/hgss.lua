@@ -636,6 +636,47 @@ return function(ui)
     end
   end
 
+  local MESSAGE_X, MESSAGE_WIDTH = 10, 220
+  local CONTINUE_X, CONTINUE_WIDTH = 35, 170
+  assert(MESSAGE_X + MESSAGE_WIDTH / 2 == 120
+      and CONTINUE_X + CONTINUE_WIDTH / 2 == 120,
+    "HGSS battle message elements share the screen center")
+
+  function H:battleMessage(lines, prompt, playerTeam, enemyTeam, title)
+    local colors = self.colors
+    lines = lines or {}
+    self:battleBackdrop()
+    self:battleTeamStrip(playerTeam, enemyTeam)
+    self:panel(MESSAGE_X, 38, MESSAGE_WIDTH, 119, false)
+    clipped(16, 45, 208, 104, colors.bandLight)
+    border(16, 45, 208, 104, colors.band)
+    box("fill", 19, 48, 202, 2, colors.highlight)
+
+    local contentTop, contentHeight = 53, 88
+    if title then
+      local shown = self:fitPartyInfo(title, 190)
+      self:partyInfo(shown, 25, 53, colors.green, 190, "center")
+      box("fill", 25, 68, 190, 1, colors.band)
+      contentTop, contentHeight = 76, 62
+    end
+    if #lines == 0 then lines = { "..." } end
+    local lineHeight = 18
+    local blockHeight = 11 + (#lines - 1) * lineHeight
+    local y = contentTop + math.floor((contentHeight - blockHeight) / 2)
+    for _, line in ipairs(lines) do
+      local shown = self:fitLabel(line, 192)
+      self:label(shown, 24, y, colors.ink, 192, "center")
+      y = y + lineHeight
+    end
+
+    if prompt then
+      self:battleActionPanel(CONTINUE_X, 171, CONTINUE_WIDTH, 32,
+        "green", true)
+      self:label(self:fitLabel(prompt, CONTINUE_WIDTH - 18),
+        CONTINUE_X + 9, 180, colors.white, CONTINUE_WIDTH - 18, "center")
+    end
+  end
+
   function H:battleFightAction(mon, drawPortrait, selected, offsetX, offsetY)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0

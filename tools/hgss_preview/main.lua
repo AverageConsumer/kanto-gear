@@ -202,6 +202,7 @@ function love.load()
   local screen = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") or "party"
   local gen1 = os.getenv("KANTO_GEAR_PREVIEW_GEN") == "1"
   local battleRoot = screen == "battle_root"
+  local battleMessage = screen == "battle_message"
   local battlePartyTransition = screen == "battle_party_transition"
   local battlePartyMenu = screen == "battle_party_menu"
   local battleMoves = screen == "battle_moves"
@@ -237,7 +238,7 @@ function love.load()
       and (transitionProgress >= 0.5 and movesTitle or statsTitle)
     or (summary or transition and transitionProgress >= 0.42) and statsTitle
     or language.title
-  if not battleRoot and not battlePartyTransition
+  if not battleRoot and not battleMessage and not battlePartyTransition
       and not battlePartyMenu
       and not battleMoves and not battleMovesTransition
       and not battleMoveInfo and not battleMoveInfoTransition
@@ -267,7 +268,7 @@ function love.load()
     theme:battery(214, 8, 4, nil, true, theme.colors.ink,
       theme.colors.greenLight)
   end
-  if battleRoot or battlePartyTransition or battlePartyMenu
+  if battleRoot or battleMessage or battlePartyTransition or battlePartyMenu
       or battleMoves or battleMovesTransition or battleMoveInfo
       or battleMoveInfoTransition or battleBag or battleBagTransition then
     theme:battleBackdrop()
@@ -372,7 +373,15 @@ function love.load()
   if os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild" then
     enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "PIDGEY", 4
   end
-  if battleBagTransition then
+  if battleMessage then
+    local wild = os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild"
+    if wild then
+      enemyTeam.name, enemyTeam.level = "RATTATA", 3
+    end
+    theme:battleMessage(wild and { "WILD RATTATA APPEARED!" }
+        or { "LEADER WHITNEY SENT OUT", "MILTANK!" },
+      "TAP TO CONTINUE", playerTeam, enemyTeam)
+  elseif battleBagTransition then
     local mon = battleMon()
     local slot = gen1 and 6 or 1
     theme:battleBagTransition(mon, function(_, x, y, size, fainted)
