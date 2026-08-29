@@ -87,10 +87,10 @@ return function(ui)
     palette = lightPalette,
     colors = lightColors,
     battleActions = {
-      [1] = { x = 22, y = 32, w = 196, h = 112, color = "red" },
-      [2] = { x = 166, y = 149, w = 68, h = 52, color = "green" },
-      [3] = { x = 6, y = 149, w = 68, h = 52, color = "amber" },
-      [4] = { x = 86, y = 149, w = 68, h = 52, color = "blue" },
+      [1] = { x = 22, y = 32, w = 196, h = 122, color = "red" },
+      [2] = { x = 166, y = 159, w = 68, h = 52, color = "green" },
+      [3] = { x = 6, y = 159, w = 68, h = 52, color = "amber" },
+      [4] = { x = 86, y = 159, w = 68, h = 52, color = "blue" },
     },
   }
 
@@ -639,20 +639,20 @@ return function(ui)
     offsetX, offsetY = offsetX or 0, offsetY or 0
     G.push()
     G.translate(offsetX, offsetY)
-    self:battleActionPanel(22, 32, 196, 112, "red", selected)
+    self:battleActionPanel(22, 32, 196, 122, "red", selected)
     color(colors.selectedDark)
-    G.circle("fill", 120, 78, 36)
+    G.circle("fill", 120, 83, 36)
     color(colors.surface)
-    G.circle("fill", 120, 78, 33)
-    box("fill", 87, 77, 66, 2, colors.selectedDark)
+    G.circle("fill", 120, 83, 33)
+    box("fill", 87, 82, 66, 2, colors.selectedDark)
     color(colors.surface)
-    G.circle("fill", 120, 78, 7)
+    G.circle("fill", 120, 83, 7)
     color(colors.selectedDark)
-    G.circle("line", 120, 78, 7)
-    drawPortrait(mon, 91, 45, 58, false)
+    G.circle("line", 120, 83, 7)
+    drawPortrait(mon, 91, 50, 58, false)
     local fight = self:fitLabel(mon.fightLabel or "FIGHT", 96)
     self:label(fight, 120 - math.floor(self:labelWidth(fight) / 2),
-      121, colors.white)
+      126, colors.white)
     G.pop()
   end
 
@@ -665,7 +665,7 @@ return function(ui)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
     G.push()
-    G.translate(offsetX, offsetY)
+    G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(6, 149, 68, 52, "amber", selected)
     self:battleBagIcon(27, 154)
     self:label(mon.bagLabel or "BAG", 6, 183, colors.white, 68, "center")
@@ -676,7 +676,7 @@ return function(ui)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
     G.push()
-    G.translate(offsetX, offsetY)
+    G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(166, 149, 68, 52, "green", selected)
     self:battleTeamBall(185, 169, true)
     self:battleTeamBall(200, 164, true)
@@ -690,7 +690,7 @@ return function(ui)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
     G.push()
-    G.translate(offsetX, offsetY)
+    G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(86, 149, 68, 52, "blue", selected)
     for _, offset in ipairs(runnerOutline) do
       for _, part in ipairs(runnerParts) do
