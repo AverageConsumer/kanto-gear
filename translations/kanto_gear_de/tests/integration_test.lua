@@ -42,6 +42,8 @@ T.eq(kg("DISPLAY LAYOUT"), "ANZEIGELAYOUT",
 
 T.eq(kg("SCREEN SWAP (Y)"), "SCREEN-TAUSCH (Y)",
   "Begleitmod übersetzt den optionalen Bildschirmtausch")
+T.eq(kg("TAP ANYWHERE / A"), "ÜBERALL TIPPEN / A",
+  "Begleitmod übersetzt den HGSS-Kampfhinweis")
 
 run.release()
 T.finish("Kanto Gear Deutsch integration")

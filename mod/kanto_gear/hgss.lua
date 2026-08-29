@@ -637,27 +637,31 @@ return function(ui)
   end
 
   local MESSAGE_X, MESSAGE_WIDTH = 10, 220
-  local CONTINUE_X, CONTINUE_WIDTH = 35, 170
-  assert(MESSAGE_X + MESSAGE_WIDTH / 2 == 120
-      and CONTINUE_X + CONTINUE_WIDTH / 2 == 120,
-    "HGSS battle message elements share the screen center")
+  assert(MESSAGE_X + MESSAGE_WIDTH / 2 == 120,
+    "HGSS battle message shares the screen center")
 
-  function H:battleMessage(lines, prompt, playerTeam, enemyTeam, title)
+  function H:battleContinueMotion(now)
+    local phase = (1 - math.cos((tonumber(now) or 0) * math.pi)) / 2
+    local bob = math.floor(phase + 0.5)
+    return bob, bob == 0 and 5 or 9
+  end
+
+  function H:battleMessage(lines, prompt, playerTeam, enemyTeam, title, now)
     local colors = self.colors
     lines = lines or {}
     self:battleBackdrop()
     self:battleTeamStrip(playerTeam, enemyTeam)
-    self:panel(MESSAGE_X, 38, MESSAGE_WIDTH, 119, false)
-    clipped(16, 45, 208, 104, colors.bandLight)
-    border(16, 45, 208, 104, colors.band)
+    self:panel(MESSAGE_X, 38, MESSAGE_WIDTH, 165, false)
+    clipped(16, 45, 208, 150, colors.bandLight)
+    border(16, 45, 208, 150, colors.band)
     box("fill", 19, 48, 202, 2, colors.highlight)
 
-    local contentTop, contentHeight = 53, 88
+    local contentTop, contentHeight = 53, prompt and 105 or 134
     if title then
       local shown = self:fitPartyInfo(title, 190)
       self:partyInfo(shown, 25, 53, colors.green, 190, "center")
       box("fill", 25, 68, 190, 1, colors.band)
-      contentTop, contentHeight = 76, 62
+      contentTop, contentHeight = 76, prompt and 82 or 111
     end
     if #lines == 0 then lines = { "..." } end
     local lineHeight = 18
@@ -670,10 +674,30 @@ return function(ui)
     end
 
     if prompt then
-      self:battleActionPanel(CONTINUE_X, 171, CONTINUE_WIDTH, 32,
-        "green", true)
-      self:label(self:fitLabel(prompt, CONTINUE_WIDTH - 18),
-        CONTINUE_X + 9, 180, colors.white, CONTINUE_WIDTH - 18, "center")
+      box("fill", 25, 166, 190, 1, colors.band)
+      local shown = self:fitPartyInfo(prompt, 168)
+      local textWidth = self:partyInfoWidth(shown)
+      local gap = textWidth % 2 == 0 and 7 or 8
+      local groupWidth = textWidth + gap + 11
+      local groupX = 120 - groupWidth / 2
+      local x = groupX + textWidth + gap
+      local bob, shadowWidth = self:battleContinueMotion(now)
+      local y = 179 + bob
+      self:partyInfo(shown, groupX, 178, colors.green)
+      local shadowX = x + 5 - math.floor(shadowWidth / 2)
+      box("fill", shadowX + 2, 190,
+        math.max(1, shadowWidth - 4), 1, colors.shadow)
+      box("fill", shadowX, 191, shadowWidth, 1, colors.shadow)
+      box("fill", shadowX + 1, 192, shadowWidth - 2, 1, colors.shadow)
+      box("fill", x, y, 11, 2, colors.outline)
+      box("fill", x + 1, y + 2, 9, 2, colors.outline)
+      box("fill", x + 2, y + 4, 7, 2, colors.outline)
+      box("fill", x + 3, y + 6, 5, 2, colors.outline)
+      box("fill", x + 4, y + 8, 3, 1, colors.outline)
+      box("fill", x + 1, y + 1, 9, 1, colors.greenLight)
+      box("fill", x + 2, y + 2, 7, 2, colors.green)
+      box("fill", x + 3, y + 4, 5, 2, colors.green)
+      box("fill", x + 4, y + 6, 3, 2, colors.green)
     end
   end
 

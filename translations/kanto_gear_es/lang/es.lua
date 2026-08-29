@@ -3,6 +3,7 @@ return {
   -- Las claves originales y los marcadores %s/%d/%% se mantienen sin cambios.
   ["START GAME"] = "INICIAR JUEGO",
   ["TAP TO CONTINUE"] = "TOCA PARA CONTINUAR",
+  ["TAP ANYWHERE / A"] = "TOCA DONDE SEA / A",
   ["HOST UPDATE REQUIRED"] = "ACTUALIZA EL HOST",
   ["LOADING AREA"] = "CARGANDO ZONA",
   ["KEEP EXPLORING"] = "SIGUE EXPLORANDO",

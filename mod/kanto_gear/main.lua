@@ -5210,9 +5210,10 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:battleMessage(lines,
-        battle.prompt == "advance" and THEME:translate("TAP TO CONTINUE")
+        battle.prompt == "advance" and THEME:translate("TAP ANYWHERE / A")
           or nil,
-        playerTeam, enemyTeam, title and THEME:translate(title) or nil)
+        playerTeam, enemyTeam, title and THEME:translate(title) or nil,
+        love.timer.getTime())
       G.pop()
       return
     end
@@ -7604,6 +7605,9 @@ return function(mod)
         tostring(fieldChoice and fieldChoice.kind),
         tostring(fieldChoice and fieldChoice.source
           and fieldChoice.source.slot) }, ":")
+      if THEME.style == "hgss" and battle and battle.prompt == "advance" then
+        screenKey = screenKey .. ":" .. math.floor(now * 4)
+      end
       if page == "LOCAL" and mod.world and mod.world.current then
         local pos = mod.world:current()
         screenKey = screenKey .. ":" .. tostring(pos and pos.x)

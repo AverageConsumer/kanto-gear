@@ -2,6 +2,7 @@ return {
   -- Start, navigation and common controls.
   ["START GAME"] = "SPIEL STARTEN",
   ["TAP TO CONTINUE"] = "ZUM STARTEN TIPPEN",
+  ["TAP ANYWHERE / A"] = "ÜBERALL TIPPEN / A",
   ["HOST UPDATE REQUIRED"] = "HOST-UPDATE NÖTIG",
   ["LOADING AREA"] = "GEBIET LÄDT",
   ["KEEP EXPLORING"] = "WEITER ERKUNDEN",

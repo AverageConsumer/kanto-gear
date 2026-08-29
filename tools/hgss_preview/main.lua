@@ -167,6 +167,11 @@ function love.load()
       and not theme:moveHasStab({ type = "WATER" },
         { type = "WATER", powerText = "--" }),
     "STAB only marks matching damage moves")
+  local bobUp, shadowSmall = theme:battleContinueMotion(0)
+  local bobDown, shadowLarge = theme:battleContinueMotion(1)
+  assert(bobUp == 0 and shadowSmall == 5
+      and bobDown == 1 and shadowLarge == 9,
+    "battle continue arrow and shadow animate together")
   assert(theme:statusColor("FNT") ~= theme:statusColor("SLP"),
     "fainted and sleep status colors must stay distinct")
   local first, count = theme:battleBagWindow({ index = 4,
@@ -380,7 +385,8 @@ function love.load()
     end
     theme:battleMessage(wild and { "WILD RATTATA APPEARED!" }
         or { "LEADER WHITNEY SENT OUT", "MILTANK!" },
-      "TAP TO CONTINUE", playerTeam, enemyTeam)
+      "TAP ANYWHERE / A", playerTeam, enemyTeam, nil,
+      tonumber(os.getenv("KANTO_GEAR_PREVIEW_TIME")) or 0)
   elseif battleBagTransition then
     local mon = battleMon()
     local slot = gen1 and 6 or 1

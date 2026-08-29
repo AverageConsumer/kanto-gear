@@ -41,6 +41,8 @@ T.eq(kg("DISPLAY LAYOUT"), "DISPOSITION DES ÉCRANS",
   "companion mod translates the single-window layout")
 T.eq(kg("SCREEN SWAP (Y)"), "ÉCHANGE ÉCRANS (Y)",
   "companion mod translates optional screen swapping")
+T.eq(kg("TAP ANYWHERE / A"), "TOUCHER PARTOUT / A",
+  "companion mod translates the HGSS battle prompt")
 
 run.release()
 T.finish("Kanto Gear French integration")
