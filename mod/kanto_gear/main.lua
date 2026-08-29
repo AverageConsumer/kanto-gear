@@ -4107,6 +4107,10 @@ return function(mod)
     }
     for slot = 1, 4 do
       local move = (battle.moves or {})[slot] or {}
+      local moveDef = game.data.moves[move.id] or {}
+      local power = move.displayPower
+      if power == nil then power = move.power or moveDef.power end
+      if power == 0 then power = nil end
       view.moves[slot] = {
         id = move.id,
         name = THEME:moveName(move, game.data),
@@ -4115,8 +4119,8 @@ return function(mod)
         ppLabel = THEME:translate("PP"),
         ppText = THEME:format("%d/%d", move.pp or 0, move.maxPp or 0),
         powerLabel = THEME:translate("PWR"),
-        power = move.displayPower,
-        powerText = hgssRuntime.numberLabel(move.displayPower),
+        power = power,
+        powerText = hgssRuntime.numberLabel(power),
         accuracyLabel = THEME:translate("ACC"),
         accuracyText = hgssRuntime.numberLabel(move.hitChance or move.accuracy),
         effectiveness = move.effectiveness,

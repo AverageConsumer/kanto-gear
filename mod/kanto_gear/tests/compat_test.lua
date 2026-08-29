@@ -1049,8 +1049,26 @@ do
     end
   end
   local displayRuntime = upvalue(inputHook, "displayRuntime")
+  local hgssRuntime = upvalue(inputHook, "hgssRuntime")
   T.check(type(displayRuntime.learningMoveInfo) == "function",
     "move-learning details reuse the shared move-info path")
+  T.check(type(hgssRuntime.battleMon) == "function",
+    "HGSS battle view exposes its move-card model")
+  local oldTackle = game.data.moves.TACKLE
+  game.data.moves.TACKLE = { name = "TACKLE", power = 35,
+    accuracy = 95, pp = 35, type = "NORMAL" }
+  debug.setupvalue(inputHook, battleUpvalue, {
+    player = {}, moves = { { id = "TACKLE", pp = 30, maxPp = 35 } },
+  })
+  local battleMove = hgssRuntime.battleMon().moves[1]
+  T.eq(battleMove.powerText, "35",
+    "HGSS battle cards fall back to canonical move power")
+  game.data.moves.TACKLE.power = 0
+  battleMove = hgssRuntime.battleMon().moves[1]
+  T.eq(battleMove.powerText, "--",
+    "HGSS battle cards keep status move power empty")
+  game.data.moves.TACKLE = oldTackle
+  debug.setupvalue(inputHook, battleUpvalue, previousBattle)
   local previousStates = game.stack.states
   local learnMon = {
     species = "PIKACHU",
