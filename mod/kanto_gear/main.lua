@@ -1753,6 +1753,11 @@ return function(mod)
       and THEME.hgss:battleChoice(40, 170) == 3
       and THEME.hgss:battleChoice(120, 185) == 4,
     "HGSS battle action hitboxes")
+  assert(THEME.hgss.battleActions[2].w == THEME.hgss.battleActions[3].w
+      and THEME.hgss.battleActions[3].w == THEME.hgss.battleActions[4].w
+      and THEME.hgss.battleActions[2].h == THEME.hgss.battleActions[3].h
+      and THEME.hgss.battleActions[3].h == THEME.hgss.battleActions[4].h,
+    "HGSS secondary battle actions share one size")
   assert(THEME.hgss:partySlot(4, 22, 6) == 1
       and THEME.hgss:partySlot(82, 25, 6) == 2
       and THEME.hgss:partySlot(4, 60, 6) == 3
@@ -4129,18 +4134,33 @@ return function(mod)
 
   function hgssRuntime.battleTeams()
     local playerTeam, enemyTeam = {}, {}
+    local function teamState(source)
+      source = source or {}
+      local mon = source.mon or source
+      return {
+        alive = (source.shownHP or mon.hp or 0) > 0,
+        status = THEME:statusName(source.shownStatus or mon.status, mod.content),
+      }
+    end
     for slot, mon in ipairs(battle.party or {}) do
-      playerTeam[slot] = (mon.hp or 0) > 0
+      playerTeam[slot] = teamState(mon)
     end
     local raw = battleState()
     local enemies = raw and (raw.enemyParty
       or raw.battle and raw.battle.enemyParty) or nil
     if enemies then
       for slot, mon in ipairs(enemies) do
-        enemyTeam[slot] = (mon.hp or 0) > 0
+        enemyTeam[slot] = teamState(mon)
       end
     elseif battle.enemy then
-      enemyTeam[1] = (battle.enemy.hp or 0) > 0
+      enemyTeam[1] = teamState(battle.enemy)
+    end
+    if battle.kind == "wild" or battle.wild then
+      local enemy = battle.enemy or {}
+      local def = game.data.pokemon[enemy.species] or {}
+      enemyTeam.wild = true
+      enemyTeam.name = enemy.name or def.name or enemy.species or "POKEMON"
+      enemyTeam.level = enemy.level
     end
     return playerTeam, enemyTeam
   end

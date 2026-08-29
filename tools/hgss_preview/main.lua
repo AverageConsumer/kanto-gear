@@ -353,6 +353,20 @@ function love.load()
   end
   local playerTeam = { true, true, true, true, true, false }
   local enemyTeam = { true, true, true, false, false, false }
+  if os.getenv("KANTO_GEAR_PREVIEW_TEAM_STATUSES") == "1" then
+    playerTeam = {
+      { alive = true }, { alive = true, status = "PAR" },
+      { alive = true, status = "PSN" }, { alive = true, status = "SLP" },
+      { alive = true, status = "BRN" }, { alive = false },
+    }
+    enemyTeam = {
+      { alive = true, status = "FRZ" }, { alive = true },
+      { alive = true, status = "TOX" }, false, false, false,
+    }
+  end
+  if os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild" then
+    enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "PIDGEY", 4
+  end
   if battleBagTransition then
     local mon = battleMon()
     local slot = gen1 and 6 or 1

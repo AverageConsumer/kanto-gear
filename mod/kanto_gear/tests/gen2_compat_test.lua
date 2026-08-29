@@ -513,6 +513,7 @@ T.check(firstBadge and lastBadge,
   "Gold badges use smaller icons with equal outer margins")
 
 local enemy = { species = "FIXMON_B", level = 4, hp = 11, maxHp = 12,
+  status = "PAR",
   moves = {} }
 run.data.gen2Pokedex = { entries = { FIXMON_B = {
   dex = 2, kind = "FLAME", height = 204, weight = 190,
@@ -554,6 +555,14 @@ do
     local name, value = debug.getupvalue(inputHook, i)
     if name == "hgssRuntime" then runtime = value break end
   end
+  local playerTeam, wildTeam = runtime.battleTeams()
+  T.check(type(playerTeam[1]) == "table"
+      and playerTeam[1].alive == true,
+    "HGSS battle team balls receive live party state")
+  T.check(wildTeam.wild and type(wildTeam.name) == "string"
+      and wildTeam.name ~= "" and wildTeam.level == 4
+      and wildTeam[1].alive == true and wildTeam[1].status == "PAR",
+    "HGSS labels a wild opponent without inventing a trainer party")
   local readyUpvalue
   for i = 1, debug.getinfo(runtime.remapBattleRootInput, "u").nups do
     local name = debug.getupvalue(runtime.remapBattleRootInput, i)

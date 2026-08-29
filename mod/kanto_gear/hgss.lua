@@ -88,7 +88,7 @@ return function(ui)
       [1] = { x = 22, y = 32, w = 196, h = 112, color = "red" },
       [2] = { x = 166, y = 149, w = 68, h = 52, color = "green" },
       [3] = { x = 6, y = 149, w = 68, h = 52, color = "amber" },
-      [4] = { x = 82, y = 166, w = 76, h = 35, color = "blue" },
+      [4] = { x = 86, y = 149, w = 68, h = 52, color = "blue" },
     },
   }
 
@@ -297,6 +297,12 @@ return function(ui)
     box("fill", x + 2, y, w - 4, h, fill)
     box("fill", x, y + 2, w, h - 4, fill)
     box("fill", x + 1, y + 1, w - 2, h - 2, fill)
+  end
+
+  local function battleButtonShape(x, y, w, h, fill)
+    box("fill", x + 4, y, w - 8, h, fill)
+    box("fill", x + 2, y + 2, w - 4, h - 4, fill)
+    box("fill", x, y + 4, w, h - 8, fill)
   end
 
   local function border(x, y, w, h, color)
@@ -511,8 +517,16 @@ return function(ui)
     end
   end
 
-  function H:battleTeamBall(x, y, alive)
-    local colors = self.colors
+  function H:battleTeamBall(x, y, state)
+    local colors, G = self.colors, ui.graphics
+    local alive = state
+    if type(state) == "table" then alive = state.alive end
+    local statusId = type(state) == "table"
+      and tostring(state.status or ""):upper() or ""
+    local statusTint = alive
+      and (statusId == "PAR" or statusId == "PSN" or statusId == "TOX"
+        or statusId == "SLP" or statusId == "BRN" or statusId == "FRZ")
+      and self:statusColor(statusId) or nil
     local left, top = x - 4, y - 4
     local upper = alive and colors.redLight or colors.silverDark
     local lower = alive and colors.white or colors.silver
@@ -525,20 +539,29 @@ return function(ui)
     box("fill", left + 1, top + 2, 7, 2, upper)
     box("fill", left + 1, top + 5, 7, 2, lower)
     box("fill", left + 2, top + 7, 5, 1, lower)
+    if statusTint then
+      G.setColor(statusTint[1], statusTint[2], statusTint[3], 0.86)
+      G.rectangle("fill", left + 2, top + 1, 5, 1)
+      G.rectangle("fill", left + 1, top + 2, 7, 5)
+      G.rectangle("fill", left + 2, top + 7, 5, 1)
+    end
     box("fill", left + 1, top + 4, 7, 1, colors.outline)
     box("fill", left + 3, top + 3, 3, 3, colors.outline)
-    box("fill", left + 4, top + 4, 1, 1, colors.white)
+    box("fill", left + 4, top + 4, 1, 1, statusTint or colors.white)
   end
 
   function H:battleActionPanel(x, y, w, h, colorName, selected)
     local colors = self.colors
     local fill = colors[colorName]
     local light = colors[colorName .. "Light"]
-    clipped(x + 1, y + 2, w, h, colors.shadow)
-    clipped(x, y, w, h, fill)
-    box("fill", x + 2, y + 2, w - 4, math.max(2, math.floor(h * 0.22)),
-      light)
-    border(x, y, w, h, colors.outline)
+    battleButtonShape(x + 2, y + 3, w, h, colors.outline)
+    battleButtonShape(x, y, w, h, colors.outline)
+    battleButtonShape(x + 1, y + 1, w - 2, h - 2, fill)
+    box("fill", x + 5, y + 2, w - 10, 2, light)
+    box("fill", x + 3, y + 4, 2, 2, light)
+    box("fill", x + w - 5, y + 4, 2, 2, light)
+    box("fill", x + 3, y + h - 7, w - 6, 3, colors.shadow)
+    box("fill", x + 5, y + h - 4, w - 10, 2, colors.shadow)
     if selected then self:battleFocusFrame(x, y, w, h) end
   end
 
@@ -546,14 +569,24 @@ return function(ui)
     local colors = self.colors
     self:panel(5, 3, 230, 25, false)
     for slot = 1, 6 do
-      self:battleTeamBall(42 + (slot - 1) * 11, 15,
+      self:battleTeamBall(42 + (slot - 1) * 11, 20,
         playerTeam and playerTeam[slot])
-      self:battleTeamBall(143 + (slot - 1) * 11, 15,
-        enemyTeam and enemyTeam[slot])
     end
-    self:partyInfo("YOU", 10, 9, colors.green)
+    self:partyInfo("YOU", 36, 3, colors.green, 67, "center")
     self:partyInfo("VS", 112, 9, colors.ink, 16, "center")
-    self:partyInfo("FOE", 207, 9, colors.green, 20, "right")
+    if enemyTeam and enemyTeam.wild then
+      self:partyInfo("WILD", 137, 3, colors.green, 91, "center")
+      local detail = tostring(enemyTeam.name or "POKEMON")
+      if enemyTeam.level then detail = detail .. " L" .. enemyTeam.level end
+      self:partyInfo(self:fitPartyInfo(detail, 91),
+        137, 15, colors.ink, 91, "center")
+    else
+      for slot = 1, 6 do
+        self:battleTeamBall(143 + (slot - 1) * 11, 20,
+          enemyTeam and enemyTeam[slot])
+      end
+      self:partyInfo("FOE", 137, 3, colors.green, 67, "center")
+    end
   end
 
   function H:battleFightAction(mon, drawPortrait, selected, offsetX, offsetY)
@@ -628,15 +661,15 @@ return function(ui)
     offsetX, offsetY = offsetX or 0, offsetY or 0
     G.push()
     G.translate(offsetX, offsetY)
-    self:battleActionPanel(82, 166, 76, 35, "blue", selected)
+    self:battleActionPanel(86, 149, 68, 52, "blue", selected)
     for offset = 0, 1 do
-      box("fill", 96 + offset * 7, 174, 2, 2, colors.white)
-      box("fill", 98 + offset * 7, 176, 2, 2, colors.white)
-      box("fill", 100 + offset * 7, 178, 2, 2, colors.white)
-      box("fill", 98 + offset * 7, 180, 2, 2, colors.white)
-      box("fill", 96 + offset * 7, 182, 2, 2, colors.white)
+      box("fill", 114 + offset * 7, 161, 2, 2, colors.white)
+      box("fill", 116 + offset * 7, 163, 2, 2, colors.white)
+      box("fill", 118 + offset * 7, 165, 2, 2, colors.white)
+      box("fill", 116 + offset * 7, 167, 2, 2, colors.white)
+      box("fill", 114 + offset * 7, 169, 2, 2, colors.white)
     end
-    self:label(mon.runLabel or "RUN", 119, 174, colors.white)
+    self:label(mon.runLabel or "RUN", 86, 183, colors.white, 68, "center")
     G.pop()
   end
 
@@ -979,7 +1012,7 @@ return function(ui)
     self:battlePartyAction(mon, false,
       math.floor(76 * rootProgress + 0.5), 0)
     self:battleRunAction(mon, false, 0,
-      math.floor(52 * rootProgress + 0.5))
+      math.floor(68 * rootProgress + 0.5))
 
     for slot = 1, 4 do
       local start = slot <= 2 and 0.32 or 0.40
