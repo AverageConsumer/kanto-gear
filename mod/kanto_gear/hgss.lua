@@ -528,8 +528,8 @@ return function(ui)
         or statusId == "SLP" or statusId == "BRN" or statusId == "FRZ")
       and self:statusColor(statusId) or nil
     local left, top = x - 4, y - 4
-    local upper = alive and colors.redLight or colors.silverDark
-    local lower = alive and colors.white or colors.silver
+    local upper = alive and colors.redLight or colors.fainted
+    local lower = alive and colors.white or colors.silverDark
     box("fill", left + 2, top, 5, 1, colors.outline)
     box("fill", left + 1, top + 1, 7, 1, colors.outline)
     box("fill", left, top + 2, 9, 5, colors.outline)
@@ -547,7 +547,8 @@ return function(ui)
     end
     box("fill", left + 1, top + 4, 7, 1, colors.outline)
     box("fill", left + 3, top + 3, 3, 3, colors.outline)
-    box("fill", left + 4, top + 4, 1, 1, statusTint or colors.white)
+    box("fill", left + 4, top + 4, 1, 1,
+      statusTint or alive and colors.white or colors.silverDark)
   end
 
   function H:battleActionPanel(x, y, w, h, colorName, selected)
@@ -565,27 +566,35 @@ return function(ui)
     if selected then self:battleFocusFrame(x, y, w, h) end
   end
 
+  local TEAM_LEFT, VS_LEFT, FOE_LEFT = 28, 112, 148
+  local TEAM_WIDTH, VS_WIDTH = 64, 16
+  assert(TEAM_LEFT - 8 == VS_LEFT - (TEAM_LEFT + TEAM_WIDTH)
+      and FOE_LEFT - (VS_LEFT + VS_WIDTH)
+        == 232 - (FOE_LEFT + TEAM_WIDTH),
+    "HGSS battle team strip has equal horizontal spacing")
+
   function H:battleTeamStrip(playerTeam, enemyTeam)
     local colors = self.colors
     self:panel(5, 3, 230, 25, false)
     for slot = 1, 6 do
-      self:battleTeamBall(42 + (slot - 1) * 11, 20,
+      self:battleTeamBall(TEAM_LEFT + 4 + (slot - 1) * 11, 20,
         playerTeam and playerTeam[slot])
     end
-    self:partyInfo("YOU", 36, 3, colors.green, 67, "center")
-    self:partyInfo("VS", 112, 9, colors.ink, 16, "center")
+    self:partyInfo("YOU", TEAM_LEFT, 3, colors.green, TEAM_WIDTH, "center")
+    self:partyInfo("VS", VS_LEFT, 9, colors.ink, VS_WIDTH, "center")
     if enemyTeam and enemyTeam.wild then
-      self:partyInfo("WILD", 137, 3, colors.green, 91, "center")
+      self:partyInfo("WILD", FOE_LEFT - 12, 3, colors.green,
+        TEAM_WIDTH + 24, "center")
       local detail = tostring(enemyTeam.name or "POKEMON")
       if enemyTeam.level then detail = detail .. " L" .. enemyTeam.level end
-      self:partyInfo(self:fitPartyInfo(detail, 91),
-        137, 15, colors.ink, 91, "center")
+      self:partyInfo(self:fitPartyInfo(detail, TEAM_WIDTH + 24),
+        FOE_LEFT - 12, 15, colors.ink, TEAM_WIDTH + 24, "center")
     else
       for slot = 1, 6 do
-        self:battleTeamBall(143 + (slot - 1) * 11, 20,
+        self:battleTeamBall(FOE_LEFT + 4 + (slot - 1) * 11, 20,
           enemyTeam and enemyTeam[slot])
       end
-      self:partyInfo("FOE", 137, 3, colors.green, 67, "center")
+      self:partyInfo("FOE", FOE_LEFT, 3, colors.green, TEAM_WIDTH, "center")
     end
   end
 
