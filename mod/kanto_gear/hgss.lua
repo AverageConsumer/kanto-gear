@@ -566,12 +566,18 @@ return function(ui)
     if selected then self:battleFocusFrame(x, y, w, h) end
   end
 
-  local TEAM_LEFT, VS_LEFT, FOE_LEFT = 28, 112, 148
-  local TEAM_WIDTH, VS_WIDTH = 64, 16
+  local PLAYER_CENTER, VS_CENTER, FOE_CENTER = 60, 120, 180
+  local TEAM_WIDTH, VS_WIDTH, WILD_WIDTH = 64, 16, 88
+  local TEAM_LEFT = PLAYER_CENTER - TEAM_WIDTH / 2
+  local VS_LEFT = VS_CENTER - VS_WIDTH / 2
+  local FOE_LEFT = FOE_CENTER - TEAM_WIDTH / 2
+  local WILD_LEFT = FOE_CENTER - WILD_WIDTH / 2
   assert(TEAM_LEFT - 8 == VS_LEFT - (TEAM_LEFT + TEAM_WIDTH)
       and FOE_LEFT - (VS_LEFT + VS_WIDTH)
-        == 232 - (FOE_LEFT + TEAM_WIDTH),
-    "HGSS battle team strip has equal horizontal spacing")
+        == 232 - (FOE_LEFT + TEAM_WIDTH)
+      and VS_CENTER - PLAYER_CENTER == FOE_CENTER - VS_CENTER
+      and WILD_LEFT + WILD_WIDTH / 2 == FOE_CENTER,
+    "HGSS trainer and wild battle strips share centered spacing")
 
   function H:battleTeamStrip(playerTeam, enemyTeam)
     local colors = self.colors
@@ -583,12 +589,12 @@ return function(ui)
     self:partyInfo("YOU", TEAM_LEFT, 3, colors.green, TEAM_WIDTH, "center")
     self:partyInfo("VS", VS_LEFT, 9, colors.ink, VS_WIDTH, "center")
     if enemyTeam and enemyTeam.wild then
-      self:partyInfo("WILD", FOE_LEFT - 12, 3, colors.green,
-        TEAM_WIDTH + 24, "center")
+      self:partyInfo("WILD", WILD_LEFT, 3, colors.green,
+        WILD_WIDTH, "center")
       local detail = tostring(enemyTeam.name or "POKEMON")
       if enemyTeam.level then detail = detail .. " L" .. enemyTeam.level end
-      self:partyInfo(self:fitPartyInfo(detail, TEAM_WIDTH + 24),
-        FOE_LEFT - 12, 15, colors.ink, TEAM_WIDTH + 24, "center")
+      self:partyInfo(self:fitPartyInfo(detail, WILD_WIDTH),
+        WILD_LEFT, 15, colors.ink, WILD_WIDTH, "center")
     else
       for slot = 1, 6 do
         self:battleTeamBall(FOE_LEFT + 4 + (slot - 1) * 11, 20,
