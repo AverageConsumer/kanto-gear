@@ -101,6 +101,17 @@ return function(ui)
 
   local box, text, fit, glyphs, color =
     ui.box, ui.text, ui.fit, ui.glyphs, ui.color
+  local runnerParts = {
+    { 118, 155, 5, 5 }, { 118, 162, 4, 8 },
+    { 114, 163, 4, 2 }, { 113, 165, 2, 6 },
+    { 121, 164, 8, 2 }, { 116, 169, 3, 4 },
+    { 113, 172, 4, 2 }, { 109, 174, 5, 2 },
+    { 120, 169, 3, 5 }, { 122, 173, 3, 6 },
+  }
+  local runnerOutline = {
+    { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 },
+    { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 },
+  }
   local partyFont = ui.font and ui.graphics.newFont(ui.font, 11)
     or ui.graphics.newFont(11)
   local partyNameFont = ui.font and ui.graphics.newFont(ui.font, 9)
@@ -679,16 +690,15 @@ return function(ui)
     G.push()
     G.translate(offsetX, offsetY)
     self:battleActionPanel(86, 149, 68, 52, "blue", selected)
-    box("fill", 118, 155, 5, 5, colors.white)
-    box("fill", 118, 162, 4, 8, colors.white)
-    box("fill", 114, 163, 4, 2, colors.white)
-    box("fill", 113, 165, 2, 6, colors.white)
-    box("fill", 121, 164, 8, 2, colors.white)
-    box("fill", 116, 169, 3, 4, colors.white)
-    box("fill", 113, 172, 4, 2, colors.white)
-    box("fill", 109, 174, 5, 2, colors.white)
-    box("fill", 120, 169, 3, 5, colors.white)
-    box("fill", 122, 173, 3, 6, colors.white)
+    for _, offset in ipairs(runnerOutline) do
+      for _, part in ipairs(runnerParts) do
+        box("fill", part[1] + offset[1], part[2] + offset[2],
+          part[3], part[4], colors.outline)
+      end
+    end
+    for _, part in ipairs(runnerParts) do
+      box("fill", part[1], part[2], part[3], part[4], colors.white)
+    end
     self:label(mon.runLabel or "RUN", 86, 183, colors.white, 68, "center")
     G.pop()
   end
