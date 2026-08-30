@@ -362,23 +362,85 @@ function love.load()
       chance = "30%", levels = "L13-15", period = "DAY",
     }
     local items = gen1 and {
-      { "SUPER POTION", "OPEN", "medicine", 46, 29, nil, "RESTORES 50 HP" },
-      { "TM20", "FOUND", "machine", 157, 72, true },
-      { "HIDDEN ITEM", "UNFOUND", "hidden", 196, 26 },
+      { "SUPER POTION", "OPEN", "medicine", 7, 9, nil, "RESTORES 50 HP" },
+      { "TM20", "FOUND", "machine", 30, 8, true },
+      { "HIDDEN ITEM", "UNFOUND", "hidden", 38, 10 },
     } or {
-      { "POTION", "OPEN", "medicine", 46, 29, nil, "RESTORES 20 HP" },
-      { "TM11", "FOUND", "machine", 157, 72, true },
-      { "HIDDEN ITEM", "UNFOUND", "hidden", 196, 26 },
+      { "POTION", "OPEN", "medicine", 7, 9, nil, "RESTORES 20 HP" },
+      { "TM11", "FOUND", "machine", 30, 8, true },
+      { "HIDDEN ITEM", "UNFOUND", "hidden", 38, 10 },
     }
     local trainers = gen1 and {
-      { "BIKER", "OPEN", "BIKER", 48, 30, "open" },
-      { "BEAUTY", "BEATEN", "BEAUTY", 157, 72, "beaten" },
-      { "JR.TRAINER", "OPEN", "JR.TRAINER", 196, 27, "open" },
+      { "BIKER", "OPEN", "BIKER", 10, 8, "open" },
+      { "BEAUTY", "BEATEN", "BEAUTY", 27, 11, "beaten" },
+      { "JR.TRAINER", "OPEN", "JR.TRAINER", 36, 7, "open" },
     } or {
-      { "DANA", "REMATCH", "LASS", 48, 30, "rematch" },
-      { "GREG", "BEATEN", "PSYCHIC", 157, 72, "beaten" },
-      { "ANN & ANNE", "OPEN", "TWINS", 196, 27, "open" },
+      { "DANA", "REMATCH", "LASS", 10, 8, "rematch" },
+      { "GREG", "BEATEN", "PSYCHIC", 27, 11, "beaten" },
+      { "ANN & ANNE", "OPEN", "TWINS", 36, 7, "open" },
     }
+    local function routeOverview()
+      local width, height = 42, 18
+      local rows = {}
+      for y = 1, height do
+        local row = {}
+        for x = 1, width do
+          local path = y >= 6 and y <= 12
+            or x >= 18 and x <= 24 and y >= 2 and y <= 17
+            or x >= 7 and x <= 12 and y >= 4 and y <= 14
+            or x >= 31 and x <= 37 and y >= 4 and y <= 14
+          local water = x >= 26 and x <= 29 and y <= 5
+            or x <= 5 and y >= 14
+          row[x] = water and "~" or path and "." or " "
+        end
+        rows[y] = table.concat(row)
+      end
+      local function replace(row, column, value)
+        rows[row] = rows[row]:sub(1, column - 1) .. value
+          .. rows[row]:sub(column + 1)
+      end
+      replace(9, 1, "+")
+      replace(9, width, "+")
+      replace(height, 21, "+")
+
+      local function detailedRows(density)
+        local result = {}
+        for py = 1, height * density do
+          local values, cellY = {}, math.floor((py - 1) / density) + 1
+          for px = 1, width * density do
+            local cellX = math.floor((px - 1) / density) + 1
+            local kind = rows[cellY]:sub(cellX, cellX)
+            local subX, subY = (px - 1) % density, (py - 1) % density
+            local shade
+            if kind == "~" then
+              shade = (subY + cellY) % 3 == 0 and 0 or 1
+            elseif kind == "." then
+              shade = (subX == 0 or subY == density - 1) and 1
+                or (cellX * 3 + cellY + subX) % 11 == 0 and 2 or 0
+            elseif kind == "+" then
+              shade = (subX == 0 or subY == 0) and 2 or 1
+            else
+              shade = (cellX * 5 + cellY * 3 + subX + subY) % 4
+            end
+            values[#values + 1] = tostring(shade)
+          end
+          result[py] = table.concat(values)
+        end
+        return result
+      end
+      return {
+        mapId = gen1 and 15 or 37, width = width, height = height, rows = rows,
+        tileWidth = width * 2, tileHeight = height * 2,
+        tileRows = detailedRows(2),
+        tileDetailWidth = width * 4, tileDetailHeight = height * 4,
+        tileDetailRows = detailedRows(4),
+        markers = {
+          { kind = "warp", x = 0, y = 8 },
+          { kind = "warp", x = width - 1, y = 8 },
+          { kind = "warp", x = 20, y = height - 1 },
+        },
+      }
+    end
     local function trainerIcon(x, y, state)
       local tint = state == "beaten" and (theme.dark
           and colors.silver or colors.silverDark)
@@ -416,147 +478,29 @@ function love.load()
     theme:partyInfo(data.region, 177, 38, colors.green, 42, "center")
     theme:detailChevron(222, 41, colors.green)
 
-    theme:panel(mapX, mapY, mapW, mapH, false)
-    love.graphics.setScissor(mapX + 2, mapY + 2, mapW - 4, mapH - 4)
-    box("fill", mapX + 2, mapY + 2, mapW - 4, mapH - 4,
-      colors.bandLight)
-    color(colors.amber)
-    if compactMap then
-      love.graphics.polygon("fill", mapX - 2, mapY + 18,
-        mapX + 45, mapY + 18, mapX + 51, mapY + 12,
-        mapX + 101, mapY + 12, mapX + 107, mapY + 18,
-        mapX + 159, mapY + 18, mapX + 165, mapY + 11,
-        mapX + 229, mapY + 11, mapX + 229, mapY + 29,
-        mapX + 169, mapY + 29, mapX + 163, mapY + 36,
-        mapX + 102, mapY + 36, mapX + 96, mapY + 29,
-        mapX + 56, mapY + 29, mapX + 50, mapY + 35,
-        mapX - 2, mapY + 35)
-      color(colors.amberLight)
-      love.graphics.polygon("fill", mapX - 2, mapY + 20,
-        mapX + 47, mapY + 20, mapX + 53, mapY + 14,
-        mapX + 99, mapY + 14, mapX + 105, mapY + 20,
-        mapX + 161, mapY + 20, mapX + 167, mapY + 13,
-        mapX + 229, mapY + 13, mapX + 229, mapY + 27,
-        mapX + 167, mapY + 27, mapX + 161, mapY + 34,
-        mapX + 104, mapY + 34, mapX + 98, mapY + 27,
-        mapX + 54, mapY + 27, mapX + 48, mapY + 33,
-        mapX - 2, mapY + 33)
-    elseif fullMap then
-      love.graphics.polygon("fill", mapX - 2, mapY + 46,
-        mapX + 48, mapY + 46, mapX + 57, mapY + 35,
-        mapX + 102, mapY + 35, mapX + 111, mapY + 47,
-        mapX + 151, mapY + 47, mapX + 160, mapY + 38,
-        mapX + 229, mapY + 38, mapX + 229, mapY + 68,
-        mapX + 156, mapY + 68, mapX + 147, mapY + 77,
-        mapX + 106, mapY + 77, mapX + 97, mapY + 65,
-        mapX + 61, mapY + 65, mapX + 52, mapY + 76,
-        mapX - 2, mapY + 76)
-      color(colors.amberLight)
-      love.graphics.polygon("fill", mapX - 2, mapY + 49,
-        mapX + 50, mapY + 49, mapX + 59, mapY + 38,
-        mapX + 100, mapY + 38, mapX + 109, mapY + 50,
-        mapX + 153, mapY + 50, mapX + 162, mapY + 41,
-        mapX + 229, mapY + 41, mapX + 229, mapY + 65,
-        mapX + 154, mapY + 65, mapX + 145, mapY + 74,
-        mapX + 108, mapY + 74, mapX + 99, mapY + 62,
-        mapX + 59, mapY + 62, mapX + 50, mapY + 73,
-        mapX - 2, mapY + 73)
-    else
-      love.graphics.polygon("fill", mapX - 2, mapY + 47,
-        mapX + 39, mapY + 47, mapX + 47, mapY + 37,
-        mapX + 77, mapY + 37, mapX + 85, mapY + 48,
-        mapX + 115, mapY + 48, mapX + 123, mapY + 40,
-        mapX + 156, mapY + 40, mapX + 156, mapY + 66,
-        mapX + 119, mapY + 66, mapX + 111, mapY + 74,
-        mapX + 80, mapY + 74, mapX + 72, mapY + 63,
-        mapX + 51, mapY + 63, mapX + 43, mapY + 73,
-        mapX - 2, mapY + 73)
-      color(colors.amberLight)
-      love.graphics.polygon("fill", mapX - 2, mapY + 50,
-        mapX + 41, mapY + 50, mapX + 49, mapY + 40,
-        mapX + 75, mapY + 40, mapX + 83, mapY + 51,
-        mapX + 117, mapY + 51, mapX + 125, mapY + 43,
-        mapX + 156, mapY + 43, mapX + 156, mapY + 63,
-        mapX + 117, mapY + 63, mapX + 109, mapY + 71,
-        mapX + 82, mapY + 71, mapX + 74, mapY + 60,
-        mapX + 49, mapY + 60, mapX + 41, mapY + 70,
-        mapX - 2, mapY + 70)
-    end
-    local trees = fullMap and {
-      { 10, 8 }, { 24, 11 }, { 39, 7 }, { 113, 8 }, { 128, 11 },
-      { 145, 7 }, { 204, 10 }, { 13, 81 }, { 30, 78 }, { 79, 83 },
-      { 175, 79 }, { 194, 83 }, { 211, 77 },
-    } or compactMap and {
-      { 14, 5 }, { 29, 5 }, { 122, 3 }, { 139, 3 }, { 190, 24 },
-      { 208, 23 },
-    } or {
-      { 9, 8 }, { 22, 10 }, { 37, 7 }, { 104, 8 }, { 119, 11 },
-      { 137, 7 }, { 14, 78 }, { 30, 82 }, { 96, 79 }, { 113, 83 },
-      { 136, 76 },
-    }
-    for _, tree in ipairs(trees) do
-      local x, y = mapX + tree[1], mapY + tree[2]
-      box("fill", x + 2, y, 3, 1, colors.green)
-      box("fill", x + 1, y + 1, 5, 1, colors.green)
-      box("fill", x, y + 2, 7, 5, colors.green)
-      box("fill", x + 1, y + 7, 5, 1, colors.green)
-      box("fill", x + 2, y + 2, 3, 4, colors.greenLight)
-      box("fill", x + 3, y + 8, 1, 2, colors.amber)
-    end
-    if not explorerDetail then
-      box("fill", mapX + 7, mapY + 67, 54, 3, colors.greenLight)
-      box("fill", mapX + 88, mapY + 17, 59, 3, colors.greenLight)
-      if explorerLayer then
-        for _, patch in ipairs({ { 48, 25 }, { 66, 76 }, { 122, 29 } }) do
-          for blade = 0, 2 do
-            local x, y = mapX + patch[1] + blade * 5, mapY + patch[2]
-            box("fill", x, y + 2, 1, 5, colors.green)
-            box("fill", x - 2, y, 2, 1, colors.greenLight)
-            box("fill", x + 1, y, 2, 1, colors.greenLight)
-          end
-        end
-      end
-    end
-    local playerX = (compactMap or fullMap) and mapX + 111 or mapX + 79
-    local playerY = compactMap and mapY + 19 or mapY + 53
-    box("fill", playerX - 2, playerY - 4, 5, 1, colors.outline)
-    box("fill", playerX - 3, playerY - 3, 7, 4, colors.outline)
-    box("fill", playerX - 4, playerY + 1, 9, 6, colors.outline)
-    box("fill", playerX - 2, playerY - 3, 5, 2, colors.redLight)
-    box("fill", playerX - 2, playerY - 1, 5, 2, colors.white)
-    box("fill", playerX - 3, playerY + 2, 7, 4, colors.blueLight)
+    local overview, markers = routeOverview(), nil
     if itemMap then
-      for index, item in ipairs(items) do
-        local x, y = mapX + item[4], mapY + item[5]
-        if explorerItemDetail and index == 1 then
-          color(colors.amberLight)
-          love.graphics.setLineWidth(2)
-          love.graphics.circle("line", x, y, 13)
-          love.graphics.setLineWidth(1)
-        end
-        if item[3] == "hidden" then
-          box("fill", x - 1, y - 6, 3, 13, colors.blueLight)
-          box("fill", x - 6, y - 1, 13, 3, colors.blueLight)
-          box("fill", x - 3, y - 3, 7, 7, colors.white)
-          box("fill", x - 1, y - 1, 3, 3, colors.blue)
-        else
-          theme:battleItemIcon({ icon = item[3] }, x - 8, y - 8,
-            item[6] and foundTint or colors.amberLight)
-        end
+      markers = {}
+      for _, item in ipairs(items) do
+        markers[#markers + 1] = {
+          kind = item[3] == "hidden" and "hidden" or "item",
+          x = item[4], y = item[5], found = item[6],
+        }
       end
     elseif trainerMap then
-      for index, trainer in ipairs(trainers) do
-        local x, y = mapX + trainer[4], mapY + trainer[5]
-        if explorerTrainerDetail and index == 1 then
-          color(colors.blueLight)
-          love.graphics.setLineWidth(2)
-          love.graphics.circle("line", x, y, 13)
-          love.graphics.setLineWidth(1)
-        end
-        trainerIcon(x, y, trainer[6])
+      markers = {}
+      for _, trainer in ipairs(trainers) do
+        markers[#markers + 1] = {
+          kind = "trainer", x = trainer[4], y = trainer[5], state = trainer[6],
+        }
       end
     end
-    love.graphics.setScissor()
+    theme:mapOverview(overview, mapX, mapY, mapW, mapH, {
+      player = { x = 20, y = 8, facing = "down" },
+      markers = markers,
+      selected = (explorerItemDetail or explorerTrainerDetail) and 1 or nil,
+      zoom = 1,
+    })
 
     local function chip(x, y, width, label, active)
       theme:panel(x, y, width, 16, false)

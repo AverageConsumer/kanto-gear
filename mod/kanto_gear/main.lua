@@ -3358,8 +3358,11 @@ return function(mod)
       local pixels = love.image.newImageData(width, height)
       for y, row in ipairs(rows) do
         for x = 1, #row do
-          local c = THEME:localMapColor(
-            overview, x, y, density, row:sub(x, x))
+          local c = THEME.style == "hgss"
+            and THEME.hgss:mapColor(
+              overview, x, y, density, row:sub(x, x))
+            or THEME:localMapColor(
+              overview, x, y, density, row:sub(x, x))
           pixels:setPixel(x - 1, y - 1, c[1], c[2], c[3], c[4])
         end
       end
@@ -3376,6 +3379,44 @@ return function(mod)
     local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
     header("LOCAL", false, true)
     local overview = loadLocalMap()
+    if THEME.style == "hgss" then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      if not overview then
+        THEME.hgss:panel(7, 32, 226, 178, false)
+        THEME.hgss:partyInfo("HOST UPDATE REQUIRED", 31, 112,
+          THEME.hgss.colors.ink, 178, "center")
+      else
+        local rows, width, height, density = localMapGrid(overview)
+        local image = loadLocalMapImage(overview, rows, width, height, density)
+        local pos = mod.world:current()
+        local markers = enhanced and overview.markers or {}
+        THEME.hgss:mapOverview(overview, 7, 32, 226, 151, {
+          image = image, player = pos and pos.mapId == overview.mapId and pos,
+          markers = markers, zoom = localMapZoom,
+        })
+        THEME.hgss:button(199, 36, 27, 16, localMapZoom .. "x", false)
+        THEME.hgss:panel(7, 187, 226, 23, false)
+        if enhanced then
+          local remaining = areaData({ overview.mapId or mapId }).remaining
+          box("fill", 16, 197, 7, 5, THEME.hgss.colors.blueLight)
+          THEME.hgss:partyType("EXIT", 28, 194,
+            THEME.hgss.colors.green, 39)
+          box("fill", 89, 196, 7, 7, THEME.hgss.colors.amberLight)
+          THEME.hgss:partyType(THEME:format("ITM%d", remaining[2] or 0),
+            101, 194, THEME.hgss.colors.green, 45)
+          box("fill", 169, 196, 3, 9, THEME.hgss.colors.blueLight)
+          box("fill", 166, 199, 9, 3, THEME.hgss.colors.blueLight)
+          THEME.hgss:partyType(THEME:format("HID%d", remaining[3] or 0),
+            181, 194, THEME.hgss.colors.green, 43)
+        else
+          THEME.hgss:partyInfo(areaName(overview.mapId or mapId),
+            15, 194, THEME.hgss.colors.ink, 210, "center")
+        end
+      end
+      G.pop()
+      return
+    end
     if not overview then
       centered("HOST UPDATE REQUIRED", 62, DARK)
     else

@@ -448,6 +448,171 @@ return function(ui)
     if selected then self:focusFrame(x, y, w, h) end
   end
 
+  local mapRamps = {
+    light = {
+      [" "] = {
+        { 0.72, 0.82, 0.75, 1 }, { 0.45, 0.66, 0.50, 1 },
+        { 0.22, 0.45, 0.29, 1 }, { 0.10, 0.27, 0.18, 1 },
+      },
+      ["."] = {
+        { 0.96, 0.86, 0.55, 1 }, { 0.88, 0.68, 0.29, 1 },
+        { 0.68, 0.46, 0.17, 1 }, { 0.42, 0.29, 0.13, 1 },
+      },
+      ["~"] = {
+        { 0.78, 0.92, 0.94, 1 }, { 0.45, 0.75, 0.84, 1 },
+        { 0.22, 0.51, 0.70, 1 }, { 0.10, 0.29, 0.49, 1 },
+      },
+      ["+"] = {
+        { 0.99, 0.94, 0.72, 1 }, { 0.98, 0.76, 0.30, 1 },
+        { 0.79, 0.48, 0.10, 1 }, { 0.47, 0.27, 0.08, 1 },
+      },
+    },
+    dark = {
+      [" "] = {
+        { 0.20, 0.33, 0.27, 1 }, { 0.12, 0.25, 0.19, 1 },
+        { 0.065, 0.16, 0.12, 1 }, { 0.025, 0.08, 0.065, 1 },
+      },
+      ["."] = {
+        { 0.55, 0.43, 0.20, 1 }, { 0.40, 0.30, 0.13, 1 },
+        { 0.27, 0.19, 0.08, 1 }, { 0.15, 0.105, 0.05, 1 },
+      },
+      ["~"] = {
+        { 0.25, 0.53, 0.64, 1 }, { 0.14, 0.39, 0.53, 1 },
+        { 0.075, 0.27, 0.42, 1 }, { 0.035, 0.15, 0.27, 1 },
+      },
+      ["+"] = {
+        { 0.66, 0.49, 0.18, 1 }, { 0.49, 0.34, 0.10, 1 },
+        { 0.33, 0.21, 0.055, 1 }, { 0.19, 0.12, 0.035, 1 },
+      },
+    },
+  }
+
+  function H:mapColor(overview, x, y, density, shade)
+    density = math.max(1, tonumber(density) or 1)
+    local cellX = math.floor((x - 1) / density) + 1
+    local cellY = math.floor((y - 1) / density) + 1
+    local row = overview and overview.rows and overview.rows[cellY] or ""
+    local ramps = mapRamps[self.dark and "dark" or "light"]
+    local ramp = ramps[row:sub(cellX, cellX)] or ramps[" "]
+    return ramp[math.max(1, math.min(4, (tonumber(shade) or 1) + 1))]
+  end
+
+  local function mapGrid(overview)
+    if overview.tileDetailRows then
+      return overview.tileDetailRows, overview.tileDetailWidth,
+        overview.tileDetailHeight, 4
+    end
+    if overview.tileRows then
+      return overview.tileRows, overview.tileWidth, overview.tileHeight, 2
+    end
+    return overview.rows or {}, overview.width or 0, overview.height or 0, 1
+  end
+
+  local function mapMarkerVisible(marker, visible)
+    return not visible or visible[marker.kind] ~= false
+  end
+
+  function H:mapOverview(overview, x, y, w, h, opts)
+    opts = opts or {}
+    local G, colors = ui.graphics, self.colors
+    self:panel(x, y, w, h, false)
+    if not overview or not overview.rows then return nil end
+
+    local rows, width, height, density = mapGrid(overview)
+    width, height = tonumber(width) or 0, tonumber(height) or 0
+    if width < 1 or height < 1 then return nil end
+    local innerX, innerY, innerW, innerH = x + 2, y + 2, w - 4, h - 4
+    local fitScale = math.min(innerW / width, innerH / height)
+    local scale = fitScale >= 1 and math.min(3, math.floor(fitScale)) or 1
+    scale = scale * math.max(1, tonumber(opts.zoom) or 1)
+    local focus = opts.player or {}
+    local focusX = (tonumber(focus.x) or (overview.width or 1) / 2) * density
+      + density / 2
+    local focusY = (tonumber(focus.y) or (overview.height or 1) / 2) * density
+      + density / 2
+    local left = math.floor(innerX + (innerW - width * scale) / 2 + 0.5)
+    local top = math.floor(innerY + (innerH - height * scale) / 2 + 0.5)
+    if width * scale > innerW then
+      left = math.floor(innerX + innerW / 2 - focusX * scale + 0.5)
+      left = math.max(innerX + innerW - width * scale, math.min(innerX, left))
+    end
+    if height * scale > innerH then
+      top = math.floor(innerY + innerH / 2 - focusY * scale + 0.5)
+      top = math.max(innerY + innerH - height * scale, math.min(innerY, top))
+    end
+
+    G.setScissor(innerX, innerY, innerW, innerH)
+    if opts.image then
+      color({ 1, 1, 1, 1 })
+      G.draw(opts.image, left, top, 0, scale, scale)
+    else
+      for rowIndex, row in ipairs(rows) do
+        for column = 1, #row do
+          box("fill", left + (column - 1) * scale,
+            top + (rowIndex - 1) * scale, scale, scale,
+            self:mapColor(overview, column, rowIndex, density,
+              row:sub(column, column)))
+        end
+      end
+    end
+
+    local function point(marker)
+      return math.floor(left + (marker.x + 0.5) * density * scale + 0.5),
+        math.floor(top + (marker.y + 0.5) * density * scale + 0.5)
+    end
+    local markers = opts.markers or overview.markers or {}
+    for index, marker in ipairs(markers) do
+      if mapMarkerVisible(marker, opts.visible) then
+        local mx, my = point(marker)
+        if opts.selected == marker or opts.selected == index then
+          color(marker.kind == "trainer" and colors.blueLight
+            or colors.amberLight)
+          G.setLineWidth(2)
+          G.circle("line", mx, my, 11)
+          G.setLineWidth(1)
+        end
+        if marker.kind == "trainer" then
+          local tint = marker.state == "beaten" and colors.silverDark
+            or marker.state == "rematch" and colors.blueLight or colors.redLight
+          box("fill", mx - 3, my - 7, 7, 5, colors.outline)
+          box("fill", mx - 5, my - 2, 11, 7, colors.outline)
+          box("fill", mx - 2, my - 6, 5, 3, colors.amberLight)
+          box("fill", mx - 3, my, 7, 4, tint)
+        elseif marker.kind == "hidden" then
+          box("fill", mx - 1, my - 6, 3, 13, colors.blueLight)
+          box("fill", mx - 6, my - 1, 13, 3, colors.blueLight)
+          box("fill", mx - 2, my - 2, 5, 5, colors.white)
+          box("fill", mx, my, 1, 1, colors.blue)
+        elseif marker.kind == "item" then
+          box("fill", mx - 4, my - 4, 9, 9, colors.outline)
+          box("fill", mx - 3, my - 3, 7, 7,
+            marker.found and colors.silverDark or colors.amberLight)
+          box("fill", mx - 1, my - 1, 3, 3, colors.white)
+        elseif marker.kind == "warp" then
+          box("fill", mx - 4, my - 3, 9, 7, colors.outline)
+          box("fill", mx - 2, my - 1, 5, 3, colors.blueLight)
+        end
+      end
+    end
+
+    if focus.x ~= nil and focus.y ~= nil then
+      local px, py = point(focus)
+      box("fill", px - 3, py - 6, 7, 5, colors.outline)
+      box("fill", px - 4, py - 1, 9, 7, colors.outline)
+      box("fill", px - 2, py - 5, 5, 2, colors.redLight)
+      box("fill", px - 2, py - 3, 5, 2, colors.white)
+      box("fill", px - 3, py, 7, 4, colors.blueLight)
+      local direction = ({ up = { 0, -1 }, down = { 0, 1 },
+        left = { -1, 0 }, right = { 1, 0 } })[focus.facing]
+      if direction then
+        box("fill", px + direction[1] * 5, py + direction[2] * 5,
+          1, 1, colors.white)
+      end
+    end
+    G.setScissor()
+    return { left = left, top = top, scale = scale, density = density }
+  end
+
   function H:button(x, y, w, h, label, selected)
     self:panel(x, y, w, h, selected, self.colors.blueLight)
     local shown = fit(label, math.floor((w - 8) / 6))
