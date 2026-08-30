@@ -405,6 +405,11 @@ function love.load()
 
       local function detailedRows(density)
         local result = {}
+        local function walkable(x, y)
+          if x < 1 or x > width or y < 1 or y > height then return false end
+          local kind = rows[y]:sub(x, x)
+          return kind == "." or kind == "+"
+        end
         for py = 1, height * density do
           local values, cellY = {}, math.floor((py - 1) / density) + 1
           for px = 1, width * density do
@@ -413,14 +418,21 @@ function love.load()
             local subX, subY = (px - 1) % density, (py - 1) % density
             local shade
             if kind == "~" then
-              shade = (subY + cellY) % 3 == 0 and 0 or 1
-            elseif kind == "." then
-              shade = (subX == 0 or subY == density - 1) and 1
-                or (cellX * 3 + cellY + subX) % 11 == 0 and 2 or 0
-            elseif kind == "+" then
-              shade = (subX == 0 or subY == 0) and 2 or 1
+              shade = subY == 0 and 0
+                or subY == density - 1 and 2 or 1
+            elseif kind == "." or kind == "+" then
+              local edge = subX == 0 and not walkable(cellX - 1, cellY)
+                or subX == density - 1 and not walkable(cellX + 1, cellY)
+                or subY == 0 and not walkable(cellX, cellY - 1)
+                or subY == density - 1 and not walkable(cellX, cellY + 1)
+              shade = edge and 2
+                or (cellX * 7 + cellY * 11 + subX * 3 + subY) % 29 == 0
+                  and 1 or 0
             else
-              shade = (cellX * 5 + cellY * 3 + subX + subY) % 4
+              local seed = (cellX * 5 + cellY * 3) % 7
+              shade = seed < 2 and subX == 1 and subY == 1 and 0
+                or seed < 2 and subX == density - 1
+                  and subY == density - 1 and 2 or 1
             end
             values[#values + 1] = tostring(shade)
           end

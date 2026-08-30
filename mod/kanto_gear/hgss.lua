@@ -567,6 +567,18 @@ return function(ui)
       box("fill", tx - 1, ty, 1, tileSize, tint)
       box("fill", tx + tileSize, ty, 1, tileSize, tint)
     end
+    local function mapPerson(anchorX, anchorY, hat, shirt)
+      box("fill", anchorX - 2, anchorY - 11, 5, 1, colors.outline)
+      box("fill", anchorX - 3, anchorY - 10, 7, 3, colors.outline)
+      box("fill", anchorX - 2, anchorY - 7, 5, 3, colors.outline)
+      box("fill", anchorX - 3, anchorY - 4, 7, 4, colors.outline)
+      box("fill", anchorX - 2, anchorY - 10, 5, 2, hat)
+      box("fill", anchorX + 2, anchorY - 8, 3, 1, hat)
+      box("fill", anchorX - 1, anchorY - 7, 3, 2, colors.amberLight)
+      box("fill", anchorX - 2, anchorY - 3, 5, 2, shirt)
+      box("fill", anchorX - 2, anchorY, 2, 1, colors.outline)
+      box("fill", anchorX + 1, anchorY, 2, 1, colors.outline)
+    end
     local markers = opts.markers or overview.markers or {}
     for index, marker in ipairs(markers) do
       if mapMarkerVisible(marker, opts.visible) then
@@ -580,21 +592,19 @@ return function(ui)
         if marker.kind == "trainer" then
           local tint = marker.state == "beaten" and colors.silverDark
             or marker.state == "rematch" and colors.blueLight or colors.redLight
-          box("fill", anchorX - 3, anchorY - 10, 7, 5, colors.outline)
-          box("fill", anchorX - 4, anchorY - 5, 9, 5, colors.outline)
-          box("fill", anchorX - 2, anchorY - 9, 5, 3, colors.amberLight)
-          box("fill", anchorX - 3, anchorY - 4, 7, 3, tint)
-          box("fill", anchorX, anchorY, 1, 1, colors.outline)
+          mapPerson(anchorX, anchorY, tint, tint)
         elseif marker.kind == "hidden" then
           box("fill", anchorX - 1, anchorY - 8, 3, 7, colors.blueLight)
           box("fill", anchorX - 4, anchorY - 6, 9, 3, colors.blueLight)
           box("fill", anchorX - 1, anchorY - 6, 3, 3, colors.white)
           box("fill", anchorX, anchorY - 1, 1, 2, colors.outline)
         elseif marker.kind == "item" then
-          box("fill", anchorX - 3, anchorY - 7, 7, 7, colors.outline)
-          box("fill", anchorX - 2, anchorY - 6, 5, 5,
-            marker.found and colors.silverDark or colors.amberLight)
-          box("fill", anchorX, anchorY - 4, 1, 1, colors.white)
+          local tint = marker.found and colors.silverDark or colors.redLight
+          box("fill", anchorX - 2, anchorY - 8, 5, 1, colors.outline)
+          box("fill", anchorX - 3, anchorY - 7, 7, 5, colors.outline)
+          box("fill", anchorX - 2, anchorY - 6, 5, 2, tint)
+          box("fill", anchorX - 2, anchorY - 3, 5, 1, colors.white)
+          box("fill", anchorX, anchorY - 4, 1, 2, colors.outline)
           box("fill", anchorX, anchorY, 1, 1, colors.outline)
         elseif marker.kind == "warp" then
           box("fill", mx, my, tileSize, tileSize, colors.outline)
@@ -609,12 +619,7 @@ return function(ui)
       local px, py = tile(focus)
       local anchorX = px + math.floor(tileSize / 2)
       local anchorY = py + math.floor(tileSize / 2)
-      box("fill", anchorX - 3, anchorY - 10, 7, 5, colors.outline)
-      box("fill", anchorX - 4, anchorY - 5, 9, 5, colors.outline)
-      box("fill", anchorX - 2, anchorY - 9, 5, 2, colors.redLight)
-      box("fill", anchorX - 2, anchorY - 7, 5, 2, colors.white)
-      box("fill", anchorX - 3, anchorY - 4, 7, 3, colors.blueLight)
-      box("fill", anchorX, anchorY, 1, 1, colors.outline)
+      mapPerson(anchorX, anchorY, colors.redLight, colors.blueLight)
     end
     G.setScissor()
     return { left = left, top = top, scale = scale, density = density }
