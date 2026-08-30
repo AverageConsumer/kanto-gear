@@ -7364,13 +7364,16 @@ return function(mod)
     end
   end
 
-  displayRuntime.explorerSwipeTarget = function(view, selected, y)
+  displayRuntime.explorerSwipeTarget = function(view, selected, y, pages)
     if not view then return end
     if selected then return y >= 107 and "detail" or nil end
-    if view == "wild" then return y >= 100 and "scope" or nil end
+    if view == "wild" then
+      return y >= 100 and ((pages or 1) > 1 and "page" or "scope") or nil
+    end
     return y >= 166 and "page" or nil
   end
-  assert(displayRuntime.explorerSwipeTarget("wild", false, 123) == "scope"
+  assert(displayRuntime.explorerSwipeTarget("wild", false, 123, 1) == "scope"
+      and displayRuntime.explorerSwipeTarget("wild", false, 123, 2) == "page"
       and not displayRuntime.explorerSwipeTarget("wild", false, 99)
       and displayRuntime.explorerSwipeTarget("items", false, 166) == "page"
       and displayRuntime.explorerSwipeTarget("wild", true, 107) == "detail",
@@ -7387,7 +7390,7 @@ return function(mod)
     local model = overview and displayRuntime.explorerModel(overview)
     if model then
       local target = displayRuntime.explorerSwipeTarget(model.view,
-        model.selected, (down.y or 0) * 1.5)
+        model.selected, (down.y or 0) * 1.5, model.pages)
       local direction = dx < 0 and 1 or -1
       if target == "scope" then
         model.filters.wildScope = direction > 0 and "ROUTE" or "HERE"
