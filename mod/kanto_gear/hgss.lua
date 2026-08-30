@@ -556,58 +556,65 @@ return function(ui)
       end
     end
 
-    local function point(marker)
-      return math.floor(left + (marker.x + 0.5) * density * scale + 0.5),
-        math.floor(top + (marker.y + 0.5) * density * scale + 0.5)
+    local tileSize = density * scale
+    local function tile(marker)
+      return math.floor(left + marker.x * tileSize + 0.5),
+        math.floor(top + marker.y * tileSize + 0.5)
+    end
+    local function tileFrame(tx, ty, tint)
+      box("fill", tx - 1, ty - 1, tileSize + 2, 1, tint)
+      box("fill", tx - 1, ty + tileSize, tileSize + 2, 1, tint)
+      box("fill", tx - 1, ty, 1, tileSize, tint)
+      box("fill", tx + tileSize, ty, 1, tileSize, tint)
     end
     local markers = opts.markers or overview.markers or {}
     for index, marker in ipairs(markers) do
       if mapMarkerVisible(marker, opts.visible) then
-        local mx, my = point(marker)
+        local mx, my = tile(marker)
+        local anchorX = mx + math.floor(tileSize / 2)
+        local anchorY = my + math.floor(tileSize / 2)
         if opts.selected == marker or opts.selected == index then
-          color(marker.kind == "trainer" and colors.blueLight
+          tileFrame(mx, my, marker.kind == "trainer" and colors.blueLight
             or colors.amberLight)
-          G.setLineWidth(2)
-          G.circle("line", mx, my, 11)
-          G.setLineWidth(1)
         end
         if marker.kind == "trainer" then
           local tint = marker.state == "beaten" and colors.silverDark
             or marker.state == "rematch" and colors.blueLight or colors.redLight
-          box("fill", mx - 3, my - 7, 7, 5, colors.outline)
-          box("fill", mx - 5, my - 2, 11, 7, colors.outline)
-          box("fill", mx - 2, my - 6, 5, 3, colors.amberLight)
-          box("fill", mx - 3, my, 7, 4, tint)
+          box("fill", anchorX - 3, anchorY - 10, 7, 5, colors.outline)
+          box("fill", anchorX - 4, anchorY - 5, 9, 5, colors.outline)
+          box("fill", anchorX - 2, anchorY - 9, 5, 3, colors.amberLight)
+          box("fill", anchorX - 3, anchorY - 4, 7, 3, tint)
+          box("fill", anchorX, anchorY, 1, 1, colors.outline)
         elseif marker.kind == "hidden" then
-          box("fill", mx - 1, my - 6, 3, 13, colors.blueLight)
-          box("fill", mx - 6, my - 1, 13, 3, colors.blueLight)
-          box("fill", mx - 2, my - 2, 5, 5, colors.white)
-          box("fill", mx, my, 1, 1, colors.blue)
+          box("fill", anchorX - 1, anchorY - 8, 3, 7, colors.blueLight)
+          box("fill", anchorX - 4, anchorY - 6, 9, 3, colors.blueLight)
+          box("fill", anchorX - 1, anchorY - 6, 3, 3, colors.white)
+          box("fill", anchorX, anchorY - 1, 1, 2, colors.outline)
         elseif marker.kind == "item" then
-          box("fill", mx - 4, my - 4, 9, 9, colors.outline)
-          box("fill", mx - 3, my - 3, 7, 7,
+          box("fill", anchorX - 3, anchorY - 7, 7, 7, colors.outline)
+          box("fill", anchorX - 2, anchorY - 6, 5, 5,
             marker.found and colors.silverDark or colors.amberLight)
-          box("fill", mx - 1, my - 1, 3, 3, colors.white)
+          box("fill", anchorX, anchorY - 4, 1, 1, colors.white)
+          box("fill", anchorX, anchorY, 1, 1, colors.outline)
         elseif marker.kind == "warp" then
-          box("fill", mx - 4, my - 3, 9, 7, colors.outline)
-          box("fill", mx - 2, my - 1, 5, 3, colors.blueLight)
+          box("fill", mx, my, tileSize, tileSize, colors.outline)
+          local inset = math.max(1, math.floor(tileSize / 4))
+          local inner = math.max(1, tileSize - inset * 2)
+          box("fill", mx + inset, my + inset, inner, inner, colors.blueLight)
         end
       end
     end
 
     if focus.x ~= nil and focus.y ~= nil then
-      local px, py = point(focus)
-      box("fill", px - 3, py - 6, 7, 5, colors.outline)
-      box("fill", px - 4, py - 1, 9, 7, colors.outline)
-      box("fill", px - 2, py - 5, 5, 2, colors.redLight)
-      box("fill", px - 2, py - 3, 5, 2, colors.white)
-      box("fill", px - 3, py, 7, 4, colors.blueLight)
-      local direction = ({ up = { 0, -1 }, down = { 0, 1 },
-        left = { -1, 0 }, right = { 1, 0 } })[focus.facing]
-      if direction then
-        box("fill", px + direction[1] * 5, py + direction[2] * 5,
-          1, 1, colors.white)
-      end
+      local px, py = tile(focus)
+      local anchorX = px + math.floor(tileSize / 2)
+      local anchorY = py + math.floor(tileSize / 2)
+      box("fill", anchorX - 3, anchorY - 10, 7, 5, colors.outline)
+      box("fill", anchorX - 4, anchorY - 5, 9, 5, colors.outline)
+      box("fill", anchorX - 2, anchorY - 9, 5, 2, colors.redLight)
+      box("fill", anchorX - 2, anchorY - 7, 5, 2, colors.white)
+      box("fill", anchorX - 3, anchorY - 4, 7, 3, colors.blueLight)
+      box("fill", anchorX, anchorY, 1, 1, colors.outline)
     end
     G.setScissor()
     return { left = left, top = top, scale = scale, density = density }
