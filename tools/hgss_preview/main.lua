@@ -663,14 +663,12 @@ function love.load()
         mapFull = explorerMap,
         period = data.period, method = "ALL", trainerIcon = trainerRows[1],
         drawPlayer = function(_, x, y, tileSize)
-          drawOverworld("player", x, y, math.max(0.75, tileSize / 8),
-            colors.redLight)
+          drawOverworld("player", x, y, tileSize / 16, colors.redLight)
         end,
         drawTrainer = function(marker, x, y, tileSize)
           local tint = marker.state == "beaten" and (theme.dark
               and colors.silver or colors.silverDark) or colors.redLight
-          drawOverworld(marker.actor.sprite, x, y,
-            math.max(0.75, tileSize / 8), tint)
+          drawOverworld(marker.actor.sprite, x, y, tileSize / 16, tint)
         end,
         drawActor = function(row, x, y, scale, feet)
           drawOverworld(row.sprite, x, y, scale, colors.redLight, not feet)
