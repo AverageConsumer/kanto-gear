@@ -518,12 +518,6 @@ return function(ui)
     return not visible or visible[marker.kind] ~= false
   end
 
-  local function explorerLayerX(index, count)
-    local width, gap = 72, 5
-    local total = count * width + math.max(0, count - 1) * gap
-    return 7 + math.floor((226 - total) / 2) + (index - 1) * (width + gap)
-  end
-
   local function mapTileSize(baseWidth, baseHeight, innerW, innerH, opts)
     if not opts.full then
       return math.max(8, math.ceil(math.max(
@@ -755,6 +749,40 @@ return function(ui)
       box("fill", 70, 70, 6, 2, colors.green)
       box("fill", 72, 68, 2, 6, colors.green)
     end
+    local function mapProgress(y)
+      if not model.showMapStats then return end
+      local function itemGlyph(x)
+        box("fill", x + 2, y + 2, 5, 1, colors.outline)
+        box("fill", x + 1, y + 3, 7, 1, colors.outline)
+        box("fill", x, y + 4, 9, 7, colors.outline)
+        box("fill", x + 1, y + 5, 7, 5, colors.white)
+        box("fill", x + 1, y + 5, 7, 2, colors.amberLight)
+        box("fill", x + 4, y + 7, 1, 1, colors.outline)
+      end
+      self:panel(11, y, 126, 14, false)
+      box("fill", 73, y + 2, 1, 10, colors.band)
+      local itemWidth = partyInfoFont:getWidth(model.itemsText)
+      local itemLeft = 11 + math.floor((62 - 9 - 3 - itemWidth) / 2)
+      itemGlyph(itemLeft)
+      self:partyInfo(model.itemsText, itemLeft + 12, y + 1, colors.ink)
+      local trainerWidth = partyInfoFont:getWidth(model.trainersText)
+      local hasTrainer = model.drawActor and model.trainerIcon
+      local iconWidth, gap = hasTrainer and 8 or 0, hasTrainer and 3 or 0
+      local trainerLeft = 74
+        + math.floor((63 - iconWidth - gap - trainerWidth) / 2)
+      if hasTrainer then
+        model.drawActor(model.trainerIcon, trainerLeft + 4, y + 7,
+          0.5, false)
+      end
+      self:partyInfo(model.trainersText,
+        trainerLeft + iconWidth + gap, y + 1, colors.ink)
+    end
+    local function scanner(y)
+      if not model.canScan then return end
+      self:panel(140, y, 57, 14, false)
+      box("fill", 142, y + 2, 53, 10, colors.band)
+      self:partyType(translate("SCAN"), 140, y + 1, colors.ink, 57)
+    end
     self:panel(7, 32, 226, 23, false)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
       64), 13, 38, colors.ink, 64, "center")
@@ -773,6 +801,9 @@ return function(ui)
       drawTrainer = model.drawTrainer, full = model.mapFull,
       zoom = model.mapZoom,
     })
+    local overlayY = model.mapFull and 82 or 63
+    mapProgress(overlayY)
+    scanner(overlayY)
     mapToggle(7, 59, mapW, model.mapFull)
     if model.mapFull then zoomControls(model.mapZoom or 1) end
     if model.mapFull then return end
@@ -922,81 +953,6 @@ return function(ui)
           colors.green, 226, "center")
       end
       return
-    elseif view == "items" or view == "trainers" then
-      local filter = view == "items" and model.filters.items
-        or model.filters.trainers
-      local scanSlot = view == "items" and not model.enhanced
-      chip(12, 147, scanSlot and 72 or 153, filter, true, true)
-      if scanSlot then
-        chip(87, 147, 78, model.canScan and "SCAN"
-          or model.needsItemfinder and "NEED FINDER" or "VANILLA",
-          model.canScan)
-      end
-      pager(168, 147, 58, model.page, model.pages)
-      for index, row in ipairs(model.rows) do
-        local x = 7 + (index - 1) * 114
-        self:panel(x, 166, 112, 44, false)
-        if view == "trainers" then
-          if model.drawActor then
-            model.drawActor(row, x + 14, 199, 0.75, false)
-          end
-        else
-          self:battleItemIcon({ icon = row.icon or "item" }, x + 5, 186,
-            row.done and colors.silverDark or colors.amberLight)
-        end
-        self:partyType(self:fitPartyType(row.cardLabel or row.displayLabel
-          or row.label, 96), x + 5, 172, colors.ink, 96)
-        local status = row.done and (view == "items" and "FOUND" or "BEATEN")
-          or "OPEN"
-        self:partyType(self:fitPartyType(translate(status), 76),
-          x + 25, 193, row.done and colors.silverDark or colors.green, 76)
-        self:detailChevron(x + 105, 184, colors.ink)
-      end
-      if #model.rows == 0 then
-        self:partyInfo(translate("NO MATCHES"), 7, 181,
-          colors.green, 226, "center")
-      end
-      return
-    end
-
-    local layers = model.layers or {}
-    for index, layer in ipairs(layers) do
-      local x, value, status = explorerLayerX(index, #layers)
-      if layer.view == "wild" then
-        value, status = model.caughtText, "CAUGHT"
-      elseif layer.view == "items" then
-        value, status = model.itemsText, "FOUND"
-      else
-        value, status = model.trainersText, "BEATEN"
-      end
-      self:panel(x, 154, 72, 56, false)
-      self:partyType(self:fitPartyType(translate(layer.label), 60),
-        x + 6, 159, colors.ink, 60)
-      local valueWidth = partyInfoFont:getWidth(value)
-      if layer.view == "wild" then
-        local left = x + math.floor((72 - 9 - 4 - valueWidth) / 2)
-        self:battleTeamBall(left + 4, 181, true)
-        self:partyInfo(value, left + 13, 176, colors.ink)
-      elseif layer.view == "items" then
-        local left = x + math.floor((72 - 16 - 4 - valueWidth) / 2)
-        self:battleItemIcon({}, left, 173, colors.amberLight)
-        self:partyInfo(value, left + 20, 176, colors.ink)
-      else
-        local hasIcon = model.drawActor and model.trainerIcon
-        local iconWidth, gap = hasIcon and 12 or 0, hasIcon and 4 or 0
-        local left = x + math.floor((72 - iconWidth - gap - valueWidth) / 2)
-        if hasIcon then
-          model.drawActor(model.trainerIcon, left + 6, 181, 0.75, false)
-        end
-        self:partyInfo(value, left + iconWidth + gap, 176, colors.ink)
-      end
-      self:partyType(self:fitPartyType(translate(status), 60),
-        x + 6, 195, colors.green, 60)
-      self:detailChevron(x + 65, 179, colors.ink)
-    end
-    if #layers == 0 then
-      self:partyInfo(self:fitPartyInfo(translate("ASSISTS OFF"), 214),
-        13, 177, colors.green, 214, "center")
     end
   end
 
@@ -1013,6 +969,11 @@ return function(ui)
       if x >= 11 and x < 29 then return "zoom_out" end
       if x >= 64 and x < 82 then return "zoom_in" end
     end
+    local overlayY = model.mapFull and 82 or 63
+    if model.showMapStats and x >= 11 and x < 137
+        and y >= overlayY and y < overlayY + 14 then return nil end
+    if model.canScan and x >= 140 and x < 197
+        and y >= overlayY and y < overlayY + 14 then return "scan" end
     local marker = self:mapMarkerAt(x, y, model.overview,
       { x = 7, y = 59, w = mapW, h = mapH }, {
         player = model.player, markers = model.markers, full = model.mapFull,
@@ -1020,15 +981,6 @@ return function(ui)
       })
     if marker then return "marker", marker end
     if model.mapFull then return nil end
-    if not model.view then
-      for index, layer in ipairs(model.layers or {}) do
-        local left = explorerLayerX(index, #model.layers)
-        if x >= left and x < left + 72 and y >= 154 and y < 210 then
-          return layer.view
-        end
-      end
-      return nil
-    end
     if model.selected then
       if model.view == "wild" and x >= 166 and x < 224
           and y >= 114 and y < 130 and model.detailPages > 1 then
@@ -1053,26 +1005,6 @@ return function(ui)
         local portraitX = left + column * 56
         if x >= portraitX - 11 and x < portraitX + 45 then
           return "row", line * 4 + column + 1
-        end
-      end
-      return nil
-    end
-    if y >= 147 and y < 163 then
-      local scanSlot = model.view == "items" and not model.enhanced
-      if x >= 12 and x < (scanSlot and 84 or 165) then
-        return "filter_status"
-      end
-      if scanSlot and x >= 87 and x < 165
-          and model.canScan then return "scan" end
-      if x >= 168 and x < 226 and model.pages > 1 then
-        return x < 197 and "prev" or "next"
-      end
-    end
-    if y >= 166 and y < 210 then
-      for slot = 1, 2 do
-        local left = 7 + (slot - 1) * 114
-        if x >= left and x < left + 112 and model.rows[slot] then
-          return "row", slot
         end
       end
       return nil

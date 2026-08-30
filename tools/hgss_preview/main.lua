@@ -581,7 +581,8 @@ function love.load()
     end
     if os.getenv("KANTO_GEAR_PREVIEW_CONNECTED") == "1" then
       local view = (explorerLayer or explorerDetail) and "wild"
-        or itemMap and "items" or trainerMap and "trainers" or nil
+        or itemMap and "items" or trainerMap and "trainers" or "wild"
+      local enhanced = os.getenv("KANTO_GEAR_PREVIEW_ENHANCED") == "1"
       local wildScope = os.getenv("KANTO_GEAR_PREVIEW_WILD_SCOPE") == "ROUTE"
         and "ROUTE" or "HERE"
       local wildRows, itemRows, trainerRows = {}, {}, {}
@@ -617,7 +618,6 @@ function love.load()
       for index, item in ipairs(items) do
         itemRows[index] = { label = item[1], kind = item[3],
           displayLabel = item[3] == "hidden" and "HIDDEN SIGNAL" or item[1],
-          cardLabel = item[3] == "hidden" and "SIGNAL" or item[1],
           location = item[3] == "hidden" and "USE ITEMFINDER"
             or "MARKED ON MAP",
           x = item[4], y = item[5], done = item[6], icon = item[3],
@@ -630,35 +630,20 @@ function love.load()
           spriteId = trainer[7], status = trainer[2],
           key = "trainer:" .. index }
       end
-      if not view then
-        markers = {}
-        for _, marker in ipairs(overview.markers or {}) do
-          if marker.kind == "warp" then markers[#markers + 1] = marker end
-        end
-        for _, row in ipairs(itemRows) do
+      markers = {}
+      for _, marker in ipairs(overview.markers or {}) do
+        if marker.kind == "warp" then markers[#markers + 1] = marker end
+      end
+      for _, row in ipairs(itemRows) do
+        if enhanced or row.kind ~= "hidden" or row.done then
           markers[#markers + 1] = { kind = row.kind == "hidden"
               and "hidden" or "item", x = row.x, y = row.y,
             found = row.done, source = row }
         end
-        for _, row in ipairs(trainerRows) do
-          markers[#markers + 1] = { kind = "trainer", x = row.x, y = row.y,
-            actor = row, state = row.state, source = row }
-        end
       end
-      if trainerMap then
-        markers = {}
-        for _, row in ipairs(trainerRows) do
-          markers[#markers + 1] = { kind = "trainer", x = row.x, y = row.y,
-            actor = row, state = row.state, source = row }
-        end
-      end
-      if itemMap then
-        markers = {}
-        for _, row in ipairs(itemRows) do
-          markers[#markers + 1] = { kind = row.kind == "hidden"
-              and "hidden" or "item", x = row.x, y = row.y,
-            found = row.done, source = row }
-        end
+      for _, row in ipairs(trainerRows) do
+        markers[#markers + 1] = { kind = "trainer", x = row.x, y = row.y,
+          actor = row, state = row.state, source = row }
       end
       local sourceRows = view == "wild" and wildRows
         or view == "items" and itemRows
@@ -666,12 +651,17 @@ function love.load()
       if view == "wild" and wildScope == "HERE" then
         sourceRows = { wildRows[1], wildRows[2], wildRows[3], wildRows[4] }
       end
-      local rows, perPage = {}, view == "wild" and 8 or 2
+      local rows, perPage = {}, view == "wild" and 8
+        or math.max(1, #sourceRows)
       for index = 1, math.min(#sourceRows, perPage) do
         rows[#rows + 1] = sourceRows[index]
       end
-      local selected = (explorerDetail or explorerItemDetail
-        or explorerTrainerDetail) and sourceRows[1] or nil
+      local selected = (explorerDetail or explorerItems or explorerItemDetail
+        or explorerTrainers or explorerTrainerDetail) and sourceRows[1] or nil
+      local selectedMarker
+      for _, marker in ipairs(markers) do
+        if marker.source == selected then selectedMarker = marker break end
+      end
       local explorerModel = {
         view = view, selected = selected, rows = rows, total = #sourceRows,
         page = 1, pages = math.max(1, math.ceil(#sourceRows / perPage)),
@@ -680,21 +670,18 @@ function love.load()
         subarea = data.subarea,
         region = data.region, overview = overview,
         player = { x = 20, y = 8, facing = "down" }, markers = markers,
-        selectedMarker = selected and markers and markers[1] or nil,
-        filters = { wildScope = wildScope, items = "ALL", trainers = "ALL" },
+        selectedMarker = selectedMarker,
+        filters = { wildScope = wildScope },
         detailPage = 1,
-        detailRows = selected and { selected.matches[1], selected.matches[2] }
-          or {}, detailPages = selected and selected.detailPages or 1,
-        enhanced = os.getenv("KANTO_GEAR_PREVIEW_ENHANCED") == "1",
-        canScan = os.getenv("KANTO_GEAR_PREVIEW_NO_FINDER") ~= "1",
-        needsItemfinder = os.getenv("KANTO_GEAR_PREVIEW_NO_FINDER") == "1",
+        detailRows = view == "wild" and selected
+          and { selected.matches[1], selected.matches[2] } or {},
+        detailPages = view == "wild" and selected
+          and selected.detailPages or 1,
+        enhanced = enhanced,
+        canScan = not enhanced
+          and os.getenv("KANTO_GEAR_PREVIEW_NO_FINDER") ~= "1",
+        showMapStats = true,
         guideEnabled = true, areaEnabled = true,
-        layers = {
-          { label = "WILD", view = "wild" },
-          { label = "ITEMS", view = "items" },
-          { label = "TRAINER", view = "trainers" },
-        },
-        caughtText = data.caught,
         itemsText = data.items, trainersText = data.beaten,
         mapFull = explorerMap,
         mapZoom = tonumber(os.getenv("KANTO_GEAR_PREVIEW_MAP_ZOOM")) or 1,
@@ -718,10 +705,14 @@ function love.load()
       }
       theme:explorer(explorerModel)
       local sx = 1 / 1.5
-      local function mapMarkerIsReachable()
+      local function mapMarkerIsReachable(kind)
         for y = 60, 142, 4 do
           for x = 8, 232, 4 do
-            if theme:explorerHit(x * sx, y * sx, explorerModel) == "marker" then
+            local action, slot = theme:explorerHit(
+              x * sx, y * sx, explorerModel)
+            local marker = slot and explorerModel.markers[slot]
+            if action == "marker" and marker and marker.source
+                and (not kind or marker.kind == kind) then
               return true
             end
           end
@@ -731,6 +722,15 @@ function love.load()
       assert(theme:explorerHit(211 * sx, 70 * sx,
         explorerModel) == "map_toggle",
         "Explorer map expand control is always interactive")
+      local visibleItems = 0
+      for _, row in ipairs(itemRows) do
+        if enhanced or row.kind ~= "hidden" or row.done then
+          visibleItems = visibleItems + 1
+        end
+      end
+      assert(#explorerModel.markers
+          == #(overview.markers or {}) + visibleItems + #trainerRows,
+        "Explorer only reveals hidden-item markers in spoiler mode")
       if explorerMap then
         assert(theme:explorerHit(20 * sx, 70 * sx,
             explorerModel) == "zoom_out"
@@ -739,52 +739,26 @@ function love.load()
           "Explorer fullscreen zoom controls are interactive")
         return
       end
-      if not view then
-        assert(#explorerModel.markers
-            == #(overview.markers or {}) + #itemRows + #trainerRows,
-          "Explorer overview exposes warp, item, hidden-item, and trainer markers")
-        assert(theme:explorerHit(43 * sx, 180 * sx, explorerModel) == "wild",
-          "Explorer overview opens the Wild layer")
-        local layers = explorerModel.layers
-        explorerModel.layers = { layers[2], layers[3] }
-        assert(theme:explorerHit(80 * sx, 180 * sx, explorerModel) == "items"
-            and theme:explorerHit(10 * sx, 180 * sx, explorerModel) == nil,
-          "available Explorer app cards remain centered as one group")
-        explorerModel.layers = {}
-        assert(theme:explorerHit(43 * sx, 180 * sx, explorerModel) == nil,
-          "disabled assists do not leave fake layer hitboxes")
-        explorerModel.layers = layers
-      elseif view == "wild" and not selected then
+      if view == "wild" and not selected then
         assert(theme:explorerHit(50 * sx, 110 * sx, explorerModel)
             == "wild_here"
           and theme:explorerHit(125 * sx, 110 * sx, explorerModel)
             == "wild_route"
           and theme:explorerHit(50 * sx, 135 * sx, explorerModel) == "row"
-          and theme:explorerHit(210 * sx, 110 * sx, explorerModel) == nil,
-          "Explorer Wild scope tabs and sprite gallery are interactive")
+          and theme:explorerHit(210 * sx, 110 * sx, explorerModel) == nil
+          and theme:explorerHit(50 * sx, 70 * sx, explorerModel) == nil
+          and theme:explorerHit(160 * sx, 70 * sx, explorerModel)
+            == (explorerModel.canScan and "scan" or nil)
+          and mapMarkerIsReachable("item")
+          and mapMarkerIsReachable("trainer"),
+          "Explorer gallery, map progress, scanner, and markers are interactive")
       elseif view == "wild" then
         assert(theme:explorerHit(210 * sx, 122 * sx, explorerModel)
             == "detail_next",
           "habitat details expose every exact encounter condition")
-      elseif view == "items" and not selected then
-        local scan = theme:explorerHit(132 * sx, 155 * sx, explorerModel)
-        assert(theme:explorerHit(45 * sx, 155 * sx, explorerModel)
-            == "filter_status"
-          and scan == (explorerModel.enhanced and "filter_status"
-            or explorerModel.canScan and "scan" or nil)
-          and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
-          and theme:explorerHit(120 * sx, 185 * sx, explorerModel) == nil
-          and theme:explorerHit(170 * sx, 185 * sx, explorerModel) == "row"
-          and mapMarkerIsReachable(),
-          "Explorer Item filter and radar controls are interactive")
-      elseif view == "trainers" and not selected then
-        assert(theme:explorerHit(45 * sx, 155 * sx, explorerModel)
-            == "filter_status"
-          and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
-          and theme:explorerHit(120 * sx, 185 * sx, explorerModel) == nil
-          and theme:explorerHit(170 * sx, 185 * sx, explorerModel) == "row"
-          and mapMarkerIsReachable(),
-          "Explorer Trainer cards and map markers select the same row")
+      elseif selected then
+        assert(mapMarkerIsReachable(),
+          "Explorer item and trainer details remain connected to map markers")
       end
       return
     end
