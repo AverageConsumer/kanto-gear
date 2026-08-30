@@ -1374,14 +1374,6 @@ return function(ui)
     return 5 + col * 118, 32 + row * 58 + (col == 1 and 4 or 0)
   end
 
-  function H:swapSourceMarker(x, y)
-    local G, colors = ui.graphics, self.colors
-    color(colors.amberLight)
-    G.setLineWidth(2)
-    G.rectangle("line", x + 1, y + 1, 110, 54, 6, 6)
-    G.setLineWidth(1)
-  end
-
   function H:partyCard(mon, x, y, selected, details, drawPortrait, focused)
     local fainted = mon and (mon.statusId == "FNT"
       or mon.hp ~= nil and mon.hp <= 0)
@@ -1397,8 +1389,7 @@ return function(ui)
     local quiet = selected and self.colors.white or self.colors.silver
     self:partyName(mon.name, x + 44, y + 4, ink,
       details == true and 61 or 67)
-    if details == true then self:detailChevron(x + 105, y + 8, ink)
-    elseif details == "swap" then self:swapSourceMarker(x, y) end
+    if details == true then self:detailChevron(x + 105, y + 8, ink) end
     if mon.egg then return end
     self:typeBadges(mon, x + 1, y + 42, fainted)
     if mon.gender == "male" then
@@ -1420,8 +1411,7 @@ return function(ui)
   function H:partySwap(drawPartyCard, source, target)
     for slot = 1, 6 do
       local x, y = self:partyPosition(slot)
-      drawPartyCard(slot, x, y, slot == target,
-        slot == source and "swap" or false)
+      drawPartyCard(slot, x, y, slot == target, false)
     end
   end
 
@@ -1434,7 +1424,7 @@ return function(ui)
     drawPartyCard(source,
       64 + (sourceX - 64) * eased,
       heroY + (sourceY - heroY) * eased,
-      progress < 0.45, progress >= 0.45 and "swap" or false)
+      progress < 0.45, false)
 
     for slot = 1, 6 do
       if slot ~= source then
@@ -1478,7 +1468,7 @@ return function(ui)
         G.scale(math.max(0.03, scale), 1)
         G.translate(-(x + 56), 0)
         drawPartyCard(slot, x, y, progress < 0.5 and position == target,
-          progress < 0.5 and position == source and "swap" or false)
+          false)
         G.pop()
       else
         drawPartyCard(slot, x, y, false, false)
