@@ -614,6 +614,185 @@ return function(ui)
     return { left = left, top = top, scale = scale, density = density }
   end
 
+  function H:explorer(model)
+    local colors, view, selected = self.colors, model.view, model.selected
+    self:panel(7, 32, 226, 23, false)
+    self:partyInfo(model.route or "UNKNOWN AREA", 13, 38, colors.ink)
+    self:partyInfo(model.region or "KANTO", 177, 38, colors.green, 42,
+      "center")
+    self:detailChevron(222, 41, colors.green)
+
+    local compact = view == "wild"
+    local mapW = view and 226 or 154
+    local mapH = compact and (selected and 44 or 38) or 103
+    self:mapOverview(model.overview, 7, 59, mapW, mapH, {
+      image = model.image, player = model.player, markers = model.markers,
+      selected = model.selectedMarker, drawPlayer = model.drawPlayer,
+      drawTrainer = model.drawTrainer,
+    })
+
+    local function chip(x, y, width, label, active)
+      self:panel(x, y, width, 16, false)
+      if active then box("fill", x + 2, y + 2, width - 4, 12, colors.band) end
+      self:partyType(label, x, y + 2, active and colors.ink or colors.green,
+        width)
+    end
+    local function rangeLabel()
+      local first = (model.page - 1) * model.perPage + 1
+      local last = math.min(model.total, first + #model.rows - 1)
+      return model.total > 0 and (first .. "-" .. last .. "/" .. model.total)
+        or "0/0"
+    end
+
+    if selected and view == "wild" then
+      self:panel(7, 107, 226, 103, false)
+      self:partyPortrait(16, 114, false, false)
+      if model.drawPokemon then model.drawPokemon(selected, 16, 117, 34) end
+      self:partyInfo(selected.name, 58, 115, colors.ink)
+      self:partyInfo(selected.caught and "CAUGHT" or "SEEN",
+        58, 130, colors.green)
+      self:typeBadges(selected, 58, 144, false)
+      local stats = {
+        { "METHOD", selected.method }, { "CHANCE", selected.chance },
+        { "LEVEL", selected.levels }, { "TIME", selected.period },
+      }
+      for index, stat in ipairs(stats) do
+        local x = 12 + (index - 1) * 54
+        self:panel(x, 163, 50, 39, false)
+        self:partyType(stat[1], x, 168, colors.green, 50)
+        self:partyInfo(stat[2], x, 183, colors.ink, 50, "center")
+      end
+      return
+    elseif selected and view == "items" then
+      self:panel(7, 166, 226, 44, false)
+      self:battleItemIcon({ icon = selected.kind == "hidden" and "item"
+        or selected.icon or "item" }, 14, 178, colors.amberLight)
+      self:partyInfo(selected.label, 38, 172, colors.ink)
+      self:partyType(selected.done and "FOUND" or "OPEN",
+        38, 190, colors.green, 72)
+      box("fill", 118, 171, 1, 34, colors.band)
+      self:partyType(selected.kind == "hidden" and "HIDDEN" or "VISIBLE",
+        124, 172, colors.green, 104)
+      self:partyInfo(selected.location or "ON THIS MAP",
+        124, 188, colors.ink, 104, "center")
+      return
+    elseif selected and view == "trainers" then
+      self:panel(7, 166, 226, 44, false)
+      if model.drawActor then model.drawActor(selected, 23, 186, 1, false) end
+      self:partyInfo(selected.label, 39, 172, colors.ink)
+      self:partyType(selected.done and "BEATEN" or "OPEN",
+        39, 190, colors.green, 72)
+      box("fill", 118, 171, 1, 34, colors.band)
+      self:partyType("TRAINER", 124, 172, colors.green, 104)
+      self:partyInfo(selected.status or "ON THIS MAP",
+        124, 188, colors.ink, 104, "center")
+      return
+    end
+
+    if view == "wild" then
+      self:panel(7, 100, 226, 20, false)
+      self:partyInfo("WILD", 12, 105, colors.ink)
+      chip(57, 102, 39, model.period or "DAY", true)
+      chip(99, 102, 54, model.method or "ALL", true)
+      self:partyType(rangeLabel(), 158, 104, colors.green, 55)
+      self:detailChevron(222, 106, colors.green)
+      for index, row in ipairs(model.rows) do
+        local column, line = (index - 1) % 2, math.floor((index - 1) / 2)
+        local x, y = 7 + column * 114, 123 + line * 29
+        self:panel(x, y, 112, 27, false)
+        self:partyInfo(self:fitPartyInfo(row.name, 78), x + 5, y + 3,
+          colors.ink)
+        self:typeBadges(row, x + 1, y + 15, false)
+        self:partyType(row.chance .. " " .. row.levels,
+          x + 40, y + 16, colors.green, 65)
+        if row.caught then self:battleTeamBall(x + 94, y + 8, true) end
+        self:detailChevron(x + 105, y + 19, colors.ink)
+      end
+      return
+    elseif view == "items" or view == "trainers" then
+      chip(12, 64, 53, view == "items" and "ALL" or "KNOWN", true)
+      chip(68, 64, 48, "OPEN", false)
+      chip(119, 64, 59, view == "items" and "FOUND" or "BEATEN", false)
+      self:panel(181, 64, 45, 16, false)
+      self:partyType(rangeLabel(), 181, 66, colors.green, 35)
+      self:detailChevron(218, 69, colors.green)
+      for index, row in ipairs(model.rows) do
+        local x = 7 + (index - 1) * 77
+        self:panel(x, 166, 72, 44, false)
+        if view == "trainers" then
+          if model.drawActor then model.drawActor(row, x + 13, 187, 1, false) end
+        else
+          self:battleItemIcon({ icon = row.icon or "item" }, x + 4, 174,
+            row.done and colors.silverDark or colors.amberLight)
+        end
+        self:partyType(self:fitLabel(row.label, 42), x + 24, 173,
+          colors.ink, 42)
+        self:partyType(row.done and (view == "items" and "FOUND" or "BEATEN")
+          or "OPEN", x + 24, 191, row.done and colors.silverDark
+            or colors.green, 39)
+        self:detailChevron(x + 64, 184, colors.ink)
+      end
+      return
+    end
+
+    local layers = {
+      { "WILD", model.wildCount or 0, "wild" },
+      { "ITEMS", model.itemCount or 0, "items" },
+      { "TRAINER", model.trainerCount or 0, "trainers" },
+    }
+    for index, layer in ipairs(layers) do
+      local y = 59 + (index - 1) * 35
+      self:panel(166, y, 67, 33, false)
+      if layer[3] == "wild" then
+        self:battleTeamBall(178, y + 16, true)
+      elseif layer[3] == "items" then
+        self:battleItemIcon({}, 170, y + 8, colors.amberLight)
+      elseif model.drawActor and model.trainerIcon then
+        model.drawActor(model.trainerIcon, 178, y + 16, 1, false)
+      end
+      self:partyInfo(layer[1], 187, y + 6, colors.ink, 41, "center")
+      self:partyType(tostring(layer[2]), 185, y + 19, colors.green, 38)
+      self:detailChevron(226, y + 14, colors.ink)
+    end
+    self:panel(7, 166, 226, 44, false)
+    local progress = {
+      { "CAUGHT", model.caughtText or "0/0" },
+      { "ITEMS", model.itemsText or "0/0" },
+      { "HIDDEN", model.hiddenText or "0/0" },
+    }
+    for index, item in ipairs(progress) do
+      local x = 10 + (index - 1) * 75
+      if index > 1 then box("fill", x - 2, 171, 1, 34, colors.band) end
+      self:partyType(item[1], x, 174, colors.green, 71)
+      self:partyInfo(item[2], x, 190, colors.ink, 71, "center")
+    end
+  end
+
+  function H:explorerHit(x, y, model)
+    x, y = x * 1.5, y * 1.5
+    if not model.view then
+      if x >= 166 and x < 233 and y >= 59 and y < 164 then
+        return ({ "wild", "items", "trainers" })[
+          math.floor((y - 59) / 35) + 1]
+      end
+      return nil
+    end
+    if x >= 181 and x < 226 and y >= 64 and y < 80 then return "next" end
+    if model.selected then return nil end
+    if model.view == "wild" then
+      if y < 123 or y >= 210 then return nil end
+      local column = x >= 121 and 1 or x >= 7 and x < 119 and 0 or nil
+      local row = math.floor((y - 123) / 29)
+      local slot = column and row * 2 + column + 1
+      return slot and model.rows[slot] and "row", slot
+    end
+    if y >= 166 and y < 210 then
+      local slot = math.floor((x - 7) / 77) + 1
+      return slot >= 1 and slot <= 3 and model.rows[slot] and "row" or nil,
+        slot
+    end
+  end
+
   function H:button(x, y, w, h, label, selected)
     self:panel(x, y, w, h, selected, self.colors.blueLight)
     local shown = fit(label, math.floor((w - 8) / 6))

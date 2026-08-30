@@ -515,6 +515,67 @@ function love.load()
         }
       end
     end
+    if os.getenv("KANTO_GEAR_PREVIEW_CONNECTED") == "1" then
+      local view = (explorerLayer or explorerDetail) and "wild"
+        or itemMap and "items" or trainerMap and "trainers" or nil
+      local wildRows, itemRows, trainerRows = {}, {}, {}
+      for index, encounter in ipairs(data.encounters) do
+        wildRows[index] = {
+          name = encounter[1], species = species[math.min(index + 2, #species)],
+          chance = encounter[2], levels = encounter[3],
+          type = encounter[4], type2 = encounter[4],
+          typeLabel = encounter[5], type2Label = encounter[5],
+          caught = encounter[6], method = "GRASS", period = data.period,
+        }
+      end
+      for index, item in ipairs(items) do
+        itemRows[index] = { label = item[1], kind = item[3],
+          x = item[4], y = item[5], done = item[6], icon = item[3] }
+      end
+      for index, trainer in ipairs(trainers) do
+        trainerRows[index] = { label = trainer[1], x = trainer[4],
+          y = trainer[5], done = trainer[6] == "beaten",
+          state = trainer[6], sprite = trainer[7],
+          spriteId = trainer[7], status = trainer[2] }
+      end
+      if trainerMap then
+        markers = {}
+        for _, row in ipairs(trainerRows) do
+          markers[#markers + 1] = { kind = "trainer", x = row.x, y = row.y,
+            actor = row }
+        end
+      end
+      local rows = view == "wild" and wildRows
+        or view == "items" and itemRows
+        or view == "trainers" and trainerRows or {}
+      local selected = (explorerDetail or explorerItemDetail
+        or explorerTrainerDetail) and rows[1] or nil
+      theme:explorer({
+        view = view, selected = selected, rows = rows, total = #rows,
+        page = 1, pages = 1, perPage = view == "wild" and 6 or 3,
+        route = data.route, region = data.region, overview = overview,
+        player = { x = 20, y = 8, facing = "down" }, markers = markers,
+        selectedMarker = selected and markers and markers[1] or nil,
+        wildCount = #wildRows, itemCount = #itemRows,
+        trainerCount = #trainerRows, caughtText = data.caught,
+        itemsText = data.items, hiddenText = data.hidden,
+        period = data.period, method = "ALL", trainerIcon = trainerRows[1],
+        drawPlayer = function(_, x, y)
+          drawOverworld("player", x, y, 0.75, colors.redLight)
+        end,
+        drawTrainer = function(marker, x, y)
+          drawOverworld(marker.actor.sprite, x, y, 0.75, colors.redLight)
+        end,
+        drawActor = function(row, x, y, scale, feet)
+          drawOverworld(row.sprite, x, y, scale, colors.redLight, not feet)
+        end,
+        drawPokemon = function(row, x, y, size)
+          local slot = row == wildRows[1] and 3 or 4
+          drawPortrait(slot, x, y, size, false)
+        end,
+      })
+      return
+    end
     theme:mapOverview(overview, mapX, mapY, mapW, mapH, {
       player = { x = 20, y = 8, facing = "down" },
       markers = markers,

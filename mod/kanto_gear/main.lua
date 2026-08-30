@@ -750,15 +750,20 @@ function Area.gen2Rows(data, save, world, mapIds)
         rows[1][#rows[1] + 1] = {
           label = gen2TrainerName(data, save, obj.trainer),
           done = gen2FlagSet(world, obj.trainer.event),
+          id = string.format("%s_obj_%d", mapId, obj.index or 0),
+          mapId = mapId, x = obj.x, y = obj.y,
+          spriteId = obj.sprite, palette = obj.palette,
         }
       elseif obj.itemball and obj.itemball.item ~= 0 then
         rows[2][#rows[2] + 1] = {
           label = gen2ItemName(data, obj.itemball.item),
           done = gen2FlagSet(world, obj.eventFlag),
+          mapId = mapId, x = obj.x, y = obj.y, kind = "item",
         }
       end
     end
     for _, hidden in ipairs(Area.gen2Hidden(data, world, mapId)) do
+      hidden.mapId, hidden.kind = mapId, "hidden"
       rows[3][#rows[3] + 1] = hidden
     end
   end
@@ -1726,7 +1731,7 @@ return function(mod)
     local mode = currentBattleUIMode()
     return mode == "gear" or mode == "full"
   end
-  local displayRuntime = {}
+  local displayRuntime = { explorer = { page = 1 } }
   local function inlineDisplay()
     return THEME:displayMode(mod.options) ~= "separate"
   end
@@ -2070,13 +2075,10 @@ return function(mod)
     return compat.gen2GbcPalette or nil, compat.gen2Palettes or nil
   end
 
-  function compat.drawMapMarker(x, y, scale, feetAnchored)
+  function compat.mapSprite(spriteId, seed, objDef)
     local data = game and game.data or {}
-    local playerSprites = data.field and data.field.playerSprites or {}
-    local id = compat.isGen2() and "SPRITE_CHRIS"
-      or playerSprites.walk or "SPRITE_RED"
     local sprites = compat.isGen2() and data.gen2Sprites or data.sprites
-    local def = sprites and sprites[id]
+    local def = sprites and sprites[spriteId]
     local daytime, colors
     if def and compat.isGen2() then
       local _, palettes = compat.gen2PaletteModules()
@@ -2086,36 +2088,60 @@ return function(mod)
         daytime = palettes.clockDaytime(world and world.hour)
       end
       colors = palettes and type(palettes.spritePalette) == "function"
-        and palettes.spritePalette(data.gen2Palettes, daytime, def)
+        and palettes.spritePalette(data.gen2Palettes, daytime, def, objDef)
     end
-    local key = def and table.concat({ id, tostring(def.image),
-      tostring(daytime) }, ":")
-    if key and (not compat.mapMarker or compat.mapMarker.key ~= key) then
+    local key = def and table.concat({ tostring(seed), tostring(spriteId),
+      tostring(def.image), tostring(daytime), tostring(objDef and objDef.palette) }, ":")
+    compat.mapSprites = compat.mapSprites or {}
+    if key and compat.mapSprites[key] == nil then
       local ok, renderer = pcall(function()
-        local value = require("src.render.SpriteRenderer").new(
-          def, "kanto-gear-map")
+        local value = require("src.render.SpriteRenderer").new(def, seed)
         if colors and type(value.setObjPalette) == "function" then
+          local _, palettes = compat.gen2PaletteModules()
+          local paletteId = palettes and palettes.objectPaletteId
+            and palettes.objectPaletteId(objDef) or def.paletteId or 0
           value:setObjPalette(colors, ("gen2:%s:%d"):format(
-            tostring(daytime), def.paletteId or 0))
+            tostring(daytime), paletteId))
         end
         return value
       end)
-      compat.mapMarker = { key = key, renderer = ok and renderer or false }
+      compat.mapSprites[key] = ok and renderer or false
     end
-    local renderer = compat.mapMarker and compat.mapMarker.renderer
-    if renderer then
-      local ok = pcall(function()
-        local pose = renderer:getPoseGeometry("down", 0, false)
-        scale = scale or 0.75
-        color({ 1, 1, 1, 1 })
-        G.draw(renderer:resolveImage(), pose.quad,
-          x - pose.anchorX * scale,
-          y - (feetAnchored and pose.anchorY or pose.height / 2) * scale,
-          0, scale, scale)
-      end)
-      if ok then return end
-    end
+    return key and compat.mapSprites[key] or nil
+  end
+
+  function compat.drawMapSprite(spriteId, seed, objDef, x, y, scale,
+      feetAnchored, facing)
+    local renderer = compat.mapSprite(spriteId, seed, objDef)
+    if not renderer then return false end
+    local ok = pcall(function()
+      local pose = renderer:getPoseGeometry(facing or "down", 0, false)
+      scale = scale or 0.75
+      local drawX = x - pose.anchorX * scale
+      if pose.mirror then drawX = drawX + pose.width * scale end
+      color({ 1, 1, 1, 1 })
+      G.draw(renderer:resolveImage(), pose.quad, drawX,
+        y - (feetAnchored and pose.anchorY or pose.height / 2) * scale,
+        0, pose.mirror and -scale or scale, scale)
+    end)
+    return ok
+  end
+
+  function compat.drawMapMarker(x, y, scale, feetAnchored, facing)
+    local data = game and game.data or {}
+    local playerSprites = data.field and data.field.playerSprites or {}
+    local id = compat.isGen2() and "SPRITE_CHRIS"
+      or playerSprites.walk or "SPRITE_RED"
+    if compat.drawMapSprite(id, "kanto-gear-map", nil, x, y, scale,
+        feetAnchored, facing or "down") then return end
     THEME:drawMapMarker(x, y)
+  end
+
+  function compat.drawMapActor(actor, x, y, scale, feetAnchored)
+    if not actor then return false end
+    return compat.drawMapSprite(actor.spriteId,
+      actor.id or "kanto-gear-actor", { palette = actor.palette },
+      x, y, scale, feetAnchored, actor.facing)
   end
 
   function compat.isScreen(state, kind)
@@ -2145,6 +2171,7 @@ return function(mod)
   local function invalidateLocalMap()
     if localMapImage and localMapImage.release then localMapImage:release() end
     localMap, localMapImage = nil, nil
+    displayRuntime.explorer.selected, displayRuntime.explorer.page = nil, 1
   end
 
   local function hasDisplay()
@@ -2547,7 +2574,7 @@ return function(mod)
       for index = 1, 3 do sections[index].rows = rows[index] end
       local screens = checklistPages(sections)
       return { name = areaName(mapId), screens = screens, pages = #screens,
-        remaining = Area.remaining(sections) }
+        sections = sections, remaining = Area.remaining(sections) }
     end
     for _, id in ipairs(maps) do
       local map = data.maps and data.maps[id]
@@ -2577,12 +2604,15 @@ return function(mod)
           end
           sections[1].rows[#sections[1].rows + 1] = {
             label = label, done = done, status = status,
+            id = key, mapId = id, x = obj.x, y = obj.y,
+            spriteId = obj.sprite,
           }
         elseif obj.item and obj.item ~= "0" and obj.item ~= 0 then
           local item = data.items and data.items[obj.item]
           sections[2].rows[#sections[2].rows + 1] = {
             label = item and item.name or obj.item,
             done = save.itemsTaken and save.itemsTaken[key] == true or false,
+            mapId = id, x = obj.x, y = obj.y, kind = "item",
           }
         end
       end
@@ -2592,6 +2622,7 @@ return function(mod)
         sections[3].rows[#sections[3].rows + 1] = {
           label = item and item.name or hidden.item,
           done = save.hiddenTaken and save.hiddenTaken[key] == true or false,
+          mapId = id, x = hidden.x, y = hidden.y, kind = "hidden",
         }
       end
       for _, hidden in ipairs(field.hiddenCoins and field.hiddenCoins[id] or {}) do
@@ -2599,12 +2630,13 @@ return function(mod)
         sections[3].rows[#sections[3].rows + 1] = {
           label = THEME:format("%d COINS", hidden.coins),
           done = save.hiddenTaken and save.hiddenTaken[key] == true or false,
+          mapId = id, x = hidden.x, y = hidden.y, kind = "hidden",
         }
       end
     end
     local screens = checklistPages(sections)
     return { name = areaName(mapId), screens = screens, pages = #screens,
-      remaining = Area.remaining(sections) }
+      sections = sections, remaining = Area.remaining(sections) }
   end
 
   local function hasItemfinder()
@@ -3349,7 +3381,157 @@ return function(mod)
     return localMap or nil
   end
 
-  local function loadLocalMapImage(overview, rows, width, height, density)
+  local loadLocalMapImage
+
+  function displayRuntime.explorerModel(overview)
+    local explorer = displayRuntime.explorer
+    local guide = guideData()
+    local area = areaData({ overview.mapId or mapId })
+    local sections = area.sections or { { rows = {} }, { rows = {} },
+      { rows = {} } }
+    local trainers, items, wild = sections[1].rows, {}, {}
+    for _, row in ipairs(sections[2].rows) do items[#items + 1] = row end
+    for _, row in ipairs(sections[3].rows) do items[#items + 1] = row end
+    for _, row in ipairs(guide.rows or {}) do
+      if row.availability ~= "area" then wild[#wild + 1] = row end
+    end
+
+    local actors = mod.world and mod.world.mapActors
+      and mod.world:mapActors() or {}
+    local actorById = {}
+    for _, actor in ipairs(actors or {}) do actorById[actor.id] = actor end
+    for _, row in ipairs(trainers) do
+      local actor = actorById[row.id]
+      if actor then
+        row.actor = actor
+        row.x, row.y, row.facing = actor.x, actor.y, actor.facing
+        row.spriteId, row.palette = actor.spriteId, actor.palette
+      end
+      row.key = "trainer:" .. tostring(row.id or row.label)
+    end
+    for _, row in ipairs(items) do
+      row.key = table.concat({ "item", tostring(row.kind), tostring(row.x),
+        tostring(row.y), tostring(row.label) }, ":")
+      local upper = tostring(row.label or ""):upper()
+      row.icon = (upper:match("^TM%d") or upper:match("^HM%d"))
+        and "machine" or "item"
+    end
+    for _, row in ipairs(wild) do
+      row.key = "wild:" .. tostring(row.species)
+      local def = game.data.pokemon and game.data.pokemon[row.species] or {}
+      local types = row.types or def.types or {}
+      local type1 = types[1] or def.type1 or "NORMAL"
+      local type2 = types[2] or def.type2 or type1
+      row.type, row.type2 = type1, type2
+      row.typeLabel = THEME:typeName(type1, mod.content)
+      row.type2Label = THEME:typeName(type2, mod.content)
+      local method = row.currentMethods and row.currentMethods[1]
+      local appearance
+      if not method then
+        for _, candidate in ipairs(row.appearances or {}) do
+          if candidate.mapId == mapId then appearance = candidate break end
+        end
+      end
+      row.method = method and THEME:translate(method.name)
+        or appearance and THEME:translate(appearance.method) or "--"
+      local low = method and method.min or appearance and appearance.chance
+      local high = method and method.max or low
+      row.chance = low and (low == high and THEME:format("%d%%", low)
+        or THEME:format("%d-%d%%", low, high)) or "--"
+      local minLevel = row.currentMinLevel or appearance and appearance.minLevel
+        or row.minLevel
+      local maxLevel = row.currentMaxLevel or appearance and appearance.maxLevel
+        or row.maxLevel or minLevel
+      row.levels = minLevel and (minLevel == maxLevel
+        and THEME:format("L%d", minLevel)
+        or THEME:format("L%d-%d", minLevel, maxLevel)) or "--"
+      row.period = appearance and appearance.time or guide.time or "DAY"
+    end
+
+    local source = explorer.view == "wild" and wild
+      or explorer.view == "items" and items
+      or explorer.view == "trainers" and trainers or {}
+    local perPage = explorer.view == "wild" and 6 or 3
+    local pages = math.max(1, math.ceil(#source / perPage))
+    explorer.page = math.max(1, math.min(explorer.page, pages))
+    local first, rows = (explorer.page - 1) * perPage + 1, {}
+    for index = first, math.min(#source, first + perPage - 1) do
+      rows[#rows + 1] = source[index]
+    end
+    local selected
+    for _, row in ipairs(source) do
+      if row.key == explorer.selected then selected = row break end
+    end
+    if explorer.selected and not selected then explorer.selected = nil end
+
+    local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
+    local markers, selectedMarker = {}, nil
+    if not explorer.view then
+      for _, marker in ipairs(overview.markers or {}) do
+        if marker.kind == "warp" then markers[#markers + 1] = marker end
+      end
+    elseif explorer.view == "items" then
+      for _, row in ipairs(items) do
+        if row.x ~= nil and row.y ~= nil
+            and (row.kind ~= "hidden" or enhanced) then
+          local marker = { kind = row.kind, x = row.x, y = row.y,
+            found = row.done, source = row }
+          markers[#markers + 1] = marker
+          if row == selected then selectedMarker = marker end
+        end
+      end
+    elseif explorer.view == "trainers" then
+      for _, row in ipairs(trainers) do
+        if row.x ~= nil and row.y ~= nil then
+          local marker = { kind = "trainer", x = row.x, y = row.y,
+            actor = row.actor or row, state = row.done and "beaten" or "open",
+            source = row }
+          markers[#markers + 1] = marker
+          if row == selected then selectedMarker = marker end
+        end
+      end
+    end
+
+    local function progress(rows_)
+      local done = 0
+      for _, row in ipairs(rows_) do if row.done then done = done + 1 end end
+      return THEME:format("%d/%d", done, #rows_)
+    end
+    local caught = 0
+    for _, row in ipairs(wild) do if row.caught then caught = caught + 1 end end
+    local pos = mod.world:current()
+    local rows_, width, height, density = localMapGrid(overview)
+    return {
+      view = explorer.view, selected = selected, rows = rows,
+      total = #source, page = explorer.page, pages = pages, perPage = perPage,
+      route = areaName(overview.mapId or mapId),
+      region = (compat.currentRegion() or "kanto"):upper(),
+      overview = overview,
+      image = loadLocalMapImage(overview, rows_, width, height, density),
+      player = pos and pos.mapId == overview.mapId and pos,
+      markers = markers, selectedMarker = selectedMarker,
+      wildCount = #wild, itemCount = #items, trainerCount = #trainers,
+      caughtText = THEME:format("%d/%d", caught, #wild),
+      itemsText = progress(sections[2].rows),
+      hiddenText = progress(sections[3].rows),
+      period = guide.time or "DAY", method = "ALL",
+      trainerIcon = trainers[1],
+      drawPlayer = function(player, x, y)
+        compat.drawMapMarker(x, y, 0.75, true, player.facing)
+      end,
+      drawTrainer = function(marker, x, y)
+        compat.drawMapActor(marker.actor, x, y, 0.75, true)
+      end,
+      drawActor = function(row, x, y, scale, feet)
+        compat.drawMapActor(row.actor or row, x, y, scale, feet)
+      end,
+      drawPokemon = function(row, x, y, size)
+        drawSprite(row.species, "front", x, y, size, size)
+      end,
+    }
+  end
+
+  function loadLocalMapImage(overview, rows, width, height, density)
     if localMapImage ~= nil then return localMapImage or nil end
     if not (love.image and love.image.newImageData) then
       localMapImage = false
@@ -3378,9 +3560,9 @@ return function(mod)
 
   local function drawLocalMap()
     local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
-    header("LOCAL", false, true)
     local overview = loadLocalMap()
     if THEME.style == "hgss" then
+      header("EXPLORER", displayRuntime.explorer.view ~= nil, false)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       if not overview then
@@ -3388,39 +3570,12 @@ return function(mod)
         THEME.hgss:partyInfo("HOST UPDATE REQUIRED", 31, 112,
           THEME.hgss.colors.ink, 178, "center")
       else
-        local rows, width, height, density = localMapGrid(overview)
-        local image = loadLocalMapImage(overview, rows, width, height, density)
-        local pos = mod.world:current()
-        local markers = enhanced and overview.markers or {}
-        THEME.hgss:mapOverview(overview, 7, 32, 226, 151, {
-          image = image, player = pos and pos.mapId == overview.mapId and pos,
-          markers = markers, zoom = localMapZoom,
-          drawPlayer = function(_, x, y)
-            compat.drawMapMarker(x, y, 0.75, true)
-          end,
-        })
-        THEME.hgss:button(199, 36, 27, 16, localMapZoom .. "x", false)
-        THEME.hgss:panel(7, 187, 226, 23, false)
-        if enhanced then
-          local remaining = areaData({ overview.mapId or mapId }).remaining
-          box("fill", 16, 197, 7, 5, THEME.hgss.colors.blueLight)
-          THEME.hgss:partyType("EXIT", 28, 194,
-            THEME.hgss.colors.green, 39)
-          box("fill", 89, 196, 7, 7, THEME.hgss.colors.amberLight)
-          THEME.hgss:partyType(THEME:format("ITM%d", remaining[2] or 0),
-            101, 194, THEME.hgss.colors.green, 45)
-          box("fill", 169, 196, 3, 9, THEME.hgss.colors.blueLight)
-          box("fill", 166, 199, 9, 3, THEME.hgss.colors.blueLight)
-          THEME.hgss:partyType(THEME:format("HID%d", remaining[3] or 0),
-            181, 194, THEME.hgss.colors.green, 43)
-        else
-          THEME.hgss:partyInfo(areaName(overview.mapId or mapId),
-            15, 194, THEME.hgss.colors.ink, 210, "center")
-        end
+        THEME.hgss:explorer(displayRuntime.explorerModel(overview))
       end
       G.pop()
       return
     end
+    header("LOCAL", false, true)
     if not overview then
       centered("HOST UPDATE REQUIRED", 62, DARK)
     else
@@ -6520,6 +6675,14 @@ return function(mod)
       trainerStepsOpen, dirty = false, true
       return
     end
+    if page == "LOCAL" and THEME.style == "hgss"
+        and displayRuntime.explorer.view then
+      local explorer = displayRuntime.explorer
+      if explorer.selected then explorer.selected = nil
+      else explorer.view, explorer.page = nil, 1 end
+      dirty = true
+      return
+    end
     if displayRuntime.guideDetail then
       local guide, row = guideData()
       for _, candidate in ipairs(guide.rows) do
@@ -6880,6 +7043,24 @@ return function(mod)
       end
       return
     end
+    if page == "LOCAL" and THEME.style == "hgss" then
+      local overview = loadLocalMap()
+      if not overview then return end
+      local model = displayRuntime.explorerModel(overview)
+      local action, slot = THEME.hgss:explorerHit(x, y, model)
+      if action == "wild" or action == "items" or action == "trainers" then
+        displayRuntime.explorer.view = action
+        displayRuntime.explorer.selected, displayRuntime.explorer.page = nil, 1
+      elseif action == "next" then
+        displayRuntime.explorer.page = displayRuntime.explorer.page
+          % model.pages + 1
+        displayRuntime.explorer.selected = nil
+      elseif action == "row" and model.rows[slot] then
+        displayRuntime.explorer.selected = model.rows[slot].key
+      end
+      dirty = true
+      return
+    end
     if page == "LOCAL" and inside(x, y, 126, 18, 34, 30) then
       localMapZoom = localMapZoom % 3 + 1
       dirty = true
@@ -6982,6 +7163,19 @@ return function(mod)
 
   local function swipeVertical(dy)
     if radarOpen then return end
+    if page == "LOCAL" and THEME.style == "hgss"
+        and displayRuntime.explorer.view
+        and not displayRuntime.explorer.selected then
+      local overview = loadLocalMap()
+      local model = overview and displayRuntime.explorerModel(overview)
+      if model and model.pages > 1 then
+        local direction = dy < 0 and 1 or -1
+        displayRuntime.explorer.page = ((displayRuntime.explorer.page - 1
+          + direction) % model.pages) + 1
+        dirty = true
+      end
+      return
+    end
     if page == "TOOLS" and #tools > 6 then
       local pages = math.ceil(#tools / 6)
       local direction = dy < 0 and 1 or -1
@@ -7171,7 +7365,8 @@ return function(mod)
       if page == "AREA" and not assist("area") then page = "MAP" end
       if page == "LOCAL"
           and localMapMode(mod.options:get("local_map")) == "off" then
-        page = "MAP"
+        page, displayRuntime.explorer.view,
+          displayRuntime.explorer.selected = "MAP", nil, nil
       end
       if not assist("item_radar") then radarOpen = false end
       dirty = true
@@ -7789,6 +7984,9 @@ return function(mod)
       end
       local screenKey = table.concat({ mode, tostring(top),
         tostring(page), tostring(guidePage), tostring(areaPage),
+         tostring(displayRuntime.explorer.view),
+         tostring(displayRuntime.explorer.selected),
+         tostring(displayRuntime.explorer.page),
          tostring(radarOpen),
          tostring(top and top.waiting), tostring(top and top.done),
          tostring(top and top.index), tostring(top and top.kind),
