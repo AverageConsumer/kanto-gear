@@ -1064,9 +1064,6 @@ return function(ui)
     local colors = self.colors
     local accent = self:typeColor(move.type)
     self:panel(6, 33, 228, 169, false)
-    box("fill", 7, 35, 5, 165, accent)
-    box("fill", 8, 34, 4, 1, accent)
-    box("fill", 8, 200, 4, 1, accent)
     self:partyName(self:fitLabel(move.name or "-", 144),
       20, 42, colors.ink, 144)
     self:moveTypeBadge(move, 176, 43)
