@@ -805,7 +805,8 @@ return function(ui)
       self:partyInfo(self:fitPartyInfo(translate(selected.caught and "CAUGHT"
         or "NOT CAUGHT"), 100), 58, 130, colors.green)
       self:typeBadges(selected, 58, 144, false)
-      pager(166, 114, 58, model.detailPage, model.detailPages)
+      chip(166, 114, 58, model.wildScope == "OTHER" and "OTHER"
+        or "HERE", true)
       local detailRows = model.detailRows or {}
       local function levels(appearance)
         return appearance.minLevel == appearance.maxLevel
@@ -819,7 +820,7 @@ return function(ui)
         self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
           202), 19, 162, colors.ink)
         local stats = {
-          { translate("TIME"), translate(appearance.time or "ALL") },
+          { translate("TIME"), translate(appearance.time or "ANY TIME") },
           { translate("METHOD"), translate(appearance.method or "--") },
           { translate("CHANCE"), tostring(appearance.chance or "--") .. "%" },
           { translate("LEVEL"), levels(appearance) },
@@ -878,25 +879,24 @@ return function(ui)
 
     if view == "wild" then
       self:panel(7, 100, 226, 20, false)
-      self:partyType(self:fitPartyType(translate("WILD"), 42),
-        12, 106, colors.ink, 42)
-      chip(57, 102, 46, model.period or "ALL", true, true)
-      chip(106, 102, 59, model.method or "ALL", true, true)
+      chip(12, 102, 74, "HERE NOW", model.wildScope ~= "OTHER")
+      chip(89, 102, 76, "ELSEWHERE", model.wildScope == "OTHER")
       pager(168, 102, 58, model.page, model.pages)
       for index, row in ipairs(model.rows) do
-        local column, line = (index - 1) % 2, math.floor((index - 1) / 2)
-        local x, y = 7 + column * 114, 123 + line * 29
-        self:panel(x, y, 112, 27, false)
-        self:partyInfo(self:fitPartyInfo(row.name, 82), x + 5, y + 3,
+        local x, y = 7, 123 + (index - 1) * 22
+        self:panel(x, y, 226, 20, false)
+        self:partyInfo(self:fitPartyInfo(row.name, 112), x + 5, y + 2,
           colors.ink)
-        self:typeBadges(row, x + 1, y + 15, false)
-        self:partyType(self:fitPartyType(row.chance .. " " .. row.levels, 60),
-          x + 40, y + 16, colors.green, 60)
-        if row.caught then self:battleTeamBall(x + 94, y + 8, true) end
-        self:detailChevron(x + 105, y + 19, colors.ink)
+        if row.caught then self:battleTeamBall(x + 119, y + 6, true) end
+        self:partyInfo(self:fitPartyInfo(row.chance .. "  " .. row.levels, 76),
+          x + 138, y + 2, colors.ink, 76, "center")
+        self:partyType(self:fitPartyType(row.condition, 202),
+          x + 5, y + 10, colors.green, 202)
+        self:detailChevron(x + 216, y + 13, colors.ink)
       end
       if #model.rows == 0 then
-        self:partyInfo(translate("NO MATCHES"), 7, 160,
+        self:partyInfo(translate(model.wildScope == "OTHER"
+          and "NO OTHER ENCOUNTERS" or "NOTHING HERE NOW"), 7, 160,
           colors.green, 226, "center")
       end
       return
@@ -1016,17 +1016,15 @@ return function(ui)
     end
     if model.view == "wild" then
       if y >= 102 and y < 118 then
-        if x >= 57 and x < 103 then return "filter_time" end
-        if x >= 106 and x < 165 then return "filter_method" end
+        if x >= 12 and x < 86 then return "wild_here" end
+        if x >= 89 and x < 165 then return "wild_other" end
         if x >= 168 and x < 226 and model.pages > 1 then
           return x < 197 and "prev" or "next"
         end
       end
-      if y < 123 or y >= 210 then return nil end
-      local column = x >= 121 and 1 or x >= 7 and x < 119 and 0 or nil
-      local row = math.floor((y - 123) / 29)
-      local slot = column and row * 2 + column + 1
-      return slot and model.rows[slot] and "row", slot
+      if x < 7 or x >= 233 or y < 123 or y >= 211 then return nil end
+      local slot = math.floor((y - 123) / 22) + 1
+      return model.rows[slot] and "row", slot
     end
     if y >= 147 and y < 163 then
       local scanSlot = model.view == "items" and not model.enhanced

@@ -189,7 +189,8 @@ function love.load()
     "party touch hitboxes follow the 240x216 card positions")
   if screen:sub(1, 8) == "explorer" then
     local typeLabels = {
-      { "WILD", 42 }, { "ALL", 31 }, { "FOUND", 74 },
+      { "HERE NOW", 66 }, { "ELSEWHERE", 68 }, { "OTHER", 50 },
+      { "FOUND", 74 },
       { "BEATEN", 74 }, { "NEED FINDER", 63 },
       { "TAP TO SCAN AGAIN", 200 },
       { "WILD", 60 }, { "ITEMS", 60 }, { "TRAINER", 60 },
@@ -574,10 +575,15 @@ function love.load()
     if os.getenv("KANTO_GEAR_PREVIEW_CONNECTED") == "1" then
       local view = (explorerLayer or explorerDetail) and "wild"
         or itemMap and "items" or trainerMap and "trainers" or nil
+      local wildScope = os.getenv("KANTO_GEAR_PREVIEW_WILD_SCOPE") == "OTHER"
+        and "OTHER" or "HERE"
       local wildRows, itemRows, trainerRows = {}, {}, {}
       for index, encounter in ipairs(data.encounters) do
-        local appearance = { section = data.route, time = data.period,
-          method = "GRASS", chance = tonumber(encounter[2]:match("%d+")),
+        local appearance = { section = wildScope == "OTHER"
+            and (index % 2 == 0 and "POND" or "NORTH FIELD") or data.subarea,
+          time = wildScope == "OTHER" and (index % 2 == 0 and "NITE" or nil)
+            or not gen1 and data.period or nil,
+          method = "WALK", chance = tonumber(encounter[2]:match("%d+")),
           minLevel = tonumber(encounter[3]:match("%d+")),
           maxLevel = tonumber(encounter[3]:match("%d+%-(%d+)"))
             or tonumber(encounter[3]:match("%d+")) }
@@ -586,8 +592,14 @@ function love.load()
           chance = encounter[2], levels = encounter[3],
           type = encounter[4], type2 = encounter[4],
           typeLabel = encounter[5], type2Label = encounter[5],
-          caught = encounter[6], method = "GRASS", period = data.period,
+          caught = encounter[6], method = "WALK", period = data.period,
           matches = { appearance }, detailPages = 1,
+          condition = wildScope == "OTHER"
+            and translate(appearance.section) .. (appearance.time
+              and " · " .. translate(appearance.time) or "") .. " · "
+                .. translate(appearance.method)
+            or (appearance.time and translate(appearance.time) .. " · " or "")
+              .. translate(appearance.method),
         }
       end
       for index, item in ipairs(items) do
@@ -639,7 +651,7 @@ function love.load()
       local sourceRows = view == "wild" and wildRows
         or view == "items" and itemRows
         or view == "trainers" and trainerRows or {}
-      local rows, perPage = {}, view == "wild" and 6 or 2
+      local rows, perPage = {}, view == "wild" and 4 or 2
       for index = 1, math.min(#sourceRows, perPage) do
         rows[#rows + 1] = sourceRows[index]
       end
@@ -654,7 +666,7 @@ function love.load()
         region = data.region, overview = overview,
         player = { x = 20, y = 8, facing = "down" }, markers = markers,
         selectedMarker = selected and markers and markers[1] or nil,
-        filters = { items = "ALL", trainers = "ALL" },
+        filters = { wildScope = wildScope, items = "ALL", trainers = "ALL" },
         detailPage = 1,
         detailRows = selected and selected.matches or {}, detailPages = 1,
         enhanced = os.getenv("KANTO_GEAR_PREVIEW_ENHANCED") == "1",
@@ -670,7 +682,7 @@ function love.load()
         itemsText = data.items, trainersText = data.beaten,
         mapFull = explorerMap,
         mapZoom = tonumber(os.getenv("KANTO_GEAR_PREVIEW_MAP_ZOOM")) or 1,
-        period = data.period, method = "ALL", trainerIcon = trainerRows[1],
+        wildScope = wildScope, trainerIcon = trainerRows[1],
         drawPlayer = function(_, x, y, tileSize)
           drawOverworld("player", x, y, tileSize / 16, colors.redLight)
         end,
@@ -726,18 +738,16 @@ function love.load()
           "disabled assists do not leave fake layer hitboxes")
         explorerModel.layers = layers
       elseif view == "wild" and not selected then
-        assert(theme:explorerHit(74 * sx, 110 * sx, explorerModel)
-            == "filter_time"
-          and theme:explorerHit(129 * sx, 110 * sx, explorerModel)
-            == "filter_method"
+        assert(theme:explorerHit(50 * sx, 110 * sx, explorerModel)
+            == "wild_here"
+          and theme:explorerHit(125 * sx, 110 * sx, explorerModel)
+            == "wild_other"
           and theme:explorerHit(50 * sx, 135 * sx, explorerModel) == "row"
-          and theme:explorerHit(210 * sx, 110 * sx, explorerModel) == nil,
-          "Explorer Wild filter chips are interactive")
+          and theme:explorerHit(210 * sx, 110 * sx, explorerModel) == "next",
+          "Explorer Wild scope tabs and rows are interactive")
       elseif view == "wild" then
-        explorerModel.detailPages = 2
-        assert(theme:explorerHit(210 * sx, 122 * sx, explorerModel)
-            == "detail_next",
-          "Explorer encounter details expose their complete page set")
+        assert(theme:explorerHit(210 * sx, 122 * sx, explorerModel) == nil,
+          "exact Explorer encounters need no misleading detail pager")
       elseif view == "items" and not selected then
         local scan = theme:explorerHit(132 * sx, 155 * sx, explorerModel)
         assert(theme:explorerHit(45 * sx, 155 * sx, explorerModel)

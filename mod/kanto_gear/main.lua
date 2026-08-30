@@ -1733,8 +1733,7 @@ return function(mod)
   end
   local displayRuntime = { explorer = {
     page = 1, mapFull = false, mapZoom = 1,
-    filters = { wildTime = "NOW", wildMethod = "ALL",
-      items = "ALL", trainers = "ALL" },
+    filters = { wildScope = "HERE", items = "ALL", trainers = "ALL" },
   } }
   function displayRuntime.adjustExplorerZoom(direction)
     local explorer = displayRuntime.explorer
@@ -3424,6 +3423,73 @@ return function(mod)
       { "ALL", "OPEN", "FOUND" }, -1) == "FOUND",
     "Explorer filters cycle in both directions")
 
+  function displayRuntime.explorerWildRows(guide, currentMapId, scope)
+    local out, hereOnly = {}, scope ~= "OTHER"
+    for _, species in ipairs(guide.rows or {}) do
+      local availableHere = false
+      for _, appearance in ipairs(species.appearances or {}) do
+        if appearance.mapId == currentMapId and (not appearance.time
+            or appearance.time == guide.time) then
+          availableHere = true
+          break
+        end
+      end
+      for appearanceIndex, appearance in ipairs(species.appearances or {}) do
+        local sameArea = appearance.mapId == currentMapId
+        local currentTime = not appearance.time
+          or appearance.time == guide.time
+        if (hereOnly and sameArea and currentTime)
+            or (not hereOnly and not availableHere) then
+          local row = {
+            species = species.species, name = species.name,
+            caught = species.caught, types = species.types,
+            matches = { appearance },
+            chance = THEME:format("%d%%", appearance.chance),
+            levels = appearance.minLevel == appearance.maxLevel
+              and THEME:format("L%d", appearance.minLevel)
+              or THEME:format("L%d-%d", appearance.minLevel,
+                appearance.maxLevel),
+            detailPages = 1,
+          }
+          local conditions = {}
+          if not sameArea then
+            conditions[#conditions + 1] = appearance.section or "OTHER AREA"
+          end
+          if appearance.time then
+            conditions[#conditions + 1] = appearance.time
+          end
+          conditions[#conditions + 1] = appearance.method
+          row.conditions = conditions
+          row.key = table.concat({ "wild", scope, tostring(species.species),
+            tostring(appearanceIndex) }, ":")
+          out[#out + 1] = row
+        end
+      end
+    end
+    return out
+  end
+  do
+    local fixture = { time = "DAY", rows = { { species = 129,
+      name = "MAGIKARP", appearances = {
+        { mapId = 1, method = "OLD", chance = 85, minLevel = 10,
+          maxLevel = 10 },
+        { mapId = 1, method = "GOOD", chance = 35, minLevel = 20,
+          maxLevel = 20 },
+        { mapId = 2, section = "POND", time = "NITE", method = "SUPER",
+          chance = 40, minLevel = 30, maxLevel = 30 },
+      } }, { species = 163, name = "HOOTHOOT", appearances = {
+        { mapId = 2, section = "NORTH FIELD", time = "NITE",
+          method = "WALK", chance = 30, minLevel = 15, maxLevel = 15 },
+      } } } }
+    local here = displayRuntime.explorerWildRows(fixture, 1, "HERE")
+    local other = displayRuntime.explorerWildRows(fixture, 1, "OTHER")
+    assert(#here == 2 and here[1].chance == "85%"
+        and here[2].chance == "35%" and #other == 1
+        and other[1].name == "HOOTHOOT"
+        and other[1].conditions[1] == "NORTH FIELD",
+      "Explorer encounters keep exact area, time, method, and odds")
+  end
+
   function displayRuntime.explorerModel(overview)
     local explorer = displayRuntime.explorer
     local now, id = love.timer.getTime(), overview.mapId or mapId
@@ -3451,45 +3517,14 @@ return function(mod)
     for _, row in ipairs(sections[3].rows) do allItems[#allItems + 1] = row end
 
     local filters = explorer.filters
-    local timeOptions = guide.timed
-      and { "NOW", "ALL", "MORN", "DAY", "NITE" } or { "ALL" }
-    local methodSet, methods, methodOptions = {}, {}, { "ALL" }
-    for _, row in ipairs(guide.rows or {}) do
-      for _, appearance in ipairs(row.appearances or {}) do
-        if appearance.method and not methodSet[appearance.method] then
-          methodSet[appearance.method] = true
-          methods[#methods + 1] = appearance.method
-        end
-      end
-    end
-    table.sort(methods)
-    for _, method in ipairs(methods) do
-      methodOptions[#methodOptions + 1] = method
-    end
     local function valid(value, options)
       for _, option in ipairs(options) do
         if value == option then return value end
       end
       return options[1]
     end
-    filters.wildTime = valid(filters.wildTime, timeOptions)
-    filters.wildMethod = valid(filters.wildMethod, methodOptions)
-    local wantedTime = filters.wildTime == "NOW" and guide.time
-      or filters.wildTime
-    for _, row in ipairs(guide.rows or {}) do
-      local matches = {}
-      for _, appearance in ipairs(row.appearances or {}) do
-        local timeMatch = wantedTime == "ALL" or not appearance.time
-          or appearance.time == wantedTime
-        local methodMatch = filters.wildMethod == "ALL"
-          or appearance.method == filters.wildMethod
-        if timeMatch and methodMatch then matches[#matches + 1] = appearance end
-      end
-      if #matches > 0 then
-        row.matches = matches
-        wild[#wild + 1] = row
-      end
-    end
+    filters.wildScope = filters.wildScope == "OTHER" and "OTHER" or "HERE"
+    wild = displayRuntime.explorerWildRows(guide, id, filters.wildScope)
 
     local itemOptions = { "ALL", "OPEN", "FOUND", "HIDDEN" }
     local trainerOptions = { "ALL", "OPEN", "BEATEN" }
@@ -3544,7 +3579,6 @@ return function(mod)
         and "USE ITEMFINDER" or "MARKED ON MAP"
     end
     for _, row in ipairs(wild) do
-      row.key = "wild:" .. tostring(row.species)
       local def = game.data.pokemon and game.data.pokemon[row.species] or {}
       local types = row.types or def.types or {}
       local type1 = types[1] or def.type1 or "NORMAL"
@@ -3552,38 +3586,17 @@ return function(mod)
       row.type, row.type2 = type1, type2
       row.typeLabel = THEME:typeName(type1, mod.content)
       row.type2Label = THEME:typeName(type2, mod.content)
-      local methods, periods = {}, {}
-      local low, high, minLevel, maxLevel
-      for _, appearance in ipairs(row.matches) do
-        methods[appearance.method] = true
-        periods[appearance.time or "ALL"] = true
-        low = math.min(low or appearance.chance, appearance.chance)
-        high = math.max(high or appearance.chance, appearance.chance)
-        minLevel = math.min(minLevel or appearance.minLevel,
-          appearance.minLevel)
-        maxLevel = math.max(maxLevel or appearance.maxLevel,
-          appearance.maxLevel)
+      local labels = {}
+      for _, condition in ipairs(row.conditions) do
+        labels[#labels + 1] = THEME:translate(condition)
       end
-      local methodNames, periodNames = {}, {}
-      for name in pairs(methods) do methodNames[#methodNames + 1] = name end
-      for name in pairs(periods) do periodNames[#periodNames + 1] = name end
-      table.sort(methodNames)
-      table.sort(periodNames)
-      row.method = #methodNames == 1 and THEME:translate(methodNames[1])
-        or "MIXED"
-      row.chance = low and (low == high and THEME:format("%d%%", low)
-        or THEME:format("%d-%d%%", low, high)) or "--"
-      row.levels = minLevel and (minLevel == maxLevel
-        and THEME:format("L%d", minLevel)
-        or THEME:format("L%d-%d", minLevel, maxLevel)) or "--"
-      row.period = #periodNames == 1 and periodNames[1] or "MIXED"
-      row.detailPages = math.max(1, math.ceil(#row.matches / 2))
+      row.condition = table.concat(labels, " · ")
     end
 
     local source = explorer.view == "wild" and wild
       or explorer.view == "items" and items
       or explorer.view == "trainers" and trainers or {}
-    local perPage = explorer.view == "wild" and 6 or 2
+    local perPage = explorer.view == "wild" and 4 or 2
     local pages = math.max(1, math.ceil(#source / perPage))
     explorer.page = math.max(1, math.min(explorer.page, pages))
     local first, rows = (explorer.page - 1) * perPage + 1, {}
@@ -3667,8 +3680,7 @@ return function(mod)
       markers = markers, selectedMarker = selectedMarker,
       mapFull = explorer.mapFull == true,
       mapZoom = explorer.mapZoom or 1,
-      filters = filters, timeOptions = timeOptions,
-      methodOptions = methodOptions, itemOptions = itemOptions,
+      filters = filters, itemOptions = itemOptions,
       trainerOptions = trainerOptions,
       detailPage = explorer.detailPage, detailRows = detailRows,
       detailPages = selected and selected.detailPages or 1,
@@ -3678,7 +3690,7 @@ return function(mod)
       caughtText = THEME:format("%d/%d", caught, #(guide.rows or {})),
       itemsText = progress(allItems),
       trainersText = progress(allTrainers),
-      period = filters.wildTime, method = filters.wildMethod,
+      wildScope = filters.wildScope,
       trainerIcon = allTrainers[1],
       drawPlayer = function(player, x, y, tileSize)
         compat.drawMapMarker(x, y, tileSize / 16, true, player.facing)
@@ -7248,13 +7260,8 @@ return function(mod)
         displayRuntime.explorer.detailPage =
           ((displayRuntime.explorer.detailPage - 1 + direction)
             % model.detailPages) + 1
-      elseif action == "filter_time" then
-        model.filters.wildTime = displayRuntime.cycleExplorerOption(
-          model.filters.wildTime, model.timeOptions, 1)
-        displayRuntime.explorer.page, displayRuntime.explorer.selected = 1, nil
-      elseif action == "filter_method" then
-        model.filters.wildMethod = displayRuntime.cycleExplorerOption(
-          model.filters.wildMethod, model.methodOptions, 1)
+      elseif action == "wild_here" or action == "wild_other" then
+        model.filters.wildScope = action == "wild_here" and "HERE" or "OTHER"
         displayRuntime.explorer.page, displayRuntime.explorer.selected = 1, nil
       elseif action == "filter_status" then
         local key = model.view == "items" and "items" or "trainers"
@@ -8254,8 +8261,7 @@ return function(mod)
          tostring(displayRuntime.explorer.detailPage),
          tostring(displayRuntime.explorer.mapFull),
          tostring(displayRuntime.explorer.mapZoom),
-         tostring(displayRuntime.explorer.filters.wildTime),
-         tostring(displayRuntime.explorer.filters.wildMethod),
+         tostring(displayRuntime.explorer.filters.wildScope),
          tostring(displayRuntime.explorer.filters.items),
          tostring(displayRuntime.explorer.filters.trainers),
          tostring(radarOpen),
