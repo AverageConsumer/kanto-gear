@@ -365,8 +365,9 @@ return function(ui)
     G.setLineWidth(1)
   end
 
-  function H:headerBar(title, back, paged)
+  function H:headerBar(title, back, paged, contentOffsetY)
     local colors = self.colors
+    contentOffsetY = contentOffsetY or 0
     box("fill", 0, 0, 240, 30, colors.bandLight)
     box("fill", 0, 0, 240, 2, colors.highlight)
     clipped(5, 4, 232, 21, colors.shadow)
@@ -378,17 +379,17 @@ return function(ui)
 
     local left, right, center = 15, 127, 71
     if back then
-      self:chevron(14, 13, false)
+      self:chevron(14, 13 + contentOffsetY, false)
       box("fill", 25, 6, 1, 15, colors.band)
       left, center = 36, 82
     end
     if paged then
       if back then
-        self:pageChevron(left + 5, 13, false)
-        self:pageChevron(right, 13, true)
+        self:pageChevron(left + 5, 13 + contentOffsetY, false)
+        self:pageChevron(right, 13 + contentOffsetY, true)
       else
-        self:chevron(left, 13, false)
-        self:chevron(right, 13, true)
+        self:chevron(left, 13 + contentOffsetY, false)
+        self:chevron(right, 13 + contentOffsetY, true)
       end
     end
     local width = paged and (back and 76 or 88) or (back and 100 or 124)
@@ -396,7 +397,7 @@ return function(ui)
     local x = (paged or back)
       and center - math.floor(self:labelWidth(shown) / 2)
       or 71 - math.floor(self:labelWidth(shown) / 2)
-    self:label(shown, x, 6, colors.ink)
+    self:label(shown, x, 6 + contentOffsetY, colors.ink)
     return x, self:labelWidth(shown)
   end
 

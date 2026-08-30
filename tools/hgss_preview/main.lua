@@ -269,12 +269,13 @@ function love.load()
       and not battleMoves and not battleMovesTransition
       and not battleMoveInfo and not battleMoveInfoTransition
       and not battleBag and not battleBagTransition then
+    local headerOffset = summary and -1 or 0
     local titleX, titleWidth = theme:headerBar(title,
       swapMode or context or summary or moves or memo or memoTransition
         or transition or movesTransition,
       not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
-        or not context))
+        or not context), headerOffset)
     if context then
       local left, width = 26, 112
       assert(math.abs(titleX - left - (width - titleWidth - (titleX - left)))
@@ -447,7 +448,7 @@ function love.load()
         drawMon(slot, x, y, selected, details)
       end, transitionProgress, "PARTY", "20:04", "NITE")
   elseif battlePartyMenu then
-    theme:headerBar("PARTY", true, false)
+    theme:headerBar("PARTY", true, false, -1)
     local actionCount = 2
     drawMon(1, 64, theme:partyActionHeroY(actionCount), true, false, false)
     local x, y, w, h = theme:partyActionRow(1, actionCount)

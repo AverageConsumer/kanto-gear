@@ -2841,7 +2841,7 @@ return function(mod)
     end
   end
 
-  local function header(title, back, paged)
+  local function header(title, back, paged, hgssContentOffsetY)
     local modern = THEME.style ~= "classic"
     local hgss = THEME.style == "hgss"
     local background = hgss and THEME.hgss.colors.surface
@@ -2868,7 +2868,7 @@ return function(mod)
     if hgss then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:headerBar(title, back, paged)
+      THEME.hgss:headerBar(title, back, paged, hgssContentOffsetY)
       G.pop()
     else
       box("fill", 0, 0, WIDTH, HEADER, background)
@@ -4760,7 +4760,7 @@ return function(mod)
         local actions, submenu = hgssRuntime.partySubmenuActions(menu)
         local selected = menu.subIndex or (submenu and submenu.index)
           or (actions[1] and actions[1].index)
-        header(THEME:translate("PARTY"), true)
+        header(THEME:translate("PARTY"), true, false, -1)
         G.push()
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
         THEME.hgss:partyBackdrop()
@@ -4973,7 +4973,7 @@ return function(mod)
       local pageLabels = { "STATS", "MOVES", "TRAINER" }
       header(THEME:format("%s %d/%d",
         THEME:translate(pageLabels[view.page] or "STATS"),
-        view.page, view.pages), true, true)
+        view.page, view.pages), true, true, view.page == 1 and -1 or 0)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       local open = hgssRuntime.progress("summary_open")
