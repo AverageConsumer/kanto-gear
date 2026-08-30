@@ -3630,13 +3630,13 @@ return function(mod)
     end
     local layers = {}
     if guideEnabled then layers[#layers + 1] = {
-      label = "WILD", count = #wild, view = "wild" }
+      label = "WILD", view = "wild" }
     end
     if areaEnabled then
       layers[#layers + 1] = {
-        label = "ITEMS", count = #allItems, view = "items" }
+        label = "ITEMS", view = "items" }
       layers[#layers + 1] = {
-        label = "TRAINER", count = #allTrainers, view = "trainers" }
+        label = "TRAINER", view = "trainers" }
     end
     return {
       view = explorer.view, selected = selected, rows = rows,
@@ -3656,11 +3656,10 @@ return function(mod)
       enhanced = enhanced, canScan = assist("item_radar") and hasItemfinder(),
       needsItemfinder = assist("item_radar") and not hasItemfinder(),
       layers = layers, guideEnabled = guideEnabled, areaEnabled = areaEnabled,
-      wildCount = #wild, itemCount = #allItems,
-      trainerCount = #allTrainers,
       caughtText = THEME:format("%d/%d", caught, #(guide.rows or {})),
       itemsText = progress(allItems),
       hiddenText = progress(sections[3].rows),
+      trainersText = progress(allTrainers),
       period = filters.wildTime, method = filters.wildMethod,
       trainerIcon = allTrainers[1],
       drawPlayer = function(player, x, y)

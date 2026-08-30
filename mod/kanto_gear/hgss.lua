@@ -852,13 +852,12 @@ return function(ui)
       self:partyType(self:fitPartyType(translate(layer.label), 54),
         170, y + 5, colors.ink, 54)
       if layer.view == "wild" then
-        self:battleTeamBall(177, y + 24, true)
+        self:battleTeamBall(197, y + 24, true)
       elseif layer.view == "items" then
-        self:battleItemIcon({}, 169, y + 16, colors.amberLight)
+        self:battleItemIcon({}, 189, y + 16, colors.amberLight)
       elseif model.drawActor and model.trainerIcon then
-        model.drawActor(model.trainerIcon, 177, y + 24, 0.75, false)
+        model.drawActor(model.trainerIcon, 197, y + 24, 0.75, false)
       end
-      self:partyType(tostring(layer.count), 188, y + 20, colors.green, 33)
       self:detailChevron(226, y + 14, colors.ink)
     end
     if #layers == 0 then
@@ -866,18 +865,22 @@ return function(ui)
         168, 104, colors.green, 63, "center")
     end
     self:panel(7, 166, 226, 44, false)
-    local progress = {
-      { "CAUGHT", model.guideEnabled and model.caughtText or "--" },
-      { "ITEMS", model.areaEnabled and model.itemsText or "--" },
-      { "HIDDEN", model.areaEnabled and model.hiddenText or "--" },
-    }
-    for index, item in ipairs(progress) do
-      local x = 10 + (index - 1) * 75
-      if index > 1 then box("fill", x - 2, 171, 1, 34, colors.band) end
-      self:partyType(self:fitPartyType(translate(item[1]), 67),
-        x + 2, 174, colors.green, 67)
-      self:partyInfo(item[2], x, 190, colors.ink, 71, "center")
-    end
+    box("fill", 83, 171, 1, 34, colors.band)
+    box("fill", 158, 171, 1, 34, colors.band)
+    self:partyType(self:fitPartyType(translate("CAUGHT"), 67),
+      12, 174, colors.green, 67)
+    self:partyInfo(model.guideEnabled and model.caughtText or "--",
+      10, 190, colors.ink, 71, "center")
+    local items = model.areaEnabled and model.itemsText or "--"
+    local hidden = model.areaEnabled and model.hiddenText or "--"
+    self:partyType(self:fitPartyType(translate("ITEMS") .. " " .. items, 71),
+      85, 174, colors.green, 71)
+    self:partyType(self:fitPartyType(translate("HIDDEN") .. " " .. hidden, 71),
+      85, 190, colors.ink, 71)
+    self:partyType(self:fitPartyType(translate("BEATEN"), 67),
+      162, 174, colors.green, 67)
+    self:partyInfo(model.areaEnabled and model.trainersText or "--",
+      160, 190, colors.ink, 71, "center")
   end
 
   function H:explorerHit(x, y, model)
