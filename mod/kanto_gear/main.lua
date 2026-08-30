@@ -3658,7 +3658,6 @@ return function(mod)
       layers = layers, guideEnabled = guideEnabled, areaEnabled = areaEnabled,
       caughtText = THEME:format("%d/%d", caught, #(guide.rows or {})),
       itemsText = progress(allItems),
-      hiddenText = progress(sections[3].rows),
       trainersText = progress(allTrainers),
       period = filters.wildTime, method = filters.wildMethod,
       trainerIcon = allTrainers[1],

@@ -192,7 +192,8 @@ function love.load()
       { "WILD", 42 }, { "ALL", 31 }, { "FOUND", 74 },
       { "BEATEN", 74 }, { "NEED FINDER", 63 },
       { "TAP TO SCAN AGAIN", 200 },
-      { "WILD", 54 }, { "ITEMS", 54 }, { "TRAINER", 54 },
+      { "WILD", 60 }, { "ITEMS", 60 }, { "TRAINER", 60 },
+      { "CAUGHT", 60 }, { "FOUND", 60 }, { "BEATEN", 60 },
     }
     for _, check in ipairs(typeLabels) do
       local label = translate(check[1])
@@ -202,13 +203,6 @@ function love.load()
     assert(theme:fitPartyInfo(translate("NOT CAUGHT"), 100)
         == translate("NOT CAUGHT"),
       "caught state fits its Explorer detail container")
-    for _, item in ipairs({ { "ITEMS", "2/3" }, { "HIDDEN", "0/1" } }) do
-      local value = translate(item[1]) .. " " .. item[2]
-      assert(theme:fitPartyType(value, 71) == value,
-        item[1] .. " progress fits its Explorer dashboard row")
-    end
-    assert(theme:fitPartyType(translate("BEATEN"), 67) == translate("BEATEN"),
-      "trainer progress fits its Explorer dashboard column")
     for _, label in ipairs({ "COOLTRAINERF BETH", "POKEMANIAC BRENT",
         "SUPER POTION", "PARLYZ HEAL" }) do
       assert(theme:fitPartyType(label, 96) == label,
@@ -410,7 +404,7 @@ function love.load()
     end
     local data = gen1 and {
       route = "ROUTE 15", region = "KANTO", caught = "4/9",
-      items = "2/3", hidden = "0/1", beaten = "1/3",
+      items = "2/3", beaten = "1/3",
       encounters = {
         { "PIDGEOTTO", "20%", "L24-26", "NORMAL", "NOR", true },
         { "VENONAT", "30%", "L22-26", "POISON", "POI", true },
@@ -422,7 +416,7 @@ function love.load()
       chance = "20%", levels = "L24-26", period = "DAY",
     } or {
       route = "ROUTE 37", region = "JOHTO", caught = "3/9",
-      items = "1/2", hidden = "0/1", beaten = "1/3",
+      items = "1/2", beaten = "1/3",
       encounters = {
         { "PIDGEOTTO", "30%", "L13-15", "NORMAL", "NOR", true },
         { "GROWLITHE", "20%", "L14", "FIRE", "FIR", true },
@@ -538,11 +532,13 @@ function love.load()
     local itemMap = explorerItems or explorerItemDetail
     local trainerMap = explorerTrainers or explorerTrainerDetail
     local fullMap = itemMap or trainerMap
-    local mapW = (compactMap or fullMap) and 226 or 154
-    local mapH = explorerDetail and 44 or explorerLayer and 38 or 103
+    local mapW = 226
+    local mapH = explorerDetail and 44 or explorerLayer and 38
+      or (explorerItemDetail or explorerTrainerDetail) and 103
+      or fullMap and 84 or 91
     local foundTint = theme.dark and colors.silver or colors.silverDark
-    assert(mapX + 154 + 5 + 67 == 233 and mapX + 226 == 233,
-      "Explorer map, layer rail, and detail map share one content grid")
+    assert(mapX + 226 == 233 and mapX + 72 * 3 + 5 * 2 == 233,
+      "Explorer map and three app cards share one content grid")
 
     theme:panel(7, 32, 226, 23, false)
     theme:partyInfo(data.route, 13, 38, colors.ink)
@@ -647,8 +643,7 @@ function love.load()
           { label = "TRAINER", view = "trainers" },
         },
         caughtText = data.caught,
-        itemsText = data.items, hiddenText = data.hidden,
-        trainersText = data.beaten,
+        itemsText = data.items, trainersText = data.beaten,
         period = data.period, method = "ALL", trainerIcon = trainerRows[1],
         drawPlayer = function(_, x, y)
           drawOverworld("player", x, y, 0.75, colors.redLight)
@@ -666,14 +661,18 @@ function love.load()
       }
       theme:explorer(explorerModel)
       local sx = 1 / 1.5
-      assert(theme:explorerHit((view and 211 or 130) * sx, 70 * sx,
+      assert(theme:explorerHit(211 * sx, 70 * sx,
         explorerModel) == "zoom", "Explorer map zoom is always interactive")
       if not view then
-        assert(theme:explorerHit(190 * sx, 76 * sx, explorerModel) == "wild",
+        assert(theme:explorerHit(43 * sx, 180 * sx, explorerModel) == "wild",
           "Explorer overview opens the Wild layer")
         local layers = explorerModel.layers
+        explorerModel.layers = { layers[2], layers[3] }
+        assert(theme:explorerHit(80 * sx, 180 * sx, explorerModel) == "items"
+            and theme:explorerHit(10 * sx, 180 * sx, explorerModel) == nil,
+          "available Explorer app cards remain centered as one group")
         explorerModel.layers = {}
-        assert(theme:explorerHit(190 * sx, 76 * sx, explorerModel) == nil,
+        assert(theme:explorerHit(43 * sx, 180 * sx, explorerModel) == nil,
           "disabled assists do not leave fake layer hitboxes")
         explorerModel.layers = layers
       elseif view == "wild" and not selected then
@@ -871,32 +870,33 @@ function love.load()
     end
 
     local layers = {
-      { "WILD", "wild" }, { "ITEMS", "item" },
-      { "TRAINER", "trainer" },
+      { "WILD", "wild", data.caught, "CAUGHT" },
+      { "ITEMS", "item", data.items, "FOUND" },
+      { "TRAINER", "trainer", data.beaten, "BEATEN" },
     }
     for index, layer in ipairs(layers) do
-      local y = 59 + (index - 1) * 35
-      theme:panel(166, y, 67, 33, false)
-      theme:partyType(layer[1], 170, y + 5, colors.ink, 54)
+      local x, value = 7 + (index - 1) * 77, layer[3]
+      theme:panel(x, 154, 72, 56, false)
+      theme:partyType(theme:fitPartyType(translate(layer[1]), 60),
+        x + 6, 159, colors.ink, 60)
+      local valueWidth = theme:partyInfoWidth(value)
       if layer[2] == "wild" then
-        theme:battleTeamBall(197, y + 24, true)
+        local left = x + math.floor((72 - 9 - 4 - valueWidth) / 2)
+        theme:battleTeamBall(left + 4, 181, true)
+        theme:partyInfo(value, left + 13, 176, colors.ink)
       elseif layer[2] == "item" then
-        theme:battleItemIcon({}, 189, y + 16, colors.amberLight)
+        local left = x + math.floor((72 - 16 - 4 - valueWidth) / 2)
+        theme:battleItemIcon({}, left, 173, colors.amberLight)
+        theme:partyInfo(value, left + 20, 176, colors.ink)
       else
-        trainerIcon(197, y + 24, "rematch", "trainer3")
+        local left = x + math.floor((72 - 12 - 4 - valueWidth) / 2)
+        trainerIcon(left + 6, 181, "rematch", "trainer3")
+        theme:partyInfo(value, left + 16, 176, colors.ink)
       end
-      theme:detailChevron(226, y + 14, colors.ink)
+      theme:partyType(theme:fitPartyType(translate(layer[4]), 60),
+        x + 6, 195, colors.green, 60)
+      theme:detailChevron(x + 65, 174, colors.ink)
     end
-
-    theme:panel(7, 166, 226, 44, false)
-    box("fill", 83, 171, 1, 34, colors.band)
-    box("fill", 158, 171, 1, 34, colors.band)
-    theme:partyType("CAUGHT", 12, 174, colors.green, 67)
-    theme:partyInfo(data.caught, 10, 190, colors.ink, 71, "center")
-    theme:partyType("ITEMS " .. data.items, 85, 174, colors.green, 71)
-    theme:partyType("HIDDEN " .. data.hidden, 85, 190, colors.ink, 71)
-    theme:partyType("BEATEN", 162, 174, colors.green, 67)
-    theme:partyInfo(data.beaten, 160, 190, colors.ink, 71, "center")
   end
   local function battleMon()
     local mon = party[gen1 and 6 or 1]

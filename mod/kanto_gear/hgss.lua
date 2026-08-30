@@ -518,8 +518,10 @@ return function(ui)
     return not visible or visible[marker.kind] ~= false
   end
 
-  local function explorerLayerY(index, count)
-    return 59 + (3 - math.max(1, count)) * 17 + (index - 1) * 35
+  local function explorerLayerX(index, count)
+    local width, gap = 72, 5
+    local total = count * width + math.max(0, count - 1) * gap
+    return 7 + math.floor((226 - total) / 2) + (index - 1) * (width + gap)
   end
 
   local function mapLayout(overview, x, y, w, h, opts)
@@ -668,8 +670,8 @@ return function(ui)
     self:partyInfo(self:fitPartyInfo(model.region or "KANTO", 42),
       177, 38, colors.green, 42, "center")
 
-    local mapW = view and 226 or 154
-    local mapH = not view and 103
+    local mapW = 226
+    local mapH = not view and 91
       or view == "wild" and (selected and 44 or 38)
       or selected and 103 or 84
     self:mapOverview(model.overview, 7, 59, mapW, mapH, {
@@ -847,56 +849,59 @@ return function(ui)
 
     local layers = model.layers or {}
     for index, layer in ipairs(layers) do
-      local y = explorerLayerY(index, #layers)
-      self:panel(166, y, 67, 33, false)
-      self:partyType(self:fitPartyType(translate(layer.label), 54),
-        170, y + 5, colors.ink, 54)
+      local x, value, status = explorerLayerX(index, #layers)
       if layer.view == "wild" then
-        self:battleTeamBall(197, y + 24, true)
+        value, status = model.caughtText, "CAUGHT"
       elseif layer.view == "items" then
-        self:battleItemIcon({}, 189, y + 16, colors.amberLight)
-      elseif model.drawActor and model.trainerIcon then
-        model.drawActor(model.trainerIcon, 197, y + 24, 0.75, false)
+        value, status = model.itemsText, "FOUND"
+      else
+        value, status = model.trainersText, "BEATEN"
       end
-      self:detailChevron(226, y + 14, colors.ink)
+      self:panel(x, 154, 72, 56, false)
+      self:partyType(self:fitPartyType(translate(layer.label), 60),
+        x + 6, 159, colors.ink, 60)
+      local valueWidth = partyInfoFont:getWidth(value)
+      if layer.view == "wild" then
+        local left = x + math.floor((72 - 9 - 4 - valueWidth) / 2)
+        self:battleTeamBall(left + 4, 181, true)
+        self:partyInfo(value, left + 13, 176, colors.ink)
+      elseif layer.view == "items" then
+        local left = x + math.floor((72 - 16 - 4 - valueWidth) / 2)
+        self:battleItemIcon({}, left, 173, colors.amberLight)
+        self:partyInfo(value, left + 20, 176, colors.ink)
+      else
+        local hasIcon = model.drawActor and model.trainerIcon
+        local iconWidth, gap = hasIcon and 12 or 0, hasIcon and 4 or 0
+        local left = x + math.floor((72 - iconWidth - gap - valueWidth) / 2)
+        if hasIcon then
+          model.drawActor(model.trainerIcon, left + 6, 181, 0.75, false)
+        end
+        self:partyInfo(value, left + iconWidth + gap, 176, colors.ink)
+      end
+      self:partyType(self:fitPartyType(translate(status), 60),
+        x + 6, 195, colors.green, 60)
+      self:detailChevron(x + 65, 174, colors.ink)
     end
     if #layers == 0 then
-      self:partyInfo(self:fitPartyInfo(translate("ASSISTS OFF"), 63),
-        168, 104, colors.green, 63, "center")
+      self:partyInfo(self:fitPartyInfo(translate("ASSISTS OFF"), 214),
+        13, 177, colors.green, 214, "center")
     end
-    self:panel(7, 166, 226, 44, false)
-    box("fill", 83, 171, 1, 34, colors.band)
-    box("fill", 158, 171, 1, 34, colors.band)
-    self:partyType(self:fitPartyType(translate("CAUGHT"), 67),
-      12, 174, colors.green, 67)
-    self:partyInfo(model.guideEnabled and model.caughtText or "--",
-      10, 190, colors.ink, 71, "center")
-    local items = model.areaEnabled and model.itemsText or "--"
-    local hidden = model.areaEnabled and model.hiddenText or "--"
-    self:partyType(self:fitPartyType(translate("ITEMS") .. " " .. items, 71),
-      85, 174, colors.green, 71)
-    self:partyType(self:fitPartyType(translate("HIDDEN") .. " " .. hidden, 71),
-      85, 190, colors.ink, 71)
-    self:partyType(self:fitPartyType(translate("BEATEN"), 67),
-      162, 174, colors.green, 67)
-    self:partyInfo(model.areaEnabled and model.trainersText or "--",
-      160, 190, colors.ink, 71, "center")
   end
 
   function H:explorerHit(x, y, model)
     x, y = x * 1.5, y * 1.5
     local view, selected = model.view, model.selected
-    local mapW = view and 226 or 154
-    local mapH = not view and 103
+    local mapW = 226
+    local mapH = not view and 91
       or view == "wild" and (selected and 44 or 38)
       or selected and 103 or 84
     if x >= 7 + mapW - 31 and x < 7 + mapW - 6
         and y >= 63 and y < 79 then return "zoom" end
     if not model.view then
-      if x >= 166 and x < 233 then
-        for index, layer in ipairs(model.layers or {}) do
-          local top = explorerLayerY(index, #model.layers)
-          if y >= top and y < top + 33 then return layer.view end
+      for index, layer in ipairs(model.layers or {}) do
+        local left = explorerLayerX(index, #model.layers)
+        if x >= left and x < left + 72 and y >= 154 and y < 210 then
+          return layer.view
         end
       end
       return nil
