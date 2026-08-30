@@ -331,38 +331,48 @@ function love.load()
   local function drawExplorer()
     local colors = theme.colors
     local data = gen1 and {
-      route = "ROUTE 15", region = "KANTO", caught = "4/6",
+      route = "ROUTE 15", region = "KANTO", caught = "4/9",
       items = "2/3", hidden = "0/1",
       encounters = {
-        { "PIDGEOTTO", "20%" }, { "VENONAT", "30%" },
-        { "DITTO", "10%" },
+        { "PIDGEOTTO", "20%", "L24-26", "NORMAL", "NOR", true },
+        { "VENONAT", "30%", "L22-26", "POISON", "POI", true },
+        { "DITTO", "10%", "L23", "NORMAL", "NOR" },
+        { "GLOOM", "10%", "L22", "GRASS", "GRA", true },
+        { "PIDGEY", "20%", "L22-26", "FLYING", "FLY" },
+        { "ODDISH", "10%", "L24", "GRASS", "GRA", true },
       },
       chance = "20%", levels = "L24-26", period = "DAY",
     } or {
-      route = "ROUTE 37", region = "JOHTO", caught = "3/5",
+      route = "ROUTE 37", region = "JOHTO", caught = "3/9",
       items = "1/2", hidden = "0/1",
       encounters = {
-        { "PIDGEOTTO", "30%" }, { "GROWLITHE", "20%" },
-        { "STANTLER", "30%" },
+        { "PIDGEOTTO", "30%", "L13-15", "NORMAL", "NOR", true },
+        { "GROWLITHE", "20%", "L14", "FIRE", "FIR", true },
+        { "STANTLER", "30%", "L15", "NORMAL", "NOR" },
+        { "PIDGEY", "10%", "L13", "FLYING", "FLY", true },
+        { "SPINARAK", "5%", "L13", "BUG", "BUG" },
+        { "HOOTHOOT", "5%", "L14", "FLYING", "FLY" },
       },
       chance = "30%", levels = "L13-15", period = "DAY",
     }
     local mapX, mapY = 7, 59
-    local mapW = explorerDetail and 226 or 154
-    local mapH = explorerDetail and 44 or 103
+    local compactMap = explorerLayer or explorerDetail
+    local mapW = compactMap and 226 or 154
+    local mapH = explorerDetail and 44 or explorerLayer and 38 or 103
     assert(mapX + 154 + 5 + 67 == 233 and mapX + 226 == 233,
       "Explorer map, layer rail, and detail map share one content grid")
 
     theme:panel(7, 32, 226, 23, false)
     theme:partyInfo(data.route, 13, 38, colors.ink)
-    theme:partyInfo(data.region, 177, 38, colors.green, 50, "center")
+    theme:partyInfo(data.region, 177, 38, colors.green, 42, "center")
+    theme:detailChevron(222, 41, colors.green)
 
     theme:panel(mapX, mapY, mapW, mapH, false)
     love.graphics.setScissor(mapX + 2, mapY + 2, mapW - 4, mapH - 4)
     box("fill", mapX + 2, mapY + 2, mapW - 4, mapH - 4,
       colors.bandLight)
     color(colors.amber)
-    if explorerDetail then
+    if compactMap then
       love.graphics.polygon("fill", mapX - 2, mapY + 18,
         mapX + 45, mapY + 18, mapX + 51, mapY + 12,
         mapX + 101, mapY + 12, mapX + 107, mapY + 18,
@@ -403,9 +413,9 @@ function love.load()
         mapX + 49, mapY + 60, mapX + 41, mapY + 70,
         mapX - 2, mapY + 70)
     end
-    local trees = explorerDetail and {
-      { 14, 7 }, { 29, 7 }, { 122, 5 }, { 139, 5 }, { 190, 28 },
-      { 208, 27 },
+    local trees = compactMap and {
+      { 14, 5 }, { 29, 5 }, { 122, 3 }, { 139, 3 }, { 190, 24 },
+      { 208, 23 },
     } or {
       { 9, 8 }, { 22, 10 }, { 37, 7 }, { 104, 8 }, { 119, 11 },
       { 137, 7 }, { 14, 78 }, { 30, 82 }, { 96, 79 }, { 113, 83 },
@@ -434,8 +444,8 @@ function love.load()
         end
       end
     end
-    local playerX = explorerDetail and mapX + 111 or mapX + 79
-    local playerY = explorerDetail and mapY + 21 or mapY + 53
+    local playerX = compactMap and mapX + 111 or mapX + 79
+    local playerY = compactMap and mapY + 19 or mapY + 53
     box("fill", playerX - 2, playerY - 4, 5, 1, colors.outline)
     box("fill", playerX - 3, playerY - 3, 7, 4, colors.outline)
     box("fill", playerX - 4, playerY + 1, 9, 6, colors.outline)
@@ -451,7 +461,8 @@ function love.load()
       theme:partyInfo("PIDGEOTTO", 58, 115, colors.ink)
       theme:partyInfo("CAUGHT", 58, 130, colors.green)
       theme:typeBadges(party[3], 58, 144, false)
-      theme:panel(157, 116, 68, 29, true, colors.blueLight)
+      theme:panel(157, 116, 68, 29, false)
+      box("fill", 159, 118, 64, 25, colors.blueLight)
       theme:partyInfo("POKEDEX", 160, 125, colors.ink, 51, "center")
       theme:detailChevron(216, 126, colors.ink)
       local stats = {
@@ -467,14 +478,44 @@ function love.load()
       return
     end
 
+    if explorerLayer then
+      theme:panel(7, 100, 226, 20, false)
+      local function chip(x, width, label, active)
+        theme:panel(x, 102, width, 16, false)
+        if active then box("fill", x + 2, 104, width - 4, 12, colors.band) end
+        theme:partyType(label, x, 104, active and colors.ink or colors.green,
+          width)
+      end
+      theme:partyInfo("WILD", 12, 105, colors.ink)
+      chip(57, 39, "DAY", true)
+      chip(99, 54, "GRASS", true)
+      theme:partyType("1-6/9", 158, 104, colors.green, 55)
+      color(colors.green)
+      love.graphics.polygon("fill", 218, 107, 226, 107, 222, 112)
+      for index, encounter in ipairs(data.encounters) do
+        local column, row = (index - 1) % 2, math.floor((index - 1) / 2)
+        local x, y = 7 + column * 114, 123 + row * 29
+        theme:panel(x, y, 112, 27, false)
+        theme:partyInfo(theme:fitPartyInfo(encounter[1], 78),
+          x + 5, y + 3, colors.ink)
+        theme:typeBadges({ type = encounter[4], type2 = encounter[4],
+          typeLabel = encounter[5], type2Label = encounter[5] },
+          x + 1, y + 15, false)
+        theme:partyType(encounter[2] .. " " .. encounter[3],
+          x + 40, y + 16, colors.green, 65)
+        if encounter[6] then theme:battleTeamBall(x + 94, y + 8, true) end
+        theme:detailChevron(x + 105, y + 19, colors.ink)
+      end
+      return
+    end
+
     local layers = {
       { "WILD", "6 NOW", "wild" }, { "ITEMS", "3 + 1", "item" },
       { "TRAINER", "VIEW", "trainer" },
     }
     for index, layer in ipairs(layers) do
       local y = 59 + (index - 1) * 35
-      local selected = index == 1
-      theme:panel(166, y, 67, 33, selected, colors.greenLight)
+      theme:panel(166, y, 67, 33, false)
       if layer[3] == "wild" then
         theme:battleTeamBall(178, y + 16, true)
       elseif layer[3] == "item" then
@@ -486,31 +527,20 @@ function love.load()
         box("fill", 174, y + 18, 8, 6, colors.blueLight)
       end
       theme:partyInfo(layer[1], 187, y + 6, colors.ink, 41, "center")
-      theme:partyType(layer[2], 187, y + 19, colors.green, 41)
+      theme:partyType(layer[2], 185, y + 19, colors.green, 38)
+      theme:detailChevron(226, y + 14, colors.ink)
     end
 
-    if explorerOverview then
-      theme:panel(7, 166, 226, 44, false)
-      local progress = {
-        { "CAUGHT", data.caught }, { "ITEMS", data.items },
-        { "HIDDEN", data.hidden },
-      }
-      for index, item in ipairs(progress) do
-        local x = 10 + (index - 1) * 75
-        if index > 1 then box("fill", x - 2, 171, 1, 34, colors.band) end
-        theme:partyType(item[1], x, 174, colors.green, 71)
-        theme:partyInfo(item[2], x, 190, colors.ink, 71, "center")
-      end
-      return
-    end
-
-    for index, encounter in ipairs(data.encounters) do
-      local x = 7 + (index - 1) * 77
-      theme:panel(x, 166, 72, 44, index == 1, colors.greenLight)
-      theme:battleTeamBall(x + 12, 188, true)
-      theme:partyType(encounter[1], x + 3, 173, colors.ink, 66)
-      theme:partyType(encounter[2], x + 21, 191, colors.green, 45)
-      if index == 1 then theme:detailChevron(x + 63, 184, colors.ink) end
+    theme:panel(7, 166, 226, 44, false)
+    local progress = {
+      { "CAUGHT", data.caught }, { "ITEMS", data.items },
+      { "HIDDEN", data.hidden },
+    }
+    for index, item in ipairs(progress) do
+      local x = 10 + (index - 1) * 75
+      if index > 1 then box("fill", x - 2, 171, 1, 34, colors.band) end
+      theme:partyType(item[1], x, 174, colors.green, 71)
+      theme:partyInfo(item[2], x, 190, colors.ink, 71, "center")
     end
   end
   local function battleMon()
