@@ -235,6 +235,10 @@ function love.load()
   local battleMoveInfoTransition = screen == "battle_move_info_transition"
   local battleBag = screen == "battle_bag"
   local battleBagTransition = screen == "battle_bag_transition"
+  local explorerOverview = screen == "explorer"
+  local explorerLayer = screen == "explorer_layer"
+  local explorerDetail = screen == "explorer_detail"
+  local explorer = explorerOverview or explorerLayer or explorerDetail
   local partySwap = screen == "party_swap"
   local partySwapTransition = screen == "party_swap_transition"
   local partySwapCommit = screen == "party_swap_commit"
@@ -249,7 +253,8 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
   local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
-  local title = os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
+  local title = explorer and "EXPLORER"
+    or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
     or partySwap and language.swapWith
     or partySwapTransition
@@ -271,9 +276,10 @@ function love.load()
       and not battleBag and not battleBagTransition then
     local headerOffset = summary and -1 or 0
     local titleX, titleWidth = theme:headerBar(title,
-      swapMode or context or summary or moves or memo or memoTransition
+      explorer and not explorerOverview
+        or swapMode or context or summary or moves or memo or memoTransition
         or transition or movesTransition,
-      not swapMode and (summary or moves or memo or memoTransition
+      not explorer and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
         or not context), headerOffset)
     if context then
@@ -321,6 +327,191 @@ function love.load()
       function(_, portraitX, portraitY, size, fainted)
         drawPortrait(slot, portraitX, portraitY, size, fainted)
       end, focused)
+  end
+  local function drawExplorer()
+    local colors = theme.colors
+    local data = gen1 and {
+      route = "ROUTE 15", region = "KANTO", caught = "4/6",
+      items = "2/3", hidden = "0/1",
+      encounters = {
+        { "PIDGEOTTO", "20%" }, { "VENONAT", "30%" },
+        { "DITTO", "10%" },
+      },
+      chance = "20%", levels = "L24-26", period = "DAY",
+    } or {
+      route = "ROUTE 37", region = "JOHTO", caught = "3/5",
+      items = "1/2", hidden = "0/1",
+      encounters = {
+        { "PIDGEOTTO", "30%" }, { "GROWLITHE", "20%" },
+        { "STANTLER", "30%" },
+      },
+      chance = "30%", levels = "L13-15", period = "DAY",
+    }
+    local mapX, mapY = 7, 59
+    local mapW = explorerDetail and 226 or 154
+    local mapH = explorerDetail and 44 or 103
+    assert(mapX + 154 + 5 + 67 == 233 and mapX + 226 == 233,
+      "Explorer map, layer rail, and detail map share one content grid")
+
+    theme:panel(7, 32, 226, 23, false)
+    theme:partyInfo(data.route, 13, 38, colors.ink)
+    theme:partyInfo(data.region, 177, 38, colors.green, 50, "center")
+
+    theme:panel(mapX, mapY, mapW, mapH, false)
+    love.graphics.setScissor(mapX + 2, mapY + 2, mapW - 4, mapH - 4)
+    box("fill", mapX + 2, mapY + 2, mapW - 4, mapH - 4,
+      colors.bandLight)
+    color(colors.amber)
+    if explorerDetail then
+      love.graphics.polygon("fill", mapX - 2, mapY + 18,
+        mapX + 45, mapY + 18, mapX + 51, mapY + 12,
+        mapX + 101, mapY + 12, mapX + 107, mapY + 18,
+        mapX + 159, mapY + 18, mapX + 165, mapY + 11,
+        mapX + 229, mapY + 11, mapX + 229, mapY + 29,
+        mapX + 169, mapY + 29, mapX + 163, mapY + 36,
+        mapX + 102, mapY + 36, mapX + 96, mapY + 29,
+        mapX + 56, mapY + 29, mapX + 50, mapY + 35,
+        mapX - 2, mapY + 35)
+      color(colors.amberLight)
+      love.graphics.polygon("fill", mapX - 2, mapY + 20,
+        mapX + 47, mapY + 20, mapX + 53, mapY + 14,
+        mapX + 99, mapY + 14, mapX + 105, mapY + 20,
+        mapX + 161, mapY + 20, mapX + 167, mapY + 13,
+        mapX + 229, mapY + 13, mapX + 229, mapY + 27,
+        mapX + 167, mapY + 27, mapX + 161, mapY + 34,
+        mapX + 104, mapY + 34, mapX + 98, mapY + 27,
+        mapX + 54, mapY + 27, mapX + 48, mapY + 33,
+        mapX - 2, mapY + 33)
+    else
+      love.graphics.polygon("fill", mapX - 2, mapY + 47,
+        mapX + 39, mapY + 47, mapX + 47, mapY + 37,
+        mapX + 77, mapY + 37, mapX + 85, mapY + 48,
+        mapX + 115, mapY + 48, mapX + 123, mapY + 40,
+        mapX + 156, mapY + 40, mapX + 156, mapY + 66,
+        mapX + 119, mapY + 66, mapX + 111, mapY + 74,
+        mapX + 80, mapY + 74, mapX + 72, mapY + 63,
+        mapX + 51, mapY + 63, mapX + 43, mapY + 73,
+        mapX - 2, mapY + 73)
+      color(colors.amberLight)
+      love.graphics.polygon("fill", mapX - 2, mapY + 50,
+        mapX + 41, mapY + 50, mapX + 49, mapY + 40,
+        mapX + 75, mapY + 40, mapX + 83, mapY + 51,
+        mapX + 117, mapY + 51, mapX + 125, mapY + 43,
+        mapX + 156, mapY + 43, mapX + 156, mapY + 63,
+        mapX + 117, mapY + 63, mapX + 109, mapY + 71,
+        mapX + 82, mapY + 71, mapX + 74, mapY + 60,
+        mapX + 49, mapY + 60, mapX + 41, mapY + 70,
+        mapX - 2, mapY + 70)
+    end
+    local trees = explorerDetail and {
+      { 14, 7 }, { 29, 7 }, { 122, 5 }, { 139, 5 }, { 190, 28 },
+      { 208, 27 },
+    } or {
+      { 9, 8 }, { 22, 10 }, { 37, 7 }, { 104, 8 }, { 119, 11 },
+      { 137, 7 }, { 14, 78 }, { 30, 82 }, { 96, 79 }, { 113, 83 },
+      { 136, 76 },
+    }
+    for _, tree in ipairs(trees) do
+      local x, y = mapX + tree[1], mapY + tree[2]
+      box("fill", x + 2, y, 3, 1, colors.green)
+      box("fill", x + 1, y + 1, 5, 1, colors.green)
+      box("fill", x, y + 2, 7, 5, colors.green)
+      box("fill", x + 1, y + 7, 5, 1, colors.green)
+      box("fill", x + 2, y + 2, 3, 4, colors.greenLight)
+      box("fill", x + 3, y + 8, 1, 2, colors.amber)
+    end
+    if not explorerDetail then
+      box("fill", mapX + 7, mapY + 67, 54, 3, colors.greenLight)
+      box("fill", mapX + 88, mapY + 17, 59, 3, colors.greenLight)
+      if explorerLayer then
+        for _, patch in ipairs({ { 48, 25 }, { 66, 76 }, { 122, 29 } }) do
+          for blade = 0, 2 do
+            local x, y = mapX + patch[1] + blade * 5, mapY + patch[2]
+            box("fill", x, y + 2, 1, 5, colors.green)
+            box("fill", x - 2, y, 2, 1, colors.greenLight)
+            box("fill", x + 1, y, 2, 1, colors.greenLight)
+          end
+        end
+      end
+    end
+    local playerX = explorerDetail and mapX + 111 or mapX + 79
+    local playerY = explorerDetail and mapY + 21 or mapY + 53
+    box("fill", playerX - 2, playerY - 4, 5, 1, colors.outline)
+    box("fill", playerX - 3, playerY - 3, 7, 4, colors.outline)
+    box("fill", playerX - 4, playerY + 1, 9, 6, colors.outline)
+    box("fill", playerX - 2, playerY - 3, 5, 2, colors.redLight)
+    box("fill", playerX - 2, playerY - 1, 5, 2, colors.white)
+    box("fill", playerX - 3, playerY + 2, 7, 4, colors.blueLight)
+    love.graphics.setScissor()
+
+    if explorerDetail then
+      theme:panel(7, 107, 226, 103, false)
+      theme:partyPortrait(16, 114, false, false)
+      drawPortrait(3, 16, 117, 34, false)
+      theme:partyInfo("PIDGEOTTO", 58, 115, colors.ink)
+      theme:partyInfo("CAUGHT", 58, 130, colors.green)
+      theme:typeBadges(party[3], 58, 144, false)
+      theme:panel(157, 116, 68, 29, true, colors.blueLight)
+      theme:partyInfo("POKEDEX", 160, 125, colors.ink, 51, "center")
+      theme:detailChevron(216, 126, colors.ink)
+      local stats = {
+        { "METHOD", "GRASS" }, { "CHANCE", data.chance },
+        { "LEVEL", data.levels }, { "TIME", data.period },
+      }
+      for index, stat in ipairs(stats) do
+        local x = 12 + (index - 1) * 54
+        theme:panel(x, 163, 50, 39, false)
+        theme:partyType(stat[1], x, 168, colors.green, 50)
+        theme:partyInfo(stat[2], x, 183, colors.ink, 50, "center")
+      end
+      return
+    end
+
+    local layers = {
+      { "WILD", "6 NOW", "wild" }, { "ITEMS", "3 + 1", "item" },
+      { "TRAINER", "VIEW", "trainer" },
+    }
+    for index, layer in ipairs(layers) do
+      local y = 59 + (index - 1) * 35
+      local selected = index == 1
+      theme:panel(166, y, 67, 33, selected, colors.greenLight)
+      if layer[3] == "wild" then
+        theme:battleTeamBall(178, y + 16, true)
+      elseif layer[3] == "item" then
+        theme:battleItemIcon({}, 170, y + 8, colors.amberLight)
+      else
+        box("fill", 174, y + 8, 8, 8, colors.outline)
+        box("fill", 172, y + 17, 12, 8, colors.outline)
+        box("fill", 175, y + 9, 6, 6, colors.blueLight)
+        box("fill", 174, y + 18, 8, 6, colors.blueLight)
+      end
+      theme:partyInfo(layer[1], 187, y + 6, colors.ink, 41, "center")
+      theme:partyType(layer[2], 187, y + 19, colors.green, 41)
+    end
+
+    if explorerOverview then
+      theme:panel(7, 166, 226, 44, false)
+      local progress = {
+        { "CAUGHT", data.caught }, { "ITEMS", data.items },
+        { "HIDDEN", data.hidden },
+      }
+      for index, item in ipairs(progress) do
+        local x = 10 + (index - 1) * 75
+        if index > 1 then box("fill", x - 2, 171, 1, 34, colors.band) end
+        theme:partyType(item[1], x, 174, colors.green, 71)
+        theme:partyInfo(item[2], x, 190, colors.ink, 71, "center")
+      end
+      return
+    end
+
+    for index, encounter in ipairs(data.encounters) do
+      local x = 7 + (index - 1) * 77
+      theme:panel(x, 166, 72, 44, index == 1, colors.greenLight)
+      theme:battleTeamBall(x + 12, 188, true)
+      theme:partyType(encounter[1], x + 3, 173, colors.ink, 66)
+      theme:partyType(encounter[2], x + 21, 191, colors.green, 45)
+      if index == 1 then theme:detailChevron(x + 63, 184, colors.ink) end
+    end
   end
   local function battleMon()
     local mon = party[gen1 and 6 or 1]
@@ -405,7 +596,9 @@ function love.load()
   if os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild" then
     enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "PIDGEY", 4
   end
-  if battleMessage then
+  if explorer then
+    drawExplorer()
+  elseif battleMessage then
     local wild = os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild"
     if wild then
       enemyTeam.name, enemyTeam.level = "RATTATA", 3
