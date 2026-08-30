@@ -7347,25 +7347,47 @@ return function(mod)
     end
   end
 
-  local function swipe(dx)
-    changePage(dx < 0 and 1 or -1)
+  displayRuntime.explorerSwipeTarget = function(view, selected, y)
+    if not view then return end
+    if selected then return y >= 107 and "detail" or nil end
+    return y >= (view == "wild" and 123 or 166) and "page" or nil
+  end
+  assert(displayRuntime.explorerSwipeTarget("wild", false, 123) == "page"
+      and not displayRuntime.explorerSwipeTarget("wild", false, 122)
+      and displayRuntime.explorerSwipeTarget("items", false, 166) == "page"
+      and displayRuntime.explorerSwipeTarget("wild", true, 107) == "detail",
+    "Explorer horizontal swipe regions")
+
+  local function swipe(dx, down)
+    if page ~= "LOCAL" or THEME.style ~= "hgss"
+        or not displayRuntime.explorer.view then
+      changePage(dx < 0 and 1 or -1)
+      return
+    end
+    local overview = loadLocalMap()
+    local model = overview and displayRuntime.explorerModel(overview)
+    if model then
+      local target = displayRuntime.explorerSwipeTarget(model.view,
+        model.selected, (down.y or 0) * 1.5)
+      local direction = dx < 0 and 1 or -1
+      if target == "page" and model.pages > 1 then
+        displayRuntime.explorer.page = ((displayRuntime.explorer.page - 1
+          + direction) % model.pages) + 1
+        displayRuntime.explorer.selected = nil
+        dirty = true
+      elseif target == "detail" and model.detailPages > 1 then
+        displayRuntime.explorer.detailPage =
+          ((displayRuntime.explorer.detailPage - 1 + direction)
+            % model.detailPages) + 1
+        dirty = true
+      end
+    end
   end
 
   local function swipeVertical(dy)
     if radarOpen then return end
     if page == "LOCAL" and THEME.style == "hgss"
-        and displayRuntime.explorer.view
-        and not displayRuntime.explorer.selected then
-      local overview = loadLocalMap()
-      local model = overview and displayRuntime.explorerModel(overview)
-      if model and model.pages > 1 then
-        local direction = dy < 0 and 1 or -1
-        displayRuntime.explorer.page = ((displayRuntime.explorer.page - 1
-          + direction) % model.pages) + 1
-        dirty = true
-      end
-      return
-    end
+        and displayRuntime.explorer.view then return end
     if page == "TOOLS" and #tools > 6 then
       local pages = math.ceil(#tools / 6)
       local direction = dy < 0 and 1 or -1
@@ -7468,7 +7490,7 @@ return function(mod)
         return
       end
       if math.abs(dx) >= 24 and math.abs(dx) > math.abs(dy) * 1.25 then
-        if down.pageSwipe then swipe(dx) end
+        if down.pageSwipe then swipe(dx, down) end
       elseif math.abs(dy) >= 24 and math.abs(dy) > math.abs(dx) * 1.25 then
         swipeVertical(dy)
       elseif dialogueChoice() and (math.abs(dx) >= 12 or math.abs(dy) >= 12) then
