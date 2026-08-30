@@ -7743,18 +7743,6 @@ return function(mod)
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
     local top = game and game.stack and game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
-    if stepGame == game and page == "LOCAL" and THEME.style == "hgss"
-        and displayRuntime.explorer.mapFull and type(queue) == "table" then
-      for i = 1, #queue do
-        local direction = queue[i] == "left" and -1
-          or queue[i] == "right" and 1 or nil
-        if direction then
-          table.remove(queue, i)
-          dirty = displayRuntime.adjustExplorerZoom(direction) or dirty
-          break
-        end
-      end
-    end
     if stepGame == game and battle and compat.battleBagMenu(top)
         and bottomOwnsBattleUI(hideUpperBattleUI(), active,
           hasDisplay(), displayReady, battleState(), battle)
