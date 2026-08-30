@@ -530,16 +530,13 @@ return function(ui)
     width, height = tonumber(width) or 0, tonumber(height) or 0
     if width < 1 or height < 1 then return nil end
     local innerX, innerY, innerW, innerH = x + 2, y + 2, w - 4, h - 4
-    local fitScale = math.min(innerW / width, innerH / height)
-    local scale = fitScale >= 1 and math.min(3, math.floor(fitScale)) or 1
-    if opts.full then
-      local baseWidth = math.max(1, tonumber(overview.width) or width / density)
-      local baseHeight = math.max(1,
-        tonumber(overview.height) or height / density)
-      local tileSize = math.max(1,
-        math.floor(math.min(innerW / baseWidth, innerH / baseHeight)))
-      scale = tileSize / density
-    end
+    local baseWidth = math.max(1, tonumber(overview.width) or width / density)
+    local baseHeight = math.max(1,
+      tonumber(overview.height) or height / density)
+    local fit = math.min(innerW / baseWidth, innerH / baseHeight)
+    local tileSize = math.max(1,
+      opts.full and math.floor(fit) or math.ceil(fit))
+    local scale = tileSize / density
     local focus = opts.player or {}
     local focusX = (tonumber(focus.x) or (overview.width or 1) / 2) * density
       + density / 2
