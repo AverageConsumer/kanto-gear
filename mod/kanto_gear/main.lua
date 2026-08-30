@@ -2117,7 +2117,7 @@ return function(mod)
   end
 
   function compat.drawMapSprite(spriteId, seed, objDef, x, y, scale,
-      feetAnchored, facing)
+      feetAnchored, facing, tint)
     local renderer = compat.mapSprite(spriteId, seed, objDef)
     if not renderer then return false end
     local ok = pcall(function()
@@ -2125,7 +2125,7 @@ return function(mod)
       scale = scale or 0.75
       local drawX = x - pose.anchorX * scale
       if pose.mirror then drawX = drawX + pose.width * scale end
-      color({ 1, 1, 1, 1 })
+      color(tint or { 1, 1, 1, 1 })
       G.draw(renderer:resolveImage(), pose.quad, drawX,
         y - (feetAnchored and pose.anchorY or pose.height / 2) * scale,
         0, pose.mirror and -scale or scale, scale)
@@ -2143,11 +2143,11 @@ return function(mod)
     THEME:drawMapMarker(x, y)
   end
 
-  function compat.drawMapActor(actor, x, y, scale, feetAnchored)
+  function compat.drawMapActor(actor, x, y, scale, feetAnchored, tint)
     if not actor then return false end
     return compat.drawMapSprite(actor.spriteId,
       actor.id or "kanto-gear-actor", { palette = actor.palette },
-      x, y, scale, feetAnchored, actor.facing)
+      x, y, scale, feetAnchored, actor.facing, tint)
   end
 
   function compat.isScreen(state, kind)
@@ -3586,18 +3586,19 @@ return function(mod)
       for _, marker in ipairs(overview.markers or {}) do
         if marker.kind == "warp" then markers[#markers + 1] = marker end
       end
-    elseif explorer.view == "items" then
-      for _, row in ipairs(items) do
-        if row.x ~= nil and row.y ~= nil
-            and (row.kind ~= "hidden" or enhanced) then
+    end
+    if not explorer.view or explorer.view == "items" then
+      for _, row in ipairs(explorer.view and items or allItems) do
+        if row.x ~= nil and row.y ~= nil then
           local marker = { kind = row.kind, x = row.x, y = row.y,
             found = row.done, source = row }
           markers[#markers + 1] = marker
           if row == selected then selectedMarker = marker end
         end
       end
-    elseif explorer.view == "trainers" then
-      for _, row in ipairs(trainers) do
+    end
+    if not explorer.view or explorer.view == "trainers" then
+      for _, row in ipairs(explorer.view and trainers or allTrainers) do
         if row.x ~= nil and row.y ~= nil then
           local marker = { kind = "trainer", x = row.x, y = row.y,
             actor = row.actor or row, state = row.done and "beaten" or "open",
@@ -3666,7 +3667,8 @@ return function(mod)
         compat.drawMapMarker(x, y, 0.75, true, player.facing)
       end,
       drawTrainer = function(marker, x, y)
-        compat.drawMapActor(marker.actor, x, y, 0.75, true)
+        compat.drawMapActor(marker.actor, x, y, 0.75, true,
+          marker.state == "beaten" and { 0.45, 0.45, 0.45, 1 } or nil)
       end,
       drawActor = function(row, x, y, scale, feet)
         compat.drawMapActor(row.actor or row, x, y, scale, feet)
@@ -7246,6 +7248,10 @@ return function(mod)
         radarOpen, radarFrame, radarStarted = true, 0, love.timer.getTime()
       elseif action == "marker" and model.markers[slot]
           and model.markers[slot].source then
+        if not model.view then
+          displayRuntime.explorer.view = model.markers[slot].kind == "trainer"
+            and "trainers" or "items"
+        end
         displayRuntime.explorer.selected = model.markers[slot].source.key
         displayRuntime.explorer.detailPage = 1
         displayRuntime.explorer.mapFull = false

@@ -600,20 +600,34 @@ function love.load()
           spriteId = trainer[7], status = trainer[2],
           key = "trainer:" .. index }
       end
+      if not view then
+        markers = {}
+        for _, marker in ipairs(overview.markers or {}) do
+          if marker.kind == "warp" then markers[#markers + 1] = marker end
+        end
+        for _, row in ipairs(itemRows) do
+          markers[#markers + 1] = { kind = row.kind == "hidden"
+              and "hidden" or "item", x = row.x, y = row.y,
+            found = row.done, source = row }
+        end
+        for _, row in ipairs(trainerRows) do
+          markers[#markers + 1] = { kind = "trainer", x = row.x, y = row.y,
+            actor = row, state = row.state, source = row }
+        end
+      end
       if trainerMap then
         markers = {}
         for _, row in ipairs(trainerRows) do
           markers[#markers + 1] = { kind = "trainer", x = row.x, y = row.y,
-            actor = row, source = row }
+            actor = row, state = row.state, source = row }
         end
       end
       if itemMap then
         markers = {}
         for _, row in ipairs(itemRows) do
-          if row.kind ~= "hidden" then
-            markers[#markers + 1] = { kind = "item", x = row.x, y = row.y,
-              found = row.done, source = row }
-          end
+          markers[#markers + 1] = { kind = row.kind == "hidden"
+              and "hidden" or "item", x = row.x, y = row.y,
+            found = row.done, source = row }
         end
       end
       local sourceRows = view == "wild" and wildRows
@@ -652,7 +666,9 @@ function love.load()
           drawOverworld("player", x, y, 0.75, colors.redLight)
         end,
         drawTrainer = function(marker, x, y)
-          drawOverworld(marker.actor.sprite, x, y, 0.75, colors.redLight)
+          local tint = marker.state == "beaten" and (theme.dark
+              and colors.silver or colors.silverDark) or colors.redLight
+          drawOverworld(marker.actor.sprite, x, y, 0.75, tint)
         end,
         drawActor = function(row, x, y, scale, feet)
           drawOverworld(row.sprite, x, y, scale, colors.redLight, not feet)
@@ -669,6 +685,9 @@ function love.load()
         "Explorer map expand control is always interactive")
       if explorerMap then return end
       if not view then
+        assert(#explorerModel.markers
+            == #(overview.markers or {}) + #itemRows + #trainerRows,
+          "Explorer overview exposes warp, item, hidden-item, and trainer markers")
         assert(theme:explorerHit(43 * sx, 180 * sx, explorerModel) == "wild",
           "Explorer overview opens the Wild layer")
         local layers = explorerModel.layers
