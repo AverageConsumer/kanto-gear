@@ -858,7 +858,7 @@ return function(ui)
           local detail = translate(appearance.time or "ANY TIME") .. " "
             .. "· " .. translate(tostring(appearance.method or "--")) .. " · "
             .. tostring(appearance.chance or "--") .. "%"
-          self:partyType(self:fitPartyType(detail, 116), 17, y + 14,
+          self:partyType(self:fitPartyType(detail, 116), 17, y + 13,
             colors.green, 116)
           self:partyInfo(levels(appearance), 166, y + 10,
             colors.ink, 55, "center")
