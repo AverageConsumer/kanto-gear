@@ -1732,10 +1732,21 @@ return function(mod)
     return mode == "gear" or mode == "full"
   end
   local displayRuntime = { explorer = {
-    page = 1, mapFull = false,
+    page = 1, mapFull = false, mapZoom = 1,
     filters = { wildTime = "NOW", wildMethod = "ALL",
       items = "ALL", trainers = "ALL" },
   } }
+  function displayRuntime.adjustExplorerZoom(direction)
+    local explorer = displayRuntime.explorer
+    local current = math.max(1, math.min(3, explorer.mapZoom or 1))
+    explorer.mapZoom = math.max(1, math.min(3, current + direction))
+    return explorer.mapZoom ~= current
+  end
+  assert(not displayRuntime.adjustExplorerZoom(-1)
+      and displayRuntime.adjustExplorerZoom(1)
+      and displayRuntime.explorer.mapZoom == 2,
+    "Explorer fullscreen zoom clamps and advances")
+  displayRuntime.explorer.mapZoom = 1
   local function inlineDisplay()
     return THEME:displayMode(mod.options) ~= "separate"
   end
@@ -2178,8 +2189,8 @@ return function(mod)
     if localMapImage and localMapImage.release then localMapImage:release() end
     localMap, localMapImage = nil, nil
     displayRuntime.explorer.selected, displayRuntime.explorer.page,
-      displayRuntime.explorer.data, displayRuntime.explorer.mapFull =
-      nil, 1, nil, false
+      displayRuntime.explorer.data, displayRuntime.explorer.mapFull,
+      displayRuntime.explorer.mapZoom = nil, 1, nil, false, 1
   end
 
   local function hasDisplay()
@@ -3655,6 +3666,7 @@ return function(mod)
       player = pos and pos.mapId == overview.mapId and pos,
       markers = markers, selectedMarker = selectedMarker,
       mapFull = explorer.mapFull == true,
+      mapZoom = explorer.mapZoom or 1,
       filters = filters, timeOptions = timeOptions,
       methodOptions = methodOptions, itemOptions = itemOptions,
       trainerOptions = trainerOptions,
@@ -7224,6 +7236,8 @@ return function(mod)
           displayRuntime.explorer.detailPage = nil, 1, 1
       elseif action == "map_toggle" then
         displayRuntime.explorer.mapFull = not displayRuntime.explorer.mapFull
+      elseif action == "zoom_out" or action == "zoom_in" then
+        displayRuntime.adjustExplorerZoom(action == "zoom_in" and 1 or -1)
       elseif action == "next" or action == "prev" then
         local direction = action == "next" and 1 or -1
         displayRuntime.explorer.page = ((displayRuntime.explorer.page - 1
@@ -7734,6 +7748,18 @@ return function(mod)
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
     local top = game and game.stack and game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
+    if stepGame == game and page == "LOCAL" and THEME.style == "hgss"
+        and displayRuntime.explorer.mapFull and type(queue) == "table" then
+      for i = 1, #queue do
+        local direction = queue[i] == "left" and -1
+          or queue[i] == "right" and 1 or nil
+        if direction then
+          table.remove(queue, i)
+          dirty = displayRuntime.adjustExplorerZoom(direction) or dirty
+          break
+        end
+      end
+    end
     if stepGame == game and battle and compat.battleBagMenu(top)
         and bottomOwnsBattleUI(hideUpperBattleUI(), active,
           hasDisplay(), displayReady, battleState(), battle)
@@ -8227,6 +8253,7 @@ return function(mod)
          tostring(displayRuntime.explorer.page),
          tostring(displayRuntime.explorer.detailPage),
          tostring(displayRuntime.explorer.mapFull),
+         tostring(displayRuntime.explorer.mapZoom),
          tostring(displayRuntime.explorer.filters.wildTime),
          tostring(displayRuntime.explorer.filters.wildMethod),
          tostring(displayRuntime.explorer.filters.items),

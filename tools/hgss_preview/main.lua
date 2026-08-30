@@ -669,6 +669,7 @@ function love.load()
         caughtText = data.caught,
         itemsText = data.items, trainersText = data.beaten,
         mapFull = explorerMap,
+        mapZoom = tonumber(os.getenv("KANTO_GEAR_PREVIEW_MAP_ZOOM")) or 1,
         period = data.period, method = "ALL", trainerIcon = trainerRows[1],
         drawPlayer = function(_, x, y, tileSize)
           drawOverworld("player", x, y, tileSize / 16, colors.redLight)
@@ -701,7 +702,14 @@ function love.load()
       assert(theme:explorerHit(211 * sx, 70 * sx,
         explorerModel) == "map_toggle",
         "Explorer map expand control is always interactive")
-      if explorerMap then return end
+      if explorerMap then
+        assert(theme:explorerHit(20 * sx, 70 * sx,
+            explorerModel) == "zoom_out"
+          and theme:explorerHit(73 * sx, 70 * sx,
+            explorerModel) == "zoom_in",
+          "Explorer fullscreen zoom controls are interactive")
+        return
+      end
       if not view then
         assert(#explorerModel.markers
             == #(overview.markers or {}) + #itemRows + #trainerRows,

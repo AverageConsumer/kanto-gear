@@ -524,6 +524,17 @@ return function(ui)
     return 7 + math.floor((226 - total) / 2) + (index - 1) * (width + gap)
   end
 
+  local function mapTileSize(baseWidth, baseHeight, innerW, innerH, opts)
+    if not opts.full then return 6 end
+    local fit = math.min(innerW / baseWidth, innerH / baseHeight)
+    local zoom = math.max(1, math.min(3, tonumber(opts.zoom) or 1))
+    return math.max(1, math.floor(fit)) * zoom
+  end
+  assert(mapTileSize(42, 18, 222, 87, {}) == 6
+      and mapTileSize(42, 18, 222, 147, { full = true }) == 5
+      and mapTileSize(42, 18, 222, 147, { full = true, zoom = 3 }) == 15,
+    "Explorer normal and fullscreen zoom scales stay independent")
+
   local function mapLayout(overview, x, y, w, h, opts)
     if not overview or not overview.rows then return nil end
     local rows, width, height, density = mapGrid(overview)
@@ -533,11 +544,7 @@ return function(ui)
     local baseWidth = math.max(1, tonumber(overview.width) or width / density)
     local baseHeight = math.max(1,
       tonumber(overview.height) or height / density)
-    local fit = opts.full
-      and math.min(innerW / baseWidth, innerH / baseHeight)
-      or math.max(innerW / baseWidth, innerH / baseHeight)
-    local tileSize = math.max(1,
-      opts.full and math.floor(fit) or math.ceil(fit))
+    local tileSize = mapTileSize(baseWidth, baseHeight, innerW, innerH, opts)
     local scale = tileSize / density
     local focus = opts.player or {}
     local focusX = (tonumber(focus.x) or (overview.width or 1) / 2) * density
@@ -735,6 +742,15 @@ return function(ui)
         box("fill", right, bottom - 2, 1, 3, colors.ink)
       end
     end
+    local function zoomControls(zoom)
+      self:panel(11, 63, 18, 16, false)
+      self:panel(31, 63, 31, 16, false)
+      self:panel(64, 63, 18, 16, false)
+      box("fill", 17, 70, 6, 2, colors.green)
+      self:partyType(zoom .. "/3", 31, 65, colors.green, 31)
+      box("fill", 70, 70, 6, 2, colors.green)
+      box("fill", 72, 68, 2, 6, colors.green)
+    end
     self:panel(7, 32, 226, 23, false)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
       64), 13, 38, colors.ink, 64, "center")
@@ -751,8 +767,10 @@ return function(ui)
       image = model.image, player = model.player, markers = model.markers,
       selected = model.selectedMarker, drawPlayer = model.drawPlayer,
       drawTrainer = model.drawTrainer, full = model.mapFull,
+      zoom = model.mapZoom,
     })
     mapToggle(7, 59, mapW, model.mapFull)
+    if model.mapFull then zoomControls(model.mapZoom or 1) end
     if model.mapFull then return end
 
     local function chip(x, y, width, label, active, arrow)
@@ -965,9 +983,14 @@ return function(ui)
       or selected and 103 or 84
     if x >= 7 + mapW - 31 and x < 7 + mapW - 6
         and y >= 63 and y < 79 then return "map_toggle" end
+    if model.mapFull and y >= 63 and y < 79 then
+      if x >= 11 and x < 29 then return "zoom_out" end
+      if x >= 64 and x < 82 then return "zoom_in" end
+    end
     local marker = self:mapMarkerAt(x, y, model.overview,
       { x = 7, y = 59, w = mapW, h = mapH }, {
         player = model.player, markers = model.markers, full = model.mapFull,
+        zoom = model.mapZoom,
       })
     if marker then return "marker", marker end
     if model.mapFull then return nil end
