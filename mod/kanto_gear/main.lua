@@ -3659,7 +3659,7 @@ return function(mod)
       wildCount = #wild, itemCount = #allItems,
       trainerCount = #allTrainers,
       caughtText = THEME:format("%d/%d", caught, #(guide.rows or {})),
-      itemsText = progress(sections[2].rows),
+      itemsText = progress(allItems),
       hiddenText = progress(sections[3].rows),
       period = filters.wildTime, method = filters.wildMethod,
       trainerIcon = allTrainers[1],
