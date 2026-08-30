@@ -751,7 +751,7 @@ function Area.gen2Rows(data, save, world, mapIds)
           label = gen2TrainerName(data, save, obj.trainer),
           done = gen2FlagSet(world, obj.trainer.event),
           id = string.format("%s_obj_%d", mapId, obj.index or 0),
-          mapId = mapId, x = obj.x, y = obj.y,
+          mapId = mapId, index = obj.index or 0, x = obj.x, y = obj.y,
           spriteId = obj.sprite, palette = obj.palette,
         }
       elseif obj.itemball and obj.itemball.item ~= 0 then
@@ -2604,7 +2604,8 @@ return function(mod)
           end
           sections[1].rows[#sections[1].rows + 1] = {
             label = label, done = done, status = status,
-            id = key, mapId = id, x = obj.x, y = obj.y,
+            id = key, mapId = id, index = obj.index,
+            x = obj.x, y = obj.y,
             spriteId = obj.sprite,
           }
         elseif obj.item and obj.item ~= "0" and obj.item ~= 0 then
@@ -3406,6 +3407,12 @@ return function(mod)
         row.actor = actor
         row.x, row.y, row.facing = actor.x, actor.y, actor.facing
         row.spriteId, row.palette = actor.spriteId, actor.palette
+      elseif mod.world and mod.world.npc and row.index ~= nil then
+        local handle = mod.world:npc(row.mapId, row.index)
+        if handle and type(handle.position) == "function" then
+          local x, y = handle:position()
+          if x ~= nil and y ~= nil then row.x, row.y = x, y end
+        end
       end
       row.key = "trainer:" .. tostring(row.id or row.label)
     end
