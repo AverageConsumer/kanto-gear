@@ -880,7 +880,7 @@ return function(ui)
       end
       self:partyType(self:fitPartyType(translate(status), 60),
         x + 6, 195, colors.green, 60)
-      self:detailChevron(x + 65, 174, colors.ink)
+      self:detailChevron(x + 65, 179, colors.ink)
     end
     if #layers == 0 then
       self:partyInfo(self:fitPartyInfo(translate("ASSISTS OFF"), 214),

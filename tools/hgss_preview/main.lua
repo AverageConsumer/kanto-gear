@@ -895,7 +895,7 @@ function love.load()
       end
       theme:partyType(theme:fitPartyType(translate(layer[4]), 60),
         x + 6, 195, colors.green, 60)
-      theme:detailChevron(x + 65, 174, colors.ink)
+      theme:detailChevron(x + 65, 179, colors.ink)
     end
   end
   local function battleMon()
