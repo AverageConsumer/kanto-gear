@@ -525,12 +525,16 @@ return function(ui)
   end
 
   local function mapTileSize(baseWidth, baseHeight, innerW, innerH, opts)
-    if not opts.full then return 6 end
+    if not opts.full then
+      return math.max(8, math.ceil(math.max(
+        innerW / baseWidth, innerH / baseHeight)))
+    end
     local fit = math.min(innerW / baseWidth, innerH / baseHeight)
     local zoom = math.max(1, math.min(3, tonumber(opts.zoom) or 1))
     return math.max(1, math.floor(fit)) * zoom
   end
-  assert(mapTileSize(42, 18, 222, 87, {}) == 6
+  assert(mapTileSize(42, 18, 222, 87, {}) == 8
+      and mapTileSize(10, 8, 222, 87, {}) == 23
       and mapTileSize(42, 18, 222, 147, { full = true }) == 5
       and mapTileSize(42, 18, 222, 147, { full = true, zoom = 3 }) == 15,
     "Explorer normal and fullscreen zoom scales stay independent")
