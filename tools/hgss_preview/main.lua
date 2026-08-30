@@ -189,7 +189,7 @@ function love.load()
     "party touch hitboxes follow the 240x216 card positions")
   if screen:sub(1, 8) == "explorer" then
     local typeLabels = {
-      { "HERE NOW", 66 }, { "ELSEWHERE", 68 }, { "OTHER", 50 },
+      { "HERE NOW", 66 }, { "WHOLE ROUTE", 68 }, { "HABITAT", 50 },
       { "FOUND", 74 },
       { "BEATEN", 74 }, { "NEED FINDER", 63 },
       { "TAP TO SCAN AGAIN", 200 },
@@ -384,6 +384,13 @@ function love.load()
       portraitX + (size - sprite.width * scale) / 2,
       portraitY + (size - sprite.height * scale) / 2, 0, scale, scale)
   end
+  local galleryGray = love.graphics.newShader([[
+    vec4 effect(vec4 color, Image texture, vec2 uv, vec2 px) {
+      vec4 source = Texel(texture, uv) * color;
+      float gray = dot(source.rgb, vec3(0.299, 0.587, 0.114));
+      return vec4(vec3(gray * 0.72), source.a);
+    }
+  ]])
   local function drawMon(slot, x, y, selected, details, focused)
     theme:partyCard(party[slot], x, y, selected, details,
       function(_, portraitX, portraitY, size, fainted)
@@ -575,31 +582,36 @@ function love.load()
     if os.getenv("KANTO_GEAR_PREVIEW_CONNECTED") == "1" then
       local view = (explorerLayer or explorerDetail) and "wild"
         or itemMap and "items" or trainerMap and "trainers" or nil
-      local wildScope = os.getenv("KANTO_GEAR_PREVIEW_WILD_SCOPE") == "OTHER"
-        and "OTHER" or "HERE"
+      local wildScope = os.getenv("KANTO_GEAR_PREVIEW_WILD_SCOPE") == "ROUTE"
+        and "ROUTE" or "HERE"
       local wildRows, itemRows, trainerRows = {}, {}, {}
       for index, encounter in ipairs(data.encounters) do
-        local appearance = { section = wildScope == "OTHER"
-            and (index % 2 == 0 and "POND" or "NORTH FIELD") or data.subarea,
-          time = wildScope == "OTHER" and (index % 2 == 0 and "NITE" or nil)
-            or not gen1 and data.period or nil,
+        local appearance = { section = data.subarea,
+          time = not gen1 and data.period or nil,
           method = "WALK", chance = tonumber(encounter[2]:match("%d+")),
           minLevel = tonumber(encounter[3]:match("%d+")),
           maxLevel = tonumber(encounter[3]:match("%d+%-(%d+)"))
-            or tonumber(encounter[3]:match("%d+")) }
+            or tonumber(encounter[3]:match("%d+")), current = index <= 4 }
+        local alternate = { section = index % 2 == 0 and "POND"
+            or "NORTH FIELD", time = not gen1 and "NITE" or nil,
+          method = index % 2 == 0 and "GOOD" or "WALK",
+          chance = math.max(5, appearance.chance - 5),
+          minLevel = appearance.minLevel + 2,
+          maxLevel = appearance.maxLevel + 2, current = false }
+        local matches = { appearance, alternate }
+        if index == 1 then
+          matches[3] = { section = "SOUTH FIELD", time = not gen1 and "MORN"
+              or nil, method = "SURF", chance = 10,
+            minLevel = 15, maxLevel = 17, current = false }
+        end
         wildRows[index] = {
           name = encounter[1], species = species[math.min(index + 2, #species)],
           chance = encounter[2], levels = encounter[3],
           type = encounter[4], type2 = encounter[4],
           typeLabel = encounter[5], type2Label = encounter[5],
           caught = encounter[6], method = "WALK", period = data.period,
-          matches = { appearance }, detailPages = 1,
-          condition = wildScope == "OTHER"
-            and translate(appearance.section) .. (appearance.time
-              and " · " .. translate(appearance.time) or "") .. " · "
-                .. translate(appearance.method)
-            or (appearance.time and translate(appearance.time) .. " · " or "")
-              .. translate(appearance.method),
+          matches = matches, detailPages = math.ceil(#matches / 2),
+          previewSlot = math.min(index, #sprites),
         }
       end
       for index, item in ipairs(items) do
@@ -651,7 +663,10 @@ function love.load()
       local sourceRows = view == "wild" and wildRows
         or view == "items" and itemRows
         or view == "trainers" and trainerRows or {}
-      local rows, perPage = {}, view == "wild" and 4 or 2
+      if view == "wild" and wildScope == "HERE" then
+        sourceRows = { wildRows[1], wildRows[2], wildRows[3], wildRows[4] }
+      end
+      local rows, perPage = {}, view == "wild" and 8 or 2
       for index = 1, math.min(#sourceRows, perPage) do
         rows[#rows + 1] = sourceRows[index]
       end
@@ -668,7 +683,8 @@ function love.load()
         selectedMarker = selected and markers and markers[1] or nil,
         filters = { wildScope = wildScope, items = "ALL", trainers = "ALL" },
         detailPage = 1,
-        detailRows = selected and selected.matches or {}, detailPages = 1,
+        detailRows = selected and { selected.matches[1], selected.matches[2] }
+          or {}, detailPages = selected and selected.detailPages or 1,
         enhanced = os.getenv("KANTO_GEAR_PREVIEW_ENHANCED") == "1",
         canScan = os.getenv("KANTO_GEAR_PREVIEW_NO_FINDER") ~= "1",
         needsItemfinder = os.getenv("KANTO_GEAR_PREVIEW_NO_FINDER") == "1",
@@ -694,9 +710,10 @@ function love.load()
         drawActor = function(row, x, y, scale, feet)
           drawOverworld(row.sprite, x, y, scale, colors.redLight, not feet)
         end,
-        drawPokemon = function(row, x, y, size)
-          local slot = row == wildRows[1] and 3 or 4
-          drawPortrait(slot, x, y, size, false)
+        drawPokemon = function(row, x, y, size, uncaught)
+          if uncaught then love.graphics.setShader(galleryGray) end
+          drawPortrait(row.previewSlot, x, y, size, false)
+          if uncaught then love.graphics.setShader() end
         end,
       }
       theme:explorer(explorerModel)
@@ -741,13 +758,14 @@ function love.load()
         assert(theme:explorerHit(50 * sx, 110 * sx, explorerModel)
             == "wild_here"
           and theme:explorerHit(125 * sx, 110 * sx, explorerModel)
-            == "wild_other"
+            == "wild_route"
           and theme:explorerHit(50 * sx, 135 * sx, explorerModel) == "row"
-          and theme:explorerHit(210 * sx, 110 * sx, explorerModel) == "next",
-          "Explorer Wild scope tabs and rows are interactive")
+          and theme:explorerHit(210 * sx, 110 * sx, explorerModel) == nil,
+          "Explorer Wild scope tabs and sprite gallery are interactive")
       elseif view == "wild" then
-        assert(theme:explorerHit(210 * sx, 122 * sx, explorerModel) == nil,
-          "exact Explorer encounters need no misleading detail pager")
+        assert(theme:explorerHit(210 * sx, 122 * sx, explorerModel)
+            == "detail_next",
+          "habitat details expose every exact encounter condition")
       elseif view == "items" and not selected then
         local scan = theme:explorerHit(132 * sx, 155 * sx, explorerModel)
         assert(theme:explorerHit(45 * sx, 155 * sx, explorerModel)

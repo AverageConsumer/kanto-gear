@@ -805,8 +805,11 @@ return function(ui)
       self:partyInfo(self:fitPartyInfo(translate(selected.caught and "CAUGHT"
         or "NOT CAUGHT"), 100), 58, 130, colors.green)
       self:typeBadges(selected, 58, 144, false)
-      chip(166, 114, 58, model.wildScope == "OTHER" and "OTHER"
-        or "HERE", true)
+      if model.detailPages > 1 then
+        pager(166, 114, 58, model.detailPage, model.detailPages)
+      else
+        chip(166, 114, 58, "HABITAT", true)
+      end
       local detailRows = model.detailRows or {}
       local function levels(appearance)
         return appearance.minLevel == appearance.maxLevel
@@ -817,8 +820,15 @@ return function(ui)
       if #detailRows == 1 then
         local appearance = detailRows[1]
         self:panel(12, 158, 216, 45, false)
+        if appearance.current then
+          box("fill", 14, 160, 212, 41, colors.bandLight)
+        end
         self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
-          202), 19, 162, colors.ink)
+          appearance.current and 132 or 202), 19, 162, colors.ink)
+        if appearance.current then
+          self:partyType(translate("HERE NOW"), 154, 163,
+            colors.green, 66)
+        end
         local stats = {
           { translate("TIME"), translate(appearance.time or "ANY TIME") },
           { translate("METHOD"), translate(appearance.method or "--") },
@@ -836,10 +846,17 @@ return function(ui)
         for index, appearance in ipairs(detailRows) do
           local y = 157 + (index - 1) * 25
           self:panel(12, y, 216, 24, false)
+          if appearance.current then
+            box("fill", 14, y + 2, 212, 20, colors.bandLight)
+          end
           self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
-            118), 17, y + 3, colors.ink)
-          local detail = translate(appearance.time or "ALL") .. " "
-            .. translate(tostring(appearance.method or "--")) .. " "
+            appearance.current and 105 or 140), 17, y + 3, colors.ink)
+          if appearance.current then
+            self:partyType(translate("HERE NOW"), 125, y + 3,
+              colors.green, 68)
+          end
+          local detail = translate(appearance.time or "ANY TIME") .. " "
+            .. "· " .. translate(tostring(appearance.method or "--")) .. " · "
             .. tostring(appearance.chance or "--") .. "%"
           self:partyType(self:fitPartyType(detail, 116), 17, y + 14,
             colors.green, 116)
@@ -879,24 +896,29 @@ return function(ui)
 
     if view == "wild" then
       self:panel(7, 100, 226, 20, false)
-      chip(12, 102, 74, "HERE NOW", model.wildScope ~= "OTHER")
-      chip(89, 102, 76, "ELSEWHERE", model.wildScope == "OTHER")
-      pager(168, 102, 58, model.page, model.pages)
+      chip(12, 102, 74, "HERE NOW", model.wildScope ~= "ROUTE")
+      chip(89, 102, 76, "WHOLE ROUTE", model.wildScope == "ROUTE")
+      if model.pages > 1 then
+        pager(168, 102, 58, model.page, model.pages)
+      else
+        chip(168, 102, 58, tostring(model.total) .. " PKMN", false)
+      end
+      local baseY = #model.rows <= 4 and 147 or 124
       for index, row in ipairs(model.rows) do
-        local x, y = 7, 123 + (index - 1) * 22
-        self:panel(x, y, 226, 20, false)
-        self:partyInfo(self:fitPartyInfo(row.name, 112), x + 5, y + 2,
-          colors.ink)
-        if row.caught then self:battleTeamBall(x + 119, y + 6, true) end
-        self:partyInfo(self:fitPartyInfo(row.chance .. "  " .. row.levels, 76),
-          x + 138, y + 2, colors.ink, 76, "center")
-        self:partyType(self:fitPartyType(row.condition, 202),
-          x + 5, y + 10, colors.green, 202)
-        self:detailChevron(x + 216, y + 13, colors.ink)
+        local column, line = (index - 1) % 4, math.floor((index - 1) / 4)
+        local lineCount = math.min(4, #model.rows - line * 4)
+        local groupWidth = lineCount * 56 - 22
+        local x = math.floor((240 - groupWidth) / 2) + column * 56
+        local y = baseY + line * 44
+        local uncaught = not row.caught
+        self:partyPortrait(x, y, false, uncaught)
+        if model.drawPokemon then
+          model.drawPokemon(row, x + 1, y + 4, 32, uncaught)
+        end
       end
       if #model.rows == 0 then
-        self:partyInfo(translate(model.wildScope == "OTHER"
-          and "NO OTHER ENCOUNTERS" or "NOTHING HERE NOW"), 7, 160,
+        self:partyInfo(translate(model.wildScope == "ROUTE"
+          and "NO WILD ENCOUNTERS" or "NOTHING HERE NOW"), 7, 160,
           colors.green, 226, "center")
       end
       return
@@ -1017,14 +1039,23 @@ return function(ui)
     if model.view == "wild" then
       if y >= 102 and y < 118 then
         if x >= 12 and x < 86 then return "wild_here" end
-        if x >= 89 and x < 165 then return "wild_other" end
+        if x >= 89 and x < 165 then return "wild_route" end
         if x >= 168 and x < 226 and model.pages > 1 then
           return x < 197 and "prev" or "next"
         end
       end
-      if x < 7 or x >= 233 or y < 123 or y >= 211 then return nil end
-      local slot = math.floor((y - 123) / 22) + 1
-      return model.rows[slot] and "row", slot
+      if y < 123 or y >= 210 then return nil end
+      local line = #model.rows > 4 and y >= 166 and 1 or 0
+      local lineCount = math.min(4, #model.rows - line * 4)
+      local groupWidth = lineCount * 56 - 22
+      local left = math.floor((240 - groupWidth) / 2)
+      for column = 0, lineCount - 1 do
+        local portraitX = left + column * 56
+        if x >= portraitX - 11 and x < portraitX + 45 then
+          return "row", line * 4 + column + 1
+        end
+      end
+      return nil
     end
     if y >= 147 and y < 163 then
       local scanSlot = model.view == "items" and not model.enhanced

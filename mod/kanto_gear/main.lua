@@ -3424,46 +3424,30 @@ return function(mod)
     "Explorer filters cycle in both directions")
 
   function displayRuntime.explorerWildRows(guide, currentMapId, scope)
-    local out, hereOnly = {}, scope ~= "OTHER"
+    local out, hereOnly = {}, scope ~= "ROUTE"
     for _, species in ipairs(guide.rows or {}) do
-      local availableHere = false
+      local matches, availableHere = {}, false
       for _, appearance in ipairs(species.appearances or {}) do
-        if appearance.mapId == currentMapId and (not appearance.time
-            or appearance.time == guide.time) then
-          availableHere = true
-          break
-        end
-      end
-      for appearanceIndex, appearance in ipairs(species.appearances or {}) do
         local sameArea = appearance.mapId == currentMapId
         local currentTime = not appearance.time
           or appearance.time == guide.time
-        if (hereOnly and sameArea and currentTime)
-            or (not hereOnly and not availableHere) then
-          local row = {
-            species = species.species, name = species.name,
-            caught = species.caught, types = species.types,
-            matches = { appearance },
-            chance = THEME:format("%d%%", appearance.chance),
-            levels = appearance.minLevel == appearance.maxLevel
-              and THEME:format("L%d", appearance.minLevel)
-              or THEME:format("L%d-%d", appearance.minLevel,
-                appearance.maxLevel),
-            detailPages = 1,
-          }
-          local conditions = {}
-          if not sameArea then
-            conditions[#conditions + 1] = appearance.section or "OTHER AREA"
-          end
-          if appearance.time then
-            conditions[#conditions + 1] = appearance.time
-          end
-          conditions[#conditions + 1] = appearance.method
-          row.conditions = conditions
-          row.key = table.concat({ "wild", scope, tostring(species.species),
-            tostring(appearanceIndex) }, ":")
-          out[#out + 1] = row
-        end
+        local current = sameArea and currentTime
+        availableHere = availableHere or current
+        matches[#matches + 1] = {
+          method = appearance.method, chance = appearance.chance,
+          time = appearance.time, mapId = appearance.mapId,
+          section = appearance.section, minLevel = appearance.minLevel,
+          maxLevel = appearance.maxLevel, current = current,
+        }
+      end
+      if #matches > 0 and (availableHere or not hereOnly) then
+        out[#out + 1] = {
+          species = species.species, name = species.name,
+          caught = species.caught, types = species.types,
+          matches = matches,
+          detailPages = math.max(1, math.ceil(#matches / 2)),
+          key = table.concat({ "wild", scope, tostring(species.species) }, ":"),
+        }
       end
     end
     return out
@@ -3482,12 +3466,12 @@ return function(mod)
           method = "WALK", chance = 30, minLevel = 15, maxLevel = 15 },
       } } } }
     local here = displayRuntime.explorerWildRows(fixture, 1, "HERE")
-    local other = displayRuntime.explorerWildRows(fixture, 1, "OTHER")
-    assert(#here == 2 and here[1].chance == "85%"
-        and here[2].chance == "35%" and #other == 1
-        and other[1].name == "HOOTHOOT"
-        and other[1].conditions[1] == "NORTH FIELD",
-      "Explorer encounters keep exact area, time, method, and odds")
+    local route = displayRuntime.explorerWildRows(fixture, 1, "ROUTE")
+    assert(#here == 1 and here[1].name == "MAGIKARP"
+        and #here[1].matches == 3 and here[1].matches[1].current
+        and not here[1].matches[3].current and #route == 2
+        and route[2].name == "HOOTHOOT",
+      "Explorer gallery groups species and retains exact habitat details")
   end
 
   function displayRuntime.explorerModel(overview)
@@ -3523,7 +3507,7 @@ return function(mod)
       end
       return options[1]
     end
-    filters.wildScope = filters.wildScope == "OTHER" and "OTHER" or "HERE"
+    filters.wildScope = filters.wildScope == "ROUTE" and "ROUTE" or "HERE"
     wild = displayRuntime.explorerWildRows(guide, id, filters.wildScope)
 
     local itemOptions = { "ALL", "OPEN", "FOUND", "HIDDEN" }
@@ -3586,17 +3570,12 @@ return function(mod)
       row.type, row.type2 = type1, type2
       row.typeLabel = THEME:typeName(type1, mod.content)
       row.type2Label = THEME:typeName(type2, mod.content)
-      local labels = {}
-      for _, condition in ipairs(row.conditions) do
-        labels[#labels + 1] = THEME:translate(condition)
-      end
-      row.condition = table.concat(labels, " · ")
     end
 
     local source = explorer.view == "wild" and wild
       or explorer.view == "items" and items
       or explorer.view == "trainers" and trainers or {}
-    local perPage = explorer.view == "wild" and 4 or 2
+    local perPage = explorer.view == "wild" and 8 or 2
     local pages = math.max(1, math.ceil(#source / perPage))
     explorer.page = math.max(1, math.min(explorer.page, pages))
     local first, rows = (explorer.page - 1) * perPage + 1, {}
@@ -3702,8 +3681,9 @@ return function(mod)
       drawActor = function(row, x, y, scale, feet)
         compat.drawMapActor(row.actor or row, x, y, scale, feet)
       end,
-      drawPokemon = function(row, x, y, size)
-        drawSprite(row.species, "front", x, y, size, size)
+      drawPokemon = function(row, x, y, size, uncaught)
+        drawSprite(row.species, "front", x, y, size, size,
+          uncaught and { 0.52, 0.52, 0.52, 1 } or nil)
       end,
     }
   end
@@ -7260,8 +7240,8 @@ return function(mod)
         displayRuntime.explorer.detailPage =
           ((displayRuntime.explorer.detailPage - 1 + direction)
             % model.detailPages) + 1
-      elseif action == "wild_here" or action == "wild_other" then
-        model.filters.wildScope = action == "wild_here" and "HERE" or "OTHER"
+      elseif action == "wild_here" or action == "wild_route" then
+        model.filters.wildScope = action == "wild_here" and "HERE" or "ROUTE"
         displayRuntime.explorer.page, displayRuntime.explorer.selected = 1, nil
       elseif action == "filter_status" then
         local key = model.view == "items" and "items" or "trainers"
@@ -7387,10 +7367,11 @@ return function(mod)
   displayRuntime.explorerSwipeTarget = function(view, selected, y)
     if not view then return end
     if selected then return y >= 107 and "detail" or nil end
-    return y >= (view == "wild" and 123 or 166) and "page" or nil
+    if view == "wild" then return y >= 100 and "scope" or nil end
+    return y >= 166 and "page" or nil
   end
-  assert(displayRuntime.explorerSwipeTarget("wild", false, 123) == "page"
-      and not displayRuntime.explorerSwipeTarget("wild", false, 122)
+  assert(displayRuntime.explorerSwipeTarget("wild", false, 123) == "scope"
+      and not displayRuntime.explorerSwipeTarget("wild", false, 99)
       and displayRuntime.explorerSwipeTarget("items", false, 166) == "page"
       and displayRuntime.explorerSwipeTarget("wild", true, 107) == "detail",
     "Explorer horizontal swipe regions")
@@ -7408,7 +7389,11 @@ return function(mod)
       local target = displayRuntime.explorerSwipeTarget(model.view,
         model.selected, (down.y or 0) * 1.5)
       local direction = dx < 0 and 1 or -1
-      if target == "page" and model.pages > 1 then
+      if target == "scope" then
+        model.filters.wildScope = direction > 0 and "ROUTE" or "HERE"
+        displayRuntime.explorer.page, displayRuntime.explorer.selected = 1, nil
+        dirty = true
+      elseif target == "page" and model.pages > 1 then
         displayRuntime.explorer.page = ((displayRuntime.explorer.page - 1
           + direction) % model.pages) + 1
         displayRuntime.explorer.selected = nil
