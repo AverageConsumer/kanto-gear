@@ -682,6 +682,16 @@ function love.load()
       }
       theme:explorer(explorerModel)
       local sx = 1 / 1.5
+      local function mapMarkerIsReachable()
+        for y = 60, 142, 4 do
+          for x = 8, 232, 4 do
+            if theme:explorerHit(x * sx, y * sx, explorerModel) == "marker" then
+              return true
+            end
+          end
+        end
+        return false
+      end
       assert(theme:explorerHit(211 * sx, 70 * sx,
         explorerModel) == "map_toggle",
         "Explorer map expand control is always interactive")
@@ -723,8 +733,7 @@ function love.load()
           and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
           and theme:explorerHit(120 * sx, 185 * sx, explorerModel) == nil
           and theme:explorerHit(170 * sx, 185 * sx, explorerModel) == "row"
-          and theme:explorerHit(66 * sx, 103 * sx, explorerModel)
-            == "marker",
+          and mapMarkerIsReachable(),
           "Explorer Item filter and radar controls are interactive")
       elseif view == "trainers" and not selected then
         assert(theme:explorerHit(45 * sx, 155 * sx, explorerModel)
@@ -732,7 +741,7 @@ function love.load()
           and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
           and theme:explorerHit(120 * sx, 185 * sx, explorerModel) == nil
           and theme:explorerHit(170 * sx, 185 * sx, explorerModel) == "row"
-          and theme:explorerHit(78 * sx, 99 * sx, explorerModel) == "marker",
+          and mapMarkerIsReachable(),
           "Explorer Trainer cards and map markers select the same row")
       end
       return

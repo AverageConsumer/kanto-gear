@@ -617,19 +617,36 @@ return function(ui)
         elseif marker.kind == "hidden" then
           local tint = marker.found and colors.silverDark or colors.blueLight
           local shine = marker.found and colors.silver or colors.white
-          box("fill", anchorX - 1, anchorY - 8, 3, 7, tint)
-          box("fill", anchorX - 4, anchorY - 6, 9, 3, tint)
-          box("fill", anchorX - 1, anchorY - 6, 3, 3, shine)
-          box("fill", anchorX, anchorY - 1, 1, 2, colors.outline)
+          local unit = math.max(1, math.floor(tileSize / 8))
+          box("fill", anchorX - unit, anchorY - 3 * unit,
+            3 * unit, 7 * unit, tint)
+          box("fill", anchorX - 4 * unit, anchorY - unit,
+            9 * unit, 3 * unit, tint)
+          box("fill", anchorX - unit, anchorY - unit,
+            3 * unit, 3 * unit, shine)
         elseif marker.kind == "item" then
           local tint = marker.found and colors.silverDark or colors.redLight
           local shine = marker.found and colors.silver or colors.white
-          box("fill", anchorX - 2, anchorY - 8, 5, 1, colors.outline)
-          box("fill", anchorX - 3, anchorY - 7, 7, 5, colors.outline)
-          box("fill", anchorX - 2, anchorY - 6, 5, 2, tint)
-          box("fill", anchorX - 2, anchorY - 3, 5, 1, shine)
-          box("fill", anchorX, anchorY - 4, 1, 2, colors.outline)
-          box("fill", anchorX, anchorY, 1, 1, colors.outline)
+          local unit = math.max(1, math.floor(tileSize / 8))
+          local ballX = anchorX - math.floor(7 * unit / 2)
+          local ballY = my + tileSize - 7 * unit
+          box("fill", ballX + 2 * unit, ballY, 3 * unit, unit,
+            colors.outline)
+          box("fill", ballX + unit, ballY + unit, 5 * unit, unit,
+            colors.outline)
+          box("fill", ballX, ballY + 2 * unit, 7 * unit, 3 * unit,
+            colors.outline)
+          box("fill", ballX + unit, ballY + 5 * unit, 5 * unit, unit,
+            colors.outline)
+          box("fill", ballX + 2 * unit, ballY + 6 * unit, 3 * unit, unit,
+            colors.outline)
+          box("fill", ballX + 2 * unit, ballY + unit, 3 * unit, unit, tint)
+          box("fill", ballX + unit, ballY + 2 * unit, 5 * unit, unit, tint)
+          box("fill", ballX + unit, ballY + 4 * unit, 5 * unit, unit, shine)
+          box("fill", ballX + 2 * unit, ballY + 5 * unit, 3 * unit, unit,
+            shine)
+          box("fill", ballX + 3 * unit, ballY + 3 * unit, unit, unit,
+            shine)
         elseif marker.kind == "warp" then
           box("fill", mx, my, tileSize, tileSize, colors.outline)
           local inset = math.max(1, math.floor(tileSize / 4))
