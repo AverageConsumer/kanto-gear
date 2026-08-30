@@ -1732,7 +1732,7 @@ return function(mod)
     return mode == "gear" or mode == "full"
   end
   local displayRuntime = { explorer = {
-    page = 1, zoom = 1,
+    page = 1, mapFull = false,
     filters = { wildTime = "NOW", wildMethod = "ALL",
       items = "ALL", trainers = "ALL" },
   } }
@@ -2178,7 +2178,8 @@ return function(mod)
     if localMapImage and localMapImage.release then localMapImage:release() end
     localMap, localMapImage = nil, nil
     displayRuntime.explorer.selected, displayRuntime.explorer.page,
-      displayRuntime.explorer.data = nil, 1, nil
+      displayRuntime.explorer.data, displayRuntime.explorer.mapFull =
+      nil, 1, nil, false
   end
 
   local function hasDisplay()
@@ -3647,7 +3648,7 @@ return function(mod)
       image = loadLocalMapImage(overview, rows_, width, height, density),
       player = pos and pos.mapId == overview.mapId and pos,
       markers = markers, selectedMarker = selectedMarker,
-      zoom = explorer.zoom or 1,
+      mapFull = explorer.mapFull == true,
       filters = filters, timeOptions = timeOptions,
       methodOptions = methodOptions, itemOptions = itemOptions,
       trainerOptions = trainerOptions,
@@ -3708,7 +3709,8 @@ return function(mod)
     local overview = loadLocalMap()
     if THEME.style == "hgss" then
       header(THEME:translate("EXPLORER"),
-        displayRuntime.explorer.view ~= nil, false)
+        displayRuntime.explorer.view ~= nil
+          or displayRuntime.explorer.mapFull, false)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       if not overview then
@@ -6834,9 +6836,11 @@ return function(mod)
       return
     end
     if page == "LOCAL" and THEME.style == "hgss"
-        and displayRuntime.explorer.view then
+        and (displayRuntime.explorer.view
+          or displayRuntime.explorer.mapFull) then
       local explorer = displayRuntime.explorer
-      if explorer.selected then
+      if explorer.mapFull then explorer.mapFull = false
+      elseif explorer.selected then
         explorer.selected, explorer.detailPage = nil, 1
       else explorer.view, explorer.page = nil, 1 end
       dirty = true
@@ -7211,8 +7215,8 @@ return function(mod)
         displayRuntime.explorer.view = action
         displayRuntime.explorer.selected, displayRuntime.explorer.page,
           displayRuntime.explorer.detailPage = nil, 1, 1
-      elseif action == "zoom" then
-        displayRuntime.explorer.zoom = displayRuntime.explorer.zoom % 3 + 1
+      elseif action == "map_toggle" then
+        displayRuntime.explorer.mapFull = not displayRuntime.explorer.mapFull
       elseif action == "next" or action == "prev" then
         local direction = action == "next" and 1 or -1
         displayRuntime.explorer.page = ((displayRuntime.explorer.page - 1
@@ -7244,6 +7248,7 @@ return function(mod)
           and model.markers[slot].source then
         displayRuntime.explorer.selected = model.markers[slot].source.key
         displayRuntime.explorer.detailPage = 1
+        displayRuntime.explorer.mapFull = false
       elseif action == "row" and model.rows[slot] then
         displayRuntime.explorer.selected = model.rows[slot].key
         displayRuntime.explorer.detailPage = 1
@@ -7360,7 +7365,8 @@ return function(mod)
 
   local function swipe(dx, down)
     if page ~= "LOCAL" or THEME.style ~= "hgss"
-        or not displayRuntime.explorer.view then
+        or (not displayRuntime.explorer.view
+          and not displayRuntime.explorer.mapFull) then
       changePage(dx < 0 and 1 or -1)
       return
     end
@@ -7387,7 +7393,8 @@ return function(mod)
   local function swipeVertical(dy)
     if radarOpen then return end
     if page == "LOCAL" and THEME.style == "hgss"
-        and displayRuntime.explorer.view then return end
+        and (displayRuntime.explorer.view
+          or displayRuntime.explorer.mapFull) then return end
     if page == "TOOLS" and #tools > 6 then
       local pages = math.ceil(#tools / 6)
       local direction = dy < 0 and 1 or -1
@@ -8208,7 +8215,7 @@ return function(mod)
          tostring(displayRuntime.explorer.selected),
          tostring(displayRuntime.explorer.page),
          tostring(displayRuntime.explorer.detailPage),
-         tostring(displayRuntime.explorer.zoom),
+         tostring(displayRuntime.explorer.mapFull),
          tostring(displayRuntime.explorer.filters.wildTime),
          tostring(displayRuntime.explorer.filters.wildMethod),
          tostring(displayRuntime.explorer.filters.items),

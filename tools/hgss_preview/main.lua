@@ -287,6 +287,7 @@ function love.load()
   local battleBag = screen == "battle_bag"
   local battleBagTransition = screen == "battle_bag_transition"
   local explorerOverview = screen == "explorer"
+  local explorerMap = screen == "explorer_map"
   local explorerLayer = screen == "explorer_layer"
   local explorerDetail = screen == "explorer_detail"
   local explorerItems = screen == "explorer_items"
@@ -294,7 +295,8 @@ function love.load()
   local explorerTrainers = screen == "explorer_trainers"
   local explorerTrainerDetail = screen == "explorer_trainer_detail"
   local explorerRadar = screen == "explorer_radar"
-  local explorer = explorerOverview or explorerLayer or explorerDetail
+  local explorer = explorerOverview or explorerMap or explorerLayer
+    or explorerDetail
     or explorerItems or explorerItemDetail
     or explorerTrainers or explorerTrainerDetail or explorerRadar
   local partySwap = screen == "party_swap"
@@ -630,7 +632,7 @@ function love.load()
         route = data.route, region = data.region, overview = overview,
         player = { x = 20, y = 8, facing = "down" }, markers = markers,
         selectedMarker = selected and markers and markers[1] or nil,
-        zoom = 1, filters = { items = "ALL", trainers = "ALL" },
+        filters = { items = "ALL", trainers = "ALL" },
         detailPage = 1,
         detailRows = selected and selected.matches or {}, detailPages = 1,
         enhanced = os.getenv("KANTO_GEAR_PREVIEW_ENHANCED") == "1",
@@ -644,6 +646,7 @@ function love.load()
         },
         caughtText = data.caught,
         itemsText = data.items, trainersText = data.beaten,
+        mapFull = explorerMap,
         period = data.period, method = "ALL", trainerIcon = trainerRows[1],
         drawPlayer = function(_, x, y)
           drawOverworld("player", x, y, 0.75, colors.redLight)
@@ -662,7 +665,9 @@ function love.load()
       theme:explorer(explorerModel)
       local sx = 1 / 1.5
       assert(theme:explorerHit(211 * sx, 70 * sx,
-        explorerModel) == "zoom", "Explorer map zoom is always interactive")
+        explorerModel) == "map_toggle",
+        "Explorer map expand control is always interactive")
+      if explorerMap then return end
       if not view then
         assert(theme:explorerHit(43 * sx, 180 * sx, explorerModel) == "wild",
           "Explorer overview opens the Wild layer")
@@ -715,7 +720,6 @@ function love.load()
       player = { x = 20, y = 8, facing = "down" },
       markers = markers,
       selected = (explorerItemDetail or explorerTrainerDetail) and 1 or nil,
-      zoom = 1,
       drawPlayer = function(_, x, y)
         drawOverworld("player", x, y, 0.75, colors.redLight)
       end,

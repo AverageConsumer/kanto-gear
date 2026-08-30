@@ -532,7 +532,14 @@ return function(ui)
     local innerX, innerY, innerW, innerH = x + 2, y + 2, w - 4, h - 4
     local fitScale = math.min(innerW / width, innerH / height)
     local scale = fitScale >= 1 and math.min(3, math.floor(fitScale)) or 1
-    scale = scale * math.max(1, tonumber(opts.zoom) or 1)
+    if opts.full then
+      local baseWidth = math.max(1, tonumber(overview.width) or width / density)
+      local baseHeight = math.max(1,
+        tonumber(overview.height) or height / density)
+      local tileSize = math.max(1,
+        math.floor(math.min(innerW / baseWidth, innerH / baseHeight)))
+      scale = tileSize / density
+    end
     local focus = opts.player or {}
     local focusX = (tonumber(focus.x) or (overview.width or 1) / 2) * density
       + density / 2
@@ -567,6 +574,8 @@ return function(ui)
     local focus = opts.player or {}
 
     G.setScissor(innerX, innerY, innerW, innerH)
+    box("fill", innerX, innerY, innerW, innerH,
+      self:mapColor(overview, 1, 1, density, 1))
     if opts.image then
       color({ 1, 1, 1, 1 })
       G.draw(opts.image, left, top, 0, scale, scale)
@@ -664,6 +673,32 @@ return function(ui)
 
   function H:explorer(model)
     local colors, view, selected = self.colors, model.view, model.selected
+    local function mapToggle(frameX, frameY, frameW, collapse)
+      local x, y = frameX + frameW - 31, frameY + 4
+      self:panel(x, y, 25, 16, false)
+      if collapse then
+        -- Four inward-facing corners read as "restore" without looking like
+        -- a minus button at native DS resolution.
+        box("fill", x + 7, y + 4, 4, 1, colors.ink)
+        box("fill", x + 10, y + 4, 1, 3, colors.ink)
+        box("fill", x + 14, y + 4, 4, 1, colors.ink)
+        box("fill", x + 14, y + 4, 1, 3, colors.ink)
+        box("fill", x + 7, y + 11, 4, 1, colors.ink)
+        box("fill", x + 10, y + 9, 1, 3, colors.ink)
+        box("fill", x + 14, y + 11, 4, 1, colors.ink)
+        box("fill", x + 14, y + 9, 1, 3, colors.ink)
+      else
+        local left, right, top, bottom = x + 7, x + 17, y + 4, y + 11
+        box("fill", left, top, 4, 1, colors.ink)
+        box("fill", left, top, 1, 3, colors.ink)
+        box("fill", right - 3, top, 4, 1, colors.ink)
+        box("fill", right, top, 1, 3, colors.ink)
+        box("fill", left, bottom, 4, 1, colors.ink)
+        box("fill", left, bottom - 2, 1, 3, colors.ink)
+        box("fill", right - 3, bottom, 4, 1, colors.ink)
+        box("fill", right, bottom - 2, 1, 3, colors.ink)
+      end
+    end
     self:panel(7, 32, 226, 23, false)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
       154), 13, 38, colors.ink)
@@ -671,14 +706,16 @@ return function(ui)
       177, 38, colors.green, 42, "center")
 
     local mapW = 226
-    local mapH = not view and 91
+    local mapH = model.mapFull and 151 or not view and 91
       or view == "wild" and (selected and 44 or 38)
       or selected and 103 or 84
     self:mapOverview(model.overview, 7, 59, mapW, mapH, {
       image = model.image, player = model.player, markers = model.markers,
       selected = model.selectedMarker, drawPlayer = model.drawPlayer,
-      drawTrainer = model.drawTrainer, zoom = model.zoom,
+      drawTrainer = model.drawTrainer, full = model.mapFull,
     })
+    mapToggle(7, 59, mapW, model.mapFull)
+    if model.mapFull then return end
 
     local function chip(x, y, width, label, active, arrow)
       self:panel(x, y, width, 16, false)
@@ -699,13 +736,6 @@ return function(ui)
       if pages > 1 then label = "< " .. label .. " >" end
       self:partyType(label, x, y + 2, colors.green, width)
     end
-    local function zoom(frameX, frameY, frameW)
-      self:panel(frameX + frameW - 31, frameY + 4, 25, 16, false)
-      self:partyType(tostring(model.zoom or 1) .. "X",
-        frameX + frameW - 31, frameY + 6, colors.ink, 25)
-    end
-    zoom(7, 59, mapW)
-
     if selected and view == "wild" then
       self:panel(7, 107, 226, 103, false)
       self:partyPortrait(16, 114, false, false)
@@ -892,11 +922,17 @@ return function(ui)
     x, y = x * 1.5, y * 1.5
     local view, selected = model.view, model.selected
     local mapW = 226
-    local mapH = not view and 91
+    local mapH = model.mapFull and 151 or not view and 91
       or view == "wild" and (selected and 44 or 38)
       or selected and 103 or 84
     if x >= 7 + mapW - 31 and x < 7 + mapW - 6
-        and y >= 63 and y < 79 then return "zoom" end
+        and y >= 63 and y < 79 then return "map_toggle" end
+    local marker = self:mapMarkerAt(x, y, model.overview,
+      { x = 7, y = 59, w = mapW, h = mapH }, {
+        player = model.player, markers = model.markers, full = model.mapFull,
+      })
+    if marker then return "marker", marker end
+    if model.mapFull then return nil end
     if not model.view then
       for index, layer in ipairs(model.layers or {}) do
         local left = explorerLayerX(index, #model.layers)
@@ -906,11 +942,6 @@ return function(ui)
       end
       return nil
     end
-    local marker = self:mapMarkerAt(x, y, model.overview,
-      { x = 7, y = 59, w = mapW, h = mapH }, {
-        player = model.player, markers = model.markers, zoom = model.zoom,
-      })
-    if marker then return "marker", marker end
     if model.selected then
       if model.view == "wild" and x >= 166 and x < 224
           and y >= 114 and y < 130 and model.detailPages > 1 then
