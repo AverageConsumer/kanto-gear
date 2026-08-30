@@ -46,6 +46,7 @@ return {
   ["ITEM RADAR"] = "BUSCAOBJETOS",
   ["EXPLORER"] = "EXPLORADOR",
   ["UNKNOWN AREA"] = "ZONA DESCONOCIDA",
+  ["OUTDOORS"] = "EXTERIOR",
   ["WILD"] = "SALVAJES",
   ["ITEMS"] = "OBJETOS",
   ["METHOD"] = "MÉTODO",

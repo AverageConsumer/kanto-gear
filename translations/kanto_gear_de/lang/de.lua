@@ -47,6 +47,7 @@ return {
   ["ITEM RADAR"] = "ITEM-RADAR",
   ["EXPLORER"] = "ERKUNDUNG",
   ["UNKNOWN AREA"] = "UNBEKANNTES GEBIET",
+  ["OUTDOORS"] = "DRAUSSEN",
   ["WILD"] = "WILD",
   ["ITEMS"] = "ITEMS",
   ["METHOD"] = "METHODE",

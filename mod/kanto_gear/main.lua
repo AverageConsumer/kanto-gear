@@ -2340,6 +2340,17 @@ return function(mod)
     return fit(name, 23)
   end
 
+  function displayRuntime.sectionName(id, fallback)
+    local section = tostring(id or "OTHER AREA"):gsub("_", " ")
+    local entry = locationEntry(id)
+    local name = entry and tostring(entry.name or entry.label or "") or ""
+    for word in name:upper():gmatch("[%w]+") do
+      section = section:gsub("^" .. word .. " ?", "")
+    end
+    return section ~= "" and section or fallback
+      or name ~= "" and name or "OTHER AREA"
+  end
+
   local function areaMaps(id)
     local entry = locationEntry(id)
     if not entry then return { id } end
@@ -2393,15 +2404,6 @@ return function(mod)
       end
       addEncounters(rows, bySpecies, selected, method, cumulative, context)
     end
-    local function sectionName(id)
-      local section = tostring(id or "OTHER AREA"):gsub("_", " ")
-      local entry = locationEntry(id)
-      local name = entry and tostring(entry.name or entry.label or "") or ""
-      for word in name:upper():gmatch("[%w]+") do
-        section = section:gsub("^" .. word .. " ?", "")
-      end
-      return section ~= "" and section or name ~= "" and name or "OTHER AREA"
-    end
     for _, id in ipairs(areaMaps(mapId)) do
       local encounter = data.encounters and data.encounters[id]
       local buckets = data.constants and data.constants.encounterBuckets
@@ -2416,11 +2418,12 @@ return function(mod)
           if slots.MORN or slots.DAY or slots.NITE then
             for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
               addEncounters(rows, bySpecies, slots[time], method, weights,
-                { time = time, mapId = id, section = sectionName(id) })
+                { time = time, mapId = id,
+                  section = displayRuntime.sectionName(id) })
             end
           else
             addEncounters(rows, bySpecies, slots, method, weights,
-              { mapId = id, section = sectionName(id) })
+              { mapId = id, section = displayRuntime.sectionName(id) })
           end
         end
         local contest = id == mapId and game.save.bugContest
@@ -2428,7 +2431,7 @@ return function(mod)
         if contest then
           addWeighted(encounters.bugContest or (BugContest and BugContest.MONS),
             "CONTEST",
-            { mapId = id, section = sectionName(id) })
+            { mapId = id, section = displayRuntime.sectionName(id) })
         else
           addGold(active.grass and active.grass[id], "WALK",
             { 30, 60, 80, 90, 95, 99, 100 })
@@ -2465,22 +2468,23 @@ return function(mod)
               slots[#slots + 1], weights[#weights + 1] = slot, row.chance
             end
             addEncounters(rows, bySpecies, slots, rod[2], weights,
-              { time = time or nil, mapId = id, section = sectionName(id) })
+              { time = time or nil, mapId = id,
+                section = displayRuntime.sectionName(id) })
           end
         end
         local treeSet = encounters.treeSets
           and encounters.treeSets[encounters.trees and encounters.trees[id]]
         if treeSet then
           addWeighted(treeSet.common, "HEADBUTT",
-            { mapId = id, section = sectionName(id) })
+            { mapId = id, section = displayRuntime.sectionName(id) })
           addWeighted(treeSet.rare, "RARE TREE",
-            { mapId = id, section = sectionName(id) })
+            { mapId = id, section = displayRuntime.sectionName(id) })
         end
         local rockSet = encounters.treeSets
           and encounters.treeSets[encounters.rocks and encounters.rocks[id]]
         if rockSet then
           addWeighted(rockSet.common, "ROCK SMASH",
-            { mapId = id, section = sectionName(id) })
+            { mapId = id, section = displayRuntime.sectionName(id) })
         end
         for _, roamer in ipairs(game.save.roamers or {}) do
           if roamer.species and roamer.map == id then
@@ -2488,18 +2492,18 @@ return function(mod)
               { species = roamer.species, level = roamer.level or 40 },
               { species = 0, level = roamer.level or 40 },
             }, "ROAMING", { 10, 100 },
-              { mapId = id, section = sectionName(id) })
+              { mapId = id, section = displayRuntime.sectionName(id) })
           end
         end
       else
         addEncounters(rows, bySpecies,
           encounter and encounter.grass and encounter.grass.slots, "WALK",
           encounter and encounter.grass and (encounter.grass.buckets or buckets),
-          { mapId = id, section = sectionName(id) })
+          { mapId = id, section = displayRuntime.sectionName(id) })
         addEncounters(rows, bySpecies,
           encounter and encounter.water and encounter.water.slots, "SURF",
           encounter and encounter.water and (encounter.water.buckets or buckets),
-          { mapId = id, section = sectionName(id) })
+          { mapId = id, section = displayRuntime.sectionName(id) })
       end
       local super = field.superRod and field.superRod[id]
       if not gen2 and ((encounter and encounter.water) or super) then
@@ -2509,7 +2513,7 @@ return function(mod)
           if def.perMap then slots = field[def.perMap] and field[def.perMap][id] end
           addEncounters(rows, bySpecies, slots,
             ({ OLD_ROD = "OLD", GOOD_ROD = "GOOD", SUPER_ROD = "SUPER" })[rod],
-            nil, { mapId = id, section = sectionName(id) })
+            nil, { mapId = id, section = displayRuntime.sectionName(id) })
         end
       end
     end
@@ -2570,7 +2574,7 @@ return function(mod)
     return { name = areaName(mapId), rows = rows, caught = areaCaught,
       complete = #rows > 0 and areaCaught == #rows,
       pages = math.max(1, math.ceil(#rows / 3)), timed = compat.isGen2(),
-      time = currentTime, section = sectionName(mapId) }
+      time = currentTime, section = displayRuntime.sectionName(mapId) }
   end
 
   local function areaData(mapIds)
@@ -3644,6 +3648,7 @@ return function(mod)
       view = explorer.view, selected = selected, rows = rows,
       total = #source, page = explorer.page, pages = pages, perPage = perPage,
       route = areaName(overview.mapId or mapId),
+      subarea = displayRuntime.sectionName(overview.mapId or mapId, "OUTDOORS"),
       region = (compat.currentRegion() or "kanto"):upper(),
       overview = overview,
       image = loadLocalMapImage(overview, rows_, width, height, density),

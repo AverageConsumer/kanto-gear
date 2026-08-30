@@ -405,7 +405,8 @@ function love.load()
       return
     end
     local data = gen1 and {
-      route = "ROUTE 15", region = "KANTO", caught = "4/9",
+      route = "ROUTE 15", subarea = "OUTDOORS", region = "KANTO",
+      caught = "4/9",
       items = "2/3", beaten = "1/3",
       encounters = {
         { "PIDGEOTTO", "20%", "L24-26", "NORMAL", "NOR", true },
@@ -417,7 +418,8 @@ function love.load()
       },
       chance = "20%", levels = "L24-26", period = "DAY",
     } or {
-      route = "ROUTE 37", region = "JOHTO", caught = "3/9",
+      route = "ROUTE 37", subarea = "FARMHOUSE", region = "JOHTO",
+      caught = "3/9",
       items = "1/2", beaten = "1/3",
       encounters = {
         { "PIDGEOTTO", "30%", "L13-15", "NORMAL", "NOR", true },
@@ -429,6 +431,7 @@ function love.load()
       },
       chance = "30%", levels = "L13-15", period = "DAY",
     }
+    data.subarea = os.getenv("KANTO_GEAR_PREVIEW_SUBAREA") or data.subarea
     local items = gen1 and {
       { "SUPER POTION", "OPEN", "medicine", 7, 9, nil, "RESTORES 50 HP" },
       { "TM20", "FOUND", "machine", 30, 8, true },
@@ -543,7 +546,10 @@ function love.load()
       "Explorer map and three app cards share one content grid")
 
     theme:panel(7, 32, 226, 23, false)
-    theme:partyInfo(data.route, 13, 38, colors.ink)
+    theme:partyInfo(theme:fitPartyInfo(data.route, 64),
+      13, 38, colors.ink, 64, "center")
+    theme:partyType(theme:fitPartyType(translate(data.subarea), 92),
+      81, 39, colors.green, 92)
     theme:partyInfo(data.region, 177, 38, colors.green, 42, "center")
     theme:detailChevron(222, 41, colors.green)
 
@@ -643,7 +649,9 @@ function love.load()
         view = view, selected = selected, rows = rows, total = #sourceRows,
         page = 1, pages = math.max(1, math.ceil(#sourceRows / perPage)),
         perPage = perPage,
-        route = data.route, region = data.region, overview = overview,
+        route = data.route,
+        subarea = data.subarea,
+        region = data.region, overview = overview,
         player = { x = 20, y = 8, facing = "down" }, markers = markers,
         selectedMarker = selected and markers and markers[1] or nil,
         filters = { items = "ALL", trainers = "ALL" },

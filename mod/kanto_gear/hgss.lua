@@ -737,7 +737,9 @@ return function(ui)
     end
     self:panel(7, 32, 226, 23, false)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
-      154), 13, 38, colors.ink)
+      64), 13, 38, colors.ink, 64, "center")
+    self:partyType(self:fitPartyType(translate(model.subarea or "OUTDOORS"),
+      92), 81, 39, colors.green, 92)
     self:partyInfo(self:fitPartyInfo(model.region or "KANTO", 42),
       177, 38, colors.green, 42, "center")
 
