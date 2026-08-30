@@ -238,7 +238,10 @@ function love.load()
   local explorerOverview = screen == "explorer"
   local explorerLayer = screen == "explorer_layer"
   local explorerDetail = screen == "explorer_detail"
+  local explorerItems = screen == "explorer_items"
+  local explorerItemDetail = screen == "explorer_item_detail"
   local explorer = explorerOverview or explorerLayer or explorerDetail
+    or explorerItems or explorerItemDetail
   local partySwap = screen == "party_swap"
   local partySwapTransition = screen == "party_swap_transition"
   local partySwapCommit = screen == "party_swap_commit"
@@ -355,10 +358,21 @@ function love.load()
       },
       chance = "30%", levels = "L13-15", period = "DAY",
     }
+    local items = gen1 and {
+      { "SUPER POTION", "OPEN", "medicine", 46, 29, nil, "RESTORES 50 HP" },
+      { "TM20", "FOUND", "machine", 157, 72, true },
+      { "HIDDEN ITEM", "UNFOUND", "hidden", 196, 26 },
+    } or {
+      { "POTION", "OPEN", "medicine", 46, 29, nil, "RESTORES 20 HP" },
+      { "TM11", "FOUND", "machine", 157, 72, true },
+      { "HIDDEN ITEM", "UNFOUND", "hidden", 196, 26 },
+    }
     local mapX, mapY = 7, 59
     local compactMap = explorerLayer or explorerDetail
-    local mapW = compactMap and 226 or 154
+    local itemMap = explorerItems or explorerItemDetail
+    local mapW = (compactMap or itemMap) and 226 or 154
     local mapH = explorerDetail and 44 or explorerLayer and 38 or 103
+    local foundTint = theme.dark and colors.silver or colors.silverDark
     assert(mapX + 154 + 5 + 67 == 233 and mapX + 226 == 233,
       "Explorer map, layer rail, and detail map share one content grid")
 
@@ -392,6 +406,26 @@ function love.load()
         mapX + 104, mapY + 34, mapX + 98, mapY + 27,
         mapX + 54, mapY + 27, mapX + 48, mapY + 33,
         mapX - 2, mapY + 33)
+    elseif itemMap then
+      love.graphics.polygon("fill", mapX - 2, mapY + 46,
+        mapX + 48, mapY + 46, mapX + 57, mapY + 35,
+        mapX + 102, mapY + 35, mapX + 111, mapY + 47,
+        mapX + 151, mapY + 47, mapX + 160, mapY + 38,
+        mapX + 229, mapY + 38, mapX + 229, mapY + 68,
+        mapX + 156, mapY + 68, mapX + 147, mapY + 77,
+        mapX + 106, mapY + 77, mapX + 97, mapY + 65,
+        mapX + 61, mapY + 65, mapX + 52, mapY + 76,
+        mapX - 2, mapY + 76)
+      color(colors.amberLight)
+      love.graphics.polygon("fill", mapX - 2, mapY + 49,
+        mapX + 50, mapY + 49, mapX + 59, mapY + 38,
+        mapX + 100, mapY + 38, mapX + 109, mapY + 50,
+        mapX + 153, mapY + 50, mapX + 162, mapY + 41,
+        mapX + 229, mapY + 41, mapX + 229, mapY + 65,
+        mapX + 154, mapY + 65, mapX + 145, mapY + 74,
+        mapX + 108, mapY + 74, mapX + 99, mapY + 62,
+        mapX + 59, mapY + 62, mapX + 50, mapY + 73,
+        mapX - 2, mapY + 73)
     else
       love.graphics.polygon("fill", mapX - 2, mapY + 47,
         mapX + 39, mapY + 47, mapX + 47, mapY + 37,
@@ -413,7 +447,11 @@ function love.load()
         mapX + 49, mapY + 60, mapX + 41, mapY + 70,
         mapX - 2, mapY + 70)
     end
-    local trees = compactMap and {
+    local trees = itemMap and {
+      { 10, 8 }, { 24, 11 }, { 39, 7 }, { 113, 8 }, { 128, 11 },
+      { 145, 7 }, { 204, 10 }, { 13, 81 }, { 30, 78 }, { 79, 83 },
+      { 175, 79 }, { 194, 83 }, { 211, 77 },
+    } or compactMap and {
       { 14, 5 }, { 29, 5 }, { 122, 3 }, { 139, 3 }, { 190, 24 },
       { 208, 23 },
     } or {
@@ -444,7 +482,7 @@ function love.load()
         end
       end
     end
-    local playerX = compactMap and mapX + 111 or mapX + 79
+    local playerX = (compactMap or itemMap) and mapX + 111 or mapX + 79
     local playerY = compactMap and mapY + 19 or mapY + 53
     box("fill", playerX - 2, playerY - 4, 5, 1, colors.outline)
     box("fill", playerX - 3, playerY - 3, 7, 4, colors.outline)
@@ -452,7 +490,34 @@ function love.load()
     box("fill", playerX - 2, playerY - 3, 5, 2, colors.redLight)
     box("fill", playerX - 2, playerY - 1, 5, 2, colors.white)
     box("fill", playerX - 3, playerY + 2, 7, 4, colors.blueLight)
+    if itemMap then
+      for index, item in ipairs(items) do
+        local x, y = mapX + item[4], mapY + item[5]
+        if explorerItemDetail and index == 1 then
+          color(colors.amberLight)
+          love.graphics.setLineWidth(2)
+          love.graphics.circle("line", x, y, 13)
+          love.graphics.setLineWidth(1)
+        end
+        if item[3] == "hidden" then
+          box("fill", x - 1, y - 6, 3, 13, colors.blueLight)
+          box("fill", x - 6, y - 1, 13, 3, colors.blueLight)
+          box("fill", x - 3, y - 3, 7, 7, colors.white)
+          box("fill", x - 1, y - 1, 3, 3, colors.blue)
+        else
+          theme:battleItemIcon({ icon = item[3] }, x - 8, y - 8,
+            item[6] and foundTint or colors.amberLight)
+        end
+      end
+    end
     love.graphics.setScissor()
+
+    local function chip(x, y, width, label, active)
+      theme:panel(x, y, width, 16, false)
+      if active then box("fill", x + 2, y + 2, width - 4, 12, colors.band) end
+      theme:partyType(label, x, y + 2, active and colors.ink or colors.green,
+        width)
+    end
 
     if explorerDetail then
       theme:panel(7, 107, 226, 103, false)
@@ -478,17 +543,53 @@ function love.load()
       return
     end
 
+    if explorerItemDetail then
+      theme:panel(7, 166, 226, 44, false)
+      theme:battleItemIcon({ icon = items[1][3] }, 14, 178,
+        colors.amberLight)
+      theme:partyInfo(items[1][1], 38, 172, colors.ink)
+      theme:partyType(items[1][7], 38, 190, colors.green, 72)
+      box("fill", 118, 171, 1, 34, colors.band)
+      theme:partyType("OPEN", 124, 172, colors.green, 104)
+      theme:partyInfo("NEAR LEDGE", 124, 188, colors.ink, 104, "center")
+      return
+    end
+
+    if explorerItems then
+      chip(12, 64, 36, "ALL", true)
+      chip(51, 64, 57, "HIDDEN", false)
+      chip(111, 64, 54, "FOUND", false)
+      theme:panel(174, 64, 52, 16, false)
+      theme:partyType("1-3/4", 174, 66, colors.green, 42)
+      theme:detailChevron(218, 69, colors.green)
+      for index, item in ipairs(items) do
+        local x = 7 + (index - 1) * 77
+        theme:panel(x, 166, 72, 44, false)
+        if item[3] == "hidden" then
+          box("fill", x + 11, 174, 3, 13, colors.blueLight)
+          box("fill", x + 6, 179, 13, 3, colors.blueLight)
+          box("fill", x + 9, 177, 7, 7, colors.white)
+          box("fill", x + 11, 179, 3, 3, colors.blue)
+        else
+          theme:battleItemIcon({ icon = item[3] }, x + 4, 174,
+            item[6] and foundTint or colors.amberLight)
+        end
+        local cardName = item[3] == "hidden" and "HIDDEN"
+          or item[1] == "SUPER POTION" and "S.POTION" or item[1]
+        theme:partyType(cardName,
+          x + 22, 173, colors.ink, 45)
+        theme:partyType(item[2], x + 22, 191,
+          item[6] and foundTint or colors.green, 42)
+        theme:detailChevron(x + 64, 184, colors.ink)
+      end
+      return
+    end
+
     if explorerLayer then
       theme:panel(7, 100, 226, 20, false)
-      local function chip(x, width, label, active)
-        theme:panel(x, 102, width, 16, false)
-        if active then box("fill", x + 2, 104, width - 4, 12, colors.band) end
-        theme:partyType(label, x, 104, active and colors.ink or colors.green,
-          width)
-      end
       theme:partyInfo("WILD", 12, 105, colors.ink)
-      chip(57, 39, "DAY", true)
-      chip(99, 54, "GRASS", true)
+      chip(57, 102, 39, "DAY", true)
+      chip(99, 102, 54, "GRASS", true)
       theme:partyType("1-6/9", 158, 104, colors.green, 55)
       color(colors.green)
       love.graphics.polygon("fill", 218, 107, 226, 107, 222, 112)
