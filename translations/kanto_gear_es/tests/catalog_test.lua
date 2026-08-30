@@ -20,7 +20,7 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count == 342, "El catálogo de traducción está incompleto")
+assert(count == 368, "El catálogo de traducción está incompleto")
 
 for _, source in ipairs({
   "NEW GAME", "OPTION", "EXIT GAME", "INPUT STAYS ON TOP",

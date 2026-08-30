@@ -105,6 +105,10 @@ return function(ui)
 
   local box, text, fit, glyphs, color =
     ui.box, ui.text, ui.fit, ui.glyphs, ui.color
+  local translate = ui.translate or function(value) return value end
+  local format = ui.format or function(value, ...)
+    return string.format(translate(value), ...)
+  end
   local runnerParts = {
     { 119, 155, 3, 5 }, { 118, 156, 5, 3 },
     { 118, 163, 4, 7 },
@@ -227,14 +231,18 @@ return function(ui)
     end
   end
 
-  function H:fitLabel(value, width)
+  local function fitFont(value, width, font)
     local chars = glyphs(tostring(value or ""))
-    if partyFont:getWidth(table.concat(chars)) <= width then
+    if font:getWidth(table.concat(chars)) <= width then
       return table.concat(chars)
     end
     repeat table.remove(chars) until #chars == 0
-      or partyFont:getWidth(table.concat(chars) .. "…") <= width
+      or font:getWidth(table.concat(chars) .. "…") <= width
     return table.concat(chars) .. "…"
+  end
+
+  function H:fitLabel(value, width)
+    return fitFont(value, width, partyFont)
   end
 
   function H:partyName(value, x, y, tint, width)
@@ -271,13 +279,11 @@ return function(ui)
   end
 
   function H:fitPartyInfo(value, width)
-    local chars = glyphs(tostring(value or ""))
-    if partyInfoFont:getWidth(table.concat(chars)) <= width then
-      return table.concat(chars)
-    end
-    repeat table.remove(chars) until #chars == 0
-      or partyInfoFont:getWidth(table.concat(chars) .. "…") <= width
-    return table.concat(chars) .. "…"
+    return fitFont(value, width, partyInfoFont)
+  end
+
+  function H:fitPartyType(value, width)
+    return fitFont(value, width, partyTypeFont)
   end
 
   function H:partyType(value, x, y, tint, width)
@@ -657,9 +663,10 @@ return function(ui)
   function H:explorer(model)
     local colors, view, selected = self.colors, model.view, model.selected
     self:panel(7, 32, 226, 23, false)
-    self:partyInfo(model.route or "UNKNOWN AREA", 13, 38, colors.ink)
-    self:partyInfo(model.region or "KANTO", 177, 38, colors.green, 42,
-      "center")
+    self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
+      154), 13, 38, colors.ink)
+    self:partyInfo(self:fitPartyInfo(model.region or "KANTO", 42),
+      177, 38, colors.green, 42, "center")
 
     local mapW = view and 226 or 154
     local mapH = not view and 103
@@ -671,11 +678,18 @@ return function(ui)
       drawTrainer = model.drawTrainer, zoom = model.zoom,
     })
 
-    local function chip(x, y, width, label, active)
+    local function chip(x, y, width, label, active, arrow)
       self:panel(x, y, width, 16, false)
       if active then box("fill", x + 2, y + 2, width - 4, 12, colors.band) end
-      self:partyType(self:fitLabel(label, width - 8), x, y + 2,
-        active and colors.ink or colors.green, width)
+      label = translate(label)
+      local arrowWidth, gap = arrow and 4 or 0, arrow and 3 or 0
+      local shown = self:fitPartyType(label, width - 8 - arrowWidth - gap)
+      local textWidth = partyTypeFont:getWidth(shown)
+      local groupWidth = textWidth + gap + arrowWidth
+      local left = x + math.floor((width - groupWidth) / 2)
+      local tint = active and colors.ink or colors.green
+      self:partyType(shown, left, y + 2, tint, textWidth)
+      if arrow then self:detailChevron(left + textWidth + gap, y + 6, tint) end
     end
     local function pager(x, y, width, page, pages)
       self:panel(x, y, width, 16, false)
@@ -694,9 +708,10 @@ return function(ui)
       self:panel(7, 107, 226, 103, false)
       self:partyPortrait(16, 114, false, false)
       if model.drawPokemon then model.drawPokemon(selected, 16, 117, 34) end
-      self:partyInfo(selected.name, 58, 115, colors.ink)
-      self:partyInfo(selected.caught and "CAUGHT" or "NOT CAUGHT",
-        58, 130, colors.green)
+      self:partyInfo(self:fitPartyInfo(selected.name, 100),
+        58, 115, colors.ink)
+      self:partyInfo(self:fitPartyInfo(translate(selected.caught and "CAUGHT"
+        or "NOT CAUGHT"), 100), 58, 130, colors.green)
       self:typeBadges(selected, 58, 144, false)
       pager(166, 114, 58, model.detailPage, model.detailPages)
       local detailRows = model.detailRows or {}
@@ -712,15 +727,17 @@ return function(ui)
         self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
           202), 19, 162, colors.ink)
         local stats = {
-          { "TIME", appearance.time or "ALL" },
-          { "METHOD", appearance.method or "--" },
-          { "CHANCE", tostring(appearance.chance or "--") .. "%" },
-          { "LEVEL", levels(appearance) },
+          { translate("TIME"), translate(appearance.time or "ALL") },
+          { translate("METHOD"), translate(appearance.method or "--") },
+          { translate("CHANCE"), tostring(appearance.chance or "--") .. "%" },
+          { translate("LEVEL"), levels(appearance) },
         }
         for index, stat in ipairs(stats) do
           local x = 15 + (index - 1) * 53
-          self:partyType(stat[1], x, 177, colors.green, 51)
-          self:partyInfo(stat[2], x, 188, colors.ink, 51, "center")
+          self:partyType(self:fitPartyType(stat[1], 47), x + 2, 177,
+            colors.green, 47)
+          self:partyInfo(self:fitPartyInfo(stat[2], 47), x + 2, 188,
+            colors.ink, 47, "center")
         end
       else
         for index, appearance in ipairs(detailRows) do
@@ -728,10 +745,10 @@ return function(ui)
           self:panel(12, y, 216, 24, false)
           self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
             118), 17, y + 3, colors.ink)
-          local detail = (appearance.time or "ALL") .. " "
-            .. tostring(appearance.method or "--") .. " "
+          local detail = translate(appearance.time or "ALL") .. " "
+            .. translate(tostring(appearance.method or "--")) .. " "
             .. tostring(appearance.chance or "--") .. "%"
-          self:partyType(self:fitLabel(detail, 116), 17, y + 14,
+          self:partyType(self:fitPartyType(detail, 116), 17, y + 14,
             colors.green, 116)
           self:partyInfo(levels(appearance), 166, y + 10,
             colors.ink, 55, "center")
@@ -742,81 +759,88 @@ return function(ui)
       self:panel(7, 166, 226, 44, false)
       self:battleItemIcon({ icon = selected.kind == "hidden" and "item"
         or selected.icon or "item" }, 14, 178, colors.amberLight)
-      self:partyInfo(selected.displayLabel or selected.label, 38, 172,
-        colors.ink)
-      self:partyType(selected.done and "FOUND" or "OPEN",
-        38, 190, colors.green, 72)
+      self:partyInfo(self:fitPartyInfo(selected.displayLabel or selected.label,
+        75), 38, 172, colors.ink)
+      self:partyType(self:fitPartyType(translate(selected.done and "FOUND"
+        or "OPEN"), 72), 38, 190, colors.green, 72)
       box("fill", 118, 171, 1, 34, colors.band)
-      self:partyType(selected.kind == "hidden" and "HIDDEN" or "VISIBLE",
-        124, 172, colors.green, 104)
-      self:partyInfo(selected.location or "ON THIS MAP",
-        124, 188, colors.ink, 104, "center")
+      self:partyType(self:fitPartyType(translate(selected.kind == "hidden"
+        and "HIDDEN" or "VISIBLE"), 100), 126, 172, colors.green, 100)
+      self:partyInfo(self:fitPartyInfo(translate(selected.location
+        or "ON THIS MAP"), 100), 126, 188, colors.ink, 100, "center")
       return
     elseif selected and view == "trainers" then
       self:panel(7, 166, 226, 44, false)
       if model.drawActor then model.drawActor(selected, 23, 186, 1, false) end
-      self:partyInfo(selected.label, 39, 172, colors.ink)
-      self:partyType(selected.done and "BEATEN" or "OPEN",
-        39, 190, colors.green, 72)
-      box("fill", 118, 171, 1, 34, colors.band)
-      self:partyType("TRAINER", 124, 172, colors.green, 104)
-      self:partyInfo(selected.status or "ON THIS MAP",
-        124, 188, colors.ink, 104, "center")
+      self:partyInfo(self:fitPartyInfo(selected.label, 105),
+        39, 172, colors.ink)
+      self:partyType(self:fitPartyType(translate(selected.done and "BEATEN"
+        or "OPEN"), 105), 39, 190, colors.green, 105)
+      box("fill", 148, 171, 1, 34, colors.band)
+      self:partyType(self:fitPartyType(translate("TRAINER"), 72),
+        154, 172, colors.green, 72)
+      self:partyInfo(self:fitPartyInfo(translate(selected.status
+        or "ON THIS MAP"), 72), 154, 188, colors.ink, 72, "center")
       return
     end
 
     if view == "wild" then
       self:panel(7, 100, 226, 20, false)
-      self:partyInfo("WILD", 12, 105, colors.ink)
-      chip(54, 102, 46, (model.period or "ALL") .. " >", true)
-      chip(103, 102, 52, (model.method or "ALL") .. " >", true)
-      pager(158, 102, 68, model.page, model.pages)
+      self:partyType(self:fitPartyType(translate("WILD"), 42),
+        12, 106, colors.ink, 42)
+      chip(57, 102, 46, model.period or "ALL", true, true)
+      chip(106, 102, 59, model.method or "ALL", true, true)
+      pager(168, 102, 58, model.page, model.pages)
       for index, row in ipairs(model.rows) do
         local column, line = (index - 1) % 2, math.floor((index - 1) / 2)
         local x, y = 7 + column * 114, 123 + line * 29
         self:panel(x, y, 112, 27, false)
-        self:partyInfo(self:fitPartyInfo(row.name, 78), x + 5, y + 3,
+        self:partyInfo(self:fitPartyInfo(row.name, 82), x + 5, y + 3,
           colors.ink)
         self:typeBadges(row, x + 1, y + 15, false)
-        self:partyType(row.chance .. " " .. row.levels,
-          x + 40, y + 16, colors.green, 65)
+        self:partyType(self:fitPartyType(row.chance .. " " .. row.levels, 60),
+          x + 40, y + 16, colors.green, 60)
         if row.caught then self:battleTeamBall(x + 94, y + 8, true) end
         self:detailChevron(x + 105, y + 19, colors.ink)
       end
       if #model.rows == 0 then
-        self:partyInfo("NO MATCHES", 7, 160, colors.green, 226, "center")
+        self:partyInfo(translate("NO MATCHES"), 7, 160,
+          colors.green, 226, "center")
       end
       return
     elseif view == "items" or view == "trainers" then
       local filter = view == "items" and model.filters.items
         or model.filters.trainers
-      chip(12, 147, 86, "FILTER " .. filter .. " >", true)
-      if view == "items" and not model.enhanced then
-        chip(101, 147, 64, model.canScan and "SCAN"
+      local scanSlot = view == "items" and not model.enhanced
+      chip(12, 147, scanSlot and 72 or 153, filter, true, true)
+      if scanSlot then
+        chip(87, 147, 78, model.canScan and "SCAN"
           or model.needsItemfinder and "NEED FINDER" or "VANILLA",
           model.canScan)
       end
       pager(168, 147, 58, model.page, model.pages)
       for index, row in ipairs(model.rows) do
-        local x = 7 + (index - 1) * 77
-        self:panel(x, 166, 72, 44, false)
+        local x = 7 + (index - 1) * 114
+        self:panel(x, 166, 112, 44, false)
         if view == "trainers" then
-          if model.drawActor then model.drawActor(row, x + 13, 187, 1, false) end
+          if model.drawActor then
+            model.drawActor(row, x + 14, 199, 0.75, false)
+          end
         else
-          self:battleItemIcon({ icon = row.icon or "item" }, x + 4, 174,
+          self:battleItemIcon({ icon = row.icon or "item" }, x + 5, 186,
             row.done and colors.silverDark or colors.amberLight)
         end
-        self:partyType(self:fitLabel(row.cardLabel or row.displayLabel
-          or row.label, 42),
-          x + 24, 173,
-          colors.ink, 42)
-        self:partyType(row.done and (view == "items" and "FOUND" or "BEATEN")
-          or "OPEN", x + 24, 191, row.done and colors.silverDark
-            or colors.green, 39)
-        self:detailChevron(x + 64, 184, colors.ink)
+        self:partyType(self:fitPartyType(row.cardLabel or row.displayLabel
+          or row.label, 96), x + 5, 172, colors.ink, 96)
+        local status = row.done and (view == "items" and "FOUND" or "BEATEN")
+          or "OPEN"
+        self:partyType(self:fitPartyType(translate(status), 76),
+          x + 25, 193, row.done and colors.silverDark or colors.green, 76)
+        self:detailChevron(x + 105, 184, colors.ink)
       end
       if #model.rows == 0 then
-        self:partyInfo("NO MATCHES", 7, 181, colors.green, 226, "center")
+        self:partyInfo(translate("NO MATCHES"), 7, 181,
+          colors.green, 226, "center")
       end
       return
     end
@@ -825,19 +849,21 @@ return function(ui)
     for index, layer in ipairs(layers) do
       local y = explorerLayerY(index, #layers)
       self:panel(166, y, 67, 33, false)
+      self:partyType(self:fitPartyType(translate(layer.label), 54),
+        170, y + 5, colors.ink, 54)
       if layer.view == "wild" then
-        self:battleTeamBall(178, y + 16, true)
+        self:battleTeamBall(177, y + 24, true)
       elseif layer.view == "items" then
-        self:battleItemIcon({}, 170, y + 8, colors.amberLight)
+        self:battleItemIcon({}, 169, y + 16, colors.amberLight)
       elseif model.drawActor and model.trainerIcon then
-        model.drawActor(model.trainerIcon, 178, y + 16, 1, false)
+        model.drawActor(model.trainerIcon, 177, y + 24, 0.75, false)
       end
-      self:partyInfo(layer.label, 187, y + 6, colors.ink, 41, "center")
-      self:partyType(tostring(layer.count), 185, y + 19, colors.green, 38)
+      self:partyType(tostring(layer.count), 188, y + 20, colors.green, 33)
       self:detailChevron(226, y + 14, colors.ink)
     end
     if #layers == 0 then
-      self:partyInfo("ASSISTS OFF", 166, 104, colors.green, 67, "center")
+      self:partyInfo(self:fitPartyInfo(translate("ASSISTS OFF"), 63),
+        168, 104, colors.green, 63, "center")
     end
     self:panel(7, 166, 226, 44, false)
     local progress = {
@@ -848,7 +874,8 @@ return function(ui)
     for index, item in ipairs(progress) do
       local x = 10 + (index - 1) * 75
       if index > 1 then box("fill", x - 2, 171, 1, 34, colors.band) end
-      self:partyType(item[1], x, 174, colors.green, 71)
+      self:partyType(self:fitPartyType(translate(item[1]), 67),
+        x + 2, 174, colors.green, 67)
       self:partyInfo(item[2], x, 190, colors.ink, 71, "center")
     end
   end
@@ -885,10 +912,10 @@ return function(ui)
     end
     if model.view == "wild" then
       if y >= 102 and y < 118 then
-        if x >= 54 and x < 100 then return "filter_time" end
-        if x >= 103 and x < 155 then return "filter_method" end
-        if x >= 158 and x < 226 and model.pages > 1 then
-          return x < 192 and "prev" or "next"
+        if x >= 57 and x < 103 then return "filter_time" end
+        if x >= 106 and x < 165 then return "filter_method" end
+        if x >= 168 and x < 226 and model.pages > 1 then
+          return x < 197 and "prev" or "next"
         end
       end
       if y < 123 or y >= 210 then return nil end
@@ -898,26 +925,34 @@ return function(ui)
       return slot and model.rows[slot] and "row", slot
     end
     if y >= 147 and y < 163 then
-      if x >= 12 and x < 98 then return "filter_status" end
-      if model.view == "items" and x >= 101 and x < 165
+      local scanSlot = model.view == "items" and not model.enhanced
+      if x >= 12 and x < (scanSlot and 84 or 165) then
+        return "filter_status"
+      end
+      if scanSlot and x >= 87 and x < 165
           and model.canScan then return "scan" end
       if x >= 168 and x < 226 and model.pages > 1 then
         return x < 197 and "prev" or "next"
       end
     end
     if y >= 166 and y < 210 then
-      local slot = math.floor((x - 7) / 77) + 1
-      return slot >= 1 and slot <= 3 and model.rows[slot] and "row" or nil,
-        slot
+      for slot = 1, 2 do
+        local left = 7 + (slot - 1) * 114
+        if x >= left and x < left + 112 and model.rows[slot] then
+          return "row", slot
+        end
+      end
+      return nil
     end
   end
 
   function H:explorerRadar(model)
     local G, colors = ui.graphics, self.colors
     self:panel(7, 32, 226, 178, false)
-    self:partyInfo(model.route or "UNKNOWN AREA", 13, 38, colors.ink)
-    self:partyType(model.ready and "SCAN COMPLETE" or "SCANNING",
-      130, 40, colors.green, 94)
+    self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
+      108), 13, 38, colors.ink)
+    self:partyType(self:fitPartyType(translate(model.ready and "SCAN COMPLETE"
+      or "SCANNING"), 90), 132, 40, colors.green, 90)
     self:panel(18, 58, 204, 116, false)
     for x = 42, 198, 24 do box("fill", x, 61, 1, 110, colors.band) end
     for y = 82, 154, 24 do box("fill", 21, y, 198, 1, colors.band) end
@@ -939,12 +974,13 @@ return function(ui)
     G.setScissor()
     box("fill", cx - 5, cy - 5, 11, 11, colors.outline)
     box("fill", cx - 3, cy - 3, 7, 7, colors.greenLight)
-    local status = not model.ready and "SEARCHING..."
-      or #(model.signals or {}) == 0 and "NO SIGNAL"
-      or #(model.signals or {}) == 1 and "1 SIGNAL"
-      or tostring(#(model.signals or {})) .. " SIGNALS"
-    self:partyInfo(status, 18, 185, colors.ink, 204, "center")
-    self:partyType("TAP TO SCAN AGAIN", 18, 198, colors.green, 204)
+    local count = #(model.signals or {})
+    local status = not model.ready and translate("SEARCHING...")
+      or count == 0 and translate("NO SIGNAL") or format("SIGNALS %d", count)
+    self:partyInfo(self:fitPartyInfo(status, 200),
+      20, 185, colors.ink, 200, "center")
+    self:partyType(self:fitPartyType(translate("TAP TO SCAN AGAIN"), 200),
+      20, 198, colors.green, 200)
   end
 
   function H:button(x, y, w, h, label, selected)
@@ -1511,8 +1547,7 @@ return function(ui)
       self:typeColor(move.type))
 
     local ink = disabled and colors.silverDark or colors.ink
-    self:partyName(self:fitLabel(move.name or "-", 88),
-      x + 9, y + 7, ink, 88)
+    self:partyName(move.name or "-", x + 9, y + 7, ink, 88)
     self:detailChevron(x + 99, y + 11, ink)
     self:moveTypeBadge(move, x + 9, y + 26)
     self:partyInfo(move.ppLabel or "PP", x + 61, y + 25, colors.green)
@@ -1564,8 +1599,7 @@ return function(ui)
     local colors = self.colors
     local accent = self:typeColor(move.type)
     self:panel(6, 33, 228, 169, false)
-    self:partyName(self:fitLabel(move.name or "-", 144),
-      20, 42, colors.ink, 144)
+    self:partyName(move.name or "-", 20, 42, colors.ink, 144)
     self:moveTypeBadge(move, 176, 43)
     box("fill", 16, 63, 208, 1, colors.band)
 
@@ -2054,7 +2088,7 @@ return function(ui)
         local entry = mon.stats[row + (column - 1) * rows]
         if entry then
           local x, width = column == 1 and 13 or 127, column == 1 and 99 or 100
-          self:partyInfo(self:fitLabel(entry.label, 61), x, y,
+          self:partyInfo(self:fitPartyInfo(entry.label, 61), x, y,
             colors.green)
           self:partyInfo(tostring(entry.value), x, y, colors.ink,
             width, "right")

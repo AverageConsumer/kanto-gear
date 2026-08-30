@@ -1769,6 +1769,8 @@ return function(mod)
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
     bagIcon = THEME.hgssBagIcon,
+    translate = function(value) return THEME:translate(value) end,
+    format = function(value, ...) return THEME:format(value, ...) end,
   })
   assert(THEME.hgss:battleChoice(120, 80) == 1
       and THEME.hgss:battleChoice(200, 170) == 2
@@ -3565,7 +3567,7 @@ return function(mod)
     local source = explorer.view == "wild" and wild
       or explorer.view == "items" and items
       or explorer.view == "trainers" and trainers or {}
-    local perPage = explorer.view == "wild" and 6 or 3
+    local perPage = explorer.view == "wild" and 6 or 2
     local pages = math.max(1, math.ceil(#source / perPage))
     explorer.page = math.max(1, math.min(explorer.page, pages))
     local first, rows = (explorer.page - 1) * perPage + 1, {}
@@ -3707,7 +3709,8 @@ return function(mod)
     local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
     local overview = loadLocalMap()
     if THEME.style == "hgss" then
-      header("EXPLORER", displayRuntime.explorer.view ~= nil, false)
+      header(THEME:translate("EXPLORER"),
+        displayRuntime.explorer.view ~= nil, false)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       if not overview then
@@ -4166,7 +4169,7 @@ return function(mod)
   end
 
   local function drawRadar()
-    header("ITEM RADAR", true)
+    header(THEME:translate("ITEM RADAR"), true)
     if THEME.style == "hgss" then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)

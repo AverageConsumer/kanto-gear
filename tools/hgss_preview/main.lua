@@ -69,8 +69,21 @@ local languages = {
       NORMAL = "NORMAL", GROUND = "SOL", PSYCHIC = "PSY" },
   },
 }
-local language = languages[os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "en"]
-  or languages.en
+local languageCode = os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "en"
+local language = languages[languageCode] or languages.en
+local translations = {}
+if languageCode ~= "en" then
+  local path = root .. "/translations/kanto_gear_" .. languageCode
+    .. "/lang/" .. languageCode .. ".lua"
+  local loader = loadfile(path)
+  if loader then translations = loader() end
+end
+local function translate(value)
+  return translations[tostring(value)] or tostring(value)
+end
+local function format(value, ...)
+  return string.format(translate(value), ...)
+end
 
 local party = {
   { levelText = "L35", hp = 92, maxHp = 117,
@@ -152,7 +165,7 @@ function love.load()
   local theme = chunk()({
     graphics = love.graphics, box = box, text = text,
     fit = fit, glyphs = glyphs, color = color, font = font,
-    bagIcon = bagIcon,
+    bagIcon = bagIcon, translate = translate, format = format,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
   assert(theme.backdropCenterY == 121,
@@ -174,6 +187,30 @@ function love.load()
       and theme:partySlot(4, 60, 6) == 3
       and theme:partySlot(82, 101, 5) == nil,
     "party touch hitboxes follow the 240x216 card positions")
+  if screen:sub(1, 8) == "explorer" then
+    local typeLabels = {
+      { "WILD", 42 }, { "ALL", 31 }, { "FOUND", 74 },
+      { "BEATEN", 74 }, { "NEED FINDER", 63 },
+      { "TAP TO SCAN AGAIN", 200 },
+      { "WILD", 54 }, { "ITEMS", 54 }, { "TRAINER", 54 },
+    }
+    for _, check in ipairs(typeLabels) do
+      local label = translate(check[1])
+      assert(theme:fitPartyType(label, check[2]) == label,
+        check[1] .. " translation fits its Explorer container")
+    end
+    assert(theme:fitPartyInfo(translate("NOT CAUGHT"), 100)
+        == translate("NOT CAUGHT"),
+      "caught state fits its Explorer detail container")
+    for _, label in ipairs({ "COOLTRAINERF BETH", "POKEMANIAC BRENT",
+        "SUPER POTION", "PARLYZ HEAL" }) do
+      assert(theme:fitPartyType(label, 96) == label,
+        label .. " fits an Explorer list card without truncation")
+    end
+    assert(theme:fitPartyInfo("COOLTRAINERF BETH", 105)
+        == "COOLTRAINERF BETH",
+      "long trainer names fit the Explorer detail card")
+  end
   assert(theme:battleEffectLabel({ powerText = "95", effectiveness = 20 })
       == "2X" and theme:battleEffectLabel({ powerText = "--",
         effectiveness = 20 }) == "--",
@@ -273,8 +310,8 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
   local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
-  local title = explorerRadar and "ITEM RADAR"
-    or explorer and "EXPLORER"
+  local title = explorerRadar and translate("ITEM RADAR")
+    or explorer and translate("EXPLORER")
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
     or partySwap and language.swapWith
@@ -574,21 +611,28 @@ function love.load()
           end
         end
       end
-      local rows = view == "wild" and wildRows
+      local sourceRows = view == "wild" and wildRows
         or view == "items" and itemRows
         or view == "trainers" and trainerRows or {}
+      local rows, perPage = {}, view == "wild" and 6 or 2
+      for index = 1, math.min(#sourceRows, perPage) do
+        rows[#rows + 1] = sourceRows[index]
+      end
       local selected = (explorerDetail or explorerItemDetail
-        or explorerTrainerDetail) and rows[1] or nil
+        or explorerTrainerDetail) and sourceRows[1] or nil
       local explorerModel = {
-        view = view, selected = selected, rows = rows, total = #rows,
-        page = 1, pages = 1, perPage = view == "wild" and 6 or 3,
+        view = view, selected = selected, rows = rows, total = #sourceRows,
+        page = 1, pages = math.max(1, math.ceil(#sourceRows / perPage)),
+        perPage = perPage,
         route = data.route, region = data.region, overview = overview,
         player = { x = 20, y = 8, facing = "down" }, markers = markers,
         selectedMarker = selected and markers and markers[1] or nil,
         zoom = 1, filters = { items = "ALL", trainers = "ALL" },
         detailPage = 1,
         detailRows = selected and selected.matches or {}, detailPages = 1,
-        enhanced = false, canScan = true, needsItemfinder = false,
+        enhanced = os.getenv("KANTO_GEAR_PREVIEW_ENHANCED") == "1",
+        canScan = os.getenv("KANTO_GEAR_PREVIEW_NO_FINDER") ~= "1",
+        needsItemfinder = os.getenv("KANTO_GEAR_PREVIEW_NO_FINDER") == "1",
         guideEnabled = true, areaEnabled = true,
         layers = {
           { label = "WILD", count = #wildRows, view = "wild" },
@@ -639,10 +683,14 @@ function love.load()
             == "detail_next",
           "Explorer encounter details expose their complete page set")
       elseif view == "items" and not selected then
+        local scan = theme:explorerHit(132 * sx, 155 * sx, explorerModel)
         assert(theme:explorerHit(45 * sx, 155 * sx, explorerModel)
             == "filter_status"
-          and theme:explorerHit(132 * sx, 155 * sx, explorerModel) == "scan"
+          and scan == (explorerModel.enhanced and "filter_status"
+            or explorerModel.canScan and "scan" or nil)
           and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
+          and theme:explorerHit(120 * sx, 185 * sx, explorerModel) == nil
+          and theme:explorerHit(170 * sx, 185 * sx, explorerModel) == "row"
           and theme:explorerHit(66 * sx, 103 * sx, explorerModel)
             == "marker",
           "Explorer Item filter and radar controls are interactive")
@@ -650,6 +698,8 @@ function love.load()
         assert(theme:explorerHit(45 * sx, 155 * sx, explorerModel)
             == "filter_status"
           and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
+          and theme:explorerHit(120 * sx, 185 * sx, explorerModel) == nil
+          and theme:explorerHit(170 * sx, 185 * sx, explorerModel) == "row"
           and theme:explorerHit(78 * sx, 99 * sx, explorerModel) == "marker",
           "Explorer Trainer cards and map markers select the same row")
       end
