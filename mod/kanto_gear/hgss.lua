@@ -533,7 +533,9 @@ return function(ui)
     local baseWidth = math.max(1, tonumber(overview.width) or width / density)
     local baseHeight = math.max(1,
       tonumber(overview.height) or height / density)
-    local fit = math.min(innerW / baseWidth, innerH / baseHeight)
+    local fit = opts.full
+      and math.min(innerW / baseWidth, innerH / baseHeight)
+      or math.max(innerW / baseWidth, innerH / baseHeight)
     local tileSize = math.max(1,
       opts.full and math.floor(fit) or math.ceil(fit))
     local scale = tileSize / density

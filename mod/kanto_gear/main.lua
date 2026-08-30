@@ -3663,11 +3663,13 @@ return function(mod)
       trainersText = progress(allTrainers),
       period = filters.wildTime, method = filters.wildMethod,
       trainerIcon = allTrainers[1],
-      drawPlayer = function(player, x, y)
-        compat.drawMapMarker(x, y, 0.75, true, player.facing)
+      drawPlayer = function(player, x, y, tileSize)
+        compat.drawMapMarker(x, y, math.max(0.75, tileSize / 8), true,
+          player.facing)
       end,
-      drawTrainer = function(marker, x, y)
-        compat.drawMapActor(marker.actor, x, y, 0.75, true,
+      drawTrainer = function(marker, x, y, tileSize)
+        compat.drawMapActor(marker.actor, x, y,
+          math.max(0.75, tileSize / 8), true,
           marker.state == "beaten" and { 0.45, 0.45, 0.45, 1 } or nil)
       end,
       drawActor = function(row, x, y, scale, feet)
