@@ -2070,7 +2070,7 @@ return function(mod)
     return compat.gen2GbcPalette or nil, compat.gen2Palettes or nil
   end
 
-  function compat.drawMapMarker(x, y)
+  function compat.drawMapMarker(x, y, scale, feetAnchored)
     local data = game and game.data or {}
     local playerSprites = data.field and data.field.playerSprites or {}
     local id = compat.isGen2() and "SPRITE_CHRIS"
@@ -2106,10 +2106,11 @@ return function(mod)
     if renderer then
       local ok = pcall(function()
         local pose = renderer:getPoseGeometry("down", 0, false)
-        local scale = 0.75
+        scale = scale or 0.75
         color({ 1, 1, 1, 1 })
         G.draw(renderer:resolveImage(), pose.quad,
-          x - pose.width * scale / 2, y - pose.height * scale / 2,
+          x - pose.anchorX * scale,
+          y - (feetAnchored and pose.anchorY or pose.height / 2) * scale,
           0, scale, scale)
       end)
       if ok then return end
@@ -3394,6 +3395,9 @@ return function(mod)
         THEME.hgss:mapOverview(overview, 7, 32, 226, 151, {
           image = image, player = pos and pos.mapId == overview.mapId and pos,
           markers = markers, zoom = localMapZoom,
+          drawPlayer = function(_, x, y)
+            compat.drawMapMarker(x, y, 0.75, true)
+          end,
         })
         THEME.hgss:button(199, 36, 27, 16, localMapZoom .. "x", false)
         THEME.hgss:panel(7, 187, 226, 23, false)

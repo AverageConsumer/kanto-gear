@@ -141,6 +141,7 @@ local function spriteView(data)
 end
 
 function love.load()
+  local screen = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") or "party"
   local chunk = assert(loadfile(root .. "/mod/kanto_gear/hgss.lua"))
   local fontPath = os.getenv("KANTO_GEAR_PREVIEW_FONT")
     or root .. "/mod/kanto_gear/rounded_mplus.ttf"
@@ -219,11 +220,23 @@ function love.load()
     local quad, width, height = spriteView(data)
     sprites[slot] = { image = image, quad = quad, width = width, height = height }
   end
+  local overworld = {}
+  if screen:sub(1, 8) == "explorer" then
+    for _, name in ipairs({ "player", "trainer1", "trainer2", "trainer3" }) do
+      local image = love.graphics.newImage(
+        "local/overworld/" .. name .. ".png")
+      image:setFilter("nearest", "nearest")
+      local width, height = image:getDimensions()
+      overworld[name] = {
+        image = image,
+        quad = love.graphics.newQuad(0, 0, 16, 16, width, height),
+      }
+    end
+  end
   local canvas = love.graphics.newCanvas(240, 216, { dpiscale = 1 })
   canvas:setFilter("nearest", "nearest")
   love.graphics.setCanvas(canvas)
   love.graphics.clear(theme.colors.bg)
-  local screen = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") or "party"
   local gen1 = os.getenv("KANTO_GEAR_PREVIEW_GEN") == "1"
   local battleRoot = screen == "battle_root"
   local battleMessage = screen == "battle_message"
@@ -334,6 +347,13 @@ function love.load()
         drawPortrait(slot, portraitX, portraitY, size, fainted)
       end, focused)
   end
+  local function drawOverworld(name, x, y, scale, tint, centered)
+    local sprite = assert(overworld[name], "missing overworld sprite " .. name)
+    scale = scale or 1
+    color(tint or { 1, 1, 1, 1 })
+    love.graphics.draw(sprite.image, sprite.quad, x - 8 * scale,
+      y - (centered and 8 or 16) * scale, 0, scale, scale)
+  end
   local function drawExplorer()
     local colors = theme.colors
     local data = gen1 and {
@@ -371,13 +391,15 @@ function love.load()
       { "HIDDEN ITEM", "UNFOUND", "hidden", 38, 10 },
     }
     local trainers = gen1 and {
-      { "BIKER", "OPEN", "BIKER", 10, 8, "open" },
-      { "BEAUTY", "BEATEN", "BEAUTY", 27, 11, "beaten" },
-      { "JR.TRAINER", "OPEN", "JR.TRAINER", 36, 7, "open" },
+      { "BIKER", "OPEN", "BIKER", 10, 8, "open", "trainer1" },
+      { "BEAUTY", "BEATEN", "BEAUTY", 27, 11, "beaten", "trainer2" },
+      { "JR.TRAINER", "OPEN", "JR.TRAINER", 36, 7, "open",
+        "trainer3" },
     } or {
-      { "DANA", "REMATCH", "LASS", 10, 8, "rematch" },
-      { "GREG", "BEATEN", "PSYCHIC", 27, 11, "beaten" },
-      { "ANN & ANNE", "OPEN", "TWINS", 36, 7, "open" },
+      { "DANA", "REMATCH", "LASS", 10, 8, "rematch", "trainer1" },
+      { "GREG", "BEATEN", "PSYCHIC", 27, 11, "beaten", "trainer2" },
+      { "ANN & ANNE", "OPEN", "TWINS", 36, 7, "open",
+        "trainer3" },
     }
     local function routeOverview()
       local width, height = 42, 18
@@ -453,26 +475,11 @@ function love.load()
         },
       }
     end
-    local function trainerIcon(x, y, state)
+    local function trainerIcon(x, y, state, spriteName)
       local tint = state == "beaten" and (theme.dark
           and colors.silver or colors.silverDark)
         or state == "rematch" and colors.blueLight or colors.redLight
-      box("fill", x - 2, y - 9, 5, 1, colors.outline)
-      box("fill", x - 4, y - 8, 9, 6, colors.outline)
-      box("fill", x - 3, y - 2, 7, 3, colors.outline)
-      box("fill", x - 6, y + 1, 13, 3, colors.outline)
-      box("fill", x - 5, y + 4, 11, 5, colors.outline)
-      box("fill", x - 2, y - 8, 5, 2, tint)
-      box("fill", x - 3, y - 6, 7, 3, colors.amberLight)
-      box("fill", x - 1, y - 2, 3, 3, colors.amberLight)
-      box("fill", x - 4, y + 2, 9, 6, tint)
-      if state == "beaten" then
-        box("fill", x - 2, y + 4, 2, 2, colors.partyBg)
-        box("fill", x, y + 6, 4, 2, colors.partyBg)
-      elseif state == "rematch" then
-        box("fill", x + 3, y - 4, 4, 1, colors.amberLight)
-        box("fill", x + 5, y - 6, 1, 5, colors.amberLight)
-      end
+      drawOverworld(spriteName or "trainer3", x, y, 1, tint, true)
     end
     local mapX, mapY = 7, 59
     local compactMap = explorerLayer or explorerDetail
@@ -504,6 +511,7 @@ function love.load()
       for _, trainer in ipairs(trainers) do
         markers[#markers + 1] = {
           kind = "trainer", x = trainer[4], y = trainer[5], state = trainer[6],
+          sprite = trainer[7],
         }
       end
     end
@@ -512,6 +520,14 @@ function love.load()
       markers = markers,
       selected = (explorerItemDetail or explorerTrainerDetail) and 1 or nil,
       zoom = 1,
+      drawPlayer = function(_, x, y)
+        drawOverworld("player", x, y, 0.75, colors.redLight)
+      end,
+      drawTrainer = function(marker, x, y)
+        local tint = marker.state == "beaten" and foundTint
+          or marker.state == "rematch" and colors.blueLight or colors.redLight
+        drawOverworld(marker.sprite, x, y, 0.75, tint)
+      end,
     })
 
     local function chip(x, y, width, label, active)
@@ -560,7 +576,7 @@ function love.load()
     if explorerTrainerDetail then
       local trainer = trainers[1]
       theme:panel(7, 166, 226, 44, false)
-      trainerIcon(23, 186, trainer[6])
+      trainerIcon(23, 186, trainer[6], trainer[7])
       theme:partyInfo(trainer[1], 39, 172, colors.ink)
       theme:partyType(trainer[3] .. (gen1 and "" or " / PHONE"),
         39, 190, colors.green, 72)
@@ -619,7 +635,7 @@ function love.load()
       for index, trainer in ipairs(trainers) do
         local x = 7 + (index - 1) * 77
         theme:panel(x, 166, 72, 44, false)
-        trainerIcon(x + 13, 187, trainer[6])
+        trainerIcon(x + 13, 187, trainer[6], trainer[7])
         local name = trainer[1] == "JR.TRAINER" and "JR.TRAINER"
           or trainer[1] == "ANN & ANNE" and "ANN&ANNE" or trainer[1]
         theme:partyType(name, x + 24, 173, colors.ink, 42)
@@ -669,7 +685,7 @@ function love.load()
       elseif layer[3] == "item" then
         theme:battleItemIcon({}, 170, y + 8, colors.amberLight)
       else
-        trainerIcon(178, y + 16, "rematch")
+        trainerIcon(178, y + 16, "rematch", "trainer3")
       end
       theme:partyInfo(layer[1], 187, y + 6, colors.ink, 41, "center")
       theme:partyType(layer[2], 185, y + 19, colors.green, 38)

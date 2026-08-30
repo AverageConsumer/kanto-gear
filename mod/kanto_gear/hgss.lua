@@ -567,18 +567,6 @@ return function(ui)
       box("fill", tx - 1, ty, 1, tileSize, tint)
       box("fill", tx + tileSize, ty, 1, tileSize, tint)
     end
-    local function mapPerson(anchorX, anchorY, hat, shirt)
-      box("fill", anchorX - 2, anchorY - 11, 5, 1, colors.outline)
-      box("fill", anchorX - 3, anchorY - 10, 7, 3, colors.outline)
-      box("fill", anchorX - 2, anchorY - 7, 5, 3, colors.outline)
-      box("fill", anchorX - 3, anchorY - 4, 7, 4, colors.outline)
-      box("fill", anchorX - 2, anchorY - 10, 5, 2, hat)
-      box("fill", anchorX + 2, anchorY - 8, 3, 1, hat)
-      box("fill", anchorX - 1, anchorY - 7, 3, 2, colors.amberLight)
-      box("fill", anchorX - 2, anchorY - 3, 5, 2, shirt)
-      box("fill", anchorX - 2, anchorY, 2, 1, colors.outline)
-      box("fill", anchorX + 1, anchorY, 2, 1, colors.outline)
-    end
     local markers = opts.markers or overview.markers or {}
     for index, marker in ipairs(markers) do
       if mapMarkerVisible(marker, opts.visible) then
@@ -590,9 +578,9 @@ return function(ui)
             or colors.amberLight)
         end
         if marker.kind == "trainer" then
-          local tint = marker.state == "beaten" and colors.silverDark
-            or marker.state == "rematch" and colors.blueLight or colors.redLight
-          mapPerson(anchorX, anchorY, tint, tint)
+          if opts.drawTrainer then
+            opts.drawTrainer(marker, anchorX, my + tileSize, tileSize)
+          end
         elseif marker.kind == "hidden" then
           box("fill", anchorX - 1, anchorY - 8, 3, 7, colors.blueLight)
           box("fill", anchorX - 4, anchorY - 6, 9, 3, colors.blueLight)
@@ -618,8 +606,9 @@ return function(ui)
     if focus.x ~= nil and focus.y ~= nil then
       local px, py = tile(focus)
       local anchorX = px + math.floor(tileSize / 2)
-      local anchorY = py + math.floor(tileSize / 2)
-      mapPerson(anchorX, anchorY, colors.redLight, colors.blueLight)
+      if opts.drawPlayer then
+        opts.drawPlayer(focus, anchorX, py + tileSize, tileSize)
+      end
     end
     G.setScissor()
     return { left = left, top = top, scale = scale, density = density }
