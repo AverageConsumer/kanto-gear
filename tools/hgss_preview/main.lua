@@ -255,9 +255,10 @@ function love.load()
   local explorerItemDetail = screen == "explorer_item_detail"
   local explorerTrainers = screen == "explorer_trainers"
   local explorerTrainerDetail = screen == "explorer_trainer_detail"
+  local explorerRadar = screen == "explorer_radar"
   local explorer = explorerOverview or explorerLayer or explorerDetail
     or explorerItems or explorerItemDetail
-    or explorerTrainers or explorerTrainerDetail
+    or explorerTrainers or explorerTrainerDetail or explorerRadar
   local partySwap = screen == "party_swap"
   local partySwapTransition = screen == "party_swap_transition"
   local partySwapCommit = screen == "party_swap_commit"
@@ -272,7 +273,8 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
   local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
-  local title = explorer and "EXPLORER"
+  local title = explorerRadar and "ITEM RADAR"
+    or explorer and "EXPLORER"
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
     or partySwap and language.swapWith
@@ -356,6 +358,12 @@ function love.load()
   end
   local function drawExplorer()
     local colors = theme.colors
+    if explorerRadar then
+      theme:explorerRadar({ route = gen1 and "ROUTE 15" or "ROUTE 37",
+        progress = 1, ready = true,
+        signals = { { dx = -3, dy = 2 }, { dx = 5, dy = -2 } } })
+      return
+    end
     local data = gen1 and {
       route = "ROUTE 15", region = "KANTO", caught = "4/9",
       items = "2/3", hidden = "0/1",
@@ -520,29 +528,50 @@ function love.load()
         or itemMap and "items" or trainerMap and "trainers" or nil
       local wildRows, itemRows, trainerRows = {}, {}, {}
       for index, encounter in ipairs(data.encounters) do
+        local appearance = { section = data.route, time = data.period,
+          method = "GRASS", chance = tonumber(encounter[2]:match("%d+")),
+          minLevel = tonumber(encounter[3]:match("%d+")),
+          maxLevel = tonumber(encounter[3]:match("%d+%-(%d+)"))
+            or tonumber(encounter[3]:match("%d+")) }
         wildRows[index] = {
           name = encounter[1], species = species[math.min(index + 2, #species)],
           chance = encounter[2], levels = encounter[3],
           type = encounter[4], type2 = encounter[4],
           typeLabel = encounter[5], type2Label = encounter[5],
           caught = encounter[6], method = "GRASS", period = data.period,
+          matches = { appearance }, detailPages = 1,
         }
       end
       for index, item in ipairs(items) do
         itemRows[index] = { label = item[1], kind = item[3],
-          x = item[4], y = item[5], done = item[6], icon = item[3] }
+          displayLabel = item[3] == "hidden" and "HIDDEN SIGNAL" or item[1],
+          cardLabel = item[3] == "hidden" and "SIGNAL" or item[1],
+          location = item[3] == "hidden" and "USE ITEMFINDER"
+            or "MARKED ON MAP",
+          x = item[4], y = item[5], done = item[6], icon = item[3],
+          key = "item:" .. index }
       end
       for index, trainer in ipairs(trainers) do
         trainerRows[index] = { label = trainer[1], x = trainer[4],
           y = trainer[5], done = trainer[6] == "beaten",
           state = trainer[6], sprite = trainer[7],
-          spriteId = trainer[7], status = trainer[2] }
+          spriteId = trainer[7], status = trainer[2],
+          key = "trainer:" .. index }
       end
       if trainerMap then
         markers = {}
         for _, row in ipairs(trainerRows) do
           markers[#markers + 1] = { kind = "trainer", x = row.x, y = row.y,
-            actor = row }
+            actor = row, source = row }
+        end
+      end
+      if itemMap then
+        markers = {}
+        for _, row in ipairs(itemRows) do
+          if row.kind ~= "hidden" then
+            markers[#markers + 1] = { kind = "item", x = row.x, y = row.y,
+              found = row.done, source = row }
+          end
         end
       end
       local rows = view == "wild" and wildRows
@@ -550,12 +579,22 @@ function love.load()
         or view == "trainers" and trainerRows or {}
       local selected = (explorerDetail or explorerItemDetail
         or explorerTrainerDetail) and rows[1] or nil
-      theme:explorer({
+      local explorerModel = {
         view = view, selected = selected, rows = rows, total = #rows,
         page = 1, pages = 1, perPage = view == "wild" and 6 or 3,
         route = data.route, region = data.region, overview = overview,
         player = { x = 20, y = 8, facing = "down" }, markers = markers,
         selectedMarker = selected and markers and markers[1] or nil,
+        zoom = 1, filters = { items = "ALL", trainers = "ALL" },
+        detailPage = 1,
+        detailRows = selected and selected.matches or {}, detailPages = 1,
+        enhanced = false, canScan = true, needsItemfinder = false,
+        guideEnabled = true, areaEnabled = true,
+        layers = {
+          { label = "WILD", count = #wildRows, view = "wild" },
+          { label = "ITEMS", count = #itemRows, view = "items" },
+          { label = "TRAINER", count = #trainerRows, view = "trainers" },
+        },
         wildCount = #wildRows, itemCount = #itemRows,
         trainerCount = #trainerRows, caughtText = data.caught,
         itemsText = data.items, hiddenText = data.hidden,
@@ -573,7 +612,47 @@ function love.load()
           local slot = row == wildRows[1] and 3 or 4
           drawPortrait(slot, x, y, size, false)
         end,
-      })
+      }
+      theme:explorer(explorerModel)
+      local sx = 1 / 1.5
+      assert(theme:explorerHit((view and 211 or 130) * sx, 70 * sx,
+        explorerModel) == "zoom", "Explorer map zoom is always interactive")
+      if not view then
+        assert(theme:explorerHit(190 * sx, 76 * sx, explorerModel) == "wild",
+          "Explorer overview opens the Wild layer")
+        local layers = explorerModel.layers
+        explorerModel.layers = {}
+        assert(theme:explorerHit(190 * sx, 76 * sx, explorerModel) == nil,
+          "disabled assists do not leave fake layer hitboxes")
+        explorerModel.layers = layers
+      elseif view == "wild" and not selected then
+        assert(theme:explorerHit(74 * sx, 110 * sx, explorerModel)
+            == "filter_time"
+          and theme:explorerHit(129 * sx, 110 * sx, explorerModel)
+            == "filter_method"
+          and theme:explorerHit(50 * sx, 135 * sx, explorerModel) == "row"
+          and theme:explorerHit(210 * sx, 110 * sx, explorerModel) == nil,
+          "Explorer Wild filter chips are interactive")
+      elseif view == "wild" then
+        explorerModel.detailPages = 2
+        assert(theme:explorerHit(210 * sx, 122 * sx, explorerModel)
+            == "detail_next",
+          "Explorer encounter details expose their complete page set")
+      elseif view == "items" and not selected then
+        assert(theme:explorerHit(45 * sx, 155 * sx, explorerModel)
+            == "filter_status"
+          and theme:explorerHit(132 * sx, 155 * sx, explorerModel) == "scan"
+          and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
+          and theme:explorerHit(66 * sx, 103 * sx, explorerModel)
+            == "marker",
+          "Explorer Item filter and radar controls are interactive")
+      elseif view == "trainers" and not selected then
+        assert(theme:explorerHit(45 * sx, 155 * sx, explorerModel)
+            == "filter_status"
+          and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
+          and theme:explorerHit(78 * sx, 99 * sx, explorerModel) == "marker",
+          "Explorer Trainer cards and map markers select the same row")
+      end
       return
     end
     theme:mapOverview(overview, mapX, mapY, mapW, mapH, {

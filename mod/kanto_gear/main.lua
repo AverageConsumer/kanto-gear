@@ -1731,7 +1731,11 @@ return function(mod)
     local mode = currentBattleUIMode()
     return mode == "gear" or mode == "full"
   end
-  local displayRuntime = { explorer = { page = 1 } }
+  local displayRuntime = { explorer = {
+    page = 1, zoom = 1,
+    filters = { wildTime = "NOW", wildMethod = "ALL",
+      items = "ALL", trainers = "ALL" },
+  } }
   local function inlineDisplay()
     return THEME:displayMode(mod.options) ~= "separate"
   end
@@ -2171,7 +2175,8 @@ return function(mod)
   local function invalidateLocalMap()
     if localMapImage and localMapImage.release then localMapImage:release() end
     localMap, localMapImage = nil, nil
-    displayRuntime.explorer.selected, displayRuntime.explorer.page = nil, 1
+    displayRuntime.explorer.selected, displayRuntime.explorer.page,
+      displayRuntime.explorer.data = nil, 1, nil
   end
 
   local function hasDisplay()
@@ -2231,6 +2236,7 @@ return function(mod)
     THEME.style = hgss and "hgss"
       or theme == "modern_light" and "modern_light"
       or theme == "modern_dark" and "modern_dark" or "classic"
+    if hgss and (page == "GUIDE" or page == "AREA") then page = "LOCAL" end
     THEME.hgss:setVariant(theme == "hgss_dark")
     if not hgss then hgssRuntime.animation = nil end
     local scale = THEME.style == "hgss" and THEME.hgssScale or 1
@@ -2255,8 +2261,10 @@ return function(mod)
     if localMapMode(mod.options:get("local_map")) ~= "off" then
       out[#out + 1] = "LOCAL"
     end
-    if assist("guide") then out[#out + 1] = "GUIDE" end
-    if assist("area") then out[#out + 1] = "AREA" end
+    if THEME.style ~= "hgss" then
+      if assist("guide") then out[#out + 1] = "GUIDE" end
+      if assist("area") then out[#out + 1] = "AREA" end
+    end
     out[#out + 1] = "TRAINER"
     out[#out + 1] = "PARTY"
     out[#out + 1] = "TOOLS"
@@ -3384,24 +3392,111 @@ return function(mod)
 
   local loadLocalMapImage
 
+  function displayRuntime.cycleExplorerOption(value, options, direction)
+    local index = 1
+    for i, option in ipairs(options or {}) do
+      if option == value then index = i break end
+    end
+    local count = math.max(1, #(options or {}))
+    return options[((index - 1 + (direction or 1)) % count) + 1]
+  end
+  assert(displayRuntime.cycleExplorerOption("OPEN",
+      { "ALL", "OPEN", "FOUND" }, 1) == "FOUND"
+    and displayRuntime.cycleExplorerOption("ALL",
+      { "ALL", "OPEN", "FOUND" }, -1) == "FOUND",
+    "Explorer filters cycle in both directions")
+
   function displayRuntime.explorerModel(overview)
     local explorer = displayRuntime.explorer
-    local guide = guideData()
-    local area = areaData({ overview.mapId or mapId })
+    local now, id = love.timer.getTime(), overview.mapId or mapId
+    local guideEnabled, areaEnabled = assist("guide"), assist("area")
+    local cached = explorer.data
+    -- ponytail: a half-second snapshot avoids rebuilding encounter tables on
+    -- every player step; invalidate immediately if live mutation needs it.
+    if not cached or cached.mapId ~= id or now - cached.at >= 0.5
+        or cached.guideEnabled ~= guideEnabled
+        or cached.areaEnabled ~= areaEnabled then
+      cached = { mapId = id, at = now,
+        guideEnabled = guideEnabled, areaEnabled = areaEnabled,
+        guide = guideEnabled and guideData()
+          or { rows = {}, caught = 0, time = "DAY", timed = false },
+        area = areaEnabled and areaData({ id })
+          or { sections = { { rows = {} }, { rows = {} }, { rows = {} } } },
+      }
+      explorer.data = cached
+    end
+    local guide, area = cached.guide, cached.area
     local sections = area.sections or { { rows = {} }, { rows = {} },
       { rows = {} } }
-    local trainers, items, wild = sections[1].rows, {}, {}
-    for _, row in ipairs(sections[2].rows) do items[#items + 1] = row end
-    for _, row in ipairs(sections[3].rows) do items[#items + 1] = row end
+    local allTrainers, allItems, wild = sections[1].rows, {}, {}
+    for _, row in ipairs(sections[2].rows) do allItems[#allItems + 1] = row end
+    for _, row in ipairs(sections[3].rows) do allItems[#allItems + 1] = row end
+
+    local filters = explorer.filters
+    local timeOptions = guide.timed
+      and { "NOW", "ALL", "MORN", "DAY", "NITE" } or { "ALL" }
+    local methodSet, methods, methodOptions = {}, {}, { "ALL" }
     for _, row in ipairs(guide.rows or {}) do
-      if row.availability ~= "area" then wild[#wild + 1] = row end
+      for _, appearance in ipairs(row.appearances or {}) do
+        if appearance.method and not methodSet[appearance.method] then
+          methodSet[appearance.method] = true
+          methods[#methods + 1] = appearance.method
+        end
+      end
+    end
+    table.sort(methods)
+    for _, method in ipairs(methods) do
+      methodOptions[#methodOptions + 1] = method
+    end
+    local function valid(value, options)
+      for _, option in ipairs(options) do
+        if value == option then return value end
+      end
+      return options[1]
+    end
+    filters.wildTime = valid(filters.wildTime, timeOptions)
+    filters.wildMethod = valid(filters.wildMethod, methodOptions)
+    local wantedTime = filters.wildTime == "NOW" and guide.time
+      or filters.wildTime
+    for _, row in ipairs(guide.rows or {}) do
+      local matches = {}
+      for _, appearance in ipairs(row.appearances or {}) do
+        local timeMatch = wantedTime == "ALL" or not appearance.time
+          or appearance.time == wantedTime
+        local methodMatch = filters.wildMethod == "ALL"
+          or appearance.method == filters.wildMethod
+        if timeMatch and methodMatch then matches[#matches + 1] = appearance end
+      end
+      if #matches > 0 then
+        row.matches = matches
+        wild[#wild + 1] = row
+      end
+    end
+
+    local itemOptions = { "ALL", "OPEN", "FOUND", "HIDDEN" }
+    local trainerOptions = { "ALL", "OPEN", "BEATEN" }
+    filters.items = valid(filters.items, itemOptions)
+    filters.trainers = valid(filters.trainers, trainerOptions)
+    local items, trainers = {}, {}
+    for _, row in ipairs(allItems) do
+      local include = filters.items == "ALL"
+        or filters.items == "OPEN" and not row.done
+        or filters.items == "FOUND" and row.done
+        or filters.items == "HIDDEN" and row.kind == "hidden"
+      if include then items[#items + 1] = row end
+    end
+    for _, row in ipairs(allTrainers) do
+      local include = filters.trainers == "ALL"
+        or filters.trainers == "OPEN" and not row.done
+        or filters.trainers == "BEATEN" and row.done
+      if include then trainers[#trainers + 1] = row end
     end
 
     local actors = mod.world and mod.world.mapActors
       and mod.world:mapActors() or {}
     local actorById = {}
     for _, actor in ipairs(actors or {}) do actorById[actor.id] = actor end
-    for _, row in ipairs(trainers) do
+    for _, row in ipairs(allTrainers) do
       local actor = actorById[row.id]
       if actor then
         row.actor = actor
@@ -3416,12 +3511,19 @@ return function(mod)
       end
       row.key = "trainer:" .. tostring(row.id or row.label)
     end
-    for _, row in ipairs(items) do
+    local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
+    for _, row in ipairs(allItems) do
       row.key = table.concat({ "item", tostring(row.kind), tostring(row.x),
         tostring(row.y), tostring(row.label) }, ":")
       local upper = tostring(row.label or ""):upper()
       row.icon = (upper:match("^TM%d") or upper:match("^HM%d"))
         and "machine" or "item"
+      row.displayLabel = row.kind == "hidden" and not enhanced and not row.done
+        and "HIDDEN SIGNAL" or row.label
+      row.cardLabel = row.kind == "hidden" and not enhanced and not row.done
+        and "SIGNAL" or row.label
+      row.location = row.kind == "hidden" and not enhanced and not row.done
+        and "USE ITEMFINDER" or "MARKED ON MAP"
     end
     for _, row in ipairs(wild) do
       row.key = "wild:" .. tostring(row.species)
@@ -3432,27 +3534,32 @@ return function(mod)
       row.type, row.type2 = type1, type2
       row.typeLabel = THEME:typeName(type1, mod.content)
       row.type2Label = THEME:typeName(type2, mod.content)
-      local method = row.currentMethods and row.currentMethods[1]
-      local appearance
-      if not method then
-        for _, candidate in ipairs(row.appearances or {}) do
-          if candidate.mapId == mapId then appearance = candidate break end
-        end
+      local methods, periods = {}, {}
+      local low, high, minLevel, maxLevel
+      for _, appearance in ipairs(row.matches) do
+        methods[appearance.method] = true
+        periods[appearance.time or "ALL"] = true
+        low = math.min(low or appearance.chance, appearance.chance)
+        high = math.max(high or appearance.chance, appearance.chance)
+        minLevel = math.min(minLevel or appearance.minLevel,
+          appearance.minLevel)
+        maxLevel = math.max(maxLevel or appearance.maxLevel,
+          appearance.maxLevel)
       end
-      row.method = method and THEME:translate(method.name)
-        or appearance and THEME:translate(appearance.method) or "--"
-      local low = method and method.min or appearance and appearance.chance
-      local high = method and method.max or low
+      local methodNames, periodNames = {}, {}
+      for name in pairs(methods) do methodNames[#methodNames + 1] = name end
+      for name in pairs(periods) do periodNames[#periodNames + 1] = name end
+      table.sort(methodNames)
+      table.sort(periodNames)
+      row.method = #methodNames == 1 and THEME:translate(methodNames[1])
+        or "MIXED"
       row.chance = low and (low == high and THEME:format("%d%%", low)
         or THEME:format("%d-%d%%", low, high)) or "--"
-      local minLevel = row.currentMinLevel or appearance and appearance.minLevel
-        or row.minLevel
-      local maxLevel = row.currentMaxLevel or appearance and appearance.maxLevel
-        or row.maxLevel or minLevel
       row.levels = minLevel and (minLevel == maxLevel
         and THEME:format("L%d", minLevel)
         or THEME:format("L%d-%d", minLevel, maxLevel)) or "--"
-      row.period = appearance and appearance.time or guide.time or "DAY"
+      row.period = #periodNames == 1 and periodNames[1] or "MIXED"
+      row.detailPages = math.max(1, math.ceil(#row.matches / 2))
     end
 
     local source = explorer.view == "wild" and wild
@@ -3471,7 +3578,6 @@ return function(mod)
     end
     if explorer.selected and not selected then explorer.selected = nil end
 
-    local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
     local markers, selectedMarker = {}, nil
     if not explorer.view then
       for _, marker in ipairs(overview.markers or {}) do
@@ -3505,9 +3611,31 @@ return function(mod)
       return THEME:format("%d/%d", done, #rows_)
     end
     local caught = 0
-    for _, row in ipairs(wild) do if row.caught then caught = caught + 1 end end
+    for _, row in ipairs(guide.rows or {}) do
+      if row.caught then caught = caught + 1 end
+    end
     local pos = mod.world:current()
     local rows_, width, height, density = localMapGrid(overview)
+    explorer.detailPage = math.max(1, math.min(explorer.detailPage or 1,
+      selected and selected.detailPages or 1))
+    local detailRows = {}
+    if selected and explorer.view == "wild" then
+      local firstDetail = (explorer.detailPage - 1) * 2 + 1
+      for index = firstDetail,
+          math.min(#selected.matches, firstDetail + 1) do
+        detailRows[#detailRows + 1] = selected.matches[index]
+      end
+    end
+    local layers = {}
+    if guideEnabled then layers[#layers + 1] = {
+      label = "WILD", count = #wild, view = "wild" }
+    end
+    if areaEnabled then
+      layers[#layers + 1] = {
+        label = "ITEMS", count = #allItems, view = "items" }
+      layers[#layers + 1] = {
+        label = "TRAINER", count = #allTrainers, view = "trainers" }
+    end
     return {
       view = explorer.view, selected = selected, rows = rows,
       total = #source, page = explorer.page, pages = pages, perPage = perPage,
@@ -3517,12 +3645,22 @@ return function(mod)
       image = loadLocalMapImage(overview, rows_, width, height, density),
       player = pos and pos.mapId == overview.mapId and pos,
       markers = markers, selectedMarker = selectedMarker,
-      wildCount = #wild, itemCount = #items, trainerCount = #trainers,
-      caughtText = THEME:format("%d/%d", caught, #wild),
+      zoom = explorer.zoom or 1,
+      filters = filters, timeOptions = timeOptions,
+      methodOptions = methodOptions, itemOptions = itemOptions,
+      trainerOptions = trainerOptions,
+      detailPage = explorer.detailPage, detailRows = detailRows,
+      detailPages = selected and selected.detailPages or 1,
+      enhanced = enhanced, canScan = assist("item_radar") and hasItemfinder(),
+      needsItemfinder = assist("item_radar") and not hasItemfinder(),
+      layers = layers, guideEnabled = guideEnabled, areaEnabled = areaEnabled,
+      wildCount = #wild, itemCount = #allItems,
+      trainerCount = #allTrainers,
+      caughtText = THEME:format("%d/%d", caught, #(guide.rows or {})),
       itemsText = progress(sections[2].rows),
       hiddenText = progress(sections[3].rows),
-      period = guide.time or "DAY", method = "ALL",
-      trainerIcon = trainers[1],
+      period = filters.wildTime, method = filters.wildMethod,
+      trainerIcon = allTrainers[1],
       drawPlayer = function(player, x, y)
         compat.drawMapMarker(x, y, 0.75, true, player.facing)
       end,
@@ -4029,6 +4167,18 @@ return function(mod)
 
   local function drawRadar()
     header("ITEM RADAR", true)
+    if THEME.style == "hgss" then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:explorerRadar({
+        route = areaName(mapId),
+        progress = math.min(1, radarFrame / RADAR_FRAMES),
+        ready = radarFrame >= RADAR_FRAMES,
+        signals = radarSignals(),
+      })
+      G.pop()
+      return
+    end
     text(fit(areaName(mapId), 23), 5, 22, DARK)
     local gx, gy, cell, cols, rows = 25, 34, 10, 11, 9
     box("fill", gx, gy, cols * cell, rows * cell, PAPER)
@@ -6685,7 +6835,8 @@ return function(mod)
     if page == "LOCAL" and THEME.style == "hgss"
         and displayRuntime.explorer.view then
       local explorer = displayRuntime.explorer
-      if explorer.selected then explorer.selected = nil
+      if explorer.selected then
+        explorer.selected, explorer.detailPage = nil, 1
       else explorer.view, explorer.page = nil, 1 end
       dirty = true
       return
@@ -7057,13 +7208,44 @@ return function(mod)
       local action, slot = THEME.hgss:explorerHit(x, y, model)
       if action == "wild" or action == "items" or action == "trainers" then
         displayRuntime.explorer.view = action
-        displayRuntime.explorer.selected, displayRuntime.explorer.page = nil, 1
-      elseif action == "next" then
-        displayRuntime.explorer.page = displayRuntime.explorer.page
-          % model.pages + 1
+        displayRuntime.explorer.selected, displayRuntime.explorer.page,
+          displayRuntime.explorer.detailPage = nil, 1, 1
+      elseif action == "zoom" then
+        displayRuntime.explorer.zoom = displayRuntime.explorer.zoom % 3 + 1
+      elseif action == "next" or action == "prev" then
+        local direction = action == "next" and 1 or -1
+        displayRuntime.explorer.page = ((displayRuntime.explorer.page - 1
+          + direction) % model.pages) + 1
         displayRuntime.explorer.selected = nil
+      elseif action == "detail_next" or action == "detail_prev" then
+        local direction = action == "detail_next" and 1 or -1
+        displayRuntime.explorer.detailPage =
+          ((displayRuntime.explorer.detailPage - 1 + direction)
+            % model.detailPages) + 1
+      elseif action == "filter_time" then
+        model.filters.wildTime = displayRuntime.cycleExplorerOption(
+          model.filters.wildTime, model.timeOptions, 1)
+        displayRuntime.explorer.page, displayRuntime.explorer.selected = 1, nil
+      elseif action == "filter_method" then
+        model.filters.wildMethod = displayRuntime.cycleExplorerOption(
+          model.filters.wildMethod, model.methodOptions, 1)
+        displayRuntime.explorer.page, displayRuntime.explorer.selected = 1, nil
+      elseif action == "filter_status" then
+        local key = model.view == "items" and "items" or "trainers"
+        local options = model.view == "items" and model.itemOptions
+          or model.trainerOptions
+        model.filters[key] = displayRuntime.cycleExplorerOption(
+          model.filters[key], options, 1)
+        displayRuntime.explorer.page, displayRuntime.explorer.selected = 1, nil
+      elseif action == "scan" then
+        radarOpen, radarFrame, radarStarted = true, 0, love.timer.getTime()
+      elseif action == "marker" and model.markers[slot]
+          and model.markers[slot].source then
+        displayRuntime.explorer.selected = model.markers[slot].source.key
+        displayRuntime.explorer.detailPage = 1
       elseif action == "row" and model.rows[slot] then
         displayRuntime.explorer.selected = model.rows[slot].key
+        displayRuntime.explorer.detailPage = 1
       end
       dirty = true
       return
@@ -7370,12 +7552,20 @@ return function(mod)
         page, displayRuntime.guideDetail = "MAP", nil
       end
       if page == "AREA" and not assist("area") then page = "MAP" end
+      if page == "LOCAL" and THEME.style == "hgss"
+          and (displayRuntime.explorer.view == "wild" and not assist("guide")
+            or (displayRuntime.explorer.view == "items"
+                or displayRuntime.explorer.view == "trainers")
+              and not assist("area")) then
+        displayRuntime.explorer.view, displayRuntime.explorer.selected = nil, nil
+      end
       if page == "LOCAL"
           and localMapMode(mod.options:get("local_map")) == "off" then
         page, displayRuntime.explorer.view,
           displayRuntime.explorer.selected = "MAP", nil, nil
       end
       if not assist("item_radar") then radarOpen = false end
+      displayRuntime.explorer.data = nil
       dirty = true
     end
   end)
@@ -7994,6 +8184,12 @@ return function(mod)
          tostring(displayRuntime.explorer.view),
          tostring(displayRuntime.explorer.selected),
          tostring(displayRuntime.explorer.page),
+         tostring(displayRuntime.explorer.detailPage),
+         tostring(displayRuntime.explorer.zoom),
+         tostring(displayRuntime.explorer.filters.wildTime),
+         tostring(displayRuntime.explorer.filters.wildMethod),
+         tostring(displayRuntime.explorer.filters.items),
+         tostring(displayRuntime.explorer.filters.trainers),
          tostring(radarOpen),
          tostring(top and top.waiting), tostring(top and top.done),
          tostring(top and top.index), tostring(top and top.kind),

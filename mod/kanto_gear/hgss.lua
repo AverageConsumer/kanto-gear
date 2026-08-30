@@ -512,12 +512,12 @@ return function(ui)
     return not visible or visible[marker.kind] ~= false
   end
 
-  function H:mapOverview(overview, x, y, w, h, opts)
-    opts = opts or {}
-    local G, colors = ui.graphics, self.colors
-    self:panel(x, y, w, h, false)
-    if not overview or not overview.rows then return nil end
+  local function explorerLayerY(index, count)
+    return 59 + (3 - math.max(1, count)) * 17 + (index - 1) * 35
+  end
 
+  local function mapLayout(overview, x, y, w, h, opts)
+    if not overview or not overview.rows then return nil end
     local rows, width, height, density = mapGrid(overview)
     width, height = tonumber(width) or 0, tonumber(height) or 0
     if width < 1 or height < 1 then return nil end
@@ -540,6 +540,23 @@ return function(ui)
       top = math.floor(innerY + innerH / 2 - focusY * scale + 0.5)
       top = math.max(innerY + innerH - height * scale, math.min(innerY, top))
     end
+    return { rows = rows, width = width, height = height, density = density,
+      innerX = innerX, innerY = innerY, innerW = innerW, innerH = innerH,
+      scale = scale, left = left, top = top, tileSize = density * scale }
+  end
+
+  function H:mapOverview(overview, x, y, w, h, opts)
+    opts = opts or {}
+    local G, colors = ui.graphics, self.colors
+    self:panel(x, y, w, h, false)
+    local layout = mapLayout(overview, x, y, w, h, opts)
+    if not layout then return nil end
+    local rows, width, height, density = layout.rows, layout.width,
+      layout.height, layout.density
+    local innerX, innerY, innerW, innerH = layout.innerX, layout.innerY,
+      layout.innerW, layout.innerH
+    local scale, left, top = layout.scale, layout.left, layout.top
+    local focus = opts.player or {}
 
     G.setScissor(innerX, innerY, innerW, innerH)
     if opts.image then
@@ -556,7 +573,7 @@ return function(ui)
       end
     end
 
-    local tileSize = density * scale
+    local tileSize = layout.tileSize
     local function tile(marker)
       return math.floor(left + marker.x * tileSize + 0.5),
         math.floor(top + marker.y * tileSize + 0.5)
@@ -611,7 +628,30 @@ return function(ui)
       end
     end
     G.setScissor()
-    return { left = left, top = top, scale = scale, density = density }
+    return layout
+  end
+
+  function H:mapMarkerAt(x, y, overview, frame, opts)
+    local layout = mapLayout(overview, frame.x, frame.y, frame.w, frame.h,
+      opts or {})
+    if not layout or x < layout.innerX or x >= layout.innerX + layout.innerW
+        or y < layout.innerY or y >= layout.innerY + layout.innerH then
+      return nil
+    end
+    local best, distance
+    for index, marker in ipairs((opts and opts.markers)
+        or overview.markers or {}) do
+      if mapMarkerVisible(marker, opts and opts.visible) then
+        local mx = layout.left + (marker.x + 0.5) * layout.tileSize
+        local my = layout.top + (marker.y + 0.5) * layout.tileSize
+        local d = (x - mx) ^ 2 + (y - my) ^ 2
+        local radius = math.max(12, layout.tileSize)
+        if d <= radius ^ 2 and (not distance or d < distance) then
+          best, distance = index, d
+        end
+      end
+    end
+    return best
   end
 
   function H:explorer(model)
@@ -620,54 +660,90 @@ return function(ui)
     self:partyInfo(model.route or "UNKNOWN AREA", 13, 38, colors.ink)
     self:partyInfo(model.region or "KANTO", 177, 38, colors.green, 42,
       "center")
-    self:detailChevron(222, 41, colors.green)
 
-    local compact = view == "wild"
     local mapW = view and 226 or 154
-    local mapH = compact and (selected and 44 or 38) or 103
+    local mapH = not view and 103
+      or view == "wild" and (selected and 44 or 38)
+      or selected and 103 or 84
     self:mapOverview(model.overview, 7, 59, mapW, mapH, {
       image = model.image, player = model.player, markers = model.markers,
       selected = model.selectedMarker, drawPlayer = model.drawPlayer,
-      drawTrainer = model.drawTrainer,
+      drawTrainer = model.drawTrainer, zoom = model.zoom,
     })
 
     local function chip(x, y, width, label, active)
       self:panel(x, y, width, 16, false)
       if active then box("fill", x + 2, y + 2, width - 4, 12, colors.band) end
-      self:partyType(label, x, y + 2, active and colors.ink or colors.green,
-        width)
+      self:partyType(self:fitLabel(label, width - 8), x, y + 2,
+        active and colors.ink or colors.green, width)
     end
-    local function rangeLabel()
-      local first = (model.page - 1) * model.perPage + 1
-      local last = math.min(model.total, first + #model.rows - 1)
-      return model.total > 0 and (first .. "-" .. last .. "/" .. model.total)
-        or "0/0"
+    local function pager(x, y, width, page, pages)
+      self:panel(x, y, width, 16, false)
+      local label = page .. "/" .. pages
+      if pages > 1 then label = "< " .. label .. " >" end
+      self:partyType(label, x, y + 2, colors.green, width)
     end
+    local function zoom(frameX, frameY, frameW)
+      self:panel(frameX + frameW - 31, frameY + 4, 25, 16, false)
+      self:partyType(tostring(model.zoom or 1) .. "X",
+        frameX + frameW - 31, frameY + 6, colors.ink, 25)
+    end
+    zoom(7, 59, mapW)
 
     if selected and view == "wild" then
       self:panel(7, 107, 226, 103, false)
       self:partyPortrait(16, 114, false, false)
       if model.drawPokemon then model.drawPokemon(selected, 16, 117, 34) end
       self:partyInfo(selected.name, 58, 115, colors.ink)
-      self:partyInfo(selected.caught and "CAUGHT" or "SEEN",
+      self:partyInfo(selected.caught and "CAUGHT" or "NOT CAUGHT",
         58, 130, colors.green)
       self:typeBadges(selected, 58, 144, false)
-      local stats = {
-        { "METHOD", selected.method }, { "CHANCE", selected.chance },
-        { "LEVEL", selected.levels }, { "TIME", selected.period },
-      }
-      for index, stat in ipairs(stats) do
-        local x = 12 + (index - 1) * 54
-        self:panel(x, 163, 50, 39, false)
-        self:partyType(stat[1], x, 168, colors.green, 50)
-        self:partyInfo(stat[2], x, 183, colors.ink, 50, "center")
+      pager(166, 114, 58, model.detailPage, model.detailPages)
+      local detailRows = model.detailRows or {}
+      local function levels(appearance)
+        return appearance.minLevel == appearance.maxLevel
+          and "L" .. tostring(appearance.minLevel)
+          or "L" .. tostring(appearance.minLevel) .. "-"
+            .. tostring(appearance.maxLevel)
+      end
+      if #detailRows == 1 then
+        local appearance = detailRows[1]
+        self:panel(12, 158, 216, 45, false)
+        self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
+          202), 19, 162, colors.ink)
+        local stats = {
+          { "TIME", appearance.time or "ALL" },
+          { "METHOD", appearance.method or "--" },
+          { "CHANCE", tostring(appearance.chance or "--") .. "%" },
+          { "LEVEL", levels(appearance) },
+        }
+        for index, stat in ipairs(stats) do
+          local x = 15 + (index - 1) * 53
+          self:partyType(stat[1], x, 177, colors.green, 51)
+          self:partyInfo(stat[2], x, 188, colors.ink, 51, "center")
+        end
+      else
+        for index, appearance in ipairs(detailRows) do
+          local y = 157 + (index - 1) * 25
+          self:panel(12, y, 216, 24, false)
+          self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
+            118), 17, y + 3, colors.ink)
+          local detail = (appearance.time or "ALL") .. " "
+            .. tostring(appearance.method or "--") .. " "
+            .. tostring(appearance.chance or "--") .. "%"
+          self:partyType(self:fitLabel(detail, 116), 17, y + 14,
+            colors.green, 116)
+          self:partyInfo(levels(appearance), 166, y + 10,
+            colors.ink, 55, "center")
+        end
       end
       return
     elseif selected and view == "items" then
       self:panel(7, 166, 226, 44, false)
       self:battleItemIcon({ icon = selected.kind == "hidden" and "item"
         or selected.icon or "item" }, 14, 178, colors.amberLight)
-      self:partyInfo(selected.label, 38, 172, colors.ink)
+      self:partyInfo(selected.displayLabel or selected.label, 38, 172,
+        colors.ink)
       self:partyType(selected.done and "FOUND" or "OPEN",
         38, 190, colors.green, 72)
       box("fill", 118, 171, 1, 34, colors.band)
@@ -692,10 +768,9 @@ return function(ui)
     if view == "wild" then
       self:panel(7, 100, 226, 20, false)
       self:partyInfo("WILD", 12, 105, colors.ink)
-      chip(57, 102, 39, model.period or "DAY", true)
-      chip(99, 102, 54, model.method or "ALL", true)
-      self:partyType(rangeLabel(), 158, 104, colors.green, 55)
-      self:detailChevron(222, 106, colors.green)
+      chip(54, 102, 46, (model.period or "ALL") .. " >", true)
+      chip(103, 102, 52, (model.method or "ALL") .. " >", true)
+      pager(158, 102, 68, model.page, model.pages)
       for index, row in ipairs(model.rows) do
         local column, line = (index - 1) % 2, math.floor((index - 1) / 2)
         local x, y = 7 + column * 114, 123 + line * 29
@@ -708,14 +783,20 @@ return function(ui)
         if row.caught then self:battleTeamBall(x + 94, y + 8, true) end
         self:detailChevron(x + 105, y + 19, colors.ink)
       end
+      if #model.rows == 0 then
+        self:partyInfo("NO MATCHES", 7, 160, colors.green, 226, "center")
+      end
       return
     elseif view == "items" or view == "trainers" then
-      chip(12, 64, 53, view == "items" and "ALL" or "KNOWN", true)
-      chip(68, 64, 48, "OPEN", false)
-      chip(119, 64, 59, view == "items" and "FOUND" or "BEATEN", false)
-      self:panel(181, 64, 45, 16, false)
-      self:partyType(rangeLabel(), 181, 66, colors.green, 35)
-      self:detailChevron(218, 69, colors.green)
+      local filter = view == "items" and model.filters.items
+        or model.filters.trainers
+      chip(12, 147, 86, "FILTER " .. filter .. " >", true)
+      if view == "items" and not model.enhanced then
+        chip(101, 147, 64, model.canScan and "SCAN"
+          or model.needsItemfinder and "NEED FINDER" or "VANILLA",
+          model.canScan)
+      end
+      pager(168, 147, 58, model.page, model.pages)
       for index, row in ipairs(model.rows) do
         local x = 7 + (index - 1) * 77
         self:panel(x, 166, 72, 44, false)
@@ -725,40 +806,44 @@ return function(ui)
           self:battleItemIcon({ icon = row.icon or "item" }, x + 4, 174,
             row.done and colors.silverDark or colors.amberLight)
         end
-        self:partyType(self:fitLabel(row.label, 42), x + 24, 173,
+        self:partyType(self:fitLabel(row.cardLabel or row.displayLabel
+          or row.label, 42),
+          x + 24, 173,
           colors.ink, 42)
         self:partyType(row.done and (view == "items" and "FOUND" or "BEATEN")
           or "OPEN", x + 24, 191, row.done and colors.silverDark
             or colors.green, 39)
         self:detailChevron(x + 64, 184, colors.ink)
       end
+      if #model.rows == 0 then
+        self:partyInfo("NO MATCHES", 7, 181, colors.green, 226, "center")
+      end
       return
     end
 
-    local layers = {
-      { "WILD", model.wildCount or 0, "wild" },
-      { "ITEMS", model.itemCount or 0, "items" },
-      { "TRAINER", model.trainerCount or 0, "trainers" },
-    }
+    local layers = model.layers or {}
     for index, layer in ipairs(layers) do
-      local y = 59 + (index - 1) * 35
+      local y = explorerLayerY(index, #layers)
       self:panel(166, y, 67, 33, false)
-      if layer[3] == "wild" then
+      if layer.view == "wild" then
         self:battleTeamBall(178, y + 16, true)
-      elseif layer[3] == "items" then
+      elseif layer.view == "items" then
         self:battleItemIcon({}, 170, y + 8, colors.amberLight)
       elseif model.drawActor and model.trainerIcon then
         model.drawActor(model.trainerIcon, 178, y + 16, 1, false)
       end
-      self:partyInfo(layer[1], 187, y + 6, colors.ink, 41, "center")
-      self:partyType(tostring(layer[2]), 185, y + 19, colors.green, 38)
+      self:partyInfo(layer.label, 187, y + 6, colors.ink, 41, "center")
+      self:partyType(tostring(layer.count), 185, y + 19, colors.green, 38)
       self:detailChevron(226, y + 14, colors.ink)
+    end
+    if #layers == 0 then
+      self:partyInfo("ASSISTS OFF", 166, 104, colors.green, 67, "center")
     end
     self:panel(7, 166, 226, 44, false)
     local progress = {
-      { "CAUGHT", model.caughtText or "0/0" },
-      { "ITEMS", model.itemsText or "0/0" },
-      { "HIDDEN", model.hiddenText or "0/0" },
+      { "CAUGHT", model.guideEnabled and model.caughtText or "--" },
+      { "ITEMS", model.areaEnabled and model.itemsText or "--" },
+      { "HIDDEN", model.areaEnabled and model.hiddenText or "--" },
     }
     for index, item in ipairs(progress) do
       local x = 10 + (index - 1) * 75
@@ -770,27 +855,96 @@ return function(ui)
 
   function H:explorerHit(x, y, model)
     x, y = x * 1.5, y * 1.5
+    local view, selected = model.view, model.selected
+    local mapW = view and 226 or 154
+    local mapH = not view and 103
+      or view == "wild" and (selected and 44 or 38)
+      or selected and 103 or 84
+    if x >= 7 + mapW - 31 and x < 7 + mapW - 6
+        and y >= 63 and y < 79 then return "zoom" end
     if not model.view then
-      if x >= 166 and x < 233 and y >= 59 and y < 164 then
-        return ({ "wild", "items", "trainers" })[
-          math.floor((y - 59) / 35) + 1]
+      if x >= 166 and x < 233 then
+        for index, layer in ipairs(model.layers or {}) do
+          local top = explorerLayerY(index, #model.layers)
+          if y >= top and y < top + 33 then return layer.view end
+        end
       end
       return nil
     end
-    if x >= 181 and x < 226 and y >= 64 and y < 80 then return "next" end
-    if model.selected then return nil end
+    local marker = self:mapMarkerAt(x, y, model.overview,
+      { x = 7, y = 59, w = mapW, h = mapH }, {
+        player = model.player, markers = model.markers, zoom = model.zoom,
+      })
+    if marker then return "marker", marker end
+    if model.selected then
+      if model.view == "wild" and x >= 166 and x < 224
+          and y >= 114 and y < 130 and model.detailPages > 1 then
+        return x < 195 and "detail_prev" or "detail_next"
+      end
+      return nil
+    end
     if model.view == "wild" then
+      if y >= 102 and y < 118 then
+        if x >= 54 and x < 100 then return "filter_time" end
+        if x >= 103 and x < 155 then return "filter_method" end
+        if x >= 158 and x < 226 and model.pages > 1 then
+          return x < 192 and "prev" or "next"
+        end
+      end
       if y < 123 or y >= 210 then return nil end
       local column = x >= 121 and 1 or x >= 7 and x < 119 and 0 or nil
       local row = math.floor((y - 123) / 29)
       local slot = column and row * 2 + column + 1
       return slot and model.rows[slot] and "row", slot
     end
+    if y >= 147 and y < 163 then
+      if x >= 12 and x < 98 then return "filter_status" end
+      if model.view == "items" and x >= 101 and x < 165
+          and model.canScan then return "scan" end
+      if x >= 168 and x < 226 and model.pages > 1 then
+        return x < 197 and "prev" or "next"
+      end
+    end
     if y >= 166 and y < 210 then
       local slot = math.floor((x - 7) / 77) + 1
       return slot >= 1 and slot <= 3 and model.rows[slot] and "row" or nil,
         slot
     end
+  end
+
+  function H:explorerRadar(model)
+    local G, colors = ui.graphics, self.colors
+    self:panel(7, 32, 226, 178, false)
+    self:partyInfo(model.route or "UNKNOWN AREA", 13, 38, colors.ink)
+    self:partyType(model.ready and "SCAN COMPLETE" or "SCANNING",
+      130, 40, colors.green, 94)
+    self:panel(18, 58, 204, 116, false)
+    for x = 42, 198, 24 do box("fill", x, 61, 1, 110, colors.band) end
+    for y = 82, 154, 24 do box("fill", 21, y, 198, 1, colors.band) end
+    local cx, cy = 120, 116
+    local radius = math.floor(70 * math.max(0, math.min(1,
+      model.progress or 0)))
+    G.setScissor(21, 61, 198, 110)
+    color(colors.blueLight)
+    if radius > 0 then G.circle("line", cx, cy, radius) end
+    for _, signal in ipairs(model.signals or {}) do
+      local sx = cx + math.max(-7, math.min(7, signal.dx or 0)) * 11
+      local sy = cy + math.max(-4, math.min(4, signal.dy or 0)) * 11
+      local distance = math.sqrt((sx - cx) ^ 2 + (sy - cy) ^ 2)
+      if distance <= radius then
+        box("fill", sx - 4, sy - 4, 9, 9, colors.outline)
+        box("fill", sx - 2, sy - 2, 5, 5, colors.amberLight)
+      end
+    end
+    G.setScissor()
+    box("fill", cx - 5, cy - 5, 11, 11, colors.outline)
+    box("fill", cx - 3, cy - 3, 7, 7, colors.greenLight)
+    local status = not model.ready and "SEARCHING..."
+      or #(model.signals or {}) == 0 and "NO SIGNAL"
+      or #(model.signals or {}) == 1 and "1 SIGNAL"
+      or tostring(#(model.signals or {})) .. " SIGNALS"
+    self:partyInfo(status, 18, 185, colors.ink, 204, "center")
+    self:partyType("TAP TO SCAN AGAIN", 18, 198, colors.green, 204)
   end
 
   function H:button(x, y, w, h, label, selected)

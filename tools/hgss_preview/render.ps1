@@ -35,6 +35,12 @@ if ($explorer) {
     }
     $overworldFiles = @{ player = "chris.png"; trainer1 = "teacher.png";
       trainer2 = "psychic.png"; trainer3 = "twin.png" }
+    if (-not $overworldSource) {
+      $overworldSource = Join-Path $env:APPDATA `
+        "pokemon-love2d\red\assets\generated\sprites"
+      $overworldFiles = @{ player = "red.png"; trainer1 = "biker.png";
+        trainer2 = "beauty.png"; trainer3 = "cooltrainer_f.png" }
+    }
   }
   foreach ($entry in $overworldFiles.GetEnumerator()) {
     if (-not $overworldSource -or
