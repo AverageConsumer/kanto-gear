@@ -240,8 +240,11 @@ function love.load()
   local explorerDetail = screen == "explorer_detail"
   local explorerItems = screen == "explorer_items"
   local explorerItemDetail = screen == "explorer_item_detail"
+  local explorerTrainers = screen == "explorer_trainers"
+  local explorerTrainerDetail = screen == "explorer_trainer_detail"
   local explorer = explorerOverview or explorerLayer or explorerDetail
     or explorerItems or explorerItemDetail
+    or explorerTrainers or explorerTrainerDetail
   local partySwap = screen == "party_swap"
   local partySwapTransition = screen == "party_swap_transition"
   local partySwapCommit = screen == "party_swap_commit"
@@ -367,10 +370,42 @@ function love.load()
       { "TM11", "FOUND", "machine", 157, 72, true },
       { "HIDDEN ITEM", "UNFOUND", "hidden", 196, 26 },
     }
+    local trainers = gen1 and {
+      { "BIKER", "OPEN", "BIKER", 48, 30, "open" },
+      { "BEAUTY", "BEATEN", "BEAUTY", 157, 72, "beaten" },
+      { "JR.TRAINER", "OPEN", "JR.TRAINER", 196, 27, "open" },
+    } or {
+      { "DANA", "REMATCH", "LASS", 48, 30, "rematch" },
+      { "GREG", "BEATEN", "PSYCHIC", 157, 72, "beaten" },
+      { "ANN & ANNE", "OPEN", "TWINS", 196, 27, "open" },
+    }
+    local function trainerIcon(x, y, state)
+      local tint = state == "beaten" and (theme.dark
+          and colors.silver or colors.silverDark)
+        or state == "rematch" and colors.blueLight or colors.redLight
+      box("fill", x - 2, y - 9, 5, 1, colors.outline)
+      box("fill", x - 4, y - 8, 9, 6, colors.outline)
+      box("fill", x - 3, y - 2, 7, 3, colors.outline)
+      box("fill", x - 6, y + 1, 13, 3, colors.outline)
+      box("fill", x - 5, y + 4, 11, 5, colors.outline)
+      box("fill", x - 2, y - 8, 5, 2, tint)
+      box("fill", x - 3, y - 6, 7, 3, colors.amberLight)
+      box("fill", x - 1, y - 2, 3, 3, colors.amberLight)
+      box("fill", x - 4, y + 2, 9, 6, tint)
+      if state == "beaten" then
+        box("fill", x - 2, y + 4, 2, 2, colors.partyBg)
+        box("fill", x, y + 6, 4, 2, colors.partyBg)
+      elseif state == "rematch" then
+        box("fill", x + 3, y - 4, 4, 1, colors.amberLight)
+        box("fill", x + 5, y - 6, 1, 5, colors.amberLight)
+      end
+    end
     local mapX, mapY = 7, 59
     local compactMap = explorerLayer or explorerDetail
     local itemMap = explorerItems or explorerItemDetail
-    local mapW = (compactMap or itemMap) and 226 or 154
+    local trainerMap = explorerTrainers or explorerTrainerDetail
+    local fullMap = itemMap or trainerMap
+    local mapW = (compactMap or fullMap) and 226 or 154
     local mapH = explorerDetail and 44 or explorerLayer and 38 or 103
     local foundTint = theme.dark and colors.silver or colors.silverDark
     assert(mapX + 154 + 5 + 67 == 233 and mapX + 226 == 233,
@@ -406,7 +441,7 @@ function love.load()
         mapX + 104, mapY + 34, mapX + 98, mapY + 27,
         mapX + 54, mapY + 27, mapX + 48, mapY + 33,
         mapX - 2, mapY + 33)
-    elseif itemMap then
+    elseif fullMap then
       love.graphics.polygon("fill", mapX - 2, mapY + 46,
         mapX + 48, mapY + 46, mapX + 57, mapY + 35,
         mapX + 102, mapY + 35, mapX + 111, mapY + 47,
@@ -447,7 +482,7 @@ function love.load()
         mapX + 49, mapY + 60, mapX + 41, mapY + 70,
         mapX - 2, mapY + 70)
     end
-    local trees = itemMap and {
+    local trees = fullMap and {
       { 10, 8 }, { 24, 11 }, { 39, 7 }, { 113, 8 }, { 128, 11 },
       { 145, 7 }, { 204, 10 }, { 13, 81 }, { 30, 78 }, { 79, 83 },
       { 175, 79 }, { 194, 83 }, { 211, 77 },
@@ -482,7 +517,7 @@ function love.load()
         end
       end
     end
-    local playerX = (compactMap or itemMap) and mapX + 111 or mapX + 79
+    local playerX = (compactMap or fullMap) and mapX + 111 or mapX + 79
     local playerY = compactMap and mapY + 19 or mapY + 53
     box("fill", playerX - 2, playerY - 4, 5, 1, colors.outline)
     box("fill", playerX - 3, playerY - 3, 7, 4, colors.outline)
@@ -508,6 +543,17 @@ function love.load()
           theme:battleItemIcon({ icon = item[3] }, x - 8, y - 8,
             item[6] and foundTint or colors.amberLight)
         end
+      end
+    elseif trainerMap then
+      for index, trainer in ipairs(trainers) do
+        local x, y = mapX + trainer[4], mapY + trainer[5]
+        if explorerTrainerDetail and index == 1 then
+          color(colors.blueLight)
+          love.graphics.setLineWidth(2)
+          love.graphics.circle("line", x, y, 13)
+          love.graphics.setLineWidth(1)
+        end
+        trainerIcon(x, y, trainer[6])
       end
     end
     love.graphics.setScissor()
@@ -555,6 +601,28 @@ function love.load()
       return
     end
 
+    if explorerTrainerDetail then
+      local trainer = trainers[1]
+      theme:panel(7, 166, 226, 44, false)
+      trainerIcon(23, 186, trainer[6])
+      theme:partyInfo(trainer[1], 39, 172, colors.ink)
+      theme:partyType(trainer[3] .. (gen1 and "" or " / PHONE"),
+        39, 190, colors.green, 72)
+      box("fill", 118, 171, 1, 34, colors.band)
+      theme:partyType(gen1 and "OPEN" or "REMATCH READY",
+        124, 172, colors.green, 104)
+      if gen1 then
+        theme:partyInfo("TEAM UNKNOWN", 124, 188,
+          colors.ink, 104, "center")
+      else
+        theme:partyInfo("LAST TEAM", 135, 187, colors.ink)
+        for slot = 1, 3 do
+          theme:battleTeamBall(189 + (slot - 1) * 12, 194, true)
+        end
+      end
+      return
+    end
+
     if explorerItems then
       chip(12, 64, 36, "ALL", true)
       chip(51, 64, 57, "HIDDEN", false)
@@ -580,6 +648,29 @@ function love.load()
           x + 22, 173, colors.ink, 45)
         theme:partyType(item[2], x + 22, 191,
           item[6] and foundTint or colors.green, 42)
+        theme:detailChevron(x + 64, 184, colors.ink)
+      end
+      return
+    end
+
+    if explorerTrainers then
+      chip(12, 64, 53, "KNOWN", true)
+      chip(68, 64, 48, "OPEN", false)
+      chip(119, 64, 59, "BEATEN", false)
+      theme:panel(181, 64, 45, 16, false)
+      theme:partyType("MAP", 181, 66, colors.green, 35)
+      theme:detailChevron(218, 69, colors.green)
+      for index, trainer in ipairs(trainers) do
+        local x = 7 + (index - 1) * 77
+        theme:panel(x, 166, 72, 44, false)
+        trainerIcon(x + 13, 187, trainer[6])
+        local name = trainer[1] == "JR.TRAINER" and "JR.TRAINER"
+          or trainer[1] == "ANN & ANNE" and "ANN&ANNE" or trainer[1]
+        theme:partyType(name, x + 24, 173, colors.ink, 42)
+        theme:partyType(trainer[2], x + 24, 191,
+          trainer[6] == "beaten" and foundTint
+            or trainer[6] == "rematch" and colors.blueLight or colors.green,
+          39)
         theme:detailChevron(x + 64, 184, colors.ink)
       end
       return
@@ -622,10 +713,7 @@ function love.load()
       elseif layer[3] == "item" then
         theme:battleItemIcon({}, 170, y + 8, colors.amberLight)
       else
-        box("fill", 174, y + 8, 8, 8, colors.outline)
-        box("fill", 172, y + 17, 12, 8, colors.outline)
-        box("fill", 175, y + 9, 6, 6, colors.blueLight)
-        box("fill", 174, y + 18, 8, 6, colors.blueLight)
+        trainerIcon(178, y + 16, "rematch")
       end
       theme:partyInfo(layer[1], 187, y + 6, colors.ink, 41, "center")
       theme:partyType(layer[2], 185, y + 19, colors.green, 38)
