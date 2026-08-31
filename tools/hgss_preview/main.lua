@@ -1075,8 +1075,10 @@ function love.load()
     enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "PIDGEY", 4
   end
   if home then
-    local homePage = math.max(1, math.min(2,
-      tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
+    local homePages = math.max(1,
+      math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGES")) or 2))
+    local homePage = math.max(1, math.min(homePages,
+      math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1)))
     local overview = {
       width = 24, height = 12,
       rows = {
@@ -1107,7 +1109,7 @@ function love.load()
         icon = "trainer", accent = "blue", label = language.homeTrainer },
       { id = "tools", kind = "app", column = 10, row = 2, columns = 3,
         icon = "tools", accent = "green", label = "TOOLS" },
-    } or {
+    } or homePage == 2 and {
       { id = "store", kind = "app", column = 1, row = 1, columns = 3,
         icon = "store", accent = "green", label = language.homeStore },
       { id = "notes", kind = "app", column = 4, row = 1, columns = 3,
@@ -1116,9 +1118,9 @@ function love.load()
         icon = "trainer", accent = "blue", label = language.homeTrainer },
       { id = "tools", kind = "app", column = 10, row = 1, columns = 3,
         icon = "tools", accent = "green", label = "TOOLS" },
-    }
+    } or {}
     theme:home({
-      page = homePage, pages = 2, tiles = homeTiles,
+      page = homePage, pages = homePages, tiles = homeTiles,
       route = gen1 and "ROUTE 15" or "ROUTE 37",
       overview = overview,
       player = { x = 12, y = 6, facing = "down" },

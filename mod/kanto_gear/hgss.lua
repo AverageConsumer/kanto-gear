@@ -609,6 +609,7 @@ return function(ui)
     box("fill", x + 2, y + 2, w - 4, 17, colors.party)
     box("fill", x + 2, y + 2, w - 4, 2, colors.partyLight)
     self:partyType(translate("PARTY"), x + 4, y + 3, colors.white, w - 8)
+    self:detailChevron(x + w - 10, y + 7, colors.white)
     local portraitX = x + math.floor((w - 34) / 2)
     self:partyPortrait(portraitX, y + 17, false, false)
     if model.drawPokemon and model.lead then
@@ -633,6 +634,15 @@ return function(ui)
     if pages < 2 then return end
     page = math.max(1, math.min(pages, tonumber(page) or 1))
     local G, colors = ui.graphics, self.colors
+    if pages > 7 then
+      local label = page .. "/" .. pages
+      local width = math.max(24, partyTypeFont:getWidth(label) + 8)
+      local left = 120 - math.floor(width / 2)
+      self:pageChevron(left - 10, 207, false)
+      self:partyType(label, left, 202, colors.green, width)
+      self:pageChevron(left + width + 10, 207, true)
+      return
+    end
     local gap, center = 9, 120
     local left = center - math.floor((pages - 1) * gap / 2)
     self:pageChevron(left - 13, 207, false)
