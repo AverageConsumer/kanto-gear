@@ -788,7 +788,7 @@ return function(ui)
     local mapY = model.mapFull and 72 or 53
     local mapH = model.mapFull and 138
       or view == "wild" and (selected and 42 or 84)
-      or selected and 105 or 84
+      or 84
     if model.mapFull then
       self:panel(7, 53, 226, 16, false)
       zoomControls(53, model.mapZoom or 1)
@@ -922,31 +922,31 @@ return function(ui)
       end
       return
     elseif selected and view == "items" then
-      self:panel(7, 162, 226, 48, false)
+      self:panel(7, 140, 226, 70, false)
       self:battleItemIcon({ icon = selected.kind == "hidden" and "item"
-        or selected.icon or "item" }, 14, 180, colors.amberLight)
+        or selected.icon or "item" }, 15, 166, colors.amberLight)
       self:partyInfo(self:fitPartyInfo(selected.displayLabel or selected.label,
-        75), 38, 168, colors.ink)
+        75), 38, 157, colors.ink)
       self:partyType(self:fitPartyType(translate(selected.done and "FOUND"
-        or "OPEN"), 72), 38, 190, colors.green, 72)
-      box("fill", 118, 167, 1, 38, colors.band)
+        or "OPEN"), 72), 38, 181, colors.green, 72)
+      box("fill", 120, 147, 1, 56, colors.band)
       self:partyType(self:fitPartyType(translate(selected.kind == "hidden"
-        and "HIDDEN" or "VISIBLE"), 100), 126, 168, colors.green, 100)
+        and "HIDDEN" or "VISIBLE"), 100), 126, 158, colors.green, 100)
       self:partyInfo(self:fitPartyInfo(translate(selected.location
-        or "ON THIS MAP"), 100), 126, 188, colors.ink, 100, "center")
+        or "ON THIS MAP"), 100), 126, 180, colors.ink, 100, "center")
       return
     elseif selected and view == "trainers" then
-      self:panel(7, 162, 226, 48, false)
-      if model.drawActor then model.drawActor(selected, 23, 186, 1, false) end
-      self:partyInfo(self:fitPartyInfo(selected.label, 105),
-        39, 168, colors.ink)
+      self:panel(7, 140, 226, 70, false)
+      if model.drawActor then model.drawActor(selected, 23, 180, 1, false) end
+      self:partyInfo(self:fitPartyInfo(selected.label, 75),
+        39, 157, colors.ink)
       self:partyType(self:fitPartyType(translate(selected.done and "BEATEN"
-        or "OPEN"), 105), 39, 190, colors.green, 105)
-      box("fill", 148, 167, 1, 38, colors.band)
-      self:partyType(self:fitPartyType(translate("TRAINER"), 72),
-        154, 168, colors.green, 72)
+        or "OPEN"), 75), 39, 181, colors.green, 75)
+      box("fill", 120, 147, 1, 56, colors.band)
+      self:partyType(self:fitPartyType(translate("TRAINER"), 100),
+        126, 158, colors.green, 100)
       self:partyInfo(self:fitPartyInfo(translate(selected.status
-        or "ON THIS MAP"), 72), 154, 188, colors.ink, 72, "center")
+        or "ON THIS MAP"), 100), 126, 180, colors.ink, 100, "center")
       return
     end
 
@@ -986,7 +986,7 @@ return function(ui)
     local mapY = model.mapFull and 72 or 53
     local mapH = model.mapFull and 138
       or view == "wild" and (selected and 42 or 84)
-      or selected and 105 or 84
+      or 84
     if x >= 202 and x < 232 and y >= 32 and y < 50 then
       return "map_toggle"
     end
