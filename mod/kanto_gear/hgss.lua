@@ -1316,9 +1316,7 @@ return function(ui)
     local pressed = self:beginPress(x, y, 109, 76, action.ready)
     self:homeTile(x, y, 109, 76,
       action.ready and accent or colors.silverDark, false)
-    box("fill", x + 3, y + 3, 4, 70,
-      action.ready and accent or colors.silverDark)
-    local iconLeft, iconTop = x + 12, y + 11
+    local infoLeft, iconLeft, iconTop = x + 47, x + 9, y + 11
     clipped(iconLeft, iconTop, 34, 34,
       mixed(colors.surface, colors.white, self.dark and 0.06 or 0.24))
     border(iconLeft, iconTop, 34, 34, colors.outline)
@@ -1327,26 +1325,26 @@ return function(ui)
 
     local label = translate(action.label)
     if self:partyInfoWidth(label) <= 53 then
-      self:partyInfo(label, x + 50, y + 10, colors.ink, 53, "center")
+      self:partyInfo(label, infoLeft, y + 10, colors.ink, 53, "center")
     else
       local first, second = splitFont(label, 53, partyTypeFont)
       if first then
-        self:partyType(first, x + 50, y + 7, colors.ink, 53)
-        self:partyType(second, x + 50, y + 17, colors.ink, 53)
+        self:partyType(first, infoLeft, y + 7, colors.ink, 53)
+        self:partyType(second, infoLeft, y + 17, colors.ink, 53)
       else
         self:partyType(self:fitPartyType(label, 53),
-          x + 50, y + 12, colors.ink, 53)
+          infoLeft, y + 12, colors.ink, 53)
       end
     end
     local status = translate(action.ready and "READY" or "NOT HERE")
     local statusTint = action.ready and colors.greenLight or colors.silverDark
-    clipped(x + 50, y + 29, 53, 13, statusTint)
-    border(x + 50, y + 29, 53, 13, colors.outline)
-    self:partyType(self:fitPartyType(status, 49), x + 52, y + 31,
+    clipped(infoLeft, y + 29, 53, 13, statusTint)
+    border(infoLeft, y + 29, 53, 13, colors.outline)
+    self:partyType(self:fitPartyType(status, 49), infoLeft + 2, y + 31,
       action.ready and colors.statusInk or colors.white, 49)
     self:partyType(self:fitPartyType(translate(action.ready
         and "TAP TO USE" or "CONTEXT REQUIRED"), 93),
-      x + 10, y + 57, action.ready and colors.green or quiet, 93)
+      x + 8, y + 57, action.ready and colors.green or quiet, 93)
     self:endPress(pressed)
   end
 
