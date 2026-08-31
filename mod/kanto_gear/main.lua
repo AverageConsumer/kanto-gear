@@ -2482,23 +2482,47 @@ return function(mod)
     dirty = true
   end
 
-  function displayRuntime.saveHome()
+  function displayRuntime.homeSnapshot()
     local installed = {}
     for id, package in pairs(displayRuntime.homeCatalog.packages) do
       installed[id] = package.installed == true
     end
-    mod.save:set("home_packages", installed)
-    mod.save:set("home_layout", displayRuntime.home.layout)
+    local layout = { tiles = {} }
+    for _, tile in ipairs(displayRuntime.home.layout.tiles or {}) do
+      layout.tiles[#layout.tiles + 1] = {
+        id = tile.id, page = tile.page,
+        column = tile.column, row = tile.row,
+      }
+    end
+    return { format = 1, packages = installed, layout = layout }
+  end
+
+  function displayRuntime.saveHome()
+    local state = displayRuntime.homeSnapshot()
+    -- Keep the normal-save copy for backwards compatibility and recovery.
+    mod.save:set("home_packages", state.packages)
+    mod.save:set("home_layout", state.layout)
+    -- Home customization is UI state: commit it immediately instead of
+    -- requiring another in-game SAVE before the app may be restarted.
+    if game and mod.storage and mod.storage.write then
+      mod.storage:write(game, "home/state", state)
+    end
   end
 
   function displayRuntime.loadHome()
-    local installed = mod.save:get("home_packages", {})
+    local durable
+    if game and mod.storage and mod.storage.read then
+      durable = mod.storage:read(game, "home/state")
+      if type(durable) ~= "table" then durable = nil end
+    end
+    local installed = durable and durable.packages
+      or mod.save:get("home_packages", {})
     if type(installed) ~= "table" then installed = {} end
     for id, package in pairs(displayRuntime.homeCatalog.packages) do
       package.installed = package.fixed == true
         or package.available ~= false and installed[id] ~= false
     end
-    local saved = mod.save:get("home_layout")
+    local saved = durable and durable.layout or mod.save:get("home_layout")
     local hasSaved = type(saved) == "table" and type(saved.tiles) == "table"
     local source = hasSaved and saved.tiles or displayRuntime.defaultHomeTiles
     local layout = { tiles = {} }
@@ -2516,6 +2540,10 @@ return function(mod)
     displayRuntime.home.editing, displayRuntime.home.library = false, false
     displayRuntime.home.addSlot, displayRuntime.home.activeApp = nil, nil
     displayRuntime.home.swapSource = nil
+    if not durable and hasSaved and game and mod.storage
+        and mod.storage.write then
+      mod.storage:write(game, "home/state", displayRuntime.homeSnapshot())
+    end
     dirty = true
   end
 

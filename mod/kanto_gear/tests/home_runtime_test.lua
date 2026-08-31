@@ -54,6 +54,24 @@ end
 
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
+local api = upvalue(display.saveHome, "mod")
+local durableHome
+local function copy(value)
+  if type(value) ~= "table" then return value end
+  local result = {}
+  for key, entry in pairs(value) do result[copy(key)] = copy(entry) end
+  return result
+end
+api.storage = {
+  write = function(_, _, key, value)
+    if key == "home/state" then durableHome = copy(value) end
+    return true
+  end,
+  read = function(_, _, key)
+    if key == "home/state" and durableHome then return copy(durableHome) end
+    return nil, "not_found"
+  end,
+}
 home.layout = { tiles = {
   { id = "tools_app", page = 1, column = 1, row = 1 },
   { id = "party_app", page = 1, column = 4, row = 1 },
@@ -93,13 +111,17 @@ display.setPackageInstalled("tools", true)
 T.check(display.Home.place(home.layout, catalog, "tools_app", 2, 1, 1),
   "an enabled app can be added to a later Home page")
 display.saveHome()
+api.save:set("home_packages", { tools = false })
+api.save:set("home_layout", { tiles = {} })
 catalog.packages.tools.installed, home.layout = false, { tiles = {} }
 display.loadHome()
 local savedTools = display.Home.find(home.layout, "tools_app")
 T.check(catalog.packages.tools.installed,
   "enabled app state survives a save reload")
 T.check(savedTools and savedTools.page == 2,
-  "Home placement survives a save reload")
+  "Home placement survives a process-style durable reload")
+T.eq(savedTools and savedTools.column, 1,
+  "durable Home state is a serialized snapshot, not a live table alias")
 
 tap(60, 49)
 T.eq(page(), "PARTY", "tapping a Home icon opens its installed app")
@@ -170,7 +192,6 @@ T.eq(movedTools.page, 3, "an empty region accepts the selected app")
 T.eq(movedTools.column, 5,
   "an app moved to an empty row snaps to its centered position")
 
-local api = upvalue(display.saveHome, "mod")
 api.device = api.device or {
   powerInfo = function() return "battery", 80 end,
 }
@@ -224,6 +245,11 @@ T.check(not oldRodSurface.hidden and oldRodSurface.ready,
 home.layout = { tiles = {
   { id = "tool_widget_old_rod", page = 1, column = 1, row = 1 },
 } }
+display.saveHome()
+home.layout = { tiles = {} }
+display.loadHome()
+T.check(display.Home.find(home.layout, "tool_widget_old_rod") ~= nil,
+  "the selected tool-widget configuration survives a durable reload")
 home.page, home.editing, home.library = 1, false, false
 local toolTile = display.Home.tiles(home.layout, catalog, 1)[1]
 local toolX, toolY, toolW, toolH = theme.hgss:homeRect(toolTile)
