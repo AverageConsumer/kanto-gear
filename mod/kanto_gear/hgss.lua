@@ -476,14 +476,16 @@ return function(ui)
     if selected then self:roundedFocusFrame(x, y, w, h, 5) end
   end
 
-  function H:homeWidgetHeader(x, y, w, label, accent, accentLight)
+  function H:homeWidgetHeader(x, y, w, label, accent, accentLight, editing)
     box("fill", x + 2, y + 2, w - 4, 17, accent)
     box("fill", x + 2, y + 2, w - 4, 2, accentLight)
     local shown = self:fitPartyInfo(translate(label), w - 28)
     local width = self:partyInfoWidth(shown)
     self:partyInfo(shown, x + math.floor((w - width) / 2), y + 3,
       self.colors.white)
-    self:detailChevron(x + w - 10, y + 7, self.colors.white)
+    if not editing then
+      self:detailChevron(x + w - 10, y + 7, self.colors.white)
+    end
   end
 
   local homeIconColors = {
@@ -608,6 +610,42 @@ return function(ui)
     box("fill", x + 17, y + 24, 2, 1, c.ink)
   end
 
+  local function homeIcons(theme)
+    return {
+      bag = {
+        left = 1, top = 1, right = 24, bottom = 25,
+        draw = function(x, y) theme:battleBagIcon(x, y) end,
+      },
+      pokedex = {
+        left = 2, top = 1, right = 24, bottom = 25,
+        draw = function(x, y) theme:homePokedexIcon(x, y) end,
+      },
+      trainer = {
+        left = 1, top = 3, right = 25, bottom = 24,
+        draw = function(x, y) theme:homeTrainerIcon(x, y) end,
+      },
+      tools = {
+        left = 1, top = 1, right = 26, bottom = 26,
+        draw = function(x, y) theme:homeToolsIcon(x, y) end,
+      },
+      store = {
+        left = 1, top = 5, right = 25, bottom = 24,
+        draw = function(x, y) theme:homeStoreIcon(x, y) end,
+      },
+      notes = {
+        left = 2, top = 1, right = 23, bottom = 26,
+        draw = function(x, y) theme:homeNotesIcon(x, y) end,
+      },
+    }
+  end
+
+  local function drawHomeIcon(icon, x, y, size)
+    local width = icon.right - icon.left + 1
+    local height = icon.bottom - icon.top + 1
+    icon.draw(x + math.floor((size - width) / 2) - icon.left,
+      y + math.floor((size - height) / 2) - icon.top)
+  end
+
   function H:homeAppButton(x, y, w, h, accent, label, icon, selected)
     local G, colors = ui.graphics, self.colors
     color(colors.shadow)
@@ -631,11 +669,7 @@ return function(ui)
     G.rectangle("fill", wellX, y + 8, 29, 29, 5, 5)
     color(colors.outline)
     G.rectangle("line", wellX + 0.5, y + 8.5, 28, 28, 5, 5)
-    local iconWidth = icon.right - icon.left + 1
-    local iconHeight = icon.bottom - icon.top + 1
-    icon.draw(
-      wellX + math.floor((29 - iconWidth) / 2) - icon.left,
-      y + 8 + math.floor((29 - iconHeight) / 2) - icon.top)
+    drawHomeIcon(icon, wellX, y + 8, 29)
     local shown = self:fitPartyType(translate(label), w - 6)
     self:partyType(shown, x + 3, captionY + 5, colors.white, w - 6)
     if selected then self:roundedFocusFrame(x, y, w, h, 5) end
@@ -649,13 +683,126 @@ return function(ui)
       rows * 82 + (rows - 1) * 3
   end
 
+  function H:homePlus(tile)
+    local G, colors = ui.graphics, self.colors
+    local x, y, w, h = self:homeRect(tile)
+    color(mixed(colors.surface, colors.greenLight, self.dark and 0.08 or 0.04))
+    G.rectangle("fill", x, y, w, h, 5, 5)
+    color(mixed(colors.green, colors.surface, 0.30))
+    for px = x + 5, x + w - 7, 7 do
+      G.line(px, y + 1, math.min(px + 3, x + w - 5), y + 1)
+      G.line(px, y + h - 2, math.min(px + 3, x + w - 5), y + h - 2)
+    end
+    for py = y + 6, y + h - 8, 7 do
+      G.line(x + 1, py, x + 1, math.min(py + 3, y + h - 6))
+      G.line(x + w - 2, py, x + w - 2, math.min(py + 3, y + h - 6))
+    end
+    local cx, cy = x + math.floor(w / 2), y + math.floor(h / 2)
+    color(colors.greenLight)
+    G.setLineWidth(2)
+    G.line(cx - 5, cy, cx + 5, cy)
+    G.line(cx, cy - 5, cx, cy + 5)
+    G.setLineWidth(1)
+  end
+
+  function H:homeEditOverlay(tile, dragging)
+    local G, colors = ui.graphics, self.colors
+    local x, y, w, h = self:homeRect(tile)
+    color(colors.outline); G.circle("fill", x + 6, y + 6, 6)
+    color(colors.red); G.circle("fill", x + 6, y + 6, 5)
+    box("fill", x + 3, y + 5, 7, 2, colors.white)
+    for row = 0, 2 do
+      box("fill", x + w - 11, y + 4 + row * 3, 2, 2, colors.outline)
+      box("fill", x + w - 7, y + 4 + row * 3, 2, 2, colors.outline)
+    end
+    if dragging then self:roundedFocusFrame(x, y, w, h, 5) end
+  end
+
+  function H:homeEditDone()
+    local colors = self.colors
+    box("fill", 139, 4, 95, 19, colors.surface)
+    box("fill", 140, 5, 93, 2, colors.highlight)
+    clipped(158, 6, 57, 15, colors.green)
+    border(158, 6, 57, 15, colors.outline)
+    self:partyType(translate("DONE"), 161, 8, colors.white, 51)
+  end
+
+  function H:homeAddHeader(title)
+    local colors = self.colors
+    box("fill", 26, 4, 208, 19, colors.surface)
+    box("fill", 27, 5, 206, 2, colors.highlight)
+    local shown = self:fitLabel(translate(title), 190)
+    self:label(shown, 130 - math.floor(self:labelWidth(shown) / 2),
+      6, colors.ink)
+  end
+
+  function H:homeWidgetLibraryIcon(kind, x, y)
+    local G, colors = ui.graphics, self.colors
+    if kind == "explorer" then
+      clipped(x + 2, y + 5, 25, 19, colors.outline)
+      box("fill", x + 3, y + 6, 23, 17, colors.amberLight)
+      box("fill", x + 3, y + 16, 9, 7, colors.greenLight)
+      box("fill", x + 18, y + 6, 8, 6, colors.blueLight)
+      box("fill", x + 13, y + 12, 3, 5, colors.red)
+    else
+      color(colors.outline); G.circle("fill", x + 14, y + 14, 12)
+      color(colors.surface); G.circle("fill", x + 14, y + 14, 10)
+      box("fill", x + 4, y + 13, 20, 2, colors.outline)
+      color(colors.red); G.circle("fill", x + 14, y + 9, 4)
+      color(colors.outline); G.circle("fill", x + 14, y + 14, 3)
+      color(colors.white); G.circle("fill", x + 14, y + 14, 1)
+    end
+  end
+
+  function H:homeLibraryCard(x, y, w, item, icons)
+    local G, colors = ui.graphics, self.colors
+    color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 46, 4, 4)
+    local base = item.available and colors.surface
+      or mixed(colors.surface, colors.silverDark, self.dark and 0.36 or 0.22)
+    color(base); G.rectangle("fill", x, y, w, 46, 4, 4)
+    color(colors.outline)
+    G.rectangle("line", x + 0.5, y + 0.5, w - 1, 45, 4, 4)
+    local icon = icons[item.icon or item.id]
+    if item.kind == "app" and icon then drawHomeIcon(icon, x + 4, y + 5, 29)
+    else self:homeWidgetLibraryIcon(item.kind, x + 4, y + 5) end
+    local label = self:fitPartyType(translate(item.label), w - 39)
+    self:partyType(label, x + 36, y + 6, colors.ink, w - 39)
+    local kind = item.kind == "app" and translate("APP")
+      or translate("WIDGET") .. " " .. item.columns .. "x" .. item.rows
+    self:partyType(kind, x + 36, y + 18, colors.green, w - 39)
+    local status = item.available and translate("ADD")
+      or translate(item.reason == "on_home" and "ON HOME" or "NO SPACE")
+    local tint = item.available and colors.greenLight or colors.silverDark
+    box("fill", x + 36, y + 31, w - 40, 11, tint)
+    self:partyType(status, x + 37, y + 31,
+      item.available and colors.outline or colors.surface, w - 42)
+  end
+
+  function H:homeCatalog(model)
+    local colors, icons = self.colors, homeIcons(self)
+    clipped(7, 32, 226, 167, colors.shadow)
+    clipped(6, 31, 226, 167, colors.surface)
+    border(6, 31, 226, 167, colors.outline)
+    self:partyType(translate("INSTALLED"), 12, 35, colors.green, 216)
+    local page = math.max(1, tonumber(model.libraryPage) or 1)
+    local first = (page - 1) * 6 + 1
+    for index = first, math.min(first + 5, #(model.library or {})) do
+      local item = model.library[index]
+      local visible = index - first
+      local column, row = visible % 2, math.floor(visible / 2)
+      self:homeLibraryCard(10 + column * 111, 49 + row * 48, 108,
+        item, icons)
+    end
+    self:homePager(page, model.libraryPages)
+  end
+
   function H:homeExplorer(model, tile, selected)
     local colors = self.colors
     local x, y, w, h = self:homeRect(tile)
     self:homeTile(x, y, w, h, colors.greenLight, selected)
     local explorerAccent = mixed(colors.party, colors.greenLight, 0.45)
     self:homeWidgetHeader(x, y, w, "EXPLORER", explorerAccent,
-      mixed(explorerAccent, colors.white, 0.30))
+      mixed(explorerAccent, colors.white, 0.30), model.editing)
     self:mapOverview(model.overview, x + 5, y + 22, w - 10, h - 27, {
       player = model.player, markers = model.markers,
       drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
@@ -672,7 +819,7 @@ return function(ui)
     local x, y, w, h = self:homeRect(tile)
     self:homeTile(x, y, w, h, colors.partyLight, selected)
     self:homeWidgetHeader(x, y, w, "PARTY", colors.party,
-      colors.partyLight)
+      colors.partyLight, model.editing)
     local portraitX = x + math.floor((w - 34) / 2)
     self:partyPortrait(portraitX, y + 17, false, false)
     if model.drawPokemon and model.lead then
@@ -720,32 +867,9 @@ return function(ui)
   function H:home(model)
     local colors = self.colors
     model = model or {}
-    local icon = {
-      bag = {
-        left = 1, top = 1, right = 24, bottom = 25,
-        draw = function(x, y) self:battleBagIcon(x, y) end,
-      },
-      pokedex = {
-        left = 2, top = 1, right = 24, bottom = 25,
-        draw = function(x, y) self:homePokedexIcon(x, y) end,
-      },
-      trainer = {
-        left = 1, top = 3, right = 25, bottom = 24,
-        draw = function(x, y) self:homeTrainerIcon(x, y) end,
-      },
-      tools = {
-        left = 1, top = 1, right = 26, bottom = 26,
-        draw = function(x, y) self:homeToolsIcon(x, y) end,
-      },
-      store = {
-        left = 1, top = 5, right = 25, bottom = 24,
-        draw = function(x, y) self:homeStoreIcon(x, y) end,
-      },
-      notes = {
-        left = 2, top = 1, right = 23, bottom = 26,
-        draw = function(x, y) self:homeNotesIcon(x, y) end,
-      },
-    }
+    if model.library then self:homeCatalog(model); return end
+    local icon = homeIcons(self)
+    for _, slot in ipairs(model.slots or {}) do self:homePlus(slot) end
     for index, tile in ipairs(model.tiles or {}) do
       local selected = model.selected == index or model.selected == tile.id
       if tile.kind == "explorer" then
@@ -758,6 +882,9 @@ return function(ui)
           colors[tile.accent or "green"] or colors.green,
           tile.label or tile.id or "APP", icon[tile.icon or tile.id]
             or icon.tools, selected)
+      end
+      if model.editing then
+        self:homeEditOverlay(tile, model.dragging == tile.id)
       end
     end
     self:homePager(model.page, model.pages)

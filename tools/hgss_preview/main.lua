@@ -159,7 +159,9 @@ end
 
 function love.load()
   local screen = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") or "party"
+  local homePreview = screen:sub(1, 4) == "home"
   local chunk = assert(loadfile(root .. "/mod/kanto_gear/hgss.lua"))
+  local Home = assert(loadfile(root .. "/mod/kanto_gear/home_layout.lua"))()
   local fontPath = os.getenv("KANTO_GEAR_PREVIEW_FONT")
     or root .. "/mod/kanto_gear/rounded_mplus.ttf"
   local font = fileData(fontPath, "preview.ttf")
@@ -191,7 +193,7 @@ function love.load()
       and theme:partySlot(4, 60, 6) == 3
       and theme:partySlot(82, 101, 5) == nil,
     "party touch hitboxes follow the 240x216 card positions")
-  if screen:sub(1, 8) == "explorer" or screen == "home" then
+  if screen:sub(1, 8) == "explorer" or homePreview then
     local typeLabels = {
       { "HERE NOW", 66 }, { "WHOLE ROUTE", 68 }, { "HABITAT", 50 },
       { "FOUND", 74 },
@@ -217,7 +219,7 @@ function love.load()
         == "COOLTRAINERF BETH",
       "long trainer names fit the Explorer detail card")
   end
-  if screen == "home" then
+  if homePreview then
     for _, label in ipairs({ "BAG", "POKEDEX", language.homeTrainer,
         translate("TOOLS"), language.homeStore, language.homeNotes }) do
       assert(theme:fitPartyType(label, 49) == label,
@@ -281,7 +283,7 @@ function love.load()
     sprites[slot] = { image = image, quad = quad, width = width, height = height }
   end
   local overworld = {}
-  if screen:sub(1, 8) == "explorer" or screen == "home" then
+  if screen:sub(1, 8) == "explorer" or homePreview then
     for _, name in ipairs({ "player", "trainer1", "trainer2", "trainer3" }) do
       local image = love.graphics.newImage(
         "local/overworld/" .. name .. ".png")
@@ -317,7 +319,8 @@ function love.load()
   local explorerTrainers = screen == "explorer_trainers"
   local explorerTrainerDetail = screen == "explorer_trainer_detail"
   local explorerRadar = screen == "explorer_radar"
-  local home = screen == "home"
+  local home = homePreview
+  local homeEdit, homeAdd = screen == "home-edit", screen == "home-add"
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
     or explorerItems or explorerItemDetail
@@ -336,7 +339,9 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
   local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
-  local title = home and "SILPH LINK"
+  local title = homeAdd and "ADD TO HOME"
+    or homeEdit and "EDIT HOME"
+    or home and "SILPH LINK"
     or explorerRadar and translate("ITEM RADAR")
     or explorer and translate("EXPLORER")
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
@@ -361,7 +366,7 @@ function love.load()
       and not battleBag and not battleBagTransition then
     local headerOffset = summary and -1 or 0
     local titleX, titleWidth = theme:headerBar(title,
-      explorer and not explorerOverview
+      homeAdd or explorer and not explorerOverview
         or swapMode or context or summary or moves or memo or memoTransition
         or transition or movesTransition,
       not home and not explorer and not swapMode and (summary or moves or memo or memoTransition
@@ -372,19 +377,25 @@ function love.load()
       assert(math.abs(titleX - left - (width - titleWidth - (titleX - left)))
         <= 1, "context title stays centered between dividers")
     end
-    local clockLeft, clockWidth = 139, 72
-    local clockX, periodX = theme:headerClock("20:04",
-      os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
-      clockLeft, clockWidth, 6)
-    local textWidth, iconWidth = theme:labelWidth("20:04"), 11
-    local gaps = { clockX - clockLeft,
-      periodX - 1 - (clockX + textWidth),
-      clockLeft + clockWidth - (periodX - 1 + iconWidth) }
-    table.sort(gaps)
-    assert(gaps[3] - gaps[1] <= 1,
-      "clock, period icon, and dividers keep equal spacing")
-    theme:battery(214, 8, 4, nil, true, theme.colors.ink,
-      theme.colors.greenLight)
+    if homeAdd then
+      theme:homeAddHeader("ADD TO HOME")
+    elseif homeEdit then
+      theme:homeEditDone()
+    else
+      local clockLeft, clockWidth = 139, 72
+      local clockX, periodX = theme:headerClock("20:04",
+        os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
+        clockLeft, clockWidth, 6)
+      local textWidth, iconWidth = theme:labelWidth("20:04"), 11
+      local gaps = { clockX - clockLeft,
+        periodX - 1 - (clockX + textWidth),
+        clockLeft + clockWidth - (periodX - 1 + iconWidth) }
+      table.sort(gaps)
+      assert(gaps[3] - gaps[1] <= 1,
+        "clock, period icon, and dividers keep equal spacing")
+      theme:battery(214, 8, 4, nil, true, theme.colors.ink,
+        theme.colors.greenLight)
+    end
   end
   if battleRoot or battleMessage or battlePartyTransition or battlePartyMenu
       or battleMoves or battleMovesTransition or battleMoveInfo
@@ -1075,10 +1086,42 @@ function love.load()
     enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "PIDGEY", 4
   end
   if home then
-    local homePages = math.max(1,
-      math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGES")) or 2))
+    local catalog = {
+      explorer = { installed = true, kind = "explorer", columns = 7,
+        label = "EXPLORER" },
+      party = { installed = true, kind = "party", columns = 5,
+        label = "PARTY" },
+      bag = { installed = true, kind = "app", columns = 3,
+        icon = "bag", accent = "amber", label = "BAG" },
+      pokedex = { installed = true, kind = "app", columns = 3,
+        icon = "pokedex", accent = "red", label = "POKEDEX" },
+      trainer = { installed = true, kind = "app", columns = 3,
+        icon = "trainer", accent = "blue", label = language.homeTrainer },
+      tools = { installed = true, kind = "app", columns = 3,
+        icon = "tools", accent = "green", label = "TOOLS" },
+      store = { installed = true, kind = "app", columns = 3,
+        icon = "store", accent = "green", label = language.homeStore },
+      notes = { installed = true, kind = "app", columns = 3,
+        icon = "notes", accent = "amber", label = language.homeNotes },
+    }
+    local layout = { tiles = {
+      { id = "explorer", page = 1, column = 1, row = 1 },
+      { id = "party", page = 1, column = 8, row = 1 },
+      { id = "bag", page = 1, column = 1, row = 2 },
+      { id = "pokedex", page = 1, column = 4, row = 2 },
+      { id = "trainer", page = 1, column = 7, row = 2 },
+      { id = "tools", page = 1, column = 10, row = 2 },
+      { id = "store", page = 2, column = 1, row = 1 },
+      { id = "notes", page = 2, column = 4, row = 1 },
+    } }
+    if homeAdd then
+      Home.remove(layout, "party")
+      Home.remove(layout, "notes")
+    end
+    local homePages = Home.pageCount(layout) + (homeEdit and 1 or 0)
     local homePage = math.max(1, math.min(homePages,
-      math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1)))
+      math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE"))
+        or (homeEdit and 2 or 1))))
     local overview = {
       width = 24, height = 12,
       rows = {
@@ -1096,31 +1139,11 @@ function love.load()
         "                        ",
       },
     }
-    local homeTiles = homePage == 1 and {
-      { id = "explorer", kind = "explorer", column = 1, row = 1,
-        columns = 7 },
-      { id = "party", kind = "party", column = 8, row = 1,
-        columns = 5 },
-      { id = "bag", kind = "app", column = 1, row = 2, columns = 3,
-        icon = "bag", accent = "amber", label = "BAG" },
-      { id = "pokedex", kind = "app", column = 4, row = 2, columns = 3,
-        icon = "pokedex", accent = "red", label = "POKEDEX" },
-      { id = "trainer", kind = "app", column = 7, row = 2, columns = 3,
-        icon = "trainer", accent = "blue", label = language.homeTrainer },
-      { id = "tools", kind = "app", column = 10, row = 2, columns = 3,
-        icon = "tools", accent = "green", label = "TOOLS" },
-    } or homePage == 2 and {
-      { id = "store", kind = "app", column = 1, row = 1, columns = 3,
-        icon = "store", accent = "green", label = language.homeStore },
-      { id = "notes", kind = "app", column = 4, row = 1, columns = 3,
-        icon = "notes", accent = "amber", label = language.homeNotes },
-      { id = "trainer", kind = "app", column = 7, row = 1, columns = 3,
-        icon = "trainer", accent = "blue", label = language.homeTrainer },
-      { id = "tools", kind = "app", column = 10, row = 1, columns = 3,
-        icon = "tools", accent = "green", label = "TOOLS" },
-    } or {}
-    theme:home({
-      page = homePage, pages = homePages, tiles = homeTiles,
+    local model = {
+      page = homePage, pages = homePages,
+      tiles = Home.tiles(layout, catalog, homePage),
+      editing = homeEdit,
+      slots = homeEdit and Home.plusSlots(layout, catalog, homePage) or nil,
       route = gen1 and "ROUTE 15" or "ROUTE 37",
       overview = overview,
       player = { x = 12, y = 6, facing = "down" },
@@ -1135,7 +1158,15 @@ function love.load()
       drawPokemon = function(_, x, y, size)
         drawPortrait(gen1 and 6 or 1, x, y, size, false)
       end,
-    })
+    }
+    if homeAdd then
+      model.tiles = nil
+      model.library = Home.library(layout, catalog, 2, 10, 2)
+      model.libraryPages = math.max(1, math.ceil(#model.library / 6))
+      model.libraryPage = math.max(1, math.min(model.libraryPages,
+        math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1)))
+    end
+    theme:home(model)
   elseif explorer then
     drawExplorer()
   elseif battleMessage then
