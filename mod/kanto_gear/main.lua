@@ -5189,6 +5189,81 @@ return function(mod)
     local home, view = displayRuntime.home, displayRuntime.home.storeView
     local detail = home.storeDetail and displayRuntime.storeEntry(
       displayRuntime.storeById[home.storeDetail])
+    if detail and detail.id == "explorer" then
+      local overview = loadLocalMap()
+      if overview then detail.preview = displayRuntime.explorerModel(overview) end
+    elseif detail and detail.id == "map" then
+      detail.preview = {
+        region = (compat.currentRegion() or "kanto"):upper(),
+        location = areaName(mapId),
+      }
+    elseif detail and detail.id == "party" then
+      local party = partyData()
+      detail.preview = { party = party,
+        drawPokemon = function(mon, x, y, size)
+          local source = mon.source or mon
+          if not drawSprite(mon.species, "front", x, y, size, size,
+              nil, source, true) then
+            compat.drawPokemonIcon(source, x, y, size)
+          end
+        end }
+    elseif detail and detail.id == "pokedex" then
+      local dex, entries = displayRuntime.pokedexData(), {}
+      for index = 1, math.min(6, #(dex.entries or {})) do
+        entries[index] = dex.entries[index]
+      end
+      detail.preview = { entries = entries,
+        page = 1,
+        pages = math.max(1, math.ceil(#(dex.entries or {}) / 9)),
+        progress = (tonumber(dex.caught) or 0)
+          / math.max(1, tonumber(dex.total) or 1),
+        drawPokemon = function(row, x, y, size)
+          local tint = not row.caught and (row.seen
+              and THEME.hgss.colors.silver or THEME.hgss.colors.shadow)
+            or nil
+          drawSprite(row.species, "front", x, y, size, size,
+            tint, nil, true)
+        end }
+    elseif detail and detail.id == "bag" then
+      detail.preview = displayRuntime.bagModel()
+    elseif detail and detail.id == "trainer" then
+      local save, player = game.save or {}, game.save and game.save.player or {}
+      local elapsed = math.max(0, math.floor(compat.playSeconds(save)))
+      local owned, total = 0, 0
+      local caught = compat.caughtDex(save)
+      for species, def in pairs(game.data.pokemon or {}) do
+        if def.dex then
+          total = total + 1
+          if caught[species] then owned = owned + 1 end
+        end
+      end
+      detail.preview = {
+        name = player.name or (compat.isGen2() and "GOLD" or "RED"),
+        region = (compat.currentRegion() or "kanto"):upper(),
+        idText = THEME:format("ID %05d", player.id or 0),
+        money = THEME:format("¥%d", player.money or save.money or 0),
+        time = ("%d:%02d"):format(math.floor(elapsed / 3600),
+          math.floor(elapsed / 60) % 60),
+        pokedex = THEME:format("%d/%d", owned, total),
+      }
+      local inventory, badges = save.inventory or {}, {}
+      if compat.isGen2() then
+        local region = compat.currentRegion() or "johto"
+        local held = region == "kanto" and (player.kantoBadges or {})
+          or player.badges or {}
+        for index, id in ipairs(THEME.gen2Badges[region] or {}) do
+          badges[#badges + 1] = not not (held[id] or held[index])
+        end
+      else
+        for _, badge in ipairs(game.data.constants
+            and game.data.constants.badges or {}) do
+          badges[#badges + 1] = not not inventory[badge.item or badge.id]
+        end
+      end
+      detail.preview.badgeOwned = badges
+    elseif detail and detail.id == "steps" then
+      detail.preview = { steps = compactSteps(steps) }
+    end
     header(detail and detail.label or "SILPH STORE", true, not detail)
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
     if detail then

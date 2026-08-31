@@ -18,7 +18,9 @@ if ($sourceImages.Count -lt 6) {
 }
 $explorer = $env:KANTO_GEAR_PREVIEW_SCREEN -like "explorer*" -or `
   $env:KANTO_GEAR_PREVIEW_SCREEN -like "home*" -or `
-  $env:KANTO_GEAR_PREVIEW_SCREEN -like "trainer*"
+  $env:KANTO_GEAR_PREVIEW_SCREEN -like "trainer*" -or `
+  ($env:KANTO_GEAR_PREVIEW_SCREEN -eq "store-detail" -and `
+    $env:KANTO_GEAR_PREVIEW_STORE_APP -eq "explorer")
 $pokedex = $env:KANTO_GEAR_PREVIEW_SCREEN -like "pokedex*"
 $overworldFiles = @{}
 if ($explorer) {

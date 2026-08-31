@@ -176,6 +176,8 @@ end
 function love.load()
   local screen = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") or "party"
   local homePreview = screen:sub(1, 4) == "home"
+  local storeExplorerPreview = screen == "store-detail"
+    and os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "explorer"
   local chunk = assert(loadfile(root .. "/mod/kanto_gear/hgss.lua"))
   local Home = assert(loadfile(root .. "/mod/kanto_gear/home_layout.lua"))()
   local fontPath = os.getenv("KANTO_GEAR_PREVIEW_FONT")
@@ -220,7 +222,7 @@ function love.load()
   assert(theme:stepsHit(80, 120) == "reset"
       and theme:stepsHit(20, 80) == nil,
     "Step Counter reset hitbox matches its visible button")
-  if screen:sub(1, 8) == "explorer" or homePreview
+  if screen:sub(1, 8) == "explorer" or homePreview or storeExplorerPreview
       or screen:sub(1, 7) == "trainer" then
     local typeLabels = {
       { "HERE NOW", 66 }, { "WHOLE ROUTE", 68 }, { "HABITAT", 50 },
@@ -365,7 +367,7 @@ function love.load()
     end
   end
   local overworld = {}
-  if screen:sub(1, 8) == "explorer" or homePreview
+  if screen:sub(1, 8) == "explorer" or homePreview or storeExplorerPreview
       or screen:sub(1, 7) == "trainer" then
     for _, name in ipairs({ "player", "trainer1", "trainer2", "trainer3" }) do
       local image = love.graphics.newImage(
@@ -1212,24 +1214,121 @@ function love.load()
   end
   local storeCatalog = {
     { id = "explorer", icon = "explorer", label = "EXPLORER",
-      category = "ADVENTURE", action = "OPEN", state = "open" },
+      category = "ADVENTURE", action = "OPEN", state = "open",
+      description = { "EXPLORE THE AREA AROUND YOU.",
+        "FIND POKEMON, ITEMS AND TRAINERS.", "YOUR ROUTE, IN ONE PLACE." } },
     { id = "map", icon = "map", label = "MAP",
-      category = "NAVIGATION", action = "OPEN", state = "open" },
+      category = "NAVIGATION", action = "OPEN", state = "open",
+      description = { "VIEW THE REGION MAP.",
+        "SEE WHERE YOUR JOURNEY HAS LED.", "YOUR POSITION, AT A GLANCE." } },
     { id = "party", icon = "party", label = "PARTY",
-      category = "TEAM", action = "OPEN", state = "open" },
+      category = "TEAM", action = "OPEN", state = "open",
+      description = { "CHECK YOUR TEAM AT A GLANCE.",
+        "VIEW STATS, MOVES AND STATUS.", "KEEP EVERY PARTNER READY." } },
     { id = "pokedex", icon = "pokedex", label = "POKEDEX",
-      category = "RESEARCH", action = "OPEN", state = "open" },
+      category = "RESEARCH", action = "OPEN", state = "open",
+      description = { "RESEARCH EVERY SPECIES.",
+        "CHECK STATS, MOVES AND HABITATS.", "YOUR FIELD ENCYCLOPEDIA." } },
     { id = "bag", icon = "bag", label = "BAG",
-      category = "ITEMS", action = "OPEN", state = "open" },
+      category = "ITEMS", action = "OPEN", state = "open",
+      description = { "BROWSE EVERY ITEM BELOW.",
+        "USE THE ORIGINAL GAME EFFECTS.", "NO MIRRORED BAG REQUIRED." } },
     { id = "trainer", icon = "trainer", label = "TRAINER CARD",
-      category = "PROFILE", action = "OPEN", state = "open" },
+      category = "PROFILE", action = "OPEN", state = "open",
+      description = { "REVIEW YOUR TRAINER JOURNEY.",
+        "BADGES, PLAY TIME AND PROGRESS.", "YOUR ADVENTURE, AT A GLANCE." } },
     { id = "steps", icon = "steps", label = "STEP COUNTER",
-      category = "TRAINER TOOL", action = "OPEN", state = "open" },
+      category = "TRAINER TOOL", action = "OPEN", state = "open",
+      description = { "COUNT EVERY STEP OF YOUR JOURNEY.",
+        "KEEP THE TOTAL ON YOUR HOME SCREEN.", "ONE SMALL STEP AT A TIME." } },
     { id = "tools", icon = "tools", label = "TOOLS",
-      category = "FIELD KIT", action = "OPEN", state = "open" },
+      category = "FIELD KIT", action = "OPEN", state = "open",
+      description = { "USE FIELD MOVES AND GEAR.",
+        "KEEP UNLOCKED TOOLS CLOSE.", "READY WHEN THE ROUTE NEEDS IT." } },
     { id = "notes", icon = "notes", label = "NOTES",
-      category = "TRAINER TOOL", action = "GET", state = "get" },
+      category = "TRAINER TOOL", action = "GET", state = "get",
+      description = { "PLAN ROUTES AND REMINDERS.",
+        "KEEP CLUES CLOSE AT HAND.", "COMING SOON FROM SILPH LABS." } },
   }
+  for _, app in ipairs(storeCatalog) do
+    if app.id == "party" then
+      app.preview = { party = {}, drawPokemon = function(row, x, y, size)
+        drawPortrait(row.previewSlot, x, y, size, false)
+      end }
+      for index = 1, 6 do
+        app.preview.party[index] = {
+          previewSlot = index,
+          name = ({ "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
+            "DROWZEE", "TAUROS" })[index],
+          hpRatio = ({ 0.79, 1, 1, 1, 0, 0.33 })[index],
+        }
+      end
+    elseif app.id == "pokedex" then
+      app.preview = { entries = {}, page = 1, pages = 28, progress = 0.47,
+        drawPokemon = function(row, x, y, size)
+        drawPortrait(row.previewSlot, x, y, size, false)
+      end }
+      for index = 1, 6 do
+        app.preview.entries[index] = {
+          previewSlot = index, caught = index == 1 or index >= 5,
+          name = ({ "BULBASAUR", "IVYSAUR", "VENUSAUR", "CHARMANDER",
+            "CHARMELEON", "CHARIZARD" })[index],
+        }
+      end
+    elseif app.id == "explorer" then
+      local mapRows = {}
+      for y = 1, 18 do
+        local row = {}
+        for x = 1, 42 do
+          row[x] = x >= 30 and y <= 7 and "~"
+            or x >= 18 and x <= 23 and "." or " "
+        end
+        mapRows[y] = table.concat(row)
+      end
+      local detailRows = {}
+      for y = 1, 72 do
+        local row = {}
+        for x = 1, 168 do
+          local value = (x * 17 + y * 31 + x * y * 7) % 29
+          row[x] = value < 3 and "1" or value == 3 and "2" or "0"
+        end
+        detailRows[y] = table.concat(row)
+      end
+      app.preview = { rows = {},
+        overview = { width = 42, height = 18, rows = mapRows,
+          tileDetailRows = detailRows, tileDetailWidth = 168,
+          tileDetailHeight = 72 },
+        player = { x = 20, y = 9, facing = "down" },
+        markers = {
+          { kind = "item", x = 22, y = 8 },
+          { kind = "trainer", x = 18, y = 10,
+            actor = { sprite = "trainer1" } },
+        },
+        drawPlayer = function(_, x, y, tileSize)
+          drawOverworld("player", x, y, tileSize / 16,
+            theme.colors.redLight)
+        end,
+        drawTrainer = function(marker, x, y, tileSize)
+          drawOverworld(marker.actor.sprite, x, y,
+            tileSize / 16, theme.colors.redLight)
+        end,
+        drawPokemon = function(row, x, y, size)
+        drawPortrait(row.previewSlot, x, y, size, false)
+      end }
+      for index = 1, 3 do
+        app.preview.rows[index] = { previewSlot = index, caught = index < 3 }
+      end
+    elseif app.id == "bag" then
+      app.preview = { entries = {
+        { icon = "medicine", label = "POTION", count = 12 },
+        { icon = "ball", label = "GREAT BALL", count = 8 },
+        { icon = "status", label = "ANTIDOTE", count = 3 },
+        { icon = "machine", label = "TM24", count = 1 },
+        { icon = "key", label = "ESCAPE ROPE", count = 2 },
+        { icon = "medicine", label = "SUPER POTION", count = 4 },
+      } }
+    end
+  end
   local toolActions = gen1 and {
     { id = "bicycle", icon = "bicycle", label = "BICYCLE", ready = true },
     { id = "fish", icon = "fish", label = "FISH", ready = true },
@@ -1287,7 +1386,7 @@ function love.load()
     end
     detail = detail or storeCatalog[#storeCatalog]
     detail.publisher = "SILPH CO."
-    detail.description = {
+    detail.description = detail.description or {
       "A REAL LOOK INSIDE THE APP.", "BUILT FOR THE TOUCH SCREEN.",
       "EVERYTHING CLOSE AT HAND.",
     }

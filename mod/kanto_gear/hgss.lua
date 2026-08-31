@@ -1740,8 +1740,11 @@ return function(ui)
     self:endPress(pressed)
   end
 
-  function H:storePreview(id, x, y, w, h)
+  function H:storePreview(app, x, y, w, h)
     local G, colors = ui.graphics, self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    app = type(app) == "table" and app or { id = app }
+    local id, preview = app.id, app.preview or {}
     local pressed = self:beginPress(x, y, w, h)
     if self:shadowVisible() then
       clipped(x + 1, y + 2, w, h, colors.shadow)
@@ -1750,46 +1753,58 @@ return function(ui)
     border(x, y, w, h, colors.outline)
     local detailed = w >= 180
     local top, height = y + 1, h - 2
+    local accent = ({
+      explorer = colors.green, map = colors.blue, party = colors.green,
+      pokedex = colors.red, bag = colors.amber, trainer = colors.blue,
+      steps = colors.green, tools = colors.green, notes = colors.amber,
+    })[id] or colors.blue
     if detailed then
-      clipped(x + 1, top, w - 2, 12, colors.blue)
-      self:partyType(translate("PREVIEW"), x + 5, top + 2,
-        colors.white, w - 10)
-      top, height = top + 12, height - 12
+      box("fill", x + 6, top + 5, 76, 1, accent)
+      self:partyType(translate("PREVIEW"), x + 86, top + 1,
+        accent, 54)
+      box("fill", x + 144, top + 5, 76, 1, accent)
+      top, height = top + 10, height - 10
     end
     local function miniCard(left, cardTop, width, cardHeight, tint)
       clipped(left, cardTop, width, cardHeight,
         mixed(colors.surface, tint or colors.band, self.dark and 0.12 or 0.08))
-      border(left, cardTop, width, cardHeight, colors.band)
-    end
-    local function miniBall(cx, cy, tint)
-      color(colors.outline); G.circle("fill", cx, cy, 5)
-      color(colors.white); G.circle("fill", cx, cy, 4)
-      color(tint or colors.redLight); G.arc("fill", cx, cy, 4, math.pi, 0)
-      box("fill", cx - 4, cy - 1, 8, 2, colors.outline)
-      color(colors.white); G.circle("fill", cx, cy, 1)
+      border(left, cardTop, width, cardHeight, colors.outline)
     end
     if id == "explorer" then
       local mapW = detailed and 128 or w - 10
       local left, mapTop = x + 5, top + 4
-      clipped(left, mapTop, mapW, height - 8, colors.bandLight)
-      border(left, mapTop, mapW, height - 8, colors.outline)
-      box("fill", left + 1, mapTop + 9, mapW - 2, 17, colors.amberLight)
-      box("fill", left + 16, mapTop + 6, 21, 4, colors.green)
-      box("fill", left + mapW - 35, mapTop + 26, 25, 5, colors.blueLight)
-      box("fill", left + math.floor(mapW / 2) - 2, mapTop + 14,
-        5, 7, colors.blue)
-      box("fill", left + math.floor(mapW / 2) - 1, mapTop + 12,
-        3, 3, colors.redLight)
-      miniBall(left + mapW - 22, mapTop + 15, colors.redLight)
-      box("fill", left + 23, mapTop + 17, 4, 7, colors.green)
+      if preview.overview then
+        self:mapOverview(preview.overview, left, mapTop, mapW, height - 8, {
+          image = preview.image, player = preview.player,
+          markers = preview.markers, drawPlayer = preview.drawPlayer,
+          drawTrainer = preview.drawTrainer,
+        })
+      else
+        clipped(left, mapTop, mapW, height - 8, colors.bandLight)
+        border(left, mapTop, mapW, height - 8, colors.outline)
+        box("fill", left + 1, mapTop + 9, mapW - 2, 17,
+          colors.amberLight)
+        box("fill", left + 16, mapTop + 6, 21, 4, colors.green)
+        box("fill", left + mapW - 35, mapTop + 26, 25, 5,
+          colors.blueLight)
+        self:battleTeamBall(left + math.floor(mapW / 2), mapTop + 17, true)
+      end
       if detailed then
         self:partyType(translate("HERE NOW"), x + 140, top + 5,
           colors.green, 76)
-        for index, tint in ipairs({ colors.greenLight, colors.blueLight,
-            colors.amberLight }) do
-          miniBall(x + 149 + (index - 1) * 29, top + 27, tint)
+        for index = 1, 3 do
+          local row = preview.rows and preview.rows[index]
+          local left_ = x + 142 + (index - 1) * 29
+          color(colors.outline); G.circle("fill", left_ + 7, top + 27, 8)
+          color(colors.surface); G.circle("fill", left_ + 7, top + 27, 7)
+          if row and preview.drawPokemon then
+            preview.drawPokemon(row, left_ + 1, top + 21, 13,
+              row.caught == false)
+          else
+            self:battleTeamBall(left_ + 7, top + 27, true)
+          end
         end
-        box("fill", x + 142, top + 42, 69, 3, colors.silverDark)
+        box("fill", x + 142, top + 43, 69, 2, quiet)
       end
     elseif id == "map" then
       local left, mapTop = x + 7, top + 5
@@ -1814,123 +1829,195 @@ return function(ui)
         G.circle("fill", left + point[1], mapTop + point[2],
           index == 6 and 3 or 2)
       end
-      box("fill", left + 5, mapTop + mapH - 10, 42, 5, colors.green)
-      box("fill", left + 51, mapTop + mapH - 10, 27, 5, colors.amber)
-      if detailed then
-        self:partyType("JOHTO", left + mapW - 51,
-          mapTop + mapH - 12, colors.ink, 45)
-      end
+      self:partyType(self:fitPartyType(preview.region or "JOHTO", 48),
+        left + 5, mapTop + mapH - 12, colors.green, 48)
+      self:partyType(self:fitPartyType(preview.location or "ROUTE 39",
+        mapW - 67), left + 59, mapTop + mapH - 12, colors.ink,
+        mapW - 65)
     elseif id == "party" then
       local gap, cardW = 4, math.floor((w - 14) / 2)
-      for index = 0, 3 do
+      local tints = { colors.blueLight, colors.greenLight, colors.redLight,
+        colors.amberLight, colors.silver, colors.greenLight }
+      for index = 0, 5 do
         local column, row = index % 2, math.floor(index / 2)
         local left = x + 5 + column * (cardW + gap)
-        local cardTop = top + 4 + row * 24
-        miniCard(left, cardTop, cardW, 21, colors.partyLight)
-        miniBall(left + 12, cardTop + 10,
-          index == 3 and colors.hpMid or colors.redLight)
-        box("fill", left + 23, cardTop + 5, cardW - 29, 3,
-          colors.ink)
-        border(left + 23, cardTop + 13, cardW - 29, 5, colors.outline)
-        box("fill", left + 24, cardTop + 14,
-          math.floor((cardW - 31) * (index == 3 and 0.3 or 0.8)), 3,
-          index == 3 and colors.hpMid or colors.hp)
+        local cardTop = top + 5 + row * 17
+        clipped(left, cardTop, cardW, 15,
+          mixed(colors.party, tints[index + 1], self.dark and 0.10 or 0.08))
+        border(left, cardTop, cardW, 15, colors.partyDark)
+        color(mixed(colors.surface, tints[index + 1],
+          self.dark and 0.24 or 0.15))
+        G.circle("fill", left + 10, cardTop + 7, 7)
+        local mon = preview.party and preview.party[index + 1]
+        if mon and preview.drawPokemon then
+          preview.drawPokemon(mon, left + 3, cardTop, 14)
+        else
+          self:battleTeamBall(left + 10, cardTop + 7, mon ~= false)
+        end
+        local name = mon and self:fitPartyType(mon.name or "POKEMON",
+          cardW - 27) or "---"
+        self:partyType(name, left + 20, cardTop - 2, colors.white,
+          cardW - 24)
+        border(left + 20, cardTop + 9, cardW - 26, 4, colors.outline)
+        local ratio = mon and tonumber(mon.hpRatio)
+          or mon and (tonumber(mon.hp) or 0)
+            / math.max(1, tonumber(mon.maxHp) or 1)
+          or index == 4 and 0 or index == 5 and 0.32 or 0.82
+        ratio = math.max(0, math.min(1, ratio))
+        box("fill", left + 21, cardTop + 10,
+          math.floor((cardW - 28) * ratio), 2,
+          ratio == 0 and quiet
+            or ratio < 0.5 and colors.hpMid or colors.hp)
       end
     elseif id == "pokedex" then
-      local left, dexTop = x + 6, top + 4
-      local dexW, dexH = detailed and 54 or 31, height - 8
-      clipped(left, dexTop, dexW, dexH, colors.red)
-      border(left, dexTop, dexW, dexH, colors.outline)
-      clipped(left + 6, dexTop + 6, dexW - 12, dexH - 16, colors.blue)
-      border(left + 6, dexTop + 6, dexW - 12, dexH - 16, colors.outline)
-      miniBall(left + math.floor(dexW / 2), dexTop + math.floor(dexH / 2),
+      border(x + 7, top + 2, w - 14, 5, colors.outline)
+      local dexProgress = tonumber(preview.progress) or 0.47
+      box("fill", x + 8, top + 3,
+        math.floor((w - 16) * math.max(0, math.min(1, dexProgress))), 3,
         colors.redLight)
-      box("fill", left + 7, dexTop + dexH - 7, 7, 3, colors.amberLight)
-      local listX, listW = left + dexW + 5, w - dexW - 17
-      for row = 0, 2 do
-        local rowTop = dexTop + row * 16
-        miniCard(listX, rowTop, listW, 14,
-          row == 0 and colors.redLight or colors.band)
-        miniBall(listX + 9, rowTop + 7,
-          row == 0 and colors.redLight or colors.silver)
-        box("fill", listX + 18, rowTop + 4,
-          math.max(7, listW - 29 - row * 7), 2, colors.ink)
-        box("fill", listX + 18, rowTop + 9,
-          math.max(5, listW - 42), 2, colors.silverDark)
+      local gap, cardW = 4, math.floor((w - 18) / 3)
+      local tints = { colors.greenLight, colors.silver, colors.green,
+        colors.redLight, colors.amberLight, colors.blueLight }
+      for index = 0, 5 do
+        local column, row = index % 3, math.floor(index / 3)
+        local left = x + 5 + column * (cardW + gap)
+        local cardTop = top + 10 + row * 20
+        miniCard(left, cardTop, cardW, 18,
+          index == 0 and colors.redLight or colors.band)
+        local row_ = preview.entries and preview.entries[index + 1]
+        self:partyType(("%03d"):format(row_ and row_.dex or index + 1),
+          left + 3, cardTop + 5, quiet, 25)
+        color(colors.outline)
+        G.circle("fill", left + cardW - 12, cardTop + 9, 8)
+        color(colors.surface)
+        G.circle("fill", left + cardW - 12, cardTop + 9, 7)
+        if row_ and preview.drawPokemon then
+          preview.drawPokemon(row_, left + cardW - 19, cardTop + 2, 14,
+            row_.caught == false)
+        else
+          self:battleTeamBall(left + cardW - 12, cardTop + 9, true)
+        end
       end
+      self:partyType((preview.page or 1) .. "/" .. (preview.pages or 28),
+        x + 88, top + 50, colors.green, 50)
     elseif id == "bag" then
-      local iconX = x + (detailed and 9 or 4)
-      self:battleBagIcon(iconX, top + math.floor((height - 27) / 2))
-      local listX = x + (detailed and 47 or 37)
-      local listW = x + w - 6 - listX
-      local kinds = { "medicine", "ball", "machine" }
-      for row = 0, 2 do
-        local cardTop = top + 3 + row * 17
-        miniCard(listX, cardTop, listW, 15,
-          self:itemAccent(kinds[row + 1]))
-        self:battleItemIcon({ icon = kinds[row + 1] },
-          listX + 2, cardTop - 1, self:itemAccent(kinds[row + 1]))
-        box("fill", listX + 22, cardTop + 6,
-          math.max(7, listW - 30 - row * 8), 2, colors.ink)
+      local kinds = { "medicine", "ball", "status", "machine",
+        "key", "medicine" }
+      local gap, cardW = 4, math.floor((w - 14) / 2)
+      for index = 0, 5 do
+        local column, row = index % 2, math.floor(index / 2)
+        local left = x + 5 + column * (cardW + gap)
+        local cardTop = top + 5 + row * 17
+        local item = preview.entries and preview.entries[index + 1]
+        if item or not preview.entries then
+          item = item or { icon = kinds[index + 1], label = "ITEM" }
+          miniCard(left, cardTop, cardW, 15, self:itemAccent(item.icon))
+          self:battleItemIcon(item, left + 2, cardTop - 1,
+            self:itemAccent(item.icon))
+          self:partyType(self:fitPartyType(item.label or "ITEM", cardW - 49),
+            left + 22, cardTop + 2, colors.ink, cardW - 46)
+          self:partyType("x" .. tostring(item.count or 1),
+            left + cardW - 23, cardTop + 2, quiet, 20)
+        else
+          miniCard(left, cardTop, cardW, 15, colors.band)
+          self:partyType("---", left + 2, cardTop + 3,
+            quiet, cardW - 4)
+        end
       end
     elseif id == "trainer" then
-      local cardX, cardY = x + 7, top + 5
-      local cardW, cardH = w - 14, height - 10
-      clipped(cardX, cardY, cardW, cardH, colors.surface)
-      border(cardX, cardY, cardW, cardH, colors.outline)
-      box("fill", cardX + 1, cardY + 1, cardW - 2, 9, colors.blue)
-      self:partyType(translate("TRAINER CARD"), cardX + 5, cardY + 1,
-        colors.white, cardW - 10)
-      clipped(cardX + 7, cardY + 14, 27, 28, colors.bandLight)
-      border(cardX + 7, cardY + 14, 27, 28, colors.outline)
-      self:homeTrainerIcon(cardX + 7, cardY + 15)
-      box("fill", cardX + 42, cardY + 16, math.floor(cardW * 0.38), 3,
-        colors.ink)
-      box("fill", cardX + 42, cardY + 24, math.floor(cardW * 0.28), 2,
-        colors.silverDark)
-      for badge = 0, 5 do
-        color(badge < 4 and colors.amberLight or colors.silver)
-        G.circle("fill", cardX + 46 + badge * 18, cardY + 38, 4)
-        color(colors.outline); G.circle("line", cardX + 46 + badge * 18,
-          cardY + 38, 4)
+      miniCard(x + 5, top + 4, 91, 26, colors.blueLight)
+      G.push(); G.translate(x + 9, top + 7); G.scale(0.72, 0.72)
+      self:homeTrainerIcon(0, 0); G.pop()
+      self:partyType(self:fitPartyType(preview.name or "GOLD", 55),
+        x + 34, top + 6, colors.ink, 57)
+      self:partyType(self:fitPartyType(preview.region or "JOHTO", 55),
+        x + 34, top + 15, colors.blue, 57)
+      miniCard(x + 100, top + 4, 121, 26, colors.amberLight)
+      for badge = 0, 7 do
+        local owned = preview.badgeOwned and preview.badgeOwned[badge + 1]
+        if owned == nil then owned = badge < 5 end
+        color(owned and colors.amberLight or colors.silverDark)
+        G.circle("fill", x + 111 + badge * 14, top + 17, 5)
+        color(colors.outline); G.circle("line", x + 111 + badge * 14,
+          top + 17, 5)
+      end
+      local statW = 69
+      local statLabels = { "MONEY", "TIME", "POKEDEX" }
+      local statValues = { preview.money or "¥67240",
+        preview.time or "42:17", preview.pokedex or "118/251" }
+      for stat = 0, 2 do
+        local left = x + 5 + stat * 73
+        miniCard(left, top + 34, statW, 21,
+          ({ colors.amber, colors.blue, colors.red })[stat + 1])
+        trainerStatIcon(self, ({ "money", "time", "pokedex" })[stat + 1],
+          left + 12, top + 38,
+          ({ colors.amber, colors.blue, colors.red })[stat + 1])
+        self:partyType(self:fitPartyType(translate(statLabels[stat + 1]),
+          statW - 25), left + 22, top + 35,
+          quiet, statW - 25)
+        self:partyType(self:fitPartyType(statValues[stat + 1], statW - 25),
+          left + 22, top + 44, colors.ink, statW - 25)
       end
     elseif id == "steps" then
       local iconX = x + (detailed and 15 or 7)
       self:homeStepsIcon(iconX, top + math.floor((height - 26) / 2))
       local valueX, valueW = x + (detailed and 54 or 38),
         w - (detailed and 62 or 44)
-      fontText(trainerNumberFont, "12,846", valueX, top + 7,
+      fontText(trainerNumberFont, preview.steps or "12,846", valueX, top + 7,
         colors.ink, valueW, "center")
       self:partyType(translate("STEPS TODAY"), valueX, top + 34,
         colors.green, valueW)
-      border(valueX + 7, top + height - 10, valueW - 14, 5, colors.outline)
-      box("fill", valueX + 8, top + height - 9,
-        math.floor((valueW - 16) * 0.64), 3, colors.greenLight)
+      local buttonTop = top + height - 14
+      clipped(valueX + 20, buttonTop, valueW - 40, 10, colors.red)
+      border(valueX + 20, buttonTop, valueW - 40, 10,
+        colors.outline)
+      self:partyType(translate("RESET"), valueX + 22,
+        buttonTop, colors.white, valueW - 44)
     elseif id == "tools" then
       local kinds = { "bicycle", "fish", "cut", "surf" }
-      local gap, cardW = 4, math.floor((w - 14) / 4)
+      local gap, cardW = 4, math.floor((w - 14) / 2)
+      local cardH = math.floor((height - 8) / 2)
       for index, kind in ipairs(kinds) do
-        local left = x + 5 + (index - 1) * (cardW + gap)
-        miniCard(left, top + 5, cardW, height - 10,
+        local column, row = (index - 1) % 2, math.floor((index - 1) / 2)
+        local left = x + 5 + column * (cardW + gap)
+        local cardTop = top + 2 + row * (cardH + 4)
+        miniCard(left, cardTop, cardW, cardH,
           self:toolAccent(kind))
-        self:toolIcon(kind, left + math.floor((cardW - 28) / 2),
-          top + math.floor((height - 28) / 2), self:toolAccent(kind))
+        local iconX = detailed and 8 or math.floor((cardW - 20) / 2)
+        G.push()
+        G.translate(left + iconX, cardTop + math.floor((cardH - 20) / 2))
+        G.scale(0.72, 0.72)
+        self:toolIcon(kind, 0, 0, self:toolAccent(kind))
+        G.pop()
+        if detailed then
+          local labels = { "BICYCLE", "FISH", "CUT", "SURF" }
+          self:partyType(self:fitPartyType(translate(labels[index]),
+            cardW - 35), left + 31,
+            cardTop + math.floor((cardH - 8) / 2), colors.ink,
+            cardW - 35)
+        end
       end
     elseif id == "notes" then
       clipped(x + 6, top + 4, w - 12, height - 8, colors.surface)
       border(x + 6, top + 4, w - 12, height - 8, colors.outline)
       box("fill", x + 7, top + 5, w - 14, 8, colors.blue)
+      local noteLabels = { "CALL MOM", "BUY POTIONS", "CHECK ROUTE 39" }
       for row = 0, 2 do
         local rowTop = top + 18 + row * 11
-        clipped(x + 13, rowTop, 6, 6,
+        local label = translate(noteLabels[row + 1])
+        local labelWidth = partyTypeFont:getWidth(label)
+        local groupWidth = 6 + 7 + labelWidth
+        local groupLeft = x + math.floor((w - groupWidth) / 2)
+        clipped(groupLeft, rowTop, 6, 6,
           row == 0 and colors.greenLight or colors.surface)
-        border(x + 13, rowTop, 6, 6, colors.outline)
+        border(groupLeft, rowTop, 6, 6,
+          row == 0 and colors.outline or quiet)
         if row == 0 then
-          box("fill", x + 14, rowTop + 3, 2, 2, colors.outline)
-          box("fill", x + 16, rowTop + 2, 2, 2, colors.outline)
+          box("fill", groupLeft + 1, rowTop + 3, 2, 2, colors.outline)
+          box("fill", groupLeft + 3, rowTop + 2, 2, 2, colors.outline)
         end
-        box("fill", x + 24, rowTop + 2,
-          math.max(12, w - 41 - row * 15), 2, colors.silverDark)
+        self:partyType(label, groupLeft + 13, rowTop - 1,
+          row == 0 and colors.ink or quiet, labelWidth)
       end
       box("fill", x + w - 14, top + 16, 3, height - 23, colors.amber)
     else
@@ -2056,7 +2143,7 @@ return function(ui)
       60), 55, 68, colors.green, 60)
     self:storeAction(57, 83, 56, featured.action or "GET",
       featured.state)
-    self:storePreview(featured.id, 119, 52, 106, 64)
+    self:storePreview(featured, 119, 52, 106, 64)
     self:endPress(pressed)
     self:partyType(translate("RECOMMENDED FOR YOU"), 10, 126,
       colors.green, 220)
@@ -2100,6 +2187,7 @@ return function(ui)
 
   function H:storeDetail(model)
     local G, colors, icons = ui.graphics, self.colors, homeIcons(self)
+    local quiet = self.dark and colors.silver or colors.silverDark
     local app = model.app or {}
     color(colors.shadow); G.rectangle("fill", 8, 35, 226, 52, 5, 5)
     color(colors.surface); G.rectangle("fill", 7, 32, 226, 52, 5, 5)
@@ -2113,12 +2201,12 @@ return function(ui)
     self:partyType(self:fitPartyType(translate(app.category or "UTILITY"),
       104), 55, 53, colors.green, 104)
     self:partyType(self:fitPartyType(translate(app.publisher or "SILPH CO."),
-      104), 55, 66, colors.silverDark, 104)
+      104), 55, 66, quiet, 104)
     self:storeAction(171, 41, 51, app.action or "GET", app.state)
     if app.removable then
       self:storeMiniAction(175, 61, 43, "REMOVE", "soon", true)
     end
-    self:storePreview(app.id, 7, 90, 226, 73)
+    self:storePreview(app, 7, 90, 226, 73)
     clipped(7, 168, 226, 39, colors.surface)
     border(7, 168, 226, 39, colors.outline)
     local lines = app.description or {}
