@@ -476,6 +476,16 @@ return function(ui)
     if selected then self:roundedFocusFrame(x, y, w, h, 5) end
   end
 
+  function H:homeWidgetHeader(x, y, w, label, accent, accentLight)
+    box("fill", x + 2, y + 2, w - 4, 17, accent)
+    box("fill", x + 2, y + 2, w - 4, 2, accentLight)
+    local shown = self:fitPartyInfo(translate(label), w - 28)
+    local width = self:partyInfoWidth(shown)
+    self:partyInfo(shown, x + math.floor((w - width) / 2), y + 3,
+      self.colors.white)
+    self:detailChevron(x + w - 10, y + 7, self.colors.white)
+  end
+
   function H:homePokedexIcon(x, y)
     local colors = self.colors
     clipped(x, y + 1, 25, 24, colors.outline)
@@ -586,11 +596,8 @@ return function(ui)
     local x, y, w, h = self:homeRect(tile)
     self:homeTile(x, y, w, h, colors.greenLight, selected)
     local explorerAccent = mixed(colors.party, colors.greenLight, 0.45)
-    box("fill", x + 2, y + 2, w - 4, 17, explorerAccent)
-    box("fill", x + 2, y + 2, w - 4, 2,
+    self:homeWidgetHeader(x, y, w, "EXPLORER", explorerAccent,
       mixed(explorerAccent, colors.white, 0.30))
-    self:partyInfo(translate("EXPLORER"), x + 7, y + 3, colors.white)
-    self:detailChevron(x + w - 10, y + 7, colors.white)
     self:mapOverview(model.overview, x + 5, y + 22, w - 10, h - 27, {
       player = model.player, markers = model.markers,
       drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
@@ -606,10 +613,8 @@ return function(ui)
     local colors = self.colors
     local x, y, w, h = self:homeRect(tile)
     self:homeTile(x, y, w, h, colors.partyLight, selected)
-    box("fill", x + 2, y + 2, w - 4, 17, colors.party)
-    box("fill", x + 2, y + 2, w - 4, 2, colors.partyLight)
-    self:partyType(translate("PARTY"), x + 4, y + 3, colors.white, w - 8)
-    self:detailChevron(x + w - 10, y + 7, colors.white)
+    self:homeWidgetHeader(x, y, w, "PARTY", colors.party,
+      colors.partyLight)
     local portraitX = x + math.floor((w - 34) / 2)
     self:partyPortrait(portraitX, y + 17, false, false)
     if model.drawPokemon and model.lead then
