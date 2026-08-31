@@ -2401,6 +2401,7 @@ return function(mod)
       tonumber(displayRuntime.home.page) or 1))
     displayRuntime.home.editing, displayRuntime.home.library = false, false
     displayRuntime.home.addSlot, displayRuntime.home.activeApp = nil, nil
+    displayRuntime.home.swapSource = nil
     dirty = true
   end
 
@@ -4510,7 +4511,8 @@ return function(mod)
         displayRuntime.homeCatalog, home.page),
       editing = home.editing,
       slots = home.editing and displayRuntime.Home.plusSlots(layout,
-        displayRuntime.homeCatalog, home.page),
+        displayRuntime.homeCatalog, home.page, home.swapSource),
+      dragging = home.swapSource,
       route = explorer.route or "UNKNOWN AREA",
       overview = overview, image = explorer.image,
       player = explorer.player, markers = explorer.markers,
@@ -6554,6 +6556,7 @@ return function(mod)
   function displayRuntime.openHomeApp(id)
     local home = displayRuntime.home
     home.editing, home.library, home.addSlot = false, false, nil
+    home.swapSource = nil
     home.activeApp = id
     if id == "store" then
       home.storeView, home.storeDetail, page = "today", nil, "STORE"
@@ -6611,7 +6614,7 @@ return function(mod)
       return
     end
     if home.editing and inside(x, y, 139, 4, 95, 19) then
-      home.editing, dirty = false, true
+      home.editing, home.swapSource, dirty = false, nil, true
       displayRuntime.saveHome()
       return
     end
@@ -6621,16 +6624,35 @@ return function(mod)
         local left, top = THEME.hgss:homeRect(tile)
         if (x - left - 6) ^ 2 + (y - top - 6) ^ 2 <= 36 then
           displayRuntime.Home.remove(layout, tile.id)
+          if home.swapSource == tile.id then home.swapSource = nil end
+          displayRuntime.saveHome()
+        elseif not home.swapSource then
+          home.swapSource, dirty = tile.id, true
+        elseif home.swapSource == tile.id then
+          home.swapSource, dirty = nil, true
+        elseif displayRuntime.Home.swap(layout, displayRuntime.homeCatalog,
+            home.swapSource, tile.id) then
+          home.swapSource = nil
           displayRuntime.saveHome()
         end
         return
       end
       for _, slot in ipairs(displayRuntime.Home.plusSlots(layout,
-          displayRuntime.homeCatalog, home.page)) do
+          displayRuntime.homeCatalog, home.page, home.swapSource)) do
         local left, top, width, height = THEME.hgss:homeRect(slot)
         if inside(x, y, left, top, width, height) then
-          home.library, home.addSlot = true, slot
-          home.libraryKind, home.libraryPage, dirty = "app", 1, true
+          if home.swapSource then
+            local column = slot.column + math.floor(slot.columns / 2)
+            if displayRuntime.Home.drop(layout, displayRuntime.homeCatalog,
+                home.swapSource, home.page, column, slot.row) then
+              home.swapSource = nil
+              displayRuntime.saveHome()
+            end
+          else
+            home.library, home.addSlot = true, slot
+            home.libraryKind, home.libraryPage = "app", 1
+          end
+          dirty = true
           return
         end
       end
@@ -7938,32 +7960,8 @@ return function(mod)
         local hdx, hdy = dx * scale, dy * scale
         if not displayRuntime.home.editing and displayRuntime.Home.longPress(
             love.timer.getTime() - down.at, hdx, hdy) then
-          displayRuntime.home.editing, dirty = true, true
-          return
-        elseif displayRuntime.home.editing
-            and hdx * hdx + hdy * hdy
-              > displayRuntime.Home.dragSlop ^ 2 then
-          local tile = displayRuntime.Home.find(
-            displayRuntime.home.layout, down.homeTile)
-          if tile then
-            local function rounded(value)
-              return value < 0 and math.ceil(value - 0.5)
-                or math.floor(value + 0.5)
-            end
-            local targetPage = displayRuntime.home.page
-            local hx = x * scale
-            if hx < 12 then targetPage = math.max(1, targetPage - 1)
-            elseif hx > 228 then targetPage = targetPage + 1 end
-            local column = targetPage == displayRuntime.home.page
-              and tile.column + rounded(hdx / 19) or tile.column
-            local row = tile.row + rounded(hdy / 85)
-            if displayRuntime.Home.place(displayRuntime.home.layout,
-                displayRuntime.homeCatalog,
-                tile.id, targetPage, column, row) then
-              displayRuntime.home.page = targetPage
-              displayRuntime.saveHome()
-            end
-          end
+          displayRuntime.home.editing = true
+          displayRuntime.home.swapSource = down.homeTile
           dirty = true
           return
         end

@@ -26,13 +26,15 @@ local function overlaps(a, b)
     and b.row < a.row + a.rows
 end
 
-local function free(layout, catalog, page, column, row, columns, rows, ignoreId)
+local function free(layout, catalog, page, column, row, columns, rows,
+                    ignoreId, ignoreOtherId)
   local candidate = {
     page = page, column = column, row = row,
     columns = columns, rows = rows,
   }
   for _, tile in ipairs(layout.tiles or {}) do
-    if tile.id ~= ignoreId and tile.page == page then
+    if tile.id ~= ignoreId and tile.id ~= ignoreOtherId
+        and tile.page == page then
       local _, tileColumns, tileRows = definition(catalog, tile.id)
       if tileColumns and overlaps(candidate, {
           column = tile.column, row = tile.row,
@@ -62,7 +64,8 @@ function M.swipeDirection(dx, dy)
   return dx < 0 and 1 or -1
 end
 
-function M.canPlace(layout, catalog, id, page, column, row, ignoreId)
+function M.canPlace(layout, catalog, id, page, column, row,
+                    ignoreId, ignoreOtherId)
   local item, columns, rows = definition(catalog, id)
   if not item then return false, "not_installed" end
   if not integer(page) or page < 1
@@ -70,7 +73,8 @@ function M.canPlace(layout, catalog, id, page, column, row, ignoreId)
       or column < 1 or row < 1
       or column + columns - 1 > M.columns
       or row + rows - 1 > M.rows then return false, "outside" end
-  return free(layout, catalog, page, column, row, columns, rows, ignoreId)
+  return free(layout, catalog, page, column, row, columns, rows,
+    ignoreId, ignoreOtherId)
 end
 
 function M.place(layout, catalog, id, page, column, row)
@@ -85,6 +89,30 @@ function M.place(layout, catalog, id, page, column, row)
     layout.tiles[#layout.tiles + 1] = tile
   end
   return true
+end
+
+function M.swap(layout, catalog, firstId, secondId)
+  local first, second = M.find(layout, firstId), M.find(layout, secondId)
+  local _, firstColumns, firstRows = definition(catalog, firstId)
+  local _, secondColumns, secondRows = definition(catalog, secondId)
+  if not first or not second or first == second
+      or not firstColumns or not secondColumns then return false, "missing" end
+  local firstTarget = { page = second.page, column = second.column,
+    row = second.row, columns = firstColumns, rows = firstRows }
+  local secondTarget = { page = first.page, column = first.column,
+    row = first.row, columns = secondColumns, rows = secondRows }
+  if firstTarget.page == secondTarget.page
+      and overlaps(firstTarget, secondTarget) then return false, "incompatible" end
+  local firstFits = M.canPlace(layout, catalog, firstId,
+    firstTarget.page, firstTarget.column, firstTarget.row, firstId, secondId)
+  local secondFits = M.canPlace(layout, catalog, secondId,
+    secondTarget.page, secondTarget.column, secondTarget.row, secondId, firstId)
+  if not firstFits or not secondFits then return false, "incompatible" end
+  first.page, first.column, first.row =
+    firstTarget.page, firstTarget.column, firstTarget.row
+  second.page, second.column, second.row =
+    secondTarget.page, secondTarget.column, secondTarget.row
+  return true, "swap"
 end
 
 function M.remove(layout, id)
@@ -133,16 +161,16 @@ function M.tiles(layout, catalog, page)
   return result
 end
 
-function M.plusSlots(layout, catalog, page)
+function M.plusSlots(layout, catalog, page, ignoreId)
   local slots = {}
   for row = 1, M.rows do
     local column = 1
     while column <= M.columns do
-      if free(layout, catalog, page, column, row, 1, 1) then
+      if free(layout, catalog, page, column, row, 1, 1, ignoreId) then
         local first = column
         repeat column = column + 1
         until column > M.columns
-          or not free(layout, catalog, page, column, row, 1, 1)
+          or not free(layout, catalog, page, column, row, 1, 1, ignoreId)
         local columns = column - first
         if columns >= 3 then
           slots[#slots + 1] = {
@@ -155,6 +183,33 @@ function M.plusSlots(layout, catalog, page)
     end
   end
   return slots
+end
+
+function M.drop(layout, catalog, id, page, column, row)
+  local source = M.find(layout, id)
+  local _, columns, rows = definition(catalog, id)
+  if not source or not columns or not integer(page) or page < 1
+      or not integer(column) or not integer(row) then return false, "outside" end
+  for _, tile in ipairs(layout.tiles or {}) do
+    local _, tileColumns, tileRows = definition(catalog, tile.id)
+    if tile.id ~= id and tile.page == page and tileColumns
+        and column >= tile.column and column < tile.column + tileColumns
+        and row >= tile.row and row < tile.row + tileRows then
+      return M.swap(layout, catalog, id, tile.id)
+    end
+  end
+  for _, slot in ipairs(M.plusSlots(layout, catalog, page, id)) do
+    if column >= slot.column and column < slot.column + slot.columns
+        and row >= slot.row and row < slot.row + slot.rows
+        and columns <= slot.columns and rows <= slot.rows then
+      local targetColumn = slot.column
+        + math.floor((slot.columns - columns) / 2)
+      local targetRow = slot.row + math.floor((slot.rows - rows) / 2)
+      local moved = M.place(layout, catalog, id, page, targetColumn, targetRow)
+      return moved, moved and "move" or "incompatible"
+    end
+  end
+  return false, "no_target"
 end
 
 function M.library(layout, catalog, page, column, row, kind)

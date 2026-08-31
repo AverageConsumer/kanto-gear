@@ -46,7 +46,8 @@ local composeHook
 for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
   if entry.owner == "kanto_gear" then composeHook = entry.callback end
 end
-local tap = upvalue(upvalue(composeHook, "touchEvent"), "tap")
+local touchEvent = upvalue(composeHook, "touchEvent")
+local tap = upvalue(touchEvent, "tap")
 local function page()
   return upvalue(display.openHomeApp, "page")
 end
@@ -121,7 +122,7 @@ T.eq(page(), "HOME", "Explorer root back returns Home")
 home.layout = { tiles = {
   { id = "explorer_widget", page = 1, column = 1, row = 1 },
 } }
-home.page, home.editing, home.library = 1, true, false
+home.page, home.editing, home.library, home.swapSource = 1, true, false, nil
 display.tapHome(180, 60)
 T.eq(home.addSlot.column, 8, "the editor exposes the space beside Explorer")
 local apps = display.Home.library(home.layout, catalog, 1,
@@ -137,6 +138,32 @@ display.tapHome(15 + visible % 2 * 111,
 local centeredTools = display.Home.find(home.layout, "tools_app")
 T.eq(centeredTools.column, 9,
   "a three-column app is centered inside Explorer's five-column gap")
+
+home.layout = { tiles = {
+  { id = "tools_app", page = 1, column = 1, row = 1 },
+  { id = "trainer_app", page = 2, column = 1, row = 1 },
+} }
+home.page, home.editing, home.library, home.swapSource = 1, true, false, nil
+display.tapHome(30, 70)
+T.eq(home.swapSource, "tools_app", "tapping an app selects it for swapping")
+touchEvent("down,140,100")
+touchEvent("up,20,100")
+T.eq(home.page, 2, "the selected app survives a swipe to the next Home page")
+display.tapHome(30, 70)
+T.eq(display.Home.find(home.layout, "tools_app").page, 2,
+  "tapping an app on another page swaps it with the selection")
+T.eq(display.Home.find(home.layout, "trainer_app").page, 1,
+  "the cross-page swap returns the other app to the source position")
+T.eq(home.swapSource, nil, "a completed swap clears the selection")
+display.tapHome(30, 70)
+touchEvent("down,140,100")
+touchEvent("up,20,100")
+display.tapHome(120, 70)
+local movedTools = display.Home.find(home.layout, "tools_app")
+T.eq(home.page, 3, "swiping reaches a new empty Home page")
+T.eq(movedTools.page, 3, "an empty region accepts the selected app")
+T.eq(movedTools.column, 5,
+  "an app moved to an empty row snaps to its centered position")
 
 local api = upvalue(display.saveHome, "mod")
 api.device = api.device or {

@@ -67,6 +67,34 @@ for _, item in ipairs(widgetLibrary) do
   if item.id == "party_widget" then partyWidget = item end
 end
 assert(partyWidget and partyWidget.available)
+local swapLayout = { tiles = {
+  { id = "bag_app", page = 1, column = 1, row = 1 },
+  { id = "notes_app", page = 2, column = 10, row = 2 },
+} }
+assert(Home.drop(swapLayout, catalog, "bag_app", 2, 10, 2))
+assert(Home.find(swapLayout, "bag_app").page == 2
+  and Home.find(swapLayout, "bag_app").column == 10
+  and Home.find(swapLayout, "notes_app").page == 1
+  and Home.find(swapLayout, "notes_app").column == 1)
+local incompatibleLayout = { tiles = {
+  { id = "explorer_widget", page = 1, column = 1, row = 1 },
+  { id = "party_widget", page = 1, column = 8, row = 1 },
+} }
+assert(not Home.drop(incompatibleLayout, catalog,
+  "explorer_widget", 1, 8, 1))
+assert(Home.find(incompatibleLayout, "explorer_widget").column == 1
+  and Home.find(incompatibleLayout, "party_widget").column == 8)
+local emptyDropLayout = { tiles = {
+  { id = "explorer_widget", page = 1, column = 1, row = 1 },
+  { id = "bag_app", page = 1, column = 1, row = 2 },
+} }
+assert(Home.drop(emptyDropLayout, catalog, "bag_app", 1, 10, 1))
+assert(Home.find(emptyDropLayout, "bag_app").column == 9
+  and Home.find(emptyDropLayout, "bag_app").row == 1)
+assert(Home.drop(emptyDropLayout, catalog, "bag_app", 3, 1, 2))
+assert(Home.find(emptyDropLayout, "bag_app").page == 3
+  and Home.find(emptyDropLayout, "bag_app").column == 5
+  and Home.find(emptyDropLayout, "bag_app").row == 2)
 assert(not Home.longPress(0.44, 0, 0)
   and Home.longPress(0.45, 6, 0)
   and not Home.longPress(0.45, 7, 0))

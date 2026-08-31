@@ -1222,7 +1222,6 @@ function love.load()
       page = homePage, pages = homePages,
       tiles = Home.tiles(layout, catalog, homePage),
       editing = homeEdit,
-      slots = homeEdit and Home.plusSlots(layout, catalog, homePage) or nil,
       route = gen1 and "ROUTE 15" or "ROUTE 37",
       overview = overview,
       player = { x = 12, y = 6, facing = "down" },
@@ -1238,6 +1237,10 @@ function love.load()
         drawPortrait(gen1 and 6 or 1, x, y, size, false)
       end,
     }
+    if homeEdit and model.tiles[1] then
+      model.dragging = model.tiles[1].id
+      model.slots = Home.plusSlots(layout, catalog, homePage, model.dragging)
+    end
     if homeAdd then
       model.tiles = nil
       model.libraryKind = os.getenv("KANTO_GEAR_PREVIEW_LIBRARY") == "widget"
