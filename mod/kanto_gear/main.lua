@@ -1850,11 +1850,12 @@ return function(mod)
       description = { "EXPLORE THE AREA AROUND YOU.",
         "FIND POKEMON, ITEMS AND TRAINERS.", "YOUR ROUTE, IN ONE PLACE." } },
     { id = "party", icon = "party", label = "PARTY",
-      category = "TEAM", target = "PARTY", fixed = true,
+      category = "TEAM", reason = "TEAM STATUS",
+      target = "PARTY", fixed = true,
       description = { "CHECK YOUR TEAM AT A GLANCE.",
         "VIEW STATS, MOVES AND STATUS.", "KEEP EVERY PARTNER READY." } },
     { id = "pokedex", icon = "pokedex", label = "POKEDEX",
-      category = "RESEARCH", available = false,
+      category = "RESEARCH", reason = "DEX RESEARCH", available = false,
       description = { "A SMARTER POKEDEX IS COMING.",
         "RESEARCH EVERY SPECIES.", "SILPH LABS IS STILL BUILDING IT." } },
     { id = "bag", icon = "bag", label = "BAG",
@@ -2424,6 +2425,7 @@ return function(mod)
     return app and {
       id = app.id, icon = app.icon, label = app.label,
       category = app.category, publisher = "SILPH CO.",
+      reason = app.reason or app.category,
       target = app.target, state = state,
       action = state == "soon" and "SOON"
         or state == "open" and "OPEN" or "GET",

@@ -60,6 +60,8 @@ home.layout = { tiles = {
 
 T.eq(display.storeEntry(store.tools).state, "open",
   "bundled installed apps open without a fake update state")
+T.eq(display.storeEntry(store.party).reason, "TEAM STATUS",
+  "Store recommendations receive their runtime reason text")
 T.check(display.setPackageInstalled("tools", false),
   "removable bundled apps can be disabled")
 T.eq(display.storeEntry(store.tools).state, "get",
@@ -115,6 +117,14 @@ T.eq(display.explorer.view, nil, "Explorer internal view closes")
 T.eq(home.activeApp, "explorer", "Explorer remains open after internal back")
 tap(5, 5)
 T.eq(page(), "HOME", "Explorer root back returns Home")
+
+local api = upvalue(display.saveHome, "mod")
+api.device = api.device or {
+  powerInfo = function() return "battery", 80 end,
+}
+display.openHomeApp("store")
+T.check(pcall(display.drawContents),
+  "the real Store runtime model renders without an exception")
 
 run.release()
 T.finish("Kanto Gear Home runtime")
