@@ -890,9 +890,9 @@ return function(ui)
     })
     local route = self:fitPartyType(model.route or translate("UNKNOWN AREA"), 76)
     local routeWidth = math.max(48, partyTypeFont:getWidth(route) + 10)
-    clipped(x + 9, y + h - 18, routeWidth, 12, colors.surface)
-    border(x + 9, y + h - 18, routeWidth, 12, colors.outline)
-    self:partyType(route, x + 9, y + h - 18, colors.ink, routeWidth)
+    clipped(x + 6, y + h - 20, routeWidth, 12, colors.surface)
+    border(x + 6, y + h - 20, routeWidth, 12, colors.outline)
+    self:partyType(route, x + 6, y + h - 20, colors.ink, routeWidth)
   end
 
   function H:homeParty(model, tile, selected)
@@ -906,9 +906,9 @@ return function(ui)
     if model.drawPokemon and model.lead then
       model.drawPokemon(model.lead, portraitX + 1, y + 20, 32, false)
     end
-    local leadName = self:fitPartyInfo(model.lead and model.lead.name or "---",
+    local leadName = self:fitPartyType(model.lead and model.lead.name or "---",
       w - 10)
-    self:partyInfo(leadName, x + 5, y + 52, colors.ink, w - 10, "center")
+    self:partyType(leadName, x + 5, y + 56, colors.ink, w - 10)
     self:partyType(model.lead and model.lead.levelText or "--",
       x + 6, y + 65, colors.green, 26)
     if model.lead and model.lead.statusId then
@@ -916,7 +916,7 @@ return function(ui)
     end
     self:partyType(model.lead and model.lead.hpText or "--/--",
       x + w - 45, y + 65, colors.ink, 39)
-    self:hpBar(x + 6, y + 76, w - 12, model.lead and model.lead.hp or 0,
+    self:hpBar(x + 6, y + 74, w - 12, model.lead and model.lead.hp or 0,
       model.lead and model.lead.maxHp or 1)
   end
 
