@@ -152,6 +152,35 @@ T.eq(home.activeApp, "explorer", "Explorer remains open after internal back")
 tap(5, 5)
 T.eq(page(), "HOME", "Explorer root back returns Home")
 
+T.eq(display.storeEntry(store.pokedex).state, "open",
+  "the finished Pokedex is available in Silph Store")
+T.check(display.openHomeApp("pokedex"), "Pokedex opens from Home")
+T.eq(page(), "POKEDEX", "Pokedex owns an independent bottom-screen app")
+local dexModel = display.pokedexModel()
+T.check(dexModel.view == "index" and #dexModel.entries > 0,
+  "Pokedex index is populated from the live generation data")
+display.tapPokedex(20, 50)
+T.eq(display.pokedex.view, "profile",
+  "tapping a species opens its encyclopedia profile")
+display.tapPokedex(80, 115)
+T.eq(display.pokedex.view, "habitat",
+  "the profile habitat card opens real encounter research")
+display.tapPokedex(5, 5)
+T.eq(display.pokedex.view, "profile",
+  "Pokedex detail back returns to the species profile")
+display.tapPokedex(25, 115)
+T.eq(display.pokedex.view, "stats",
+  "the profile stats card opens base-stat research")
+api.device = api.device or {
+  powerInfo = function() return "battery", 80 end,
+}
+T.check(pcall(display.drawContents),
+  "the wired Pokedex renders its live runtime model")
+display.tapPokedex(5, 5)
+display.tapPokedex(5, 5)
+display.tapPokedex(5, 5)
+T.eq(page(), "HOME", "Pokedex back navigation returns Home")
+
 home.layout = { tiles = {
   { id = "explorer_widget", page = 1, column = 1, row = 1 },
 } }

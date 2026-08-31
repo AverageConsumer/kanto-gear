@@ -861,18 +861,66 @@ return function(ui)
     end
   end
 
+  local function dexResearchHero(self, model, accent, summary, facts)
+    local colors = self.colors
+    local mon = model.pokemon or {}
+    self:homeTile(7, 34, 226, 37, accent, false)
+    if model.drawPokemon then model.drawPokemon(mon, 13, 37, 31, false) end
+    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 108),
+      50, 39, colors.ink)
+    self:typeBadges(mon, 50, 55, false)
+    self:partyInfo(self:fitPartyInfo(summary or "", 69),
+      157, 39, colors.ink, 69, "center")
+    self:partyType(self:fitPartyType(facts or "", 69),
+      157, 56, colors.green, 69)
+  end
+
+  function H:pokedexStats(model)
+    local colors = self.colors
+    dexResearchHero(self, model, colors.blue,
+      model.summary or "BASE STATS", "")
+    self:partyType(model.catchText or "CATCH --", 105, 56,
+      colors.green, 59)
+    self:partyType(model.expText or "XP --", 167, 56,
+      colors.green, 59)
+    local rows = model.stats or {}
+    local gap = #rows > 5 and 1 or 3
+    local height = #rows > 5 and 20 or 22
+    for index, row in ipairs(rows) do
+      local top = 76 + (index - 1) * (height + gap)
+      self:panel(7, top, 226, height, false)
+      self:partyType(row.label or "STAT", 13, top + 6, colors.green, 54)
+      border(72, top + 7, 119, 6, colors.outline)
+      box("fill", 73, top + 8, 117, 4, colors.silverDark)
+      box("fill", 73, top + 8,
+        math.floor(117 * math.min(255, tonumber(row.value) or 0) / 255 + 0.5),
+        4, colors.blueLight)
+      self:partyInfo(tostring(row.value or 0), 196, top + 5,
+        colors.ink, 27, "center")
+    end
+  end
+
+  function H:pokedexMoves(model)
+    local colors = self.colors
+    dexResearchHero(self, model, colors.amber,
+      translate("LEARNSET"), translate("LEVEL + TM/HM"))
+    for index, row in ipairs(model.rows or {}) do
+      local top = 76 + (index - 1) * 28
+      self:panel(7, top, 226, 25, false)
+      self:partyType(row.method or "--", 13, top + 8, colors.green, 36)
+      self:partyInfo(self:fitPartyInfo(row.name or "MOVE", 101),
+        53, top + 7, colors.ink, 101)
+      self:typeBadges(row, 178, top + 7, false)
+    end
+    dexPager(self, model.page or 1, model.pages or 1)
+  end
+
   function H:pokedexHabitat(model)
     local colors = self.colors
     local quiet = self.dark and colors.silver or colors.silverDark
     local mon = model.pokemon or {}
-    self:homeTile(7, 34, 226, 37, colors.green, false)
-    if model.drawPokemon then model.drawPokemon(mon, 13, 37, 31, false) end
-    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 118),
-      50, 39, colors.ink)
-    self:partyType(self:fitPartyType(model.summary or "NO WILD HABITAT", 118),
-      50, 56, colors.green, 118)
-    self:partyType(self:fitPartyType(model.status or "", 53),
-      173, 46, model.current and colors.greenLight or quiet, 53)
+    dexResearchHero(self, model, colors.green,
+      model.status or "", model.summary or "NO WILD HABITAT")
 
     for index, row in ipairs(model.rows or {}) do
       local top = 76 + (index - 1) * 39
@@ -890,7 +938,6 @@ return function(ui)
         14, top + 20, colors.green, 150)
       self:partyInfo(row.levels or "L--", 171, top + 17,
         colors.ink, 48, "center")
-      self:detailChevron(224, top + 23, colors.green)
     end
     if #(model.rows or {}) == 0 then
       self:partyInfo(translate("NO WILD ENCOUNTERS"),
@@ -901,30 +948,34 @@ return function(ui)
 
   function H:pokedex(model)
     if model.view == "profile" then return self:pokedexProfile(model) end
+    if model.view == "stats" then return self:pokedexStats(model) end
+    if model.view == "moves" then return self:pokedexMoves(model) end
     if model.view == "habitat" then return self:pokedexHabitat(model) end
     return self:pokedexIndex(model)
   end
 
   function H:pokedexHit(x, y, model)
-    x, y = x * 1.5, y * 1.5
+    if y < 29 and x >= 33 and x < 50 then return "prev" end
+    if y < 29 and x >= 116 and x < 139 then return "next" end
     if model.view == "profile" then
-      if y >= 156 and y < 210 then
+      if x >= 7 and x < 233 and y >= 156 and y < 210 then
         local index = math.floor((x - 7) / 77) + 1
         return ({ "stats", "habitat", "moves" })[index]
       end
-    elseif model.view == "habitat" then
-      for index = 1, #(model.rows or {}) do
-        if y >= 76 + (index - 1) * 39
-            and y < 111 + (index - 1) * 39 then return "habitat", index end
-      end
     else
-      for index = 1, #(model.entries or {}) do
-        local column, row = (index - 1) % 3, math.floor((index - 1) / 3)
-        if x >= 7 + column * 77 and x < 79 + column * 77
-            and y >= 68 + row * 43 and y < 109 + row * 43 then
-          return "species", index
+      if model.view == "index" then
+        for index = 1, #(model.entries or {}) do
+          local column, row = (index - 1) % 3, math.floor((index - 1) / 3)
+          if x >= 7 + column * 77 and x < 79 + column * 77
+              and y >= 68 + row * 43 and y < 109 + row * 43 then
+            return "species", index
+          end
         end
       end
+    end
+    if y >= 197 and y < 214 then
+      if x >= 82 and x < 119 then return "prev" end
+      if x >= 121 and x < 159 then return "next" end
     end
   end
 
@@ -1707,6 +1758,27 @@ return function(ui)
         colors.ink, valueW, "center")
       self:partyType(translate("TOTAL"), valueX, y + 34,
         self.dark and colors.silver or colors.silverDark, valueW)
+    elseif id == "pokedex" then
+      local columns = w < 150 and 3 or 5
+      local gap, inner = 3, w - 12
+      local cardW = math.floor((inner - (columns - 1) * gap) / columns)
+      local cardH = math.floor((h - 20) / 2)
+      for index = 1, columns * 2 do
+        local column, row = (index - 1) % columns, math.floor((index - 1) / columns)
+        local left, top = x + 6 + column * (cardW + gap), y + 5 + row * (cardH + 3)
+        clipped(left, top, cardW, cardH, colors.surface)
+        border(left, top, cardW, cardH, colors.outline)
+        color(index % 3 == 0 and colors.redLight
+          or index % 3 == 1 and colors.greenLight or colors.blueLight)
+        G.circle("fill", left + math.floor(cardW / 2),
+          top + math.floor(cardH / 2), math.max(3, math.floor(cardH / 3)))
+        color(colors.outline)
+        G.circle("line", left + math.floor(cardW / 2),
+          top + math.floor(cardH / 2), math.max(3, math.floor(cardH / 3)))
+      end
+      border(x + 7, y + h - 8, w - 14, 4, colors.outline)
+      box("fill", x + 8, y + h - 7, math.floor((w - 16) * 0.47), 2,
+        colors.redLight)
     elseif id == "party" then
       for index = 0, 2 do
         local left = x + 6 + index * math.floor((w - 12) / 3)

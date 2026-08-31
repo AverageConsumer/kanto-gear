@@ -129,6 +129,15 @@ do
     "pollTriggerTabs"), "changePage"), "guideData")
   T.check(guideData ~= nil, "Guide data remains reachable from navigation")
 
+  local changePage = upvalue(upvalue(inputHook, "pollTriggerTabs"),
+    "changePage")
+  local displayRuntime = upvalue(changePage, "displayRuntime")
+  local dex = displayRuntime.pokedexData()
+  T.check(dex.bySpecies.FIXMON_A
+      and dex.bySpecies.FIXMON_A.habitat
+      and #dex.bySpecies.FIXMON_A.habitat.appearances > 0,
+    "Pokedex reuses the full Gen 2 encounter source for habitats")
+
   local guide = guideData()
   local fish = {}
   for _, row in ipairs(guide.rows) do fish[row.species] = row end

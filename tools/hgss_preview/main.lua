@@ -389,7 +389,10 @@ function love.load()
   local pokedexIndex = screen == "pokedex"
   local pokedexProfile = screen == "pokedex_profile"
   local pokedexHabitat = screen == "pokedex_habitat"
+  local pokedexStats = screen == "pokedex_stats"
+  local pokedexMoves = screen == "pokedex_moves"
   local pokedex = pokedexIndex or pokedexProfile or pokedexHabitat
+    or pokedexStats or pokedexMoves
   local home = homePreview
   local homeEdit, homeAdd = screen == "home-edit", screen == "home-add"
   local storeToday, storeApps = screen == "store", screen == "store-apps"
@@ -428,6 +431,8 @@ function love.load()
     or explorerRadar and translate("ITEM RADAR")
     or explorer and translate("EXPLORER")
     or pokedexHabitat and "HABITAT 1/4"
+    or pokedexStats and "STATS"
+    or pokedexMoves and "MOVES 1/7"
     or pokedexProfile and "NO.130"
     or pokedex and "POKEDEX"
     or trainerSteps and translate("STEPS")
@@ -462,7 +467,7 @@ function love.load()
         or moves or memo or memoTransition
         or transition or movesTransition,
       store and not storeDetail
-        or pokedexProfile or pokedexHabitat
+        or pokedexProfile or pokedexHabitat or pokedexStats or pokedexMoves
         or not home and not store and not explorer and not pokedex
         and not trainerScreen
         and not trainerSteps and not tools and not swapMode and (summary or moves or memo or memoTransition
@@ -1470,18 +1475,32 @@ function love.load()
     end
     local model = {
       view = pokedexProfile and "profile"
-        or pokedexHabitat and "habitat" or "index",
+        or pokedexHabitat and "habitat"
+        or pokedexStats and "stats"
+        or pokedexMoves and "moves" or "index",
       region = gen1 and "KANTO DEX" or "NATIONAL DEX",
       caught = gen1 and 72 or 118, total = gen1 and 151 or 251,
       page = 1,
-      pages = pokedexHabitat and 4 or (gen1 and 17 or 28),
+      pages = pokedexHabitat and 4 or pokedexMoves and 7
+        or (gen1 and 17 or 28),
       entries = entries,
       pokemon = gyarados, drawPokemon = drawDexPokemon,
       statsText = gen1 and "BST 480" or "BST 540",
       habitatText = gen1 and "12 AREAS" or "17 AREAS",
       movesText = gen1 and "34 MOVES" or "48 MOVES",
-      summary = gen1 and "12 WILD HABITATS" or "17 WILD HABITATS",
+      summary = gen1 and "12 AREAS" or "17 AREAS",
       status = "NOT HERE", current = false,
+      catchText = "CATCH 45",
+      expText = gen1 and "XP 214" or "XP 216",
+      stats = gen1 and {
+        { label = "HP", value = 95 }, { label = "ATK", value = 125 },
+        { label = "DEF", value = 79 }, { label = "SPECIAL", value = 100 },
+        { label = "SPEED", value = 81 },
+      } or {
+        { label = "HP", value = 95 }, { label = "ATK", value = 125 },
+        { label = "DEF", value = 79 }, { label = "SP.ATK", value = 60 },
+        { label = "SP.DEF", value = 100 }, { label = "SPEED", value = 81 },
+      },
       rows = {
         { area = gen1 and "SAFARI ZONE - CENTER" or "LAKE OF RAGE",
           time = "ANY TIME", method = "SURF", chance = 10,
@@ -1494,17 +1513,29 @@ function love.load()
           levels = gen1 and "L15" or "L40" },
       },
     }
+    if pokedexStats then model.summary = model.statsText end
+    if pokedexMoves then
+      model.rows = {
+        { method = "START", name = "THRASH", type = "NORMAL",
+          type2 = "NORMAL", typeLabel = "NOR", type2Label = "NOR" },
+        { method = "L20", name = "BITE", type = "DARK",
+          type2 = "DARK", typeLabel = "DAR", type2Label = "DAR" },
+        { method = "L30", name = "DRAGON RAGE", type = "DRAGON",
+          type2 = "DRAGON", typeLabel = "DRA", type2Label = "DRA" },
+        { method = "TM/HM", name = "SURF", type = "WATER",
+          type2 = "WATER", typeLabel = "WAT", type2Label = "WAT" },
+      }
+    end
     theme:pokedex(model)
     if pokedexIndex then
-      assert(theme:pokedexHit(18 / 1.5, 78 / 1.5, model) == "species",
+      assert(theme:pokedexHit(18, 78, model) == "species",
         "Pokedex gallery portraits are touch reachable")
     elseif pokedexProfile then
-      assert(theme:pokedexHit(120 / 1.5, 180 / 1.5, model) == "habitat",
+      assert(theme:pokedexHit(120, 180, model) == "habitat",
         "Pokedex research cards are touch reachable")
-    else
-      local action, index = theme:pokedexHit(30 / 1.5, 88 / 1.5, model)
-      assert(action == "habitat" and index == 1,
-        "Pokedex habitat cards are touch reachable")
+    elseif pokedexHabitat or pokedexMoves then
+      assert(theme:pokedexHit(90, 205, model) == "prev",
+        "Pokedex pagers are touch reachable")
     end
   elseif trainerSteps then
     theme:steps({ steps = "184392" })
