@@ -3541,7 +3541,7 @@ return function(mod)
     local source = view == "wild" and wild
       or view == "items" and allItems
       or view == "trainers" and allTrainers or {}
-    local perPage = view == "wild" and 8 or math.max(1, #source)
+    local perPage = view == "wild" and 4 or math.max(1, #source)
     local pages = math.max(1, math.ceil(#source / perPage))
     explorer.page = math.max(1, math.min(explorer.page, pages))
     local first, rows = (explorer.page - 1) * perPage + 1, {}
@@ -7304,17 +7304,15 @@ return function(mod)
 
   displayRuntime.explorerSwipeTarget = function(view, selected, y, pages)
     if not view then return end
-    if selected then return y >= 107 and "detail" or nil end
+    if selected then return y >= 99 and "detail" or nil end
     if view == "wild" then
-      return y >= 100 and ((pages or 1) > 1 and "page" or "scope") or nil
+      return y >= 140 and ((pages or 1) > 1 and "page" or "scope") or nil
     end
-    return y >= 166 and "page" or nil
   end
-  assert(displayRuntime.explorerSwipeTarget("wild", false, 123, 1) == "scope"
-      and displayRuntime.explorerSwipeTarget("wild", false, 123, 2) == "page"
-      and not displayRuntime.explorerSwipeTarget("wild", false, 99)
-      and displayRuntime.explorerSwipeTarget("items", false, 166) == "page"
-      and displayRuntime.explorerSwipeTarget("wild", true, 107) == "detail",
+  assert(displayRuntime.explorerSwipeTarget("wild", false, 160, 1) == "scope"
+      and displayRuntime.explorerSwipeTarget("wild", false, 160, 2) == "page"
+      and not displayRuntime.explorerSwipeTarget("wild", false, 139)
+      and displayRuntime.explorerSwipeTarget("wild", true, 99) == "detail",
     "Explorer horizontal swipe regions")
 
   local function swipe(dx, down)

@@ -651,7 +651,7 @@ function love.load()
       if view == "wild" and wildScope == "HERE" then
         sourceRows = { wildRows[1], wildRows[2], wildRows[3], wildRows[4] }
       end
-      local rows, perPage = {}, view == "wild" and 8
+      local rows, perPage = {}, view == "wild" and 4
         or math.max(1, #sourceRows)
       for index = 1, math.min(#sourceRows, perPage) do
         rows[#rows + 1] = sourceRows[index]
@@ -719,7 +719,7 @@ function love.load()
         end
         return false
       end
-      assert(theme:explorerHit(211 * sx, 70 * sx,
+      assert(theme:explorerHit(211 * sx, 40 * sx,
         explorerModel) == "map_toggle",
         "Explorer map expand control is always interactive")
       local visibleItems = 0
@@ -732,28 +732,30 @@ function love.load()
           == #(overview.markers or {}) + visibleItems + #trainerRows,
         "Explorer only reveals hidden-item markers in spoiler mode")
       if explorerMap then
-        assert(theme:explorerHit(20 * sx, 70 * sx,
+        assert(theme:explorerHit(20 * sx, 61 * sx,
             explorerModel) == "zoom_out"
-          and theme:explorerHit(73 * sx, 70 * sx,
-            explorerModel) == "zoom_in",
-          "Explorer fullscreen zoom controls are interactive")
+          and theme:explorerHit(73 * sx, 61 * sx,
+            explorerModel) == "zoom_in"
+          and theme:explorerHit(120 * sx, 61 * sx,
+            explorerModel) == nil
+          and theme:explorerHit(210 * sx, 61 * sx,
+            explorerModel) == (explorerModel.canScan and "scan" or nil),
+          "Explorer fullscreen tools are interactive without map click-through")
         return
       end
       if view == "wild" and not selected then
-        assert(theme:explorerHit(50 * sx, 110 * sx, explorerModel)
+        assert(theme:explorerHit(50 * sx, 150 * sx, explorerModel)
             == "wild_here"
-          and theme:explorerHit(125 * sx, 110 * sx, explorerModel)
+          and theme:explorerHit(125 * sx, 150 * sx, explorerModel)
             == "wild_route"
-          and theme:explorerHit(50 * sx, 135 * sx, explorerModel) == "row"
-          and theme:explorerHit(210 * sx, 110 * sx, explorerModel) == nil
-          and theme:explorerHit(50 * sx, 70 * sx, explorerModel) == nil
-          and theme:explorerHit(160 * sx, 70 * sx, explorerModel)
-            == (explorerModel.canScan and "scan" or nil)
+          and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
+          and theme:explorerHit(210 * sx, 150 * sx, explorerModel)
+            == (explorerModel.pages > 1 and "next" or nil)
           and mapMarkerIsReachable("item")
           and mapMarkerIsReachable("trainer"),
-          "Explorer gallery, map progress, scanner, and markers are interactive")
+          "Explorer gallery and map markers are interactive")
       elseif view == "wild" then
-        assert(theme:explorerHit(210 * sx, 122 * sx, explorerModel)
+        assert(theme:explorerHit(210 * sx, 114 * sx, explorerModel)
             == "detail_next",
           "habitat details expose every exact encounter condition")
       elseif selected then

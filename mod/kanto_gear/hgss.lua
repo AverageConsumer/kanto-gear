@@ -714,8 +714,7 @@ return function(ui)
 
   function H:explorer(model)
     local colors, view, selected = self.colors, model.view, model.selected
-    local function mapToggle(frameX, frameY, frameW, collapse)
-      local x, y = frameX + frameW - 31, frameY + 4
+    local function mapToggle(x, y, collapse)
       self:panel(x, y, 25, 16, false)
       if collapse then
         -- Four inward-facing corners read as "restore" without looking like
@@ -740,72 +739,78 @@ return function(ui)
         box("fill", right, bottom - 2, 1, 3, colors.ink)
       end
     end
-    local function zoomControls(zoom)
-      self:panel(11, 63, 18, 16, false)
-      self:panel(31, 63, 31, 16, false)
-      self:panel(64, 63, 18, 16, false)
-      box("fill", 17, 70, 6, 2, colors.green)
-      self:partyType(zoom .. "/3", 31, 65, colors.green, 31)
-      box("fill", 70, 70, 6, 2, colors.green)
-      box("fill", 72, 68, 2, 6, colors.green)
+    local function zoomControls(y, zoom)
+      box("fill", 29, y + 2, 1, 12, colors.band)
+      box("fill", 63, y + 2, 1, 12, colors.band)
+      box("fill", 83, y + 2, 1, 12, colors.band)
+      box("fill", 17, y + 7, 6, 2, colors.green)
+      self:partyType(zoom .. "/3", 31, y + 2, colors.green, 31)
+      box("fill", 70, y + 7, 6, 2, colors.green)
+      box("fill", 72, y + 5, 2, 6, colors.green)
     end
     local function mapProgress(y)
       if not model.showMapStats then return end
+      local width = model.canScan and 112 or 144
+      local half = math.floor(width / 2)
       local function itemGlyph(x)
-        box("fill", x + 2, y + 2, 5, 1, colors.outline)
-        box("fill", x + 1, y + 3, 7, 1, colors.outline)
-        box("fill", x, y + 4, 9, 7, colors.outline)
-        box("fill", x + 1, y + 5, 7, 5, colors.white)
-        box("fill", x + 1, y + 5, 7, 2, colors.amberLight)
-        box("fill", x + 4, y + 7, 1, 1, colors.outline)
+        box("fill", x + 2, y + 3, 5, 1, colors.outline)
+        box("fill", x + 1, y + 4, 7, 1, colors.outline)
+        box("fill", x, y + 5, 9, 7, colors.outline)
+        box("fill", x + 1, y + 6, 7, 5, colors.white)
+        box("fill", x + 1, y + 6, 7, 2, colors.amberLight)
+        box("fill", x + 4, y + 8, 1, 1, colors.outline)
       end
-      self:panel(11, y, 126, 14, false)
-      box("fill", 73, y + 2, 1, 10, colors.band)
+      box("fill", 85 + half, y + 2, 1, 12, colors.band)
       local itemWidth = partyInfoFont:getWidth(model.itemsText)
-      local itemLeft = 11 + math.floor((62 - 9 - 3 - itemWidth) / 2)
+      local itemLeft = 85 + math.floor((half - 9 - 3 - itemWidth) / 2)
       itemGlyph(itemLeft)
-      self:partyInfo(model.itemsText, itemLeft + 12, y + 1, colors.ink)
+      self:partyInfo(model.itemsText, itemLeft + 12, y + 2, colors.ink)
       local trainerWidth = partyInfoFont:getWidth(model.trainersText)
       local hasTrainer = model.drawActor and model.trainerIcon
       local iconWidth, gap = hasTrainer and 8 or 0, hasTrainer and 3 or 0
-      local trainerLeft = 74
-        + math.floor((63 - iconWidth - gap - trainerWidth) / 2)
+      local trainerLeft = 86 + half
+        + math.floor((width - half - 1 - iconWidth - gap - trainerWidth) / 2)
       if hasTrainer then
-        model.drawActor(model.trainerIcon, trainerLeft + 4, y + 7,
+        model.drawActor(model.trainerIcon, trainerLeft + 4, y + 8,
           0.5, false)
       end
       self:partyInfo(model.trainersText,
-        trainerLeft + iconWidth + gap, y + 1, colors.ink)
+        trainerLeft + iconWidth + gap, y + 2, colors.ink)
     end
     local function scanner(y)
       if not model.canScan then return end
-      self:panel(140, y, 57, 14, false)
-      box("fill", 142, y + 2, 53, 10, colors.band)
-      self:partyType(translate("SCAN"), 140, y + 1, colors.ink, 57)
+      box("fill", 198, y + 2, 1, 12, colors.band)
+      box("fill", 207, y + 4, 7, 7, colors.green)
+      box("fill", 208, y + 5, 5, 5, colors.bg)
+      box("fill", 213, y + 10, 2, 2, colors.green)
+      box("fill", 215, y + 12, 4, 2, colors.green)
     end
-    self:panel(7, 32, 226, 23, false)
+    self:panel(7, 32, 226, 18, false)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
-      64), 13, 38, colors.ink, 64, "center")
+      56), 12, 35, colors.ink, 56, "center")
     self:partyType(self:fitPartyType(translate(model.subarea or "OUTDOORS"),
-      92), 81, 39, colors.green, 92)
-    self:partyInfo(self:fitPartyInfo(model.region or "KANTO", 42),
-      177, 38, colors.green, 42, "center")
+      82), 72, 36, colors.green, 82)
+    self:partyInfo(self:fitPartyInfo(model.region or "KANTO", 36),
+      160, 35, colors.green, 36, "center")
+    mapToggle(202, 33, model.mapFull)
 
-    local mapW = 226
-    local mapH = model.mapFull and 151 or not view and 91
-      or view == "wild" and (selected and 44 or 38)
-      or selected and 103 or 84
-    self:mapOverview(model.overview, 7, 59, mapW, mapH, {
+    local mapX, mapW = 7, 226
+    local mapY = model.mapFull and 72 or 53
+    local mapH = model.mapFull and 138
+      or view == "wild" and (selected and 42 or 84)
+      or selected and 105 or 84
+    if model.mapFull then
+      self:panel(7, 53, 226, 16, false)
+      zoomControls(53, model.mapZoom or 1)
+      mapProgress(53)
+      scanner(53)
+    end
+    self:mapOverview(model.overview, mapX, mapY, mapW, mapH, {
       image = model.image, player = model.player, markers = model.markers,
       selected = model.selectedMarker, drawPlayer = model.drawPlayer,
       drawTrainer = model.drawTrainer, full = model.mapFull,
       zoom = model.mapZoom,
     })
-    local overlayY = model.mapFull and 82 or 63
-    mapProgress(overlayY)
-    scanner(overlayY)
-    mapToggle(7, 59, mapW, model.mapFull)
-    if model.mapFull then zoomControls(model.mapZoom or 1) end
     if model.mapFull then return end
 
     local function chip(x, y, width, label, active, arrow)
@@ -828,18 +833,18 @@ return function(ui)
       self:partyType(label, x, y + 2, colors.green, width)
     end
     if selected and view == "wild" then
-      self:panel(7, 107, 226, 103, false)
-      self:partyPortrait(16, 114, false, false)
-      if model.drawPokemon then model.drawPokemon(selected, 16, 117, 34) end
+      self:panel(7, 99, 226, 111, false)
+      self:partyPortrait(16, 106, false, false)
+      if model.drawPokemon then model.drawPokemon(selected, 16, 109, 34) end
       self:partyInfo(self:fitPartyInfo(selected.name, 100),
-        58, 115, colors.ink)
+        58, 107, colors.ink)
       self:partyInfo(self:fitPartyInfo(translate(selected.caught and "CAUGHT"
-        or "NOT CAUGHT"), 100), 58, 130, colors.green)
-      self:typeBadges(selected, 58, 144, false)
+        or "NOT CAUGHT"), 100), 58, 122, colors.green)
+      self:typeBadges(selected, 58, 136, false)
       if model.detailPages > 1 then
-        pager(166, 114, 58, model.detailPage, model.detailPages)
+        pager(166, 106, 58, model.detailPage, model.detailPages)
       else
-        chip(166, 114, 58, "HABITAT", true)
+        chip(166, 106, 58, "HABITAT", true)
       end
       local detailRows = model.detailRows or {}
       local function levels(appearance)
@@ -850,14 +855,14 @@ return function(ui)
       end
       if #detailRows == 1 then
         local appearance = detailRows[1]
-        self:panel(12, 158, 216, 45, false)
+        self:panel(12, 150, 216, 53, false)
         if appearance.current then
-          box("fill", 14, 160, 212, 41, colors.bandLight)
+          box("fill", 14, 152, 212, 49, colors.bandLight)
         end
         self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
-          appearance.current and 132 or 202), 19, 162, colors.ink)
+          appearance.current and 132 or 202), 19, 156, colors.ink)
         if appearance.current then
-          self:partyType(translate("HERE NOW"), 154, 163,
+          self:partyType(translate("HERE NOW"), 154, 157,
             colors.green, 66)
         end
         local stats = {
@@ -868,14 +873,14 @@ return function(ui)
         }
         for index, stat in ipairs(stats) do
           local x = 15 + (index - 1) * 53
-          self:partyType(self:fitPartyType(stat[1], 47), x + 2, 177,
+          self:partyType(self:fitPartyType(stat[1], 47), x + 2, 174,
             colors.green, 47)
           self:partyInfo(self:fitPartyInfo(stat[2], 47), x + 2, 188,
             colors.ink, 47, "center")
         end
       else
         for index, appearance in ipairs(detailRows) do
-          local y = 157 + (index - 1) * 25
+          local y = 149 + (index - 1) * 27
           self:panel(12, y, 216, 24, false)
           if appearance.current then
             box("fill", 14, y + 2, 212, 20, colors.bandLight)
@@ -897,59 +902,57 @@ return function(ui)
       end
       return
     elseif selected and view == "items" then
-      self:panel(7, 166, 226, 44, false)
+      self:panel(7, 162, 226, 48, false)
       self:battleItemIcon({ icon = selected.kind == "hidden" and "item"
-        or selected.icon or "item" }, 14, 178, colors.amberLight)
+        or selected.icon or "item" }, 14, 180, colors.amberLight)
       self:partyInfo(self:fitPartyInfo(selected.displayLabel or selected.label,
-        75), 38, 172, colors.ink)
+        75), 38, 168, colors.ink)
       self:partyType(self:fitPartyType(translate(selected.done and "FOUND"
         or "OPEN"), 72), 38, 190, colors.green, 72)
-      box("fill", 118, 171, 1, 34, colors.band)
+      box("fill", 118, 167, 1, 38, colors.band)
       self:partyType(self:fitPartyType(translate(selected.kind == "hidden"
-        and "HIDDEN" or "VISIBLE"), 100), 126, 172, colors.green, 100)
+        and "HIDDEN" or "VISIBLE"), 100), 126, 168, colors.green, 100)
       self:partyInfo(self:fitPartyInfo(translate(selected.location
         or "ON THIS MAP"), 100), 126, 188, colors.ink, 100, "center")
       return
     elseif selected and view == "trainers" then
-      self:panel(7, 166, 226, 44, false)
+      self:panel(7, 162, 226, 48, false)
       if model.drawActor then model.drawActor(selected, 23, 186, 1, false) end
       self:partyInfo(self:fitPartyInfo(selected.label, 105),
-        39, 172, colors.ink)
+        39, 168, colors.ink)
       self:partyType(self:fitPartyType(translate(selected.done and "BEATEN"
         or "OPEN"), 105), 39, 190, colors.green, 105)
-      box("fill", 148, 171, 1, 34, colors.band)
+      box("fill", 148, 167, 1, 38, colors.band)
       self:partyType(self:fitPartyType(translate("TRAINER"), 72),
-        154, 172, colors.green, 72)
+        154, 168, colors.green, 72)
       self:partyInfo(self:fitPartyInfo(translate(selected.status
         or "ON THIS MAP"), 72), 154, 188, colors.ink, 72, "center")
       return
     end
 
     if view == "wild" then
-      self:panel(7, 100, 226, 20, false)
-      chip(12, 102, 74, "HERE NOW", model.wildScope ~= "ROUTE")
-      chip(89, 102, 76, "WHOLE ROUTE", model.wildScope == "ROUTE")
+      self:panel(7, 140, 226, 20, false)
+      chip(12, 142, 74, "HERE NOW", model.wildScope ~= "ROUTE")
+      chip(89, 142, 76, "WHOLE ROUTE", model.wildScope == "ROUTE")
       if model.pages > 1 then
-        pager(168, 102, 58, model.page, model.pages)
+        pager(168, 142, 58, model.page, model.pages)
       else
-        chip(168, 102, 58, tostring(model.total) .. " PKMN", false)
+        chip(168, 142, 58, tostring(model.total) .. " PKMN", false)
       end
-      local baseY = #model.rows <= 4 and 147 or 124
+      local baseY = 172
       for index, row in ipairs(model.rows) do
-        local column, line = (index - 1) % 4, math.floor((index - 1) / 4)
-        local lineCount = math.min(4, #model.rows - line * 4)
+        local lineCount = #model.rows
         local groupWidth = lineCount * 56 - 22
-        local x = math.floor((240 - groupWidth) / 2) + column * 56
-        local y = baseY + line * 44
+        local x = math.floor((240 - groupWidth) / 2) + (index - 1) * 56
         local uncaught = not row.caught
-        self:partyPortrait(x, y, false, uncaught)
+        self:partyPortrait(x, baseY, false, uncaught)
         if model.drawPokemon then
-          model.drawPokemon(row, x + 1, y + 4, 32, uncaught)
+          model.drawPokemon(row, x + 1, baseY + 4, 32, uncaught)
         end
       end
       if #model.rows == 0 then
         self:partyInfo(translate(model.wildScope == "ROUTE"
-          and "NO WILD ENCOUNTERS" or "NOTHING HERE NOW"), 7, 160,
+          and "NO WILD ENCOUNTERS" or "NOTHING HERE NOW"), 7, 180,
           colors.green, 226, "center")
       end
       return
@@ -959,23 +962,22 @@ return function(ui)
   function H:explorerHit(x, y, model)
     x, y = x * 1.5, y * 1.5
     local view, selected = model.view, model.selected
-    local mapW = 226
-    local mapH = model.mapFull and 151 or not view and 91
-      or view == "wild" and (selected and 44 or 38)
-      or selected and 103 or 84
-    if x >= 7 + mapW - 31 and x < 7 + mapW - 6
-        and y >= 63 and y < 79 then return "map_toggle" end
-    if model.mapFull and y >= 63 and y < 79 then
+    local mapX, mapW = 7, 226
+    local mapY = model.mapFull and 72 or 53
+    local mapH = model.mapFull and 138
+      or view == "wild" and (selected and 42 or 84)
+      or selected and 105 or 84
+    if x >= 202 and x < 227 and y >= 33 and y < 49 then
+      return "map_toggle"
+    end
+    if model.mapFull and y >= 53 and y < 69 then
       if x >= 11 and x < 29 then return "zoom_out" end
       if x >= 64 and x < 82 then return "zoom_in" end
+      if model.canScan and x >= 200 and x < 227 then return "scan" end
+      return nil
     end
-    local overlayY = model.mapFull and 82 or 63
-    if model.showMapStats and x >= 11 and x < 137
-        and y >= overlayY and y < overlayY + 14 then return nil end
-    if model.canScan and x >= 140 and x < 197
-        and y >= overlayY and y < overlayY + 14 then return "scan" end
     local marker = self:mapMarkerAt(x, y, model.overview,
-      { x = 7, y = 59, w = mapW, h = mapH }, {
+      { x = mapX, y = mapY, w = mapW, h = mapH }, {
         player = model.player, markers = model.markers, full = model.mapFull,
         zoom = model.mapZoom,
       })
@@ -983,28 +985,27 @@ return function(ui)
     if model.mapFull then return nil end
     if model.selected then
       if model.view == "wild" and x >= 166 and x < 224
-          and y >= 114 and y < 130 and model.detailPages > 1 then
+          and y >= 106 and y < 122 and model.detailPages > 1 then
         return x < 195 and "detail_prev" or "detail_next"
       end
       return nil
     end
     if model.view == "wild" then
-      if y >= 102 and y < 118 then
+      if y >= 142 and y < 158 then
         if x >= 12 and x < 86 then return "wild_here" end
         if x >= 89 and x < 165 then return "wild_route" end
         if x >= 168 and x < 226 and model.pages > 1 then
           return x < 197 and "prev" or "next"
         end
       end
-      if y < 123 or y >= 210 then return nil end
-      local line = #model.rows > 4 and y >= 166 and 1 or 0
-      local lineCount = math.min(4, #model.rows - line * 4)
+      if y < 166 or y >= 210 then return nil end
+      local lineCount = #model.rows
       local groupWidth = lineCount * 56 - 22
       local left = math.floor((240 - groupWidth) / 2)
       for column = 0, lineCount - 1 do
         local portraitX = left + column * 56
         if x >= portraitX - 11 and x < portraitX + 45 then
-          return "row", line * 4 + column + 1
+          return "row", column + 1
         end
       end
       return nil
