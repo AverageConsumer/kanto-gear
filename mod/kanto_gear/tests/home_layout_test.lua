@@ -33,6 +33,12 @@ assert(#layout.tiles == 4)
 assert(Home.remove(layout, "notes_app") and not Home.find(layout, "notes_app"))
 assert(Home.place(layout, catalog, "party_app", 2, 1, 1))
 assert(Home.find(layout, "party_app") and Home.find(layout, "party_widget"))
+local packageLayout = { tiles = {
+  { id = "party_app", page = 1, column = 1, row = 1 },
+  { id = "party_widget", page = 1, column = 4, row = 2 },
+} }
+assert(Home.removePackage(packageLayout, catalog, "party") == 2
+  and #packageLayout.tiles == 0)
 local library = Home.library(layout, catalog, 1, 4, 2, "app")
 local available = {}
 for _, item in ipairs(library) do available[item.id] = item end

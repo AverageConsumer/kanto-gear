@@ -94,6 +94,18 @@ function M.remove(layout, id)
   return true
 end
 
+function M.removePackage(layout, catalog, packageId)
+  local removed = 0
+  for index = #(layout.tiles or {}), 1, -1 do
+    local item = catalog.surfaces[layout.tiles[index].id]
+    if item and item.package == packageId then
+      table.remove(layout.tiles, index)
+      removed = removed + 1
+    end
+  end
+  return removed
+end
+
 function M.pageCount(layout)
   local pages = 1
   for _, tile in ipairs(layout.tiles or {}) do

@@ -830,7 +830,7 @@ return function(ui)
     self:homeWidgetHeader(x, y, w, "EXPLORER", explorerAccent,
       mixed(explorerAccent, colors.white, 0.30), model.editing)
     self:mapOverview(model.overview, x + 5, y + 22, w - 10, h - 27, {
-      player = model.player, markers = model.markers,
+      image = model.image, player = model.player, markers = model.markers,
       drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
     })
     local route = self:fitPartyType(model.route or translate("UNKNOWN AREA"), 76)
@@ -918,7 +918,7 @@ return function(ui)
 
   function H:storeAction(x, y, w, label, state)
     local colors = self.colors
-    local tint = state == "update" and colors.amber
+    local tint = state == "soon" and colors.silverDark
       or state == "open" and colors.blue or colors.green
     clipped(x, y, w, 15, tint)
     border(x, y, w, 15, colors.outline)
@@ -977,7 +977,7 @@ return function(ui)
 
   function H:storeMiniAction(x, y, w, label, state)
     local colors = self.colors
-    local tint = state == "update" and colors.amber
+    local tint = state == "soon" and colors.silverDark
       or state == "open" and colors.blue or colors.green
     clipped(x, y, w, 11, tint)
     border(x, y, w, 11, colors.outline)
@@ -1017,7 +1017,7 @@ return function(ui)
     self:partyType(self:fitPartyType(translate(app.category), 91),
       x + 34, y + 15, colors.green, 91)
     self:storeMiniAction(x + w - 54, y + 9, 44,
-      app.action or (app.state == "update" and "UPDATE" or "OPEN"),
+      app.action or "OPEN",
       app.state)
   end
 
@@ -1085,10 +1085,8 @@ return function(ui)
     local colors, icons = self.colors, homeIcons(self)
     clipped(7, 32, 226, 21, colors.surface)
     border(7, 32, 226, 21, colors.outline)
-    self:partyType(translate(model.summary or "7 APPS READY"),
-      10, 37, colors.ink, 105)
-    self:partyType(translate(model.updates or "1 UPDATE"),
-      118, 37, colors.amber, 112)
+    self:partyType(translate(model.summary or "APPS READY"),
+      10, 37, colors.ink, 220)
     for index, app in ipairs(model.apps or {}) do
       if index > 4 then break end
       self:storeInstalledRow(7, 57 + (index - 1) * 33, 226,
@@ -1113,7 +1111,10 @@ return function(ui)
       104), 55, 53, colors.green, 104)
     self:partyType(self:fitPartyType(translate(app.publisher or "SILPH CO."),
       104), 55, 66, colors.silverDark, 104)
-    self:storeAction(171, 49, 51, app.action or "GET", app.state)
+    self:storeAction(171, 41, 51, app.action or "GET", app.state)
+    if app.removable then
+      self:storeMiniAction(175, 61, 43, "REMOVE", "soon")
+    end
     self:storePreview(app.id, 7, 90, 226, 73)
     self:partyType(translate("PREVIEW"), 12, 94, colors.white, 216)
     clipped(7, 168, 226, 39, colors.surface)
@@ -1131,7 +1132,8 @@ return function(ui)
         and y >= top and y < top + height
     end
     if page == "detail" then
-      if inside(171, 49, 51, 15) then return "action" end
+      if inside(175, 61, 43, 11) then return "remove" end
+      if inside(171, 41, 51, 15) then return "action" end
       if inside(7, 90, 226, 73) then return "preview" end
       return nil
     end
@@ -1143,7 +1145,11 @@ return function(ui)
     if page == "apps" then
       for index = 1, 6 do
         local column, row = (index - 1) % 2, math.floor((index - 1) / 2)
-        if inside(7 + column * 115, 53 + row * 44, 111, 42) then
+        local left, top = 7 + column * 115, 53 + row * 44
+        if inside(left + 36, top + 28, 43, 11) then
+          return "app_action", index
+        end
+        if inside(left, top, 111, 42) then
           return "app", index
         end
       end
@@ -1151,12 +1157,17 @@ return function(ui)
     end
     if page == "library" then
       for index = 1, 4 do
-        if inside(7, 57 + (index - 1) * 33, 226, 30) then
+        local top = 57 + (index - 1) * 33
+        if inside(179, top + 9, 44, 11) then
+          return "installed_action", index
+        end
+        if inside(7, top, 226, 30) then
           return "installed", index
         end
       end
       return nil
     end
+    if inside(57, 83, 56, 15) then return "featured_action" end
     if inside(7, 32, 226, 89) then return "featured" end
     if inside(7, 142, 111, 47) then return "recommendation", 1 end
     if inside(122, 142, 111, 47) then return "recommendation", 2 end

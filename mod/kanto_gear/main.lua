@@ -1808,6 +1808,88 @@ return function(mod)
       and THEME.hgss:partySlot(82, 101, 5) == nil,
     "HGSS party hitboxes follow staggered cards")
 
+  displayRuntime.Home = assert(load(mod:read("home_layout.lua"),
+    "@kanto_gear/home_layout.lua"))()
+  displayRuntime.homeCatalog = {
+    packages = {
+      explorer = { installed = true, fixed = true },
+      party = { installed = true, fixed = true },
+      trainer = { installed = true, fixed = true },
+      tools = { installed = true },
+      store = { installed = true, fixed = true },
+      bag = { installed = false, available = false },
+      pokedex = { installed = false, available = false },
+      notes = { installed = false, available = false },
+    },
+    surfaces = {
+      explorer_widget = { package = "explorer", kind = "widget",
+        widget = "explorer", columns = 7, label = "EXPLORER" },
+      party_widget = { package = "party", kind = "widget",
+        widget = "party", columns = 5, label = "PARTY" },
+      explorer_app = { package = "explorer", kind = "app", columns = 3,
+        icon = "tools", accent = "green", label = "EXPLORER" },
+      party_app = { package = "party", kind = "app", columns = 3,
+        icon = "party", accent = "green", label = "PARTY" },
+      trainer_app = { package = "trainer", kind = "app", columns = 3,
+        icon = "trainer", accent = "blue", label = "TRAINER" },
+      tools_app = { package = "tools", kind = "app", columns = 3,
+        icon = "tools", accent = "green", label = "TOOLS" },
+      store_app = { package = "store", kind = "app", columns = 3,
+        icon = "store", accent = "green", label = "STORE" },
+      bag_app = { package = "bag", kind = "app", columns = 3,
+        icon = "bag", accent = "amber", label = "BAG" },
+      pokedex_app = { package = "pokedex", kind = "app", columns = 3,
+        icon = "pokedex", accent = "red", label = "POKEDEX" },
+      notes_app = { package = "notes", kind = "app", columns = 3,
+        icon = "notes", accent = "amber", label = "NOTES" },
+    },
+  }
+  displayRuntime.storeCatalog = {
+    { id = "explorer", icon = "tools", label = "EXPLORER",
+      category = "ADVENTURE", target = "LOCAL", fixed = true,
+      description = { "EXPLORE THE AREA AROUND YOU.",
+        "FIND POKEMON, ITEMS AND TRAINERS.", "YOUR ROUTE, IN ONE PLACE." } },
+    { id = "party", icon = "party", label = "PARTY",
+      category = "TEAM", target = "PARTY", fixed = true,
+      description = { "CHECK YOUR TEAM AT A GLANCE.",
+        "VIEW STATS, MOVES AND STATUS.", "KEEP EVERY PARTNER READY." } },
+    { id = "pokedex", icon = "pokedex", label = "POKEDEX",
+      category = "RESEARCH", available = false,
+      description = { "A SMARTER POKEDEX IS COMING.",
+        "RESEARCH EVERY SPECIES.", "SILPH LABS IS STILL BUILDING IT." } },
+    { id = "bag", icon = "bag", label = "BAG",
+      category = "ITEMS", available = false,
+      description = { "A MODERN BAG IS COMING.",
+        "KEEP EVERY POCKET ORGANIZED.", "SILPH LABS IS STILL BUILDING IT." } },
+    { id = "trainer", icon = "trainer", label = "TRAINER CARD",
+      category = "PROFILE", target = "TRAINER", fixed = true,
+      description = { "REVIEW YOUR TRAINER JOURNEY.",
+        "BADGES, PLAY TIME AND PROGRESS.", "YOUR ADVENTURE, AT A GLANCE." } },
+    { id = "tools", icon = "tools", label = "TOOLS",
+      category = "FIELD KIT", target = "TOOLS",
+      description = { "USE FIELD MOVES AND GEAR.",
+        "ONLY AVAILABLE ACTIONS APPEAR.", "READY WHEN THE ROUTE NEEDS IT." } },
+    { id = "notes", icon = "notes", label = "NOTES",
+      category = "TRAINER TOOL", available = false,
+      description = { "PLAN ROUTES AND REMINDERS.",
+        "KEEP CLUES CLOSE AT HAND.", "COMING SOON FROM SILPH LABS." } },
+  }
+  displayRuntime.storeById = {}
+  for _, app in ipairs(displayRuntime.storeCatalog) do
+    displayRuntime.storeById[app.id] = app
+  end
+  displayRuntime.home = {
+    page = 1, storeView = "today", libraryKind = "app",
+  }
+  displayRuntime.defaultHomeTiles = {
+    { id = "explorer_widget", page = 1, column = 1, row = 1 },
+    { id = "party_widget", page = 1, column = 8, row = 1 },
+    { id = "trainer_app", page = 1, column = 1, row = 2 },
+    { id = "tools_app", page = 1, column = 4, row = 2 },
+    { id = "store_app", page = 1, column = 7, row = 2 },
+    { id = "party_app", page = 1, column = 10, row = 2 },
+  }
+
   local PaletteFX = require("src.render.PaletteFX")
   local PokemonSprites = require("src.pokemon.Sprites")
   local EngineFont = mod.ui.Font
@@ -2255,11 +2337,18 @@ return function(mod)
     local theme = mod.options:get("theme") or "kanto"
     local key = theme .. (theme == "match" and (":" .. PaletteFX.mode) or "")
     if not force and key == themeKey then return end
+    local wasHgss = THEME.style == "hgss"
     local hgss = theme == "hgss" or theme == "hgss_dark"
     THEME.style = hgss and "hgss"
       or theme == "modern_light" and "modern_light"
       or theme == "modern_dark" and "modern_dark" or "classic"
-    if hgss and (page == "GUIDE" or page == "AREA") then page = "LOCAL" end
+    if hgss and not wasHgss then
+      page, displayRuntime.home.activeApp = "HOME", nil
+    elseif not hgss and (page == "HOME" or page == "STORE") then
+      page = "MAP"
+    elseif hgss and (page == "GUIDE" or page == "AREA") then
+      page = "LOCAL"
+    end
     THEME.hgss:setVariant(theme == "hgss_dark")
     if not hgss then hgssRuntime.animation = nil end
     local scale = THEME.style == "hgss" and THEME.hgssScale or 1
@@ -2279,7 +2368,72 @@ return function(mod)
     dirty = true
   end
 
+  function displayRuntime.saveHome()
+    local installed = {}
+    for id, package in pairs(displayRuntime.homeCatalog.packages) do
+      installed[id] = package.installed == true
+    end
+    mod.save:set("home_packages", installed)
+    mod.save:set("home_layout", displayRuntime.home.layout)
+  end
+
+  function displayRuntime.loadHome()
+    local installed = mod.save:get("home_packages", {})
+    if type(installed) ~= "table" then installed = {} end
+    for id, package in pairs(displayRuntime.homeCatalog.packages) do
+      package.installed = package.fixed == true
+        or package.available ~= false and installed[id] ~= false
+    end
+    local saved = mod.save:get("home_layout")
+    local hasSaved = type(saved) == "table" and type(saved.tiles) == "table"
+    local source = hasSaved and saved.tiles or displayRuntime.defaultHomeTiles
+    local layout = { tiles = {} }
+    for _, tile in ipairs(source) do
+      if type(tile) == "table" then
+        displayRuntime.Home.place(layout, displayRuntime.homeCatalog, tile.id,
+          tonumber(tile.page), tonumber(tile.column), tonumber(tile.row))
+      end
+    end
+    displayRuntime.home.layout = layout
+    displayRuntime.home.page = math.max(1, math.min(
+      displayRuntime.Home.pageCount(layout),
+      tonumber(displayRuntime.home.page) or 1))
+    displayRuntime.home.editing, displayRuntime.home.library = false, false
+    displayRuntime.home.addSlot, displayRuntime.home.activeApp = nil, nil
+    dirty = true
+  end
+
+  function displayRuntime.setPackageInstalled(id, installed)
+    local package = displayRuntime.homeCatalog.packages[id]
+    if not package or package.available == false
+        or package.fixed and not installed then return false end
+    package.installed = installed == true
+    if not package.installed then
+      displayRuntime.Home.removePackage(displayRuntime.home.layout,
+        displayRuntime.homeCatalog, id)
+    end
+    displayRuntime.saveHome()
+    dirty = true
+    return true
+  end
+  function displayRuntime.storeEntry(app)
+    local package = app and displayRuntime.homeCatalog.packages[app.id]
+    local installed = package and package.installed == true
+    local state = app and app.available == false and "soon"
+      or installed and "open" or "get"
+    return app and {
+      id = app.id, icon = app.icon, label = app.label,
+      category = app.category, publisher = "SILPH CO.",
+      target = app.target, state = state,
+      action = state == "soon" and "SOON"
+        or state == "open" and "OPEN" or "GET",
+      removable = installed and not package.fixed,
+      description = app.description,
+    }
+  end
+
   local function pageNames()
+    if THEME.style == "hgss" then return { "HOME" } end
     local out = { "MAP" }
     if localMapMode(mod.options:get("local_map")) ~= "off" then
       out[#out + 1] = "LOCAL"
@@ -3694,7 +3848,8 @@ return function(mod)
     if THEME.style == "hgss" then
       header(THEME:translate("EXPLORER"),
         displayRuntime.explorer.selected ~= nil
-          or displayRuntime.explorer.mapFull, false)
+          or displayRuntime.explorer.mapFull
+          or displayRuntime.home.activeApp ~= nil, false)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       if not overview then
@@ -3917,7 +4072,9 @@ return function(mod)
     local gen1BadgeColors = not compat.isGen2()
       and PaletteFX.pal(game.data, "MEWMON") or nil
 
-    header("TRAINER", false, true)
+    header("TRAINER", THEME.style == "hgss"
+      and displayRuntime.home.activeApp ~= nil,
+      THEME.style ~= "hgss")
     box("fill", 4, 22, 152, 50, MID)
     outline(4, 22, 152, 50, INK)
     text(fit(player.name or "RED", 12), 8, 27, INK)
@@ -4206,7 +4363,9 @@ return function(mod)
     local first = (current - 1) * 6 + 1
     local count = math.min(6, math.max(0, #tools - first + 1))
     header(pages > 1 and THEME:format("TOOLS %d/%d", current, pages)
-      or "TOOLS", false, true)
+      or "TOOLS", THEME.style == "hgss"
+        and displayRuntime.home.activeApp ~= nil,
+      THEME.style ~= "hgss")
     if #tools == 0 then
       box("fill", 12, 42, 136, 58, MID)
       outline(12, 42, 136, 58, INK)
@@ -4262,28 +4421,32 @@ return function(mod)
     return out
   end
 
+  function displayRuntime.partyView(mon)
+    if not mon then return nil end
+    local source = mon.source or mon
+    local def = game.data.pokemon[mon.species] or {}
+    local type1 = mon.types and mon.types[1] or def.types and def.types[1]
+    local type2 = mon.types and (mon.types[2] or mon.types[1])
+      or def.types and (def.types[2] or def.types[1])
+    return {
+      name = mon.name, egg = compat.partyEgg(source),
+      gender = mon.gender, hp = mon.hp, maxHp = mon.maxHp,
+      expProgress = mon.expProgress,
+      statusId = (mon.hp or 0) <= 0 and "FNT"
+        or THEME:statusName(mon.status, mod.content),
+      type = type1, type2 = type2,
+      typeLabel = THEME:typeName(type1, mod.content),
+      type2Label = THEME:typeName(type2, mod.content),
+      levelText = THEME:format("L%d", mon.level or 0),
+      hpText = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0),
+      hpLabel = THEME:translate("HP"), expLabel = THEME:translate("EXP"),
+    }
+  end
+
   local function partyCard(mon, x, y, selected, details, focused)
     if THEME.style == "hgss" then
       local source = mon and (mon.source or mon)
-      local def = mon and game.data.pokemon[mon.species] or {}
-      local type1 = mon and (mon.types and mon.types[1]
-        or def.types and def.types[1])
-      local type2 = mon and (mon.types and (mon.types[2] or mon.types[1])
-        or def.types and (def.types[2] or def.types[1]))
-      local view = mon and {
-        name = mon.name, egg = compat.partyEgg(source),
-        gender = mon.gender, hp = mon.hp, maxHp = mon.maxHp,
-        expProgress = mon.expProgress,
-        statusId = (mon.hp or 0) <= 0 and "FNT"
-          or THEME:statusName(mon.status, mod.content),
-        type = type1, type2 = type2,
-        typeLabel = THEME:typeName(type1, mod.content),
-        type2Label = THEME:typeName(type2, mod.content),
-        levelText = THEME:format("L%d", mon.level or 0),
-        hpText = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0),
-        hpLabel = THEME:translate("HP"),
-        expLabel = THEME:translate("EXP"),
-      }
+      local view = displayRuntime.partyView(mon)
       THEME.hgss:partyCard(view, x, y, selected, details,
         function(_, portraitX, portraitY, size, fainted)
           if compat.partyEgg(source) then
@@ -4327,9 +4490,99 @@ return function(mod)
     end
   end
 
+  function displayRuntime.drawHome()
+    local home = displayRuntime.home
+    local layout = home.layout or { tiles = {} }
+    local pages = displayRuntime.Home.pageCount(layout)
+      + (home.editing and 1 or 0)
+    home.page = math.max(1, math.min(pages, home.page or 1))
+    header(home.library and "ADD TO HOME"
+      or home.editing and "EDIT HOME" or "SILPH LINK", home.library == true)
+    local overview = loadLocalMap()
+    local explorer = overview and displayRuntime.explorerModel(overview) or {}
+    local party = partyData()
+    local lead, leadView = party[1], displayRuntime.partyView(party[1])
+    local model = {
+      page = home.page, pages = pages,
+      tiles = displayRuntime.Home.tiles(layout,
+        displayRuntime.homeCatalog, home.page),
+      editing = home.editing,
+      slots = home.editing and displayRuntime.Home.plusSlots(layout,
+        displayRuntime.homeCatalog, home.page),
+      route = explorer.route or "UNKNOWN AREA",
+      overview = overview, image = explorer.image,
+      player = explorer.player, markers = explorer.markers,
+      lead = leadView,
+      drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
+      drawPokemon = function(_, x, y, size)
+        if not lead then return end
+        local source = lead.source or lead
+        if compat.partyEgg(source) then
+          compat.drawPokemonIcon(source, x, y, size)
+        elseif not drawSprite(lead.species, "front", x, y, size, size,
+            nil, source, true) then
+          compat.drawPokemonIcon(source, x, y, size)
+        end
+      end,
+    }
+    if home.library and home.addSlot then
+      model.tiles, model.slots = nil, nil
+      model.libraryKind = home.libraryKind
+      model.library = displayRuntime.Home.library(layout,
+        displayRuntime.homeCatalog, home.page,
+        home.addSlot.column, home.addSlot.row, home.libraryKind)
+      model.libraryPages = math.max(1, math.ceil(#model.library / 6))
+      model.libraryPage = math.max(1, math.min(model.libraryPages,
+        home.libraryPage or 1))
+    end
+    G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    THEME.hgss:home(model)
+    if home.editing and not home.library then THEME.hgss:homeEditDone() end
+    G.pop()
+  end
+
+  function displayRuntime.storeEntries(installedOnly)
+    local apps = {}
+    for _, app in ipairs(displayRuntime.storeCatalog) do
+      local entry = displayRuntime.storeEntry(app)
+      if not installedOnly or entry.state == "open" then
+        apps[#apps + 1] = entry
+      end
+    end
+    return apps
+  end
+
+  function displayRuntime.drawStore()
+    local home, view = displayRuntime.home, displayRuntime.home.storeView
+    local detail = home.storeDetail and displayRuntime.storeEntry(
+      displayRuntime.storeById[home.storeDetail])
+    header(detail and detail.label or "SILPH STORE", true)
+    G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    if detail then
+      THEME.hgss:storeDetail({ app = detail })
+    elseif view == "apps" then
+      THEME.hgss:storeApps({ apps = displayRuntime.storeEntries() })
+    elseif view == "library" then
+      local apps = displayRuntime.storeEntries(true)
+      THEME.hgss:storeMyApps({
+        summary = THEME:format("%d APPS READY", #apps), apps = apps,
+      })
+    else
+      THEME.hgss:storeToday({
+        featured = displayRuntime.storeEntry(displayRuntime.storeById.tools),
+        recommended = {
+          displayRuntime.storeEntry(displayRuntime.storeById.party),
+          displayRuntime.storeEntry(displayRuntime.storeById.pokedex),
+        },
+      })
+    end
+    G.pop()
+  end
+
   local function drawParty(list, title, back, activeSpecies, selectedSlot,
                            paged)
-    header(title or "PARTY", back, paged)
+    header(title or "PARTY", back or displayRuntime.home.activeApp ~= nil,
+      paged and displayRuntime.home.activeApp == nil)
     if THEME.style == "hgss" then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
@@ -6025,6 +6278,10 @@ return function(mod)
       drawTitle()
     elseif radarOpen then
       drawRadar()
+    elseif THEME.style == "hgss" and page == "HOME" then
+      displayRuntime.drawHome()
+    elseif THEME.style == "hgss" and page == "STORE" then
+      displayRuntime.drawStore()
     elseif page == "MAP" then
       drawMap()
     elseif page == "LOCAL" then
@@ -6289,6 +6546,149 @@ return function(mod)
     if not ok then mod.log:warn("field action %s rejected: %s",
       tostring(action.id), tostring(err)) end
     refreshTools()
+    dirty = true
+  end
+
+  function displayRuntime.openHomeApp(id)
+    local home = displayRuntime.home
+    home.editing, home.library, home.addSlot = false, false, nil
+    home.activeApp = id
+    if id == "store" then
+      home.storeView, home.storeDetail, page = "today", nil, "STORE"
+      dirty = true
+      return true
+    end
+    local app = displayRuntime.storeById[id]
+    local package = displayRuntime.homeCatalog.packages[id]
+    if not app or not app.target or not package or not package.installed then
+      return false
+    end
+    page, dirty = app.target, true
+    return true
+  end
+  function displayRuntime.homeTileAt(x, y)
+    for _, tile in ipairs(displayRuntime.Home.tiles(displayRuntime.home.layout,
+        displayRuntime.homeCatalog, displayRuntime.home.page)) do
+      local left, top, width, height = THEME.hgss:homeRect(tile)
+      if inside(x, y, left, top, width, height) then return tile end
+    end
+  end
+
+  function displayRuntime.tapHome(x, y)
+    local home, layout = displayRuntime.home, displayRuntime.home.layout
+    if home.library then
+      if y < 30 and x < 27 then
+        home.library, home.addSlot, dirty = false, nil, true
+        return
+      end
+      if inside(x, y, 10, 34, 108, 13) then
+        home.libraryKind, home.libraryPage, dirty = "app", 1, true
+        return
+      elseif inside(x, y, 121, 34, 108, 13) then
+        home.libraryKind, home.libraryPage, dirty = "widget", 1, true
+        return
+      end
+      local items = displayRuntime.Home.library(layout,
+        displayRuntime.homeCatalog, home.page,
+        home.addSlot.column, home.addSlot.row, home.libraryKind)
+      local first = ((home.libraryPage or 1) - 1) * 6 + 1
+      for visible = 0, 5 do
+        local item = items[first + visible]
+        local column, row = visible % 2, math.floor(visible / 2)
+        if item and item.available and inside(x, y,
+            10 + column * 111, 49 + row * 48, 108, 46) then
+          displayRuntime.Home.place(layout, displayRuntime.homeCatalog,
+            item.id, home.page,
+            home.addSlot.column, home.addSlot.row)
+          home.library, home.addSlot = false, nil
+          displayRuntime.saveHome()
+          return
+        end
+      end
+      return
+    end
+    if home.editing and inside(x, y, 139, 4, 95, 19) then
+      home.editing, dirty = false, true
+      displayRuntime.saveHome()
+      return
+    end
+    local tile = displayRuntime.homeTileAt(x, y)
+    if home.editing then
+      if tile then
+        local left, top = THEME.hgss:homeRect(tile)
+        if (x - left - 6) ^ 2 + (y - top - 6) ^ 2 <= 36 then
+          displayRuntime.Home.remove(layout, tile.id)
+          displayRuntime.saveHome()
+        end
+        return
+      end
+      for _, slot in ipairs(displayRuntime.Home.plusSlots(layout,
+          displayRuntime.homeCatalog, home.page)) do
+        local left, top, width, height = THEME.hgss:homeRect(slot)
+        if inside(x, y, left, top, width, height) then
+          home.library, home.addSlot = true, slot
+          home.libraryKind, home.libraryPage, dirty = "app", 1, true
+          return
+        end
+      end
+      return
+    end
+    local surface = tile and displayRuntime.homeCatalog.surfaces[tile.id]
+    if surface then displayRuntime.openHomeApp(surface.package) end
+  end
+
+  function displayRuntime.activateStoreEntry(entry)
+    if not entry or entry.state == "soon" then return end
+    if entry.state == "get" then
+      displayRuntime.setPackageInstalled(entry.id, true)
+    else displayRuntime.openHomeApp(entry.id) end
+  end
+
+  function displayRuntime.tapStore(x, y)
+    local home = displayRuntime.home
+    if y < 30 and x < 27 then
+      if home.storeDetail then home.storeDetail = nil
+      else page, home.activeApp = "HOME", nil end
+      dirty = true
+      return
+    end
+    local detail = home.storeDetail and displayRuntime.storeEntry(
+      displayRuntime.storeById[home.storeDetail])
+    local view = detail and "detail" or home.storeView
+    local action, index = THEME.hgss:storeHit(x, y, view)
+    if view == "detail" then
+      if action == "remove" and detail.removable then
+        displayRuntime.setPackageInstalled(detail.id, false)
+      elseif action == "action" then
+        displayRuntime.activateStoreEntry(detail)
+      end
+      return
+    end
+    if action == "tab" then
+      home.storeView = ({ "today", "apps", "library" })[index]
+    elseif view == "today" then
+      local entries = {
+        displayRuntime.storeEntry(displayRuntime.storeById.tools),
+        displayRuntime.storeEntry(displayRuntime.storeById.party),
+        displayRuntime.storeEntry(displayRuntime.storeById.pokedex),
+      }
+      if action == "featured_action" then
+        displayRuntime.activateStoreEntry(entries[1])
+      elseif action == "featured" then home.storeDetail = entries[1].id
+      elseif action == "recommendation" then
+        home.storeDetail = entries[index + 1].id
+      end
+    elseif view == "apps" then
+      local entry = displayRuntime.storeEntries()[index]
+      if action == "app_action" then
+        displayRuntime.activateStoreEntry(entry)
+      elseif action == "app" and entry then home.storeDetail = entry.id end
+    elseif view == "library" then
+      local entry = displayRuntime.storeEntries(true)[index]
+      if action == "installed_action" then
+        displayRuntime.activateStoreEntry(entry)
+      elseif action == "installed" and entry then home.storeDetail = entry.id end
+    end
     dirty = true
   end
 
@@ -6819,6 +7219,34 @@ return function(mod)
       trainerStepsOpen, dirty = false, true
       return
     end
+    if THEME.style == "hgss" and page == "HOME" then
+      local home = displayRuntime.home
+      if home.library and home.addSlot then
+        local count = math.max(1, math.ceil(#displayRuntime.Home.library(
+          home.layout, displayRuntime.homeCatalog, home.page,
+          home.addSlot.column, home.addSlot.row, home.libraryKind) / 6))
+        home.libraryPage = ((home.libraryPage or 1) - 1 + direction) % count + 1
+      else
+        local count = displayRuntime.Home.pageCount(home.layout)
+          + (home.editing and 1 or 0)
+        home.page = ((home.page or 1) - 1 + direction) % count + 1
+      end
+      dirty = true
+      return
+    elseif THEME.style == "hgss" and page == "STORE" then
+      local home = displayRuntime.home
+      if home.storeDetail then home.storeDetail = nil
+      else
+        local views = { "today", "apps", "library" }
+        local current = 1
+        for index, view in ipairs(views) do
+          if view == home.storeView then current = index break end
+        end
+        home.storeView = views[(current - 1 + direction) % #views + 1]
+      end
+      dirty = true
+      return
+    end
     if page == "LOCAL" and THEME.style == "hgss"
         and (displayRuntime.explorer.selected
           or displayRuntime.explorer.view
@@ -7065,6 +7493,13 @@ return function(mod)
       return
     end
     if mode ~= "active" then return end
+    if THEME.style == "hgss" and page == "HOME" then
+      displayRuntime.tapHome(x * THEME.hgssScale, y * THEME.hgssScale)
+      return
+    elseif THEME.style == "hgss" and page == "STORE" then
+      displayRuntime.tapStore(x * THEME.hgssScale, y * THEME.hgssScale)
+      return
+    end
     if partyActionSlot then
       local slot = partyActionSlot
       local mon = game.save.party and game.save.party[slot]
@@ -7179,6 +7614,14 @@ return function(mod)
         dirty = true
         mod.log:info("step counter reset")
       end
+      return
+    end
+    if THEME.style == "hgss" and displayRuntime.home.activeApp
+        and y < HEADER and x < 22
+        and not (page == "LOCAL" and (displayRuntime.explorer.selected
+          or displayRuntime.explorer.view
+          or displayRuntime.explorer.mapFull)) then
+      page, displayRuntime.home.activeApp, dirty = "HOME", nil, true
       return
     end
     if y < HEADER and not partyMoveFrom then
@@ -7346,6 +7789,8 @@ return function(mod)
     "Explorer horizontal swipe regions")
 
   local function swipe(dx, down)
+    if THEME.style == "hgss" and page ~= "HOME"
+        and page ~= "STORE" and page ~= "LOCAL" then return end
     if page ~= "LOCAL" or THEME.style ~= "hgss" then
       changePage(dx < 0 and 1 or -1)
       return
@@ -7450,6 +7895,7 @@ return function(mod)
       local mode, top = screenState()
       local speed = textTouch(top) == "speed"
       touchDown = { x = x, y = y,
+        at = love.timer.getTime(),
         pageSwipe = pageSwipeAllowed(mode, battle),
         textSpeed = speed,
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
@@ -7457,6 +7903,12 @@ return function(mod)
           or dialogueChoice() or compat.isScreen(top, "summary")
           or displayRuntime.moveLearnScreen()
           or pcSession() }
+      if THEME.style == "hgss" and page == "HOME"
+          and not displayRuntime.home.library then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        local tile = displayRuntime.homeTileAt(hx, hy)
+        touchDown.homeTile = tile and tile.id
+      end
       if speed then holdTextSpeed(true) end
     elseif action == "cancel" then
       textSpeedReleasePending = false
@@ -7477,6 +7929,41 @@ return function(mod)
       if down.textSpeed then
         textSpeedReleasePending = true
         return
+      end
+      if THEME.style == "hgss" and page == "HOME" and down.homeTile then
+        local scale = THEME.hgssScale
+        local hdx, hdy = dx * scale, dy * scale
+        if not displayRuntime.home.editing and displayRuntime.Home.longPress(
+            love.timer.getTime() - down.at, hdx, hdy) then
+          displayRuntime.home.editing, dirty = true, true
+          return
+        elseif displayRuntime.home.editing
+            and hdx * hdx + hdy * hdy
+              > displayRuntime.Home.dragSlop ^ 2 then
+          local tile = displayRuntime.Home.find(
+            displayRuntime.home.layout, down.homeTile)
+          if tile then
+            local function rounded(value)
+              return value < 0 and math.ceil(value - 0.5)
+                or math.floor(value + 0.5)
+            end
+            local targetPage = displayRuntime.home.page
+            local hx = x * scale
+            if hx < 12 then targetPage = math.max(1, targetPage - 1)
+            elseif hx > 228 then targetPage = targetPage + 1 end
+            local column = targetPage == displayRuntime.home.page
+              and tile.column + rounded(hdx / 19) or tile.column
+            local row = tile.row + rounded(hdy / 85)
+            if displayRuntime.Home.place(displayRuntime.home.layout,
+                displayRuntime.homeCatalog,
+                tile.id, targetPage, column, row) then
+              displayRuntime.home.page = targetPage
+              displayRuntime.saveHome()
+            end
+          end
+          dirty = true
+          return
+        end
       end
       if math.abs(dx) >= 24 and math.abs(dx) > math.abs(dy) * 1.25 then
         if down.pageSwipe then swipe(dx, down) end
@@ -7507,6 +7994,7 @@ return function(mod)
     spriteCache.__badges = nil
     spriteCache.__gen2Badges = nil
     spriteCache.__caughtBall = nil
+    displayRuntime.loadHome()
     refreshTheme(true)
     reloadSteps()
     local player = game.save and game.save.player
@@ -7523,8 +8011,12 @@ return function(mod)
     mod.log:info("ready")
   end)
 
-  mod.events:on("save.created", reloadSteps)
-  mod.events:on("save.loaded", reloadSteps)
+  function displayRuntime.reloadSavedUi()
+    reloadSteps()
+    displayRuntime.loadHome()
+  end
+  mod.events:on("save.created", displayRuntime.reloadSavedUi)
+  mod.events:on("save.loaded", displayRuntime.reloadSavedUi)
 
   mod.events:on("map.entered", function(payload)
     mapId, pendingFly, pendingAction, fieldChoice, dirty =

@@ -238,12 +238,15 @@ function love.load()
   end
   if screen:sub(1, 5) == "store" then
     local action = theme:storeHit(180, 55, "detail")
+    local remove = theme:storeHit(180, 65, "detail")
     local featured = theme:storeHit(20, 60, "today")
+    local featuredAction = theme:storeHit(70, 90, "today")
     local recommendation, index = theme:storeHit(150, 160, "today")
     local app, appIndex = theme:storeHit(150, 110, "apps")
     local installed, installedIndex = theme:storeHit(20, 135, "library")
     local tab, tabIndex = theme:storeHit(170, 202, "today")
-    assert(action == "action" and featured == "featured"
+    assert(action == "action" and remove == "remove"
+        and featured == "featured" and featuredAction == "featured_action"
         and recommendation == "recommendation" and index == 2
         and app == "app" and appIndex == 4
         and installed == "installed" and installedIndex == 3
@@ -1115,7 +1118,7 @@ function love.load()
     { id = "bag", icon = "bag", label = "BAG",
       category = "ITEMS", action = "OPEN", state = "open" },
     { id = "trainer", icon = "trainer", label = "TRAINER CARD",
-      category = "PROFILE", action = "UPDATE", state = "update" },
+      category = "PROFILE", action = "OPEN", state = "open" },
     { id = "notes", icon = "notes", label = "NOTES",
       category = "TRAINER TOOL", action = "GET", state = "get" },
   }
@@ -1134,7 +1137,7 @@ function love.load()
     theme:storeApps({ apps = storeCatalog })
   elseif storeLibrary then
     theme:storeMyApps({
-      summary = "7 APPS READY", updates = "1 UPDATE",
+      summary = "4 APPS READY",
       apps = {
         storeCatalog[1], storeCatalog[2], storeCatalog[5], storeCatalog[4],
       },
