@@ -8,8 +8,10 @@ local function integer(value)
 end
 
 local function definition(catalog, id)
-  local item = catalog and catalog[id]
-  if type(item) ~= "table" or item.installed == false then return nil end
+  local item = catalog and catalog.surfaces and catalog.surfaces[id]
+  local package = item and catalog.packages and catalog.packages[item.package]
+  if type(item) ~= "table" or type(package) ~= "table"
+      or package.installed == false then return nil end
   local columns, rows = item.columns or 3, item.rows or 1
   if not integer(columns) or not integer(rows)
       or columns < 1 or rows < 1
@@ -108,7 +110,8 @@ function M.tiles(layout, catalog, page)
       if item then
         result[#result + 1] = {
           id = placed.id, kind = item.kind or "app",
-          icon = item.icon, accent = item.accent, label = item.label,
+          widget = item.widget, icon = item.icon,
+          accent = item.accent, label = item.label,
           column = placed.column, row = placed.row,
           columns = columns, rows = rows,
         }
@@ -130,15 +133,15 @@ function M.plusSlots(layout, catalog, page)
   return slots
 end
 
-function M.library(layout, catalog, page, column, row)
+function M.library(layout, catalog, page, column, row, kind)
   local result = {}
-  for id, item in pairs(catalog or {}) do
-    if item.installed ~= false then
+  for id, item in pairs(catalog.surfaces or {}) do
+    if definition(catalog, id) and (not kind or item.kind == kind) then
       local placed = M.find(layout, id) ~= nil
       local fits, reason = M.canPlace(layout, catalog, id, page, column, row)
       result[#result + 1] = {
         id = id, label = item.label or id, kind = item.kind or "app",
-        icon = item.icon, accent = item.accent,
+        widget = item.widget, icon = item.icon, accent = item.accent,
         columns = item.columns or 3, rows = item.rows or 1,
         available = not placed and fits,
         reason = placed and "on_home" or (fits and nil or reason),

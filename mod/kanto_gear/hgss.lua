@@ -547,6 +547,21 @@ return function(ui)
     box("fill", x + 22, y + 6, 1, 2, c.blueLight)
   end
 
+  function H:homePartyIcon(x, y)
+    local c = homeIconColors
+    local function ball(left, top)
+      clipped(left, top, 11, 11, c.ink)
+      clipped(left + 1, top + 1, 9, 9, c.white)
+      box("fill", left + 2, top + 2, 7, 4, c.red)
+      box("fill", left + 1, top + 5, 9, 2, c.ink)
+      box("fill", left + 4, top + 4, 3, 4, c.ink)
+      box("fill", left + 5, top + 5, 1, 2, c.white)
+    end
+    ball(x + 9, y + 3)
+    ball(x + 2, y + 12)
+    ball(x + 16, y + 12)
+  end
+
   function H:homeToolsIcon(x, y)
     local G, c = ui.graphics, homeIconColors
     local function cog(tint, ox, oy)
@@ -623,6 +638,10 @@ return function(ui)
       trainer = {
         left = 1, top = 3, right = 25, bottom = 24,
         draw = function(x, y) theme:homeTrainerIcon(x, y) end,
+      },
+      party = {
+        left = 2, top = 3, right = 26, bottom = 22,
+        draw = function(x, y) theme:homePartyIcon(x, y) end,
       },
       tools = {
         left = 1, top = 1, right = 26, bottom = 26,
@@ -764,7 +783,7 @@ return function(ui)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, 45, 4, 4)
     local icon = icons[item.icon or item.id]
     if item.kind == "app" and icon then drawHomeIcon(icon, x + 4, y + 5, 29)
-    else self:homeWidgetLibraryIcon(item.kind, x + 4, y + 5) end
+    else self:homeWidgetLibraryIcon(item.widget, x + 4, y + 5) end
     local label = self:fitPartyType(translate(item.label), w - 39)
     self:partyType(label, x + 36, y + 6, colors.ink, w - 39)
     local kind = item.kind == "app" and translate("APP")
@@ -783,7 +802,14 @@ return function(ui)
     clipped(7, 32, 226, 167, colors.shadow)
     clipped(6, 31, 226, 167, colors.surface)
     border(6, 31, 226, 167, colors.outline)
-    self:partyType(translate("INSTALLED"), 12, 35, colors.green, 216)
+    for index, tab in ipairs({ "app", "widget" }) do
+      local x = index == 1 and 10 or 121
+      local active = model.libraryKind == tab
+      clipped(x, 34, 108, 13, active and colors.green or colors.band)
+      border(x, 34, 108, 13, colors.outline)
+      self:partyType(translate(tab == "app" and "APPS" or "WIDGETS"),
+        x + 2, 35, active and colors.white or colors.ink, 104)
+    end
     local page = math.max(1, tonumber(model.libraryPage) or 1)
     local first = (page - 1) * 6 + 1
     for index = first, math.min(first + 5, #(model.library or {})) do
@@ -872,9 +898,9 @@ return function(ui)
     for _, slot in ipairs(model.slots or {}) do self:homePlus(slot) end
     for index, tile in ipairs(model.tiles or {}) do
       local selected = model.selected == index or model.selected == tile.id
-      if tile.kind == "explorer" then
+      if tile.kind == "widget" and tile.widget == "explorer" then
         self:homeExplorer(model, tile, selected)
-      elseif tile.kind == "party" then
+      elseif tile.kind == "widget" and tile.widget == "party" then
         self:homeParty(model, tile, selected)
       elseif tile.kind == "app" then
         local x, y, w, h = self:homeRect(tile)

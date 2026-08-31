@@ -1087,36 +1087,47 @@ function love.load()
   end
   if home then
     local catalog = {
-      explorer = { installed = true, kind = "explorer", columns = 7,
-        label = "EXPLORER" },
-      party = { installed = true, kind = "party", columns = 5,
-        label = "PARTY" },
-      bag = { installed = true, kind = "app", columns = 3,
-        icon = "bag", accent = "amber", label = "BAG" },
-      pokedex = { installed = true, kind = "app", columns = 3,
-        icon = "pokedex", accent = "red", label = "POKEDEX" },
-      trainer = { installed = true, kind = "app", columns = 3,
-        icon = "trainer", accent = "blue", label = language.homeTrainer },
-      tools = { installed = true, kind = "app", columns = 3,
-        icon = "tools", accent = "green", label = "TOOLS" },
-      store = { installed = true, kind = "app", columns = 3,
-        icon = "store", accent = "green", label = language.homeStore },
-      notes = { installed = true, kind = "app", columns = 3,
-        icon = "notes", accent = "amber", label = language.homeNotes },
+      packages = {
+        explorer = { installed = true }, party = { installed = true },
+        bag = { installed = true }, pokedex = { installed = true },
+        trainer = { installed = true }, tools = { installed = true },
+        store = { installed = true }, notes = { installed = true },
+      },
+      surfaces = {
+        explorer_widget = { package = "explorer", kind = "widget",
+          widget = "explorer", columns = 7, label = "EXPLORER" },
+        party_widget = { package = "party", kind = "widget",
+          widget = "party", columns = 5, label = "PARTY" },
+        party_app = { package = "party", kind = "app", columns = 3,
+          icon = "party", accent = "green", label = "PARTY" },
+        bag_app = { package = "bag", kind = "app", columns = 3,
+          icon = "bag", accent = "amber", label = "BAG" },
+        pokedex_app = { package = "pokedex", kind = "app", columns = 3,
+          icon = "pokedex", accent = "red", label = "POKEDEX" },
+        trainer_app = { package = "trainer", kind = "app", columns = 3,
+          icon = "trainer", accent = "blue", label = language.homeTrainer },
+        tools_app = { package = "tools", kind = "app", columns = 3,
+          icon = "tools", accent = "green", label = "TOOLS" },
+        store_app = { package = "store", kind = "app", columns = 3,
+          icon = "store", accent = "green", label = language.homeStore },
+        notes_app = { package = "notes", kind = "app", columns = 3,
+          icon = "notes", accent = "amber", label = language.homeNotes },
+      },
     }
     local layout = { tiles = {
-      { id = "explorer", page = 1, column = 1, row = 1 },
-      { id = "party", page = 1, column = 8, row = 1 },
-      { id = "bag", page = 1, column = 1, row = 2 },
-      { id = "pokedex", page = 1, column = 4, row = 2 },
-      { id = "trainer", page = 1, column = 7, row = 2 },
-      { id = "tools", page = 1, column = 10, row = 2 },
-      { id = "store", page = 2, column = 1, row = 1 },
-      { id = "notes", page = 2, column = 4, row = 1 },
+      { id = "explorer_widget", page = 1, column = 1, row = 1 },
+      { id = "party_widget", page = 1, column = 8, row = 1 },
+      { id = "bag_app", page = 1, column = 1, row = 2 },
+      { id = "pokedex_app", page = 1, column = 4, row = 2 },
+      { id = "trainer_app", page = 1, column = 7, row = 2 },
+      { id = "tools_app", page = 1, column = 10, row = 2 },
+      { id = "store_app", page = 2, column = 1, row = 1 },
+      { id = "notes_app", page = 2, column = 4, row = 1 },
+      { id = "party_app", page = 2, column = 7, row = 1 },
     } }
     if homeAdd then
-      Home.remove(layout, "party")
-      Home.remove(layout, "notes")
+      Home.remove(layout, "party_widget")
+      Home.remove(layout, "notes_app")
     end
     local homePages = Home.pageCount(layout) + (homeEdit and 1 or 0)
     local homePage = math.max(1, math.min(homePages,
@@ -1161,7 +1172,10 @@ function love.load()
     }
     if homeAdd then
       model.tiles = nil
-      model.library = Home.library(layout, catalog, 2, 10, 2)
+      model.libraryKind = os.getenv("KANTO_GEAR_PREVIEW_LIBRARY") == "widget"
+        and "widget" or "app"
+      model.library = Home.library(layout, catalog, 2, 10, 2,
+        model.libraryKind)
       model.libraryPages = math.max(1, math.ceil(#model.library / 6))
       model.libraryPage = math.max(1, math.min(model.libraryPages,
         math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1)))
