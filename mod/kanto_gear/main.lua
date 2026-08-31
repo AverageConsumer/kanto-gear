@@ -8625,6 +8625,23 @@ return function(mod)
     end
   end
 
+  function displayRuntime.updateHomeLongPress(now)
+    local down = touchDown
+    if not down or down.blockedUntilRelease or not down.homeTile
+        or THEME.style ~= "hgss" or page ~= "HOME"
+        or displayRuntime.home.editing then return false end
+    local dx = ((down.currentX or down.x) - down.x) * THEME.hgssScale
+    local dy = ((down.currentY or down.y) - down.y) * THEME.hgssScale
+    if not displayRuntime.Home.longPress(now - down.at, dx, dy) then
+      return false
+    end
+    displayRuntime.home.editing = true
+    displayRuntime.home.swapSource = nil
+    down.blockedUntilRelease = true
+    dirty = true
+    return true
+  end
+
   local function touchEvent(value, sourceWidth, sourceHeight)
     local action, sx, sy = value:match("^(%a+),(%d+),(%d+)$")
     local x, y = tonumber(sx), tonumber(sy)
@@ -8637,6 +8654,13 @@ return function(mod)
         math.floor(x * WIDTH / sourceWidth)))
       y = math.max(0, math.min(HEIGHT - 1,
         math.floor(y * HEIGHT / sourceHeight)))
+    end
+    if touchDown and touchDown.blockedUntilRelease then
+      if action == "up" or action == "cancel" then
+        touchDown = nil
+        dirty = true
+      end
+      return
     end
     if action == "down" and x then
       textSpeedReleasePending = false
@@ -8662,6 +8686,8 @@ return function(mod)
       end
       if speed then holdTextSpeed(true) end
       dirty = true
+    elseif (action == "move" or action == "moved") and x and touchDown then
+      touchDown.currentX, touchDown.currentY = x, y
     elseif action == "cancel" then
       textSpeedReleasePending = false
       holdTextSpeed(false)
@@ -8683,17 +8709,6 @@ return function(mod)
       if down.textSpeed then
         textSpeedReleasePending = true
         return
-      end
-      if THEME.style == "hgss" and page == "HOME" and down.homeTile then
-        local scale = THEME.hgssScale
-        local hdx, hdy = dx * scale, dy * scale
-        if not displayRuntime.home.editing and displayRuntime.Home.longPress(
-            love.timer.getTime() - down.at, hdx, hdy) then
-          displayRuntime.home.editing = true
-          displayRuntime.home.swapSource = nil
-          dirty = true
-          return
-        end
       end
       if math.abs(dx) >= 24 and math.abs(dx) > math.abs(dy) * 1.25 then
         if down.pageSwipe then swipe(dx, down) end
@@ -9208,14 +9223,15 @@ return function(mod)
       math.floor((x - rect.x) * WIDTH / rect.w)))
     local ty = math.max(0, math.min(HEIGHT - 1,
       math.floor((y - rect.y) * HEIGHT / rect.h)))
-    if action == "down" or action == "up" or action == "cancel" then
+    if action == "down" or action == "up" or action == "move"
+        or action == "cancel" then
       touchEvent(string.format("%s,%d,%d", action, tx, ty))
     end
     return true
   end
 
   mod.hooks:wrap("input.pointer", function(next, pointerGame, event)
-    local action = ({ pressed = "down", released = "up",
+    local action = ({ pressed = "down", released = "up", moved = "move",
                       cancelled = "cancel" })[event.phase]
     if action and primaryTouch(action, event.x, event.y) then return true end
     if event.phase == "moved" and active and hasDisplay()
@@ -9358,6 +9374,7 @@ return function(mod)
     end
 
     local now = love.timer.getTime()
+    displayRuntime.updateHomeLongPress(now)
     if now >= nextPoll then
       nextPoll = now + 0.05
       refreshTheme()

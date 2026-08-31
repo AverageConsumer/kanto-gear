@@ -270,6 +270,36 @@ display.tapHome(toolX + math.floor(toolW / 2),
   toolY + math.floor(toolH / 2))
 T.eq(page(), "TOOLS",
   "a field widget that is not usable here opens its Field Kit")
+tap(5, 5)
+T.eq(page(), "HOME", "Field Kit back returns Home")
+home.layout = { tiles = {
+  { id = "map_app", page = 1, column = 1, row = 1 },
+} }
+home.page, home.editing, home.library = 1, false, false
+local mapTile = display.Home.tiles(home.layout, catalog, 1)[1]
+local mapX, mapY, mapW, mapH = theme.hgss:homeRect(mapTile)
+local scale = theme.hgssScale
+local downX = math.floor((mapX + mapW / 2) / scale)
+local downY = math.floor((mapY + mapH / 2) / scale)
+local realTime = love.timer.getTime
+local fakeTime = 100
+love.timer.getTime = function() return fakeTime end
+touchEvent(("down,%d,%d"):format(downX, downY))
+fakeTime = fakeTime + display.Home.holdSeconds + 0.01
+T.check(display.updateHomeLongPress(fakeTime),
+  "holding Map enters Home edit mode before finger release")
+T.check(home.editing, "Home editor is visible while the finger remains down")
+touchEvent(("tap,%d,%d"):format(downX, downY))
+T.eq(page(), "HOME", "the held touch cannot also open Map")
+touchEvent(("up,%d,%d"):format(downX, downY))
+home.editing = false
+fakeTime = fakeTime + 1
+touchEvent(("down,%d,%d"):format(downX, downY))
+fakeTime = fakeTime + display.Home.holdSeconds + 0.01
+T.check(display.updateHomeLongPress(fakeTime),
+  "Home touch input resumes after the long-press finger is released")
+touchEvent(("up,%d,%d"):format(downX, downY))
+love.timer.getTime = realTime
 display.openHomeApp("store")
 
 touchEvent("down,20,30")
