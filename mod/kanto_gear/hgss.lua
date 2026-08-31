@@ -807,6 +807,32 @@ return function(ui)
     box("fill", x + 12, y + 11, 2, 2, c.blueLight)
   end
 
+  function H:homeExplorerIcon(x, y)
+    local G, c = ui.graphics, homeIconColors
+    color(c.ink)
+    G.polygon("fill", x + 2, y + 5, x + 9, y + 2,
+      x + 17, y + 5, x + 24, y + 2, x + 24, y + 22,
+      x + 17, y + 25, x + 9, y + 22, x + 2, y + 25)
+    color(c.greenLight)
+    G.polygon("fill", x + 3, y + 6, x + 8, y + 4,
+      x + 8, y + 21, x + 3, y + 23)
+    color(c.paper)
+    G.polygon("fill", x + 10, y + 4, x + 16, y + 6,
+      x + 16, y + 23, x + 10, y + 21)
+    color(c.blueLight)
+    G.polygon("fill", x + 18, y + 6, x + 23, y + 4,
+      x + 23, y + 21, x + 18, y + 23)
+    box("fill", x + 4, y + 16, 5, 2, c.blueDark)
+    box("fill", x + 8, y + 14, 5, 2, c.blueDark)
+    box("fill", x + 12, y + 12, 5, 2, c.blueDark)
+    box("fill", x + 16, y + 10, 5, 2, c.blueDark)
+    color(c.ink); G.circle("fill", x + 17, y + 9, 5)
+    color(c.red); G.circle("fill", x + 17, y + 9, 3)
+    box("fill", x + 15, y + 12, 4, 4, c.ink)
+    box("fill", x + 16, y + 12, 2, 3, c.red)
+    color(c.white); G.circle("fill", x + 17, y + 9, 1)
+  end
+
   function H:toolAccent(kind)
     local colors = self.colors
     if kind == "fish" or kind == "surf" or kind == "whirlpool"
@@ -978,6 +1004,10 @@ return function(ui)
       tools = {
         left = 1, top = 1, right = 26, bottom = 26,
         draw = function(x, y) theme:homeToolsIcon(x, y) end,
+      },
+      explorer = {
+        left = 2, top = 2, right = 24, bottom = 25,
+        draw = function(x, y) theme:homeExplorerIcon(x, y) end,
       },
       store = {
         left = 1, top = 5, right = 25, bottom = 24,

@@ -1152,7 +1152,7 @@ function love.load()
     enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "PIDGEY", 4
   end
   local storeCatalog = {
-    { id = "explorer", icon = "tools", label = "EXPLORER",
+    { id = "explorer", icon = "explorer", label = "EXPLORER",
       category = "ADVENTURE", action = "OPEN", state = "open" },
     { id = "party", icon = "party", label = "PARTY",
       category = "TEAM", action = "OPEN", state = "open" },
@@ -1250,6 +1250,8 @@ function love.load()
       surfaces = {
         explorer_widget = { package = "explorer", kind = "widget",
           widget = "explorer", columns = 7, label = "EXPLORER" },
+        explorer_app = { package = "explorer", kind = "app", columns = 3,
+          icon = "explorer", accent = "green", label = "EXPLORER" },
         party_widget = { package = "party", kind = "widget",
           widget = "party", columns = 5, label = "PARTY" },
         party_app = { package = "party", kind = "app", columns = 3,
@@ -1310,6 +1312,11 @@ function love.load()
       layout.tiles = {
         { id = "store_app", page = 1, column = 1, row = 1 },
         { id = "notes_app", page = 1, column = 4, row = 1 },
+      }
+    elseif screen == "home-icon-pair" then
+      layout.tiles = {
+        { id = "explorer_app", page = 1, column = 1, row = 1 },
+        { id = "tools_app", page = 1, column = 4, row = 1 },
       }
     end
     if homeAdd then

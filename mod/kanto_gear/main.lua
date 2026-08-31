@@ -1914,7 +1914,7 @@ return function(mod)
       party_widget = { package = "party", kind = "widget",
         widget = "party", columns = 5, label = "PARTY" },
       explorer_app = { package = "explorer", kind = "app", columns = 3,
-        icon = "tools", accent = "green", label = "EXPLORER" },
+        icon = "explorer", accent = "green", label = "EXPLORER" },
       party_app = { package = "party", kind = "app", columns = 3,
         icon = "party", accent = "green", label = "PARTY" },
       trainer_app = { package = "trainer", kind = "app", columns = 3,
@@ -1944,7 +1944,7 @@ return function(mod)
     }
   end
   displayRuntime.storeCatalog = {
-    { id = "explorer", icon = "tools", label = "EXPLORER",
+    { id = "explorer", icon = "explorer", label = "EXPLORER",
       category = "ADVENTURE", target = "LOCAL", fixed = true,
       description = { "EXPLORE THE AREA AROUND YOU.",
         "FIND POKEMON, ITEMS AND TRAINERS.", "YOUR ROUTE, IN ONE PLACE." } },
