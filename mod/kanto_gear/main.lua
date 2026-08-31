@@ -459,7 +459,7 @@ local function textTouch(top)
 end
 
 local function textPrompt(top)
-  return textTouch(top) == "advance" and "TAP TO CONTINUE" or nil
+  return textTouch(top) == "advance"
 end
 
 local function namingCell(x, y, grid)
@@ -3511,14 +3511,23 @@ return function(mod)
     end
   end
 
+  function displayRuntime.drawContinueArrow(x, y)
+    box("fill", x + 2, y + 12, 6, 1, { 0, 0, 0, 0.38 })
+    box("fill", x, y, 10, 2, PAPER)
+    box("fill", x + 1, y + 2, 8, 2, PAPER)
+    box("fill", x + 2, y + 4, 6, 2, PAPER)
+    box("fill", x + 3, y + 6, 4, 2, PAPER)
+    box("fill", x + 4, y + 8, 2, 2, PAPER)
+    box("fill", x + 1, y + 1, 8, 1, MID)
+    box("fill", x + 2, y + 2, 6, 2, MID)
+    box("fill", x + 3, y + 4, 4, 2, MID)
+    box("fill", x + 4, y + 6, 2, 2, MID)
+  end
+
   local function drawDim(alpha, prompt)
     color({ 0, 0, 0, alpha })
     G.rectangle("fill", 0, 0, WIDTH, HEIGHT)
-    if prompt then
-      box("fill", 22, 61, 116, 22, DARK)
-      outline(22, 61, 116, 22, PAPER)
-      centered(prompt, 69, PAPER)
-    end
+    if prompt then displayRuntime.drawContinueArrow(75, 122) end
   end
 
   local function namingKey(x, y, w, label, selected, raw)
@@ -6198,8 +6207,7 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:battleMessage(lines,
-        battle.prompt == "advance" and THEME:translate("TAP ANYWHERE / A")
-          or nil,
+        battle.prompt == "advance" or nil,
         playerTeam, enemyTeam, title and THEME:translate(title) or nil,
         love.timer.getTime())
       G.pop()
@@ -6219,12 +6227,12 @@ return function(mod)
       end
       if battle.prompt == "advance" then
         box("fill", 14, 96, 132, 1, MID)
-        centered("TAP TO CONTINUE", 110, MID)
+        displayRuntime.drawContinueArrow(75, 105)
       end
       return
     end
     if battle.prompt == "advance" then
-      button(22, 58, 116, 32, "CONTINUE", false)
+      displayRuntime.drawContinueArrow(75, 65)
     end
   end
 

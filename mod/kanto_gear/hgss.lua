@@ -2674,22 +2674,22 @@ return function(ui)
     return bob, bob == 0 and 5 or 9
   end
 
-  function H:battleMessage(lines, prompt, playerTeam, enemyTeam, title, now)
+  function H:battleMessage(lines, canAdvance, playerTeam, enemyTeam, title, now)
     local colors = self.colors
     lines = lines or {}
     self:battleBackdrop()
     self:battleTeamStrip(playerTeam, enemyTeam)
     local pressed = self:beginPress(MESSAGE_X, 38, MESSAGE_WIDTH, 165,
-      prompt ~= nil)
+      canAdvance)
     self:panel(MESSAGE_X, 38, MESSAGE_WIDTH, 165, false)
     clipped(16, 45, 208, 150, colors.bandLight)
     border(16, 45, 208, 150, colors.band)
-    local contentTop, contentHeight = 53, prompt and 105 or 134
+    local contentTop, contentHeight = 53, 105
     if title then
       local shown = self:fitPartyInfo(title, 190)
       self:partyInfo(shown, 25, 53, colors.green, 190, "center")
       box("fill", 25, 68, 190, 1, colors.band)
-      contentTop, contentHeight = 76, prompt and 82 or 111
+      contentTop, contentHeight = 76, 82
     end
     if #lines == 0 then lines = { "..." } end
     local lineHeight = 18
@@ -2701,17 +2701,11 @@ return function(ui)
       y = y + lineHeight
     end
 
-    if prompt then
-      box("fill", 25, 166, 190, 1, colors.band)
-      local shown = self:fitPartyInfo(prompt, 168)
-      local textWidth = self:partyInfoWidth(shown)
-      local gap = textWidth % 2 == 0 and 7 or 8
-      local groupWidth = textWidth + gap + 11
-      local groupX = 120 - groupWidth / 2
-      local x = groupX + textWidth + gap
+    box("fill", 25, 166, 190, 1, colors.band)
+    if canAdvance then
+      local x = 115
       local bob, shadowWidth = self:battleContinueMotion(now)
       local y = 179 + bob
-      self:partyInfo(shown, groupX, 178, colors.green)
       local shadowX = x + 5 - math.floor(shadowWidth / 2)
       if self:shadowVisible() then
         box("fill", shadowX + 2, 190,
@@ -2719,15 +2713,15 @@ return function(ui)
         box("fill", shadowX, 191, shadowWidth, 1, colors.shadow)
         box("fill", shadowX + 1, 192, shadowWidth - 2, 1, colors.shadow)
       end
-      box("fill", x, y, 11, 2, colors.outline)
-      box("fill", x + 1, y + 2, 9, 2, colors.outline)
-      box("fill", x + 2, y + 4, 7, 2, colors.outline)
-      box("fill", x + 3, y + 6, 5, 2, colors.outline)
-      box("fill", x + 4, y + 8, 3, 1, colors.outline)
-      box("fill", x + 1, y + 1, 9, 1, colors.greenLight)
-      box("fill", x + 2, y + 2, 7, 2, colors.green)
-      box("fill", x + 3, y + 4, 5, 2, colors.green)
-      box("fill", x + 4, y + 6, 3, 2, colors.green)
+      box("fill", x, y, 10, 2, colors.outline)
+      box("fill", x + 1, y + 2, 8, 2, colors.outline)
+      box("fill", x + 2, y + 4, 6, 2, colors.outline)
+      box("fill", x + 3, y + 6, 4, 2, colors.outline)
+      box("fill", x + 4, y + 8, 2, 1, colors.outline)
+      box("fill", x + 1, y + 1, 8, 1, colors.greenLight)
+      box("fill", x + 2, y + 2, 6, 2, colors.green)
+      box("fill", x + 3, y + 4, 4, 2, colors.green)
+      box("fill", x + 4, y + 6, 2, 2, colors.green)
     end
     self:endPress(pressed)
   end

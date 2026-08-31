@@ -1439,7 +1439,8 @@ function love.load()
     end
     theme:battleMessage(wild and { "WILD RATTATA APPEARED!" }
         or { "LEADER WHITNEY SENT OUT", "MILTANK!" },
-      "TAP ANYWHERE / A", playerTeam, enemyTeam, nil,
+      os.getenv("KANTO_GEAR_PREVIEW_PROMPT") ~= "0",
+      playerTeam, enemyTeam, nil,
       tonumber(os.getenv("KANTO_GEAR_PREVIEW_TIME")) or 0)
   elseif battleBagTransition then
     local mon = battleMon()
