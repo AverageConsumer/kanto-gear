@@ -523,6 +523,27 @@ return function(ui)
     G.circle("fill", x + 13, y + 13, 2)
   end
 
+  function H:homeStoreIcon(x, y)
+    local colors = self.colors
+    box("fill", x + 5, y + 5, 17, 19, colors.outline)
+    box("fill", x + 7, y + 7, 13, 15, colors.surface)
+    box("fill", x + 9, y + 2, 9, 2, colors.outline)
+    box("fill", x + 7, y + 4, 2, 5, colors.outline)
+    box("fill", x + 18, y + 4, 2, 5, colors.outline)
+    box("fill", x + 12, y + 10, 3, 9, colors.greenLight)
+    box("fill", x + 9, y + 13, 9, 3, colors.greenLight)
+  end
+
+  function H:homeNotesIcon(x, y)
+    local colors = self.colors
+    clipped(x + 3, y + 1, 21, 25, colors.outline)
+    clipped(x + 5, y + 3, 17, 21, colors.surface)
+    box("fill", x + 8, y + 8, 11, 2, colors.blueLight)
+    box("fill", x + 8, y + 13, 11, 2, colors.silverDark)
+    box("fill", x + 8, y + 18, 8, 2, colors.silverDark)
+    box("fill", x + 17, y + 17, 3, 7, colors.amberLight)
+  end
+
   function H:homeAppButton(x, y, w, h, accent, label, icon, selected)
     local G, colors = ui.graphics, self.colors
     color(colors.shadow)
@@ -535,74 +556,120 @@ return function(ui)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 5, 5)
     box("fill", x + 5, y + 2, w - 10, 2,
       mixed(colors.highlight, accent, 0.22))
-    box("fill", x + 1, y + 43, w - 2, h - 45, accent)
-    box("fill", x + 3, y + 44, w - 6, 1,
+    local captionY = y + h - 30
+    box("fill", x + 1, captionY, w - 2, 28, accent)
+    box("fill", x + 3, captionY + 1, w - 6, 1,
       mixed(accent, colors.white, 0.42))
     box("fill", x + 5, y + h - 5, w - 10, 3,
       mixed(accent, colors.outline, 0.45))
+    local wellX = x + math.floor((w - 29) / 2)
     color(mixed(colors.surface, colors.white, self.dark and 0.08 or 0.22))
-    G.rectangle("fill", x + 13, y + 8, 29, 29, 5, 5)
+    G.rectangle("fill", wellX, y + 8, 29, 29, 5, 5)
     color(colors.outline)
-    G.rectangle("line", x + 13.5, y + 8.5, 28, 28, 5, 5)
-    icon(x + 15, y + 10)
+    G.rectangle("line", wellX + 0.5, y + 8.5, 28, 28, 5, 5)
+    icon(wellX + 2, y + 10)
     local shown = self:fitPartyType(translate(label), w - 6)
-    self:partyType(shown, x + 3, y + 48, colors.white, w - 6)
+    self:partyType(shown, x + 3, captionY + 5, colors.white, w - 6)
     if selected then self:roundedFocusFrame(x, y, w, h, 5) end
   end
 
-  function H:home(model)
-    local colors = self.colors
-    model = model or {}
+  function H:homeRect(tile)
+    local column, row = tonumber(tile.column) or 1, tonumber(tile.row) or 1
+    local columns, rows = tonumber(tile.columns) or 3, tonumber(tile.rows) or 1
+    return 7 + (column - 1) * 19, 32 + (row - 1) * 85,
+      columns * 17 + (columns - 1) * 2,
+      rows * 82 + (rows - 1) * 3
+  end
 
-    self:homeTile(7, 32, 144, 98, colors.greenLight, model.selected == 1)
+  function H:homeExplorer(model, tile, selected)
+    local colors = self.colors
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.greenLight, selected)
     local explorerAccent = mixed(colors.party, colors.greenLight, 0.45)
-    box("fill", 9, 34, 140, 19, explorerAccent)
-    box("fill", 9, 34, 140, 2,
+    box("fill", x + 2, y + 2, w - 4, 17, explorerAccent)
+    box("fill", x + 2, y + 2, w - 4, 2,
       mixed(explorerAccent, colors.white, 0.30))
-    self:partyInfo(translate("EXPLORER"), 14, 38, colors.white)
-    self:detailChevron(141, 41, colors.white)
-    self:mapOverview(model.overview, 12, 57, 134, 67, {
+    self:partyInfo(translate("EXPLORER"), x + 7, y + 3, colors.white)
+    self:detailChevron(x + w - 10, y + 7, colors.white)
+    self:mapOverview(model.overview, x + 5, y + 22, w - 10, h - 27, {
       player = model.player, markers = model.markers,
       drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
     })
     local route = self:fitPartyType(model.route or translate("UNKNOWN AREA"), 76)
     local routeWidth = math.max(48, partyTypeFont:getWidth(route) + 10)
-    clipped(16, 108, routeWidth, 12, colors.surface)
-    border(16, 108, routeWidth, 12, colors.outline)
-    self:partyType(route, 16, 108, colors.ink, routeWidth)
+    clipped(x + 9, y + h - 18, routeWidth, 12, colors.surface)
+    border(x + 9, y + h - 18, routeWidth, 12, colors.outline)
+    self:partyType(route, x + 9, y + h - 18, colors.ink, routeWidth)
+  end
 
-    self:homeTile(154, 32, 79, 98, colors.partyLight, model.selected == 2)
-    box("fill", 156, 34, 75, 19, colors.party)
-    box("fill", 156, 34, 75, 2, colors.partyLight)
-    self:partyType(translate("PARTY"), 158, 38, colors.white, 71)
-    self:partyPortrait(176, 51, false, false)
+  function H:homeParty(model, tile, selected)
+    local colors = self.colors
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.partyLight, selected)
+    box("fill", x + 2, y + 2, w - 4, 17, colors.party)
+    box("fill", x + 2, y + 2, w - 4, 2, colors.partyLight)
+    self:partyType(translate("PARTY"), x + 4, y + 3, colors.white, w - 8)
+    local portraitX = x + math.floor((w - 34) / 2)
+    self:partyPortrait(portraitX, y + 17, false, false)
     if model.drawPokemon and model.lead then
-      model.drawPokemon(model.lead, 177, 54, 32, false)
+      model.drawPokemon(model.lead, portraitX + 1, y + 20, 32, false)
     end
-    local leadName = self:fitPartyInfo(model.lead and model.lead.name or "---", 69)
-    self:partyInfo(leadName, 159, 92, colors.ink, 69, "center")
+    local leadName = self:fitPartyInfo(model.lead and model.lead.name or "---",
+      w - 10)
+    self:partyInfo(leadName, x + 5, y + 52, colors.ink, w - 10, "center")
     self:partyType(model.lead and model.lead.levelText or "--",
-      160, 105, colors.green, 25)
+      x + 6, y + 65, colors.green, 26)
     if model.lead and model.lead.statusId then
-      self:statusIcon(model.lead.statusId, 177, 104)
+      self:statusIcon(model.lead.statusId, x + 34, y + 65)
     end
-    self:hpBar(187, 109, 39, model.lead and model.lead.hp or 0,
+    self:partyType(model.lead and model.lead.hpText or "--/--",
+      x + w - 45, y + 65, colors.ink, 39)
+    self:hpBar(x + 6, y + 76, w - 12, model.lead and model.lead.hp or 0,
       model.lead and model.lead.maxHp or 1)
+  end
 
-    local labels = model.labels or {}
-    local selected = tonumber(model.selected)
-    self:homeAppButton(7, 135, 55, 75, colors.amber,
-      labels.bag or "BAG", function(x, y) self:battleBagIcon(x, y) end,
-      selected == 3)
-    self:homeAppButton(64, 135, 55, 75, colors.red,
-      labels.pokedex or "POKEDEX",
-      function(x, y) self:homePokedexIcon(x + 1, y) end, selected == 4)
-    self:homeAppButton(121, 135, 55, 75, colors.blue,
-      labels.trainer or "TRAINER",
-      function(x, y) self:homeTrainerIcon(x, y + 1) end, selected == 5)
-    self:homeAppButton(178, 135, 55, 75, colors.green,
-      labels.tools or "TOOLS",
-      function(x, y) self:homeToolsIcon(x, y) end, selected == 6)
+  function H:homePager(page, pages)
+    pages = math.max(1, tonumber(pages) or 1)
+    if pages < 2 then return end
+    page = math.max(1, math.min(pages, tonumber(page) or 1))
+    local G, colors = ui.graphics, self.colors
+    local gap, center = 9, 120
+    local left = center - math.floor((pages - 1) * gap / 2)
+    self:pageChevron(left - 13, 207, false)
+    self:pageChevron(left + (pages - 1) * gap + 13, 207, true)
+    for index = 1, pages do
+      color(index == page and colors.greenLight or colors.silverDark)
+      G.circle(index == page and "fill" or "line",
+        left + (index - 1) * gap, 207, 2)
+    end
+  end
+
+  function H:home(model)
+    local colors = self.colors
+    model = model or {}
+    local icon = {
+      bag = function(x, y) self:battleBagIcon(x, y) end,
+      pokedex = function(x, y) self:homePokedexIcon(x + 1, y) end,
+      trainer = function(x, y) self:homeTrainerIcon(x, y + 1) end,
+      tools = function(x, y) self:homeToolsIcon(x, y) end,
+      store = function(x, y) self:homeStoreIcon(x, y) end,
+      notes = function(x, y) self:homeNotesIcon(x, y) end,
+    }
+    for index, tile in ipairs(model.tiles or {}) do
+      local selected = model.selected == index or model.selected == tile.id
+      if tile.kind == "explorer" then
+        self:homeExplorer(model, tile, selected)
+      elseif tile.kind == "party" then
+        self:homeParty(model, tile, selected)
+      elseif tile.kind == "app" then
+        local x, y, w, h = self:homeRect(tile)
+        self:homeAppButton(x, y, w, h,
+          colors[tile.accent or "green"] or colors.green,
+          tile.label or tile.id or "APP", icon[tile.icon or tile.id]
+            or icon.tools, selected)
+      end
+    end
+    self:homePager(model.page, model.pages)
   end
 
   local mapRamps = {

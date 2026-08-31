@@ -39,7 +39,7 @@ local languages = {
   en = {
     title = "PARTY", hp = "HP", exp = "EXP", stats = "STATS", swap = "SWAP",
     swapWith = "SWAP WITH?", useItemOn = "USE ITEM ON",
-    homeTrainer = "CARD",
+    homeTrainer = "CARD", homeStore = "STORE", homeNotes = "NOTES",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
     types = {},
@@ -47,7 +47,7 @@ local languages = {
   de = {
     title = "TEAM", hp = "KP", exp = "EP", stats = "WERTE", swap = "TAUSCHEN",
     swapWith = "TAUSCHEN MIT?", useItemOn = "ITEM NUTZEN",
-    homeTrainer = "KARTE",
+    homeTrainer = "KARTE", homeStore = "STORE", homeNotes = "NOTIZEN",
     names = { "IMPERGATOR", "PAPUNGHA", "TAUBOGA", "SANDAMER",
       "TRAUMATO", "TAUROS" },
     types = { WATER = "WASSER", GRASS = "PFLANZE", FLYING = "FLUG",
@@ -57,7 +57,7 @@ local languages = {
     title = "EQUIPO", hp = "PS", exp = "EXP",
     stats = "ESTADÍSTICAS", swap = "CAMBIAR", swapWith = "¿CAMBIAR POR?",
     useItemOn = "USAR OBJETO",
-    homeTrainer = "FICHA",
+    homeTrainer = "FICHA", homeStore = "TIENDA", homeNotes = "NOTAS",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
     types = { WATER = "AGUA", GRASS = "PLANTA", FLYING = "VOLADOR",
@@ -66,7 +66,7 @@ local languages = {
   fr = {
     title = "ÉQUIPE", hp = "PV", exp = "EXP", stats = "STATS", swap = "ÉCHANGER",
     swapWith = "ÉCHANGER AVEC?", useItemOn = "UTILISER SUR",
-    homeTrainer = "CARTE",
+    homeTrainer = "CARTE", homeStore = "BOUTIQUE", homeNotes = "NOTES",
     names = { "ALIGATUEUR", "COTOVOL", "ROUCOUPS", "SABLAIREAU",
       "SOPORIFIK", "TAUROS" },
     types = { WATER = "EAU", GRASS = "PLANTE", FLYING = "VOL",
@@ -219,13 +219,20 @@ function love.load()
   end
   if screen == "home" then
     for _, label in ipairs({ "BAG", "POKEDEX", language.homeTrainer,
-        translate("TOOLS") }) do
+        translate("TOOLS"), language.homeStore, language.homeNotes }) do
       assert(theme:fitPartyType(label, 49) == label,
         label .. " fits its Home app caption")
     end
-    assert(7 + 144 + 3 == 154 and 154 + 79 == 233
-        and 7 + 55 + 2 == 64 and 178 + 55 == 233,
-      "Home tiles preserve exact shared edges and gutters")
+    local ex, ey, ew, eh = theme:homeRect({ column = 1, row = 1,
+      columns = 7 })
+    local px, py, pw, ph = theme:homeRect({ column = 8, row = 1,
+      columns = 5 })
+    local ax, ay, aw, ah = theme:homeRect({ column = 10, row = 2,
+      columns = 3 })
+    assert(ex == 7 and ey == 32 and ew == 131 and eh == 82
+        and px == 140 and py == 32 and pw == 93 and ph == 82
+        and ax == 178 and ay == 117 and aw == 55 and ah == 82,
+      "Home widgets and apps resolve onto the shared 12-column grid")
   end
   assert(theme:battleEffectLabel({ powerText = "95", effectiveness = 20 })
       == "2X" and theme:battleEffectLabel({ powerText = "--",
@@ -1068,6 +1075,8 @@ function love.load()
     enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "PIDGEY", 4
   end
   if home then
+    local homePage = math.max(1, math.min(2,
+      tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
     local overview = {
       width = 24, height = 12,
       rows = {
@@ -1085,7 +1094,31 @@ function love.load()
         "                        ",
       },
     }
+    local homeTiles = homePage == 1 and {
+      { id = "explorer", kind = "explorer", column = 1, row = 1,
+        columns = 7 },
+      { id = "party", kind = "party", column = 8, row = 1,
+        columns = 5 },
+      { id = "bag", kind = "app", column = 1, row = 2, columns = 3,
+        icon = "bag", accent = "amber", label = "BAG" },
+      { id = "pokedex", kind = "app", column = 4, row = 2, columns = 3,
+        icon = "pokedex", accent = "red", label = "POKEDEX" },
+      { id = "trainer", kind = "app", column = 7, row = 2, columns = 3,
+        icon = "trainer", accent = "blue", label = language.homeTrainer },
+      { id = "tools", kind = "app", column = 10, row = 2, columns = 3,
+        icon = "tools", accent = "green", label = "TOOLS" },
+    } or {
+      { id = "store", kind = "app", column = 1, row = 1, columns = 3,
+        icon = "store", accent = "green", label = language.homeStore },
+      { id = "notes", kind = "app", column = 4, row = 1, columns = 3,
+        icon = "notes", accent = "amber", label = language.homeNotes },
+      { id = "trainer", kind = "app", column = 7, row = 1, columns = 3,
+        icon = "trainer", accent = "blue", label = language.homeTrainer },
+      { id = "tools", kind = "app", column = 10, row = 1, columns = 3,
+        icon = "tools", accent = "green", label = "TOOLS" },
+    }
     theme:home({
+      page = homePage, pages = 2, tiles = homeTiles,
       route = gen1 and "ROUTE 15" or "ROUTE 37",
       overview = overview,
       player = { x = 12, y = 6, facing = "down" },
@@ -1100,8 +1133,6 @@ function love.load()
       drawPokemon = function(_, x, y, size)
         drawPortrait(gen1 and 6 or 1, x, y, size, false)
       end,
-      labels = { bag = "BAG", pokedex = "POKEDEX",
-        trainer = language.homeTrainer, tools = "TOOLS" },
     })
   elseif explorer then
     drawExplorer()
