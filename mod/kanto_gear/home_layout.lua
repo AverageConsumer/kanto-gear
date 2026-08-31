@@ -136,9 +136,21 @@ end
 function M.plusSlots(layout, catalog, page)
   local slots = {}
   for row = 1, M.rows do
-    for column = 1, M.columns, 3 do
-      if free(layout, catalog, page, column, row, 3, 1) then
-        slots[#slots + 1] = { column = column, row = row, columns = 3, rows = 1 }
+    local column = 1
+    while column <= M.columns do
+      if free(layout, catalog, page, column, row, 1, 1) then
+        local first = column
+        repeat column = column + 1
+        until column > M.columns
+          or not free(layout, catalog, page, column, row, 1, 1)
+        local columns = column - first
+        if columns >= 3 then
+          slots[#slots + 1] = {
+            column = first, row = row, columns = columns, rows = 1,
+          }
+        end
+      else
+        column = column + 1
       end
     end
   end

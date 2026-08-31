@@ -51,7 +51,22 @@ assert(#widgets == 2 and not available.party_widget)
 catalog.packages.notes.installed = false
 assert(#Home.library(layout, catalog, 1, 4, 2, "app") == 2)
 catalog.packages.notes.installed = true
-assert(#Home.plusSlots(layout, catalog, 2) == 7)
+local pageTwoSlots = Home.plusSlots(layout, catalog, 2)
+assert(#pageTwoSlots == 2
+  and pageTwoSlots[1].column == 4 and pageTwoSlots[1].columns == 9
+  and pageTwoSlots[2].column == 1 and pageTwoSlots[2].columns == 12)
+local widgetLayout = { tiles = {
+  { id = "explorer_widget", page = 1, column = 1, row = 1 },
+} }
+local widgetSlot = Home.plusSlots(widgetLayout, catalog, 1)[1]
+assert(widgetSlot.column == 8 and widgetSlot.columns == 5)
+local widgetLibrary = Home.library(widgetLayout, catalog, 1,
+  widgetSlot.column, widgetSlot.row, "widget")
+local partyWidget
+for _, item in ipairs(widgetLibrary) do
+  if item.id == "party_widget" then partyWidget = item end
+end
+assert(partyWidget and partyWidget.available)
 assert(not Home.longPress(0.44, 0, 0)
   and Home.longPress(0.45, 6, 0)
   and not Home.longPress(0.45, 7, 0))
