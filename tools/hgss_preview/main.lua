@@ -174,6 +174,14 @@ function love.load()
     bagIcon = bagIcon, translate = translate, format = format,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  theme:setTouch(20, 20)
+  assert(theme:isPressed(29, 29, 3, 3)
+      and not theme:isPressed(29, 29, 3, 3, false),
+    "HGSS pressed hit testing respects touch scale and disabled controls")
+  theme:setTouch(nil)
+  local pressX, pressY = tostring(
+    os.getenv("KANTO_GEAR_PREVIEW_PRESS") or ""):match("^(%d+),(%d+)$")
+  if pressX then theme:setTouch(tonumber(pressX), tonumber(pressY)) end
   assert(theme.backdropCenterY == 121,
     "every HGSS Pokeball backdrop shares the Party screen center")
   local blueFocus = theme:focusSurface(true, theme.colors.surface,

@@ -172,6 +172,14 @@ api.device = api.device or {
 display.openHomeApp("store")
 T.check(pcall(display.drawContents),
   "the real Store runtime model renders without an exception")
+local theme = upvalue(display.drawContents, "THEME")
+touchEvent("down,20,30")
+T.check(pcall(display.drawContents),
+  "an active touch renders through the shared HGSS pressed layer")
+T.eq(theme.hgss.touchX, 20, "touch-down reaches the HGSS renderer immediately")
+touchEvent("cancel,0,0")
+T.check(pcall(display.drawContents), "touch cancel redraws safely")
+T.eq(theme.hgss.touchX, nil, "touch cancel clears the pressed state")
 
 run.release()
 T.finish("Kanto Gear Home runtime")

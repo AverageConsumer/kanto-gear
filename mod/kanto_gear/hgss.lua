@@ -103,6 +103,40 @@ return function(ui)
     self.dark = dark
   end
 
+  function H:setTouch(x, y)
+    self.touchX, self.touchY = tonumber(x), tonumber(y)
+  end
+
+  function H:isPressed(x, y, w, h, enabled, scale)
+    if enabled == false or self.pressActive
+        or not self.touchX or not self.touchY then return false end
+    scale = scale or 1.5
+    local tx, ty = self.touchX * scale, self.touchY * scale
+    x = x + (self.pressOffsetX or 0)
+    y = y + (self.pressOffsetY or 0)
+    return tx >= x and tx < x + w and ty >= y and ty < y + h
+  end
+
+  function H:beginPress(x, y, w, h, enabled, scale)
+    local pressed = self:isPressed(x, y, w, h, enabled, scale)
+    if pressed then
+      self.pressActive = true
+      ui.graphics.push()
+      ui.graphics.translate(0, 2)
+    end
+    return pressed
+  end
+
+  function H:endPress(pressed)
+    if not pressed then return end
+    ui.graphics.pop()
+    self.pressActive = false
+  end
+
+  function H:shadowVisible()
+    return not self.pressActive
+  end
+
   local box, text, fit, glyphs, color =
     ui.box, ui.text, ui.fit, ui.glyphs, ui.color
   local translate = ui.translate or function(value) return value end
@@ -347,19 +381,24 @@ return function(ui)
 
   function H:chevron(x, y, right)
     local G = ui.graphics
+    local pressed = self:beginPress(x - 9, y - 10, 18, 20)
     color(self.colors.green)
     G.setLineWidth(2)
     if right then G.line(x - 2, y - 4, x + 2, y, x - 2, y + 4)
     else G.line(x + 2, y - 4, x - 2, y, x + 2, y + 4) end
     G.setLineWidth(1)
+    self:endPress(pressed)
   end
 
-  function H:pageChevron(x, y, right)
+  function H:pageChevron(x, y, right, interactive)
     local G = ui.graphics
+    local pressed = self:beginPress(x - 8, y - 9, 16, 18,
+      interactive ~= false)
     color(self.colors.amberLight)
     G.setLineWidth(1)
     if right then G.line(x - 2, y - 3, x + 1, y, x - 2, y + 3)
     else G.line(x + 2, y - 3, x - 1, y, x + 2, y + 3) end
+    self:endPress(pressed)
   end
 
   function H:detailChevron(x, y, tint, large)
@@ -447,7 +486,9 @@ return function(ui)
 
   function H:panel(x, y, w, h, selected, focusAccent)
     local colors = self.colors
-    clipped(x + 1, y + 1, w, h, colors.shadow)
+    if self:shadowVisible() then
+      clipped(x + 1, y + 1, w, h, colors.shadow)
+    end
     clipped(x, y, w, h,
       self:focusSurface(selected, colors.surface, focusAccent))
     border(x, y, w, h, colors.ink)
@@ -465,8 +506,10 @@ return function(ui)
 
   function H:homeTile(x, y, w, h, accent, selected)
     local G, colors = ui.graphics, self.colors
-    color(colors.shadow)
-    G.rectangle("fill", x + 1, y + 2, w, h, 5, 5)
+    if self:shadowVisible() then
+      color(colors.shadow)
+      G.rectangle("fill", x + 1, y + 2, w, h, 5, 5)
+    end
     color(mixed(colors.surface, accent, self.dark and 0.13 or 0.08))
     G.rectangle("fill", x, y, w, h, 5, 5)
     color(colors.outline)
@@ -667,8 +710,10 @@ return function(ui)
 
   function H:homeAppButton(x, y, w, h, accent, label, icon, selected)
     local G, colors = ui.graphics, self.colors
-    color(colors.shadow)
-    G.rectangle("fill", x + 1, y + 3, w, h, 5, 5)
+    if self:shadowVisible() then
+      color(colors.shadow)
+      G.rectangle("fill", x + 1, y + 3, w, h, 5, 5)
+    end
     local base = mixed(colors.surface, accent, self.dark and 0.22 or 0.13)
     color(self:focusSurface(selected, base,
       mixed(accent, colors.white, 0.38)))
@@ -705,6 +750,7 @@ return function(ui)
   function H:homePlus(tile)
     local G, colors = ui.graphics, self.colors
     local x, y, w, h = self:homeRect(tile)
+    local pressed = self:beginPress(x, y, w, h)
     color(mixed(colors.surface, colors.greenLight, self.dark and 0.08 or 0.04))
     G.rectangle("fill", x, y, w, h, 5, 5)
     color(mixed(colors.green, colors.surface, 0.30))
@@ -722,6 +768,7 @@ return function(ui)
     G.line(cx - 5, cy, cx + 5, cy)
     G.line(cx, cy - 5, cx, cy + 5)
     G.setLineWidth(1)
+    self:endPress(pressed)
   end
 
   function H:homeEditOverlay(tile, dragging)
@@ -739,11 +786,13 @@ return function(ui)
 
   function H:homeEditDone()
     local colors = self.colors
+    local pressed = self:beginPress(158, 6, 57, 15)
     box("fill", 139, 4, 95, 19, colors.surface)
     box("fill", 140, 5, 93, 2, colors.highlight)
     clipped(158, 6, 57, 15, colors.green)
     border(158, 6, 57, 15, colors.outline)
     self:partyType(translate("DONE"), 161, 8, colors.white, 51)
+    self:endPress(pressed)
   end
 
   function H:homeAddHeader(title)
@@ -775,7 +824,10 @@ return function(ui)
 
   function H:homeLibraryCard(x, y, w, item, icons)
     local G, colors = ui.graphics, self.colors
-    color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 46, 4, 4)
+    local pressed = self:beginPress(x, y, w, 46, item.available)
+    if self:shadowVisible() then
+      color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 46, 4, 4)
+    end
     local base = item.available and colors.surface
       or mixed(colors.surface, colors.silverDark, self.dark and 0.36 or 0.22)
     color(base); G.rectangle("fill", x, y, w, 46, 4, 4)
@@ -795,6 +847,7 @@ return function(ui)
     box("fill", x + 36, y + 31, w - 40, 11, tint)
     self:partyType(status, x + 37, y + 31,
       item.available and colors.outline or colors.surface, w - 42)
+    self:endPress(pressed)
   end
 
   function H:homeCatalog(model)
@@ -805,10 +858,12 @@ return function(ui)
     for index, tab in ipairs({ "app", "widget" }) do
       local x = index == 1 and 10 or 121
       local active = model.libraryKind == tab
+      local pressed = self:beginPress(x, 34, 108, 13)
       clipped(x, 34, 108, 13, active and colors.green or colors.band)
       border(x, 34, 108, 13, colors.outline)
       self:partyType(translate(tab == "app" and "APPS" or "WIDGETS"),
         x + 2, 35, active and colors.white or colors.ink, 104)
+      self:endPress(pressed)
     end
     local page = math.max(1, tonumber(model.libraryPage) or 1)
     local first = (page - 1) * 6 + 1
@@ -874,15 +929,15 @@ return function(ui)
       local label = page .. "/" .. pages
       local width = math.max(24, partyTypeFont:getWidth(label) + 8)
       local left = 120 - math.floor(width / 2)
-      self:pageChevron(left - 10, 207, false)
+      self:pageChevron(left - 10, 207, false, false)
       self:partyType(label, left, 202, colors.green, width)
-      self:pageChevron(left + width + 10, 207, true)
+      self:pageChevron(left + width + 10, 207, true, false)
       return
     end
     local gap, center = 9, 120
     local left = center - math.floor((pages - 1) * gap / 2)
-    self:pageChevron(left - 13, 207, false)
-    self:pageChevron(left + (pages - 1) * gap + 13, 207, true)
+    self:pageChevron(left - 13, 207, false, false)
+    self:pageChevron(left + (pages - 1) * gap + 13, 207, true, false)
     for index = 1, pages do
       color(index == page and colors.greenLight or colors.silverDark)
       G.circle(index == page and "fill" or "line",
@@ -898,12 +953,13 @@ return function(ui)
     for _, slot in ipairs(model.slots or {}) do self:homePlus(slot) end
     for index, tile in ipairs(model.tiles or {}) do
       local selected = model.selected == index or model.selected == tile.id
+      local x, y, w, h = self:homeRect(tile)
+      local pressed = self:beginPress(x, y, w, h)
       if tile.kind == "widget" and tile.widget == "explorer" then
         self:homeExplorer(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "party" then
         self:homeParty(model, tile, selected)
       elseif tile.kind == "app" then
-        local x, y, w, h = self:homeRect(tile)
         self:homeAppButton(x, y, w, h,
           colors[tile.accent or "green"] or colors.green,
           tile.label or tile.id or "APP", icon[tile.icon or tile.id]
@@ -912,22 +968,28 @@ return function(ui)
       if model.editing then
         self:homeEditOverlay(tile, model.dragging == tile.id)
       end
+      self:endPress(pressed)
     end
     self:homePager(model.page, model.pages)
   end
 
   function H:storeAction(x, y, w, label, state)
     local colors = self.colors
+    local pressed = self:beginPress(x, y, w, 15, state ~= "soon")
     local tint = state == "soon" and colors.silverDark
       or state == "open" and colors.blue or colors.green
     clipped(x, y, w, 15, tint)
     border(x, y, w, 15, colors.outline)
     self:partyType(translate(label), x + 2, y + 2, colors.white, w - 4)
+    self:endPress(pressed)
   end
 
   function H:storePreview(id, x, y, w, h)
     local G, colors = ui.graphics, self.colors
-    clipped(x + 1, y + 2, w, h, colors.shadow)
+    local pressed = self:beginPress(x, y, w, h)
+    if self:shadowVisible() then
+      clipped(x + 1, y + 2, w, h, colors.shadow)
+    end
     clipped(x, y, w, h, mixed(colors.surface, colors.blueLight, 0.12))
     border(x, y, w, h, colors.outline)
     if id == "notes" then
@@ -957,11 +1019,15 @@ return function(ui)
           row % 2 == 0 and colors.band or colors.surface)
       end
     end
+    self:endPress(pressed)
   end
 
   function H:storeRecommendation(x, y, w, app, icons)
     local G, colors = ui.graphics, self.colors
-    color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 47, 4, 4)
+    local pressed = self:beginPress(x, y, w, 47)
+    if self:shadowVisible() then
+      color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 47, 4, 4)
+    end
     color(colors.surface); G.rectangle("fill", x, y, w, 47, 4, 4)
     color(colors.outline)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, 46, 4, 4)
@@ -973,20 +1039,27 @@ return function(ui)
       x + 36, y + 18, colors.green, w - 39)
     self:partyType(translate(app.state == "open" and "OPEN" or "VIEW"),
       x + 36, y + 31, colors.blueLight, w - 39)
+    self:endPress(pressed)
   end
 
-  function H:storeMiniAction(x, y, w, label, state)
+  function H:storeMiniAction(x, y, w, label, state, enabled)
     local colors = self.colors
+    local pressed = self:beginPress(x, y, w, 11,
+      enabled == true or state ~= "soon")
     local tint = state == "soon" and colors.silverDark
       or state == "open" and colors.blue or colors.green
     clipped(x, y, w, 11, tint)
     border(x, y, w, 11, colors.outline)
     self:partyType(translate(label), x + 1, y, colors.white, w - 2)
+    self:endPress(pressed)
   end
 
   function H:storeAppCard(x, y, w, app, icons)
     local G, colors = ui.graphics, self.colors
-    color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 42, 4, 4)
+    local pressed = self:beginPress(x, y, w, 42)
+    if self:shadowVisible() then
+      color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 42, 4, 4)
+    end
     color(colors.surface); G.rectangle("fill", x, y, w, 42, 4, 4)
     color(colors.outline)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, 41, 4, 4)
@@ -1002,11 +1075,15 @@ return function(ui)
     self:storeMiniAction(x + 36, y + 28, 43,
       app.action or (app.state == "open" and "OPEN" or "GET"), app.state)
     self:detailChevron(x + w - 9, y + 30, colors.green)
+    self:endPress(pressed)
   end
 
   function H:storeInstalledRow(x, y, w, app, icons)
     local G, colors = ui.graphics, self.colors
-    color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 30, 4, 4)
+    local pressed = self:beginPress(x, y, w, 30)
+    if self:shadowVisible() then
+      color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 30, 4, 4)
+    end
     color(colors.surface); G.rectangle("fill", x, y, w, 30, 4, 4)
     color(colors.outline)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, 29, 4, 4)
@@ -1019,6 +1096,7 @@ return function(ui)
     self:storeMiniAction(x + w - 54, y + 9, 44,
       app.action or "OPEN",
       app.state)
+    self:endPress(pressed)
   end
 
   function H:storeNav(active)
@@ -1028,17 +1106,22 @@ return function(ui)
         { "library", "MY APPS" },
       }) do
       local x, selected = 7 + (index - 1) * 76, active == item[1]
+      local pressed = self:beginPress(x, 195, 73, 18)
       clipped(x, 195, 73, 18, selected and colors.green or colors.surface)
       border(x, 195, 73, 18, colors.outline)
       self:partyType(translate(item[2]), x + 2, 199,
         selected and colors.white or colors.ink, 69)
+      self:endPress(pressed)
     end
   end
 
   function H:storeToday(model)
     local G, colors, icons = ui.graphics, self.colors, homeIcons(self)
     local featured = model.featured or {}
-    color(colors.shadow); G.rectangle("fill", 8, 35, 226, 89, 5, 5)
+    local pressed = self:beginPress(7, 32, 226, 89)
+    if self:shadowVisible() then
+      color(colors.shadow); G.rectangle("fill", 8, 35, 226, 89, 5, 5)
+    end
     color(colors.surface); G.rectangle("fill", 7, 32, 226, 89, 5, 5)
     color(colors.outline); G.rectangle("line", 7.5, 32.5, 225, 88, 5, 5)
     box("fill", 9, 34, 222, 15, colors.blue)
@@ -1055,6 +1138,7 @@ return function(ui)
     self:storeAction(57, 83, 56, featured.action or "GET",
       featured.state)
     self:storePreview(featured.id, 119, 52, 106, 64)
+    self:endPress(pressed)
     self:partyType(translate("RECOMMENDED FOR YOU"), 10, 126,
       colors.green, 220)
     for index, app in ipairs(model.recommended or {}) do
@@ -1113,7 +1197,7 @@ return function(ui)
       104), 55, 66, colors.silverDark, 104)
     self:storeAction(171, 41, 51, app.action or "GET", app.state)
     if app.removable then
-      self:storeMiniAction(175, 61, 43, "REMOVE", "soon")
+      self:storeMiniAction(175, 61, 43, "REMOVE", "soon", true)
     end
     self:storePreview(app.id, 7, 90, 226, 73)
     self:partyType(translate("PREVIEW"), 12, 94, colors.white, 216)
@@ -1434,6 +1518,7 @@ return function(ui)
   function H:explorer(model)
     local colors, view, selected = self.colors, model.view, model.selected
     local function mapToggle(x, y, collapse)
+      local pressed = self:beginPress(x, y, 19, 14)
       self:panel(x, y, 19, 14, false)
       if collapse then
         box("fill", x + 5, y + 3, 4, 1, colors.ink)
@@ -1455,15 +1540,20 @@ return function(ui)
         box("fill", right - 2, bottom, 3, 1, colors.ink)
         box("fill", right, bottom - 2, 1, 3, colors.ink)
       end
+      self:endPress(pressed)
     end
     local function zoomControls(y, zoom)
       box("fill", 29, y + 2, 1, 12, colors.band)
       box("fill", 63, y + 2, 1, 12, colors.band)
       box("fill", 83, y + 2, 1, 12, colors.band)
+      local minusPressed = self:beginPress(11, y, 18, 16)
       box("fill", 17, y + 7, 6, 2, colors.green)
+      self:endPress(minusPressed)
       self:partyType(zoom .. "/3", 31, y + 2, colors.green, 31)
+      local plusPressed = self:beginPress(64, y, 18, 16)
       box("fill", 70, y + 7, 6, 2, colors.green)
       box("fill", 72, y + 5, 2, 6, colors.green)
+      self:endPress(plusPressed)
     end
     local function mapProgress(y)
       if not model.showMapStats then return end
@@ -1553,6 +1643,7 @@ return function(ui)
     if model.mapFull then return end
 
     local function chip(x, y, width, label, active, arrow)
+      local pressed = self:beginPress(x, y, width, 16)
       self:panel(x, y, width, 16, false)
       if active then box("fill", x + 2, y + 2, width - 4, 12, colors.band) end
       label = translate(label)
@@ -1564,12 +1655,15 @@ return function(ui)
       local tint = active and colors.ink or colors.green
       self:partyType(shown, left, y + 2, tint, textWidth)
       if arrow then self:detailChevron(left + textWidth + gap, y + 6, tint) end
+      self:endPress(pressed)
     end
     local function pager(x, y, width, page, pages)
+      local pressed = self:beginPress(x, y, width, 16, pages > 1)
       self:panel(x, y, width, 16, false)
       local label = page .. "/" .. pages
       if pages > 1 then label = "< " .. label .. " >" end
       self:partyType(label, x, y + 2, colors.green, width)
+      self:endPress(pressed)
     end
     if selected and view == "wild" then
       self:panel(7, 99, 226, 111, false)
@@ -1684,10 +1778,12 @@ return function(ui)
         local groupWidth = lineCount * 56 - 22
         local x = math.floor((240 - groupWidth) / 2) + (index - 1) * 56
         local uncaught = not row.caught
+        local pressed = self:beginPress(x - 11, baseY, 56, 44)
         self:partyPortrait(x, baseY, false, uncaught)
         if model.drawPokemon then
           model.drawPokemon(row, x + 1, baseY + 4, 32, uncaught)
         end
+        self:endPress(pressed)
       end
       if #model.rows == 0 then
         self:partyInfo(translate(model.wildScope == "ROUTE"
@@ -1765,6 +1861,7 @@ return function(ui)
 
   function H:explorerRadar(model)
     local G, colors = ui.graphics, self.colors
+    local pressed = self:beginPress(7, 32, 226, 178)
     self:panel(7, 32, 226, 178, false)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
       108), 13, 38, colors.ink)
@@ -1798,13 +1895,16 @@ return function(ui)
       20, 185, colors.ink, 200, "center")
     self:partyType(self:fitPartyType(translate("TAP TO SCAN AGAIN"), 200),
       20, 198, colors.green, 200)
+    self:endPress(pressed)
   end
 
-  function H:button(x, y, w, h, label, selected)
+  function H:button(x, y, w, h, label, selected, pressScale)
+    local pressed = self:beginPress(x, y, w, h, true, pressScale)
     self:panel(x, y, w, h, selected, self.colors.blueLight)
     local shown = fit(label, math.floor((w - 8) / 6))
     text(shown, x + math.floor((w - #glyphs(shown) * 6) / 2),
       y + math.floor((h - 7) / 2), self.colors.ink)
+    self:endPress(pressed)
   end
 
   function H:partyActionRow(index, count)
@@ -1880,7 +1980,10 @@ return function(ui)
     local accent = (kind == "swap" or kind == "switch")
       and colors.amberLight or colors.blueLight
     y = y + (offset or 0)
-    clipped(x + 1, y + 2, w, h, colors.shadow)
+    local pressed = self:beginPress(x, y, w, h)
+    if self:shadowVisible() then
+      clipped(x + 1, y + 2, w, h, colors.shadow)
+    end
     clipped(x, y, w, h,
       self:focusSurface(selected, colors.surface, accent))
     border(x, y, w, h, colors.outline)
@@ -1900,6 +2003,7 @@ return function(ui)
     self:label(shown, x + 43, y + 13, colors.ink)
     self:detailChevron(x + w - 16, y + 16, colors.ink, true)
     if selected then self:focusFrame(x, y, w, h) end
+    self:endPress(pressed)
   end
 
   function H:action(index, label, selected)
@@ -1965,14 +2069,18 @@ return function(ui)
     local colors = self.colors
     local light = colors[colorName .. "Light"]
     local fill = self:focusSurface(selected, colors[colorName], light)
-    battleButtonShape(x + 2, y + 3, w, h, colors.outline)
+    if self:shadowVisible() then
+      battleButtonShape(x + 2, y + 3, w, h, colors.outline)
+    end
     battleButtonShape(x, y, w, h, colors.outline)
     battleButtonShape(x + 1, y + 1, w - 2, h - 2, fill)
     box("fill", x + 5, y + 2, w - 10, 2, light)
     box("fill", x + 3, y + 4, 2, 2, light)
     box("fill", x + w - 5, y + 4, 2, 2, light)
-    box("fill", x + 3, y + h - 7, w - 6, 3, colors.shadow)
-    box("fill", x + 5, y + h - 4, w - 10, 2, colors.shadow)
+    if self:shadowVisible() then
+      box("fill", x + 3, y + h - 7, w - 6, 3, colors.shadow)
+      box("fill", x + 5, y + h - 4, w - 10, 2, colors.shadow)
+    end
     if selected then self:focusFrame(x, y, w, h) end
   end
 
@@ -2030,6 +2138,8 @@ return function(ui)
     lines = lines or {}
     self:battleBackdrop()
     self:battleTeamStrip(playerTeam, enemyTeam)
+    local pressed = self:beginPress(MESSAGE_X, 38, MESSAGE_WIDTH, 165,
+      prompt ~= nil)
     self:panel(MESSAGE_X, 38, MESSAGE_WIDTH, 165, false)
     clipped(16, 45, 208, 150, colors.bandLight)
     border(16, 45, 208, 150, colors.band)
@@ -2062,10 +2172,12 @@ return function(ui)
       local y = 179 + bob
       self:partyInfo(shown, groupX, 178, colors.green)
       local shadowX = x + 5 - math.floor(shadowWidth / 2)
-      box("fill", shadowX + 2, 190,
-        math.max(1, shadowWidth - 4), 1, colors.shadow)
-      box("fill", shadowX, 191, shadowWidth, 1, colors.shadow)
-      box("fill", shadowX + 1, 192, shadowWidth - 2, 1, colors.shadow)
+      if self:shadowVisible() then
+        box("fill", shadowX + 2, 190,
+          math.max(1, shadowWidth - 4), 1, colors.shadow)
+        box("fill", shadowX, 191, shadowWidth, 1, colors.shadow)
+        box("fill", shadowX + 1, 192, shadowWidth - 2, 1, colors.shadow)
+      end
       box("fill", x, y, 11, 2, colors.outline)
       box("fill", x + 1, y + 2, 9, 2, colors.outline)
       box("fill", x + 2, y + 4, 7, 2, colors.outline)
@@ -2076,11 +2188,13 @@ return function(ui)
       box("fill", x + 3, y + 4, 5, 2, colors.green)
       box("fill", x + 4, y + 6, 3, 2, colors.green)
     end
+    self:endPress(pressed)
   end
 
   function H:battleFightAction(mon, drawPortrait, selected, offsetX, offsetY)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
+    local pressed = self:beginPress(22 + offsetX, 32 + offsetY, 196, 122)
     G.push()
     G.translate(offsetX, offsetY)
     self:battleActionPanel(22, 32, 196, 122, "red", selected)
@@ -2098,6 +2212,7 @@ return function(ui)
     self:label(fight, 120 - math.floor(self:labelWidth(fight) / 2),
       126, colors.white)
     G.pop()
+    self:endPress(pressed)
   end
 
   function H:battleBagIcon(x, y)
@@ -2108,17 +2223,20 @@ return function(ui)
   function H:battleBagAction(mon, selected, offsetX, offsetY)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
+    local pressed = self:beginPress(6 + offsetX, 159 + offsetY, 68, 52)
     G.push()
     G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(6, 149, 68, 52, "amber", selected)
     self:battleBagIcon(27, 154)
     self:label(mon.bagLabel or "BAG", 6, 183, colors.white, 68, "center")
     G.pop()
+    self:endPress(pressed)
   end
 
   function H:battlePartyAction(mon, selected, offsetX, offsetY)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
+    local pressed = self:beginPress(166 + offsetX, 159 + offsetY, 68, 52)
     G.push()
     G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(166, 149, 68, 52, "green", selected)
@@ -2128,11 +2246,13 @@ return function(ui)
     self:label(mon.partyLabel or "POKEMON", 166, 183,
       colors.white, 68, "center")
     G.pop()
+    self:endPress(pressed)
   end
 
   function H:battleRunAction(mon, selected, offsetX, offsetY)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
+    local pressed = self:beginPress(86 + offsetX, 159 + offsetY, 68, 52)
     G.push()
     G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(86, 149, 68, 52, "blue", selected)
@@ -2147,6 +2267,7 @@ return function(ui)
     end
     self:label(mon.runLabel or "RUN", 86, 183, colors.white, 68, "center")
     G.pop()
+    self:endPress(pressed)
   end
 
   function H:battleRoot(mon, drawPortrait, playerTeam, enemyTeam, selected)
@@ -2256,6 +2377,8 @@ return function(ui)
       or item.icon == "status" and colors.greenLight
       or item.icon == "machine" and colors.amberLight
       or colors.blueLight
+    local pressed = self:beginPress(7 + (offsetX or 0), y, 226, 31,
+      not disabled)
     G.push()
     G.translate(offsetX or 0, 0)
     self:panel(7, y, 226, 31, false)
@@ -2291,6 +2414,7 @@ return function(ui)
     end
     if selected and not disabled then self:focusFrame(7, y, 226, 31) end
     G.pop()
+    self:endPress(pressed)
   end
 
   function H:battleBagRows(bag, rowOffset)
@@ -2304,11 +2428,14 @@ return function(ui)
   end
 
   function H:battleBag(bag, playerTeam, enemyTeam)
+    local previousPressOffsetY = self.pressOffsetY
+    self.pressOffsetY = (previousPressOffsetY or 0) + self.battleBagOffsetY
     ui.graphics.push()
     ui.graphics.translate(0, self.battleBagOffsetY)
     self:battleBagHeader(bag)
     self:battleBagRows(bag)
     ui.graphics.pop()
+    self.pressOffsetY = previousPressOffsetY
     self:battleTeamStrip(playerTeam, enemyTeam)
   end
 
@@ -2360,6 +2487,7 @@ return function(ui)
   function H:battleMoveCard(move, x, y, selected, stab)
     local colors = self.colors
     local disabled = move.disabled
+    local pressed = self:beginPress(x, y, 112, 80, not disabled)
     self:panel(x, y, 112, 80, selected and not disabled,
       self:typeColor(move.type))
 
@@ -2393,6 +2521,7 @@ return function(ui)
     clipped(effectX, y + 66, 27, 10, effectFill)
     border(effectX, y + 66, 27, 10, colors.outline)
     self:partyType(effectLabel, effectX + 2, y + 65, colors.white, 23)
+    self:endPress(pressed)
   end
 
   function H:battleMoves(mon, playerTeam, enemyTeam)
@@ -2650,8 +2779,10 @@ return function(ui)
 
   function H:partyPanel(x, y, w, h, selected, fainted, focused)
     local G, colors = ui.graphics, self.colors
-    color(colors.shadow)
-    G.rectangle("fill", x + 1, y + 2, w, h, 6, 6)
+    if self:shadowVisible() then
+      color(colors.shadow)
+      G.rectangle("fill", x + 1, y + 2, w, h, 6, 6)
+    end
     local fill = fainted and colors.fainted
       or selected and colors.selected or colors.party
     if focused and not fainted then
@@ -2728,10 +2859,12 @@ return function(ui)
   function H:partyCard(mon, x, y, selected, details, drawPortrait, focused)
     local fainted = mon and (mon.statusId == "FNT"
       or mon.hp ~= nil and mon.hp <= 0)
+    local pressed = self:beginPress(x, y, 112, 56, mon ~= nil)
     if focused == nil then focused = selected end
     self:partyPanel(x, y, 112, 56, selected, fainted, focused)
     if not mon then
       self:label("-", x, y + 18, self.colors.ink, 112, "center")
+      self:endPress(pressed)
       return
     end
     self:partyPortrait(x + 5, y + 2, selected, fainted)
@@ -2741,7 +2874,7 @@ return function(ui)
     self:partyName(mon.name, x + 44, y + 4, ink,
       details == true and 61 or 67)
     if details == true then self:detailChevron(x + 105, y + 8, ink) end
-    if mon.egg then return end
+    if mon.egg then self:endPress(pressed); return end
     self:typeBadges(mon, x + 1, y + 42, fainted)
     if mon.gender == "male" then
       self:genderIcon("male", x + 99, y + 19)
@@ -2757,6 +2890,7 @@ return function(ui)
     self:hpBar(x + 45, y + 38, 62, mon.hp, mon.maxHp)
     self:partyInfo(mon.expLabel or "EXP", x + 45, y + 41, quiet)
     self:expBar(x + 65, y + 45, 42, mon.expProgress)
+    self:endPress(pressed)
   end
 
   function H:partySwap(drawPartyCard, source, target)
@@ -2947,6 +3081,7 @@ return function(ui)
 
   function H:summaryMoveRow(move, x, y, selected, interactive)
     local colors = self.colors
+    local pressed = self:beginPress(x, y, 228, 34, interactive)
     self:panel(x, y, 228, 34, interactive and selected,
       self:typeColor(move.type))
     self:moveTypeBadge(move, x + 8, y + 12)
@@ -2968,6 +3103,7 @@ return function(ui)
       colors.green)
     self:partyInfo(move.accuracyText or "--", x + 153, y + 18,
       colors.ink, 32, "right")
+    self:endPress(pressed)
   end
 
   function H:summaryMoves(mon, drawPortrait)

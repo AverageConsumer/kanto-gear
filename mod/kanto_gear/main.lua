@@ -1548,7 +1548,7 @@ end
 
 local function button(x, y, w, h, label, selected)
   if THEME.style == "hgss" then
-    THEME.hgss:button(x, y, w, h, label, selected)
+    THEME.hgss:button(x, y, w, h, label, selected, 1)
     return
   end
   local modern = THEME.style ~= "classic"
@@ -6243,7 +6243,11 @@ return function(mod)
     if highResolution then
       G.push(); G.scale(THEME.hgssScale, THEME.hgssScale)
     end
-    if THEME.style == "hgss" then THEME.hgss:backdrop() end
+    if THEME.style == "hgss" then
+      THEME.hgss:setTouch(touchDown and touchDown.x,
+        touchDown and touchDown.y)
+      THEME.hgss:backdrop()
+    end
     local mode, top, fade = screenState()
     local summary = compat.isScreen(top, "summary") and top or nil
     local hgssSummary = THEME.style == "hgss" and summary
@@ -7935,10 +7939,12 @@ return function(mod)
         touchDown.homeTile = tile and tile.id
       end
       if speed then holdTextSpeed(true) end
+      dirty = true
     elseif action == "cancel" then
       textSpeedReleasePending = false
       holdTextSpeed(false)
       touchDown = nil
+      dirty = true
     elseif action == "tap" and x then
       local mode, top = screenState()
       if textTouch(top) == "speed" then
@@ -7951,6 +7957,7 @@ return function(mod)
       local down = touchDown
       local dx, dy = x - down.x, y - down.y
       touchDown = nil
+      dirty = true
       if down.textSpeed then
         textSpeedReleasePending = true
         return
