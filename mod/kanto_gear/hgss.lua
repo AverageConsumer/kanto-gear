@@ -454,6 +454,157 @@ return function(ui)
     if selected then self:focusFrame(x, y, w, h) end
   end
 
+  local function mixed(a, b, amount)
+    return {
+      a[1] + (b[1] - a[1]) * amount,
+      a[2] + (b[2] - a[2]) * amount,
+      a[3] + (b[3] - a[3]) * amount,
+      a[4] or 1,
+    }
+  end
+
+  function H:homeTile(x, y, w, h, accent, selected)
+    local G, colors = ui.graphics, self.colors
+    color(colors.shadow)
+    G.rectangle("fill", x + 1, y + 2, w, h, 5, 5)
+    color(mixed(colors.surface, accent, self.dark and 0.13 or 0.08))
+    G.rectangle("fill", x, y, w, h, 5, 5)
+    color(colors.outline)
+    G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 5, 5)
+    box("fill", x + 5, y + 2, w - 10, 1,
+      mixed(colors.highlight, accent, 0.18))
+    if selected then self:roundedFocusFrame(x, y, w, h, 5) end
+  end
+
+  function H:homePokedexIcon(x, y)
+    local colors = self.colors
+    clipped(x, y + 1, 25, 24, colors.outline)
+    clipped(x + 2, y + 3, 21, 20, colors.redLight)
+    box("fill", x + 5, y + 3, 2, 20, colors.outline)
+    box("fill", x + 9, y + 7, 8, 7, colors.outline)
+    box("fill", x + 10, y + 8, 6, 5, colors.blueLight)
+    box("fill", x + 10, y + 17, 2, 2, colors.white)
+    box("fill", x + 14, y + 17, 2, 2, colors.white)
+    box("fill", x + 18, y + 17, 2, 2, colors.white)
+  end
+
+  function H:homeTrainerIcon(x, y)
+    local G, colors = ui.graphics, self.colors
+    clipped(x, y + 2, 27, 21, colors.outline)
+    clipped(x + 2, y + 4, 23, 17, colors.surface)
+    color(colors.blueLight)
+    G.circle("fill", x + 8, y + 10, 4)
+    box("fill", x + 4, y + 15, 9, 4, colors.blueLight)
+    box("fill", x + 15, y + 7, 7, 2, colors.blue)
+    box("fill", x + 15, y + 11, 7, 1, colors.silverDark)
+    box("fill", x + 15, y + 15, 5, 1, colors.silverDark)
+  end
+
+  function H:homeToolsIcon(x, y)
+    local G, colors = ui.graphics, self.colors
+    local function cog(tint, ox, oy)
+      color(tint)
+      G.circle("fill", x + 13 + ox, y + 13 + oy, 8)
+      for _, tooth in ipairs({
+          { 11, 1, 5, 4 }, { 11, 22, 5, 4 },
+          { 1, 11, 4, 5 }, { 22, 11, 4, 5 },
+          { 4, 4, 4, 4 }, { 18, 4, 4, 4 },
+          { 4, 18, 4, 4 }, { 18, 18, 4, 4 },
+        }) do
+        box("fill", x + tooth[1] + ox, y + tooth[2] + oy,
+          tooth[3], tooth[4], tint)
+      end
+    end
+    cog(colors.outline, 1, 1)
+    cog(colors.silver, 0, 0)
+    color(colors.outline)
+    G.circle("fill", x + 13, y + 13, 4)
+    color(colors.surface)
+    G.circle("fill", x + 13, y + 13, 2)
+  end
+
+  function H:homeAppButton(x, y, w, h, accent, label, icon, selected)
+    local G, colors = ui.graphics, self.colors
+    color(colors.shadow)
+    G.rectangle("fill", x + 1, y + 3, w, h, 5, 5)
+    local base = mixed(colors.surface, accent, self.dark and 0.22 or 0.13)
+    color(self:focusSurface(selected, base,
+      mixed(accent, colors.white, 0.38)))
+    G.rectangle("fill", x, y, w, h, 5, 5)
+    color(colors.outline)
+    G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 5, 5)
+    box("fill", x + 5, y + 2, w - 10, 2,
+      mixed(colors.highlight, accent, 0.22))
+    box("fill", x + 1, y + 43, w - 2, h - 45, accent)
+    box("fill", x + 3, y + 44, w - 6, 1,
+      mixed(accent, colors.white, 0.42))
+    box("fill", x + 5, y + h - 5, w - 10, 3,
+      mixed(accent, colors.outline, 0.45))
+    color(mixed(colors.surface, colors.white, self.dark and 0.08 or 0.22))
+    G.rectangle("fill", x + 13, y + 8, 29, 29, 5, 5)
+    color(colors.outline)
+    G.rectangle("line", x + 13.5, y + 8.5, 28, 28, 5, 5)
+    icon(x + 15, y + 10)
+    local shown = self:fitPartyType(translate(label), w - 6)
+    self:partyType(shown, x + 3, y + 48, colors.white, w - 6)
+    if selected then self:roundedFocusFrame(x, y, w, h, 5) end
+  end
+
+  function H:home(model)
+    local colors = self.colors
+    model = model or {}
+
+    self:homeTile(7, 32, 144, 98, colors.greenLight, model.selected == 1)
+    local explorerAccent = mixed(colors.party, colors.greenLight, 0.45)
+    box("fill", 9, 34, 140, 19, explorerAccent)
+    box("fill", 9, 34, 140, 2,
+      mixed(explorerAccent, colors.white, 0.30))
+    self:partyInfo(translate("EXPLORER"), 14, 38, colors.white)
+    self:detailChevron(141, 41, colors.white)
+    self:mapOverview(model.overview, 12, 57, 134, 67, {
+      player = model.player, markers = model.markers,
+      drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
+    })
+    local route = self:fitPartyType(model.route or translate("UNKNOWN AREA"), 76)
+    local routeWidth = math.max(48, partyTypeFont:getWidth(route) + 10)
+    clipped(16, 108, routeWidth, 12, colors.surface)
+    border(16, 108, routeWidth, 12, colors.outline)
+    self:partyType(route, 16, 108, colors.ink, routeWidth)
+
+    self:homeTile(154, 32, 79, 98, colors.partyLight, model.selected == 2)
+    box("fill", 156, 34, 75, 19, colors.party)
+    box("fill", 156, 34, 75, 2, colors.partyLight)
+    self:partyType(translate("PARTY"), 158, 38, colors.white, 71)
+    self:partyPortrait(176, 51, false, false)
+    if model.drawPokemon and model.lead then
+      model.drawPokemon(model.lead, 177, 54, 32, false)
+    end
+    local leadName = self:fitPartyInfo(model.lead and model.lead.name or "---", 69)
+    self:partyInfo(leadName, 159, 92, colors.ink, 69, "center")
+    self:partyType(model.lead and model.lead.levelText or "--",
+      160, 105, colors.green, 25)
+    if model.lead and model.lead.statusId then
+      self:statusIcon(model.lead.statusId, 177, 104)
+    end
+    self:hpBar(187, 109, 39, model.lead and model.lead.hp or 0,
+      model.lead and model.lead.maxHp or 1)
+
+    local labels = model.labels or {}
+    local selected = tonumber(model.selected)
+    self:homeAppButton(7, 135, 55, 75, colors.amber,
+      labels.bag or "BAG", function(x, y) self:battleBagIcon(x, y) end,
+      selected == 3)
+    self:homeAppButton(64, 135, 55, 75, colors.red,
+      labels.pokedex or "POKEDEX",
+      function(x, y) self:homePokedexIcon(x + 1, y) end, selected == 4)
+    self:homeAppButton(121, 135, 55, 75, colors.blue,
+      labels.trainer or "TRAINER",
+      function(x, y) self:homeTrainerIcon(x, y + 1) end, selected == 5)
+    self:homeAppButton(178, 135, 55, 75, colors.green,
+      labels.tools or "TOOLS",
+      function(x, y) self:homeToolsIcon(x, y) end, selected == 6)
+  end
+
   local mapRamps = {
     light = {
       [" "] = {

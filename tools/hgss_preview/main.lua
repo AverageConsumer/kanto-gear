@@ -39,6 +39,7 @@ local languages = {
   en = {
     title = "PARTY", hp = "HP", exp = "EXP", stats = "STATS", swap = "SWAP",
     swapWith = "SWAP WITH?", useItemOn = "USE ITEM ON",
+    homeTrainer = "CARD",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
     types = {},
@@ -46,6 +47,7 @@ local languages = {
   de = {
     title = "TEAM", hp = "KP", exp = "EP", stats = "WERTE", swap = "TAUSCHEN",
     swapWith = "TAUSCHEN MIT?", useItemOn = "ITEM NUTZEN",
+    homeTrainer = "KARTE",
     names = { "IMPERGATOR", "PAPUNGHA", "TAUBOGA", "SANDAMER",
       "TRAUMATO", "TAUROS" },
     types = { WATER = "WASSER", GRASS = "PFLANZE", FLYING = "FLUG",
@@ -55,6 +57,7 @@ local languages = {
     title = "EQUIPO", hp = "PS", exp = "EXP",
     stats = "ESTADÍSTICAS", swap = "CAMBIAR", swapWith = "¿CAMBIAR POR?",
     useItemOn = "USAR OBJETO",
+    homeTrainer = "FICHA",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
     types = { WATER = "AGUA", GRASS = "PLANTA", FLYING = "VOLADOR",
@@ -63,6 +66,7 @@ local languages = {
   fr = {
     title = "ÉQUIPE", hp = "PV", exp = "EXP", stats = "STATS", swap = "ÉCHANGER",
     swapWith = "ÉCHANGER AVEC?", useItemOn = "UTILISER SUR",
+    homeTrainer = "CARTE",
     names = { "ALIGATUEUR", "COTOVOL", "ROUCOUPS", "SABLAIREAU",
       "SOPORIFIK", "TAUROS" },
     types = { WATER = "EAU", GRASS = "PLANTE", FLYING = "VOL",
@@ -187,7 +191,7 @@ function love.load()
       and theme:partySlot(4, 60, 6) == 3
       and theme:partySlot(82, 101, 5) == nil,
     "party touch hitboxes follow the 240x216 card positions")
-  if screen:sub(1, 8) == "explorer" then
+  if screen:sub(1, 8) == "explorer" or screen == "home" then
     local typeLabels = {
       { "HERE NOW", 66 }, { "WHOLE ROUTE", 68 }, { "HABITAT", 50 },
       { "FOUND", 74 },
@@ -212,6 +216,16 @@ function love.load()
     assert(theme:fitPartyInfo("COOLTRAINERF BETH", 105)
         == "COOLTRAINERF BETH",
       "long trainer names fit the Explorer detail card")
+  end
+  if screen == "home" then
+    for _, label in ipairs({ "BAG", "POKEDEX", language.homeTrainer,
+        translate("TOOLS") }) do
+      assert(theme:fitPartyType(label, 49) == label,
+        label .. " fits its Home app caption")
+    end
+    assert(7 + 144 + 3 == 154 and 154 + 79 == 233
+        and 7 + 55 + 2 == 64 and 178 + 55 == 233,
+      "Home tiles preserve exact shared edges and gutters")
   end
   assert(theme:battleEffectLabel({ powerText = "95", effectiveness = 20 })
       == "2X" and theme:battleEffectLabel({ powerText = "--",
@@ -260,7 +274,7 @@ function love.load()
     sprites[slot] = { image = image, quad = quad, width = width, height = height }
   end
   local overworld = {}
-  if screen:sub(1, 8) == "explorer" then
+  if screen:sub(1, 8) == "explorer" or screen == "home" then
     for _, name in ipairs({ "player", "trainer1", "trainer2", "trainer3" }) do
       local image = love.graphics.newImage(
         "local/overworld/" .. name .. ".png")
@@ -296,6 +310,7 @@ function love.load()
   local explorerTrainers = screen == "explorer_trainers"
   local explorerTrainerDetail = screen == "explorer_trainer_detail"
   local explorerRadar = screen == "explorer_radar"
+  local home = screen == "home"
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
     or explorerItems or explorerItemDetail
@@ -314,7 +329,8 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
   local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
-  local title = explorerRadar and translate("ITEM RADAR")
+  local title = home and "SILPH LINK"
+    or explorerRadar and translate("ITEM RADAR")
     or explorer and translate("EXPLORER")
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
@@ -341,7 +357,7 @@ function love.load()
       explorer and not explorerOverview
         or swapMode or context or summary or moves or memo or memoTransition
         or transition or movesTransition,
-      not explorer and not swapMode and (summary or moves or memo or memoTransition
+      not home and not explorer and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
         or not context), headerOffset)
     if context then
@@ -1051,7 +1067,43 @@ function love.load()
   if os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild" then
     enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "PIDGEY", 4
   end
-  if explorer then
+  if home then
+    local overview = {
+      width = 24, height = 12,
+      rows = {
+        "                        ",
+        "    ++++      ~~~~      ",
+        "  ++++++++++  ~~~~      ",
+        "  +.........++++++      ",
+        "+++..................+++",
+        "........................",
+        "........................",
+        "+++.......++++.......+++",
+        "   +++++++    +++++++   ",
+        "      ~~          ~~    ",
+        "      ~~~~      ~~~~    ",
+        "                        ",
+      },
+    }
+    theme:home({
+      route = gen1 and "ROUTE 15" or "ROUTE 37",
+      overview = overview,
+      player = { x = 12, y = 6, facing = "down" },
+      markers = {
+        { kind = "warp", x = 1, y = 6 },
+        { kind = "item", x = 18, y = 6 },
+      },
+      lead = party[gen1 and 6 or 1],
+      drawPlayer = function(_, x, y, tileSize)
+        drawOverworld("player", x, y, tileSize / 16, theme.colors.redLight)
+      end,
+      drawPokemon = function(_, x, y, size)
+        drawPortrait(gen1 and 6 or 1, x, y, size, false)
+      end,
+      labels = { bag = "BAG", pokedex = "POKEDEX",
+        trainer = language.homeTrainer, tools = "TOOLS" },
+    })
+  elseif explorer then
     drawExplorer()
   elseif battleMessage then
     local wild = os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild"
