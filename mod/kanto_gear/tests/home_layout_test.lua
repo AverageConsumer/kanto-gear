@@ -55,6 +55,13 @@ local pageTwoSlots = Home.plusSlots(layout, catalog, 2)
 assert(#pageTwoSlots == 2
   and pageTwoSlots[1].column == 4 and pageTwoSlots[1].columns == 9
   and pageTwoSlots[2].column == 1 and pageTwoSlots[2].columns == 12)
+local appTargets = Home.plusSlots(layout, catalog, 4, "bag_app")
+assert(#appTargets == 8)
+for index, target in ipairs(appTargets) do
+  assert(target.column == ({ 1, 4, 7, 10 })[(index - 1) % 4 + 1]
+    and target.row == math.floor((index - 1) / 4) + 1
+    and target.columns == 3)
+end
 local widgetLayout = { tiles = {
   { id = "explorer_widget", page = 1, column = 1, row = 1 },
 } }
@@ -103,7 +110,7 @@ assert(Home.find(emptyDropLayout, "bag_app").column == 9
   and Home.find(emptyDropLayout, "bag_app").row == 1)
 assert(Home.drop(emptyDropLayout, catalog, "bag_app", 3, 1, 2))
 assert(Home.find(emptyDropLayout, "bag_app").page == 3
-  and Home.find(emptyDropLayout, "bag_app").column == 5
+  and Home.find(emptyDropLayout, "bag_app").column == 1
   and Home.find(emptyDropLayout, "bag_app").row == 2)
 assert(not Home.longPress(0.44, 0, 0)
   and Home.longPress(0.45, 6, 0)

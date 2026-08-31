@@ -173,6 +173,7 @@ end
 
 function M.plusSlots(layout, catalog, page, ignoreId)
   local slots = {}
+  local _, movingColumns, movingRows = definition(catalog, ignoreId)
   for row = 1, M.rows do
     local column = 1
     while column <= M.columns do
@@ -182,7 +183,21 @@ function M.plusSlots(layout, catalog, page, ignoreId)
         until column > M.columns
           or not free(layout, catalog, page, column, row, 1, 1, ignoreId)
         local columns = column - first
-        if columns >= 3 then
+        if movingColumns then
+          local count = math.floor(columns / movingColumns)
+          local start = first + math.floor(
+            (columns - count * movingColumns) / 2)
+          for index = 0, count - 1 do
+            local target = start + index * movingColumns
+            if M.canPlace(layout, catalog, ignoreId, page, target, row,
+                ignoreId) then
+              slots[#slots + 1] = {
+                column = target, row = row,
+                columns = movingColumns, rows = movingRows,
+              }
+            end
+          end
+        elseif not ignoreId and columns >= 3 then
           slots[#slots + 1] = {
             column = first, row = row, columns = columns, rows = 1,
           }
