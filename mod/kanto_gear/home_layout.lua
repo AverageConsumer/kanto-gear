@@ -101,6 +101,16 @@ function M.swap(layout, catalog, firstId, secondId)
     row = second.row, columns = firstColumns, rows = firstRows }
   local secondTarget = { page = first.page, column = first.column,
     row = first.row, columns = secondColumns, rows = secondRows }
+  if first.page == second.page and first.row == second.row
+      and firstRows == secondRows then
+    if first.column + firstColumns == second.column then
+      firstTarget.column = first.column + secondColumns
+      secondTarget.column = first.column
+    elseif second.column + secondColumns == first.column then
+      secondTarget.column = second.column + firstColumns
+      firstTarget.column = second.column
+    end
+  end
   if firstTarget.page == secondTarget.page
       and overlaps(firstTarget, secondTarget) then return false, "incompatible" end
   local firstFits = M.canPlace(layout, catalog, firstId,
