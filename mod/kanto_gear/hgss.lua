@@ -509,6 +509,15 @@ return function(ui)
     }
   end
 
+  function H:itemAccent(icon)
+    local colors = self.colors
+    return icon == "ball" and colors.redLight
+      or icon == "medicine" and colors.blueLight
+      or icon == "status" and colors.greenLight
+      or icon == "machine" and colors.amberLight
+      or colors.blueLight
+  end
+
   function H:panel(x, y, w, h, selected, focusAccent)
     local colors = self.colors
     if self:shadowVisible() then
@@ -1779,6 +1788,19 @@ return function(ui)
       border(x + 7, y + h - 8, w - 14, 4, colors.outline)
       box("fill", x + 8, y + h - 7, math.floor((w - 16) * 0.47), 2,
         colors.redLight)
+    elseif id == "bag" then
+      self:battleBagIcon(x + 10, y + math.floor((h - 27) / 2))
+      box("fill", x + 44, y + 6, 1, h - 12, colors.band)
+      local kinds = { "medicine", "ball", "machine" }
+      for row = 0, 2 do
+        local top = y + 5 + row * math.max(12, math.floor((h - 8) / 3))
+        clipped(x + 51, top, w - 58, 17, colors.surface)
+        border(x + 51, top, w - 58, 17, colors.band)
+        self:battleItemIcon({ icon = kinds[row + 1] },
+          x + 53, top, self:itemAccent(kinds[row + 1]))
+        box("fill", x + 74, top + 7,
+          math.max(8, w - 87 - row * 8), 2, colors.silverDark)
+      end
     elseif id == "party" then
       for index = 0, 2 do
         local left = x + 6 + index * math.floor((w - 12) / 3)
@@ -3116,6 +3138,136 @@ return function(ui)
       box("fill", x + 3, y + 7, 10, 3, tint)
       box("fill", x + 7, y + 10, 2, 2, colors.outline)
     end
+  end
+
+  function H:bagCard(item, x, y)
+    local colors = self.colors
+    local accent = self:itemAccent(item.icon)
+    local pressed = self:beginPress(x, y, 112, 43)
+    self:panel(x, y, 112, 43, false)
+    clipped(x + 5, y + 7, 29, 29, colors.bandLight)
+    border(x + 5, y + 7, 29, 29, colors.band)
+    self:battleItemIcon(item, x + 11, y + 13, accent)
+    box("fill", x + 39, y + 5, 1, 33, colors.band)
+    self:partyName(item.label or "ITEM", x + 45, y + 7,
+      colors.ink, 58)
+    local second = item.detail and self:fitPartyInfo(item.detail, 43)
+      or ("x%d"):format(tonumber(item.count) or 0)
+    self:partyInfo(second, x + 45, y + 24,
+      item.detail and colors.green or colors.silverDark, 44)
+    if item.detail then
+      self:partyInfo(("x%d"):format(tonumber(item.count) or 0),
+        x + 88, y + 24, colors.silverDark, 15, "right")
+    end
+    self:detailChevron(x + 104, y + 19, colors.green, false)
+    self:endPress(pressed)
+  end
+
+  function H:bagOverview(model)
+    local colors = self.colors
+    self:panel(6, 34, 228, 34, false)
+    self:battleBagIcon(14, 37)
+    box("fill", 46, 38, 1, 26, colors.band)
+    if (model.pockets or 1) > 1 then
+      self:pageChevron(58, 51, false)
+      self:pageChevron(166, 51, true)
+    end
+    local labelX, labelW = (model.pockets or 1) > 1 and 68 or 53,
+      (model.pockets or 1) > 1 and 88 or 118
+    self:partyInfo(self:fitPartyInfo(model.pocket or "ITEMS", labelW),
+      labelX, 44, colors.ink, labelW, "center")
+    box("fill", 177, 38, 1, 26, colors.band)
+    local page = ("%d/%d"):format(model.page or 1, model.pages or 1)
+    clipped(184, 42, 43, 18, colors.bandLight)
+    border(184, 42, 43, 18, colors.outline)
+    self:pageChevron(190, 51, false, (model.pages or 1) > 1)
+    self:partyInfo(page, 197, 45, colors.ink, 23, "center")
+    self:pageChevron(222, 51, true, (model.pages or 1) > 1)
+
+    if #(model.entries or {}) == 0 then
+      self:panel(24, 91, 192, 70, false)
+      self:partyInfo(translate("THIS POCKET IS EMPTY."), 24, 116,
+        colors.silverDark, 192, "center")
+      return
+    end
+    for index, item in ipairs(model.entries or {}) do
+      local col, row = (index - 1) % 2, math.floor((index - 1) / 2)
+      self:bagCard(item, 6 + col * 116, 72 + row * 47)
+    end
+  end
+
+  function H:bagDetail(model)
+    local item, colors = model.detail, self.colors
+    local accent = self:itemAccent(item.icon)
+    self:panel(6, 34, 228, 124, false)
+    clipped(16, 44, 45, 45, colors.bandLight)
+    border(16, 44, 45, 45, colors.band)
+    ui.graphics.push()
+    ui.graphics.translate(20, 48)
+    ui.graphics.scale(2, 2)
+    self:battleItemIcon(item, 0, 0, accent)
+    ui.graphics.pop()
+    box("fill", 68, 42, 1, 51, colors.band)
+    self:partyName(item.label or "ITEM", 77, 47, colors.ink, 140)
+    self:partyInfo(("x%d"):format(tonumber(item.count) or 0),
+      77, 67, colors.silverDark)
+    local lines = model.message or item.lines or {}
+    box("fill", 16, 99, 208, 1, colors.band)
+    for index = 1, math.min(3, #lines) do
+      self:partyInfo(self:fitPartyInfo(lines[index], 200),
+        20, 103 + (index - 1) * 14, colors.ink, 200, "center")
+    end
+
+    local enabled = model.canUse ~= false
+    local pressed = self:beginPress(54, 166, 132, 40, enabled)
+    self:panel(54, 166, 132, 40, false)
+    clipped(57, 169, 126, 34,
+      enabled and self:focusSurface(true, colors.surface, colors.amberLight)
+        or colors.bandLight)
+    local label = translate(model.message and "USE AGAIN" or "USE")
+    self:partyInfo(label, 54, 180,
+      enabled and colors.ink or colors.silverDark, 132, "center")
+    self:endPress(pressed)
+  end
+
+  function H:bag(model)
+    if model.detail then self:bagDetail(model) else self:bagOverview(model) end
+  end
+
+  function H:bagHit(x, y, model)
+    if model.detail then
+      if x >= 54 and x < 186 and y >= 166 and y < 206
+          and model.canUse ~= false then return "use" end
+      return nil
+    end
+    if y >= 34 and y < 68 then
+      if (model.pockets or 1) > 1 and x >= 48 and x < 69 then
+        return "pocket", -1
+      elseif (model.pockets or 1) > 1 and x >= 155 and x < 176 then
+        return "pocket", 1
+      elseif (model.pages or 1) > 1 and x >= 180 and x < 204 then
+        return "page", -1
+      elseif (model.pages or 1) > 1 and x >= 204 and x < 232 then
+        return "page", 1
+      end
+    end
+    for index = 1, #(model.entries or {}) do
+      local col, row = (index - 1) % 2, math.floor((index - 1) / 2)
+      local left, top = 6 + col * 116, 72 + row * 47
+      if x >= left and x < left + 112 and y >= top and y < top + 43 then
+        return "item", index
+      end
+    end
+  end
+
+  do
+    local hitModel = { pockets = 4, pages = 2,
+      entries = { {}, {}, {}, {}, {}, {} } }
+    local action, delta = H:bagHit(58, 51, hitModel)
+    assert(action == "pocket" and delta == -1
+        and H:bagHit(10, 76, hitModel) == "item"
+        and H:bagHit(220, 51, hitModel) == "page",
+      "HGSS bag hitboxes match visible controls")
   end
 
   function H:battleBagHeader(bag, offsetX)

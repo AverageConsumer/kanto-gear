@@ -30,6 +30,22 @@ local function fit(value, limit)
   if #glyphs(value) <= limit then return value end
   return value:sub(1, math.max(1, limit - 1)) .. "~"
 end
+local function wrap(value, limit, maximum)
+  local lines, current = {}, ""
+  for word in tostring(value or ""):gmatch("%S+") do
+    local joined = current == "" and word or current .. " " .. word
+    if #joined <= limit then current = joined
+    else
+      if current ~= "" then lines[#lines + 1] = fit(current, limit) end
+      current = word
+      if #lines >= maximum then break end
+    end
+  end
+  if #lines < maximum and current ~= "" then
+    lines[#lines + 1] = fit(current, limit)
+  end
+  return lines
+end
 local function text(value, x, y, tint)
   color(tint)
   love.graphics.print(value, x, y)
@@ -393,6 +409,8 @@ function love.load()
   local pokedexMoves = screen == "pokedex_moves"
   local pokedex = pokedexIndex or pokedexProfile or pokedexHabitat
     or pokedexStats or pokedexMoves
+  local bagOverview, bagDetail = screen == "bag", screen == "bag_detail"
+  local bag = bagOverview or bagDetail
   local home = homePreview
   local homeEdit, homeAdd = screen == "home-edit", screen == "home-add"
   local storeToday, storeApps = screen == "store", screen == "store-apps"
@@ -423,7 +441,8 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
   local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
-  local title = storeDetail and "NOTES"
+  local title = storeDetail and (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP")
+      == "bag" and "BAG" or "NOTES")
     or store and "SILPH STORE"
     or homeAdd and "ADD TO HOME"
     or homeEdit and "EDIT HOME"
@@ -435,6 +454,7 @@ function love.load()
     or pokedexMoves and "MOVES 1/7"
     or pokedexProfile and "NO.130"
     or pokedex and "POKEDEX"
+    or bag and translate("BAG")
     or trainerSteps and translate("STEPS")
     or trainerScreen and translate("TRAINER")
     or toolsRods and translate("CHOOSE ROD")
@@ -462,13 +482,13 @@ function love.load()
     local headerOffset = summary and -1 or 0
     local titleX, titleWidth = theme:headerBar(title,
       homeAdd or store or explorer and not explorerOverview
-        or pokedex or trainerScreen or trainerSteps or tools or swapMode
+        or pokedex or bag or trainerScreen or trainerSteps or tools or swapMode
         or context or summary
         or moves or memo or memoTransition
         or transition or movesTransition,
       store and not storeDetail
         or pokedexProfile or pokedexHabitat or pokedexStats or pokedexMoves
-        or not home and not store and not explorer and not pokedex
+        or not home and not store and not explorer and not pokedex and not bag
         and not trainerScreen
         and not trainerSteps and not tools and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
@@ -1258,15 +1278,18 @@ function love.load()
       },
     })
   elseif storeDetail then
+    local detailId = os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "notes"
+    local bagStore = detailId == "bag"
     theme:storeDetail({ app = {
-      id = "notes", icon = "notes", label = "NOTES",
-      category = "TRAINER TOOL", publisher = "SILPH CO.",
-      action = "GET", state = "get",
-      description = {
-        "PLAN ROUTES AND REMINDERS.",
-        "KEEP CLUES CLOSE AT HAND.",
-        "YOUR JOURNEY, ORGANIZED.",
-      },
+      id = detailId, icon = detailId, label = bagStore and "BAG" or "NOTES",
+      category = bagStore and "ITEMS" or "TRAINER TOOL",
+      publisher = "SILPH CO.", action = bagStore and "OPEN" or "GET",
+      state = bagStore and "open" or "get",
+      description = bagStore and {
+        "BROWSE EVERY ITEM BELOW.", "USE THE ORIGINAL GAME EFFECTS.",
+        "NO MIRRORED BAG REQUIRED.",
+      } or { "PLAN ROUTES AND REMINDERS.", "KEEP CLUES CLOSE AT HAND.",
+        "YOUR JOURNEY, ORGANIZED." },
     } })
   elseif toolsPrompt then
     theme:tools({ actions = toolActions, page = toolPage, pages = toolPages })
@@ -1431,6 +1454,45 @@ function love.load()
         math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1)))
     end
     theme:home(model)
+  elseif bag then
+    local entries = {
+      { id = "POTION", label = "POTION", count = 12,
+        icon = "medicine", lines = {
+          "RESTORES 20 HP TO ONE POKEMON.",
+        } },
+      { id = "GREAT_BALL", label = "GREAT BALL", count = 8,
+        icon = "ball", lines = {
+          "A GOOD BALL WITH A HIGHER", "CATCH RATE THAN A POKE BALL.",
+        } },
+      { id = "ANTIDOTE", label = "ANTIDOTE", count = 3,
+        icon = "status", lines = { "CURES A POISONED POKEMON." } },
+      { id = "TM_24", label = "TM24", count = 1, icon = "machine",
+        detail = "THUNDERBOLT", lines = wrap(format(
+          "TEACHES %s TO A COMPATIBLE POKEMON.", "THUNDERBOLT"), 31, 3) },
+      { id = "ESCAPE_ROPE", label = "ESCAPE ROPE", count = 2,
+        icon = "item", lines = {
+          "ESCAPE FROM A CAVE OR DUNGEON.",
+        } },
+      { id = "SUPER_POTION", label = "SUPER POTION", count = 4,
+        icon = "medicine", lines = {
+          "RESTORES 50 HP TO ONE POKEMON.",
+        } },
+    }
+    local model = {
+      pocket = gen1 and "ITEMS" or "ITEMS", pocketIndex = 1,
+      pockets = gen1 and 1 or 4, page = 1, pages = 2,
+      entries = entries, total = 12, canUse = true, money = 34820,
+      detail = bagDetail and entries[4] or nil,
+    }
+    theme:bag(model)
+    if bagOverview then
+      local action, index = theme:bagHit(130, 80, model)
+      assert(action == "item" and index == 2,
+        "Bag cards are touch reachable")
+    else
+      assert(theme:bagHit(120, 185, model) == "use",
+        "Bag USE action is touch reachable")
+    end
   elseif pokedex then
     local names = { "BULBASAUR", "IVYSAUR", "VENUSAUR", "CHARMANDER",
       "CHARMELEON", "CHARIZARD", "SQUIRTLE", "WARTORTLE", "BLASTOISE" }

@@ -1993,6 +1993,7 @@ return function(mod)
       scanRevealed = {},
     },
     pokedex = { view = "index", page = 1, habitatPage = 1 },
+    bag = { pocket = 1, page = 1 },
   }
   function displayRuntime.adjustExplorerZoom(direction)
     local explorer = displayRuntime.explorer
@@ -2068,7 +2069,7 @@ return function(mod)
       steps = { installed = true },
       tools = { installed = true },
       store = { installed = true, fixed = true },
-      bag = { installed = false, available = false },
+      bag = { installed = false },
       pokedex = { installed = false },
       notes = { installed = false, available = false },
     },
@@ -2129,9 +2130,9 @@ return function(mod)
       description = { "RESEARCH EVERY SPECIES.",
         "CHECK STATS, MOVES AND HABITATS.", "YOUR FIELD ENCYCLOPEDIA." } },
     { id = "bag", icon = "bag", label = "BAG",
-      category = "ITEMS", available = false,
-      description = { "A MODERN BAG IS COMING.",
-        "KEEP EVERY POCKET ORGANIZED.", "SILPH LABS IS STILL BUILDING IT." } },
+      category = "ITEMS", reason = "ITEM POCKETS", target = "BAG",
+      description = { "BROWSE EVERY ITEM BELOW.",
+        "USE THE ORIGINAL GAME EFFECTS.", "NO MIRRORED BAG REQUIRED." } },
     { id = "trainer", icon = "trainer", label = "TRAINER CARD",
       category = "PROFILE", target = "TRAINER", fixed = true,
       description = { "REVIEW YOUR TRAINER JOURNEY.",
@@ -2621,7 +2622,7 @@ return function(mod)
     if hgss and not wasHgss then
       page, displayRuntime.home.activeApp = "HOME", nil
     elseif not hgss and (page == "HOME" or page == "STORE"
-        or page == "STEPS" or page == "POKEDEX") then
+        or page == "STEPS" or page == "POKEDEX" or page == "BAG") then
       page = "MAP"
     elseif hgss and (page == "GUIDE" or page == "AREA") then
       page = "LOCAL"
@@ -3694,6 +3695,10 @@ return function(mod)
       page == "POKEDEX" and tostring(displayRuntime.pokedex.page) or "",
       page == "POKEDEX" and tostring(displayRuntime.pokedex.habitatPage) or "",
       page == "POKEDEX" and tostring(displayRuntime.pokedex.movePage) or "",
+      page == "BAG" and tostring(displayRuntime.bag.pocket) or "",
+      page == "BAG" and tostring(displayRuntime.bag.page) or "",
+      page == "BAG" and tostring(displayRuntime.bag.detail) or "",
+      page == "BAG" and tostring(displayRuntime.bag.message) or "",
       tostring(explorer.view or ""), tostring(explorer.selected or ""),
       explorer.mapFull and "map-full" or "",
       tostring(explorer.page or ""), tostring(explorer.detailPage or ""),
@@ -6075,6 +6080,239 @@ return function(mod)
     dirty = true
   end
 
+  displayRuntime.bagPockets = {
+    { id = "ITEM", label = "ITEMS" },
+    { id = "BALL", label = "POKE BALLS" },
+    { id = "KEY_ITEM", label = "KEY ITEMS" },
+    { id = "TM_HM", label = "TM/HM" },
+  }
+
+  function displayRuntime.bagWords(source, limit, maximum)
+    source = tostring(source or ""):gsub("<NEXT>", " ")
+      :gsub("<[^>]+>", " "):gsub("\n", " "):gsub("%s+", " ")
+      :gsub("^%s+", ""):gsub("%s+$", "")
+    local lines, current = {}, ""
+    for word in source:gmatch("%S+") do
+      local joined = current == "" and word or current .. " " .. word
+      if #joined <= limit then
+        current = joined
+      else
+        if current ~= "" then lines[#lines + 1] = fit(current, limit) end
+        current = word
+        if #lines >= maximum then break end
+      end
+    end
+    if #lines < maximum and current ~= "" then
+      lines[#lines + 1] = fit(current, limit)
+    end
+    return lines
+  end
+
+  function displayRuntime.bagItemKind(id, def)
+    local upper = tostring(id or ""):upper()
+    if def and def.ball then return "ball" end
+    if upper:match("^TM_?%d") or upper:match("^HM_?%d")
+        or def and (def.machine or def.teaches) then return "machine" end
+    if upper:find("HEAL", 1, true) or upper == "ANTIDOTE"
+        or upper == "AWAKENING" then return "status" end
+    if def and def.needsTarget then return "medicine" end
+    if upper:find("POTION", 1, true) or upper:find("ETHER", 1, true)
+        or upper:find("ELIX", 1, true) or upper == "REVIVE"
+        or upper == "MAX_REVIVE" then return "medicine" end
+    return "item"
+  end
+
+  function displayRuntime.bagDescription(id, def)
+    local moveId = def and (def.teaches
+      or def.machine and def.machine.move)
+    local move = moveId and game.data.moves and game.data.moves[moveId]
+    local source = move and move.description or def and def.description
+    if source and source ~= "" then
+      return displayRuntime.bagWords(source, 31, 3)
+    end
+    if moveId then
+      return displayRuntime.bagWords(THEME:format(
+        "TEACHES %s TO A COMPATIBLE POKEMON.",
+        move and move.name or tostring(moveId):gsub("_", " ")), 31, 3)
+    end
+    if def and def.ball then
+      return displayRuntime.bagWords(
+        THEME:translate("A BALL USED TO CATCH WILD POKEMON."), 31, 3)
+    end
+    if def and def.needsTarget then
+      return displayRuntime.bagWords(
+        THEME:translate("USE IT ON A POKEMON IN YOUR PARTY."), 31, 3)
+    end
+    if def and def.keyItem then
+      return displayRuntime.bagWords(
+        THEME:translate("AN IMPORTANT ITEM FOR YOUR ADVENTURE."), 31, 3)
+    end
+    return displayRuntime.bagWords(
+      THEME:translate("AN ITEM WITH A SPECIAL FIELD EFFECT."), 31, 3)
+  end
+
+  function displayRuntime.bagModel()
+    local state, save, data = displayRuntime.bag, game.save or {}, game.data or {}
+    local gen2 = compat.isGen2()
+    local pockets = gen2 and displayRuntime.bagPockets
+      or { displayRuntime.bagPockets[1] }
+    state.pocket = math.max(1, math.min(state.pocket or 1, #pockets))
+    local pocket = pockets[state.pocket]
+    local ok, Bag = pcall(require, "src.inventory.Bag")
+    local order = ok and Bag.order and Bag.order(save) or {}
+    local entries = {}
+    for _, id in ipairs(order) do
+      local count = tonumber((save.inventory or {})[id]) or 0
+      local def = data.items and data.items[id] or {}
+      local itemPocket = def.pocket or "ITEM"
+      if count > 0 and (not gen2 or itemPocket == pocket.id) then
+        local moveId = def.teaches or def.machine and def.machine.move
+        local move = moveId and data.moves and data.moves[moveId]
+        entries[#entries + 1] = {
+          id = id, count = count, label = def.name
+            or tostring(id):gsub("_", " "),
+          icon = displayRuntime.bagItemKind(id, def),
+          detail = move and move.name,
+          lines = displayRuntime.bagDescription(id, def),
+        }
+      end
+    end
+    if gen2 then
+      table.sort(entries, function(a, b)
+        local ad = data.items and data.items[a.id] or {}
+        local bd = data.items and data.items[b.id] or {}
+        local ai, bi = tonumber(ad.index) or math.huge,
+          tonumber(bd.index) or math.huge
+        if ai ~= bi then return ai < bi end
+        return tostring(a.id) < tostring(b.id)
+      end)
+    end
+    local pages = math.max(1, math.ceil(#entries / 6))
+    state.page = math.max(1, math.min(state.page or 1, pages))
+    local visible, first = {}, (state.page - 1) * 6 + 1
+    for index = first, math.min(#entries, first + 5) do
+      visible[#visible + 1] = entries[index]
+    end
+    local detail
+    if state.detail then
+      for _, entry in ipairs(entries) do
+        if entry.id == state.detail then detail = entry break end
+      end
+      if not detail then state.detail = nil end
+    end
+    return {
+      pocket = THEME:translate(pocket.label), pocketIndex = state.pocket,
+      pockets = #pockets, page = state.page, pages = pages,
+      entries = visible, total = #entries, detail = detail,
+      message = state.message, canUse = screenState() == "active" and not battle,
+      money = tonumber(save.money) or 0,
+    }
+  end
+
+  function displayRuntime.cycleBagPage(direction)
+    local model = displayRuntime.bagModel()
+    displayRuntime.bag.page = (model.page - 1 + direction) % model.pages + 1
+    displayRuntime.bag.message, dirty = nil, true
+  end
+
+  function displayRuntime.cycleBagPocket(direction)
+    local model = displayRuntime.bagModel()
+    if model.pockets <= 1 then return displayRuntime.cycleBagPage(direction) end
+    displayRuntime.bag.pocket = (model.pocketIndex - 1 + direction)
+      % model.pockets + 1
+    displayRuntime.bag.page, displayRuntime.bag.detail = 1, nil
+    displayRuntime.bag.message, dirty = nil, true
+  end
+
+  function displayRuntime.bagMessage(lines)
+    local out = {}
+    for _, line in ipairs(lines or {}) do
+      out[#out + 1] = tostring(line):gsub("{PLAYER}",
+        game.save and game.save.player and game.save.player.name or "PLAYER")
+    end
+    return out
+  end
+
+  function displayRuntime.useBagItem(itemId)
+    if screenState() ~= "active" or battle or not itemId then return false end
+    local state = displayRuntime.bag
+    state.message = nil
+    if compat.isGen2() then
+      local ok, PackMenu = pcall(require, "src.ui.gen2.PackMenu")
+      if not ok or type(PackMenu) ~= "table" or type(PackMenu.new) ~= "function" then
+        return false
+      end
+      local backend = PackMenu.new(game, {
+        pocket = displayRuntime.bagPockets[state.pocket].id,
+        onChoose = function(id)
+          if type(game.useFieldItem) == "function" then game:useFieldItem(id) end
+        end,
+      })
+      for index, row in ipairs(backend.rows or {}) do
+        if row.id == itemId then backend.index = index break end
+      end
+      local row = backend.rows and backend.rows[backend.index]
+      if not row or row.id ~= itemId then return false end
+      local used, err = pcall(backend.useSelected, backend)
+      if not used then
+        mod.log:warn("HGSS bag item %s rejected: %s", tostring(itemId), tostring(err))
+        return false
+      end
+      if backend.message then
+        state.message = displayRuntime.bagMessage(backend.message)
+      end
+      state.detail = state.message and itemId or nil
+      dirty = true
+      return true
+    end
+
+    local ok, BagMenu = pcall(require, "src.ui.BagMenu")
+    local menuOk, Menu = pcall(require, "src.ui.Menu")
+    if not ok or not menuOk or type(BagMenu) ~= "table"
+        or type(BagMenu.new) ~= "function" then return false end
+    local backend = BagMenu.new(game)
+    local item
+    for _, row in ipairs(backend.items or {}) do
+      if row.value == itemId then item = row break end
+    end
+    if not item or type(backend.onChoose) ~= "function" then return false end
+    local stack, before = game.stack, game.stack:top()
+    local count = #(stack.states or {})
+    local opened, err = pcall(backend.onChoose, item, backend)
+    local useMenu = stack:top()
+    if not opened or #(stack.states or {}) ~= count + 1
+        or getmetatable(useMenu) ~= Menu
+        or type(useMenu.items) ~= "table"
+        or not useMenu.items[1]
+        or type(useMenu.items[1].onSelect) ~= "function" then
+      if stack:top() ~= before and #(stack.states or {}) == count + 1 then
+        stack:pop()
+      end
+      mod.log:warn("HGSS bag could not open original USE action for %s: %s",
+        tostring(itemId), tostring(err or "unexpected menu"))
+      return false
+    end
+    local action = useMenu.items[1].onSelect
+    stack:pop()
+    local used, useErr = pcall(action)
+    if not used then
+      mod.log:warn("HGSS bag item %s failed: %s",
+        tostring(itemId), tostring(useErr))
+      return false
+    end
+    state.detail, dirty = nil, true
+    return true
+  end
+
+  function displayRuntime.drawBag()
+    local model = displayRuntime.bagModel()
+    header(THEME:translate("BAG"), true)
+    G.push()
+    G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    THEME.hgss:bag(model)
+    G.pop()
+  end
+
   function displayRuntime.drawPokedex()
     local model = displayRuntime.pokedexModel()
     local title = model.view == "index" and "POKEDEX"
@@ -7190,6 +7428,8 @@ return function(mod)
       displayRuntime.drawStore()
     elseif THEME.style == "hgss" and page == "POKEDEX" then
       displayRuntime.drawPokedex()
+    elseif THEME.style == "hgss" and page == "BAG" then
+      displayRuntime.drawBag()
     elseif page == "MAP" then
       drawMap()
     elseif page == "LOCAL" then
@@ -7507,6 +7747,9 @@ return function(mod)
       displayRuntime.pokedex.habitatPage = 1
       displayRuntime.pokedex.movePage = 1
       displayRuntime.pokedex.data = nil
+    elseif id == "bag" then
+      displayRuntime.bag.page, displayRuntime.bag.detail = 1, nil
+      displayRuntime.bag.message = nil
     end
     page, dirty = app.target, true
     return true
@@ -7691,6 +7934,32 @@ return function(mod)
       state.view = action
       state.habitatPage, state.movePage = 1, 1
       dirty = true
+    end
+  end
+
+  function displayRuntime.tapBag(x, y)
+    local state = displayRuntime.bag
+    if y < HEADER and x < 22 then
+      if state.detail then
+        state.detail, state.message = nil, nil
+      else
+        page, displayRuntime.home.activeApp = "HOME", nil
+      end
+      dirty = true
+      return
+    end
+    local model = displayRuntime.bagModel()
+    local action, value = THEME.hgss:bagHit(
+      x * THEME.hgssScale, y * THEME.hgssScale, model)
+    if action == "pocket" then
+      displayRuntime.cycleBagPocket(value)
+    elseif action == "page" then
+      displayRuntime.cycleBagPage(value)
+    elseif action == "item" and model.entries[value] then
+      state.detail, state.message = model.entries[value].id, nil
+      dirty = true
+    elseif action == "use" and model.detail then
+      displayRuntime.useBagItem(model.detail.id)
     end
   end
 
@@ -8255,6 +8524,14 @@ return function(mod)
     elseif THEME.style == "hgss" and page == "POKEDEX" then
       displayRuntime.cyclePokedex(direction)
       return
+    elseif THEME.style == "hgss" and page == "BAG" then
+      if displayRuntime.bag.detail then
+        displayRuntime.bag.detail, displayRuntime.bag.message = nil, nil
+        dirty = true
+      else
+        displayRuntime.cycleBagPage(direction)
+      end
+      return
     end
     if page == "LOCAL" and THEME.style == "hgss"
         and (displayRuntime.explorer.selected
@@ -8510,6 +8787,9 @@ return function(mod)
       return
     elseif THEME.style == "hgss" and page == "POKEDEX" then
       displayRuntime.tapPokedex(x, y)
+      return
+    elseif THEME.style == "hgss" and page == "BAG" then
+      displayRuntime.tapBag(x, y)
       return
     end
     if partyActionSlot then
@@ -8854,6 +9134,16 @@ return function(mod)
     end
     if THEME.style == "hgss" and page == "POKEDEX" then
       displayRuntime.cyclePokedex(dx < 0 and 1 or -1)
+      return
+    end
+    if THEME.style == "hgss" and page == "BAG" then
+      if displayRuntime.bag.detail then return end
+      local y = (down.y or 0) * THEME.hgssScale
+      if y < 70 and displayRuntime.bagModel().pockets > 1 then
+        displayRuntime.cycleBagPocket(dx < 0 and 1 or -1)
+      else
+        displayRuntime.cycleBagPage(dx < 0 and 1 or -1)
+      end
       return
     end
     if THEME.style == "hgss" and page ~= "HOME"
