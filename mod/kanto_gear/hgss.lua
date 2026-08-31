@@ -1030,9 +1030,12 @@ return function(ui)
 
   function H:homeRect(tile)
     local column, row = tonumber(tile.column) or 1, tonumber(tile.row) or 1
-    local columns, rows = tonumber(tile.columns) or 3, tonumber(tile.rows) or 1
-    return 7 + (column - 1) * 19, 32 + (row - 1) * 85,
-      columns * 17 + (columns - 1) * 2,
+    local columns = tonumber(tile.visualColumns)
+      or tonumber(tile.columns) or 3
+    local rows = tonumber(tile.rows) or 1
+    return tonumber(tile.visualX) or 7 + (column - 1) * 19,
+      32 + (row - 1) * 85,
+      tonumber(tile.visualWidth) or columns * 17 + (columns - 1) * 2,
       rows * 82 + (rows - 1) * 3
   end
 

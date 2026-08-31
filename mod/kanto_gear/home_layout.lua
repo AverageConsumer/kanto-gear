@@ -26,6 +26,76 @@ local function overlaps(a, b)
     and b.row < a.row + a.rows
 end
 
+local function baseVisualWidth(tile)
+  local columns = tonumber(tile.visualColumns)
+    or tonumber(tile.columns) or 3
+  return columns * 17 + (columns - 1) * 2
+end
+
+local function visualWidth(tile)
+  return tonumber(tile.visualWidth) or baseVisualWidth(tile)
+end
+
+-- Home rows behave like one centered strip, not twelve visible columns.
+-- Columns remain the storage/order model; the renderer receives the
+-- pixel position produced by equal outer and inner gaps.
+function M.spaceRows(items)
+  local rows = {}
+  for _, item in ipairs(items or {}) do
+    local row = tonumber(item.row) or 1
+    rows[row] = rows[row] or {}
+    rows[row][#rows[row] + 1] = item
+  end
+  for _, row in pairs(rows) do
+    table.sort(row, function(a, b)
+      return (tonumber(a.column) or 1) < (tonumber(b.column) or 1)
+    end)
+    local total, sameWidth = 0, true
+    local firstWidth
+    for _, item in ipairs(row) do
+      item.visualWidth = nil
+      local width = baseVisualWidth(item)
+      firstWidth = firstWidth or width
+      sameWidth = sameWidth and width == firstWidth
+      total = total + width
+    end
+    local gap
+    if sameWidth then
+      for magnitude = 0, 3 do
+        for _, delta in ipairs(magnitude == 0 and { 0 }
+            or { magnitude, -magnitude }) do
+          local freePixels = 226 - #row * (firstWidth + delta)
+          if freePixels >= #row + 1
+              and freePixels % (#row + 1) == 0 then
+            gap = freePixels / (#row + 1)
+            for _, item in ipairs(row) do
+              item.visualWidth = firstWidth + delta
+            end
+            break
+          end
+        end
+        if gap then break end
+      end
+    end
+    if not gap then
+      gap = math.max(1, math.floor(
+        (226 - total) / (#row + 1) + 0.5))
+      local widthDelta = 226 - gap * (#row + 1) - total
+      local direction = widthDelta < 0 and -1 or 1
+      for index = 1, math.abs(widthDelta) do
+        local item = row[(index - 1) % #row + 1]
+        item.visualWidth = visualWidth(item) + direction
+      end
+    end
+    local x = 7 + gap
+    for _, item in ipairs(row) do
+      item.visualX = x
+      x = x + visualWidth(item) + gap
+    end
+  end
+  return items
+end
+
 local function free(layout, catalog, page, column, row, columns, rows,
                     ignoreId, ignoreOtherId)
   local candidate = {
@@ -91,6 +161,30 @@ function M.place(layout, catalog, id, page, column, row)
   return true
 end
 
+function M.compactRows(layout, catalog)
+  local groups = {}
+  for _, tile in ipairs(layout.tiles or {}) do
+    local _, columns = definition(catalog, tile.id)
+    if columns then
+      local key = tostring(tile.page) .. ":" .. tostring(tile.row)
+      groups[key] = groups[key] or {}
+      groups[key][#groups[key] + 1] = { tile = tile, columns = columns }
+    end
+  end
+  for _, group in pairs(groups) do
+    table.sort(group, function(a, b)
+      return (tonumber(a.tile.column) or 1)
+        < (tonumber(b.tile.column) or 1)
+    end)
+    local column = 1
+    for _, entry in ipairs(group) do
+      entry.tile.column = column
+      column = column + entry.columns
+    end
+  end
+  return layout
+end
+
 function M.swap(layout, catalog, firstId, secondId)
   local first, second = M.find(layout, firstId), M.find(layout, secondId)
   local _, firstColumns, firstRows = definition(catalog, firstId)
@@ -122,13 +216,15 @@ function M.swap(layout, catalog, firstId, secondId)
     firstTarget.page, firstTarget.column, firstTarget.row
   second.page, second.column, second.row =
     secondTarget.page, secondTarget.column, secondTarget.row
+  M.compactRows(layout, catalog)
   return true, "swap"
 end
 
-function M.remove(layout, id)
+function M.remove(layout, id, catalog)
   local _, index = M.find(layout, id)
   if not index then return false end
   table.remove(layout.tiles, index)
+  if catalog then M.compactRows(layout, catalog) end
   return true
 end
 
@@ -141,6 +237,7 @@ function M.removePackage(layout, catalog, packageId)
       removed = removed + 1
     end
   end
+  M.compactRows(layout, catalog)
   return removed
 end
 
@@ -170,43 +267,34 @@ function M.tiles(layout, catalog, page)
       end
     end
   end
-  return result
+  return M.spaceRows(result)
 end
 
 function M.plusSlots(layout, catalog, page, ignoreId)
   local slots = {}
   local _, movingColumns, movingRows = definition(catalog, ignoreId)
+  local source = ignoreId and M.find(layout, ignoreId)
   for row = 1, M.rows do
-    local column = 1
-    while column <= M.columns do
-      if free(layout, catalog, page, column, row, 1, 1, ignoreId) then
-        local first = column
-        repeat column = column + 1
-        until column > M.columns
-          or not free(layout, catalog, page, column, row, 1, 1, ignoreId)
-        local columns = column - first
-        if movingColumns then
-          local count = math.floor(columns / movingColumns)
-          local start = first + math.floor(
-            (columns - count * movingColumns) / 2)
-          for index = 0, count - 1 do
-            local target = start + index * movingColumns
-            if M.canPlace(layout, catalog, ignoreId, page, target, row,
-                ignoreId) then
-              slots[#slots + 1] = {
-                column = target, row = row,
-                columns = movingColumns, rows = movingRows,
-              }
-            end
+    if not (source and source.page == page and source.row == row) then
+      local column = 1
+      local best
+      while column <= M.columns do
+        if free(layout, catalog, page, column, row, 1, 1, ignoreId) then
+          local first = column
+          repeat column = column + 1
+          until column > M.columns
+            or not free(layout, catalog, page, column, row, 1, 1, ignoreId)
+          local columns = column - first
+          local needed = movingColumns or 3
+          if columns >= needed and (not best or columns > best.columns) then
+            best = { column = first, row = row, columns = columns,
+              rows = movingRows or 1, visualColumns = needed }
           end
-        elseif not ignoreId and columns >= 3 then
-          slots[#slots + 1] = {
-            column = first, row = row, columns = columns, rows = 1,
-          }
+        else
+          column = column + 1
         end
-      else
-        column = column + 1
       end
+      if best then slots[#slots + 1] = best end
     end
   end
   return slots
@@ -233,6 +321,7 @@ function M.drop(layout, catalog, id, page, column, row)
         + math.floor((slot.columns - columns) / 2)
       local targetRow = slot.row + math.floor((slot.rows - rows) / 2)
       local moved = M.place(layout, catalog, id, page, targetColumn, targetRow)
+      if moved then M.compactRows(layout, catalog) end
       return moved, moved and "move" or "incompatible"
     end
   end

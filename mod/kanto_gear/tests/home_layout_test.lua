@@ -59,11 +59,10 @@ assert(#pageTwoSlots == 2
   and pageTwoSlots[1].column == 4 and pageTwoSlots[1].columns == 9
   and pageTwoSlots[2].column == 1 and pageTwoSlots[2].columns == 12)
 local appTargets = Home.plusSlots(layout, catalog, 4, "bag_app")
-assert(#appTargets == 8)
+assert(#appTargets == 2)
 for index, target in ipairs(appTargets) do
-  assert(target.column == ({ 1, 4, 7, 10 })[(index - 1) % 4 + 1]
-    and target.row == math.floor((index - 1) / 4) + 1
-    and target.columns == 3)
+  assert(target.column == 1 and target.row == index
+    and target.columns == 12 and target.visualColumns == 3)
 end
 local widgetLayout = { tiles = {
   { id = "explorer_widget", page = 1, column = 1, row = 1 },
@@ -77,13 +76,57 @@ for _, item in ipairs(widgetLibrary) do
   if item.id == "party_widget" then partyWidget = item end
 end
 assert(partyWidget and partyWidget.available)
+local centeredPair = Home.tiles({ tiles = {
+  { id = "bag_app", page = 1, column = 1, row = 1 },
+  { id = "notes_app", page = 1, column = 4, row = 1 },
+} }, catalog, 1)
+assert(centeredPair[1].visualX == 45 and centeredPair[2].visualX == 139)
+assert(centeredPair[1].visualWidth == 56
+  and centeredPair[2].visualWidth == 56
+  and centeredPair[1].visualX - 7 == 38
+  and centeredPair[2].visualX
+    - (centeredPair[1].visualX + 56) == 38
+  and 233 - (centeredPair[2].visualX + 56) == 38)
+local mixedPair = Home.tiles({ tiles = {
+  { id = "explorer_widget", page = 1, column = 1, row = 1 },
+  { id = "party_app", page = 1, column = 8, row = 1 },
+} }, catalog, 1)
+assert(mixedPair[1].visualX == 20 and mixedPair[1].visualWidth == 132
+  and mixedPair[2].visualX == 165 and mixedPair[2].visualWidth == nil)
+local fullWidgets = Home.tiles(layout, catalog, 1)
+assert(fullWidgets[1].visualX == 8 and fullWidgets[1].visualWidth == 130
+  and fullWidgets[2].visualX == 139
+  and fullWidgets[2].visualWidth == nil)
+local fourApps = Home.tiles({ tiles = {
+  { id = "bag_app", page = 1, column = 1, row = 1 },
+  { id = "notes_app", page = 1, column = 4, row = 1 },
+  { id = "party_app", page = 1, column = 7, row = 1 },
+  { id = "hidden_widget", page = 1, column = 10, row = 1 },
+} }, catalog, 1)
+for index, tile in ipairs(fourApps) do
+  assert(tile.visualX == 9 + (index - 1) * 56
+    and tile.visualWidth == 54)
+end
+local gappedLayout = { tiles = {
+  { id = "bag_app", page = 1, column = 5, row = 1 },
+  { id = "notes_app", page = 1, column = 9, row = 1 },
+} }
+Home.compactRows(gappedLayout, catalog)
+assert(Home.find(gappedLayout, "bag_app").column == 1
+  and Home.find(gappedLayout, "notes_app").column == 4)
+local addSlots = Home.plusSlots(gappedLayout, catalog, 1)
+local fluidEdit = Home.tiles(gappedLayout, catalog, 1)
+for _, slot in ipairs(addSlots) do fluidEdit[#fluidEdit + 1] = slot end
+Home.spaceRows(fluidEdit)
+assert(addSlots[1].column == 7 and addSlots[1].visualX == 163
+  and addSlots[2].column == 1 and addSlots[2].visualX == 92)
 local swapLayout = { tiles = {
   { id = "bag_app", page = 1, column = 1, row = 1 },
   { id = "notes_app", page = 2, column = 10, row = 2 },
 } }
 assert(Home.drop(swapLayout, catalog, "bag_app", 2, 10, 2))
 assert(Home.find(swapLayout, "bag_app").page == 2
-  and Home.find(swapLayout, "bag_app").column == 10
+  and Home.find(swapLayout, "bag_app").column == 1
   and Home.find(swapLayout, "notes_app").page == 1
   and Home.find(swapLayout, "notes_app").column == 1)
 local widgetSwapLayout = { tiles = {
@@ -109,7 +152,7 @@ local emptyDropLayout = { tiles = {
   { id = "bag_app", page = 1, column = 1, row = 2 },
 } }
 assert(Home.drop(emptyDropLayout, catalog, "bag_app", 1, 10, 1))
-assert(Home.find(emptyDropLayout, "bag_app").column == 9
+assert(Home.find(emptyDropLayout, "bag_app").column == 8
   and Home.find(emptyDropLayout, "bag_app").row == 1)
 assert(Home.drop(emptyDropLayout, catalog, "bag_app", 3, 1, 2))
 assert(Home.find(emptyDropLayout, "bag_app").page == 3

@@ -1306,6 +1306,11 @@ function love.load()
         { id = "explorer_widget", page = 1, column = 1, row = 2 },
         { id = "party_widget", page = 1, column = 8, row = 2 },
       }
+    elseif screen == "home-pair" then
+      layout.tiles = {
+        { id = "store_app", page = 1, column = 1, row = 1 },
+        { id = "notes_app", page = 1, column = 4, row = 1 },
+      }
     end
     if homeAdd then
       Home.remove(layout, "party_widget")
@@ -1355,6 +1360,10 @@ function love.load()
     if homeEdit and model.tiles[1] then
       model.dragging = model.tiles[1].id
       model.slots = Home.plusSlots(layout, catalog, homePage, model.dragging)
+      local rowItems = {}
+      for _, tile in ipairs(model.tiles) do rowItems[#rowItems + 1] = tile end
+      for _, slot in ipairs(model.slots) do rowItems[#rowItems + 1] = slot end
+      Home.spaceRows(rowItems)
     end
     if homeAdd then
       model.tiles = nil

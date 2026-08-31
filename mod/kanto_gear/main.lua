@@ -2499,6 +2499,7 @@ return function(mod)
           tonumber(tile.page), tonumber(tile.column), tonumber(tile.row))
       end
     end
+    displayRuntime.Home.compactRows(layout, displayRuntime.homeCatalog)
     displayRuntime.home.layout = layout
     displayRuntime.home.page = math.max(1, math.min(
       displayRuntime.Home.pageCount(layout),
@@ -4752,6 +4753,22 @@ return function(mod)
     end
   end
 
+  function displayRuntime.homePageElements()
+    local home = displayRuntime.home
+    local tiles = displayRuntime.Home.tiles(home.layout,
+      displayRuntime.homeCatalog, home.page)
+    local slots = home.editing and displayRuntime.Home.plusSlots(
+      home.layout, displayRuntime.homeCatalog, home.page, home.swapSource)
+      or nil
+    if slots then
+      local rowItems = {}
+      for _, tile in ipairs(tiles) do rowItems[#rowItems + 1] = tile end
+      for _, slot in ipairs(slots) do rowItems[#rowItems + 1] = slot end
+      displayRuntime.Home.spaceRows(rowItems)
+    end
+    return tiles, slots
+  end
+
   function displayRuntime.drawHome()
     local home = displayRuntime.home
     local layout = home.layout or { tiles = {} }
@@ -4764,13 +4781,12 @@ return function(mod)
     local explorer = overview and displayRuntime.explorerModel(overview) or {}
     local party = partyData()
     local lead, leadView = party[1], displayRuntime.partyView(party[1])
+    local tiles, slots = displayRuntime.homePageElements()
     local model = {
       page = home.page, pages = pages,
-      tiles = displayRuntime.Home.tiles(layout,
-        displayRuntime.homeCatalog, home.page),
+      tiles = tiles,
       editing = home.editing,
-      slots = home.editing and displayRuntime.Home.plusSlots(layout,
-        displayRuntime.homeCatalog, home.page, home.swapSource),
+      slots = slots,
       dragging = home.swapSource,
       route = explorer.route or "UNKNOWN AREA",
       overview = overview, image = explorer.image,
@@ -6868,8 +6884,8 @@ return function(mod)
     return true
   end
   function displayRuntime.homeTileAt(x, y)
-    for _, tile in ipairs(displayRuntime.Home.tiles(displayRuntime.home.layout,
-        displayRuntime.homeCatalog, displayRuntime.home.page)) do
+    local tiles = displayRuntime.homePageElements()
+    for _, tile in ipairs(tiles) do
       local left, top, width, height = THEME.hgss:homeRect(tile)
       if inside(x, y, left, top, width, height) then return tile end
     end
@@ -6899,9 +6915,9 @@ return function(mod)
         if item and item.available and inside(x, y,
             10 + column * 111, 49 + row * 48, 108, 46) then
           displayRuntime.Home.place(layout, displayRuntime.homeCatalog,
-            item.id, home.page,
-            home.addSlot.column + math.floor(
-              (home.addSlot.columns - item.columns) / 2), home.addSlot.row)
+            item.id, home.page, home.addSlot.column, home.addSlot.row)
+          displayRuntime.Home.compactRows(layout,
+            displayRuntime.homeCatalog)
           home.library, home.addSlot = false, nil
           displayRuntime.saveHome()
           return
@@ -6919,7 +6935,8 @@ return function(mod)
       if tile then
         local left, top = THEME.hgss:homeRect(tile)
         if (x - left - 6) ^ 2 + (y - top - 6) ^ 2 <= 36 then
-          displayRuntime.Home.remove(layout, tile.id)
+          displayRuntime.Home.remove(layout, tile.id,
+            displayRuntime.homeCatalog)
           if home.swapSource == tile.id then home.swapSource = nil end
           displayRuntime.saveHome()
         elseif not home.swapSource then
@@ -6933,8 +6950,8 @@ return function(mod)
         end
         return
       end
-      for _, slot in ipairs(displayRuntime.Home.plusSlots(layout,
-          displayRuntime.homeCatalog, home.page, home.swapSource)) do
+      local _, slots = displayRuntime.homePageElements()
+      for _, slot in ipairs(slots) do
         local left, top, width, height = THEME.hgss:homeRect(slot)
         if inside(x, y, left, top, width, height) then
           if home.swapSource then
