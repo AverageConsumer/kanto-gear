@@ -1762,6 +1762,8 @@ return function(ui)
       if inside(7, 90, 226, 73) then return "preview" end
       return nil
     end
+    if y < 29 and x >= 27 and x < 50 then return "prev" end
+    if y < 29 and x >= 116 and x < 139 then return "next" end
     for index = 1, 3 do
       if inside(7 + (index - 1) * 76, 195, 73, 18) then
         return "tab", index

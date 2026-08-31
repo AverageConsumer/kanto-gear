@@ -277,12 +277,16 @@ function love.load()
     local app, appIndex = theme:storeHit(150, 110, "apps")
     local installed, installedIndex = theme:storeHit(20, 135, "library")
     local tab, tabIndex = theme:storeHit(170, 202, "today")
+    local previous = theme:storeHit(34, 13, "today")
+    local nextPage = theme:storeHit(130, 13, "today")
     assert(action == "action" and remove == "remove"
         and featured == "featured" and featuredAction == "featured_action"
         and recommendation == "recommendation" and index == 2
         and app == "app" and appIndex == 4
         and installed == "installed" and installedIndex == 3
-        and tab == "tab" and tabIndex == 3,
+        and tab == "tab" and tabIndex == 3
+        and previous == "prev" and nextPage == "next"
+        and theme:storeHit(34, 13, "detail") == nil,
       "Silph Store touch targets match every visible control")
   end
   assert(theme:battleEffectLabel({ powerText = "95", effectiveness = 20 })
@@ -436,7 +440,8 @@ function love.load()
         or trainerScreen or trainerSteps or tools or swapMode or context or summary
         or moves or memo or memoTransition
         or transition or movesTransition,
-      not home and not store and not explorer and not trainerScreen
+      store and not storeDetail
+        or not home and not store and not explorer and not trainerScreen
         and not trainerSteps and not tools and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
         or not context) or toolsScreen, headerOffset)

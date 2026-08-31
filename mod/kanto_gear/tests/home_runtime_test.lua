@@ -99,6 +99,12 @@ T.eq(display.storeEntry(store.tools).state, "open",
   "enabled bundled apps return to OPEN")
 
 home.storeView, home.storeDetail = "apps", nil
+display.tapStore(34, 13)
+T.eq(home.storeView, "today",
+  "the Store header's left arrow matches a right swipe")
+display.tapStore(130, 13)
+T.eq(home.storeView, "apps",
+  "the Store header's right arrow matches a left swipe")
 display.setPackageInstalled("tools", false)
 display.tapStore(160, 170)
 T.eq(display.storeEntry(store.tools).state, "open",

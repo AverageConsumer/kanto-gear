@@ -5162,11 +5162,21 @@ return function(mod)
     return apps
   end
 
+  function displayRuntime.cycleStoreView(direction)
+    local home = displayRuntime.home
+    local views = { "today", "apps", "library" }
+    local current = 1
+    for index, view in ipairs(views) do
+      if view == home.storeView then current = index break end
+    end
+    home.storeView = views[(current - 1 + direction) % #views + 1]
+  end
+
   function displayRuntime.drawStore()
     local home, view = displayRuntime.home, displayRuntime.home.storeView
     local detail = home.storeDetail and displayRuntime.storeEntry(
       displayRuntime.storeById[home.storeDetail])
-    header(detail and detail.label or "SILPH STORE", true)
+    header(detail and detail.label or "SILPH STORE", true, not detail)
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
     if detail then
       THEME.hgss:storeDetail({ app = detail })
@@ -7325,7 +7335,7 @@ return function(mod)
 
   function displayRuntime.tapStore(x, y)
     local home = displayRuntime.home
-    if y < 30 and x < 27 then
+    if y < 30 and x < 22 then
       if home.storeDetail then home.storeDetail = nil
       else page, home.activeApp = "HOME", nil end
       dirty = true
@@ -7335,6 +7345,11 @@ return function(mod)
       displayRuntime.storeById[home.storeDetail])
     local view = detail and "detail" or home.storeView
     local action, index = THEME.hgss:storeHit(x, y, view)
+    if action == "prev" or action == "next" then
+      displayRuntime.cycleStoreView(action == "next" and 1 or -1)
+      dirty = true
+      return
+    end
     if view == "detail" then
       if action == "remove" and detail.removable then
         displayRuntime.setPackageInstalled(detail.id, false)
@@ -7926,14 +7941,7 @@ return function(mod)
     elseif THEME.style == "hgss" and page == "STORE" then
       local home = displayRuntime.home
       if home.storeDetail then home.storeDetail = nil
-      else
-        local views = { "today", "apps", "library" }
-        local current = 1
-        for index, view in ipairs(views) do
-          if view == home.storeView then current = index break end
-        end
-        home.storeView = views[(current - 1 + direction) % #views + 1]
-      end
+      else displayRuntime.cycleStoreView(direction) end
       dirty = true
       return
     end
