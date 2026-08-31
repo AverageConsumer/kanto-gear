@@ -177,6 +177,30 @@ api.device = api.device or {
 display.openHomeApp("store")
 T.check(pcall(display.drawContents),
   "the real Store runtime model renders without an exception")
+display.prepareMotion()
+local storeMotionKey = display.motionKey()
+home.storeView = "apps"
+T.check(display.motionKey() ~= storeMotionKey,
+  "Store subviews receive distinct shallow-motion identities")
+display.prepareMotion()
+T.check(display.motion.started ~= nil,
+  "changing an app subview starts the shared shallow transition")
+T.check(pcall(display.applyMotion),
+  "the shared transition composites its retained frame safely")
+display.motion.started = love.timer.getTime() - display.motion.duration
+display.applyMotion()
+T.eq(display.motion.started, nil,
+  "the shared transition stops redrawing after its short duration")
+home.storeView = "today"
+world.screenId, world.phase, world.index = "MotionFixture", "menu", 1
+local phaseKey = display.motionKey()
+world.index = 2
+T.eq(display.motionKey(), phaseKey,
+  "ordinary cursor movement does not animate the whole screen")
+world.phase = "quantity"
+T.check(display.motionKey() ~= phaseKey,
+  "an in-place context phase change receives shallow motion")
+world.screenId, world.phase, world.index = nil, nil, nil
 local theme = upvalue(display.drawContents, "THEME")
 
 local oldRodSurface = catalog.surfaces.tool_widget_old_rod

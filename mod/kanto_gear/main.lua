@@ -1634,7 +1634,7 @@ end
 
 local function button(x, y, w, h, label, selected)
   if THEME.style == "hgss" then
-    THEME.hgss:button(x, y, w, h, label, selected, 1)
+    THEME.hgss:button(x, y, w, h, label, selected, 1, 4 / 3)
     return
   end
   local modern = THEME.style ~= "classic"
@@ -2054,6 +2054,7 @@ return function(mod)
   local partyMoveFrom = nil
   local partyActionSlot = nil
   local hgssRuntime = {}
+  displayRuntime.motion = { duration = 0.16 }
   local choiceTop = nil
   local choiceReadyAt = 0
   local choiceNudgeUntil = 0
@@ -3451,6 +3452,111 @@ return function(mod)
     end
   end
 
+  function displayRuntime.motionKey()
+    if THEME.style ~= "hgss" then return nil end
+    local mode, top = screenState()
+    local home, explorer = displayRuntime.home, displayRuntime.explorer
+    local topId = top and (top.screenId or top.kind or top.phase) or ""
+    local summary = compat.isScreen(top, "summary") and top or nil
+    local learn = displayRuntime.moveLearnScreen()
+    local pcKind = pcSession()
+    local listKind = pcListKind(pcList())
+    local choice = dialogueChoice()
+    return table.concat({
+      mode or "", tostring(topId),
+      not battle and tostring(top and top.phase or "") or "",
+      not battle and tostring(top and top.savePhase or "") or "",
+      not battle and top and top.qtyState and "quantity" or "",
+      not battle and top and top.confirm and "confirm" or "",
+      moveInfo and "move-info" or "",
+      learn and (learn.selecting and "learn-select" or "learn") or "",
+      choice and "choice" or "", pcKind or "", listKind or "",
+      summary and ("summary-" .. tostring(summary.page or 1)) or "",
+      battle and ("battle-" .. tostring(battle.prompt)) or "",
+      battle and battle.itemIndex ~= nil and "bag" or "",
+      battle and battle.partyIndex ~= nil and "battle-party" or "",
+      top and top.submenu and "submenu" or "",
+      top and tostring(top.pocketIndex
+        or top.__gen3uiBagPocketIndex or "") or "",
+      page or "", home.activeApp or "",
+      home.editing and "edit" or "",
+      home.library and ("library-" .. tostring(home.libraryKind)
+        .. "-" .. tostring(home.libraryPage)) or "",
+      page == "HOME" and tostring(home.page) or "",
+      page == "STORE" and tostring(home.storeDetail or home.storeView) or "",
+      tostring(explorer.view or ""), tostring(explorer.selected or ""),
+      explorer.mapFull and "map-full" or "",
+      tostring(explorer.page or ""), tostring(explorer.detailPage or ""),
+      page == "TOOLS" and tostring(tools.page or 1) or "",
+      page == "GUIDE" and tostring(guidePage or 1) or "",
+      page == "AREA" and tostring(areaPage or 1) or "",
+      partyActionSlot and "party-action" or "",
+      partyMoveFrom and "party-swap" or "",
+      trainerStepsOpen and "trainer-steps" or "",
+      radarOpen and "radar" or "", fieldChoice and fieldChoice.kind or "",
+      pendingFly and "fly-prompt" or "",
+      pendingAction and "tool-prompt" or "",
+      displayRuntime.guideDetail and ("guide-detail-"
+        .. tostring(displayRuntime.guideDetail.page or 1)) or "",
+    }, "|")
+  end
+
+  function displayRuntime.prepareMotion()
+    local motion, key = displayRuntime.motion, displayRuntime.motionKey()
+    if not key then
+      motion.key, motion.started = nil, nil
+      return
+    end
+    local changed = motion.key and motion.key ~= key
+    motion.key = key
+    if not changed then return end
+    local now = love.timer.getTime()
+    if hgssRuntime.animation
+        or THEME.hgss:partyActionAnimating(now) then
+      motion.started = nil
+      return
+    end
+    if not motion.canvas
+        or motion.canvas:getWidth() ~= canvas:getWidth()
+        or motion.canvas:getHeight() ~= canvas:getHeight() then
+      motion.canvas = G.newCanvas(canvas:getWidth(), canvas:getHeight(),
+        { dpiscale = 1 })
+      motion.canvas:setFilter("nearest", "nearest")
+    end
+    local previous = G.getCanvas()
+    G.setCanvas(motion.canvas)
+    G.origin()
+    G.setScissor()
+    G.setShader()
+    G.setBlendMode("alpha")
+    G.clear(0, 0, 0, 0)
+    color({ 1, 1, 1, 1 })
+    G.draw(canvas)
+    G.setCanvas(previous)
+    motion.started = now
+  end
+
+  function displayRuntime.applyMotion()
+    local motion = displayRuntime.motion
+    if not (motion.started and motion.canvas) then return end
+    local progress = math.min(1,
+      (love.timer.getTime() - motion.started) / motion.duration)
+    if progress >= 1 then
+      motion.started = nil
+      return
+    end
+    progress = progress * progress * (3 - 2 * progress)
+    local previous = G.getCanvas()
+    G.setCanvas(canvas)
+    G.origin()
+    G.setScissor()
+    G.setShader()
+    G.setBlendMode("alpha")
+    color({ 1, 1, 1, 1 - progress })
+    G.draw(motion.canvas)
+    G.setCanvas(previous)
+  end
+
   local function trackChoice(top, now)
     if not choiceTop and not top then return false end
     if choiceTop and choiceTop[1] == top
@@ -3531,6 +3637,8 @@ return function(mod)
   end
 
   local function namingKey(x, y, w, label, selected, raw)
+    local pressed = THEME.style == "hgss"
+      and THEME.hgss:beginPress(x, y, w, 15, true, 1, 4 / 3)
     label = raw and tostring(label) or THEME:translate(label)
     local paperLuma = PAPER[1] * 0.2126
       + PAPER[2] * 0.7152 + PAPER[3] * 0.0722
@@ -3549,6 +3657,7 @@ return function(mod)
     color(foreground)
     EngineFont.draw(label, x + math.floor((w - EngineFont.width(label)) / 2),
                     y + 3)
+    if pressed then THEME.hgss:endPress(pressed) end
   end
 
   local function drawNaming(top, grid)
@@ -6047,20 +6156,24 @@ return function(mod)
   end
 
   local function pcMonCard(mon, x, y, selected)
+    local pressed = THEME.style == "hgss"
+      and THEME.hgss:beginPress(x, y, 144, 22, true, 1, 4 / 3)
     box("fill", x, y, 144, 22, selected and DARK or MID)
     outline(x, y, 144, 22, INK)
-    if not mon then return end
-    local def = game.data.pokemon[mon.species] or {}
-    if compat.partyEgg(mon) then
-      compat.drawPokemonIcon(mon, x + 2, y + 1, 20)
-    else
-      drawSprite(mon.species, "front", x + 2, y + 1, 20, 20,
-                 nil, mon.source or mon)
+    if mon then
+      local def = game.data.pokemon[mon.species] or {}
+      if compat.partyEgg(mon) then
+        compat.drawPokemonIcon(mon, x + 2, y + 1, 20)
+      else
+        drawSprite(mon.species, "front", x + 2, y + 1, 20, 20,
+                   nil, mon.source or mon)
+      end
+      text(fit(mon.nickname or def.name or mon.species, 13), x + 26, y + 4,
+           selected and PAPER or INK)
+      text(THEME:format("LV.%d", mon.level or 0), x + 111, y + 4,
+           selected and PAPER or DARK)
     end
-    text(fit(mon.nickname or def.name or mon.species, 13), x + 26, y + 4,
-         selected and PAPER or INK)
-    text(THEME:format("LV.%d", mon.level or 0), x + 111, y + 4,
-         selected and PAPER or DARK)
+    if pressed then THEME.hgss:endPress(pressed) end
   end
 
   local function drawPcBoxList(list)
@@ -6637,7 +6750,11 @@ return function(mod)
 
   local function draw()
     G.push("all")
-    local ok, err = pcall(displayRuntime.drawContents)
+    local ok, err = pcall(function()
+      displayRuntime.prepareMotion()
+      displayRuntime.drawContents()
+      displayRuntime.applyMotion()
+    end)
     G.pop()
     if not ok then error(err, 0) end
   end
@@ -9143,6 +9260,7 @@ return function(mod)
         hgssRuntime.animation, dirty = nil, true
       end
     end
+    if displayRuntime.motion.started then dirty = true end
     if now >= nextClock then
       local title = screenState() == "title"
       nextClock = now + (title and 0.5

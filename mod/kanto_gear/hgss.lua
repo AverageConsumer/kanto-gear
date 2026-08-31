@@ -117,12 +117,12 @@ return function(ui)
     return tx >= x and tx < x + w and ty >= y and ty < y + h
   end
 
-  function H:beginPress(x, y, w, h, enabled, scale)
+  function H:beginPress(x, y, w, h, enabled, scale, offset)
     local pressed = self:isPressed(x, y, w, h, enabled, scale)
     if pressed then
       self.pressActive = true
       ui.graphics.push()
-      ui.graphics.translate(0, 2)
+      ui.graphics.translate(0, offset or 2)
     end
     return pressed
   end
@@ -2439,8 +2439,8 @@ return function(ui)
     self:endPress(pressed)
   end
 
-  function H:button(x, y, w, h, label, selected, pressScale)
-    local pressed = self:beginPress(x, y, w, h, true, pressScale)
+  function H:button(x, y, w, h, label, selected, pressScale, pressOffset)
+    local pressed = self:beginPress(x, y, w, h, true, pressScale, pressOffset)
     self:panel(x, y, w, h, selected, self.colors.blueLight)
     local shown = fit(label, math.floor((w - 8) / 6))
     text(shown, x + math.floor((w - #glyphs(shown) * 6) / 2),
