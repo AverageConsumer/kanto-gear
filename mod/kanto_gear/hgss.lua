@@ -486,32 +486,67 @@ return function(ui)
     self:detailChevron(x + w - 10, y + 7, self.colors.white)
   end
 
+  local homeIconColors = {
+    ink = { 0.09, 0.11, 0.10, 1 },
+    deep = { 0.16, 0.20, 0.19, 1 },
+    paper = { 0.91, 0.93, 0.86, 1 },
+    white = { 0.98, 0.98, 0.94, 1 },
+    silver = { 0.66, 0.72, 0.69, 1 },
+    silverLight = { 0.86, 0.90, 0.86, 1 },
+    red = { 0.84, 0.20, 0.16, 1 },
+    redLight = { 1.00, 0.38, 0.27, 1 },
+    redDark = { 0.48, 0.10, 0.09, 1 },
+    blue = { 0.20, 0.49, 0.72, 1 },
+    blueLight = { 0.42, 0.72, 0.88, 1 },
+    blueDark = { 0.08, 0.26, 0.40, 1 },
+    green = { 0.23, 0.62, 0.35, 1 },
+    greenLight = { 0.48, 0.80, 0.48, 1 },
+    greenDark = { 0.09, 0.34, 0.20, 1 },
+    amber = { 0.91, 0.57, 0.10, 1 },
+    amberLight = { 1.00, 0.77, 0.25, 1 },
+    amberDark = { 0.51, 0.28, 0.06, 1 },
+    skin = { 0.92, 0.63, 0.43, 1 },
+  }
+
   function H:homePokedexIcon(x, y)
-    local colors = self.colors
-    clipped(x, y + 1, 25, 24, colors.outline)
-    clipped(x + 2, y + 3, 21, 20, colors.redLight)
-    box("fill", x + 5, y + 3, 2, 20, colors.outline)
-    box("fill", x + 9, y + 7, 8, 7, colors.outline)
-    box("fill", x + 10, y + 8, 6, 5, colors.blueLight)
-    box("fill", x + 10, y + 17, 2, 2, colors.white)
-    box("fill", x + 14, y + 17, 2, 2, colors.white)
-    box("fill", x + 18, y + 17, 2, 2, colors.white)
+    local c = homeIconColors
+    clipped(x + 2, y + 1, 23, 25, c.ink)
+    clipped(x + 3, y + 2, 21, 23, c.redDark)
+    box("fill", x + 4, y + 3, 17, 19, c.red)
+    box("fill", x + 5, y + 3, 15, 2, c.redLight)
+    box("fill", x + 4, y + 5, 3, 18, c.redDark)
+    box("fill", x + 7, y + 5, 1, 18, c.ink)
+    box("fill", x + 10, y + 6, 10, 9, c.ink)
+    box("fill", x + 11, y + 7, 8, 7, c.blue)
+    box("fill", x + 12, y + 8, 6, 2, c.blueLight)
+    box("fill", x + 10, y + 18, 3, 3, c.deep)
+    box("fill", x + 16, y + 18, 2, 2, c.white)
+    box("fill", x + 20, y + 17, 2, 4, c.amberLight)
+    box("fill", x + 20, y + 22, 2, 1, c.redLight)
+    box("fill", x + 8, y + 23, 13, 1, c.redLight)
   end
 
   function H:homeTrainerIcon(x, y)
-    local G, colors = ui.graphics, self.colors
-    clipped(x, y + 2, 27, 21, colors.outline)
-    clipped(x + 2, y + 4, 23, 17, colors.surface)
-    color(colors.blueLight)
-    G.circle("fill", x + 8, y + 10, 4)
-    box("fill", x + 4, y + 15, 9, 4, colors.blueLight)
-    box("fill", x + 15, y + 7, 7, 2, colors.blue)
-    box("fill", x + 15, y + 11, 7, 1, colors.silverDark)
-    box("fill", x + 15, y + 15, 5, 1, colors.silverDark)
+    local G, c = ui.graphics, homeIconColors
+    clipped(x + 1, y + 3, 25, 22, c.ink)
+    clipped(x + 2, y + 4, 23, 20, c.blueDark)
+    clipped(x + 3, y + 5, 21, 17, c.paper)
+    box("fill", x + 4, y + 6, 19, 2, c.blue)
+    box("fill", x + 4, y + 20, 19, 2, c.amber)
+    color(c.skin)
+    G.circle("fill", x + 9, y + 13, 4)
+    box("fill", x + 5, y + 17, 9, 3, c.blue)
+    box("fill", x + 5, y + 10, 8, 2, c.red)
+    box("fill", x + 7, y + 9, 5, 1, c.redLight)
+    box("fill", x + 12, y + 11, 2, 2, c.ink)
+    box("fill", x + 16, y + 10, 6, 2, c.blue)
+    box("fill", x + 16, y + 14, 6, 1, c.deep)
+    box("fill", x + 16, y + 17, 4, 1, c.deep)
+    box("fill", x + 22, y + 6, 1, 2, c.blueLight)
   end
 
   function H:homeToolsIcon(x, y)
-    local G, colors = ui.graphics, self.colors
+    local G, c = ui.graphics, homeIconColors
     local function cog(tint, ox, oy)
       color(tint)
       G.circle("fill", x + 13 + ox, y + 13 + oy, 8)
@@ -525,33 +560,52 @@ return function(ui)
           tooth[3], tooth[4], tint)
       end
     end
-    cog(colors.outline, 1, 1)
-    cog(colors.silver, 0, 0)
-    color(colors.outline)
+    cog(c.ink, 1, 1)
+    cog(c.silver, 0, 0)
+    box("fill", x + 7, y + 5, 7, 2, c.silverLight)
+    box("fill", x + 5, y + 8, 3, 5, c.silverLight)
+    box("fill", x + 18, y + 17, 3, 3, c.deep)
+    color(c.ink)
     G.circle("fill", x + 13, y + 13, 4)
-    color(colors.surface)
-    G.circle("fill", x + 13, y + 13, 2)
+    color(c.blue)
+    G.circle("fill", x + 13, y + 13, 2.5)
+    box("fill", x + 12, y + 11, 2, 2, c.blueLight)
   end
 
   function H:homeStoreIcon(x, y)
-    local colors = self.colors
-    box("fill", x + 5, y + 5, 17, 19, colors.outline)
-    box("fill", x + 7, y + 7, 13, 15, colors.surface)
-    box("fill", x + 9, y + 2, 9, 2, colors.outline)
-    box("fill", x + 7, y + 4, 2, 5, colors.outline)
-    box("fill", x + 18, y + 4, 2, 5, colors.outline)
-    box("fill", x + 12, y + 10, 3, 9, colors.greenLight)
-    box("fill", x + 9, y + 13, 9, 3, colors.greenLight)
+    local c = homeIconColors
+    clipped(x + 1, y + 5, 25, 20, c.ink)
+    clipped(x + 2, y + 6, 23, 18, c.greenDark)
+    box("fill", x + 3, y + 11, 21, 11, c.green)
+    box("fill", x + 4, y + 12, 19, 2, c.greenLight)
+    box("fill", x + 3, y + 6, 21, 4, c.paper)
+    box("fill", x + 4, y + 6, 4, 5, c.red)
+    box("fill", x + 12, y + 6, 4, 5, c.red)
+    box("fill", x + 20, y + 6, 3, 5, c.red)
+    box("fill", x + 8, y + 15, 7, 7, c.blueDark)
+    box("fill", x + 9, y + 16, 5, 5, c.blueLight)
+    box("fill", x + 17, y + 15, 4, 7, c.paper)
+    box("fill", x + 18, y + 16, 2, 5, c.amberLight)
+    box("fill", x + 5, y + 23, 17, 1, c.greenLight)
   end
 
   function H:homeNotesIcon(x, y)
-    local colors = self.colors
-    clipped(x + 3, y + 1, 21, 25, colors.outline)
-    clipped(x + 5, y + 3, 17, 21, colors.surface)
-    box("fill", x + 8, y + 8, 11, 2, colors.blueLight)
-    box("fill", x + 8, y + 13, 11, 2, colors.silverDark)
-    box("fill", x + 8, y + 18, 8, 2, colors.silverDark)
-    box("fill", x + 17, y + 17, 3, 7, colors.amberLight)
+    local c = homeIconColors
+    clipped(x + 3, y + 1, 21, 26, c.ink)
+    clipped(x + 4, y + 2, 19, 24, c.blueDark)
+    clipped(x + 7, y + 3, 15, 21, c.paper)
+    box("fill", x + 8, y + 4, 13, 2, c.white)
+    for ringY = 5, 20, 5 do
+      box("fill", x + 2, y + ringY, 6, 2, c.ink)
+      box("fill", x + 3, y + ringY, 4, 1, c.amberLight)
+    end
+    box("fill", x + 9, y + 9, 10, 2, c.blue)
+    box("fill", x + 9, y + 14, 10, 1, c.silver)
+    box("fill", x + 9, y + 18, 7, 1, c.silver)
+    box("fill", x + 17, y + 17, 2, 7, c.amberDark)
+    box("fill", x + 18, y + 16, 2, 7, c.amber)
+    box("fill", x + 19, y + 16, 1, 2, c.amberLight)
+    box("fill", x + 17, y + 24, 2, 1, c.ink)
   end
 
   function H:homeAppButton(x, y, w, h, accent, label, icon, selected)
