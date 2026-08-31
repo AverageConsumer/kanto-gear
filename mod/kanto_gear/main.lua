@@ -8334,7 +8334,7 @@ return function(mod)
         if not displayRuntime.home.editing and displayRuntime.Home.longPress(
             love.timer.getTime() - down.at, hdx, hdy) then
           displayRuntime.home.editing = true
-          displayRuntime.home.swapSource = down.homeTile
+          displayRuntime.home.swapSource = nil
           dirty = true
           return
         end

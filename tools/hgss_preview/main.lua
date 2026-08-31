@@ -1357,9 +1357,8 @@ function love.load()
         drawPortrait(gen1 and 6 or 1, x, y, size, false)
       end,
     }
-    if homeEdit and model.tiles[1] then
-      model.dragging = model.tiles[1].id
-      model.slots = Home.plusSlots(layout, catalog, homePage, model.dragging)
+    if homeEdit then
+      model.slots = Home.plusSlots(layout, catalog, homePage)
       local rowItems = {}
       for _, tile in ipairs(model.tiles) do rowItems[#rowItems + 1] = tile end
       for _, slot in ipairs(model.slots) do rowItems[#rowItems + 1] = slot end
