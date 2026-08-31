@@ -120,6 +120,10 @@ for _, slot in ipairs(addSlots) do fluidEdit[#fluidEdit + 1] = slot end
 Home.spaceRows(fluidEdit)
 assert(addSlots[1].column == 7 and addSlots[1].visualX == 163
   and addSlots[2].column == 1 and addSlots[2].visualX == 92)
+assert(Home.place(gappedLayout, catalog, "party_app", 1, 7, 1))
+local focusedSlots = Home.plusSlots(gappedLayout, catalog, 1, "bag_app")
+assert(#focusedSlots == 2 and focusedSlots[1].column == 10
+  and focusedSlots[1].row == 1 and focusedSlots[1].columns == 3)
 local swapLayout = { tiles = {
   { id = "bag_app", page = 1, column = 1, row = 1 },
   { id = "notes_app", page = 2, column = 10, row = 2 },

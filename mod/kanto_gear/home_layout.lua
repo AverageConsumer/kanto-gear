@@ -275,27 +275,28 @@ function M.plusSlots(layout, catalog, page, ignoreId)
   local _, movingColumns, movingRows = definition(catalog, ignoreId)
   local source = ignoreId and M.find(layout, ignoreId)
   for row = 1, M.rows do
-    if not (source and source.page == page and source.row == row) then
-      local column = 1
-      local best
-      while column <= M.columns do
-        if free(layout, catalog, page, column, row, 1, 1, ignoreId) then
-          local first = column
-          repeat column = column + 1
-          until column > M.columns
-            or not free(layout, catalog, page, column, row, 1, 1, ignoreId)
-          local columns = column - first
-          local needed = movingColumns or 3
-          if columns >= needed and (not best or columns > best.columns) then
-            best = { column = first, row = row, columns = columns,
-              rows = movingRows or 1, visualColumns = needed }
-          end
-        else
-          column = column + 1
+    local movingFromRow = source and source.page == page and source.row == row
+    local ignored = ignoreId
+    if movingFromRow then ignored = nil end
+    local column = 1
+    local best
+    while column <= M.columns do
+      if free(layout, catalog, page, column, row, 1, 1, ignored) then
+        local first = column
+        repeat column = column + 1
+        until column > M.columns
+          or not free(layout, catalog, page, column, row, 1, 1, ignored)
+        local columns = column - first
+        local needed = movingColumns or 3
+        if columns >= needed and (not best or columns > best.columns) then
+          best = { column = first, row = row, columns = columns,
+            rows = movingRows or 1, visualColumns = needed }
         end
+      else
+        column = column + 1
       end
-      if best then slots[#slots + 1] = best end
     end
+    if best then slots[#slots + 1] = best end
   end
   return slots
 end

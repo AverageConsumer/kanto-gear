@@ -1358,7 +1358,11 @@ function love.load()
       end,
     }
     if homeEdit then
-      model.slots = Home.plusSlots(layout, catalog, homePage)
+      if os.getenv("KANTO_GEAR_PREVIEW_HOME_FOCUS") == "1"
+          and model.tiles[1] then
+        model.dragging = model.tiles[1].id
+      end
+      model.slots = Home.plusSlots(layout, catalog, homePage, model.dragging)
       local rowItems = {}
       for _, tile in ipairs(model.tiles) do rowItems[#rowItems + 1] = tile end
       for _, slot in ipairs(model.slots) do rowItems[#rowItems + 1] = slot end
