@@ -110,6 +110,11 @@ tap(5, 5)
 T.eq(page(), "HOME", "the app header back button returns Home")
 T.eq(home.activeApp, nil, "returning Home clears app ownership")
 
+T.check(display.openHomeApp("map"), "Map opens from Home")
+T.eq(page(), "MAP", "Map app reuses the existing region map")
+tap(5, 5)
+T.eq(page(), "HOME", "Map header back returns Home")
+
 T.check(display.openHomeApp("explorer"), "Explorer opens from Home")
 display.explorer.view = "wild"
 tap(5, 5)

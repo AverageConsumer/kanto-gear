@@ -1899,6 +1899,7 @@ return function(mod)
   displayRuntime.homeCatalog = {
     packages = {
       explorer = { installed = true, fixed = true },
+      map = { installed = true, fixed = true },
       party = { installed = true, fixed = true },
       trainer = { installed = true, fixed = true },
       steps = { installed = true },
@@ -1915,6 +1916,8 @@ return function(mod)
         widget = "party", columns = 5, label = "PARTY" },
       explorer_app = { package = "explorer", kind = "app", columns = 3,
         icon = "explorer", accent = "green", label = "EXPLORER" },
+      map_app = { package = "map", kind = "app", columns = 3,
+        icon = "map", accent = "blue", label = "MAP" },
       party_app = { package = "party", kind = "app", columns = 3,
         icon = "party", accent = "green", label = "PARTY" },
       trainer_app = { package = "trainer", kind = "app", columns = 3,
@@ -1948,6 +1951,11 @@ return function(mod)
       category = "ADVENTURE", target = "LOCAL", fixed = true,
       description = { "EXPLORE THE AREA AROUND YOU.",
         "FIND POKEMON, ITEMS AND TRAINERS.", "YOUR ROUTE, IN ONE PLACE." } },
+    { id = "map", icon = "map", label = "MAP",
+      category = "NAVIGATION", reason = "REGION MAP",
+      target = "MAP", fixed = true,
+      description = { "VIEW THE REGION MAP.",
+        "SEE WHERE YOUR JOURNEY HAS LED.", "YOUR POSITION, AT A GLANCE." } },
     { id = "party", icon = "party", label = "PARTY",
       category = "TEAM", reason = "TEAM STATUS",
       target = "PARTY", fixed = true,
@@ -3702,7 +3710,7 @@ return function(mod)
     local region = compat.currentRegion()
     local mapTitle = region and (region:upper() .. (canFly() and " FLY" or " MAP"))
       or (canFly() and "MAP + FLY" or "MAP")
-    header(mapTitle, false, true)
+    header(mapTitle, THEME.style == "hgss", THEME.style ~= "hgss")
     local asset = loadMap()
     if asset then
       local cells = asset.map

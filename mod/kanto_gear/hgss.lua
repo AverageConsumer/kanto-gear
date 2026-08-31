@@ -809,6 +809,21 @@ return function(ui)
 
   function H:homeExplorerIcon(x, y)
     local G, c = ui.graphics, homeIconColors
+    color(c.ink); G.circle("fill", x + 13, y + 13, 12)
+    color(c.greenDark); G.circle("fill", x + 13, y + 13, 10)
+    color(c.green); G.circle("line", x + 13, y + 13, 7)
+    box("fill", x + 3, y + 13, 20, 1, c.green)
+    box("fill", x + 13, y + 3, 1, 20, c.green)
+    color(c.greenLight)
+    G.polygon("fill", x + 13, y + 13, x + 13, y + 4,
+      x + 21, y + 9)
+    color(c.paper); G.circle("fill", x + 13, y + 13, 2)
+    color(c.amberLight); G.circle("fill", x + 19, y + 17, 2)
+    color(c.red); G.circle("fill", x + 8, y + 9, 2)
+  end
+
+  function H:homeMapIcon(x, y)
+    local G, c = ui.graphics, homeIconColors
     color(c.ink)
     G.polygon("fill", x + 2, y + 5, x + 9, y + 2,
       x + 17, y + 5, x + 24, y + 2, x + 24, y + 22,
@@ -1006,8 +1021,12 @@ return function(ui)
         draw = function(x, y) theme:homeToolsIcon(x, y) end,
       },
       explorer = {
-        left = 2, top = 2, right = 24, bottom = 25,
+        left = 1, top = 1, right = 25, bottom = 25,
         draw = function(x, y) theme:homeExplorerIcon(x, y) end,
+      },
+      map = {
+        left = 2, top = 2, right = 24, bottom = 25,
+        draw = function(x, y) theme:homeMapIcon(x, y) end,
       },
       store = {
         left = 1, top = 5, right = 25, bottom = 24,

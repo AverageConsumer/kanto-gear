@@ -1154,6 +1154,8 @@ function love.load()
   local storeCatalog = {
     { id = "explorer", icon = "explorer", label = "EXPLORER",
       category = "ADVENTURE", action = "OPEN", state = "open" },
+    { id = "map", icon = "map", label = "MAP",
+      category = "NAVIGATION", action = "OPEN", state = "open" },
     { id = "party", icon = "party", label = "PARTY",
       category = "TEAM", action = "OPEN", state = "open" },
     { id = "pokedex", icon = "pokedex", label = "POKEDEX",
@@ -1241,7 +1243,8 @@ function love.load()
   elseif home then
     local catalog = {
       packages = {
-        explorer = { installed = true }, party = { installed = true },
+        explorer = { installed = true }, map = { installed = true },
+        party = { installed = true },
         bag = { installed = true }, pokedex = { installed = true },
         trainer = { installed = true }, tools = { installed = true },
         steps = { installed = true },
@@ -1252,6 +1255,8 @@ function love.load()
           widget = "explorer", columns = 7, label = "EXPLORER" },
         explorer_app = { package = "explorer", kind = "app", columns = 3,
           icon = "explorer", accent = "green", label = "EXPLORER" },
+        map_app = { package = "map", kind = "app", columns = 3,
+          icon = "map", accent = "blue", label = "MAP" },
         party_widget = { package = "party", kind = "widget",
           widget = "party", columns = 5, label = "PARTY" },
         party_app = { package = "party", kind = "app", columns = 3,
@@ -1316,7 +1321,8 @@ function love.load()
     elseif screen == "home-icon-pair" then
       layout.tiles = {
         { id = "explorer_app", page = 1, column = 1, row = 1 },
-        { id = "tools_app", page = 1, column = 4, row = 1 },
+        { id = "map_app", page = 1, column = 5, row = 1 },
+        { id = "tools_app", page = 1, column = 9, row = 1 },
       }
     end
     if homeAdd then
