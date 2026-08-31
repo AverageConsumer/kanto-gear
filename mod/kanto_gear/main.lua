@@ -692,6 +692,12 @@ function Area.itemfinderNear(px, py, x, y)
   return near(px, x, 5) and near(py, y, 4)
 end
 
+function Area.itemfinderScanReached(px, py, x, y, progress)
+  if not Area.itemfinderNear(px, py, x, y) then return false end
+  local dx, dy = x - px, y - py
+  return math.sqrt(dx * dx + dy * dy) <= math.sqrt(41) * progress
+end
+
 local function gen2Definition(definitions, index)
   local direct = definitions and definitions[index]
   if type(direct) == "table" then return direct, direct.id or index end
@@ -1159,6 +1165,9 @@ end
 assert(Area.itemfinderNear(10, 10, 15, 14)
        and not Area.itemfinderNear(10, 10, 5, 10)
        and not Area.itemfinderNear(10, 10, 10, 15), "native itemfinder radius")
+assert(not Area.itemfinderScanReached(10, 10, 15, 14, 0.5)
+       and Area.itemfinderScanReached(10, 10, 15, 14, 1),
+  "itemfinder map sweep reveals signals only after reaching them")
 do
   local scale, x, y = localMapLayout(40, 36)
   assert(scale == 2 and x == 40 and y == 37,
@@ -1734,6 +1743,7 @@ return function(mod)
   local displayRuntime = { explorer = {
     page = 1, mapFull = false, mapZoom = 1,
     filters = { wildScope = "HERE" },
+    scanRevealed = {},
   } }
   function displayRuntime.adjustExplorerZoom(direction)
     local explorer = displayRuntime.explorer
@@ -3510,20 +3520,37 @@ return function(mod)
       row.key = "trainer:" .. tostring(row.id or row.label)
     end
     local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
+    local canScan = not enhanced and assist("item_radar") and hasItemfinder()
+    if explorer.scanMapId ~= id then
+      explorer.scanMapId, explorer.scanFrame, explorer.scanRevealed =
+        id, nil, {}
+    end
+    local pos = mod.world:current()
+    local scanProgress = explorer.scanFrame
+      and math.min(1, explorer.scanFrame / RADAR_FRAMES) or nil
     for _, row in ipairs(allItems) do
       row.key = table.concat({ "item", tostring(row.kind), tostring(row.x),
         tostring(row.y), tostring(row.label) }, ":")
+      if canScan and scanProgress and row.kind == "hidden" and not row.done
+          and row.x and row.y and pos and pos.mapId == id
+          and Area.itemfinderScanReached(pos.x, pos.y, row.x, row.y,
+            scanProgress) then
+        explorer.scanRevealed[row.key] = true
+      end
+      row.scanned = canScan and explorer.scanRevealed[row.key] == true
       local upper = tostring(row.label or ""):upper()
       row.icon = (upper:match("^TM%d") or upper:match("^HM%d"))
         and "machine" or "item"
       row.displayLabel = row.kind == "hidden" and not enhanced and not row.done
+          and not row.scanned
         and "HIDDEN SIGNAL" or row.label
       row.location = row.kind == "hidden" and not enhanced and not row.done
+          and not row.scanned
         and "USE ITEMFINDER" or "MARKED ON MAP"
     end
     local mapItems = {}
     for _, row in ipairs(allItems) do
-      if enhanced or row.kind ~= "hidden" or row.done then
+      if enhanced or row.kind ~= "hidden" or row.done or row.scanned then
         mapItems[#mapItems + 1] = row
       end
     end
@@ -3561,7 +3588,7 @@ return function(mod)
     for _, row in ipairs(mapItems) do
       if row.x ~= nil and row.y ~= nil then
         local marker = { kind = row.kind, x = row.x, y = row.y,
-          found = row.done, source = row }
+          found = row.done, scanned = row.scanned, source = row }
         markers[#markers + 1] = marker
         if row == selected then selectedMarker = marker end
       end
@@ -3581,7 +3608,6 @@ return function(mod)
       for _, row in ipairs(rows_) do if row.done then done = done + 1 end end
       return THEME:format("%d/%d", done, #rows_)
     end
-    local pos = mod.world:current()
     local rows_, width, height, density = localMapGrid(overview)
     explorer.detailPage = math.max(1, math.min(explorer.detailPage or 1,
       selected and selected.detailPages or 1))
@@ -3609,7 +3635,9 @@ return function(mod)
       detailPage = explorer.detailPage, detailRows = detailRows,
       detailPages = selected and selected.detailPages or 1,
       enhanced = enhanced,
-      canScan = not enhanced and assist("item_radar") and hasItemfinder(),
+      canScan = canScan,
+      scanHint = canScan and not explorer.scanHintSeen,
+      scanProgress = scanProgress,
       showMapStats = areaEnabled,
       guideEnabled = guideEnabled, areaEnabled = areaEnabled,
       itemsText = progress(mapItems),
@@ -7189,8 +7217,10 @@ return function(mod)
       elseif action == "wild_here" or action == "wild_route" then
         model.filters.wildScope = action == "wild_here" and "HERE" or "ROUTE"
         displayRuntime.explorer.page, displayRuntime.explorer.selected = 1, nil
-      elseif action == "scan" then
-        radarOpen, radarFrame, radarStarted = true, 0, love.timer.getTime()
+      elseif action == "player_scan" then
+        displayRuntime.explorer.scanFrame = 0
+        displayRuntime.explorer.scanStarted = love.timer.getTime()
+        displayRuntime.explorer.scanHintSeen = true
       elseif action == "marker" and model.markers[slot]
           and model.markers[slot].source then
         displayRuntime.explorer.view = model.markers[slot].kind == "trainer"
@@ -8161,6 +8191,14 @@ return function(mod)
           math.floor(math.max(0, now - radarStarted) / 0.05))
         if frame ~= radarFrame then radarFrame, dirty = frame, true end
       end
+      local explorer = displayRuntime.explorer
+      if explorer.scanFrame and explorer.scanFrame < RADAR_FRAMES then
+        local frame = math.min(RADAR_FRAMES,
+          math.floor(math.max(0, now - explorer.scanStarted) / 0.05))
+        if frame ~= explorer.scanFrame then
+          explorer.scanFrame, dirty = frame, true
+        end
+      end
       local screenKey = table.concat({ mode, tostring(top),
         tostring(page), tostring(guidePage), tostring(areaPage),
          tostring(displayRuntime.explorer.view),
@@ -8170,6 +8208,7 @@ return function(mod)
          tostring(displayRuntime.explorer.mapFull),
          tostring(displayRuntime.explorer.mapZoom),
          tostring(displayRuntime.explorer.filters.wildScope),
+         tostring(displayRuntime.explorer.scanFrame),
          tostring(radarOpen),
          tostring(top and top.waiting), tostring(top and top.done),
          tostring(top and top.index), tostring(top and top.kind),

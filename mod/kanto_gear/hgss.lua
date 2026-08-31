@@ -715,27 +715,25 @@ return function(ui)
   function H:explorer(model)
     local colors, view, selected = self.colors, model.view, model.selected
     local function mapToggle(x, y, collapse)
-      self:panel(x, y, 25, 16, false)
+      self:panel(x, y, 19, 14, false)
       if collapse then
-        -- Four inward-facing corners read as "restore" without looking like
-        -- a minus button at native DS resolution.
-        box("fill", x + 7, y + 4, 4, 1, colors.ink)
-        box("fill", x + 10, y + 4, 1, 3, colors.ink)
-        box("fill", x + 14, y + 4, 4, 1, colors.ink)
-        box("fill", x + 14, y + 4, 1, 3, colors.ink)
-        box("fill", x + 7, y + 11, 4, 1, colors.ink)
-        box("fill", x + 10, y + 9, 1, 3, colors.ink)
-        box("fill", x + 14, y + 11, 4, 1, colors.ink)
-        box("fill", x + 14, y + 9, 1, 3, colors.ink)
+        box("fill", x + 5, y + 3, 4, 1, colors.ink)
+        box("fill", x + 8, y + 3, 1, 3, colors.ink)
+        box("fill", x + 10, y + 3, 4, 1, colors.ink)
+        box("fill", x + 10, y + 3, 1, 3, colors.ink)
+        box("fill", x + 5, y + 10, 4, 1, colors.ink)
+        box("fill", x + 8, y + 8, 1, 3, colors.ink)
+        box("fill", x + 10, y + 10, 4, 1, colors.ink)
+        box("fill", x + 10, y + 8, 1, 3, colors.ink)
       else
-        local left, right, top, bottom = x + 7, x + 17, y + 4, y + 11
-        box("fill", left, top, 4, 1, colors.ink)
+        local left, right, top, bottom = x + 4, x + 14, y + 3, y + 10
+        box("fill", left, top, 3, 1, colors.ink)
         box("fill", left, top, 1, 3, colors.ink)
-        box("fill", right - 3, top, 4, 1, colors.ink)
+        box("fill", right - 2, top, 3, 1, colors.ink)
         box("fill", right, top, 1, 3, colors.ink)
-        box("fill", left, bottom, 4, 1, colors.ink)
+        box("fill", left, bottom, 3, 1, colors.ink)
         box("fill", left, bottom - 2, 1, 3, colors.ink)
-        box("fill", right - 3, bottom, 4, 1, colors.ink)
+        box("fill", right - 2, bottom, 3, 1, colors.ink)
         box("fill", right, bottom - 2, 1, 3, colors.ink)
       end
     end
@@ -750,7 +748,7 @@ return function(ui)
     end
     local function mapProgress(y)
       if not model.showMapStats then return end
-      local width = model.canScan and 112 or 144
+      local width = 144
       local half = math.floor(width / 2)
       local function itemGlyph(x)
         box("fill", x + 2, y + 3, 5, 1, colors.outline)
@@ -777,14 +775,6 @@ return function(ui)
       self:partyInfo(model.trainersText,
         trainerLeft + iconWidth + gap, y + 2, colors.ink)
     end
-    local function scanner(y)
-      if not model.canScan then return end
-      box("fill", 198, y + 2, 1, 12, colors.band)
-      box("fill", 207, y + 4, 7, 7, colors.green)
-      box("fill", 208, y + 5, 5, 5, colors.bg)
-      box("fill", 213, y + 10, 2, 2, colors.green)
-      box("fill", 215, y + 12, 4, 2, colors.green)
-    end
     self:panel(7, 32, 226, 18, false)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
       56), 12, 35, colors.ink, 56, "center")
@@ -792,7 +782,7 @@ return function(ui)
       82), 72, 36, colors.green, 82)
     self:partyInfo(self:fitPartyInfo(model.region or "KANTO", 36),
       160, 35, colors.green, 36, "center")
-    mapToggle(202, 33, model.mapFull)
+    mapToggle(207, 34, model.mapFull)
 
     local mapX, mapW = 7, 226
     local mapY = model.mapFull and 72 or 53
@@ -803,7 +793,6 @@ return function(ui)
       self:panel(7, 53, 226, 16, false)
       zoomControls(53, model.mapZoom or 1)
       mapProgress(53)
-      scanner(53)
     end
     self:mapOverview(model.overview, mapX, mapY, mapW, mapH, {
       image = model.image, player = model.player, markers = model.markers,
@@ -811,6 +800,37 @@ return function(ui)
       drawTrainer = model.drawTrainer, full = model.mapFull,
       zoom = model.mapZoom,
     })
+    if model.canScan and model.player then
+      local layout = mapLayout(model.overview, mapX, mapY, mapW, mapH, {
+        full = model.mapFull, player = model.player, zoom = model.mapZoom,
+      })
+      if layout then
+        local G = ui.graphics
+        local px = layout.left + (model.player.x + 0.5) * layout.tileSize
+        local py = layout.top + (model.player.y + 0.5) * layout.tileSize
+        local cue = math.max(6, math.floor(layout.tileSize * 0.75))
+        G.setScissor(layout.innerX, layout.innerY, layout.innerW, layout.innerH)
+        color(colors.greenLight)
+        G.circle("line", px, py, cue)
+        if model.scanProgress and model.scanProgress < 1 then
+          G.circle("line", px, py,
+            math.max(cue + 2, layout.tileSize * math.sqrt(41)
+              * model.scanProgress))
+        elseif model.scanHint then
+          local label = translate("SCAN")
+          local width = math.max(24, partyTypeFont:getWidth(label) + 8)
+          local left = math.max(layout.innerX + 2,
+            math.min(layout.innerX + layout.innerW - width - 2,
+              math.floor(px - width / 2)))
+          local top = math.max(layout.innerY + 2, math.floor(py - cue - 13))
+          clipped(left, top, width, 10, colors.surface)
+          border(left, top, width, 10, colors.outline)
+          self:partyType(label, left, top - 1, colors.ink, width)
+          box("fill", math.floor(px) - 1, top + 10, 3, 2, colors.outline)
+        end
+        G.setScissor()
+      end
+    end
     if model.mapFull then return end
 
     local function chip(x, y, width, label, active, arrow)
@@ -939,7 +959,7 @@ return function(ui)
       else
         chip(168, 142, 58, tostring(model.total) .. " PKMN", false)
       end
-      local baseY = 172
+      local baseY = 166
       for index, row in ipairs(model.rows) do
         local lineCount = #model.rows
         local groupWidth = lineCount * 56 - 22
@@ -967,14 +987,26 @@ return function(ui)
     local mapH = model.mapFull and 138
       or view == "wild" and (selected and 42 or 84)
       or selected and 105 or 84
-    if x >= 202 and x < 227 and y >= 33 and y < 49 then
+    if x >= 202 and x < 232 and y >= 32 and y < 50 then
       return "map_toggle"
     end
     if model.mapFull and y >= 53 and y < 69 then
       if x >= 11 and x < 29 then return "zoom_out" end
       if x >= 64 and x < 82 then return "zoom_in" end
-      if model.canScan and x >= 200 and x < 227 then return "scan" end
       return nil
+    end
+    if model.canScan and model.player then
+      local layout = mapLayout(model.overview, mapX, mapY, mapW, mapH, {
+        full = model.mapFull, player = model.player, zoom = model.mapZoom,
+      })
+      if layout then
+        local px = layout.left + (model.player.x + 0.5) * layout.tileSize
+        local py = layout.top + (model.player.y + 0.5) * layout.tileSize
+        local radius = math.max(12, layout.tileSize)
+        if (x - px) ^ 2 + (y - py) ^ 2 <= radius ^ 2 then
+          return "player_scan"
+        end
+      end
     end
     local marker = self:mapMarkerAt(x, y, model.overview,
       { x = mapX, y = mapY, w = mapW, h = mapH }, {

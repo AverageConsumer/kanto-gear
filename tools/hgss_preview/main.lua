@@ -662,6 +662,9 @@ function love.load()
       for _, marker in ipairs(markers) do
         if marker.source == selected then selectedMarker = marker break end
       end
+      local canScan = not enhanced
+        and os.getenv("KANTO_GEAR_PREVIEW_NO_FINDER") ~= "1"
+      local scanActive = os.getenv("KANTO_GEAR_PREVIEW_SCAN") == "1"
       local explorerModel = {
         view = view, selected = selected, rows = rows, total = #sourceRows,
         page = 1, pages = math.max(1, math.ceil(#sourceRows / perPage)),
@@ -678,8 +681,9 @@ function love.load()
         detailPages = view == "wild" and selected
           and selected.detailPages or 1,
         enhanced = enhanced,
-        canScan = not enhanced
-          and os.getenv("KANTO_GEAR_PREVIEW_NO_FINDER") ~= "1",
+        canScan = canScan,
+        scanHint = canScan and not scanActive,
+        scanProgress = scanActive and 0.55 or nil,
         showMapStats = true,
         guideEnabled = true, areaEnabled = true,
         itemsText = data.items, trainersText = data.beaten,
@@ -719,6 +723,16 @@ function love.load()
         end
         return false
       end
+      local function actionIsReachable(expected)
+        for y = 53, 210, 3 do
+          for x = 7, 233, 3 do
+            if theme:explorerHit(x * sx, y * sx, explorerModel) == expected then
+              return true
+            end
+          end
+        end
+        return false
+      end
       assert(theme:explorerHit(211 * sx, 40 * sx,
         explorerModel) == "map_toggle",
         "Explorer map expand control is always interactive")
@@ -739,7 +753,9 @@ function love.load()
           and theme:explorerHit(120 * sx, 61 * sx,
             explorerModel) == nil
           and theme:explorerHit(210 * sx, 61 * sx,
-            explorerModel) == (explorerModel.canScan and "scan" or nil),
+            explorerModel) == nil
+          and (not explorerModel.canScan
+            or actionIsReachable("player_scan")),
           "Explorer fullscreen tools are interactive without map click-through")
         return
       end
@@ -752,7 +768,9 @@ function love.load()
           and theme:explorerHit(210 * sx, 150 * sx, explorerModel)
             == (explorerModel.pages > 1 and "next" or nil)
           and mapMarkerIsReachable("item")
-          and mapMarkerIsReachable("trainer"),
+          and mapMarkerIsReachable("trainer")
+          and (not explorerModel.canScan
+            or actionIsReachable("player_scan")),
           "Explorer gallery and map markers are interactive")
       elseif view == "wild" then
         assert(theme:explorerHit(210 * sx, 114 * sx, explorerModel)
