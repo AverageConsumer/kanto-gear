@@ -631,7 +631,11 @@ return function(ui)
     G.rectangle("fill", wellX, y + 8, 29, 29, 5, 5)
     color(colors.outline)
     G.rectangle("line", wellX + 0.5, y + 8.5, 28, 28, 5, 5)
-    icon(wellX + 2, y + 10)
+    local iconWidth = icon.right - icon.left + 1
+    local iconHeight = icon.bottom - icon.top + 1
+    icon.draw(
+      wellX + math.floor((29 - iconWidth) / 2) - icon.left,
+      y + 8 + math.floor((29 - iconHeight) / 2) - icon.top)
     local shown = self:fitPartyType(translate(label), w - 6)
     self:partyType(shown, x + 3, captionY + 5, colors.white, w - 6)
     if selected then self:roundedFocusFrame(x, y, w, h, 5) end
@@ -717,12 +721,30 @@ return function(ui)
     local colors = self.colors
     model = model or {}
     local icon = {
-      bag = function(x, y) self:battleBagIcon(x, y) end,
-      pokedex = function(x, y) self:homePokedexIcon(x + 1, y) end,
-      trainer = function(x, y) self:homeTrainerIcon(x, y + 1) end,
-      tools = function(x, y) self:homeToolsIcon(x, y) end,
-      store = function(x, y) self:homeStoreIcon(x, y) end,
-      notes = function(x, y) self:homeNotesIcon(x, y) end,
+      bag = {
+        left = 1, top = 1, right = 24, bottom = 25,
+        draw = function(x, y) self:battleBagIcon(x, y) end,
+      },
+      pokedex = {
+        left = 2, top = 1, right = 24, bottom = 25,
+        draw = function(x, y) self:homePokedexIcon(x, y) end,
+      },
+      trainer = {
+        left = 1, top = 3, right = 25, bottom = 24,
+        draw = function(x, y) self:homeTrainerIcon(x, y) end,
+      },
+      tools = {
+        left = 1, top = 1, right = 26, bottom = 26,
+        draw = function(x, y) self:homeToolsIcon(x, y) end,
+      },
+      store = {
+        left = 1, top = 5, right = 25, bottom = 24,
+        draw = function(x, y) self:homeStoreIcon(x, y) end,
+      },
+      notes = {
+        left = 2, top = 1, right = 23, bottom = 26,
+        draw = function(x, y) self:homeNotesIcon(x, y) end,
+      },
     }
     for index, tile in ipairs(model.tiles or {}) do
       local selected = model.selected == index or model.selected == tile.id
