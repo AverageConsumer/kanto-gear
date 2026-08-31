@@ -236,6 +236,20 @@ function love.load()
         and ax == 178 and ay == 117 and aw == 55 and ah == 82,
       "Home widgets and apps resolve onto the shared 12-column grid")
   end
+  if screen:sub(1, 5) == "store" then
+    local action = theme:storeHit(180, 55, "detail")
+    local featured = theme:storeHit(20, 60, "today")
+    local recommendation, index = theme:storeHit(150, 160, "today")
+    local app, appIndex = theme:storeHit(150, 110, "apps")
+    local installed, installedIndex = theme:storeHit(20, 135, "library")
+    local tab, tabIndex = theme:storeHit(170, 202, "today")
+    assert(action == "action" and featured == "featured"
+        and recommendation == "recommendation" and index == 2
+        and app == "app" and appIndex == 4
+        and installed == "installed" and installedIndex == 3
+        and tab == "tab" and tabIndex == 3,
+      "Silph Store touch targets match every visible control")
+  end
   assert(theme:battleEffectLabel({ powerText = "95", effectiveness = 20 })
       == "2X" and theme:battleEffectLabel({ powerText = "--",
         effectiveness = 20 }) == "--",
@@ -321,6 +335,10 @@ function love.load()
   local explorerRadar = screen == "explorer_radar"
   local home = homePreview
   local homeEdit, homeAdd = screen == "home-edit", screen == "home-add"
+  local storeToday, storeApps = screen == "store", screen == "store-apps"
+  local storeLibrary, storeDetail = screen == "store-library",
+    screen == "store-detail"
+  local store = storeToday or storeApps or storeLibrary or storeDetail
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
     or explorerItems or explorerItemDetail
@@ -339,7 +357,9 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
   local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
-  local title = homeAdd and "ADD TO HOME"
+  local title = storeDetail and "NOTES"
+    or store and "SILPH STORE"
+    or homeAdd and "ADD TO HOME"
     or homeEdit and "EDIT HOME"
     or home and "SILPH LINK"
     or explorerRadar and translate("ITEM RADAR")
@@ -366,10 +386,10 @@ function love.load()
       and not battleBag and not battleBagTransition then
     local headerOffset = summary and -1 or 0
     local titleX, titleWidth = theme:headerBar(title,
-      homeAdd or explorer and not explorerOverview
+      homeAdd or store or explorer and not explorerOverview
         or swapMode or context or summary or moves or memo or memoTransition
         or transition or movesTransition,
-      not home and not explorer and not swapMode and (summary or moves or memo or memoTransition
+      not home and not store and not explorer and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
         or not context), headerOffset)
     if context then
@@ -1085,7 +1105,52 @@ function love.load()
   if os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild" then
     enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "PIDGEY", 4
   end
-  if home then
+  local storeCatalog = {
+    { id = "explorer", icon = "tools", label = "EXPLORER",
+      category = "ADVENTURE", action = "OPEN", state = "open" },
+    { id = "party", icon = "party", label = "PARTY",
+      category = "TEAM", action = "OPEN", state = "open" },
+    { id = "pokedex", icon = "pokedex", label = "POKEDEX",
+      category = "RESEARCH", action = "OPEN", state = "open" },
+    { id = "bag", icon = "bag", label = "BAG",
+      category = "ITEMS", action = "OPEN", state = "open" },
+    { id = "trainer", icon = "trainer", label = "TRAINER CARD",
+      category = "PROFILE", action = "UPDATE", state = "update" },
+    { id = "notes", icon = "notes", label = "NOTES",
+      category = "TRAINER TOOL", action = "GET", state = "get" },
+  }
+  if storeToday then
+    theme:storeToday({
+      featured = { id = "notes", icon = "notes", label = "NOTES",
+        category = "TRAINER TOOL", action = "GET", state = "get" },
+      recommended = {
+        { id = "party", icon = "party", label = "PARTY",
+          reason = "TEAM STATUS", state = "open" },
+        { id = "pokedex", icon = "pokedex", label = "POKEDEX",
+          reason = "DEX RESEARCH", state = "open" },
+      },
+    })
+  elseif storeApps then
+    theme:storeApps({ apps = storeCatalog })
+  elseif storeLibrary then
+    theme:storeMyApps({
+      summary = "7 APPS READY", updates = "1 UPDATE",
+      apps = {
+        storeCatalog[1], storeCatalog[2], storeCatalog[5], storeCatalog[4],
+      },
+    })
+  elseif storeDetail then
+    theme:storeDetail({ app = {
+      id = "notes", icon = "notes", label = "NOTES",
+      category = "TRAINER TOOL", publisher = "SILPH CO.",
+      action = "GET", state = "get",
+      description = {
+        "PLAN ROUTES AND REMINDERS.",
+        "KEEP CLUES CLOSE AT HAND.",
+        "YOUR JOURNEY, ORGANIZED.",
+      },
+    } })
+  elseif home then
     local catalog = {
       packages = {
         explorer = { installed = true }, party = { installed = true },

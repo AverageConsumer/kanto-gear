@@ -916,6 +916,252 @@ return function(ui)
     self:homePager(model.page, model.pages)
   end
 
+  function H:storeAction(x, y, w, label, state)
+    local colors = self.colors
+    local tint = state == "update" and colors.amber
+      or state == "open" and colors.blue or colors.green
+    clipped(x, y, w, 15, tint)
+    border(x, y, w, 15, colors.outline)
+    self:partyType(translate(label), x + 2, y + 2, colors.white, w - 4)
+  end
+
+  function H:storePreview(id, x, y, w, h)
+    local G, colors = ui.graphics, self.colors
+    clipped(x + 1, y + 2, w, h, colors.shadow)
+    clipped(x, y, w, h, mixed(colors.surface, colors.blueLight, 0.12))
+    border(x, y, w, h, colors.outline)
+    if id == "notes" then
+      box("fill", x + 5, y + 5, w - 10, 10, colors.blue)
+      box("fill", x + 8, y + 8, 28, 2, colors.white)
+      for row = 0, 2 do
+        box("fill", x + 8, y + 21 + row * 11, 5, 5,
+          row == 0 and colors.amberLight or colors.surface)
+        border(x + 8, y + 21 + row * 11, 5, 5, colors.outline)
+        box("fill", x + 17, y + 22 + row * 11,
+          math.max(14, w - 31 - row * 8), 2, colors.silverDark)
+      end
+      box("fill", x + w - 13, y + 18, 3, h - 23, colors.amber)
+    elseif id == "party" then
+      for index = 0, 2 do
+        local left = x + 6 + index * math.floor((w - 12) / 3)
+        color(colors.outline); G.circle("fill", left + 11, y + 22, 10)
+        color(index == 0 and colors.partyLight or colors.surface)
+        G.circle("fill", left + 11, y + 22, 8)
+        box("fill", left + 4, y + 21, 14, 2, colors.outline)
+        box("fill", left + 4, y + 38, 15, 3,
+          index == 2 and colors.hpMid or colors.hp)
+      end
+    else
+      for row = 0, 3 do
+        box("fill", x + 7, y + 8 + row * 11, w - 14, 7,
+          row % 2 == 0 and colors.band or colors.surface)
+      end
+    end
+  end
+
+  function H:storeRecommendation(x, y, w, app, icons)
+    local G, colors = ui.graphics, self.colors
+    color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 47, 4, 4)
+    color(colors.surface); G.rectangle("fill", x, y, w, 47, 4, 4)
+    color(colors.outline)
+    G.rectangle("line", x + 0.5, y + 0.5, w - 1, 46, 4, 4)
+    local icon = icons[app.icon]
+    if icon then drawHomeIcon(icon, x + 4, y + 8, 29) end
+    self:partyType(self:fitPartyType(translate(app.label), w - 39),
+      x + 36, y + 5, colors.ink, w - 39)
+    self:partyType(self:fitPartyType(translate(app.reason), w - 39),
+      x + 36, y + 18, colors.green, w - 39)
+    self:partyType(translate(app.state == "open" and "OPEN" or "VIEW"),
+      x + 36, y + 31, colors.blueLight, w - 39)
+  end
+
+  function H:storeMiniAction(x, y, w, label, state)
+    local colors = self.colors
+    local tint = state == "update" and colors.amber
+      or state == "open" and colors.blue or colors.green
+    clipped(x, y, w, 11, tint)
+    border(x, y, w, 11, colors.outline)
+    self:partyType(translate(label), x + 1, y, colors.white, w - 2)
+  end
+
+  function H:storeAppCard(x, y, w, app, icons)
+    local G, colors = ui.graphics, self.colors
+    color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 42, 4, 4)
+    color(colors.surface); G.rectangle("fill", x, y, w, 42, 4, 4)
+    color(colors.outline)
+    G.rectangle("line", x + 0.5, y + 0.5, w - 1, 41, 4, 4)
+    color(mixed(colors.surface, colors.white, self.dark and 0.08 or 0.22))
+    G.rectangle("fill", x + 4, y + 6, 29, 29, 4, 4)
+    border(x + 4, y + 6, 29, 29, colors.outline)
+    local icon = icons[app.icon or app.id]
+    if icon then drawHomeIcon(icon, x + 4, y + 6, 29) end
+    self:partyType(self:fitPartyType(translate(app.label), w - 39),
+      x + 36, y + 4, colors.ink, w - 39)
+    self:partyType(self:fitPartyType(translate(app.category), w - 39),
+      x + 36, y + 16, colors.green, w - 39)
+    self:storeMiniAction(x + 36, y + 28, 43,
+      app.action or (app.state == "open" and "OPEN" or "GET"), app.state)
+    self:detailChevron(x + w - 9, y + 30, colors.green)
+  end
+
+  function H:storeInstalledRow(x, y, w, app, icons)
+    local G, colors = ui.graphics, self.colors
+    color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 30, 4, 4)
+    color(colors.surface); G.rectangle("fill", x, y, w, 30, 4, 4)
+    color(colors.outline)
+    G.rectangle("line", x + 0.5, y + 0.5, w - 1, 29, 4, 4)
+    local icon = icons[app.icon or app.id]
+    if icon then drawHomeIcon(icon, x + 4, y + 2, 27) end
+    self:partyType(self:fitPartyType(translate(app.label), 91),
+      x + 34, y + 3, colors.ink, 91)
+    self:partyType(self:fitPartyType(translate(app.category), 91),
+      x + 34, y + 15, colors.green, 91)
+    self:storeMiniAction(x + w - 54, y + 9, 44,
+      app.action or (app.state == "update" and "UPDATE" or "OPEN"),
+      app.state)
+  end
+
+  function H:storeNav(active)
+    local colors = self.colors
+    for index, item in ipairs({
+        { "today", "TODAY" }, { "apps", "APPS" },
+        { "library", "MY APPS" },
+      }) do
+      local x, selected = 7 + (index - 1) * 76, active == item[1]
+      clipped(x, 195, 73, 18, selected and colors.green or colors.surface)
+      border(x, 195, 73, 18, colors.outline)
+      self:partyType(translate(item[2]), x + 2, 199,
+        selected and colors.white or colors.ink, 69)
+    end
+  end
+
+  function H:storeToday(model)
+    local G, colors, icons = ui.graphics, self.colors, homeIcons(self)
+    local featured = model.featured or {}
+    color(colors.shadow); G.rectangle("fill", 8, 35, 226, 89, 5, 5)
+    color(colors.surface); G.rectangle("fill", 7, 32, 226, 89, 5, 5)
+    color(colors.outline); G.rectangle("line", 7.5, 32.5, 225, 88, 5, 5)
+    box("fill", 9, 34, 222, 15, colors.blue)
+    self:partyType(translate("APP OF THE DAY"), 12, 36, colors.white, 216)
+    color(mixed(colors.surface, colors.white, self.dark and 0.08 or 0.22))
+    G.rectangle("fill", 13, 56, 39, 39, 5, 5)
+    border(13, 56, 39, 39, colors.outline)
+    local icon = icons[featured.icon or featured.id] or icons.tools
+    drawHomeIcon(icon, 18, 61, 29)
+    self:partyType(self:fitPartyType(translate(featured.label or "APP"), 60),
+      55, 55, colors.ink, 60)
+    self:partyType(self:fitPartyType(translate(featured.category or "UTILITY"),
+      60), 55, 68, colors.green, 60)
+    self:storeAction(57, 83, 56, featured.action or "GET",
+      featured.state)
+    self:storePreview(featured.id, 119, 52, 106, 64)
+    self:partyType(translate("RECOMMENDED FOR YOU"), 10, 126,
+      colors.green, 220)
+    for index, app in ipairs(model.recommended or {}) do
+      if index > 2 then break end
+      self:storeRecommendation(7 + (index - 1) * 115, 142, 111,
+        app, icons)
+    end
+    self:storeNav("today")
+  end
+
+  function H:storeApps(model)
+    local colors, icons = self.colors, homeIcons(self)
+    clipped(7, 32, 226, 17, colors.surface)
+    border(7, 32, 226, 17, colors.outline)
+    self:partyType(translate("DISCOVER APPS"), 10, 36, colors.ink, 112)
+    self:partyType(translate("SILPH VERIFIED"), 122, 36,
+      colors.green, 108)
+    for index, app in ipairs(model.apps or {}) do
+      if index > 6 then break end
+      local column, row = (index - 1) % 2, math.floor((index - 1) / 2)
+      self:storeAppCard(7 + column * 115, 53 + row * 44, 111,
+        app, icons)
+    end
+    self:storeNav("apps")
+  end
+
+  function H:storeMyApps(model)
+    local colors, icons = self.colors, homeIcons(self)
+    clipped(7, 32, 226, 21, colors.surface)
+    border(7, 32, 226, 21, colors.outline)
+    self:partyType(translate(model.summary or "7 APPS READY"),
+      10, 37, colors.ink, 105)
+    self:partyType(translate(model.updates or "1 UPDATE"),
+      118, 37, colors.amber, 112)
+    for index, app in ipairs(model.apps or {}) do
+      if index > 4 then break end
+      self:storeInstalledRow(7, 57 + (index - 1) * 33, 226,
+        app, icons)
+    end
+    self:storeNav("library")
+  end
+
+  function H:storeDetail(model)
+    local G, colors, icons = ui.graphics, self.colors, homeIcons(self)
+    local app = model.app or {}
+    color(colors.shadow); G.rectangle("fill", 8, 35, 226, 52, 5, 5)
+    color(colors.surface); G.rectangle("fill", 7, 32, 226, 52, 5, 5)
+    color(colors.outline); G.rectangle("line", 7.5, 32.5, 225, 51, 5, 5)
+    color(mixed(colors.surface, colors.white, self.dark and 0.08 or 0.22))
+    G.rectangle("fill", 13, 39, 39, 39, 5, 5)
+    border(13, 39, 39, 39, colors.outline)
+    drawHomeIcon(icons[app.icon or app.id] or icons.tools, 18, 44, 29)
+    self:partyType(self:fitPartyType(translate(app.label or "APP"), 104),
+      55, 39, colors.ink, 104)
+    self:partyType(self:fitPartyType(translate(app.category or "UTILITY"),
+      104), 55, 53, colors.green, 104)
+    self:partyType(self:fitPartyType(translate(app.publisher or "SILPH CO."),
+      104), 55, 66, colors.silverDark, 104)
+    self:storeAction(171, 49, 51, app.action or "GET", app.state)
+    self:storePreview(app.id, 7, 90, 226, 73)
+    self:partyType(translate("PREVIEW"), 12, 94, colors.white, 216)
+    clipped(7, 168, 226, 39, colors.surface)
+    border(7, 168, 226, 39, colors.outline)
+    local lines = app.description or {}
+    for index = 1, math.min(3, #lines) do
+      self:partyType(self:fitPartyType(translate(lines[index]), 214),
+        13, 171 + (index - 1) * 11, colors.ink, 214)
+    end
+  end
+
+  function H:storeHit(x, y, page)
+    local function inside(left, top, width, height)
+      return x >= left and x < left + width
+        and y >= top and y < top + height
+    end
+    if page == "detail" then
+      if inside(171, 49, 51, 15) then return "action" end
+      if inside(7, 90, 226, 73) then return "preview" end
+      return nil
+    end
+    for index = 1, 3 do
+      if inside(7 + (index - 1) * 76, 195, 73, 18) then
+        return "tab", index
+      end
+    end
+    if page == "apps" then
+      for index = 1, 6 do
+        local column, row = (index - 1) % 2, math.floor((index - 1) / 2)
+        if inside(7 + column * 115, 53 + row * 44, 111, 42) then
+          return "app", index
+        end
+      end
+      return nil
+    end
+    if page == "library" then
+      for index = 1, 4 do
+        if inside(7, 57 + (index - 1) * 33, 226, 30) then
+          return "installed", index
+        end
+      end
+      return nil
+    end
+    if inside(7, 32, 226, 89) then return "featured" end
+    if inside(7, 142, 111, 47) then return "recommendation", 1 end
+    if inside(122, 142, 111, 47) then return "recommendation", 2 end
+  end
+
   local mapRamps = {
     light = {
       [" "] = {
