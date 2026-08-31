@@ -759,6 +759,104 @@ end
 
 local Area = {}
 
+-- Gen 1 stores ordinary trainers on their object, but story encounters set
+-- wCurOpponent from map script instead.  Keep the small exceptional set here;
+-- object names are stable across Red, Blue, and Yellow manifests.
+local GEN1_SCRIPT_TRAINERS = {
+  ROUTE_22 = {
+    ROUTE22_RIVAL1 = { class = "OPP_RIVAL1",
+      event = "EVENT_BEAT_ROUTE22_RIVAL_1ST_BATTLE",
+      requires = { "EVENT_GOT_POKEDEX" }, missedAfter = "EVENT_BEAT_BROCK" },
+    ROUTE22_RIVAL2 = { class = "OPP_RIVAL2",
+      event = "EVENT_BEAT_ROUTE22_RIVAL_2ND_BATTLE",
+      requires = { "EVENT_BEAT_GIOVANNI" } },
+  },
+  CERULEAN_CITY = {
+    CERULEANCITY_RIVAL = { class = "OPP_RIVAL1",
+      event = "EVENT_BEAT_CERULEAN_RIVAL" },
+    CERULEANCITY_ROCKET = { class = "OPP_ROCKET",
+      event = "EVENT_BEAT_CERULEAN_ROCKET_THIEF" },
+  },
+  SS_ANNE_2F = {
+    SSANNE2F_RIVAL = { class = "OPP_RIVAL2",
+      event = "EVENT_BEAT_SS_ANNE_RIVAL" },
+  },
+  POKEMON_TOWER_2F = {
+    POKEMONTOWER2F_RIVAL = { class = "OPP_RIVAL2",
+      event = "EVENT_BEAT_POKEMON_TOWER_RIVAL" },
+  },
+  SILPH_CO_7F = {
+    SILPHCO7F_RIVAL = { class = "OPP_RIVAL2",
+      event = "EVENT_BEAT_SILPH_CO_RIVAL" },
+  },
+  CHAMPIONS_ROOM = {
+    CHAMPIONSROOM_RIVAL = { class = "OPP_RIVAL3",
+      event = "EVENT_BEAT_CHAMPION_RIVAL" },
+  },
+  MT_MOON_B2F = {
+    MTMOONB2F_JESSIE = { class = "OPP_ROCKET", label = "JESSIE & JAMES",
+      event = "EVENT_BEAT_MT_MOON_3_JESSIE_JAMES",
+      requiresAny = { "EVENT_GOT_DOME_FOSSIL", "EVENT_GOT_HELIX_FOSSIL" } },
+  },
+  ROCKET_HIDEOUT_B4F = {
+    ROCKETHIDEOUTB4F_JESSIE = { class = "OPP_ROCKET",
+      label = "JESSIE & JAMES",
+      event = "EVENT_BEAT_ROCKET_HIDEOUT_4_JESSIE_JAMES" },
+  },
+  POKEMON_TOWER_7F = {
+    POKEMONTOWER7F_JESSIE = { class = "OPP_ROCKET",
+      label = "JESSIE & JAMES",
+      event = "EVENT_BEAT_POKEMONTOWER_7_JESSIE_JAMES" },
+  },
+  SILPH_CO_11F = {
+    SILPHCO11F_JESSIE = { class = "OPP_ROCKET", label = "JESSIE & JAMES",
+      event = "EVENT_BEAT_SILPH_CO_11F_JESSIE_JAMES" },
+  },
+  CELADON_CHIEF_HOUSE = {
+    CELADONCHIEFHOUSE_CHIEF = { class = "OPP_CHIEF",
+      event = "EVENT_BEAT_CELADON_CHIEF",
+      requires = { "EVENT_BEAT_CHAMPION_RIVAL" } },
+  },
+}
+
+function Area.gen1ScriptTrainer(mapId, obj)
+  local map = GEN1_SCRIPT_TRAINERS[mapId]
+  return map and obj and map[obj.name] or nil
+end
+
+function Area.gen1TrainerState(save, trainer)
+  local flags = save and save.flags or {}
+  local beaten = trainer and trainer.event and flags[trainer.event] == true
+  local missed = not beaten and trainer and trainer.missedAfter
+    and flags[trainer.missedAfter] == true or false
+  local available = not beaten and not missed
+  for _, event in ipairs(trainer and trainer.requires or {}) do
+    available = available and flags[event] == true
+  end
+  if trainer and trainer.requiresAny then
+    local any = false
+    for _, event in ipairs(trainer.requiresAny) do
+      any = any or flags[event] == true
+    end
+    available = available and any
+  end
+  return {
+    beaten = beaten, missed = missed, done = beaten or missed,
+    available = available,
+    status = missed and "MISSED" or not available and not beaten and "LATER"
+      or nil,
+  }
+end
+
+function Area.gen1TrainerMissed(save, mapId, done)
+  if done then return false end
+  local event = tostring(mapId):match("^SS_ANNE_") and "EVENT_SS_ANNE_LEFT"
+    or tostring(mapId):match("^SILPH_CO_")
+      and "EVENT_BEAT_SILPH_CO_GIOVANNI"
+  return event ~= nil and save and save.flags
+    and save.flags[event] == true or false
+end
+
 function Area.itemfinderNear(px, py, x, y)
   local function near(origin, value, high)
     return value > math.max(origin - 5, 0) and value <= origin + high
@@ -921,6 +1019,39 @@ do
     and rows[3][1].label == "BERRY" and rows[3][1].done
     and remaining[1] == 0 and remaining[2] == 1 and remaining[3] == 0,
     "Gen 2 area checklist data")
+
+  local earlyRival = Area.gen1ScriptTrainer("ROUTE_22",
+    { name = "ROUTE22_RIVAL1" })
+  local open = Area.gen1TrainerState({ flags = {
+    EVENT_GOT_POKEDEX = true,
+  } }, earlyRival)
+  local missed = Area.gen1TrainerState({ flags = {
+    EVENT_GOT_POKEDEX = true, EVENT_BEAT_BROCK = true,
+  } }, earlyRival)
+  local beaten = Area.gen1TrainerState({ flags = {
+    EVENT_BEAT_ROUTE22_RIVAL_1ST_BATTLE = true,
+    EVENT_BEAT_BROCK = true,
+  } }, earlyRival)
+  assert(earlyRival.class == "OPP_RIVAL1" and open.available
+    and not open.done and missed.done and missed.missed
+    and missed.status == "MISSED" and beaten.done and beaten.beaten
+    and not beaten.missed,
+    "Gen 1 scripted and missable trainer state")
+  assert(Area.gen1ScriptTrainer("MT_MOON_B2F",
+      { name = "MTMOONB2F_JESSIE" }).label == "JESSIE & JAMES"
+    and Area.gen1ScriptTrainer("MT_MOON_B2F",
+      { name = "MTMOONB2F_JAMES" }) == nil,
+    "Gen 1 duo battle is one encounter")
+  assert(Area.gen1TrainerMissed({ flags = {
+      EVENT_SS_ANNE_LEFT = true,
+    } }, "SS_ANNE_B1F", false)
+    and Area.gen1TrainerMissed({ flags = {
+      EVENT_BEAT_SILPH_CO_GIOVANNI = true,
+    } }, "SILPH_CO_7F", false)
+    and not Area.gen1TrainerMissed({ flags = {
+      EVENT_BEAT_SILPH_CO_GIOVANNI = true,
+    } }, "SILPH_CO_7F", true),
+    "Gen 1 expired-area trainers are missed unless already beaten")
 end
 
 local function localMapLayout(width, height, zoom, focusX, focusY, density)
@@ -3012,15 +3143,18 @@ return function(mod)
       return { name = areaName(mapId), screens = screens, pages = #screens,
         sections = sections, remaining = Area.remaining(sections) }
     end
+    local showFuture = localMapMode(mod.options:get("local_map")) == "enhanced"
     for _, id in ipairs(maps) do
       local map = data.maps and data.maps[id]
       for _, obj in ipairs(map and map.objects or {}) do
         local key = id .. "_obj_" .. tostring(obj.index)
-        if obj.trainerClass then
-          local trainer = data.trainers and data.trainers[obj.trainerClass]
-          local label = trainer and trainer.name
-            or tostring(obj.trainerClass):gsub("^OPP_", "")
-          if tostring(obj.trainerClass):match("^OPP_RIVAL") then
+        local scripted = Area.gen1ScriptTrainer(id, obj)
+        local trainerClass = scripted and scripted.class or obj.trainerClass
+        if trainerClass then
+          local trainer = data.trainers and data.trainers[trainerClass]
+          local label = scripted and scripted.label or trainer and trainer.name
+            or tostring(trainerClass):gsub("^OPP_", "")
+          if tostring(trainerClass):match("^OPP_RIVAL") then
             label = (save.player and save.player.rival)
               or (save.rival and save.rival.name) or label
           end
@@ -3031,19 +3165,30 @@ return function(mod)
             done = header_ and header_.event and save.flags
               and save.flags[header_.event] == true or false
           end
-          local status
+          local status, missed, available
+          if scripted then
+            local state = Area.gen1TrainerState(save, scripted)
+            done, missed, available, status = done or state.done,
+              state.missed, state.available, state.status
+          end
           if id == "OAKS_LAB" and obj.index == 1
               and obj.trainerClass == "OPP_RIVAL1" then
             done, status = oneShotTrainerStatus(done,
               save.flags and save.flags.EVENT_BATTLED_RIVAL_IN_OAKS_LAB == true,
               mod.save:get("oak_lab_rival_result"))
           end
-          sections[1].rows[#sections[1].rows + 1] = {
-            label = label, done = done, status = status,
-            id = key, mapId = id, index = obj.index,
-            x = obj.x, y = obj.y,
-            spriteId = obj.sprite,
-          }
+          if Area.gen1TrainerMissed(save, id, done) then
+            done, missed, available, status = true, true, false, "MISSED"
+          end
+          if not scripted or available or done or showFuture then
+            sections[1].rows[#sections[1].rows + 1] = {
+              label = label, done = done, missed = missed,
+              available = available, status = status,
+              id = key, mapId = id, index = obj.index,
+              x = obj.x, y = obj.y,
+              spriteId = obj.sprite,
+            }
+          end
         elseif obj.item and obj.item ~= "0" and obj.item ~= 0 then
           local item = data.items and data.items[obj.item]
           sections[2].rows[#sections[2].rows + 1] = {
@@ -4114,7 +4259,8 @@ return function(mod)
     for _, row in ipairs(allTrainers) do
       if row.x ~= nil and row.y ~= nil then
         local marker = { kind = "trainer", x = row.x, y = row.y,
-          actor = row.actor or row, state = row.done and "beaten" or "open",
+          actor = row.actor or row,
+          state = row.missed and "missed" or row.done and "beaten" or "open",
           source = row }
         markers[#markers + 1] = marker
         if row == selected then selectedMarker = marker end
@@ -4167,7 +4313,7 @@ return function(mod)
       end,
       drawTrainer = function(marker, x, y, tileSize)
         compat.drawMapActor(marker.actor, x, y, tileSize / 16, true,
-          marker.state == "beaten" and { 0.45, 0.45, 0.45, 1 } or nil)
+          marker.state ~= "open" and { 0.45, 0.45, 0.45, 1 } or nil)
       end,
       drawActor = function(row, x, y, scale, feet)
         compat.drawMapActor(row.actor or row, x, y, scale, feet)
@@ -4725,7 +4871,8 @@ return function(mod)
         box("fill", 3, y, 154, 20, row.done and MID or PAPER)
         outline(3, y, 154, 20, INK)
         text(fit(row.label, 18), 8, y + 7, INK)
-        local status = fit(row.status or (row.done and "DONE" or "OPEN"), 5)
+        local status = fit(THEME:translate(
+          row.status or (row.done and "DONE" or "OPEN")), 5)
         text(status, 156 - #glyphList(status) * 6, y + 7, DARK)
       end
     end

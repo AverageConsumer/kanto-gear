@@ -20,7 +20,7 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count == 381, "El catálogo de traducción está incompleto")
+assert(count == 385, "El catálogo de traducción está incompleto")
 
 for _, source in ipairs({
   "NEW GAME", "OPTION", "EXIT GAME", "INPUT STAYS ON TOP",
@@ -52,6 +52,8 @@ local layoutLimits = {
   ["CAUGHT"] = 7,
   ["DONE"] = 5,
   ["OPEN"] = 5,
+  ["MISSED"] = 5,
+  ["LATER"] = 5,
   ["MONEY"] = 11,
   ["TIME"] = 11,
   ["POKEDEX"] = 11,

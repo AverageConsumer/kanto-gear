@@ -209,7 +209,8 @@ function love.load()
     local typeLabels = {
       { "HERE NOW", 66 }, { "WHOLE ROUTE", 68 }, { "HABITAT", 50 },
       { "FOUND", 74 },
-      { "BEATEN", 74 }, { "NEED FINDER", 63 },
+      { "BEATEN", 74 }, { "MISSED", 74 }, { "LATER", 74 },
+      { "NEED FINDER", 63 },
       { "TAP TO SCAN AGAIN", 200 },
       { "WILD", 60 }, { "ITEMS", 60 }, { "TRAINER", 60 },
       { "CAUGHT", 60 }, { "FOUND", 60 }, { "BEATEN", 60 },
@@ -222,6 +223,11 @@ function love.load()
     assert(theme:fitPartyInfo(translate("NOT CAUGHT"), 100)
         == translate("NOT CAUGHT"),
       "caught state fits its Explorer detail container")
+    assert(theme:fitPartyInfo(translate("UNAVAILABLE"), 100)
+        == translate("UNAVAILABLE")
+      and theme:fitPartyInfo(translate("STORY EVENT"), 100)
+        == translate("STORY EVENT"),
+      "trainer lifecycle states fit their Explorer detail container")
     for _, label in ipairs({ "COOLTRAINERF BETH", "POKEMANIAC BRENT",
         "SUPER POTION", "PARLYZ HEAL" }) do
       assert(theme:fitPartyType(label, 96) == label,

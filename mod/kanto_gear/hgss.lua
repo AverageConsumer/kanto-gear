@@ -2294,13 +2294,18 @@ return function(ui)
       if model.drawActor then model.drawActor(selected, 23, 180, 1, false) end
       self:partyInfo(self:fitPartyInfo(selected.label, 75),
         39, 157, colors.ink)
-      self:partyType(self:fitPartyType(translate(selected.done and "BEATEN"
-        or "OPEN"), 75), 39, 181, colors.green, 75)
+      local trainerState = selected.missed and "MISSED"
+        or selected.done and "BEATEN" or selected.status or "OPEN"
+      self:partyType(self:fitPartyType(translate(trainerState), 75),
+        39, 181, colors.green, 75)
       box("fill", 120, 147, 1, 56, colors.band)
       self:partyType(self:fitPartyType(translate("TRAINER"), 100),
         126, 158, colors.green, 100)
-      self:partyInfo(self:fitPartyInfo(translate(selected.status
-        or "ON THIS MAP"), 100), 126, 180, colors.ink, 100, "center")
+      local trainerDetail = selected.missed and "UNAVAILABLE"
+        or selected.status == "LATER" and "STORY EVENT"
+        or selected.status or "ON THIS MAP"
+      self:partyInfo(self:fitPartyInfo(translate(trainerDetail), 100),
+        126, 180, colors.ink, 100, "center")
       return
     end
 
