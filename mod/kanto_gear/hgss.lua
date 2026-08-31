@@ -1746,76 +1746,197 @@ return function(ui)
     if self:shadowVisible() then
       clipped(x + 1, y + 2, w, h, colors.shadow)
     end
-    clipped(x, y, w, h, mixed(colors.surface, colors.blueLight, 0.12))
+    clipped(x, y, w, h, mixed(colors.surface, colors.blueLight, 0.08))
     border(x, y, w, h, colors.outline)
-    if id == "notes" then
-      box("fill", x + 5, y + 5, w - 10, 10, colors.blue)
-      box("fill", x + 8, y + 8, 28, 2, colors.white)
-      for row = 0, 2 do
-        box("fill", x + 8, y + 21 + row * 11, 5, 5,
-          row == 0 and colors.amberLight or colors.surface)
-        border(x + 8, y + 21 + row * 11, 5, 5, colors.outline)
-        box("fill", x + 17, y + 22 + row * 11,
-          math.max(14, w - 31 - row * 8), 2, colors.silverDark)
+    local detailed = w >= 180
+    local top, height = y + 1, h - 2
+    if detailed then
+      clipped(x + 1, top, w - 2, 12, colors.blue)
+      self:partyType(translate("PREVIEW"), x + 5, top + 2,
+        colors.white, w - 10)
+      top, height = top + 12, height - 12
+    end
+    local function miniCard(left, cardTop, width, cardHeight, tint)
+      clipped(left, cardTop, width, cardHeight,
+        mixed(colors.surface, tint or colors.band, self.dark and 0.12 or 0.08))
+      border(left, cardTop, width, cardHeight, colors.band)
+    end
+    local function miniBall(cx, cy, tint)
+      color(colors.outline); G.circle("fill", cx, cy, 5)
+      color(colors.white); G.circle("fill", cx, cy, 4)
+      color(tint or colors.redLight); G.arc("fill", cx, cy, 4, math.pi, 0)
+      box("fill", cx - 4, cy - 1, 8, 2, colors.outline)
+      color(colors.white); G.circle("fill", cx, cy, 1)
+    end
+    if id == "explorer" then
+      local mapW = detailed and 128 or w - 10
+      local left, mapTop = x + 5, top + 4
+      clipped(left, mapTop, mapW, height - 8, colors.bandLight)
+      border(left, mapTop, mapW, height - 8, colors.outline)
+      box("fill", left + 1, mapTop + 9, mapW - 2, 17, colors.amberLight)
+      box("fill", left + 16, mapTop + 6, 21, 4, colors.green)
+      box("fill", left + mapW - 35, mapTop + 26, 25, 5, colors.blueLight)
+      box("fill", left + math.floor(mapW / 2) - 2, mapTop + 14,
+        5, 7, colors.blue)
+      box("fill", left + math.floor(mapW / 2) - 1, mapTop + 12,
+        3, 3, colors.redLight)
+      miniBall(left + mapW - 22, mapTop + 15, colors.redLight)
+      box("fill", left + 23, mapTop + 17, 4, 7, colors.green)
+      if detailed then
+        self:partyType(translate("HERE NOW"), x + 140, top + 5,
+          colors.green, 76)
+        for index, tint in ipairs({ colors.greenLight, colors.blueLight,
+            colors.amberLight }) do
+          miniBall(x + 149 + (index - 1) * 29, top + 27, tint)
+        end
+        box("fill", x + 142, top + 42, 69, 3, colors.silverDark)
       end
-      box("fill", x + w - 13, y + 18, 3, h - 23, colors.amber)
-    elseif id == "steps" then
-      local iconX = x + math.max(5, math.floor(w * 0.18) - 13)
-      self:homeStepsIcon(iconX, y + math.floor((h - 26) / 2))
-      local valueX, valueW = x + math.floor(w * 0.38), math.floor(w * 0.52)
-      fontText(trainerValueFont, "12K", valueX, y + 16,
-        colors.ink, valueW, "center")
-      self:partyType(translate("TOTAL"), valueX, y + 34,
-        self.dark and colors.silver or colors.silverDark, valueW)
-    elseif id == "pokedex" then
-      local columns = w < 150 and 3 or 5
-      local gap, inner = 3, w - 12
-      local cardW = math.floor((inner - (columns - 1) * gap) / columns)
-      local cardH = math.floor((h - 20) / 2)
-      for index = 1, columns * 2 do
-        local column, row = (index - 1) % columns, math.floor((index - 1) / columns)
-        local left, top = x + 6 + column * (cardW + gap), y + 5 + row * (cardH + 3)
-        clipped(left, top, cardW, cardH, colors.surface)
-        border(left, top, cardW, cardH, colors.outline)
-        color(index % 3 == 0 and colors.redLight
-          or index % 3 == 1 and colors.greenLight or colors.blueLight)
-        G.circle("fill", left + math.floor(cardW / 2),
-          top + math.floor(cardH / 2), math.max(3, math.floor(cardH / 3)))
-        color(colors.outline)
-        G.circle("line", left + math.floor(cardW / 2),
-          top + math.floor(cardH / 2), math.max(3, math.floor(cardH / 3)))
+    elseif id == "map" then
+      local left, mapTop = x + 7, top + 5
+      local mapW, mapH = w - 14, height - 10
+      clipped(left, mapTop, mapW, mapH, colors.bandLight)
+      border(left, mapTop, mapW, mapH, colors.outline)
+      local points = {
+        { 12, 10 }, { 32, 10 }, { 51, 18 }, { 72, 18 },
+        { 91, 9 }, { 112, 9 }, { 131, 21 }, { 153, 21 },
+        { 174, 12 }, { 195, 12 },
+      }
+      color(colors.blue); G.setLineWidth(3)
+      for index = 1, #points - 1 do
+        G.line(left + points[index][1], mapTop + points[index][2],
+          left + points[index + 1][1], mapTop + points[index + 1][2])
       end
-      border(x + 7, y + h - 8, w - 14, 4, colors.outline)
-      box("fill", x + 8, y + h - 7, math.floor((w - 16) * 0.47), 2,
-        colors.redLight)
-    elseif id == "bag" then
-      self:battleBagIcon(x + 10, y + math.floor((h - 27) / 2))
-      box("fill", x + 44, y + 6, 1, h - 12, colors.band)
-      local kinds = { "medicine", "ball", "machine" }
-      for row = 0, 2 do
-        local top = y + 5 + row * math.max(12, math.floor((h - 8) / 3))
-        clipped(x + 51, top, w - 58, 17, colors.surface)
-        border(x + 51, top, w - 58, 17, colors.band)
-        self:battleItemIcon({ icon = kinds[row + 1] },
-          x + 53, top, self:itemAccent(kinds[row + 1]))
-        box("fill", x + 74, top + 7,
-          math.max(8, w - 87 - row * 8), 2, colors.silverDark)
+      G.setLineWidth(1)
+      for index, point in ipairs(points) do
+        color(colors.outline); G.circle("fill", left + point[1],
+          mapTop + point[2], index == 6 and 5 or 3)
+        color(index == 6 and colors.redLight or colors.surface)
+        G.circle("fill", left + point[1], mapTop + point[2],
+          index == 6 and 3 or 2)
+      end
+      box("fill", left + 5, mapTop + mapH - 10, 42, 5, colors.green)
+      box("fill", left + 51, mapTop + mapH - 10, 27, 5, colors.amber)
+      if detailed then
+        self:partyType("JOHTO", left + mapW - 51,
+          mapTop + mapH - 12, colors.ink, 45)
       end
     elseif id == "party" then
-      for index = 0, 2 do
-        local left = x + 6 + index * math.floor((w - 12) / 3)
-        color(colors.outline); G.circle("fill", left + 11, y + 22, 10)
-        color(index == 0 and colors.partyLight or colors.surface)
-        G.circle("fill", left + 11, y + 22, 8)
-        box("fill", left + 4, y + 21, 14, 2, colors.outline)
-        box("fill", left + 4, y + 38, 15, 3,
-          index == 2 and colors.hpMid or colors.hp)
+      local gap, cardW = 4, math.floor((w - 14) / 2)
+      for index = 0, 3 do
+        local column, row = index % 2, math.floor(index / 2)
+        local left = x + 5 + column * (cardW + gap)
+        local cardTop = top + 4 + row * 24
+        miniCard(left, cardTop, cardW, 21, colors.partyLight)
+        miniBall(left + 12, cardTop + 10,
+          index == 3 and colors.hpMid or colors.redLight)
+        box("fill", left + 23, cardTop + 5, cardW - 29, 3,
+          colors.ink)
+        border(left + 23, cardTop + 13, cardW - 29, 5, colors.outline)
+        box("fill", left + 24, cardTop + 14,
+          math.floor((cardW - 31) * (index == 3 and 0.3 or 0.8)), 3,
+          index == 3 and colors.hpMid or colors.hp)
       end
+    elseif id == "pokedex" then
+      local left, dexTop = x + 6, top + 4
+      local dexW, dexH = detailed and 54 or 31, height - 8
+      clipped(left, dexTop, dexW, dexH, colors.red)
+      border(left, dexTop, dexW, dexH, colors.outline)
+      clipped(left + 6, dexTop + 6, dexW - 12, dexH - 16, colors.blue)
+      border(left + 6, dexTop + 6, dexW - 12, dexH - 16, colors.outline)
+      miniBall(left + math.floor(dexW / 2), dexTop + math.floor(dexH / 2),
+        colors.redLight)
+      box("fill", left + 7, dexTop + dexH - 7, 7, 3, colors.amberLight)
+      local listX, listW = left + dexW + 5, w - dexW - 17
+      for row = 0, 2 do
+        local rowTop = dexTop + row * 16
+        miniCard(listX, rowTop, listW, 14,
+          row == 0 and colors.redLight or colors.band)
+        miniBall(listX + 9, rowTop + 7,
+          row == 0 and colors.redLight or colors.silver)
+        box("fill", listX + 18, rowTop + 4,
+          math.max(7, listW - 29 - row * 7), 2, colors.ink)
+        box("fill", listX + 18, rowTop + 9,
+          math.max(5, listW - 42), 2, colors.silverDark)
+      end
+    elseif id == "bag" then
+      local iconX = x + (detailed and 9 or 4)
+      self:battleBagIcon(iconX, top + math.floor((height - 27) / 2))
+      local listX = x + (detailed and 47 or 37)
+      local listW = x + w - 6 - listX
+      local kinds = { "medicine", "ball", "machine" }
+      for row = 0, 2 do
+        local cardTop = top + 3 + row * 17
+        miniCard(listX, cardTop, listW, 15,
+          self:itemAccent(kinds[row + 1]))
+        self:battleItemIcon({ icon = kinds[row + 1] },
+          listX + 2, cardTop - 1, self:itemAccent(kinds[row + 1]))
+        box("fill", listX + 22, cardTop + 6,
+          math.max(7, listW - 30 - row * 8), 2, colors.ink)
+      end
+    elseif id == "trainer" then
+      local cardX, cardY = x + 7, top + 5
+      local cardW, cardH = w - 14, height - 10
+      clipped(cardX, cardY, cardW, cardH, colors.surface)
+      border(cardX, cardY, cardW, cardH, colors.outline)
+      box("fill", cardX + 1, cardY + 1, cardW - 2, 9, colors.blue)
+      self:partyType(translate("TRAINER CARD"), cardX + 5, cardY + 1,
+        colors.white, cardW - 10)
+      clipped(cardX + 7, cardY + 14, 27, 28, colors.bandLight)
+      border(cardX + 7, cardY + 14, 27, 28, colors.outline)
+      self:homeTrainerIcon(cardX + 7, cardY + 15)
+      box("fill", cardX + 42, cardY + 16, math.floor(cardW * 0.38), 3,
+        colors.ink)
+      box("fill", cardX + 42, cardY + 24, math.floor(cardW * 0.28), 2,
+        colors.silverDark)
+      for badge = 0, 5 do
+        color(badge < 4 and colors.amberLight or colors.silver)
+        G.circle("fill", cardX + 46 + badge * 18, cardY + 38, 4)
+        color(colors.outline); G.circle("line", cardX + 46 + badge * 18,
+          cardY + 38, 4)
+      end
+    elseif id == "steps" then
+      local iconX = x + (detailed and 15 or 7)
+      self:homeStepsIcon(iconX, top + math.floor((height - 26) / 2))
+      local valueX, valueW = x + (detailed and 54 or 38),
+        w - (detailed and 62 or 44)
+      fontText(trainerNumberFont, "12,846", valueX, top + 7,
+        colors.ink, valueW, "center")
+      self:partyType(translate("STEPS TODAY"), valueX, top + 34,
+        colors.green, valueW)
+      border(valueX + 7, top + height - 10, valueW - 14, 5, colors.outline)
+      box("fill", valueX + 8, top + height - 9,
+        math.floor((valueW - 16) * 0.64), 3, colors.greenLight)
+    elseif id == "tools" then
+      local kinds = { "bicycle", "fish", "cut", "surf" }
+      local gap, cardW = 4, math.floor((w - 14) / 4)
+      for index, kind in ipairs(kinds) do
+        local left = x + 5 + (index - 1) * (cardW + gap)
+        miniCard(left, top + 5, cardW, height - 10,
+          self:toolAccent(kind))
+        self:toolIcon(kind, left + math.floor((cardW - 28) / 2),
+          top + math.floor((height - 28) / 2), self:toolAccent(kind))
+      end
+    elseif id == "notes" then
+      clipped(x + 6, top + 4, w - 12, height - 8, colors.surface)
+      border(x + 6, top + 4, w - 12, height - 8, colors.outline)
+      box("fill", x + 7, top + 5, w - 14, 8, colors.blue)
+      for row = 0, 2 do
+        local rowTop = top + 18 + row * 11
+        clipped(x + 13, rowTop, 6, 6,
+          row == 0 and colors.greenLight or colors.surface)
+        border(x + 13, rowTop, 6, 6, colors.outline)
+        if row == 0 then
+          box("fill", x + 14, rowTop + 3, 2, 2, colors.outline)
+          box("fill", x + 16, rowTop + 2, 2, 2, colors.outline)
+        end
+        box("fill", x + 24, rowTop + 2,
+          math.max(12, w - 41 - row * 15), 2, colors.silverDark)
+      end
+      box("fill", x + w - 14, top + 16, 3, height - 23, colors.amber)
     else
-      for row = 0, 3 do
-        box("fill", x + 7, y + 8 + row * 11, w - 14, 7,
-          row % 2 == 0 and colors.band or colors.surface)
-      end
+      local icon = homeIcons(self)[id]
+      if icon then drawHomeIcon(icon, x + math.floor((w - 29) / 2),
+        top + math.floor((height - 29) / 2), 29) end
     end
     self:endPress(pressed)
   end
@@ -1998,7 +2119,6 @@ return function(ui)
       self:storeMiniAction(175, 61, 43, "REMOVE", "soon", true)
     end
     self:storePreview(app.id, 7, 90, 226, 73)
-    self:partyType(translate("PREVIEW"), 12, 94, colors.white, 216)
     clipped(7, 168, 226, 39, colors.surface)
     border(7, 168, 226, 39, colors.outline)
     local lines = app.description or {}

@@ -441,8 +441,8 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
   local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
-  local title = storeDetail and (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP")
-      == "bag" and "BAG" or "NOTES")
+  local title = storeDetail and
+      (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "NOTES"):upper()
     or store and "SILPH STORE"
     or homeAdd and "ADD TO HOME"
     or homeEdit and "EDIT HOME"
@@ -1225,6 +1225,8 @@ function love.load()
       category = "PROFILE", action = "OPEN", state = "open" },
     { id = "steps", icon = "steps", label = "STEP COUNTER",
       category = "TRAINER TOOL", action = "OPEN", state = "open" },
+    { id = "tools", icon = "tools", label = "TOOLS",
+      category = "FIELD KIT", action = "OPEN", state = "open" },
     { id = "notes", icon = "notes", label = "NOTES",
       category = "TRAINER TOOL", action = "GET", state = "get" },
   }
@@ -1259,8 +1261,8 @@ function love.load()
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
   if storeToday then
     theme:storeToday({
-      featured = { id = "notes", icon = "notes", label = "NOTES",
-        category = "TRAINER TOOL", action = "GET", state = "get" },
+      featured = { id = "tools", icon = "tools", label = "TOOLS",
+        category = "FIELD KIT", action = "OPEN", state = "open" },
       recommended = {
         { id = "party", icon = "party", label = "PARTY",
           reason = "TEAM STATUS", state = "open" },
@@ -1279,18 +1281,17 @@ function love.load()
     })
   elseif storeDetail then
     local detailId = os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "notes"
-    local bagStore = detailId == "bag"
-    theme:storeDetail({ app = {
-      id = detailId, icon = detailId, label = bagStore and "BAG" or "NOTES",
-      category = bagStore and "ITEMS" or "TRAINER TOOL",
-      publisher = "SILPH CO.", action = bagStore and "OPEN" or "GET",
-      state = bagStore and "open" or "get",
-      description = bagStore and {
-        "BROWSE EVERY ITEM BELOW.", "USE THE ORIGINAL GAME EFFECTS.",
-        "NO MIRRORED BAG REQUIRED.",
-      } or { "PLAN ROUTES AND REMINDERS.", "KEEP CLUES CLOSE AT HAND.",
-        "YOUR JOURNEY, ORGANIZED." },
-    } })
+    local detail
+    for _, app in ipairs(storeCatalog) do
+      if app.id == detailId then detail = app break end
+    end
+    detail = detail or storeCatalog[#storeCatalog]
+    detail.publisher = "SILPH CO."
+    detail.description = {
+      "A REAL LOOK INSIDE THE APP.", "BUILT FOR THE TOUCH SCREEN.",
+      "EVERYTHING CLOSE AT HAND.",
+    }
+    theme:storeDetail({ app = detail })
   elseif toolsPrompt then
     theme:tools({ actions = toolActions, page = toolPage, pages = toolPages })
     theme:toolPrompt({ icon = "teleport", label = "TELEPORT" })
