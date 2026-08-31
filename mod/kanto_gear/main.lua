@@ -821,15 +821,34 @@ function Area.gen2Hidden(data, world, mapId)
   return out
 end
 
+function Area.gen2ScriptTrainer(data, obj)
+  local scripts = data and data.gen2Scripts
+  local commands = obj and obj.scriptKey
+  commands = type(commands) == "table" and commands
+    or scripts and scripts[commands]
+  local trainer, started
+  for _, command in ipairs(commands or {}) do
+    if command.op == "loadtrainer" then
+      trainer = { class = command.class, member = command.member }
+    elseif command.op == "startbattle" and trainer then
+      started = true
+    elseif command.op == "setevent" and started and trainer.event == nil then
+      trainer.event = command.event
+    end
+  end
+  return started and trainer or nil
+end
+
 function Area.gen2Rows(data, save, world, mapIds)
   local rows = { {}, {}, {} }
   for _, mapId in ipairs(mapIds) do
     local map = data and data.gen2Maps and data.gen2Maps[mapId]
     for _, obj in ipairs(map and map.objects or {}) do
-      if obj.trainer then
+      local trainer = obj.trainer or Area.gen2ScriptTrainer(data, obj)
+      if trainer then
         rows[1][#rows[1] + 1] = {
-          label = gen2TrainerName(data, save, obj.trainer),
-          done = gen2FlagSet(world, obj.trainer.event),
+          label = gen2TrainerName(data, save, trainer),
+          done = gen2FlagSet(world, trainer.event),
           id = string.format("%s_obj_%d", mapId, obj.index or 0),
           mapId = mapId, index = obj.index or 0, x = obj.x, y = obj.y,
           spriteId = obj.sprite, palette = obj.palette,
@@ -863,7 +882,7 @@ function Area.remaining(sections)
 end
 
 do
-  local flags = { [11] = true, [13] = true }
+  local flags = { [11] = true, [13] = true, [14] = true }
   local data = {
     items = {
       POTION = { index = 7, name = "POTION" },
@@ -872,11 +891,19 @@ do
     gen2Trainers = { classes = { YOUNGSTER = {
       index = 3, name = "YOUNGSTER",
       trainers = { [2] = { name = "JOEY" } },
+    }, POKEFANF = { index = 4, name = "POKEFAN",
+      trainers = { [1] = { name = "JAIME" } },
     } } },
+    gen2Scripts = { JAIME = {
+      { op = "setevent", event = 99 },
+      { op = "loadtrainer", class = 4, member = 1 },
+      { op = "startbattle" }, { op = "setevent", event = 14 },
+    } },
     gen2Maps = { TEST = {
       objects = {
         { trainer = { class = 3, member = 2, event = 11 } },
         { eventFlag = 12, itemball = { item = 7 } },
+        { index = 3, x = 6, y = 7, scriptKey = "JAIME" },
       },
       bgEvents = { { x = 4, y = 5,
         hiddenItem = { item = 8, event = 13 } } },
@@ -888,6 +915,8 @@ do
     { rows = rows[1] }, { rows = rows[2] }, { rows = rows[3] },
   })
   assert(rows[1][1].label == "YOUNGSTER JOEY" and rows[1][1].done
+    and rows[1][2].label == "POKEFAN JAIME" and rows[1][2].done
+    and rows[1][2].x == 6 and rows[1][2].y == 7
     and rows[2][1].label == "POTION" and not rows[2][1].done
     and rows[3][1].label == "BERRY" and rows[3][1].done
     and remaining[1] == 0 and remaining[2] == 1 and remaining[3] == 0,
