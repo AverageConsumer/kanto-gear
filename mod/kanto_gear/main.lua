@@ -8520,6 +8520,15 @@ return function(mod)
     "Explorer horizontal swipe regions")
 
   local function swipe(dx, down)
+    if THEME.style == "hgss" and not moveInfo then
+      local summary = screenById("summary")
+      if summary and game.stack:top() == summary
+          and compat.summary.supports(summary, game) then
+        press(dx < 0 and "right" or "left")
+        dirty = true
+        return
+      end
+    end
     if THEME.style == "hgss" and page == "TOOLS" then
       local pages = math.max(1, math.ceil(#displayRuntime.toolModels() / 4))
       if pages > 1 then
@@ -8636,7 +8645,9 @@ return function(mod)
       local speed = textTouch(top) == "speed"
       touchDown = { x = x, y = y,
         at = love.timer.getTime(),
-        pageSwipe = pageSwipeAllowed(mode, battle),
+        pageSwipe = pageSwipeAllowed(mode, battle)
+          or THEME.style == "hgss" and not moveInfo
+            and compat.isScreen(top, "summary"),
         textSpeed = speed,
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
           or screenContract(top, "naming")

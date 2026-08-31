@@ -723,6 +723,20 @@ do
   end
   local touchEvent = upvalue(composeHook, "touchEvent")
   local tap = upvalue(touchEvent, "tap")
+  local swiped
+  game.input.sourcePress = function(_, button) swiped = button end
+  game.input.sourceRelease = function() end
+  summaryState.page = 1
+  touchEvent("down,130,100")
+  touchEvent("up,70,100")
+  T.eq(swiped, "right",
+    "left swipe follows the visible next Summary arrow in battle")
+  swiped = nil
+  touchEvent("down,70,100")
+  touchEvent("up,130,100")
+  T.eq(swiped, "left",
+    "right swipe follows the visible previous Summary arrow in battle")
+  summaryState.page = 2
   tap(80, 50)
   _, selectedMove = debug.getupvalue(inputHook, moveInfoIndex)
   T.eq(selectedMove and selectedMove.id, "FIX_SUMMARY_1",
