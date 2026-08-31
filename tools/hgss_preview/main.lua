@@ -248,6 +248,20 @@ function love.load()
         and ax == 178 and ay == 117 and aw == 55 and ah == 82,
       "Home widgets and apps resolve onto the shared 12-column grid")
   end
+  if screen:sub(1, 5) == "tools" then
+    local singleX, singleY = theme:toolCardRect(0, 1)
+    local thirdX, thirdY = theme:toolCardRect(2, 3)
+    local action, index = theme:toolsHit(80, 90, {
+      page = 1, actions = { { ready = true } },
+    })
+    assert(singleX == 66 and singleY == 74
+        and thirdX == 66 and thirdY == 115
+        and action == "action" and index == 1
+        and theme:toolsHit(135, 90, { page = 1,
+          actions = { { ready = true }, { ready = false } } }) == nil
+        and theme:rodHit(30, 100, { {}, {} }) == 2,
+      "Field Kit touch targets follow visible ready cards and rod rows")
+  end
   if screen:sub(1, 5) == "store" then
     local action = theme:storeHit(180, 55, "detail")
     local remove = theme:storeHit(180, 65, "detail")
@@ -356,6 +370,10 @@ function love.load()
     screen == "store-detail"
   local trainerScreen, trainerSteps = screen == "trainer",
     screen == "trainer_steps"
+  local toolsScreen = screen == "tools"
+  local toolsPrompt = screen == "tools_prompt"
+  local toolsRods = screen == "tools_rods"
+  local tools = toolsScreen or toolsPrompt or toolsRods
   local store = storeToday or storeApps or storeLibrary or storeDetail
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
@@ -384,6 +402,8 @@ function love.load()
     or explorer and translate("EXPLORER")
     or trainerSteps and translate("STEPS")
     or trainerScreen and translate("TRAINER")
+    or toolsRods and translate("CHOOSE ROD")
+    or tools and translate("FIELD KIT")
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
     or partySwap and language.swapWith
@@ -407,17 +427,21 @@ function love.load()
     local headerOffset = summary and -1 or 0
     local titleX, titleWidth = theme:headerBar(title,
       homeAdd or store or explorer and not explorerOverview
-        or trainerScreen or trainerSteps or swapMode or context or summary
+        or trainerScreen or trainerSteps or tools or swapMode or context or summary
         or moves or memo or memoTransition
         or transition or movesTransition,
       not home and not store and not explorer and not trainerScreen
-        and not trainerSteps and not swapMode and (summary or moves or memo or memoTransition
+        and not trainerSteps and not tools and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
-        or not context), headerOffset)
+        or not context) or toolsScreen, headerOffset)
     if context then
       local left, width = 26, 112
       assert(math.abs(titleX - left - (width - titleWidth - (titleX - left)))
         <= 1, "context title stays centered between dividers")
+    end
+    if toolsScreen then
+      assert(titleX >= 42 and titleX + titleWidth <= 122,
+        "paged Field Kit titles preserve space beside both arrows")
     end
     if homeAdd then
       theme:homeAddHeader("ADD TO HOME")
@@ -1143,6 +1167,35 @@ function love.load()
     { id = "notes", icon = "notes", label = "NOTES",
       category = "TRAINER TOOL", action = "GET", state = "get" },
   }
+  local toolActions = gen1 and {
+    { id = "bicycle", icon = "bicycle", label = "BICYCLE", ready = true },
+    { id = "fish", icon = "fish", label = "FISH", ready = true },
+    { id = "cut", icon = "cut", label = "CUT", ready = false },
+    { id = "surf", icon = "surf", label = "SURF", ready = true },
+    { id = "dig", icon = "dig", label = "DIG", ready = false },
+    { id = "teleport", icon = "teleport", label = "TELEPORT", ready = true },
+    { id = "softboiled", icon = "softboiled", label = "SOFT BOILED",
+      ready = true },
+  } or {
+    { id = "bicycle", icon = "bicycle", label = "BICYCLE", ready = true },
+    { id = "fish", icon = "fish", label = "FISH", ready = true },
+    { id = "cut", icon = "cut", label = "CUT", ready = false },
+    { id = "surf", icon = "surf", label = "SURF", ready = true },
+    { id = "headbutt", icon = "headbutt", label = "HEADBUTT", ready = false },
+    { id = "whirlpool", icon = "whirlpool", label = "WHIRLPOOL", ready = true },
+    { id = "strength", icon = "strength", label = "STRENGTH", ready = true },
+    { id = "flash", icon = "flash", label = "FLASH", ready = false },
+    { id = "waterfall", icon = "waterfall", label = "WATERFALL", ready = true },
+    { id = "sweet_scent", icon = "sweet_scent", label = "SWEET SCENT",
+      ready = true },
+    { id = "dig", icon = "dig", label = "DIG", ready = false },
+    { id = "teleport", icon = "teleport", label = "TELEPORT", ready = true },
+    { id = "squirtbottle", icon = "squirtbottle", label = "SQUIRT BOTTLE",
+      ready = false },
+  }
+  local toolPage = math.max(1, math.floor(
+    tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
+  local toolPages = math.max(1, math.ceil(#toolActions / 4))
   if storeToday then
     theme:storeToday({
       featured = { id = "notes", icon = "notes", label = "NOTES",
@@ -1174,6 +1227,17 @@ function love.load()
         "YOUR JOURNEY, ORGANIZED.",
       },
     } })
+  elseif toolsPrompt then
+    theme:tools({ actions = toolActions, page = toolPage, pages = toolPages })
+    theme:toolPrompt({ icon = "teleport", label = "TELEPORT" })
+  elseif toolsRods then
+    theme:rodPicker({
+      { id = "OLD_ROD", label = "OLD ROD" },
+      { id = "GOOD_ROD", label = "GOOD ROD" },
+      { id = "SUPER_ROD", label = "SUPER ROD" },
+    })
+  elseif toolsScreen then
+    theme:tools({ actions = toolActions, page = toolPage, pages = toolPages })
   elseif home then
     local catalog = {
       packages = {
@@ -1202,6 +1266,18 @@ function love.load()
           icon = "steps", accent = "green", label = "STEPS" },
         tools_app = { package = "tools", kind = "app", columns = 3,
           icon = "tools", accent = "green", label = "TOOLS" },
+        tool_widget_bicycle = { package = "tools", kind = "widget",
+          widget = "tool", columns = 3, icon = "bicycle", label = "BICYCLE",
+          actionId = "bicycle", ready = true },
+        tool_widget_old_rod = { package = "tools", kind = "widget",
+          widget = "tool", columns = 3, icon = "fish", label = "OLD ROD",
+          actionId = "fish", rodId = "OLD_ROD", ready = true },
+        tool_widget_surf = { package = "tools", kind = "widget",
+          widget = "tool", columns = 3, icon = "surf", label = "SURF",
+          actionId = "surf", ready = false },
+        tool_widget_cut = { package = "tools", kind = "widget",
+          widget = "tool", columns = 3, icon = "cut", label = "CUT",
+          actionId = "cut", ready = true },
         store_app = { package = "store", kind = "app", columns = 3,
           icon = "store", accent = "green", label = language.homeStore },
         notes_app = { package = "notes", kind = "app", columns = 3,
@@ -1221,6 +1297,16 @@ function love.load()
       { id = "steps_widget", page = 3, column = 1, row = 1 },
       { id = "steps_app", page = 3, column = 6, row = 1 },
     } }
+    if screen == "home-tools" then
+      layout.tiles = {
+        { id = "tool_widget_bicycle", page = 1, column = 1, row = 1 },
+        { id = "tool_widget_old_rod", page = 1, column = 4, row = 1 },
+        { id = "tool_widget_surf", page = 1, column = 7, row = 1 },
+        { id = "tool_widget_cut", page = 1, column = 10, row = 1 },
+        { id = "explorer_widget", page = 1, column = 1, row = 2 },
+        { id = "party_widget", page = 1, column = 8, row = 2 },
+      }
+    end
     if homeAdd then
       Home.remove(layout, "party_widget")
       Home.remove(layout, "notes_app")

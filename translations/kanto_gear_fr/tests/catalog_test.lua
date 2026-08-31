@@ -18,11 +18,12 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count == 375, "Le catalogue de traduction est incomplet")
+assert(count == 381, "Le catalogue de traduction est incomplet")
 
 for _, source in ipairs({
   "NEW GAME", "OPTION", "EXIT GAME", "INPUT STAYS ON TOP",
-  "TAP ANYWHERE / A", "USE ITEM ON", "STEP COUNTER",
+  "TAP ANYWHERE / A", "USE ITEM ON", "STEP COUNTER", "FIELD KIT",
+  "READY", "NOT HERE", "TAP TO USE", "USE NOW?", "FISH",
   "TOOLS %d/%d", "ITM%d", "HID%d", "%s  L%d", "L%d", "L%d-%d",
   "LV.%d", "EXP", "EXP %d", "NO.%03d %s", "NO.%03d LV.%d", "OT %s",
   "ID %05d", "MIMIC", "DVS >", "NEW %s", "PC BOX %d %d/20",

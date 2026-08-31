@@ -284,6 +284,22 @@ return function(ui)
     return table.concat(chars) .. "…"
   end
 
+  local function splitFont(value, width, font)
+    local chars = glyphs(tostring(value or ""))
+    local middle = math.floor(#chars / 2)
+    for distance = 0, #chars do
+      for _, cut in ipairs({ middle - distance, middle + distance }) do
+        if cut > 0 and cut < #chars then
+          local first = table.concat(chars, "", 1, cut):gsub("%s+$", "")
+          local second = table.concat(chars, "", cut + 1):gsub("^%s+", "")
+          if font:getWidth(first) <= width and font:getWidth(second) <= width then
+            return first, second
+          end
+        end
+      end
+    end
+  end
+
   function H:fitLabel(value, width)
     return fitFont(value, width, partyFont)
   end
@@ -439,14 +455,14 @@ return function(ui)
     end
     if paged then
       if back then
-        self:pageChevron(left + 5, 13 + contentOffsetY, false)
-        self:pageChevron(right, 13 + contentOffsetY, true)
+        self:pageChevron(34, 13 + contentOffsetY, false)
+        self:pageChevron(130, 13 + contentOffsetY, true)
       else
         self:chevron(left, 13 + contentOffsetY, false)
         self:chevron(right, 13 + contentOffsetY, true)
       end
     end
-    local width = paged and (back and 76 or 88) or (back and 100 or 124)
+    local width = paged and (back and 80 or 88) or (back and 100 or 124)
     local shown = self:fitLabel(title, width)
     local x = (paged or back)
       and center - math.floor(self:labelWidth(shown) / 2)
@@ -791,6 +807,116 @@ return function(ui)
     box("fill", x + 12, y + 11, 2, 2, c.blueLight)
   end
 
+  function H:toolAccent(kind)
+    local colors = self.colors
+    if kind == "fish" or kind == "surf" or kind == "whirlpool"
+        or kind == "waterfall" then return colors.blueLight end
+    if kind == "bicycle" or kind == "dig" or kind == "teleport"
+        or kind == "softboiled" then
+      return colors.amberLight
+    end
+    if kind == "sweet_scent" then return colors.redLight end
+    if kind == "squirtbottle" then return colors.blueLight end
+    return colors.greenLight
+  end
+
+  function H:toolIcon(kind, x, y, tint)
+    local G, colors = ui.graphics, self.colors
+    tint = tint or self:toolAccent(kind)
+    local function line(...)
+      color(colors.outline); G.setLineWidth(4); G.line(...)
+      color(tint); G.setLineWidth(2); G.line(...)
+      G.setLineWidth(1)
+    end
+    local function ring(cx, cy, radius)
+      color(colors.outline); G.setLineWidth(4); G.circle("line", cx, cy, radius)
+      color(tint); G.setLineWidth(2); G.circle("line", cx, cy, radius)
+      G.setLineWidth(1)
+    end
+    if kind == "bicycle" then
+      ring(x + 7, y + 19, 5); ring(x + 21, y + 19, 5)
+      line(x + 7, y + 19, x + 12, y + 10, x + 17, y + 19,
+        x + 7, y + 19, x + 14, y + 19, x + 12, y + 10)
+      line(x + 11, y + 8, x + 15, y + 8)
+      line(x + 17, y + 19, x + 20, y + 10, x + 23, y + 9)
+    elseif kind == "fish" then
+      line(x + 5, y + 23, x + 9, y + 18, x + 16, y + 7, x + 22, y + 4)
+      ring(x + 9, y + 18, 2)
+      line(x + 22, y + 4, x + 24, y + 8, x + 24, y + 19,
+        x + 21, y + 22, x + 19, y + 20)
+    elseif kind == "cut" then
+      ring(x + 7, y + 20, 4); ring(x + 19, y + 20, 4)
+      line(x + 10, y + 17, x + 22, y + 4)
+      line(x + 16, y + 17, x + 5, y + 5)
+    elseif kind == "surf" then
+      line(x + 3, y + 11, x + 7, y + 8, x + 11, y + 11,
+        x + 15, y + 8, x + 19, y + 11, x + 23, y + 8)
+      line(x + 3, y + 19, x + 7, y + 16, x + 11, y + 19,
+        x + 15, y + 16, x + 19, y + 19, x + 23, y + 16)
+    elseif kind == "strength" then
+      color(colors.outline)
+      G.polygon("fill", x + 4, y + 20, x + 6, y + 8, x + 12, y + 3,
+        x + 21, y + 7, x + 24, y + 18, x + 19, y + 24, x + 9, y + 24)
+      color(tint)
+      G.polygon("fill", x + 6, y + 19, x + 8, y + 9, x + 13, y + 5,
+        x + 19, y + 8, x + 22, y + 18, x + 18, y + 22, x + 10, y + 22)
+      line(x + 9, y + 14, x + 16, y + 9, x + 20, y + 14)
+    elseif kind == "flash" then
+      ring(x + 14, y + 14, 5)
+      for _, ray in ipairs({ {14,2,14,6}, {14,22,14,26}, {2,14,6,14},
+          {22,14,26,14}, {5,5,8,8}, {20,20,23,23}, {5,23,8,20},
+          {20,8,23,5} }) do line(x + ray[1], y + ray[2], x + ray[3], y + ray[4]) end
+    elseif kind == "headbutt" then
+      line(x + 14, y + 12, x + 14, y + 25)
+      color(colors.outline); G.circle("fill", x + 14, y + 9, 9)
+      color(tint); G.circle("fill", x + 14, y + 9, 7)
+      box("fill", x + 12, y + 16, 4, 9, colors.outline)
+      box("fill", x + 13, y + 16, 2, 9, tint)
+    elseif kind == "whirlpool" then
+      ring(x + 14, y + 14, 10); ring(x + 14, y + 14, 5)
+      color(colors.surface); box("fill", x + 2, y + 10, 9, 7, colors.surface)
+      line(x + 4, y + 14, x + 14, y + 14, x + 18, y + 10)
+    elseif kind == "teleport" then
+      line(x + 14, y + 3, x + 24, y + 14, x + 14, y + 25,
+        x + 4, y + 14, x + 14, y + 3)
+      line(x + 14, y + 8, x + 19, y + 14, x + 14, y + 20,
+        x + 9, y + 14, x + 14, y + 8)
+    elseif kind == "waterfall" then
+      line(x + 7, y + 4, x + 7, y + 19)
+      line(x + 14, y + 4, x + 14, y + 19)
+      line(x + 21, y + 4, x + 21, y + 19)
+      line(x + 3, y + 23, x + 7, y + 20, x + 11, y + 23,
+        x + 15, y + 20, x + 19, y + 23, x + 24, y + 20)
+    elseif kind == "sweet_scent" then
+      for _, point in ipairs({ {14,6}, {21,11}, {18,20}, {10,20}, {7,11} }) do
+        color(colors.outline); G.circle("fill", x + point[1], y + point[2], 5)
+        color(tint); G.circle("fill", x + point[1], y + point[2], 3)
+      end
+      color(colors.outline); G.circle("fill", x + 14, y + 14, 5)
+      color(colors.amberLight); G.circle("fill", x + 14, y + 14, 3)
+    elseif kind == "dig" then
+      line(x + 7, y + 4, x + 20, y + 18)
+      color(colors.outline); G.polygon("fill", x + 16, y + 16, x + 24, y + 19,
+        x + 20, y + 25, x + 14, y + 20)
+      color(tint); G.polygon("fill", x + 17, y + 18, x + 22, y + 20,
+        x + 20, y + 23, x + 16, y + 20)
+      line(x + 4, y + 5, x + 8, y + 2, x + 11, y + 5)
+    elseif kind == "softboiled" then
+      color(colors.outline); G.ellipse("fill", x + 14, y + 15, 9, 12)
+      color(tint); G.ellipse("fill", x + 14, y + 15, 7, 10)
+      line(x + 10, y + 11, x + 14, y + 14, x + 11, y + 18)
+    elseif kind == "squirtbottle" then
+      clipped(x + 7, y + 9, 14, 16, colors.outline)
+      clipped(x + 9, y + 11, 10, 12, tint)
+      box("fill", x + 11, y + 4, 7, 7, colors.outline)
+      box("fill", x + 12, y + 5, 5, 5, tint)
+      line(x + 15, y + 4, x + 22, y + 4, x + 24, y + 7)
+    else
+      self:homeToolsIcon(x, y)
+    end
+    G.setLineWidth(1)
+  end
+
   function H:homeStoreIcon(x, y)
     local c = homeIconColors
     clipped(x + 1, y + 5, 25, 20, c.ink)
@@ -967,7 +1093,7 @@ return function(ui)
       6, colors.ink)
   end
 
-  function H:homeWidgetLibraryIcon(kind, x, y)
+  function H:homeWidgetLibraryIcon(kind, x, y, item)
     local G, colors = ui.graphics, self.colors
     if kind == "explorer" then
       clipped(x + 2, y + 5, 25, 19, colors.outline)
@@ -977,6 +1103,8 @@ return function(ui)
       box("fill", x + 13, y + 12, 3, 5, colors.red)
     elseif kind == "steps" then
       self:homeStepsIcon(x + 1, y + 1)
+    elseif kind == "tool" then
+      self:toolIcon(item and item.icon or "tools", x + 1, y + 1)
     else
       color(colors.outline); G.circle("fill", x + 14, y + 14, 12)
       color(colors.surface); G.circle("fill", x + 14, y + 14, 10)
@@ -1000,7 +1128,7 @@ return function(ui)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, 45, 4, 4)
     local icon = icons[item.icon or item.id]
     if item.kind == "app" and icon then drawHomeIcon(icon, x + 4, y + 5, 29)
-    else self:homeWidgetLibraryIcon(item.widget, x + 4, y + 5) end
+    else self:homeWidgetLibraryIcon(item.widget, x + 4, y + 5, item) end
     local label = self:fitPartyType(translate(item.label), w - 39)
     self:partyType(label, x + 36, y + 6, colors.ink, w - 39)
     local kind = item.kind == "app" and translate("APP")
@@ -1100,6 +1228,30 @@ return function(ui)
       x + 38, y + 54, quiet, w - 43)
   end
 
+  function H:homeTool(model, tile, selected)
+    local colors = self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    local x, y, w, h = self:homeRect(tile)
+    local accent = self:toolAccent(tile.icon)
+    local ready = tile.ready == true
+    self:homeTile(x, y, w, h, ready and accent or colors.silverDark, selected)
+    box("fill", x + 2, y + 2, w - 4, 17,
+      ready and accent or colors.silverDark)
+    box("fill", x + 4, y + 2, w - 8, 2,
+      ready and mixed(accent, colors.white, 0.36) or colors.silver)
+    self:partyType(self:fitPartyType(translate(tile.label), w - 6),
+      x + 3, y + 4, ready and colors.outline or colors.white, w - 6)
+    local iconLeft = x + math.floor((w - 28) / 2)
+    clipped(iconLeft, y + 24, 28, 28,
+      mixed(colors.surface, colors.white, self.dark and 0.07 or 0.24))
+    border(iconLeft, y + 24, 28, 28, colors.outline)
+    self:toolIcon(tile.icon, iconLeft, y + 24,
+      ready and accent or colors.silver)
+    local status = translate(ready and "READY" or "NOT HERE")
+    self:partyType(self:fitPartyType(status, w - 8), x + 4, y + 62,
+      ready and self.colors.green or quiet, w - 8)
+  end
+
   function H:homePager(page, pages)
     pages = math.max(1, tonumber(pages) or 1)
     if pages < 2 then return end
@@ -1141,6 +1293,8 @@ return function(ui)
         self:homeParty(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "steps" then
         self:homeSteps(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "tool" then
+        self:homeTool(model, tile, selected)
       elseif tile.kind == "app" then
         self:homeAppButton(x, y, w, h,
           colors[tile.accent or "green"] or colors.green,
@@ -1153,6 +1307,153 @@ return function(ui)
       self:endPress(pressed)
     end
     self:homePager(model.page, model.pages)
+  end
+
+  function H:toolCard(action, x, y)
+    local colors = self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    local accent = self:toolAccent(action.icon)
+    local pressed = self:beginPress(x, y, 109, 76, action.ready)
+    self:homeTile(x, y, 109, 76,
+      action.ready and accent or colors.silverDark, false)
+    box("fill", x + 3, y + 3, 4, 70,
+      action.ready and accent or colors.silverDark)
+    local iconLeft, iconTop = x + 12, y + 11
+    clipped(iconLeft, iconTop, 34, 34,
+      mixed(colors.surface, colors.white, self.dark and 0.06 or 0.24))
+    border(iconLeft, iconTop, 34, 34, colors.outline)
+    self:toolIcon(action.icon, iconLeft + 3, iconTop + 3,
+      action.ready and accent or colors.silver)
+
+    local label = translate(action.label)
+    if self:partyInfoWidth(label) <= 53 then
+      self:partyInfo(label, x + 50, y + 10, colors.ink, 53, "center")
+    else
+      local first, second = splitFont(label, 53, partyTypeFont)
+      if first then
+        self:partyType(first, x + 50, y + 7, colors.ink, 53)
+        self:partyType(second, x + 50, y + 17, colors.ink, 53)
+      else
+        self:partyType(self:fitPartyType(label, 53),
+          x + 50, y + 12, colors.ink, 53)
+      end
+    end
+    local status = translate(action.ready and "READY" or "NOT HERE")
+    local statusTint = action.ready and colors.greenLight or colors.silverDark
+    clipped(x + 50, y + 29, 53, 13, statusTint)
+    border(x + 50, y + 29, 53, 13, colors.outline)
+    self:partyType(self:fitPartyType(status, 49), x + 52, y + 31,
+      action.ready and colors.statusInk or colors.white, 49)
+    self:partyType(self:fitPartyType(translate(action.ready
+        and "TAP TO USE" or "CONTEXT REQUIRED"), 93),
+      x + 10, y + 57, action.ready and colors.green or quiet, 93)
+    self:endPress(pressed)
+  end
+
+  function H:toolCardRect(visible, count)
+    if count == 1 then return 66, 74 end
+    if count == 2 then return 7 + visible * 117, 74 end
+    if count == 3 and visible == 2 then return 66, 115 end
+    return 7 + visible % 2 * 117, 33 + math.floor(visible / 2) * 82
+  end
+
+  function H:tools(model)
+    local colors = self.colors
+    model = model or {}
+    local actions = model.actions or {}
+    if #actions == 0 then
+      self:homeTile(25, 55, 190, 103, colors.greenLight, false)
+      clipped(103, 69, 34, 34,
+        mixed(colors.surface, colors.white, self.dark and 0.06 or 0.24))
+      border(103, 69, 34, 34, colors.outline)
+      self:homeToolsIcon(107, 73)
+      self:partyInfo(translate("NO TOOLS UNLOCKED"), 34, 113,
+        colors.ink, 172, "center")
+      self:partyType(translate("KEEP EXPLORING"), 34, 134,
+        colors.green, 172)
+      return
+    end
+    local page = math.max(1, tonumber(model.page) or 1)
+    local first = (page - 1) * 4 + 1
+    local count = math.min(4, math.max(0, #actions - first + 1))
+    for index = first, math.min(first + 3, #actions) do
+      local visible = index - first
+      local x, y = self:toolCardRect(visible, count)
+      self:toolCard(actions[index], x, y)
+    end
+    self:homePager(page, model.pages)
+  end
+
+  function H:toolsHit(x, y, model)
+    local page = math.max(1, tonumber(model and model.page) or 1)
+    local actions = model and model.actions or {}
+    if y < 29 and x >= 27 and x < 50 then return "prev" end
+    if y < 29 and x >= 116 and x < 139 then return "next" end
+    local first = (page - 1) * 4 + 1
+    local count = math.min(4, math.max(0, #actions - first + 1))
+    for visible = 0, count - 1 do
+      local index = (page - 1) * 4 + visible + 1
+      local action = actions[index]
+      local left, top = self:toolCardRect(visible, count)
+      if action and action.ready and x >= left and x < left + 109
+          and y >= top and y < top + 76 then return "action", index end
+    end
+  end
+
+  function H:toolPrompt(action)
+    local G, colors = ui.graphics, self.colors
+    color({ 0, 0, 0, self.dark and 0.62 or 0.48 })
+    G.rectangle("fill", 0, 0, 240, 216)
+    local accent = self:toolAccent(action.icon)
+    self:homeTile(25, 52, 190, 112, accent, false)
+    box("fill", 28, 55, 4, 106, accent)
+    clipped(39, 70, 40, 40,
+      mixed(colors.surface, colors.white, self.dark and 0.06 or 0.24))
+    border(39, 70, 40, 40, colors.outline)
+    self:toolIcon(action.icon, 45, 76, accent)
+    self:partyInfo(self:fitPartyInfo(translate(action.label), 116),
+      86, 72, colors.ink, 116, "center")
+    self:partyType(translate("USE NOW?"), 86, 94, colors.green, 116)
+    for index, option in ipairs({ "YES", "NO" }) do
+      local x = index == 1 and 39 or 126
+      local pressed = self:beginPress(x, 124, 75, 27)
+      clipped(x, 124, 75, 27, index == 1 and accent or colors.surface)
+      border(x, 124, 75, 27, colors.outline)
+      self:partyInfo(translate(option), x + 4, 130,
+        index == 1 and colors.statusInk or colors.ink, 67, "center")
+      self:endPress(pressed)
+    end
+  end
+
+  function H:toolPromptHit(x, y)
+    if x >= 39 and x < 114 and y >= 124 and y < 151 then return true end
+    if x >= 126 and x < 201 and y >= 124 and y < 151 then return false end
+  end
+
+  function H:rodPicker(rods)
+    local colors = self.colors
+    for index, rod in ipairs(rods or {}) do
+      local y = 38 + (index - 1) * 54
+      local pressed = self:beginPress(16, y, 208, 44)
+      self:homeTile(16, y, 208, 44, colors.blueLight, false)
+      clipped(23, y + 7, 30, 30,
+        mixed(colors.surface, colors.white, self.dark and 0.06 or 0.24))
+      border(23, y + 7, 30, 30, colors.outline)
+      self:toolIcon("fish", 25, y + 9, colors.blueLight)
+      self:partyInfo(self:fitPartyInfo(translate(rod.label), 132),
+        65, y + 8, colors.ink, 132, "center")
+      self:partyType(translate("TAP TO USE"), 65, y + 26,
+        colors.green, 132)
+      self:detailChevron(211, y + 18, colors.ink, true)
+      self:endPress(pressed)
+    end
+  end
+
+  function H:rodHit(x, y, rods)
+    for index = 1, #(rods or {}) do
+      local top = 38 + (index - 1) * 54
+      if x >= 16 and x < 224 and y >= top and y < top + 44 then return index end
+    end
   end
 
   function H:storeAction(x, y, w, label, state)

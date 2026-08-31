@@ -173,6 +173,44 @@ display.openHomeApp("store")
 T.check(pcall(display.drawContents),
   "the real Store runtime model renders without an exception")
 local theme = upvalue(display.drawContents, "THEME")
+
+local oldRodSurface = catalog.surfaces.tool_widget_old_rod
+display.refreshToolSurfaces({})
+T.check(oldRodSurface.hidden,
+  "locked field gear stays out of the Home widget library")
+game.save.inventory.OLD_ROD = 1
+local fishAction = { id = "fish", label = "FISH",
+  rods = { { id = "OLD_ROD", label = "OLD ROD" } } }
+local usedTool
+api.world = {
+  availableFieldActions = function() return { fishAction } end,
+  useFieldAction = function(_, id, opts)
+    usedTool = { id = id, rod = opts and opts.rod }
+    return true
+  end,
+}
+display.refreshToolSurfaces({ fishAction })
+T.check(not oldRodSurface.hidden and oldRodSurface.ready,
+  "owned and currently usable field gear becomes a ready widget")
+home.layout = { tiles = {
+  { id = "tool_widget_old_rod", page = 1, column = 1, row = 1 },
+} }
+home.page, home.editing, home.library = 1, false, false
+local toolTile = display.Home.tiles(home.layout, catalog, 1)[1]
+local toolX, toolY, toolW, toolH = theme.hgss:homeRect(toolTile)
+display.tapHome(toolX + math.floor(toolW / 2),
+  toolY + math.floor(toolH / 2))
+T.eq(usedTool and usedTool.id, "fish",
+  "tapping a ready field widget uses its action directly")
+T.eq(usedTool and usedTool.rod, "OLD_ROD",
+  "rod widgets preserve the configured rod")
+display.refreshToolSurfaces({})
+display.tapHome(toolX + math.floor(toolW / 2),
+  toolY + math.floor(toolH / 2))
+T.eq(page(), "TOOLS",
+  "a field widget that is not usable here opens its Field Kit")
+display.openHomeApp("store")
+
 touchEvent("down,20,30")
 T.check(pcall(display.drawContents),
   "an active touch renders through the shared HGSS pressed layer")

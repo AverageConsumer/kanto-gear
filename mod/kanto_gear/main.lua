@@ -567,6 +567,80 @@ local FIELD_MOVES = {
   SOFTBOILED = false,
 }
 
+THEME.fieldTools = { widgets = {
+  { key = "bicycle", action = "bicycle", item = "BICYCLE", icon = "bicycle" },
+  { key = "old_rod", action = "fish", item = "OLD_ROD", rod = "OLD_ROD",
+    icon = "fish" },
+  { key = "good_rod", action = "fish", item = "GOOD_ROD", rod = "GOOD_ROD",
+    icon = "fish" },
+  { key = "super_rod", action = "fish", item = "SUPER_ROD", rod = "SUPER_ROD",
+    icon = "fish" },
+  { key = "cut", action = "cut", move = "CUT", icon = "cut", gen = "both" },
+  { key = "surf", action = "surf", move = "SURF", icon = "surf", gen = "both" },
+  { key = "strength", action = "strength", move = "STRENGTH",
+    icon = "strength", gen = "both" },
+  { key = "flash", action = "flash", move = "FLASH", icon = "flash",
+    gen = "both" },
+  { key = "headbutt", action = "headbutt", move = "HEADBUTT",
+    icon = "headbutt", gen = 2 },
+  { key = "whirlpool", action = "whirlpool", move = "WHIRLPOOL",
+    icon = "whirlpool", gen = 2 },
+  { key = "waterfall", action = "waterfall", move = "WATERFALL",
+    icon = "waterfall", gen = 2 },
+  { key = "sweet_scent", action = "sweet_scent", move = "SWEET_SCENT",
+    icon = "sweet_scent", gen = 2 },
+  { key = "dig", action = "dig", move = "DIG", icon = "dig", gen = "both" },
+  { key = "teleport", action = "teleport", move = "TELEPORT",
+    icon = "teleport", gen = "both" },
+  { key = "softboiled", action = "softboiled", move = "SOFTBOILED",
+    icon = "softboiled", gen = 1 },
+  { key = "squirtbottle", action = "squirtbottle", item = "SQUIRTBOTTLE",
+    icon = "squirtbottle", gen = 2 },
+} }
+
+THEME.fieldTools.gen2Badges = {
+  CUT = "HIVE", FLASH = "ZEPHYR", SURF = "FOG", STRENGTH = "PLAIN",
+  WHIRLPOOL = "GLACIER", WATERFALL = "RISING",
+}
+
+THEME.fieldTools.badgeOrder = {
+  "ZEPHYR", "HIVE", "PLAIN", "FOG", "STORM", "MINERAL", "GLACIER",
+  "RISING",
+}
+
+function THEME.fieldTools.partyKnows(save, moveId)
+  for _, mon in ipairs(save and save.party or {}) do
+    for _, move in ipairs(mon.moves or {}) do
+      if move.id == moveId then return true end
+    end
+  end
+  return false
+end
+
+function THEME.fieldTools.gen2Badge(save, badge)
+  if not badge then return true end
+  local owned = save and save.player and save.player.badges
+  if type(owned) ~= "table" then return false end
+  if owned[badge] then return true end
+  for index, name in ipairs(THEME.fieldTools.badgeOrder) do
+    if name == badge then return owned[index] == true end
+  end
+  return false
+end
+
+function THEME.fieldTools.unlocked(def, save, gen2)
+  if def.gen ~= nil and def.gen ~= "both" and def.gen ~= (gen2 and 2 or 1) then
+    return false
+  end
+  local inventory = save and save.inventory or {}
+  if def.item then return (inventory[def.item] or 0) > 0 end
+  if not THEME.fieldTools.partyKnows(save, def.move) then return false end
+  if gen2 then return THEME.fieldTools.gen2Badge(
+    save, THEME.fieldTools.gen2Badges[def.move]) end
+  local badge = FIELD_MOVES[def.move]
+  return badge == false or badge ~= nil and (inventory[badge] or 0) > 0
+end
+
 local function hasUnlockedTool(save)
   local inv = save and save.inventory or {}
   for _, item in ipairs({ "BICYCLE", "OLD_ROD", "GOOD_ROD", "SUPER_ROD" }) do
@@ -1206,6 +1280,18 @@ assert(not hasUnlockedTool({})
        and not hasUnlockedTool({ party = { { moves = { { id = "CUT" } } } } })
        and hasUnlockedTool({ inventory = { CASCADEBADGE = 1 },
          party = { { moves = { { id = "CUT" } } } } }), "tool unlock state")
+assert(THEME.fieldTools.unlocked(THEME.fieldTools.widgets[5], {
+         inventory = { CASCADEBADGE = 1 },
+         party = { { moves = { { id = "CUT" } } } },
+       }, false)
+       and THEME.fieldTools.unlocked(THEME.fieldTools.widgets[5], {
+         player = { badges = { HIVE = true } },
+         party = { { moves = { { id = "CUT" } } } }, inventory = {},
+       }, true)
+       and not THEME.fieldTools.unlocked(THEME.fieldTools.widgets[5], {
+         player = { badges = {} },
+         party = { { moves = { { id = "CUT" } } } }, inventory = {},
+       }, true), "quick tool widgets require the real move and badge unlock")
 do
   local rows, by = {}, {}
   addEncounters(rows, by, { { species = "TEST", level = 3 },
@@ -1849,6 +1935,14 @@ return function(mod)
         icon = "notes", accent = "amber", label = "NOTES" },
     },
   }
+  for _, def in ipairs(THEME.fieldTools.widgets) do
+    displayRuntime.homeCatalog.surfaces["tool_widget_" .. def.key] = {
+      package = "tools", kind = "widget", widget = "tool", columns = 3,
+      label = def.key:upper():gsub("_", " "), icon = def.icon,
+      actionId = def.action, rodId = def.rod, toolKey = def.key,
+      hidden = true, ready = false,
+    }
+  end
   displayRuntime.storeCatalog = {
     { id = "explorer", icon = "tools", label = "EXPLORER",
       category = "ADVENTURE", target = "LOCAL", fixed = true,
@@ -1878,7 +1972,7 @@ return function(mod)
     { id = "tools", icon = "tools", label = "TOOLS",
       category = "FIELD KIT", target = "TOOLS",
       description = { "USE FIELD MOVES AND GEAR.",
-        "ONLY AVAILABLE ACTIONS APPEAR.", "READY WHEN THE ROUTE NEEDS IT." } },
+        "KEEP UNLOCKED TOOLS CLOSE.", "READY WHEN THE ROUTE NEEDS IT." } },
     { id = "notes", icon = "notes", label = "NOTES",
       category = "TRAINER TOOL", available = false,
       description = { "PLAN ROUTES AND REMINDERS.",
@@ -2461,6 +2555,75 @@ return function(mod)
     return out
   end
 
+  function displayRuntime.toolName(def)
+    local source = game and game.data
+      and (def.item and game.data.items or game.data.moves)
+    local entry = source and source[def.item or def.move]
+    local name = entry and entry.name
+      or def.item and def.item:gsub("_", " ")
+      or def.move and def.move:gsub("_", " ")
+      or def.key:upper():gsub("_", " ")
+    if name == "SOFTBOILED" then return "SOFT BOILED" end
+    if name == "SQUIRTBOTTLE" then return "SQUIRT BOTTLE" end
+    return name
+  end
+
+  function displayRuntime.availableTool(actions, actionId, rodId)
+    for _, action in ipairs(actions or tools) do
+      if action.id == actionId then
+        if not rodId then return action end
+        for _, rod in ipairs(action.rods or {}) do
+          if rod.id == rodId then return action end
+        end
+      end
+    end
+  end
+
+  function displayRuntime.refreshToolSurfaces(actions)
+    local save, gen2 = game and game.save, compat.isGen2()
+    for _, def in ipairs(THEME.fieldTools.widgets) do
+      local surface = displayRuntime.homeCatalog.surfaces[
+        "tool_widget_" .. def.key]
+      local unlocked = THEME.fieldTools.unlocked(def, save, gen2)
+      local action = unlocked and displayRuntime.availableTool(
+        actions, def.action, def.rod)
+      local label = displayRuntime.toolName(def)
+      local hidden, ready = not unlocked, action ~= nil
+      if surface.hidden ~= hidden or surface.ready ~= ready
+          or surface.label ~= label then dirty = true end
+      surface.hidden, surface.ready = hidden, ready
+      surface.label = label
+      surface.action = action
+    end
+  end
+
+  function displayRuntime.toolModels()
+    local result, fishing
+      = {}, nil
+    local save, gen2 = game and game.save, compat.isGen2()
+    for _, def in ipairs(THEME.fieldTools.widgets) do
+      if THEME.fieldTools.unlocked(def, save, gen2) then
+        if def.action == "fish" then
+          if not fishing then
+            local action = displayRuntime.availableTool(nil, "fish")
+            fishing = {
+              id = "fish", icon = "fish", label = THEME:translate("FISH"),
+              ready = action ~= nil, action = action,
+            }
+            result[#result + 1] = fishing
+          end
+        else
+          local action = displayRuntime.availableTool(nil, def.action)
+          result[#result + 1] = {
+            id = def.action, icon = def.icon, label = displayRuntime.toolName(def),
+            ready = action ~= nil, action = action,
+          }
+        end
+      end
+    end
+    return result
+  end
+
   local function refreshTools()
     local nextTools, unavailable = {}, nil
     if mod.world and mod.world.availableFieldActions then
@@ -2487,9 +2650,13 @@ return function(mod)
         .. ":" .. table.concat(context, ",")
     end
     local nextKey = table.concat(keys, "|")
-    nextTools.page = math.max(1, math.min(
-      math.max(1, math.ceil(#nextTools / 6)), tools.page or 1))
+    nextTools.page = tools.page or 1
     tools = nextTools
+    displayRuntime.refreshToolSurfaces(tools)
+    local count = THEME.style == "hgss" and #displayRuntime.toolModels() or #tools
+    local pageSize = THEME.style == "hgss" and 4 or 6
+    tools.page = math.max(1, math.min(
+      math.max(1, math.ceil(count / pageSize)), tools.page or 1))
     if nextKey ~= toolsKey then
       toolsKey = nextKey
       pendingAction = nil
@@ -4433,6 +4600,16 @@ return function(mod)
   end
 
   local function drawTools()
+    if THEME.style == "hgss" then
+      local actions = displayRuntime.toolModels()
+      local pages = math.max(1, math.ceil(#actions / 4))
+      tools.page = math.max(1, math.min(pages, tools.page or 1))
+      header("FIELD KIT", true, pages > 1)
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:tools({ actions = actions, page = tools.page, pages = pages })
+      G.pop()
+      return
+    end
     local pages = math.max(1, math.ceil(#tools / 6))
     local current = math.max(1, math.min(pages, tools.page or 1))
     local first = (current - 1) * 6 + 1
@@ -4461,6 +4638,16 @@ return function(mod)
   end
 
   local function drawActionPrompt()
+    if THEME.style == "hgss" then
+      local icon = "tools"
+      for _, model in ipairs(displayRuntime.toolModels()) do
+        if model.id == pendingAction.id then icon = model.icon break end
+      end
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:toolPrompt({ label = pendingAction.label, icon = icon })
+      G.pop()
+      return
+    end
     drawDim(0.54, false)
     box("fill", 10, 38, 140, 91, MID)
     outline(10, 38, 140, 91, PAPER)
@@ -4757,6 +4944,12 @@ return function(mod)
   local function drawFieldChoice()
     if fieldChoice.kind == "fish" then
       header("CHOOSE ROD", true)
+      if THEME.style == "hgss" then
+        G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:rodPicker(fieldChoice.action.rods)
+        G.pop()
+        return
+      end
       for i, rod in ipairs(fieldChoice.action.rods or {}) do
         button(14, 30 + (i - 1) * 37, 132, 32, rod.label, false)
       end
@@ -6632,6 +6825,30 @@ return function(mod)
     dirty = true
   end
 
+  function displayRuntime.activateTool(action, rodId)
+    if not action then return false end
+    if rodId then
+      useTool(action, { rod = rodId })
+    elseif action.id == "dig" or action.id == "teleport" then
+      pendingAction = action
+    elseif action.id == "fish" and #(action.rods or {}) > 1 then
+      fieldChoice = { kind = "fish", action = action }
+    elseif action.id == "fish" then
+      useTool(action, { rod = action.rods[1].id })
+    elseif action.id == "softboiled" then
+      if #(action.sources or {}) == 1 then
+        fieldChoice = { kind = "soft_target", action = action,
+          source = action.sources[1] }
+      else
+        fieldChoice = { kind = "soft_source", action = action }
+      end
+    else
+      useTool(action)
+    end
+    dirty = true
+    return true
+  end
+
   function displayRuntime.openHomeApp(id)
     local home = displayRuntime.home
     home.editing, home.library, home.addSlot = false, false, nil
@@ -6738,7 +6955,11 @@ return function(mod)
       return
     end
     local surface = tile and displayRuntime.homeCatalog.surfaces[tile.id]
-    if surface then displayRuntime.openHomeApp(surface.package) end
+    if surface and surface.widget == "tool" then
+      if not displayRuntime.activateTool(surface.action, surface.rodId) then
+        displayRuntime.openHomeApp("tools")
+      end
+    elseif surface then displayRuntime.openHomeApp(surface.package) end
   end
 
   function displayRuntime.activateStoreEntry(entry)
@@ -6808,6 +7029,17 @@ return function(mod)
       return
     end
     if fieldChoice.kind == "fish" then
+      if THEME.style == "hgss" then
+        local index = THEME.hgss:rodHit(x * THEME.hgssScale,
+          y * THEME.hgssScale, fieldChoice.action.rods)
+        local rod = index and fieldChoice.action.rods[index]
+        if rod then
+          local action = fieldChoice.action
+          fieldChoice = nil
+          useTool(action, { rod = rod.id })
+        end
+        return
+      end
       for i, rod in ipairs(fieldChoice.action.rods or {}) do
         if inside(x, y, 14, 30 + (i - 1) * 37, 132, 32) then
           local action = fieldChoice.action
@@ -7675,6 +7907,16 @@ return function(mod)
       return
     end
     if pendingAction then
+      if THEME.style == "hgss" then
+        local choice = THEME.hgss:toolPromptHit(x * THEME.hgssScale,
+          y * THEME.hgssScale)
+        if choice ~= nil then
+          local action = pendingAction
+          pendingAction = nil
+          if choice then useTool(action) else dirty = true end
+        end
+        return
+      end
       if inside(x, y, 18, 91, 58, 27) then
         local action = pendingAction
         pendingAction = nil
@@ -7741,6 +7983,18 @@ return function(mod)
       return
     end
     if y < HEADER and not partyMoveFrom then
+      if THEME.style == "hgss" and page == "TOOLS" then
+        local actions = displayRuntime.toolModels()
+        local pages = math.max(1, math.ceil(#actions / 4))
+        local action = THEME.hgss:toolsHit(x * THEME.hgssScale,
+          y * THEME.hgssScale, { actions = actions, page = tools.page })
+        if action == "prev" or action == "next" then
+          local direction = action == "next" and 1 or -1
+          tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
+          dirty = true
+        end
+        return
+      end
       if x < 22 then changePage(-1)
       elseif x >= 74 and x < 96 then changePage(1) end
       if page == "TOOLS" and x >= 22 and x < 74 and #tools > 6 then
@@ -7863,29 +8117,27 @@ return function(mod)
         end
       end
     elseif page == "TOOLS" then
+      if THEME.style == "hgss" then
+        local actions = displayRuntime.toolModels()
+        local pages = math.max(1, math.ceil(#actions / 4))
+        local action, index = THEME.hgss:toolsHit(x * THEME.hgssScale,
+          y * THEME.hgssScale, { actions = actions, page = tools.page })
+        if action == "prev" or action == "next" then
+          local direction = action == "next" and 1 or -1
+          tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
+          dirty = true
+        elseif action == "action" then
+          displayRuntime.activateTool(actions[index].action)
+        end
+        return
+      end
       local first = ((tools.page or 1) - 1) * 6 + 1
       local count = math.min(6, #tools - first + 1)
       for slot = 1, count do
         local action = tools[first + slot - 1]
         local col, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
         if inside(x, y, 3 + col * 78, 25 + row * 38, 76, 34) then
-          if action.id == "dig" or action.id == "teleport" then
-            pendingAction = action
-          elseif action.id == "fish" and #(action.rods or {}) > 1 then
-            fieldChoice = { kind = "fish", action = action }
-          elseif action.id == "fish" then
-            useTool(action, { rod = action.rods[1].id })
-          elseif action.id == "softboiled" then
-            if #(action.sources or {}) == 1 then
-              fieldChoice = { kind = "soft_target", action = action,
-                              source = action.sources[1] }
-            else
-              fieldChoice = { kind = "soft_source", action = action }
-            end
-          else
-            useTool(action)
-          end
-          dirty = true
+          displayRuntime.activateTool(action)
           break
         end
       end
@@ -7906,6 +8158,15 @@ return function(mod)
     "Explorer horizontal swipe regions")
 
   local function swipe(dx, down)
+    if THEME.style == "hgss" and page == "TOOLS" then
+      local pages = math.max(1, math.ceil(#displayRuntime.toolModels() / 4))
+      if pages > 1 then
+        local direction = dx < 0 and 1 or -1
+        tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
+        dirty = true
+      end
+      return
+    end
     if THEME.style == "hgss" and page ~= "HOME"
         and page ~= "STORE" and page ~= "LOCAL" then return end
     if page ~= "LOCAL" or THEME.style ~= "hgss" then
@@ -7939,7 +8200,7 @@ return function(mod)
   local function swipeVertical(dy)
     if radarOpen then return end
     if page == "LOCAL" and THEME.style == "hgss" then return end
-    if page == "TOOLS" and #tools > 6 then
+    if THEME.style ~= "hgss" and page == "TOOLS" and #tools > 6 then
       local pages = math.ceil(#tools / 6)
       local direction = dy < 0 and 1 or -1
       tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
@@ -8737,7 +8998,7 @@ return function(mod)
         end
       end
       refreshBattle()
-      if page == "TOOLS" or pendingAction then refreshTools() end
+      if page == "TOOLS" or page == "HOME" or pendingAction then refreshTools() end
       local mode, top = screenState()
       local currentSummary = compat.isScreen(top, "summary")
         and compat.summary.supports(top, game) and top or nil

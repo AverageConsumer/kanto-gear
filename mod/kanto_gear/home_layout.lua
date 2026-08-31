@@ -162,6 +162,8 @@ function M.tiles(layout, catalog, page)
           id = placed.id, kind = item.kind or "app",
           widget = item.widget, icon = item.icon,
           accent = item.accent, label = item.label,
+          actionId = item.actionId, rodId = item.rodId,
+          toolKey = item.toolKey, ready = item.ready,
           column = placed.column, row = placed.row,
           columns = columns, rows = rows,
         }
@@ -240,7 +242,8 @@ end
 function M.library(layout, catalog, page, column, row, kind)
   local result = {}
   for id, item in pairs(catalog.surfaces or {}) do
-    if definition(catalog, id) and (not kind or item.kind == kind) then
+    if not item.hidden and definition(catalog, id)
+        and (not kind or item.kind == kind) then
       local placed = M.find(layout, id) ~= nil
       local fits, reason = M.canPlace(layout, catalog, id, page, column, row)
       result[#result + 1] = {

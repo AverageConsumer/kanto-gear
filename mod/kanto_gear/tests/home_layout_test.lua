@@ -9,6 +9,8 @@ local catalog = {
     explorer_widget = { package = "explorer", kind = "widget", columns = 7 },
     party_app = { package = "party", kind = "app", columns = 3 },
     party_widget = { package = "party", kind = "widget", columns = 5 },
+    hidden_widget = { package = "party", kind = "widget", columns = 3,
+      hidden = true },
     bag_app = { package = "bag", kind = "app", columns = 3, label = "BAG" },
     notes_app = { package = "notes", kind = "app", columns = 3,
       label = "NOTES" },
@@ -48,6 +50,7 @@ assert(available.party_app.reason == "on_home")
 local widgets = Home.library(layout, catalog, 1, 4, 2, "widget")
 for _, item in ipairs(widgets) do assert(item.kind == "widget") end
 assert(#widgets == 2 and not available.party_widget)
+for _, item in ipairs(widgets) do assert(item.id ~= "hidden_widget") end
 catalog.packages.notes.installed = false
 assert(#Home.library(layout, catalog, 1, 4, 2, "app") == 2)
 catalog.packages.notes.installed = true
