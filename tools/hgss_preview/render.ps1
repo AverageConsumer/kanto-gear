@@ -19,6 +19,7 @@ if ($sourceImages.Count -lt 6) {
 $explorer = $env:KANTO_GEAR_PREVIEW_SCREEN -like "explorer*" -or `
   $env:KANTO_GEAR_PREVIEW_SCREEN -like "home*" -or `
   $env:KANTO_GEAR_PREVIEW_SCREEN -like "trainer*"
+$pokedex = $env:KANTO_GEAR_PREVIEW_SCREEN -like "pokedex*"
 $overworldFiles = @{}
 if ($explorer) {
   if ($env:KANTO_GEAR_PREVIEW_GEN -eq "1") {
@@ -63,6 +64,23 @@ New-Item -ItemType Directory -Path (Join-Path $runtime "local\overworld") `
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "main.lua") `
   -Destination (Join-Path $runtime "main.lua") -Force
 $sourceImages | Copy-Item -Destination (Join-Path $runtime "local") -Force
+if ($pokedex) {
+  $fronts = Join-Path $env:APPDATA `
+    "pokemon-love2d\red\assets\generated\battle\front"
+  $dexNames = @("bulbasaur", "ivysaur", "venusaur", "charmander",
+    "charmeleon", "charizard", "squirtle", "wartortle", "blastoise",
+    "caterpie", "metapod", "butterfree", "gyarados")
+  New-Item -ItemType Directory -Path (Join-Path $runtime "local\dex") `
+    -Force | Out-Null
+  foreach ($name in $dexNames) {
+    $source = Join-Path $fronts ($name + ".png")
+    if (-not (Test-Path -LiteralPath $source)) {
+      throw "Missing locally extracted Pokédex preview sprite: $name"
+    }
+    Copy-Item -LiteralPath $source `
+      -Destination (Join-Path $runtime "local\dex\$name.png") -Force
+  }
+}
 foreach ($entry in $overworldFiles.GetEnumerator()) {
   Copy-Item -LiteralPath (Join-Path $overworldSource $entry.Value) `
     -Destination (Join-Path $runtime "local\overworld\$($entry.Key).png") -Force

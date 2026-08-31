@@ -765,6 +765,169 @@ return function(ui)
       and "reset" or nil
   end
 
+  local function dexPager(self, page, pages)
+    local colors = self.colors
+    self:panel(82, 199, 76, 12, false)
+    self:pageChevron(91, 205, false, pages > 1)
+    self:partyType(tostring(page) .. "/" .. tostring(pages),
+      99, 199, colors.green, 42)
+    self:pageChevron(149, 205, true, pages > 1)
+  end
+
+  function H:pokedexIndex(model)
+    local G, colors = ui.graphics, self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    self:homeTile(7, 34, 226, 30, colors.red, false)
+    self:partyType(translate(model.region or "NATIONAL DEX"),
+      12, 39, quiet, 92)
+    self:partyInfo(tostring(model.caught or 0) .. " / "
+      .. tostring(model.total or 0), 112, 37, colors.ink, 112, "right")
+    local fraction = math.max(0, math.min(1,
+      (tonumber(model.caught) or 0) / math.max(1, tonumber(model.total) or 1)))
+    border(12, 53, 212, 5, colors.outline)
+    box("fill", 13, 54, 210, 3, colors.silverDark)
+    box("fill", 13, 54, math.floor(210 * fraction + 0.5), 3,
+      colors.redLight)
+
+    for index, entry in ipairs(model.entries or {}) do
+      local column, row = (index - 1) % 3, math.floor((index - 1) / 3)
+      local left, top = 7 + column * 77, 68 + row * 43
+      local pressed = self:beginPress(left, top, 72, 41)
+      self:panel(left, top, 72, 41, entry.selected, colors.redLight)
+      self:partyType(("%03d"):format(tonumber(entry.dex) or 0),
+        left + 3, top + 2, quiet, 22)
+      color(entry.caught and colors.bandLight
+        or mixed(colors.surface, colors.redLight, self.dark and 0.18 or 0.10))
+      G.circle("fill", left + 36, top + 18, 11)
+      color(colors.outline); G.circle("line", left + 36, top + 18, 11)
+      if model.drawPokemon then
+        model.drawPokemon(entry, left + 26, top + 8, 20, not entry.caught)
+      end
+      if entry.caught then self:battleTeamBall(left + 63, top + 8, true) end
+      self:partyType(self:fitPartyType(entry.name or "---", 66),
+        left + 3, top + 29, entry.caught and colors.ink or quiet, 66)
+      self:endPress(pressed)
+    end
+    dexPager(self, model.page or 1, model.pages or 1)
+  end
+
+  function H:pokedexProfile(model)
+    local G, colors = ui.graphics, self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    local mon = model.pokemon or {}
+    self:homeTile(7, 34, 226, 70, colors.red, false)
+    color(mixed(colors.surface, colors.redLight, self.dark and 0.22 or 0.12))
+    G.circle("fill", 45, 69, 27)
+    color(colors.outline); G.circle("line", 45, 69, 27)
+    if model.drawPokemon then model.drawPokemon(mon, 18, 42, 54, false) end
+    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 142),
+      80, 39, colors.ink)
+    self:typeBadges(mon, 80, 56, false)
+    self:partyType(self:fitPartyType(mon.kind or "UNKNOWN", 67),
+      155, 57, quiet, 67)
+    self:partyType(self:fitPartyType(mon.height or "HEIGHT --", 67),
+      80, 76, colors.green, 67)
+    self:partyType(self:fitPartyType(mon.weight or "WEIGHT --", 67),
+      155, 76, colors.green, 67)
+    if mon.caught then
+      self:battleTeamBall(214, 44, true)
+    else
+      self:partyType(translate("NOT CAUGHT"), 152, 40, colors.red, 70)
+    end
+
+    self:panel(7, 108, 226, 43, false)
+    local lines = mon.description or { translate("NO DETAILS AVAILABLE") }
+    local visible = math.min(3, #lines)
+    local firstY = 115 + math.floor((29 - visible * 9) / 2)
+    for index = 1, visible do
+      self:partyInfo(self:fitPartyInfo(lines[index], 210),
+        15, firstY + (index - 1) * 9, colors.ink, 210, "center")
+    end
+
+    local cards = {
+      { "STATS", model.statsText or "BASE POWER", colors.blue },
+      { "HABITAT", model.habitatText or "WHERE TO FIND", colors.green },
+      { "MOVES", model.movesText or "LEARNSET", colors.amber },
+    }
+    for index, card in ipairs(cards) do
+      local left = 7 + (index - 1) * 77
+      local pressed = self:beginPress(left, 156, 72, 54)
+      self:homeTile(left, 156, 72, 54, card[3], false)
+      self:partyType(translate(card[1]), left + 5, 164, colors.ink, 62)
+      self:partyInfo(self:fitPartyInfo(translate(card[2]), 58),
+        left + 7, 183, quiet, 58, "center")
+      self:detailChevron(left + 62, 201, colors.green)
+      self:endPress(pressed)
+    end
+  end
+
+  function H:pokedexHabitat(model)
+    local colors = self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    local mon = model.pokemon or {}
+    self:homeTile(7, 34, 226, 37, colors.green, false)
+    if model.drawPokemon then model.drawPokemon(mon, 13, 37, 31, false) end
+    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 118),
+      50, 39, colors.ink)
+    self:partyType(self:fitPartyType(model.summary or "NO WILD HABITAT", 118),
+      50, 56, colors.green, 118)
+    self:partyType(self:fitPartyType(model.status or "", 53),
+      173, 46, model.current and colors.greenLight or quiet, 53)
+
+    for index, row in ipairs(model.rows or {}) do
+      local top = 76 + (index - 1) * 39
+      self:panel(7, top, 226, 35, row.current, colors.greenLight)
+      self:partyInfo(self:fitPartyInfo(row.area or "UNKNOWN AREA", 136),
+        14, top + 4, colors.ink)
+      if row.current then
+        self:partyType(translate("HERE NOW"), 158, top + 4,
+          colors.green, 66)
+      end
+      local condition = table.concat({ translate(row.time or "ANY TIME"),
+        translate(row.method or "WILD"), tostring(row.chance or "--") .. "%" },
+        " · ")
+      self:partyType(self:fitPartyType(condition, 150),
+        14, top + 20, colors.green, 150)
+      self:partyInfo(row.levels or "L--", 171, top + 17,
+        colors.ink, 48, "center")
+      self:detailChevron(224, top + 23, colors.green)
+    end
+    if #(model.rows or {}) == 0 then
+      self:partyInfo(translate("NO WILD ENCOUNTERS"),
+        14, 124, quiet, 212, "center")
+    end
+    dexPager(self, model.page or 1, model.pages or 1)
+  end
+
+  function H:pokedex(model)
+    if model.view == "profile" then return self:pokedexProfile(model) end
+    if model.view == "habitat" then return self:pokedexHabitat(model) end
+    return self:pokedexIndex(model)
+  end
+
+  function H:pokedexHit(x, y, model)
+    x, y = x * 1.5, y * 1.5
+    if model.view == "profile" then
+      if y >= 156 and y < 210 then
+        local index = math.floor((x - 7) / 77) + 1
+        return ({ "stats", "habitat", "moves" })[index]
+      end
+    elseif model.view == "habitat" then
+      for index = 1, #(model.rows or {}) do
+        if y >= 76 + (index - 1) * 39
+            and y < 111 + (index - 1) * 39 then return "habitat", index end
+      end
+    else
+      for index = 1, #(model.entries or {}) do
+        local column, row = (index - 1) % 3, math.floor((index - 1) / 3)
+        if x >= 7 + column * 77 and x < 79 + column * 77
+            and y >= 68 + row * 43 and y < 109 + row * 43 then
+          return "species", index
+        end
+      end
+    end
+  end
+
   function H:homePartyIcon(x, y)
     local c = homeIconColors
     local function ball(left, top)

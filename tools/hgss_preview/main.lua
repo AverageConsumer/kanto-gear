@@ -335,6 +335,19 @@ function love.load()
     local quad, width, height = spriteView(data)
     sprites[slot] = { image = image, quad = quad, width = width, height = height }
   end
+  local dexSprites = {}
+  if screen:sub(1, 7) == "pokedex" then
+    for _, id in ipairs({ "bulbasaur", "ivysaur", "venusaur", "charmander",
+        "charmeleon", "charizard", "squirtle", "wartortle", "blastoise",
+        "caterpie", "metapod", "butterfree", "gyarados" }) do
+      local data = love.image.newImageData("local/dex/" .. id .. ".png")
+      local image = love.graphics.newImage(data)
+      image:setFilter("nearest", "nearest")
+      local quad, width, height = spriteView(data)
+      dexSprites[id] = { image = image, quad = quad,
+        width = width, height = height }
+    end
+  end
   local overworld = {}
   if screen:sub(1, 8) == "explorer" or homePreview
       or screen:sub(1, 7) == "trainer" then
@@ -373,6 +386,10 @@ function love.load()
   local explorerTrainers = screen == "explorer_trainers"
   local explorerTrainerDetail = screen == "explorer_trainer_detail"
   local explorerRadar = screen == "explorer_radar"
+  local pokedexIndex = screen == "pokedex"
+  local pokedexProfile = screen == "pokedex_profile"
+  local pokedexHabitat = screen == "pokedex_habitat"
+  local pokedex = pokedexIndex or pokedexProfile or pokedexHabitat
   local home = homePreview
   local homeEdit, homeAdd = screen == "home-edit", screen == "home-add"
   local storeToday, storeApps = screen == "store", screen == "store-apps"
@@ -410,6 +427,9 @@ function love.load()
     or home and "SILPH LINK"
     or explorerRadar and translate("ITEM RADAR")
     or explorer and translate("EXPLORER")
+    or pokedexHabitat and "HABITAT 1/4"
+    or pokedexProfile and "NO.130"
+    or pokedex and "POKEDEX"
     or trainerSteps and translate("STEPS")
     or trainerScreen and translate("TRAINER")
     or toolsRods and translate("CHOOSE ROD")
@@ -437,11 +457,14 @@ function love.load()
     local headerOffset = summary and -1 or 0
     local titleX, titleWidth = theme:headerBar(title,
       homeAdd or store or explorer and not explorerOverview
-        or trainerScreen or trainerSteps or tools or swapMode or context or summary
+        or pokedex or trainerScreen or trainerSteps or tools or swapMode
+        or context or summary
         or moves or memo or memoTransition
         or transition or movesTransition,
       store and not storeDetail
-        or not home and not store and not explorer and not trainerScreen
+        or pokedexProfile or pokedexHabitat
+        or not home and not store and not explorer and not pokedex
+        and not trainerScreen
         and not trainerSteps and not tools and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
         or not context) or toolsScreen, headerOffset)
@@ -1403,6 +1426,86 @@ function love.load()
         math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1)))
     end
     theme:home(model)
+  elseif pokedex then
+    local names = { "BULBASAUR", "IVYSAUR", "VENUSAUR", "CHARMANDER",
+      "CHARMELEON", "CHARIZARD", "SQUIRTLE", "WARTORTLE", "BLASTOISE" }
+    local assets = { "bulbasaur", "ivysaur", "venusaur", "charmander",
+      "charmeleon", "charizard", "squirtle", "wartortle", "blastoise" }
+    local tints = { theme.colors.greenLight, theme.colors.greenLight,
+      theme.colors.green, theme.colors.redLight, theme.colors.red,
+      theme.colors.amberLight, theme.colors.blueLight,
+      theme.colors.blueLight, theme.colors.blue }
+    local entries = {}
+    for index, name in ipairs(names) do
+      entries[index] = {
+        dex = index, name = name, asset = assets[index], tint = tints[index],
+        caught = index == 1 or index == 3 or index == 6
+          or index == 8 or index == 9,
+      }
+    end
+    local gyarados = {
+      dex = 130, name = "GYARADOS", caught = true, asset = "gyarados",
+      tint = theme.colors.blueLight,
+      type = "WATER", type2 = "FLYING",
+      typeLabel = "WAT", type2Label = "FLY",
+      kind = "ATROCIOUS",
+      height = gen1 and "21 FT 04 IN" or "21 FT 04 IN",
+      weight = "518.1 LB",
+      description = {
+        "BRUTALLY VICIOUS AND ENORMOUSLY",
+        "DESTRUCTIVE. KNOWN FOR RAZING",
+        "ENTIRE CITIES IN ANCIENT TIMES.",
+      },
+    }
+    local function drawDexPokemon(row, x, y, size, uncaught)
+      local sprite = dexSprites[row.asset]
+      if not sprite then return end
+      if uncaught then love.graphics.setShader(galleryGray) end
+      local scale = size / math.max(sprite.width, sprite.height)
+      love.graphics.setColor(unpack(not uncaught and row.tint or { 1, 1, 1, 1 }))
+      love.graphics.draw(sprite.image, sprite.quad,
+        x + (size - sprite.width * scale) / 2,
+        y + (size - sprite.height * scale) / 2, 0, scale, scale)
+      if uncaught then love.graphics.setShader() end
+    end
+    local model = {
+      view = pokedexProfile and "profile"
+        or pokedexHabitat and "habitat" or "index",
+      region = gen1 and "KANTO DEX" or "NATIONAL DEX",
+      caught = gen1 and 72 or 118, total = gen1 and 151 or 251,
+      page = 1,
+      pages = pokedexHabitat and 4 or (gen1 and 17 or 28),
+      entries = entries,
+      pokemon = gyarados, drawPokemon = drawDexPokemon,
+      statsText = gen1 and "BST 480" or "BST 540",
+      habitatText = gen1 and "12 AREAS" or "17 AREAS",
+      movesText = gen1 and "34 MOVES" or "48 MOVES",
+      summary = gen1 and "12 WILD HABITATS" or "17 WILD HABITATS",
+      status = "NOT HERE", current = false,
+      rows = {
+        { area = gen1 and "SAFARI ZONE - CENTER" or "LAKE OF RAGE",
+          time = "ANY TIME", method = "SURF", chance = 10,
+          levels = gen1 and "L15" or "L15-20" },
+        { area = gen1 and "FUCHSIA CITY" or "ROUTE 43 - LAKE GATE",
+          time = gen1 and "ANY TIME" or "NITE", method = "SUPER",
+          chance = gen1 and 15 or 10, levels = gen1 and "L15" or "L40" },
+        { area = gen1 and "SEAFOAM ISLANDS B4F" or "DRAGON'S DEN",
+          time = "ANY TIME", method = "SUPER", chance = 10,
+          levels = gen1 and "L15" or "L40" },
+      },
+    }
+    theme:pokedex(model)
+    if pokedexIndex then
+      assert(theme:pokedexHit(18 / 1.5, 78 / 1.5, model) == "species",
+        "Pokedex gallery portraits are touch reachable")
+    elseif pokedexProfile then
+      assert(theme:pokedexHit(120 / 1.5, 180 / 1.5, model) == "habitat",
+        "Pokedex research cards are touch reachable")
+    else
+      local action, index = theme:pokedexHit(30 / 1.5, 88 / 1.5, model)
+      assert(action == "habitat" and index == 1,
+        "Pokedex habitat cards are touch reachable")
+    end
   elseif trainerSteps then
     theme:steps({ steps = "184392" })
   elseif trainerScreen then
