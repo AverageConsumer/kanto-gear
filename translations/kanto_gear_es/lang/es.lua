@@ -12,6 +12,7 @@ return {
   ["GUIDE"] = "GUÍA",
   ["AREA"] = "ZONA",
   ["TRAINER"] = "ENTRENADOR",
+  ["STEP COUNTER"] = "CONTADOR DE PAS",
   ["PARTY"] = "EQUIPO",
   ["TOOLS"] = "OPCIONES",
   ["BACK"] = "ATRÁS",

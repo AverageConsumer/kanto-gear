@@ -11,6 +11,7 @@ return {
   ["GUIDE"] = "GUIDE",
   ["AREA"] = "GEBIET",
   ["TRAINER"] = "TRAINER",
+  ["STEP COUNTER"] = "SCHRITTZÄHLER",
   ["PARTY"] = "TEAM",
   ["TOOLS"] = "TOOLS",
   ["BACK"] = "ZURÜCK",

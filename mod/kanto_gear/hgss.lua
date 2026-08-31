@@ -166,10 +166,19 @@ return function(ui)
     or ui.graphics.newFont(9)
   local partyTypeFont = ui.font and ui.graphics.newFont(ui.font, 8)
     or ui.graphics.newFont(8)
+  local trainerNameFont = ui.font and ui.graphics.newFont(ui.font, 14)
+    or ui.graphics.newFont(14)
+  local trainerValueFont = ui.font and ui.graphics.newFont(ui.font, 12)
+    or ui.graphics.newFont(12)
+  local trainerNumberFont = ui.font and ui.graphics.newFont(ui.font, 22)
+    or ui.graphics.newFont(22)
   partyFont:setFilter("linear", "linear")
   partyNameFont:setFilter("linear", "linear")
   partyInfoFont:setFilter("linear", "linear")
   partyTypeFont:setFilter("linear", "linear")
+  trainerNameFont:setFilter("linear", "linear")
+  trainerValueFont:setFilter("linear", "linear")
+  trainerNumberFont:setFilter("linear", "linear")
 
   function H:label(value, x, y, tint, width, align)
     local G, previous = ui.graphics, ui.graphics.getFont()
@@ -590,6 +599,156 @@ return function(ui)
     box("fill", x + 22, y + 6, 1, 2, c.blueLight)
   end
 
+  local function fontText(font, value, x, y, tint, width, align)
+    local G, previous = ui.graphics, ui.graphics.getFont()
+    color(tint)
+    G.setFont(font)
+    if width then G.printf(tostring(value), x, y, width, align or "left")
+    else G.print(tostring(value), x, y) end
+    if previous then G.setFont(previous) end
+  end
+
+  local function trainerFit(font, value, width)
+    local chars = glyphs(tostring(value or ""))
+    while #chars > 1 and font:getWidth(table.concat(chars)) > width do
+      table.remove(chars)
+    end
+    return table.concat(chars)
+  end
+
+  local function trainerStatIcon(theme, kind, cx, y, tint)
+    local G, colors = ui.graphics, theme.colors
+    color(colors.outline)
+    if kind == "money" then
+      G.circle("fill", cx, y + 6, 7)
+      color(tint); G.circle("fill", cx, y + 6, 5)
+      box("fill", cx - 1, y + 2, 2, 8, colors.white)
+      box("fill", cx - 4, y + 4, 8, 2, colors.white)
+    elseif kind == "time" then
+      G.circle("fill", cx, y + 6, 7)
+      color(theme.dark and colors.surface or colors.white)
+      G.circle("fill", cx, y + 6, 5)
+      color(tint); G.setLineWidth(2)
+      G.line(cx, y + 6, cx, y + 3, cx + 3, y + 7)
+      G.setLineWidth(1)
+    elseif kind == "pokedex" then
+      clipped(cx - 7, y, 14, 13, colors.outline)
+      clipped(cx - 6, y + 1, 12, 11, tint)
+      box("fill", cx - 3, y + 3, 7, 5, colors.outline)
+      box("fill", cx - 2, y + 4, 5, 3, colors.blueLight)
+      box("fill", cx - 4, y + 10, 8, 1, colors.white)
+    else
+      box("fill", cx - 2, y, 4, 7, colors.outline)
+      box("fill", cx - 4, y + 5, 6, 4, colors.outline)
+      box("fill", cx - 6, y + 8, 8, 5, colors.outline)
+      box("fill", cx - 1, y + 1, 2, 5, tint)
+      box("fill", cx - 3, y + 6, 4, 2, tint)
+      box("fill", cx - 5, y + 9, 6, 2, tint)
+    end
+  end
+
+  function H:homeStepsIcon(x, y)
+    local G, colors = ui.graphics, self.colors
+    color(colors.outline); G.circle("fill", x + 13, y + 13, 12)
+    color(mixed(colors.surface, colors.greenLight, self.dark and 0.24 or 0.14))
+    G.circle("fill", x + 13, y + 13, 10)
+    trainerStatIcon(self, "steps", x + 10, y + 5, colors.greenLight)
+    trainerStatIcon(self, "steps", x + 17, y + 11, colors.green)
+  end
+
+  function H:trainerStat(x, label, value, kind, accent, width)
+    local colors = self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    width = width or 72
+    self:homeTile(x, 151, width, 60, accent, false)
+    box("fill", x + 5, 153, width - 10, 2, accent)
+    trainerStatIcon(self, kind, x + math.floor(width / 2), 158, accent)
+    local shown = self:fitPartyType(translate(label), width - 6)
+    self:partyType(shown, x + 3, 174, quiet, width - 6)
+    local valueText = trainerFit(trainerValueFont, value, width - 8)
+    fontText(trainerValueFont, valueText, x + 4, 187, colors.ink,
+      width - 8, "center")
+  end
+
+  function H:trainer(model)
+    local G, colors = ui.graphics, self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    local blue = self.dark and colors.blueLight or colors.blue
+    local amber = self.dark and colors.amberLight or colors.amber
+    self:homeTile(7, 33, 226, 55, colors.blue, false)
+    box("fill", 9, 35, 222, 3, colors.blueLight)
+    clipped(13, 39, 42, 42, colors.outline)
+    clipped(14, 40, 40, 40,
+      mixed(colors.surface, colors.blueLight, self.dark and 0.25 or 0.16))
+    color(colors.band)
+    G.circle("fill", 34, 60, 15)
+    if model.drawPlayer then model.drawPlayer(34, 63, 2) end
+
+    local name = trainerFit(trainerNameFont, model.name, 158)
+    fontText(trainerNameFont, name, 64, 38, colors.ink)
+    local region = self:fitPartyType(model.region or "KANTO", 72)
+    self:partyType(region, 65, 56, blue, 72)
+    clipped(64, 68, 76, 13, colors.bandLight)
+    border(64, 68, 76, 13, colors.blue)
+    self:partyType(self:fitPartyType(model.idText or "ID -----", 72),
+      66, 69, colors.ink, 72)
+    clipped(145, 68, 76, 13,
+      mixed(colors.surface, colors.amberLight, self.dark and 0.20 or 0.12))
+    border(145, 68, 76, 13, colors.amber)
+    self:partyType(self:fitPartyType(model.badgeText or "0/8", 72),
+      147, 69, colors.ink, 72)
+
+    self:homeTile(7, 92, 226, 54, colors.amber, false)
+    self:partyType(self:fitPartyType(translate("BADGES"), 100),
+      11, 97, quiet, 100)
+    self:partyType(self:fitPartyType(model.badgeRegion or model.region, 100),
+      129, 97, amber, 100)
+    for index = 1, 8 do
+      local cx = 26 + (index - 1) * 27
+      color(model.badgeOwned[index] and colors.bandLight or colors.silverDark)
+      G.circle("fill", cx, 128, 10)
+      color(colors.outline); G.circle("line", cx, 128, 10)
+      local drawn = model.drawBadge and model.drawBadge(index, cx, 128,
+        model.badgeOwned[index])
+      if not drawn then
+        color(model.badgeOwned[index] and colors.amberLight or colors.silver)
+        G.circle("fill", cx, 128, 4)
+        color(colors.outline); G.circle("line", cx, 128, 4)
+      end
+    end
+
+    self:trainerStat(7, "MONEY", model.money, "money", colors.amber)
+    self:trainerStat(84, "TIME", model.time, "time", colors.blue)
+    self:trainerStat(161, "POKEDEX", model.pokedex, "pokedex", colors.red)
+  end
+
+  function H:steps(model)
+    local G, colors = ui.graphics, self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    self:homeTile(12, 42, 216, 101, colors.green, false)
+    box("fill", 17, 47, 206, 3, colors.greenLight)
+    color(mixed(colors.surface, colors.greenLight, self.dark and 0.25 or 0.14))
+    G.circle("fill", 120, 87, 31)
+    trainerStatIcon(self, "steps", 120, 54, colors.greenLight)
+    local exact = trainerFit(trainerNumberFont, model.steps, 194)
+    fontText(trainerNumberFont, exact, 23, 73, colors.ink, 194, "center")
+    self:partyInfo(self:fitPartyInfo(translate("TOTAL"), 194),
+      23, 106, quiet, 194, "center")
+
+    local pressed = self:beginPress(54, 165, 132, 38, true)
+    self:homeTile(54, 165, 132, 38, colors.red, false)
+    box("fill", 59, 167, 122, 2, colors.redLight)
+    self:label(self:fitLabel(translate("RESET"), 112), 64, 176,
+      colors.ink, 112, "center")
+    self:endPress(pressed)
+  end
+
+  function H:stepsHit(x, y)
+    local hx, hy = x * 1.5, y * 1.5
+    return hx >= 54 and hx < 186 and hy >= 165 and hy < 203
+      and "reset" or nil
+  end
+
   function H:homePartyIcon(x, y)
     local c = homeIconColors
     local function ball(left, top)
@@ -681,6 +840,10 @@ return function(ui)
       trainer = {
         left = 1, top = 3, right = 25, bottom = 24,
         draw = function(x, y) theme:homeTrainerIcon(x, y) end,
+      },
+      steps = {
+        left = 1, top = 1, right = 25, bottom = 25,
+        draw = function(x, y) theme:homeStepsIcon(x, y) end,
       },
       party = {
         left = 2, top = 3, right = 26, bottom = 22,
@@ -812,6 +975,8 @@ return function(ui)
       box("fill", x + 3, y + 16, 9, 7, colors.greenLight)
       box("fill", x + 18, y + 6, 8, 6, colors.blueLight)
       box("fill", x + 13, y + 12, 3, 5, colors.red)
+    elseif kind == "steps" then
+      self:homeStepsIcon(x + 1, y + 1)
     else
       color(colors.outline); G.circle("fill", x + 14, y + 14, 12)
       color(colors.surface); G.circle("fill", x + 14, y + 14, 10)
@@ -920,6 +1085,21 @@ return function(ui)
       model.lead and model.lead.maxHp or 1)
   end
 
+  function H:homeSteps(model, tile, selected)
+    local colors = self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.greenLight, selected)
+    self:homeWidgetHeader(x, y, w, "STEPS", colors.green,
+      colors.greenLight, model.editing)
+    self:homeStepsIcon(x + 7, y + 33)
+    local value = trainerFit(trainerValueFont, model.steps or "0", w - 44)
+    fontText(trainerValueFont, value, x + 38, y + 36, colors.ink,
+      w - 43, "center")
+    self:partyType(self:fitPartyType(translate("TOTAL"), w - 44),
+      x + 38, y + 54, quiet, w - 43)
+  end
+
   function H:homePager(page, pages)
     pages = math.max(1, tonumber(pages) or 1)
     if pages < 2 then return end
@@ -959,6 +1139,8 @@ return function(ui)
         self:homeExplorer(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "party" then
         self:homeParty(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "steps" then
+        self:homeSteps(model, tile, selected)
       elseif tile.kind == "app" then
         self:homeAppButton(x, y, w, h,
           colors[tile.accent or "green"] or colors.green,
@@ -1003,6 +1185,14 @@ return function(ui)
           math.max(14, w - 31 - row * 8), 2, colors.silverDark)
       end
       box("fill", x + w - 13, y + 18, 3, h - 23, colors.amber)
+    elseif id == "steps" then
+      local iconX = x + math.max(5, math.floor(w * 0.18) - 13)
+      self:homeStepsIcon(iconX, y + math.floor((h - 26) / 2))
+      local valueX, valueW = x + math.floor(w * 0.38), math.floor(w * 0.52)
+      fontText(trainerValueFont, "12K", valueX, y + 16,
+        colors.ink, valueW, "center")
+      self:partyType(translate("TOTAL"), valueX, y + 34,
+        self.dark and colors.silver or colors.silverDark, valueW)
     elseif id == "party" then
       for index = 0, 2 do
         local left = x + 6 + index * math.floor((w - 12) / 3)

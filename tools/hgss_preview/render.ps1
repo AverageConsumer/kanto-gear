@@ -17,7 +17,8 @@ if ($sourceImages.Count -lt 6) {
   throw "Missing local Pokemon sprite fixtures."
 }
 $explorer = $env:KANTO_GEAR_PREVIEW_SCREEN -like "explorer*" -or `
-  $env:KANTO_GEAR_PREVIEW_SCREEN -eq "home"
+  $env:KANTO_GEAR_PREVIEW_SCREEN -like "home*" -or `
+  $env:KANTO_GEAR_PREVIEW_SCREEN -like "trainer*"
 $overworldFiles = @{}
 if ($explorer) {
   if ($env:KANTO_GEAR_PREVIEW_GEN -eq "1") {

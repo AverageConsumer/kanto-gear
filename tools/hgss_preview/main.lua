@@ -201,7 +201,11 @@ function love.load()
       and theme:partySlot(4, 60, 6) == 3
       and theme:partySlot(82, 101, 5) == nil,
     "party touch hitboxes follow the 240x216 card positions")
-  if screen:sub(1, 8) == "explorer" or homePreview then
+  assert(theme:stepsHit(80, 120) == "reset"
+      and theme:stepsHit(20, 80) == nil,
+    "Step Counter reset hitbox matches its visible button")
+  if screen:sub(1, 8) == "explorer" or homePreview
+      or screen:sub(1, 7) == "trainer" then
     local typeLabels = {
       { "HERE NOW", 66 }, { "WHOLE ROUTE", 68 }, { "HABITAT", 50 },
       { "FOUND", 74 },
@@ -308,7 +312,8 @@ function love.load()
     sprites[slot] = { image = image, quad = quad, width = width, height = height }
   end
   local overworld = {}
-  if screen:sub(1, 8) == "explorer" or homePreview then
+  if screen:sub(1, 8) == "explorer" or homePreview
+      or screen:sub(1, 7) == "trainer" then
     for _, name in ipairs({ "player", "trainer1", "trainer2", "trainer3" }) do
       local image = love.graphics.newImage(
         "local/overworld/" .. name .. ".png")
@@ -349,6 +354,8 @@ function love.load()
   local storeToday, storeApps = screen == "store", screen == "store-apps"
   local storeLibrary, storeDetail = screen == "store-library",
     screen == "store-detail"
+  local trainerScreen, trainerSteps = screen == "trainer",
+    screen == "trainer_steps"
   local store = storeToday or storeApps or storeLibrary or storeDetail
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
@@ -375,6 +382,8 @@ function love.load()
     or home and "SILPH LINK"
     or explorerRadar and translate("ITEM RADAR")
     or explorer and translate("EXPLORER")
+    or trainerSteps and translate("STEPS")
+    or trainerScreen and translate("TRAINER")
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
     or partySwap and language.swapWith
@@ -398,9 +407,11 @@ function love.load()
     local headerOffset = summary and -1 or 0
     local titleX, titleWidth = theme:headerBar(title,
       homeAdd or store or explorer and not explorerOverview
-        or swapMode or context or summary or moves or memo or memoTransition
+        or trainerScreen or trainerSteps or swapMode or context or summary
+        or moves or memo or memoTransition
         or transition or movesTransition,
-      not home and not store and not explorer and not swapMode and (summary or moves or memo or memoTransition
+      not home and not store and not explorer and not trainerScreen
+        and not trainerSteps and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
         or not context), headerOffset)
     if context then
@@ -1127,6 +1138,8 @@ function love.load()
       category = "ITEMS", action = "OPEN", state = "open" },
     { id = "trainer", icon = "trainer", label = "TRAINER CARD",
       category = "PROFILE", action = "OPEN", state = "open" },
+    { id = "steps", icon = "steps", label = "STEP COUNTER",
+      category = "TRAINER TOOL", action = "OPEN", state = "open" },
     { id = "notes", icon = "notes", label = "NOTES",
       category = "TRAINER TOOL", action = "GET", state = "get" },
   }
@@ -1167,6 +1180,7 @@ function love.load()
         explorer = { installed = true }, party = { installed = true },
         bag = { installed = true }, pokedex = { installed = true },
         trainer = { installed = true }, tools = { installed = true },
+        steps = { installed = true },
         store = { installed = true }, notes = { installed = true },
       },
       surfaces = {
@@ -1182,6 +1196,10 @@ function love.load()
           icon = "pokedex", accent = "red", label = "POKEDEX" },
         trainer_app = { package = "trainer", kind = "app", columns = 3,
           icon = "trainer", accent = "blue", label = language.homeTrainer },
+        steps_widget = { package = "steps", kind = "widget",
+          widget = "steps", columns = 5, label = "STEPS" },
+        steps_app = { package = "steps", kind = "app", columns = 3,
+          icon = "steps", accent = "green", label = "STEPS" },
         tools_app = { package = "tools", kind = "app", columns = 3,
           icon = "tools", accent = "green", label = "TOOLS" },
         store_app = { package = "store", kind = "app", columns = 3,
@@ -1200,6 +1218,8 @@ function love.load()
       { id = "store_app", page = 2, column = 1, row = 1 },
       { id = "notes_app", page = 2, column = 4, row = 1 },
       { id = "party_app", page = 2, column = 7, row = 1 },
+      { id = "steps_widget", page = 3, column = 1, row = 1 },
+      { id = "steps_app", page = 3, column = 6, row = 1 },
     } }
     if homeAdd then
       Home.remove(layout, "party_widget")
@@ -1238,6 +1258,7 @@ function love.load()
         { kind = "item", x = 18, y = 6 },
       },
       lead = party[gen1 and 6 or 1],
+      steps = "184K",
       drawPlayer = function(_, x, y, tileSize)
         drawOverworld("player", x, y, tileSize / 16, theme.colors.redLight)
       end,
@@ -1260,6 +1281,44 @@ function love.load()
         math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1)))
     end
     theme:home(model)
+  elseif trainerSteps then
+    theme:steps({ steps = "184392" })
+  elseif trainerScreen then
+    local owned = gen1 and 5 or 11
+    local badgeOwned = {}
+    for index = 1, 8 do badgeOwned[index] = index <= (gen1 and 5 or 6) end
+    local badgeTints = {
+      theme.colors.redLight, theme.colors.blueLight, theme.colors.amberLight,
+      theme.colors.greenLight,
+    }
+    theme:trainer({
+      name = gen1 and "RED" or "GOLD",
+      region = gen1 and "KANTO" or "JOHTO",
+      idText = "ID 12345",
+      badgeText = owned .. "/" .. (gen1 and 8 or 16),
+      badgeRegion = gen1 and "KANTO" or "JOHTO",
+      badgeOwned = badgeOwned,
+      money = gen1 and "¥34820" or "¥67240",
+      time = "42:17",
+      pokedex = gen1 and "72/151" or "118/251",
+      drawPlayer = function(x, y, scale)
+        drawOverworld("player", x, y, scale, nil, true)
+      end,
+      drawBadge = function(index, cx, cy, isOwned)
+        local tint = isOwned and badgeTints[(index - 1) % 4 + 1]
+          or theme.colors.silver
+        color(theme.colors.outline)
+        love.graphics.circle("fill", cx, cy, 6)
+        color(tint)
+        love.graphics.circle("fill", cx, cy, 4)
+        if index % 2 == 0 then
+          box("fill", cx - 1, cy - 5, 2, 10, tint)
+        else
+          box("fill", cx - 5, cy - 1, 10, 2, tint)
+        end
+        return true
+      end,
+    })
   elseif explorer then
     drawExplorer()
   elseif battleMessage then

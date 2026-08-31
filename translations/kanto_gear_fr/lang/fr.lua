@@ -10,6 +10,7 @@ return {
   ["GUIDE"] = "GUIDE",
   ["AREA"] = "ZONE",
   ["TRAINER"] = "DRESSEUR",
+  ["STEP COUNTER"] = "COMPTEUR DE PAS",
   ["PARTY"] = "ÉQUIPE",
   ["TOOLS"] = "OUTILS",
   ["BACK"] = "RETOUR",

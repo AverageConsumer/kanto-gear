@@ -1815,6 +1815,7 @@ return function(mod)
       explorer = { installed = true, fixed = true },
       party = { installed = true, fixed = true },
       trainer = { installed = true, fixed = true },
+      steps = { installed = true },
       tools = { installed = true },
       store = { installed = true, fixed = true },
       bag = { installed = false, available = false },
@@ -1832,6 +1833,10 @@ return function(mod)
         icon = "party", accent = "green", label = "PARTY" },
       trainer_app = { package = "trainer", kind = "app", columns = 3,
         icon = "trainer", accent = "blue", label = "TRAINER" },
+      steps_widget = { package = "steps", kind = "widget",
+        widget = "steps", columns = 5, label = "STEPS" },
+      steps_app = { package = "steps", kind = "app", columns = 3,
+        icon = "steps", accent = "green", label = "STEPS" },
       tools_app = { package = "tools", kind = "app", columns = 3,
         icon = "tools", accent = "green", label = "TOOLS" },
       store_app = { package = "store", kind = "app", columns = 3,
@@ -1866,6 +1871,10 @@ return function(mod)
       category = "PROFILE", target = "TRAINER", fixed = true,
       description = { "REVIEW YOUR TRAINER JOURNEY.",
         "BADGES, PLAY TIME AND PROGRESS.", "YOUR ADVENTURE, AT A GLANCE." } },
+    { id = "steps", icon = "steps", label = "STEP COUNTER",
+      category = "TRAINER TOOL", target = "STEPS",
+      description = { "COUNT EVERY STEP OF YOUR JOURNEY.",
+        "KEEP THE TOTAL ON YOUR HOME SCREEN.", "ONE SMALL STEP AT A TIME." } },
     { id = "tools", icon = "tools", label = "TOOLS",
       category = "FIELD KIT", target = "TOOLS",
       description = { "USE FIELD MOVES AND GEAR.",
@@ -2345,7 +2354,8 @@ return function(mod)
       or theme == "modern_dark" and "modern_dark" or "classic"
     if hgss and not wasHgss then
       page, displayRuntime.home.activeApp = "HOME", nil
-    elseif not hgss and (page == "HOME" or page == "STORE") then
+    elseif not hgss and (page == "HOME" or page == "STORE"
+        or page == "STEPS") then
       page = "MAP"
     elseif hgss and (page == "GUIDE" or page == "AREA") then
       page = "LOCAL"
@@ -4078,6 +4088,61 @@ return function(mod)
     header("TRAINER", THEME.style == "hgss"
       and displayRuntime.home.activeApp ~= nil,
       THEME.style ~= "hgss")
+    if THEME.style == "hgss" then
+      local badgeOwned = {}
+      for index, badge in ipairs(shownBadges) do
+        badgeOwned[index] = not not ownsBadge(badge, index)
+      end
+      local dexSize = game.data.constants and game.data.constants.dexSize
+        or dexTotal
+      local region = (compat.currentRegion() or "kanto"):upper()
+      local model = {
+        name = player.name or (compat.isGen2() and "GOLD" or "RED"),
+        region = region,
+        idText = THEME:format("ID %05d", player.id or 0),
+        badgeText = THEME:format("%d/%d", badgeCount, #badges),
+        badgeRegion = region,
+        badgeOwned = badgeOwned,
+        money = THEME:format("¥%d", player.money or save.money or 0),
+        time = ("%d:%02d"):format(math.floor(elapsed / 3600),
+          math.floor(elapsed / 60) % 60),
+        pokedex = THEME:format("%d/%d", owned, dexSize),
+        drawPlayer = function(x, y, scale)
+          compat.drawMapMarker(x, y, scale, false, "down")
+        end,
+      }
+      model.drawBadge = function(index, cx, cy, badgeOwned_)
+        local badge = shownBadges[index]
+        if compat.isGen2() then
+          return badge and compat.drawGen2Badge(
+            badge.id, cx - 6, cy - 6, badgeOwned_, 0.75) or false
+        end
+        local quad = badgeAsset and badgeAsset.quads
+          and badgeAsset.quads[index - 1]
+        if not quad then return false end
+        local _, _, width, height = quad:getViewport()
+        local scale = math.min(1, 14 / math.max(width, height))
+        local function paint()
+          if gen1BadgeColors then G.setColor(1, 1, 1, badgeOwned_ and 1 or 0.28)
+          else
+            local tint = badgeOwned_ and INK or DARK
+            G.setColor(tint[1], tint[2], tint[3], badgeOwned_ and 1 or 0.25)
+          end
+          G.draw(badgeAsset.img, quad, cx - width * scale / 2,
+            cy - height * scale / 2, 0, scale, scale)
+        end
+        local gbc = require("src.render.GbcPalette")
+        if gen1BadgeColors and gbc.available() then
+          gbc.with(gen1BadgeColors, paint)
+        else paint() end
+        return true
+      end
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:trainer(model)
+      G.pop()
+      return
+    end
     box("fill", 4, 22, 152, 50, MID)
     outline(4, 22, 152, 50, INK)
     text(fit(player.name or "RED", 12), 8, 27, INK)
@@ -4142,6 +4207,13 @@ return function(mod)
   local function drawStepsDetail()
     local exact = ("%.0f"):format(steps)
     header("STEPS", true)
+    if THEME.style == "hgss" then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:steps({ steps = exact })
+      G.pop()
+      return
+    end
     box("fill", 76, 29, 7, 11, DARK)
     box("fill", 71, 37, 11, 9, DARK)
     box("fill", 69, 33, 3, 4, DARK)
@@ -4517,6 +4589,7 @@ return function(mod)
       overview = overview, image = explorer.image,
       player = explorer.player, markers = explorer.markers,
       lead = leadView,
+      steps = compactSteps(steps),
       drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
       drawPokemon = function(_, x, y, size)
         if not lead then return end
@@ -4576,7 +4649,7 @@ return function(mod)
         featured = displayRuntime.storeEntry(displayRuntime.storeById.tools),
         recommended = {
           displayRuntime.storeEntry(displayRuntime.storeById.party),
-          displayRuntime.storeEntry(displayRuntime.storeById.pokedex),
+          displayRuntime.storeEntry(displayRuntime.storeById.steps),
         },
       })
     end
@@ -6304,6 +6377,8 @@ return function(mod)
       drawArea()
     elseif page == "TRAINER" then
       if trainerStepsOpen then drawStepsDetail() else drawTrainer() end
+    elseif THEME.style == "hgss" and page == "STEPS" then
+      drawStepsDetail()
     elseif page == "PARTY" then
       if partyActionSlot then drawPartyAction() else drawNormalParty() end
     else
@@ -7634,6 +7709,18 @@ return function(mod)
       dirty = true
       return
     end
+    if THEME.style == "hgss" and page == "STEPS" then
+      if y < HEADER and x < 22 then
+        page, displayRuntime.home.activeApp = "HOME", nil
+        dirty = true
+      elseif THEME.hgss:stepsHit(x, y) == "reset" then
+        steps = 0
+        mod.save:set("steps", steps)
+        dirty = true
+        mod.log:info("step counter reset")
+      end
+      return
+    end
     if trainerStepsOpen then
       if y < HEADER and x < 22 then
         trainerStepsOpen, dirty = false, true
@@ -7741,7 +7828,8 @@ return function(mod)
         dirty = true
       end
       return
-    elseif page == "TRAINER" and inside(x, y, 82, 109, 74, 29) then
+    elseif page == "TRAINER" and THEME.style ~= "hgss"
+        and inside(x, y, 82, 109, 74, 29) then
       trainerStepsOpen = true
       dirty = true
     elseif page == "PARTY" then
@@ -8507,7 +8595,8 @@ return function(mod)
     mod.save:set("steps", steps)
     mapId = payload.mapId or mapId
     if radarOpen then radarOpen, dirty = false, true end
-    if page == "TRAINER" or page == "LOCAL" then dirty = true end
+    if page == "TRAINER" or page == "STEPS" or page == "HOME"
+        or page == "LOCAL" then dirty = true end
   end)
 
   for _, event in ipairs({ "world.block_replaced", "map.reloaded", "screen.pushed" }) do
