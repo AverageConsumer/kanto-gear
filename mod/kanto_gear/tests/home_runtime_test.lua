@@ -118,6 +118,26 @@ T.eq(home.activeApp, "explorer", "Explorer remains open after internal back")
 tap(5, 5)
 T.eq(page(), "HOME", "Explorer root back returns Home")
 
+home.layout = { tiles = {
+  { id = "explorer_widget", page = 1, column = 1, row = 1 },
+} }
+home.page, home.editing, home.library = 1, true, false
+display.tapHome(180, 60)
+T.eq(home.addSlot.column, 8, "the editor exposes the space beside Explorer")
+local apps = display.Home.library(home.layout, catalog, 1,
+  home.addSlot.column, home.addSlot.row, "app")
+local toolsIndex
+for index, item in ipairs(apps) do
+  if item.id == "tools_app" then toolsIndex = index end
+end
+T.check(toolsIndex and toolsIndex <= 6, "Tools is visible in Add to Home")
+local visible = toolsIndex - 1
+display.tapHome(15 + visible % 2 * 111,
+  54 + math.floor(visible / 2) * 48)
+local centeredTools = display.Home.find(home.layout, "tools_app")
+T.eq(centeredTools.column, 9,
+  "a three-column app is centered inside Explorer's five-column gap")
+
 local api = upvalue(display.saveHome, "mod")
 api.device = api.device or {
   powerInfo = function() return "battery", 80 end,

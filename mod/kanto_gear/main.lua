@@ -6601,7 +6601,8 @@ return function(mod)
             10 + column * 111, 49 + row * 48, 108, 46) then
           displayRuntime.Home.place(layout, displayRuntime.homeCatalog,
             item.id, home.page,
-            home.addSlot.column, home.addSlot.row)
+            home.addSlot.column + math.floor(
+              (home.addSlot.columns - item.columns) / 2), home.addSlot.row)
           home.library, home.addSlot = false, nil
           displayRuntime.saveHome()
           return
