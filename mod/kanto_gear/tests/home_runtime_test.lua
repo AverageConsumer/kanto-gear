@@ -17,6 +17,13 @@ T.eq(optionByKey.theme and optionByKey.theme.default, "hgss",
   "a fresh 3.0 install starts in the Silph Link HGSS theme")
 T.eq(optionByKey.ui_motion and optionByKey.ui_motion.default, true,
   "Silph Link motion is an explicit opt-out setting")
+T.eq(optionByKey.info_level and optionByKey.info_level.reset_default, "enhanced",
+  "research resets to the canonical 3.0 default")
+T.eq(optionByKey.battle_view and optionByKey.battle_view.reset_default, "standard",
+  "battle view resets independently of migrated startup state")
+T.check(optionByKey.ui_motion.visible_if.one_of
+    and optionByKey.local_map.visible_if.not_one_of,
+  "HGSS transitions and the legacy area map are mutually exclusive options")
 local legacySave = {}
 local migration = run.loader.migrations.kanto_gear
   and run.loader.migrations.kanto_gear[1]
@@ -483,6 +490,10 @@ run.loader.modOptions.kanto_gear.display_mode = "combined"
 settings = display.settingsModel()
 T.check(#settings.rows >= 6,
   "Display settings reveals the combined-layout controls when relevant")
+T.check(display.cycleSettingsPage(1) and display.settings.page == 2,
+  "Settings arrows, swipes and trigger navigation share the category pager")
+T.check(display.cycleSettingsPage(1) and display.settings.page == 1,
+  "Settings category paging wraps consistently")
 display.settings.category, display.settings.page = 1, 1
 settings = display.settingsModel()
 local motionRow
@@ -503,6 +514,10 @@ T.eq(theme.hgss.partyActionStarted, nil,
   "reduced motion suppresses Party context entrance movement")
 T.check(display.cycleSetting(motionRow, 1),
   "UI motion can be restored without restarting")
+run.loader.modOptions.kanto_gear.info_level = "spoiler"
+run.loader.modOptions.kanto_gear.battle_view = "full"
+run.loader.modOptions.kanto_gear.display_mode = "combined"
+run.loader.modOptions.kanto_gear.combined_layout = "side"
 display.runSettingsAction("reset_options")
 T.eq(run.loader.modOptions.kanto_gear.caught_icon, false,
   "the first reset tap only arms the destructive action")
@@ -511,6 +526,14 @@ T.eq(run.loader.modOptions.kanto_gear.caught_icon, true,
   "the confirmed options reset restores the 3.0 defaults")
 T.eq(run.loader.modOptions.kanto_gear.theme, "hgss",
   "resetting options returns to the Silph Link default theme")
+T.eq(run.loader.modOptions.kanto_gear.info_level, "enhanced",
+  "resetting options does not preserve a migrated research mode")
+T.eq(run.loader.modOptions.kanto_gear.battle_view, "standard",
+  "resetting options restores the standard battle view")
+T.eq(run.loader.modOptions.kanto_gear.display_mode, "separate",
+  "resetting options restores the canonical display mode")
+T.eq(run.loader.modOptions.kanto_gear.combined_layout, "auto",
+  "resetting options restores the canonical combined layout")
 home.layout = { tiles = {
   { id = "map_app", page = 1, column = 1, row = 1 },
 } }

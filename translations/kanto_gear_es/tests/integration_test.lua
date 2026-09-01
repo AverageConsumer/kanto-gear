@@ -33,6 +33,10 @@ T.eq(kg("BATTLE VIEW"), "VISTA DE COMBATE",
   "companion mod translates Kanto Gear settings")
 T.eq(kg("CLOCK"), "RELOJ",
   "companion mod translates the clock source")
+T.eq(kg("CLOCK SOURCE"), "FUENTE RELOJ",
+  "companion mod labels the clock source unambiguously")
+T.eq(kg("TRANSITIONS"), "TRANSICIONES",
+  "companion mod labels HGSS transitions unambiguously")
 T.eq(kg("ENEMY INFO"), "INFO. RIVAL",
   "companion mod translates enemy information")
 T.eq(kg("WEIGHT %.1f KG"), "PESO %.1f KG",

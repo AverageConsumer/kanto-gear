@@ -12,7 +12,7 @@ available and existing installations keep their selected theme.
 - Silph Store for installing or removing optional Kanto Gear apps and their
   widgets. It changes local UI preferences only and never downloads code.
 - Dedicated Explorer, Map, Party, Pokédex, Bag, Trainer Card, Step Counter,
-  Field Kit and Store apps.
+  Field Kit, Store and Options apps.
 - Explorer combines the live route map, contextual encounters, trainers,
   visible items, hidden items and Itemfinder interaction without turning the
   screen into a table of data.
@@ -23,6 +23,8 @@ available and existing installations keep their selected theme.
   canvas.
 - Gen 1 and Gen 2 field items, TMs/HMs and PP items continue through the
   original game actions while their selection screens are presented below.
+- Silph Link Options groups appearance, display, battle, research and control
+  settings, with explicit Home and option resets and context-sensitive rows.
 
 ## Compatibility
 

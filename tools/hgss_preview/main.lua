@@ -1790,7 +1790,8 @@ function love.load()
     theme:storeDetail({ app = detail })
   elseif settingsRoot then
     theme:settings({ categories = {
-      { label = "APPEARANCE", detail = "THEME AND MOTION", accent = "blue" },
+      { label = "APPEARANCE", detail = "THEME AND TRANSITIONS",
+        accent = "blue" },
       { label = "DISPLAY", detail = "SCREENS AND LAYOUT", accent = "green" },
       { label = "BATTLE", detail = "HUD AND BATTLE INFO", accent = "red" },
       { label = "RESEARCH", detail = "VANILLA TO SPOILERS", accent = "amber" },
@@ -1810,8 +1811,8 @@ function love.load()
     theme:settings({ category = "appearance", accent = "blue", page = 1,
       pages = 1, rows = {
         { label = "THEME", value = "HGSS LIGHT" },
-        { label = "CLOCK", value = "GAME" },
-        { label = "UI MOTION", value = "ON" },
+        { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
+        { label = "TRANSITIONS", value = "ON" },
       } })
   elseif settingsSystem then
     theme:settings({ category = "system", accent = "green", page = 1,

@@ -1096,6 +1096,17 @@ local function localMapMode(value)
   return "off"
 end
 
+function THEME:spoilerAssist(level, localMap)
+  local mode = self:researchMode(level)
+  return mode == "spoiler" or (mode == "legacy"
+    and localMapMode(localMap) == "enhanced")
+end
+assert(THEME:spoilerAssist("spoiler", false)
+    and THEME:spoilerAssist("legacy", "enhanced")
+    and not THEME:spoilerAssist("vanilla", "enhanced")
+    and not THEME:spoilerAssist("enhanced", "enhanced"),
+  "explicit research modes override the legacy area-map setting")
+
 local function localMapGrid(overview)
   if overview.tileDetailRows then
     return overview.tileDetailRows, overview.tileDetailWidth,
@@ -1887,20 +1898,24 @@ return function(mod)
         { "SGB", "sgb" }, { "ADVANCED", "advanced" },
         { "VERSION COLOR", "version" },
       } },
-    { key = "clock_source", label = "CLOCK", type = "choice",
+    { key = "clock_source", label = "CLOCK SOURCE", type = "choice",
       default = "game", choices = {
-        { "GAME", "game" }, { "SYSTEM", "system" },
+        { "GAME (GEN 2)", "game" }, { "DEVICE", "system" },
       } },
-    { key = "ui_motion", label = "UI MOTION",
-      type = "toggle", default = true },
+    { key = "ui_motion", label = "TRANSITIONS",
+      type = "toggle", default = true, visible_if = {
+        key = "theme", one_of = { "hgss", "hgss_dark" },
+      } },
     { key = "info_level", label = "INFO", type = "choice",
-      default = infoDefault, choices = infoChoices },
+      default = infoDefault, reset_default = "enhanced", choices = infoChoices },
     { key = "local_map", label = "AREA MAP",
       type = "choice", default = false, choices = {
         { "OFF", false }, { "MAP", true }, { "ENHANCED", "enhanced" },
+      }, visible_if = {
+        key = "theme", not_one_of = { "hgss", "hgss_dark" },
       } },
     { key = "display_mode", label = "DISPLAY MODE", type = "choice",
-      default = THEME.displayModeDefault, choices = {
+      default = THEME.displayModeDefault, reset_default = "separate", choices = {
         { "FULLSCREEN SWAP", "fullscreen" },
         { "COMBINED SCREEN", "combined" },
         { "SEPARATE SCREENS", "separate" },
@@ -1912,7 +1927,7 @@ return function(mod)
         { "GAME", "game" }, { "GEAR", "gear" },
       } },
     { key = "combined_layout", label = "LAYOUT", type = "choice",
-      default = THEME.combinedLayoutDefault, visible_if = {
+      default = THEME.combinedLayoutDefault, reset_default = "auto", visible_if = {
         key = "display_mode", equals = "combined",
       }, choices = {
         { "AUTO", "auto" }, { "STACKED", "stacked" },
@@ -1961,7 +1976,7 @@ return function(mod)
         key = "display_mode", not_equals = "fullscreen",
       } },
     { key = "battle_view", label = "BATTLE VIEW",
-      type = "choice", default = battleDefault, choices = {
+      type = "choice", default = battleDefault, reset_default = "standard", choices = {
         { "STANDARD", "standard" }, { "GEAR", "gear" },
         { "FULL GEAR", "full" }, { "INFO", "info" },
       } },
@@ -1988,8 +2003,7 @@ return function(mod)
   local function assist(key)
     local level = mod.options:get("info_level")
     if key == "spoilers" then
-      return THEME:researchMode(level) == "spoiler"
-        or localMapMode(mod.options:get("local_map")) == "enhanced"
+      return THEME:spoilerAssist(level, mod.options:get("local_map"))
     end
     if level == "legacy" then
       return assistEnabled("custom", mod.options:get(key))
@@ -2228,7 +2242,8 @@ return function(mod)
   }
   displayRuntime.settings = { page = 1 }
   displayRuntime.settingsCategories = {
-    { id = "appearance", label = "APPEARANCE", detail = "THEME AND MOTION",
+    { id = "appearance", label = "APPEARANCE",
+      detail = "THEME AND TRANSITIONS",
       accent = "blue", keys = { "theme", "clock_source", "ui_motion" } },
     { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
       accent = "green", keys = { "display_mode", "fullscreen_start",
@@ -2265,6 +2280,18 @@ return function(mod)
     local value = mod.options:get(condition.key)
     if condition.equals ~= nil then return value == condition.equals end
     if condition.not_equals ~= nil then return value ~= condition.not_equals end
+    if condition.one_of then
+      for _, candidate in ipairs(condition.one_of) do
+        if value == candidate then return true end
+      end
+      return false
+    end
+    if condition.not_one_of then
+      for _, candidate in ipairs(condition.not_one_of) do
+        if value == candidate then return false end
+      end
+      return true
+    end
     return true
   end
 
@@ -2310,6 +2337,14 @@ return function(mod)
       accent = category.accent, rows = rows, page = state.page, pages = pages }
   end
 
+  function displayRuntime.cycleSettingsPage(direction)
+    local state, model = displayRuntime.settings, displayRuntime.settingsModel()
+    if not model.category or model.pages <= 1 then return false end
+    state.page = ((state.page - 1 + direction) % model.pages) + 1
+    state.confirm, dirty = nil, true
+    return true
+  end
+
   function displayRuntime.cycleSetting(row, direction)
     if not (row and row.source and mod.options.set) then return false end
     local source, value = row.source, mod.options:get(row.key)
@@ -2348,7 +2383,9 @@ return function(mod)
       displayRuntime.resetHome()
     elseif action == "reset_options" and mod.options.set then
       for _, row in ipairs(THEME.optionSchema or {}) do
-        mod.options:set(row.key, row.default)
+        local value = row.reset_default
+        if value == nil then value = row.default end
+        mod.options:set(row.key, value)
       end
     end
     dirty = true
@@ -9251,9 +9288,7 @@ return function(mod)
     elseif action == "category" then
       state.category, state.page, state.confirm = index, 1, nil
     elseif action == "prev" or action == "next" then
-      state.page = ((state.page - 1 + (action == "next" and 1 or -1))
-        % model.pages) + 1
-      state.confirm = nil
+      displayRuntime.cycleSettingsPage(action == "next" and 1 or -1)
     elseif action == "row" then
       local row = model.rows[index]
       if row.action then displayRuntime.runSettingsAction(row.action)
@@ -10019,6 +10054,16 @@ return function(mod)
         dirty = true
       else
         displayRuntime.cycleBagPage(direction)
+      end
+      return
+    elseif THEME.style == "hgss" and page == "SETTINGS" then
+      displayRuntime.cycleSettingsPage(direction)
+      return
+    elseif THEME.style == "hgss" and page == "TOOLS" then
+      local pages = math.max(1, math.ceil(#displayRuntime.toolModels() / 4))
+      if pages > 1 then
+        tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
+        dirty = true
       end
       return
     end

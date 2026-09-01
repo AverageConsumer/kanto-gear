@@ -177,9 +177,10 @@ bundle.
 | Change Kanto Gear page | Swipe left/right or tap the header arrows |
 | Edit the HGSS Home screen | Long-press an app or widget, then swap it with another card or a free slot |
 | Add an HGSS Home item | Enter Edit mode and tap a free `+` slot |
+| Open Silph Link settings | Open the **OPTIONS** app on Home page 2 |
 | Swap the two views | Enable **QUICK SWAP (Y)**, then press **Y** |
 | Cycle pages with a controller | Enable **TRIGGER TABS**, then use **L2/R2** |
-| Hide or show the Combined Screen overlay | Press **R3** |
+| Hide or show the Combined Screen overlay | Choose **OVERLAY BUTTON**, then press the selected control |
 | Zoom the local map | Tap **+ / −** |
 | Open settings with Modern UI | **MOD MENUS → KANTO GEAR** |
 
@@ -191,8 +192,11 @@ bundle.
 - **BATTLE VIEW → FULL GEAR** also moves HP and status panels.
 - **BATTLE VIEW → INFO** keeps the original HUD and shows known opponent
   data on the companion screen.
-- **INFO → PURIST** hides assistance; **ENHANCED** enables it.
-- **SCREEN SWAP (Y)** is off by default so other mods can keep using **Y**.
+- **INFO → VANILLA** hides assistance, **ENHANCED** adds contextual help, and
+  **SPOILERS** reveals optional discoveries directly.
+- **QUICK SWAP (Y)** is off by default so other mods can keep using **Y**.
+- **TRANSITIONS** controls Silph Link page movement without disabling useful
+  status animation such as charging and continue indicators.
 
 </details>
 

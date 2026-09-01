@@ -325,7 +325,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 16, "Kanto Gear keeps one compact display hierarchy")
+T.eq(#options, 17, "Kanto Gear keeps one compact display hierarchy")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
 T.eq(#options[1].choices, 11, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "hgss", "HGSS theme is available")
@@ -335,46 +335,53 @@ T.eq(options[1].choices[5][2], "modern_light",
   "modern light theme is available")
 T.eq(options[1].choices[6][2], "modern_dark",
   "modern dark theme is available")
-T.eq(options[2].label, "CLOCK", "clock source is one compact choice")
+T.eq(options[2].label, "CLOCK SOURCE", "clock source is one compact choice")
 T.eq(options[2].default, "game", "Gen 2 follows its encounter clock by default")
-T.eq(options[3].label, "INFO", "assist features use one preset")
-T.eq(#options[3].choices, 3,
+T.eq(options[2].choices[1][1], "GAME (GEN 2)",
+  "the game-clock choice states its generation boundary")
+T.eq(options[3].label, "TRANSITIONS", "HGSS motion names its actual scope")
+T.check(options[3].visible_if.one_of,
+  "transition settings stay out of classic themes")
+T.eq(options[4].label, "INFO", "assist features use one preset")
+T.eq(#options[4].choices, 3,
   "research mode separates vanilla, enhanced, and spoiler behavior")
-T.eq(options[3].choices[1][1], "VANILLA",
+T.eq(options[4].choices[1][1], "VANILLA",
   "the old purist value has a clear player-facing name")
-T.eq(options[3].choices[3][2], "spoiler",
+T.eq(options[4].choices[3][2], "spoiler",
   "spoiler features require an explicit research mode")
-T.eq(options[5].label, "DISPLAY MODE", "display modes share one entry point")
-T.eq(#options[5].choices, 3, "display mode exposes three clear families")
-T.eq(options[6].label, "START SCREEN", "fullscreen owns its start surface")
-T.eq(options[6].visible_if.equals, "fullscreen",
+T.check(options[5].visible_if.not_one_of,
+  "the legacy area-map row stays out of HGSS themes")
+T.eq(options[6].label, "DISPLAY MODE", "display modes share one entry point")
+T.eq(#options[6].choices, 3, "display mode exposes three clear families")
+T.eq(options[7].label, "START SCREEN", "fullscreen owns its start surface")
+T.eq(options[7].visible_if.equals, "fullscreen",
   "fullscreen settings stay inside fullscreen mode")
-T.eq(options[7].label, "LAYOUT", "combined mode owns its layout")
-T.eq(options[7].default, "auto", "combined layout adapts by default")
-T.eq(#options[7].choices, 4, "combined mode exposes four compact presets")
-T.eq(options[8].label, "PRIMARY VIEW", "combined mode can invert its priority")
-T.eq(options[9].label, "SECONDARY SIZE", "combined layouts share one size control")
-T.eq(options[9].default, "auto", "existing layout sizes remain the default")
-T.eq(#options[9].choices, 14, "secondary sizing offers granular safe presets")
-T.eq(options[10].label, "OVERLAY CORNER", "overlay owns one position setting")
-T.eq(options[10].default, "bottom_right", "overlay keeps its familiar corner")
-T.eq(#options[10].choices, 4, "overlay supports every screen corner")
-T.eq(options[11].label, "OVERLAY BUTTON", "overlay owns one visibility shortcut")
-T.eq(options[11].default, "off", "overlay cannot claim a button by default")
-T.eq(options[12].label, "GEAR OUTPUT", "separate mode owns its output target")
-T.eq(options[12].visible_if.equals, "separate",
+T.eq(options[8].label, "LAYOUT", "combined mode owns its layout")
+T.eq(options[8].default, "auto", "combined layout adapts by default")
+T.eq(#options[8].choices, 4, "combined mode exposes four compact presets")
+T.eq(options[9].label, "PRIMARY VIEW", "combined mode can invert its priority")
+T.eq(options[10].label, "SECONDARY SIZE", "combined layouts share one size control")
+T.eq(options[10].default, "auto", "existing layout sizes remain the default")
+T.eq(#options[10].choices, 14, "secondary sizing offers granular safe presets")
+T.eq(options[11].label, "OVERLAY CORNER", "overlay owns one position setting")
+T.eq(options[11].default, "bottom_right", "overlay keeps its familiar corner")
+T.eq(#options[11].choices, 4, "overlay supports every screen corner")
+T.eq(options[12].label, "OVERLAY BUTTON", "overlay owns one visibility shortcut")
+T.eq(options[12].default, "off", "overlay cannot claim a button by default")
+T.eq(options[13].label, "GEAR OUTPUT", "separate mode owns its output target")
+T.eq(options[13].visible_if.equals, "separate",
   "separate output stays inside separate mode")
-T.eq(options[13].label, "QUICK SWAP (Y)", "live swapping names its control")
-T.eq(options[13].default, false, "screen swap cannot claim Y by default")
-T.eq(options[13].visible_if.not_equals, "fullscreen",
+T.eq(options[14].label, "QUICK SWAP (Y)", "live swapping names its control")
+T.eq(options[14].default, false, "screen swap cannot claim Y by default")
+T.eq(options[14].visible_if.not_equals, "fullscreen",
   "fullscreen swap claims Y explicitly through its selected mode")
-T.eq(options[14].label, "BATTLE VIEW", "battle layout uses one setting")
-T.eq(#options[14].choices, 4, "battle view exposes four clear layouts")
-T.eq(options[14].choices[4][2], "info",
+T.eq(options[15].label, "BATTLE VIEW", "battle layout uses one setting")
+T.eq(#options[15].choices, 4, "battle view exposes four clear layouts")
+T.eq(options[15].choices[4][2], "info",
   "battle view offers a read-only enemy information layout")
-T.eq(options[15].label, "CAUGHT ICON", "caught marker has one clear toggle")
-T.eq(options[16].label, "TRIGGER TABS", "trigger navigation is opt-in")
-T.eq(options[16].default, false, "trigger navigation cannot claim controls by default")
+T.eq(options[16].label, "CAUGHT ICON", "caught marker has one clear toggle")
+T.eq(options[17].label, "TRIGGER TABS", "trigger navigation is opt-in")
+T.eq(options[17].default, false, "trigger navigation cannot claim controls by default")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
