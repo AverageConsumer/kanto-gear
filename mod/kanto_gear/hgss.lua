@@ -4123,44 +4123,80 @@ return function(ui)
     end
   end
 
-  function H:silphLinkIcon(x, y, phase)
-    local colors = self.colors
-    self:pcStorageIcon(x, y, "pokemon")
-    self:pcStorageIcon(x + 49, y, "items")
-    box("fill", x + 29, y + 13, 20, 2, colors.outline)
-    for index = 0, 2 do
-      local tint = index == (phase or 0) and colors.greenLight or colors.band
-      clipped(x + 32 + index * 6, y + 10, 4, 8, tint)
-      border(x + 32 + index * 6, y + 10, 4, 8, colors.outline)
+  function H:silphLinkIcon(cx, cy, phase)
+    local G, colors = ui.graphics, self.colors
+    phase = phase or 0
+
+    color(colors.outline)
+    G.circle("fill", cx, cy, 29)
+    color(self.dark and colors.bandLight or colors.white)
+    G.circle("fill", cx, cy, 26)
+    color(colors.redLight)
+    G.arc("fill", cx, cy, 24, math.pi, math.pi * 2)
+    box("fill", cx - 24, cy - 1, 48, 3, colors.outline)
+    color(colors.white)
+    G.circle("fill", cx, cy, 8)
+    color(colors.outline)
+    G.circle("line", cx, cy, 8)
+    G.circle("fill", cx, cy, 3)
+
+    G.setLineWidth(3)
+    color(colors.blueLight)
+    G.arc("line", "open", cx, cy, 36, math.pi, math.pi * 5 / 3)
+    color(colors.greenLight)
+    G.arc("line", "open", cx, cy, 36, -math.pi / 3, math.pi / 3)
+    color(colors.amberLight)
+    G.arc("line", "open", cx, cy, 36, math.pi / 3, math.pi)
+    G.setLineWidth(1)
+    for index, node in ipairs({ { -35, 0 }, { 18, -31 }, { 18, 31 } }) do
+      local active = index - 1 == phase
+      color(colors.outline)
+      G.circle("fill", cx + node[1], cy + node[2], 5)
+      color(active and colors.amberLight or colors.greenLight)
+      G.circle("fill", cx + node[1], cy + node[2], active and 3 or 2)
     end
   end
 
   function H:titleBoot(model, now)
-    local colors = self.colors
-    local pressed = self:beginPress(0, 0, 240, 216)
-    self:panel(18, 13, 204, 156, false, nil, colors.blueLight)
-    self:partyType(translate("SILPH CO."), 30, 22,
-      colors.green, 180)
+    local G, colors = ui.graphics, self.colors
     local phase = math.floor((tonumber(now) or 0) * 2) % 3
-    self:silphLinkIcon(81, 42, phase)
-    box("fill", 34, 79, 172, 1, colors.band)
-    self:label(translate("SILPH LINK"), 28, 88,
-      colors.ink, 184, "center")
-    self:partyType(translate("SYSTEM"), 28, 107,
-      colors.green, 184)
-    clipped(36, 121, 168, 22, colors.bandLight)
-    border(36, 121, 168, 22, colors.outline)
-    self:partyInfo(self:fitPartyInfo(model.systemId or "SLS-DEV", 156),
-      42, 128, colors.ink, 156, "center")
-    self:partyType(translate("LINK ONLINE"), 28, 153,
-      colors.green, 184)
 
-    self:panel(38, 177, 164, 32, false, nil, colors.greenLight)
-    clipped(41, 180, 158, 26,
-      self:focusSurface(pressed, colors.surface, colors.greenLight))
-    self:partyInfo(translate("START GAME"), 38, 187,
-      colors.ink, 164, "center")
-    if pressed then self:focusFrame(38, 177, 164, 32) end
+    self:panel(10, 9, 220, 153, false, nil, colors.blueLight)
+    box("fill", 15, 14, 70, 3, colors.redLight)
+    box("fill", 85, 14, 70, 3, colors.blueLight)
+    box("fill", 155, 14, 70, 3, colors.greenLight)
+    self:partyType(translate("SILPH CO."), 15, 22, colors.green, 105)
+    self:partyType("KANTO GEAR 3.0", 120, 22, colors.ink, 105)
+
+    self:silphLinkIcon(120, 70, phase)
+    fontText(trainerNameFont, translate("SILPH LINK"), 28, 109,
+      colors.ink, 184, "center")
+    self:partyInfo(self:fitPartyInfo(model.systemId or "SLS-DEV", 102),
+      69, 128, self.dark and colors.silver or colors.silverDark,
+      102, "center")
+
+    clipped(57, 141, 126, 15, colors.bandLight)
+    border(57, 141, 126, 15, colors.green)
+    local status = self:fitPartyType(translate("LINK ONLINE"), 104)
+    local statusWidth = partyTypeFont:getWidth(status)
+    local statusLeft = 120 - math.floor((statusWidth + 12) / 2 + 0.5)
+    color(colors.greenLight)
+    G.circle("fill", statusLeft + 3, 148, 3)
+    fontText(partyTypeFont, status, statusLeft + 12, 144, colors.green)
+
+    local pressed = self:beginPress(0, 0, 240, 216)
+    if self:shadowVisible() then
+      clipped(26, 175, 188, 36, colors.shadow)
+    end
+    clipped(26, 171, 188, 36,
+      self:focusSurface(pressed, colors.green, colors.greenLight))
+    border(26, 171, 188, 36, colors.outline)
+    box("fill", 32, 173, 176, 2,
+      mixed(colors.greenLight, colors.white, 0.28))
+    box("fill", 32, 202, 176, 2, mixed(colors.green, colors.outline, 0.34))
+    fontText(trainerValueFont, translate("START GAME"), 40, 181,
+      colors.white, 160, "center")
+    self:detailChevron(195, 185, colors.white, true)
     self:endPress(pressed)
   end
 

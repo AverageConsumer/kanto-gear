@@ -1474,7 +1474,7 @@ function love.load()
       { kind = "move", label = "SCARY FACE", right = "PP 10/10" },
     } })
   elseif legacyTitle then
-    theme:titleBoot({ systemId = "SLS-GSC-3.0" }, 1)
+    theme:titleBoot({ systemId = gen1 and "SLS-RBY-3.0" or "SLS-GSC-3.0" }, 1)
   elseif legacyLoading then
     theme:loadingOverlay("LOADING AREA", 1)
   elseif legacyOverlay then
