@@ -73,13 +73,15 @@ are attached to every release.
 | Mode | Best for |
 | --- | --- |
 | **Fullscreen Swap** | Phones and small one-screen handhelds |
-| **Combined Screen** | Steam Deck-style devices, tablets and large displays |
+| **Combined Screen** | Steam Deck-style devices, tablets and large displays; optional bottom safe area for Android touch controls |
 | **Separate Screens** | AYN Thor, RG DS, desktop windows and multi-monitor setups |
 
 Swipe or use visible arrows inside paged Silph Link apps. Optional **Trigger
 Tabs** use L2/R2 where supported, while Home editing intentionally remains
 touch-only. Android touch-control positions belong to the host; use its
 **Touch Controls** editor if they overlap a combined layout.
+Combined Screen can also reserve a configurable **Bottom Safe Area** so the
+complete game and companion layout stays above fixed Android controls.
 
 ## Compatibility
 

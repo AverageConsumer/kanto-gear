@@ -225,12 +225,17 @@ function THEME:fitRect(rect, width, height)
 end
 
 function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
-    overlayHidden, secondarySize)
+    overlayHidden, secondarySize, bottomSafeArea)
   if not mode or mode == "off" then return nil end
   if mode == "auto" then
     mode = width >= height and "side" or "stacked"
   elseif mode == "large" then
     mode = "overlay"
+  end
+  if mode ~= "fullscreen" then
+    local safePercent = math.max(0, math.min(50,
+      tonumber(bottomSafeArea) or 0))
+    height = math.max(1, height - math.floor(height * safePercent / 100))
   end
   local gap = math.max(2, math.floor(math.min(width, height) * 0.01))
   local requestedSize = tonumber(secondarySize)
@@ -2000,6 +2005,13 @@ return function(mod)
         { "60%", 60 }, { "65%", 65 }, { "70%", 70 },
         { "75%", 75 }, { "80%", 80 },
       } },
+    { key = "bottom_safe_area", label = "BOTTOM SAFE AREA", type = "choice",
+      default = 0, visible_if = {
+        key = "display_mode", equals = "combined",
+      }, choices = {
+        { "OFF", 0 }, { "10%", 10 }, { "15%", 15 }, { "20%", 20 },
+        { "25%", 25 }, { "30%", 30 }, { "35%", 35 }, { "40%", 40 },
+      } },
     { key = "overlay_corner", label = "OVERLAY CORNER", type = "choice",
       default = "bottom_right", visible_if = {
         key = "display_mode", equals = "combined",
@@ -2292,7 +2304,8 @@ return function(mod)
     { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
       accent = "green", keys = { "display_mode", "fullscreen_start",
         "combined_layout", "combined_primary", "secondary_size",
-        "overlay_corner", "overlay_button", "display_target", "screen_swap" } },
+        "bottom_safe_area", "overlay_corner", "overlay_button",
+        "display_target", "screen_swap" } },
     { id = "battle", label = "BATTLE", detail = "HUD AND BATTLE INFO",
       accent = "red", keys = { "battle_view", "caught_icon" } },
     { id = "research", label = "RESEARCH", detail = "VANILLA TO SPOILERS",
@@ -11106,6 +11119,7 @@ return function(mod)
           or payload.key == "combined_layout"
           or payload.key == "combined_primary"
           or payload.key == "secondary_size"
+          or payload.key == "bottom_safe_area"
           or payload.key == "overlay_corner"
           or payload.key == "overlay_button"
           or payload.key == "display_target"
@@ -11351,7 +11365,8 @@ return function(mod)
       base.width, base.height,
       THEME:gearPrimary(mod.options, displayRuntime.swapped),
       mod.options:get("overlay_corner"), displayRuntime.overlayHidden,
-      mod.options:get("secondary_size"))
+      mod.options:get("secondary_size"),
+      mod.options:get("bottom_safe_area"))
     if not layout then return available end
     for _, rect in ipairs({ layout.game, layout.gear }) do
       rect.x = rect.x + (base.x or 0)
@@ -11387,7 +11402,8 @@ return function(mod)
       local layout = THEME:windowLayout(THEME:windowMode(mod.options), ww, wh,
         THEME:gearPrimary(mod.options, displayRuntime.swapped),
         mod.options:get("overlay_corner"), displayRuntime.overlayHidden,
-        mod.options:get("secondary_size"))
+        mod.options:get("secondary_size"),
+        mod.options:get("bottom_safe_area"))
       if not layout then return false end
       if layout.showGear and dirty then draw(); dirty = false end
       G.push("all")

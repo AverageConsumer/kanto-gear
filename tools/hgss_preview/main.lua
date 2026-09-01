@@ -1829,6 +1829,7 @@ function love.load()
         { label = "LAYOUT", value = "SIDE BY SIDE" },
         { label = "PRIMARY VIEW", value = "GAME" },
         { label = "SECONDARY SIZE", value = "40%" },
+        { label = "BOTTOM SAFE AREA", value = "30%" },
         { label = "OVERLAY CORNER", value = "BOTTOM RIGHT" },
       } })
   elseif settingsAppearance then
