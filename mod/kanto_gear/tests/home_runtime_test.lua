@@ -54,6 +54,46 @@ end
 
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
+local appWidgets = {
+  pokedex = { id = "pokedex_widget", columns = 5 },
+  trainer = { id = "trainer_widget", columns = 5 },
+  bag = { id = "bag_widget", columns = 5 },
+  map = { id = "map_widget", columns = 7 },
+  store = { id = "store_widget", columns = 5 },
+}
+for packageId, expected in pairs(appWidgets) do
+  local surface = catalog.surfaces[expected.id]
+  T.check(surface and surface.package == packageId
+      and surface.kind == "widget" and surface.widget == packageId,
+    packageId .. " exposes an app-owned Home widget")
+  T.eq(surface and surface.columns, expected.columns,
+    packageId .. " widget keeps its grid contract")
+  T.check(catalog.surfaces[packageId .. "_app"] ~= nil,
+    packageId .. " can coexist as an app icon and widget")
+end
+local installedBefore = {}
+for packageId in pairs(appWidgets) do
+  installedBefore[packageId] = catalog.packages[packageId].installed
+  catalog.packages[packageId].installed = true
+end
+local widgetLibrary = display.Home.library({ tiles = {} }, catalog,
+  1, 1, 1, "widget")
+local offered = {}
+for _, item in ipairs(widgetLibrary) do offered[item.id] = item.available end
+for _, expected in pairs(appWidgets) do
+  T.check(offered[expected.id], expected.id .. " appears in Add to Home")
+end
+for packageId, installed in pairs(installedBefore) do
+  catalog.packages[packageId].installed = installed
+end
+local removalAudit = { tiles = {
+  { id = "bag_app", page = 1, column = 1, row = 1 },
+  { id = "bag_widget", page = 1, column = 4, row = 2 },
+} }
+T.eq(display.Home.removePackage(removalAudit, catalog, "bag"), 2,
+  "removing an app removes both its icon and widgets")
+T.eq(#removalAudit.tiles, 0,
+  "no orphaned app surface remains after package removal")
 local api = upvalue(display.saveHome, "mod")
 local durableHome
 local function copy(value)

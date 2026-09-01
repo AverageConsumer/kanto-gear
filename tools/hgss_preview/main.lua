@@ -271,6 +271,15 @@ function love.load()
         and px == 140 and py == 32 and pw == 93 and ph == 82
         and ax == 178 and ay == 117 and aw == 55 and ah == 82,
       "Home widgets and apps resolve onto the shared 12-column grid")
+    for _, label in ipairs({ "POKEDEX", "TRAINER", "MAP", "BAG", "STORE" }) do
+      local translated = translate(label)
+      assert(theme:fitPartyInfo(translated, 65) == translated,
+        label .. " translation fits a five-column widget header")
+    end
+    assert(theme:fitPartyType(translate("NEW"), 32) == translate("NEW")
+        and theme:fitPartyInfo(translate("RESEARCH"), 47)
+          == translate("RESEARCH"),
+      "Store promotion labels fit without automatic truncation")
   end
   if screen:sub(1, 5) == "tools" then
     local singleX, singleY = theme:toolCardRect(0, 1)
