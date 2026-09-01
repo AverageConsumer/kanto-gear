@@ -3715,20 +3715,33 @@ return function(mod)
   function displayRuntime.fieldPpMoveScreen()
     local pending = displayRuntime.bag.pending
     local picker = screenById("Gen2MoveDeleter")
-    if not (pending and not pending.moveId and picker
-        and type(picker.mon) == "table" and type(picker.row) == "number"
-        and type(picker.list) == "table" and picker.list == picker.mon.moves) then
+    local mon, index, cursor = picker and picker.mon, picker and picker.row,
+      "row"
+    if not picker and not compat.isGen2() then
+      local top = game and game.stack and game.stack:top()
+      if pending and not pending.moveId and top
+          and (top.kind == "Which move?" or top.title == "Which move?")
+          and type(top.items) == "table" and type(top.index) == "number" then
+        picker, mon, index, cursor = top, pending.mon, top.index, "index"
+      end
+    end
+    if not (pending and not pending.moveId and picker and type(mon) == "table"
+        and type(index) == "number" and type(mon.moves) == "table") then
       return nil
     end
+    if cursor == "row" and picker.list ~= mon.moves then return nil end
     local items = {}
-    for index, move in ipairs(picker.mon.moves or {}) do
+    for slot, move in ipairs(mon.moves or {}) do
       local def = game.data and game.data.moves and game.data.moves[move.id]
-      items[index] = {
+      local base = def and def.pp or move.maxPp or move.pp or 0
+      local maxPp = move.maxPp or base
+        + (move.ppUps or 0) * math.floor(base / 5)
+      items[slot] = {
         label = def and def.name or move.id or "MOVE",
-        right = THEME:format("%d/%d", move.pp or 0, move.maxPp or move.pp or 0),
+        right = THEME:format("%d/%d", move.pp or 0, maxPp),
       }
     end
-    return { native = picker, items = items, index = picker.row }
+    return { native = picker, items = items, index = index, cursor = cursor }
   end
 
   local function pcSession()
@@ -6814,9 +6827,10 @@ return function(mod)
     if screenState() ~= "active" or battle or not itemId then return false end
     local state = displayRuntime.bag
     state.message = nil
+    local def = game.data and game.data.items and game.data.items[itemId]
+    state.pending = { itemId = itemId,
+      moveId = def and (def.teaches or def.machine and def.machine.move) }
     if compat.isGen2() then
-      local def = game.data and game.data.items and game.data.items[itemId]
-      state.pending = { itemId = itemId, moveId = def and def.teaches }
       local ok, PackMenu = pcall(require, "src.ui.gen2.PackMenu")
       if not ok or type(PackMenu) ~= "table" or type(PackMenu.new) ~= "function" then
         state.pending = nil
@@ -6850,13 +6864,19 @@ return function(mod)
     local ok, BagMenu = pcall(require, "src.ui.BagMenu")
     local menuOk, Menu = pcall(require, "src.ui.Menu")
     if not ok or not menuOk or type(BagMenu) ~= "table"
-        or type(BagMenu.new) ~= "function" then return false end
+        or type(BagMenu.new) ~= "function" then
+      state.pending = nil
+      return false
+    end
     local backend = BagMenu.new(game)
     local item
     for _, row in ipairs(backend.items or {}) do
       if row.value == itemId then item = row break end
     end
-    if not item or type(backend.onChoose) ~= "function" then return false end
+    if not item or type(backend.onChoose) ~= "function" then
+      state.pending = nil
+      return false
+    end
     local stack, before = game.stack, game.stack:top()
     local count = #(stack.states or {})
     local opened, err = pcall(backend.onChoose, item, backend)
@@ -6871,6 +6891,7 @@ return function(mod)
       end
       mod.log:warn("HGSS bag could not open original USE action for %s: %s",
         tostring(itemId), tostring(err or "unexpected menu"))
+      state.pending = nil
       return false
     end
     local action = useMenu.items[1].onSelect
@@ -6879,6 +6900,7 @@ return function(mod)
     if not used then
       mod.log:warn("HGSS bag item %s failed: %s",
         tostring(itemId), tostring(useErr))
+      state.pending = nil
       return false
     end
     state.detail, dirty = nil, true
@@ -8364,12 +8386,12 @@ return function(mod)
       drawTopSummaryControls(nil, true)
     elseif levelStats then
       drawLevelUpStats(levelStats)
+    elseif fieldPp then
+      drawPpItemMoves(fieldPp)
     elseif choice then
       drawDialogueChoice(choice, labels, battle and battle.message, choiceField)
     elseif battle then
       drawBattle()
-    elseif fieldPp then
-      drawPpItemMoves(fieldPp)
     elseif fieldParty then
       drawParty(fieldPartyData, fieldPartyTitle, true, nil,
         fieldParty.index, false)
@@ -9909,7 +9931,7 @@ return function(mod)
         local first, count = choiceWindow(fieldPp.items, fieldPp.index)
         local row = THEME.hgss:pcListHit(hx, hy, count)
         if row then
-          fieldPp.native.row = first + row - 1
+          fieldPp.native[fieldPp.cursor or "row"] = first + row - 1
           press("a")
         end
       end

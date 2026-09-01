@@ -53,8 +53,8 @@ for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
 end
 local display = upvalue(inputHook, "displayRuntime")
 T.check(type(display) == "table", "Bag runtime is reachable")
-T.eq(display.storeEntry(display.storeById.bag).state, "open",
-  "the finished Bag app is available")
+T.eq(display.storeEntry(display.storeById.bag).state, "get",
+  "the optional Bag app is available from Silph Store")
 T.check(display.setPackageInstalled("bag", false),
   "Bag can be removed from the customizable Home")
 T.check(display.setPackageInstalled("bag", true), "Bag installs from the Store")
@@ -81,5 +81,31 @@ else
 end
 T.eq(save.inventory[itemId], 2,
   "a refused field use does not consume the item")
+
+if generation == 1 then
+  stack:clear()
+  stack:push(world)
+  run.data.items.FIX_POTION.needsTarget = true
+  save.inventory.FIX_POTION = 1
+  save.party = { { species = "FIXMON_A", nickname = "TESTMON",
+    hp = 5, moves = { { id = "FIX_MOVE_A", pp = 4 } } } }
+  T.check(display.useBagItem("FIX_POTION"),
+    "Gen 1 field medicine opens through the original Bag path")
+  local picker, party, title = display.fieldBagParty()
+  T.check(picker and picker.screenId == "PartyMenu",
+    "Gen 1 field medicine gives the bottom screen its native party picker")
+  T.eq(party[1], save.party[1], "Gen 1 field picker keeps live party data")
+  T.eq(title, "USE ITEM ON", "Gen 1 field picker explains its action below")
+
+  display.bag.pending = { itemId = "ETHER", mon = save.party[1] }
+  local ppPicker = { kind = "Which move?", title = "Which move?", index = 1,
+    items = { { label = "FIX CUT", right = "4" } } }
+  stack:push(ppPicker)
+  local pp = display.fieldPpMoveScreen()
+  T.check(pp and pp.native == ppPicker and pp.cursor == "index",
+    "Gen 1 PP items give the bottom screen their native move picker")
+  T.check(pp.items[1].right:find("/", 1, true),
+    "Gen 1 PP item rows include current and maximum PP")
+end
 
 T.finish("Kanto Gear HGSS Bag runtime")
