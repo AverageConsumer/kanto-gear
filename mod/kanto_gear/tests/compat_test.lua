@@ -338,6 +338,12 @@ T.eq(options[1].choices[6][2], "modern_dark",
 T.eq(options[2].label, "CLOCK", "clock source is one compact choice")
 T.eq(options[2].default, "game", "Gen 2 follows its encounter clock by default")
 T.eq(options[3].label, "INFO", "assist features use one preset")
+T.eq(#options[3].choices, 3,
+  "research mode separates vanilla, enhanced, and spoiler behavior")
+T.eq(options[3].choices[1][1], "VANILLA",
+  "the old purist value has a clear player-facing name")
+T.eq(options[3].choices[3][2], "spoiler",
+  "spoiler features require an explicit research mode")
 T.eq(options[5].label, "DISPLAY MODE", "display modes share one entry point")
 T.eq(#options[5].choices, 3, "display mode exposes three clear families")
 T.eq(options[6].label, "START SCREEN", "fullscreen owns its start surface")

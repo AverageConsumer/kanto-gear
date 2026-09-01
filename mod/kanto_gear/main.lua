@@ -557,6 +557,16 @@ local function assistEnabled(profile, custom)
   return custom == true
 end
 
+function THEME:researchMode(value)
+  if value == "purist" or value == "vanilla" then return "vanilla" end
+  if value == "spoiler" then return "spoiler" end
+  return value == "legacy" and "legacy" or "enhanced"
+end
+assert(THEME:researchMode("purist") == "vanilla"
+    and THEME:researchMode("enhanced") == "enhanced"
+    and THEME:researchMode("spoiler") == "spoiler",
+  "research modes preserve old saves and expose the spoiler boundary")
+
 local function savedSteps(value)
   return math.max(0, math.floor(tonumber(value) or 0))
 end
@@ -1848,7 +1858,8 @@ return function(mod)
       or legacyProfile == "purist" and "purist" or "enhanced"
   end
   local infoChoices = {
-    { "PURIST", "purist" }, { "ENHANCED", "enhanced" },
+    { "VANILLA", "purist" }, { "ENHANCED", "enhanced" },
+    { "SPOILERS", "spoiler" },
   }
   if infoDefault == "legacy" then
     infoChoices[#infoChoices + 1] = { "SAVED CUSTOM", "legacy" }
@@ -1972,10 +1983,14 @@ return function(mod)
 
   local function assist(key)
     local level = mod.options:get("info_level")
+    if key == "spoilers" then
+      return THEME:researchMode(level) == "spoiler"
+        or localMapMode(mod.options:get("local_map")) == "enhanced"
+    end
     if level == "legacy" then
       return assistEnabled("custom", mod.options:get(key))
     end
-    return level ~= "purist"
+    return THEME:researchMode(level) ~= "vanilla"
   end
   local function currentBattleUIMode()
     return mod.options:get("battle_view") or "standard"
@@ -2389,20 +2404,20 @@ return function(mod)
 
   function compat.clockTimestamp(currentGame, source, now)
     if source ~= "game" or not (currentGame and currentGame.save
-        and currentGame.save.generation == 2) then return now end
+        and currentGame.save.generation == 2) then return now, false end
     local world = currentGame.world
     if not (world and type(world.hour) == "function"
-        and type(world.minute) == "function") then return now end
+        and type(world.minute) == "function") then return now, false end
     local okHour, hour = pcall(world.hour, world)
     local okMinute, minute = pcall(world.minute, world)
     local current = os.date("*t", now)
     if not (okHour and okMinute and type(hour) == "number"
         and type(minute) == "number" and type(current) == "table") then
-      return now
+      return now, false
     end
     current.hour, current.min, current.sec = hour % 24, minute % 60, 0
     local ok, timestamp = pcall(os.time, current)
-    return ok and timestamp or now
+    return ok and timestamp or now, ok
   end
   assert(os.date("%H:%M", compat.clockTimestamp({
       save = { generation = 2 }, world = {
@@ -2413,6 +2428,41 @@ return function(mod)
     and compat.clockTimestamp({ save = { generation = 1 } }, "game", 123) == 123
     and compat.clockTimestamp({ save = { generation = 2 } }, "game", 123) == 123,
     "game clock source with safe fallback")
+
+  function compat.systemTimePeriod(timestamp)
+    local current = os.date("*t", timestamp)
+    local hour = current and tonumber(current.hour)
+    if not hour then return nil end
+    return hour >= 4 and hour < 10 and "MORN"
+      or hour >= 10 and hour < 18 and "DAY" or "NITE"
+  end
+
+  function compat.clockDisplay(currentGame, source, now)
+    local timestamp, gameClock = compat.clockTimestamp(currentGame, source, now)
+    local period
+    if currentGame and currentGame.save
+        and currentGame.save.generation == 2 then
+      period = gameClock and compat.timePeriod(currentGame.world) or nil
+      period = period or compat.systemTimePeriod(timestamp)
+    end
+    return timestamp, period
+  end
+  do
+    local noon = os.time({ year = 2026, month = 1, day = 15,
+      hour = 12, min = 0, sec = 0 })
+    local timestamp, period = compat.clockDisplay({
+      save = { generation = 2 }, world = {
+        hour = function() return 21 end,
+        minute = function() return 5 end,
+        tod = "dark",
+      } }, "game", noon)
+    local systemTimestamp, systemPeriod = compat.clockDisplay({
+      save = { generation = 2 }, world = { tod = "dark" } },
+      "system", noon)
+    assert(os.date("%H:%M", timestamp) == "21:05" and period == "NITE"
+        and systemTimestamp == noon and systemPeriod == "DAY",
+      "clock text and period icon always use the same time source")
+  end
 
   compat.romCodes = {
     red = "RD", blue = "BL", yellow = "YL", gold = "GD", silver = "SV",
@@ -3279,7 +3329,7 @@ return function(mod)
       return { name = areaName(mapId), screens = screens, pages = #screens,
         sections = sections, remaining = Area.remaining(sections) }
     end
-    local showFuture = localMapMode(mod.options:get("local_map")) == "enhanced"
+    local showFuture = assist("spoilers")
     for _, id in ipairs(maps) do
       local map = data.maps and data.maps[id]
       for _, obj in ipairs(map and map.objects or {}) do
@@ -3645,9 +3695,9 @@ return function(mod)
       put(fit(title, 14), 5, 6)
     end
     local now = os.time()
-    local clock = compactClock(mod.datetime:time(game,
-      compat.clockTimestamp(game, mod.options:get("clock_source"), now)))
-    local period = compat.isGen2() and compat.timePeriod(game.world)
+    local timestamp, period = compat.clockDisplay(game,
+      mod.options:get("clock_source"), now)
+    local clock = compactClock(mod.datetime:time(game, timestamp))
     if hgss then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
@@ -4603,7 +4653,7 @@ return function(mod)
       end
       row.key = "trainer:" .. tostring(row.id or row.label)
     end
-    local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
+    local enhanced = assist("spoilers")
     local canScan = not enhanced and assist("item_radar") and hasItemfinder()
     if explorer.scanMapId ~= id then
       explorer.scanMapId, explorer.scanFrame, explorer.scanRevealed =
@@ -4774,7 +4824,7 @@ return function(mod)
   end
 
   local function drawLocalMap()
-    local enhanced = localMapMode(mod.options:get("local_map")) == "enhanced"
+    local enhanced = assist("spoilers")
     local overview = loadLocalMap()
     if THEME.style == "hgss" then
       header(THEME:translate("EXPLORER"),
@@ -6030,9 +6080,9 @@ return function(mod)
 
   function hgssRuntime.clock()
     local now = os.time()
-    return compactClock(mod.datetime:time(game,
-      compat.clockTimestamp(game, mod.options:get("clock_source"), now))),
-      compat.isGen2() and compat.timePeriod(game.world) or nil
+    local timestamp, period = compat.clockDisplay(game,
+      mod.options:get("clock_source"), now)
+    return compactClock(mod.datetime:time(game, timestamp)), period
   end
 
   function hgssRuntime.bagView(menu)
@@ -9881,8 +9931,19 @@ return function(mod)
     local leftPressed, rightPressed
     leftPressed, triggerHeld.left = triggerEdge(left, triggerHeld.left)
     rightPressed, triggerHeld.right = triggerEdge(right, triggerHeld.right)
-    if leftPressed then changePage(-1)
-    elseif rightPressed then changePage(1) end
+    if leftPressed or rightPressed then
+      local direction = leftPressed and -1 or 1
+      if battle then
+        local top = game and game.stack and game.stack:top()
+        if compat.battleBagMenu(top) or compat.isScreen(top, "summary")
+            or battle.prompt == "moves" or battle.prompt == "mimic"
+            or battle.prompt == "forget" then
+          press(direction < 0 and "left" or "right")
+        end
+      else
+        changePage(direction)
+      end
+    end
   end
 
   local function pollScreenSwap()
@@ -10748,7 +10809,7 @@ return function(mod)
               and not assist("area")) then
         displayRuntime.explorer.view, displayRuntime.explorer.selected = nil, nil
       end
-      if page == "LOCAL"
+      if page == "LOCAL" and THEME.style ~= "hgss"
           and localMapMode(mod.options:get("local_map")) == "off" then
         page, displayRuntime.explorer.view,
           displayRuntime.explorer.selected = "MAP", nil, nil
