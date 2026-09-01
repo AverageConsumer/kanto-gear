@@ -308,18 +308,27 @@ for _, stale in ipairs({
 end
 local newCanvas = T.love.graphics.newCanvas
 local modCanvas
-local latestCanvas
 T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)
   function canvas:requestImageData() return true end
   function canvas:pollImageData() return nil end
   modCanvas = modCanvas or canvas
-  latestCanvas = canvas
   return canvas
 end
 local run = T.sdk.loadMod(path, { data = T.fixtures.load() })
 T.love.graphics.newCanvas = newCanvas
 T.love.system.getPowerInfo = function() return "battery", 80 end
+local function ownedHookUpvalue(chain, target)
+  for _, hook in ipairs(run.loader.hooks.chains[chain] or {}) do
+    if hook.owner == "kanto_gear" then
+      for index = 1, debug.getinfo(hook.callback, "u").nups do
+        local name, value = debug.getupvalue(hook.callback, index)
+        if name == target then return value end
+      end
+    end
+  end
+end
+modCanvas = ownedHookUpvalue("render.output", "canvas") or modCanvas
 
 T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
@@ -470,7 +479,7 @@ T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
   "Y screen swapping is disabled by default")
 run.loader.modOptions.kanto_gear = {
-  display_mode = "combined", combined_layout = "stacked",
+  theme = "kanto", display_mode = "combined", combined_layout = "stacked",
 }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_mode" })
@@ -555,7 +564,7 @@ run.loader.hooks:call("input.pointer", function() return false end, game, {
   phase = "cancelled", x = gearRect.x, y = gearRect.y,
 })
 run.loader.modOptions.kanto_gear = {
-  display_mode = "combined", combined_layout = "overlay",
+  theme = "kanto", display_mode = "combined", combined_layout = "overlay",
   combined_primary = "game",
 }
 run.loader.events:emit("mod.options_changed",
@@ -643,7 +652,7 @@ T.eq(#hiddenGameDraws, 1,
 overlayPressed = false
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 run.loader.modOptions.kanto_gear = {
-  display_mode = "fullscreen", fullscreen_start = "game",
+  theme = "kanto", display_mode = "fullscreen", fullscreen_start = "game",
   screen_swap = false,
 }
 run.loader.events:emit("mod.options_changed",
@@ -695,11 +704,12 @@ T.eq(run.loader.hooks:call("render.output", function() return true end, {
 }), true, "an earlier final-output owner remains authoritative")
 T.love.graphics.draw = outputDraw
 T.eq(ownedDraws, 0, "Kanto Gear does not paint over another output owner")
-run.loader.modOptions.kanto_gear = { display_mode = "separate" }
+run.loader.modOptions.kanto_gear = { theme = "kanto", display_mode = "separate" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_mode" })
 local separateEnabled = false
 local desktopFrames = 0
+modCanvas = ownedHookUpvalue("render.output", "canvas") or modCanvas
 local requestImageData, pollImageData = modCanvas.requestImageData,
   modCanvas.pollImageData
 modCanvas.requestImageData, modCanvas.pollImageData = nil, nil
@@ -727,7 +737,7 @@ T.eq(separateEnabled, true,
 T.eq(desktopFrames, 1,
   "an idle page does not resubmit a frame when no choice exists")
 run.loader.modOptions.kanto_gear = {
-  display_mode = "separate", display_target = "handheld",
+  theme = "kanto", display_mode = "separate", display_target = "handheld",
 }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_target" })
@@ -749,7 +759,7 @@ for i = 1, debug.getinfo(outputHook, "u").nups do
 end
 T.eq(handheldReady, true,
   "a rendered handheld frame stays clean until its contents change")
-run.loader.modOptions.kanto_gear = { display_mode = "separate" }
+run.loader.modOptions.kanto_gear = { theme = "kanto", display_mode = "separate" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_target" })
 do
@@ -888,7 +898,8 @@ do
   T.love.timer.getTime = function() return 1000 end
   run.loader.hooks:call("render.compose", function() return false end, {}, {
     secondScreen = { detected = function() return displayDetected end,
-                     pollTouch = function() return nil end },
+                     pollTouch = function() return nil end,
+                     push = function() return true end },
   })
   T.love.timer.getTime = function() return 1001 end
   tapFn(80, 60)
@@ -1352,7 +1363,6 @@ T.love.graphics.newCanvas = function(...)
   local canvas = newCanvas(...)
   function canvas:requestImageData() return true end
   function canvas:pollImageData() return nil end
-  latestCanvas = canvas
   return canvas
 end
 for _, theme in ipairs({
@@ -1363,9 +1373,10 @@ for _, theme in ipairs({
     { mod = "kanto_gear", key = "theme" })
   local hgss = theme == "hgss" or theme == "hgss_dark"
     or theme == "hgss_auto"
-  T.eq(latestCanvas:getWidth(), hgss and 240 or 160,
+  local activeCanvas = ownedHookUpvalue("render.output", "canvas")
+  T.eq(activeCanvas:getWidth(), hgss and 240 or 160,
     "theme canvas width follows its renderer")
-  T.eq(latestCanvas:getHeight(), hgss and 216 or 144,
+  T.eq(activeCanvas:getHeight(), hgss and 216 or 144,
     "theme canvas height follows its renderer")
 end
 T.love.graphics.newCanvas = newCanvas

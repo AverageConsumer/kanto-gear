@@ -22,7 +22,6 @@ local run = T.sdk.loadMod(path, {
   generation = 2,
   data = T.fixtures.load(),
 })
-T.love.graphics.newCanvas = newCanvas
 T.love.system.getPowerInfo = function() return "battery", 80 end
 
 T.eq(run.mod and run.mod.state, "loaded",
@@ -104,13 +103,16 @@ local game = {
     map = { id = "FIX_ROUTE" },
     player = { cellX = 2, cellY = 3, facing = "down" },
     daytime = "DAY",
+    acceptsMenuInput = function() return false end,
   },
   stack = { states = {}, top = function(self)
     return self.states[#self.states]
   end },
 }
 run.loader.events:emit("game.ready", { game = game })
-run.loader.modOptions.kanto_gear = { trigger_tabs = true }
+run.loader.modOptions.kanto_gear = { theme = "kanto", trigger_tabs = true }
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "theme", value = "kanto" })
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "trigger_tabs" })
 
@@ -1291,6 +1293,7 @@ do
 end
 
 run.release()
+T.love.graphics.newCanvas = newCanvas
 T.love.graphics.rectangle = rectangle
 T.love.timer.getTime = getTime
 T.finish("Kanto Gear Gen 2 compatibility")
