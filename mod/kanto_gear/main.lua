@@ -2086,6 +2086,8 @@ return function(mod)
         widget = "map", columns = 7, label = "MAP" },
       bag_widget = { package = "bag", kind = "widget",
         widget = "bag", columns = 5, label = "BAG" },
+      store_widget = { package = "store", kind = "widget",
+        widget = "store", columns = 5, label = "STORE" },
       explorer_app = { package = "explorer", kind = "app", columns = 3,
         icon = "explorer", accent = "green", label = "EXPLORER" },
       map_app = { package = "map", kind = "app", columns = 3,
@@ -5450,6 +5452,7 @@ return function(mod)
       trainer = trainer,
       bag = needed.bag and displayRuntime.bagSummary() or nil,
       regionMap = needed.map and displayRuntime.homeRegionMap() or nil,
+      storePromo = needed.store and displayRuntime.storeWidgetSummary() or nil,
       drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
       drawPokemon = function(_, x, y, size)
         if not lead then return end
@@ -5541,6 +5544,26 @@ return function(mod)
       displayRuntime.storeEntry(displayRuntime.storeById.party),
       displayRuntime.storeEntry(displayRuntime.storeById.bag),
     }
+  end
+
+  function displayRuntime.storeWidgetSummary()
+    local installed, available, promo = 0, 0, nil
+    for _, app in ipairs(displayRuntime.storeCatalog) do
+      local package = displayRuntime.homeCatalog.packages[app.id]
+      if app.available ~= false then
+        available = available + 1
+        if package and package.installed then installed = installed + 1 end
+        if not promo and app.new and package and not package.installed then
+          promo = app
+        end
+      end
+    end
+    if promo then
+      return { icon = promo.icon, label = promo.label,
+        category = promo.category, new = true }
+    end
+    return { icon = "store", label = "APPS",
+      installed = installed, available = available }
   end
 
   function displayRuntime.cycleStoreView(direction)

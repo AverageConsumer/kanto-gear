@@ -1422,6 +1422,8 @@ return function(ui)
       ui.graphics.scale(0.92, 0.92)
       self:battleBagIcon(0, 0)
       ui.graphics.pop()
+    elseif kind == "store" then
+      self:homeStoreIcon(x + 1, y + 1)
     elseif kind == "tool" then
       self:toolIcon(item and item.icon or "tools", x + 1, y + 1)
     else
@@ -1660,6 +1662,46 @@ return function(ui)
     end
   end
 
+  function H:homeStore(model, tile, selected)
+    local colors = self.colors
+    local promo = model.storePromo or {}
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.greenLight, selected)
+    self:homeWidgetHeader(x, y, w, "STORE", colors.green,
+      colors.greenLight, model.editing)
+    local wellX, wellY = x + 6, y + 30
+    clipped(wellX, wellY, 31, 31,
+      mixed(colors.surface, colors.white, self.dark and 0.08 or 0.24))
+    border(wellX, wellY, 31, 31, colors.outline)
+    local icons = homeIcons(self)
+    local icon = icons[promo.icon or "store"] or icons.store
+    drawHomeIcon(icon, wellX + 2, wellY + 2, 27)
+    local infoX, infoW = x + 42, w - 48
+    if promo.new then
+      local badgeW = math.min(infoW, 36)
+      clipped(infoX + math.floor((infoW - badgeW) / 2), y + 25,
+        badgeW, 11, colors.red)
+      border(infoX + math.floor((infoW - badgeW) / 2), y + 25,
+        badgeW, 11, colors.outline)
+      self:partyType(self:fitPartyType(translate("NEW"), badgeW - 4),
+        infoX + math.floor((infoW - badgeW) / 2) + 2, y + 25,
+        colors.white, badgeW - 4)
+    end
+    self:partyType(self:fitPartyType(translate(promo.label or "MY APPS"),
+      infoW), infoX, y + (promo.new and 40 or 33), colors.ink, infoW)
+    local category = promo.new and translate(promo.category or "APPS")
+      or (promo.installed or 0) .. "/" .. (promo.available or 0)
+    self:partyInfo(self:fitPartyInfo(category,
+      infoW), infoX, y + (promo.new and 52 or 46), colors.green, infoW,
+      "center")
+    if not promo.new then
+      clipped(infoX, y + 61, infoW, 12, colors.bandLight)
+      border(infoX, y + 61, infoW, 12, colors.outline)
+      self:partyType(translate("READY"), infoX, y + 61,
+        colors.green, infoW)
+    end
+  end
+
   function H:homeSteps(model, tile, selected)
     local colors = self.colors
     local quiet = self.dark and colors.silver or colors.silverDark
@@ -1746,6 +1788,8 @@ return function(ui)
         self:homeMap(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "bag" then
         self:homeBag(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "store" then
+        self:homeStore(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "steps" then
         self:homeSteps(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "tool" then

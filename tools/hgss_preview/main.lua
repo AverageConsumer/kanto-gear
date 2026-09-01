@@ -1774,6 +1774,8 @@ function love.load()
           widget = "map", columns = 7, label = "MAP" },
         bag_widget = { package = "bag", kind = "widget",
           widget = "bag", columns = 5, label = "BAG" },
+        store_widget = { package = "store", kind = "widget",
+          widget = "store", columns = 5, label = language.homeStore },
         party_app = { package = "party", kind = "app", columns = 3,
           icon = "party", accent = "green", label = "PARTY" },
         bag_app = { package = "bag", kind = "app", columns = 3,
@@ -1853,6 +1855,13 @@ function love.load()
         { id = "explorer_widget", page = 1, column = 1, row = 2 },
         { id = "party_widget", page = 1, column = 8, row = 2 },
       }
+    elseif screen == "home-widget-store" then
+      layout.tiles = {
+        { id = "explorer_widget", page = 1, column = 1, row = 1 },
+        { id = "store_widget", page = 1, column = 8, row = 1 },
+        { id = "map_widget", page = 1, column = 1, row = 2 },
+        { id = "bag_widget", page = 1, column = 8, row = 2 },
+      }
     end
     if homeAdd then
       Home.remove(layout, "party_widget")
@@ -1931,6 +1940,10 @@ function love.load()
           love.graphics.circle("fill", x + 58, y + h - 15, 1)
         end,
       },
+      storePromo = os.getenv("KANTO_GEAR_PREVIEW_STORE_QUIET") == "1"
+        and { icon = "store", label = "APPS", installed = 8, available = 8 }
+        or { icon = "pokedex", label = "POKEDEX",
+          category = "RESEARCH", new = true },
       drawPlayer = function(_, x, y, tileSize)
         drawOverworld("player", x, y, tileSize / 16, theme.colors.redLight)
       end,
