@@ -5863,6 +5863,15 @@ return function(mod)
   end
 
   local function drawSafari()
+    if THEME.style == "hgss" then
+      local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:battleSafari({ balls = battle.safariBalls or 0,
+        index = battle.menuIndex or 1 }, playerTeam, enemyTeam)
+      G.pop()
+      return
+    end
     header("SAFARI")
     button(3, 24, 76, 54,
            THEME:format("BALL x%d", battle.safariBalls or 0),
@@ -5873,6 +5882,19 @@ return function(mod)
   end
 
   local function drawMimic()
+    if THEME.style == "hgss" then
+      local moves = {}
+      for slot, move in ipairs(battle.mimicMoves or {}) do
+        moves[slot] = hgssRuntime.moveView(move)
+      end
+      local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:battleMimic({ moves = moves,
+        index = battle.mimicIndex or 1 }, playerTeam, enemyTeam)
+      G.pop()
+      return
+    end
     header("MIMIC")
     for i, move in ipairs(battle.mimicMoves or {}) do
       button(8, 25 + (i - 1) * 28, 144, 25,
@@ -7580,7 +7602,9 @@ return function(mod)
     elseif top and top ~= raw and not top.isTextBox then
       drawTopSummaryControls(nil, true)
     elseif battle.prompt == "safari" then
-      if fullBottomBattleUI() then drawFullSafari() else drawSafari() end
+      if THEME.style == "hgss" then drawSafari()
+      elseif fullBottomBattleUI() then drawFullSafari()
+      else drawSafari() end
     elseif battle.prompt == "mimic" then
       drawMimic()
     elseif moveInfo then
@@ -8585,7 +8609,10 @@ return function(mod)
     end
     if battle.prompt == "safari" then
       local choice
-      if fullBottomBattleUI() then
+      if THEME.style == "hgss" then
+        choice = THEME.hgss:safariHit(
+          x * THEME.hgssScale, y * THEME.hgssScale)
+      elseif fullBottomBattleUI() then
         choice = fullBattleChoice(x, y)
       elseif y >= 24 then
         local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
@@ -8597,9 +8624,14 @@ return function(mod)
       return
     end
     if battle.prompt == "mimic" then
-      local index = math.floor((y - 25) / 28) + 1
-      if x >= 8 and x < 152 and index >= 1
-          and index <= #(battle.mimicMoves or {}) then
+      local index
+      if THEME.style == "hgss" then
+        index = THEME.hgss:mimicHit(x * THEME.hgssScale,
+          y * THEME.hgssScale, #(battle.mimicMoves or {}))
+      elseif x >= 8 and x < 152 then
+        index = math.floor((y - 25) / 28) + 1
+      end
+      if index and index >= 1 and index <= #(battle.mimicMoves or {}) then
         submit("mimic", { index = index })
       end
       return

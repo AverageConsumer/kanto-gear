@@ -3430,6 +3430,20 @@ return function(ui)
     self:endPress(pressed)
   end
 
+  function H:battleRunnerIcon(x, y)
+    local colors = self.colors
+    for _, offset in ipairs(runnerOutline) do
+      for _, part in ipairs(runnerParts) do
+        box("fill", x + part[1] - 119 + offset[1],
+          y + part[2] - 167 + offset[2], part[3], part[4], colors.outline)
+      end
+    end
+    for _, part in ipairs(runnerParts) do
+      box("fill", x + part[1] - 119, y + part[2] - 167,
+        part[3], part[4], colors.white)
+    end
+  end
+
   function H:battleRunAction(mon, selected, offsetX, offsetY)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
@@ -3437,15 +3451,7 @@ return function(ui)
     G.push()
     G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(86, 149, 68, 52, "blue", selected)
-    for _, offset in ipairs(runnerOutline) do
-      for _, part in ipairs(runnerParts) do
-        box("fill", part[1] + offset[1], part[2] + offset[2] + 1,
-          part[3], part[4], colors.outline)
-      end
-    end
-    for _, part in ipairs(runnerParts) do
-      box("fill", part[1], part[2] + 1, part[3], part[4], colors.white)
-    end
+    self:battleRunnerIcon(119, 168)
     self:label(mon.runLabel or "RUN", 86, 183, colors.white, 68, "center")
     G.pop()
     self:endPress(pressed)
@@ -3458,6 +3464,90 @@ return function(ui)
     self:battleBagAction(mon, selected == 3)
     self:battlePartyAction(mon, selected == 2)
     self:battleRunAction(mon, selected == 4)
+  end
+
+  function H:battleSafariAction(action, index, selected)
+    local G, colors = ui.graphics, self.colors
+    local column, row = (index - 1) % 2, math.floor((index - 1) / 2)
+    local x, y = 6 + column * 116, 33 + row * 91
+    local pressed = self:beginPress(x, y, 112, 86)
+    self:battleActionPanel(x, y, 112, 86, action.color, selected)
+    self:label(self:fitLabel(translate(action.label), 96),
+      x + 8, y + (action.detail and 7 or 16),
+      colors.white, 96, "center")
+    local iconY = y + (action.detail and 46 or 55)
+    if action.kind == "ball" then
+      G.push()
+      G.translate(x + 47, iconY - 10)
+      G.scale(2, 2)
+      self:battleTeamBall(5, 5, true)
+      G.pop()
+    elseif action.kind == "bait" then
+      box("fill", x + 48, iconY - 5, 17, 13, colors.outline)
+      box("fill", x + 50, iconY - 7, 13, 2, colors.outline)
+      box("fill", x + 51, iconY - 4, 11, 10, colors.amberLight)
+      box("fill", x + 54, iconY - 9, 5, 3, colors.greenLight)
+      box("fill", x + 56, iconY - 2, 4, 4, colors.redLight)
+    elseif action.kind == "rock" then
+      box("fill", x + 48, iconY - 3, 4, 8, colors.outline)
+      box("fill", x + 52, iconY - 7, 10, 14, colors.outline)
+      box("fill", x + 62, iconY - 2, 4, 9, colors.outline)
+      box("fill", x + 50, iconY - 2, 4, 6, colors.silverDark)
+      box("fill", x + 53, iconY - 5, 8, 10, colors.silver)
+      box("fill", x + 61, iconY - 1, 3, 6, colors.silverDark)
+      box("fill", x + 55, iconY - 4, 4, 2, colors.white)
+    else
+      self:battleRunnerIcon(x + 56, iconY)
+    end
+    if action.detail then
+      self:partyInfo(action.detail, x + 8, y + 67,
+        colors.white, 96, "center")
+    end
+    self:endPress(pressed)
+  end
+
+  function H:battleSafari(model, playerTeam, enemyTeam)
+    self:battleTeamStrip(playerTeam, enemyTeam)
+    local actions = {
+      { kind = "ball", label = "BALL", color = "red",
+        detail = format("x%d", model.balls or 0) },
+      { kind = "bait", label = "BAIT", color = "green" },
+      { kind = "rock", label = "ROCK", color = "amber" },
+      { kind = "run", label = "RUN", color = "blue" },
+    }
+    for index, action in ipairs(actions) do
+      self:battleSafariAction(action, index, model.index == index)
+    end
+  end
+
+  function H:safariHit(x, y)
+    if y < 33 or y >= 210 then return nil end
+    local column = x >= 122 and 1 or x >= 6 and 0 or nil
+    if column == nil or x >= (column == 0 and 118 or 234) then return nil end
+    local row = y >= 124 and 1 or y < 119 and 0 or nil
+    if row == nil then return nil end
+    return row * 2 + column + 1
+  end
+
+  function H:battleMimic(model, playerTeam, enemyTeam)
+    local colors = self.colors
+    self:battleTeamStrip(playerTeam, enemyTeam)
+    self:panel(6, 33, 228, 24, false, nil, colors.blueLight)
+    self:partyInfo(translate("MIMIC"), 14, 41,
+      colors.green, 212, "center")
+    for slot = 1, math.min(4, #(model.moves or {})) do
+      local move = model.moves[slot]
+      self:summaryMoveRow(move, 6, 61 + (slot - 1) * 35,
+        model.index == slot, move.available ~= false, false)
+    end
+  end
+
+  function H:mimicHit(x, y, count)
+    if x < 6 or x >= 234 or y < 61 then return nil end
+    local slot = math.floor((y - 61) / 35) + 1
+    local top = 61 + (slot - 1) * 35
+    if slot >= 1 and slot <= math.min(4, count or 0)
+        and y < top + 34 then return slot end
   end
 
   function H:battleBagWindow(bag)

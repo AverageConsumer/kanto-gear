@@ -323,6 +323,18 @@ function love.load()
       and theme:moveLearnHit(20, 94, false) == "new"
       and theme:moveLearnHit(20, 68, true) == nil,
     "move-learning touch targets follow every visible card")
+  assert(theme:safariHit(20, 40) == 1
+      and theme:safariHit(220, 40) == 2
+      and theme:safariHit(20, 200) == 3
+      and theme:safariHit(220, 200) == 4
+      and theme:safariHit(120, 80) == nil
+      and theme:safariHit(20, 121) == nil,
+    "Safari touch targets follow the visible two-by-two action grid")
+  assert(theme:mimicHit(20, 61, 4) == 1
+      and theme:mimicHit(220, 166, 4) == 4
+      and theme:mimicHit(20, 95, 4) == nil
+      and theme:mimicHit(20, 166, 3) == nil,
+    "Mimic touch targets follow only populated move cards")
   assert(theme:moveHasStab({ type = "WATER" },
       { type = "WATER", powerText = "95" })
       and not theme:moveHasStab({ type = "WATER" },
@@ -407,6 +419,9 @@ function love.load()
   local battleMoveInfoTransition = screen == "battle_move_info_transition"
   local battleBag = screen == "battle_bag"
   local battleBagTransition = screen == "battle_bag_transition"
+  local legacySafari = screen == "legacy_safari"
+  local legacyMimic = screen == "legacy_mimic"
+  local battleSpecial = legacySafari or legacyMimic
   local explorerOverview = screen == "explorer"
   local explorerMap = screen == "explorer_map"
   local explorerLayer = screen == "explorer_layer"
@@ -511,7 +526,8 @@ function love.load()
       and not battlePartyMenu
       and not battleMoves and not battleMovesTransition
       and not battleMoveInfo and not battleMoveInfoTransition
-      and not battleBag and not battleBagTransition then
+      and not battleBag and not battleBagTransition
+      and not battleSpecial then
     local headerOffset = summary and -1 or 0
     title = translate(title)
     local titleX, titleWidth = theme:headerBar(title,
@@ -562,7 +578,8 @@ function love.load()
   end
   if battleRoot or battleMessage or battlePartyTransition or battlePartyMenu
       or battleMoves or battleMovesTransition or battleMoveInfo
-      or battleMoveInfoTransition or battleBag or battleBagTransition then
+      or battleMoveInfoTransition or battleBag or battleBagTransition
+      or battleSpecial then
     -- Match the real app's 160x144 base rendered at the HGSS 1.5x scale.
     -- Individual screens may deliberately paint a foreground backdrop over it.
     love.graphics.push()
@@ -1889,6 +1906,16 @@ function love.load()
     })
   elseif explorer then
     drawExplorer()
+  elseif legacySafari then
+    enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "RHYHORN", 25
+    theme:battleSafari({ balls = 23,
+      index = tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 1 },
+      playerTeam, enemyTeam)
+  elseif legacyMimic then
+    local mon = battleMon()
+    theme:battleMimic({ moves = mon.moves,
+      index = tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 2 },
+      playerTeam, enemyTeam)
   elseif battleMessage then
     local wild = os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild"
     if wild then
