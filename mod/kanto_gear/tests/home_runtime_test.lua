@@ -15,6 +15,8 @@ local optionByKey = {}
 for _, row in ipairs(optionRows or {}) do optionByKey[row.key] = row end
 T.eq(optionByKey.theme and optionByKey.theme.default, "hgss",
   "a fresh 3.0 install starts in the Silph Link HGSS theme")
+T.eq(optionByKey.theme and optionByKey.theme.choices[5][2], "hgss_auto",
+  "HGSS Auto is the third Silph Link theme choice")
 T.eq(optionByKey.ui_motion and optionByKey.ui_motion.default, true,
   "Silph Link motion is an explicit opt-out setting")
 T.eq(optionByKey.info_level and optionByKey.info_level.reset_default, "enhanced",
@@ -78,6 +80,23 @@ end
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
 local theme = upvalue(display.drawContents, "THEME")
+world.hour, world.minute, world.tod = function() return 21 end,
+  function() return 5 end, "NITE"
+run.loader.modOptions.kanto_gear.theme = "hgss_auto"
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "theme", value = "hgss_auto" })
+T.eq(theme.hgss.dark, true,
+  "HGSS Auto follows the Gen 2 night period")
+world.hour, world.tod = function() return 12 end, "DAY"
+local refreshTheme = upvalue(composeHook, "refreshTheme")
+T.check(type(refreshTheme) == "function", "automatic theme refresh is reachable")
+refreshTheme()
+T.eq(theme.hgss.dark, false,
+  "HGSS Auto returns to Light when the Gen 2 day period begins")
+run.loader.modOptions.kanto_gear.theme = "hgss"
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "theme", value = "hgss" })
+world.hour, world.minute, world.tod = nil, nil, nil
 local function homeTile(id)
   local tiles = display.homePageElements()
   for _, tile in ipairs(tiles) do

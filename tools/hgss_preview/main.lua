@@ -1810,7 +1810,7 @@ function love.load()
   elseif settingsAppearance then
     theme:settings({ category = "appearance", accent = "blue", page = 1,
       pages = 1, rows = {
-        { label = "THEME", value = "HGSS LIGHT" },
+        { label = "THEME", value = "HGSS AUTO" },
         { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
         { label = "TRANSITIONS", value = "ON" },
       } })

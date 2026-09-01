@@ -37,6 +37,8 @@ T.eq(kg("CLOCK SOURCE"), "SOURCE HORLOGE",
   "companion mod labels the clock source unambiguously")
 T.eq(kg("TRANSITIONS"), "TRANSITIONS",
   "companion mod labels HGSS transitions unambiguously")
+T.eq(kg("HGSS AUTO"), "HGSS AUTO",
+  "automatic HGSS theme stays compact")
 T.eq(kg("ENEMY INFO"), "INFOS ENNEMI",
   "companion mod translates enemy information")
 T.eq(kg("WEIGHT %.1f KG"), "POIDS %.1f KG",

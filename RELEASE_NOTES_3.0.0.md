@@ -1,6 +1,6 @@
 # Kanto Gear 3.0.0
 
-Kanto Gear 3.0 introduces **HGSS Light** and **HGSS Dark**, a new
+Kanto Gear 3.0 introduces **HGSS Light**, **HGSS Dark** and **HGSS Auto**, a new
 high-resolution companion interface inspired by the Nintendo DS generation.
 The existing Kanto, version-matched, Modern, OG, SGB and Advanced themes remain
 available and existing installations keep their selected theme.
@@ -21,6 +21,8 @@ available and existing installations keep their selected theme.
 - Four-segment battery display, day-period icons, status icons, type badges,
   HP/EXP information and fainted-party treatment designed for the larger HGSS
   canvas.
+- HGSS Auto follows Gold, Silver and Crystal's night period and applies the
+  same 18:00 boundary to the device clock in Red, Blue and Yellow.
 - Gen 1 and Gen 2 field items, TMs/HMs and PP items continue through the
   original game actions while their selection screens are presented below.
 - Silph Link Options groups appearance, display, battle, research and control

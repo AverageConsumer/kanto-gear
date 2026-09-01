@@ -327,13 +327,15 @@ T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
 T.eq(#options, 17, "Kanto Gear keeps one compact display hierarchy")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
-T.eq(#options[1].choices, 11, "classic and modern themes share one setting")
+T.eq(#options[1].choices, 12, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "hgss", "HGSS theme is available")
 T.eq(options[1].choices[4][2], "hgss_dark",
   "HGSS dark theme is available")
-T.eq(options[1].choices[5][2], "modern_light",
+T.eq(options[1].choices[5][2], "hgss_auto",
+  "HGSS automatic day and night theme is available")
+T.eq(options[1].choices[6][2], "modern_light",
   "modern light theme is available")
-T.eq(options[1].choices[6][2], "modern_dark",
+T.eq(options[1].choices[7][2], "modern_dark",
   "modern dark theme is available")
 T.eq(options[2].label, "CLOCK SOURCE", "clock source is one compact choice")
 T.eq(options[2].default, "game", "Gen 2 follows its encounter clock by default")
@@ -1354,12 +1356,13 @@ T.love.graphics.newCanvas = function(...)
   return canvas
 end
 for _, theme in ipairs({
-  "hgss", "hgss_dark", "modern_light", "modern_dark", "kanto",
+  "hgss", "hgss_dark", "hgss_auto", "modern_light", "modern_dark", "kanto",
 }) do
   run.loader.modOptions.kanto_gear.theme = theme
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "theme" })
   local hgss = theme == "hgss" or theme == "hgss_dark"
+    or theme == "hgss_auto"
   T.eq(latestCanvas:getWidth(), hgss and 240 or 160,
     "theme canvas width follows its renderer")
   T.eq(latestCanvas:getHeight(), hgss and 216 or 144,

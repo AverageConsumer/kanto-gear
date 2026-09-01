@@ -51,11 +51,13 @@ game already knows.
 Kanto Gear uses native game palettes where the host exposes them, keeps unknown
 Pokémon as silhouettes and renders LOCAL terrain with consistent cartographic
 colors. The interface supports classic Game Boy-inspired themes, Modern Light
-and Modern Dark, plus the new high-resolution HGSS Light and HGSS Dark themes.
+and Modern Dark, plus high-resolution HGSS Light, Dark and Auto themes. Auto
+switches to Dark during Gen 2's night period; Gen 1 applies the same 18:00
+boundary to the device clock.
 
 ## Kanto Gear 3.0: Silph Link
 
-HGSS Light and HGSS Dark turn the companion screen into a touch-first Silph
+The HGSS themes turn the companion screen into a touch-first Silph
 Link instead of repainting the older tab bar. Its Home screen can span any
 number of pages and mix app icons with live widgets. Long-press a card to enter
 Edit mode, swap cards or move them to another page, and use **Silph Store** to
@@ -65,7 +67,7 @@ Kanto Gear preferences; no code or network download occurs.
 The fixed **Options** app groups appearance, display, battle, research and
 control settings by purpose. It updates them immediately, hides irrelevant
 layout controls and includes separate resets for options and Home layout.
-**UI Motion** can disable Silph Link page transitions without changing the
+**Transitions** can disable Silph Link page movement without changing the
 games' own battle-animation setting.
 
 <p align="center">

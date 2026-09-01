@@ -1892,6 +1892,7 @@ return function(mod)
       choices = {
         { "KANTO GREEN", "kanto" }, { "MATCH GAME", "match" },
         { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" },
+        { "HGSS AUTO", "hgss_auto" },
         { "MODERN LIGHT", "modern_light" },
         { "MODERN DARK", "modern_dark" },
         { "OG", "og" }, { "OG INVERTED", "og_inv" },
@@ -1904,7 +1905,7 @@ return function(mod)
       } },
     { key = "ui_motion", label = "TRANSITIONS",
       type = "toggle", default = true, visible_if = {
-        key = "theme", one_of = { "hgss", "hgss_dark" },
+        key = "theme", one_of = { "hgss", "hgss_dark", "hgss_auto" },
       } },
     { key = "info_level", label = "INFO", type = "choice",
       default = infoDefault, reset_default = "enhanced", choices = infoChoices },
@@ -1912,7 +1913,7 @@ return function(mod)
       type = "choice", default = false, choices = {
         { "OFF", false }, { "MAP", true }, { "ENHANCED", "enhanced" },
       }, visible_if = {
-        key = "theme", not_one_of = { "hgss", "hgss_dark" },
+        key = "theme", not_one_of = { "hgss", "hgss_dark", "hgss_auto" },
       } },
     { key = "display_mode", label = "DISPLAY MODE", type = "choice",
       default = THEME.displayModeDefault, reset_default = "separate", choices = {
@@ -2297,7 +2298,8 @@ return function(mod)
 
   function displayRuntime.optionChoices(row)
     if row and row.key == "theme" then
-      return { { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" } }
+      return { { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" },
+        { "HGSS AUTO", "hgss_auto" } }
     end
     return row and row.choices or {}
   end
@@ -2621,9 +2623,16 @@ return function(mod)
     end
     return timestamp, period
   end
+
+  function compat.autoThemeDark(currentGame, source, now)
+    local timestamp, period = compat.clockDisplay(currentGame, source, now)
+    return (period or compat.systemTimePeriod(timestamp)) == "NITE"
+  end
   do
     local noon = os.time({ year = 2026, month = 1, day = 15,
       hour = 12, min = 0, sec = 0 })
+    local night = os.time({ year = 2026, month = 1, day = 15,
+      hour = 21, min = 0, sec = 0 })
     local timestamp, period = compat.clockDisplay({
       save = { generation = 2 }, world = {
         hour = function() return 21 end,
@@ -2636,6 +2645,14 @@ return function(mod)
     assert(os.date("%H:%M", timestamp) == "21:05" and period == "NITE"
         and systemTimestamp == noon and systemPeriod == "DAY",
       "clock text and period icon always use the same time source")
+    assert(compat.autoThemeDark({ save = { generation = 2 }, world = {
+          hour = function() return 21 end, minute = function() return 5 end,
+          tod = "dark",
+        } }, "game", noon)
+        and compat.autoThemeDark({ save = { generation = 1 } }, "game", night)
+        and not compat.autoThemeDark({ save = { generation = 1 } },
+          "game", noon),
+      "automatic HGSS theme shares the Gen 2 night boundary in both games")
   end
 
   compat.romCodes = {
@@ -2866,7 +2883,7 @@ return function(mod)
         classic = "kanto",
       })[PaletteFX.mode] or "kanto"
     end
-    if theme == "hgss" or theme == "hgss_dark" then
+    if theme == "hgss" or theme == "hgss_dark" or theme == "hgss_auto" then
       return THEME.hgss.palette
     end
     if theme == "og" then return PaletteFX.GRAYS end
@@ -2890,10 +2907,14 @@ return function(mod)
 
   local function refreshTheme(force)
     local theme = mod.options:get("theme") or "kanto"
+    local autoDark = theme == "hgss_auto" and compat.autoThemeDark(game,
+      mod.options:get("clock_source"), os.time())
     local key = theme .. (theme == "match" and (":" .. PaletteFX.mode) or "")
+      .. (theme == "hgss_auto" and (autoDark and ":dark" or ":light") or "")
     if not force and key == themeKey then return end
     local wasHgss = THEME.style == "hgss"
     local hgss = theme == "hgss" or theme == "hgss_dark"
+      or theme == "hgss_auto"
     THEME.style = hgss and "hgss"
       or theme == "modern_light" and "modern_light"
       or theme == "modern_dark" and "modern_dark" or "classic"
@@ -2905,7 +2926,7 @@ return function(mod)
     elseif hgss and (page == "GUIDE" or page == "AREA") then
       page = "LOCAL"
     end
-    THEME.hgss:setVariant(theme == "hgss_dark")
+    THEME.hgss:setVariant(theme == "hgss_dark" or autoDark)
     THEME.hgss.motionEnabled = mod.options:get("ui_motion") ~= false
     if not hgss then hgssRuntime.animation = nil end
     local scale = THEME.style == "hgss" and THEME.hgssScale or 1

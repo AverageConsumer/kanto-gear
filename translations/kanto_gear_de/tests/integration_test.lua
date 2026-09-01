@@ -37,6 +37,8 @@ T.eq(kg("CLOCK SOURCE"), "UHRQUELLE",
   "Begleitmod benennt die Zeitquelle eindeutig")
 T.eq(kg("TRANSITIONS"), "ÜBERGÄNGE",
   "Begleitmod benennt die HGSS-Übergänge eindeutig")
+T.eq(kg("HGSS AUTO"), "HGSS AUTO",
+  "automatisches HGSS-Theme bleibt kompakt")
 T.eq(kg("ENEMY INFO"), "GEGNER-INFO",
   "Begleitmod übersetzt die Gegnerinformation")
 T.eq(kg("WEIGHT %.1f KG"), "GEWICHT %.1f KG",
