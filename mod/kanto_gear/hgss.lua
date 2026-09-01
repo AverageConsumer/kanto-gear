@@ -673,12 +673,26 @@ return function(ui)
   end
 
   function H:homeStepsIcon(x, y)
-    local G, colors = ui.graphics, self.colors
-    color(colors.outline); G.circle("fill", x + 13, y + 13, 12)
-    color(mixed(colors.surface, colors.greenLight, self.dark and 0.24 or 0.14))
-    G.circle("fill", x + 13, y + 13, 10)
-    trainerStatIcon(self, "steps", x + 10, y + 5, colors.greenLight)
-    trainerStatIcon(self, "steps", x + 17, y + 11, colors.green)
+    local G, c = ui.graphics, homeIconColors
+    color(c.ink)
+    G.polygon("fill", x + 5, y + 3, x + 13, y + 3,
+      x + 13, y + 9, x + 16, y + 9, x + 16, y + 12,
+      x + 20, y + 12, x + 20, y + 14, x + 23, y + 14,
+      x + 25, y + 17, x + 25, y + 24, x + 2, y + 24,
+      x + 2, y + 18, x + 4, y + 18, x + 4, y + 6,
+      x + 5, y + 6)
+    color(c.green)
+    G.polygon("fill", x + 6, y + 5, x + 11, y + 5,
+      x + 11, y + 11, x + 15, y + 11, x + 15, y + 14,
+      x + 19, y + 14, x + 19, y + 16, x + 22, y + 16,
+      x + 23, y + 18, x + 23, y + 20, x + 4, y + 20,
+      x + 4, y + 19, x + 6, y + 17)
+    box("fill", x + 5, y + 19, 18, 2, c.greenLight)
+    box("fill", x + 3, y + 21, 21, 2, c.white)
+    box("fill", x + 7, y + 6, 3, 4, c.greenLight)
+    box("fill", x + 8, y + 11, 7, 1, c.white)
+    box("fill", x + 10, y + 13, 6, 1, c.white)
+    box("fill", x + 20, y + 17, 3, 2, c.greenLight)
   end
 
   function H:trainerStat(x, label, value, kind, accent, width)
@@ -1232,7 +1246,7 @@ return function(ui)
         draw = function(x, y) theme:homeTrainerIcon(x, y) end,
       },
       steps = {
-        left = 1, top = 1, right = 25, bottom = 25,
+        left = 2, top = 3, right = 25, bottom = 24,
         draw = function(x, y) theme:homeStepsIcon(x, y) end,
       },
       party = {
