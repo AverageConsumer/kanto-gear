@@ -536,7 +536,8 @@ local function pcListKind(state)
       and not state.savePhase and type(state.pickIndex) == "number" then
     return "gen2_box_change"
   end
-  if state.screenId == "Gen2BoxMenu" and not state.phase
+  if state.screenId == "Gen2BoxMenu"
+      and (not state.phase or state.phase == "insert")
       and not state.message and type(state.index) == "number"
       and (state.mode == "withdraw" or state.mode == "deposit"
         or state.mode == "move") then
@@ -1993,8 +1994,35 @@ return function(mod)
       scanRevealed = {},
     },
     pokedex = { view = "index", page = 1, habitatPage = 1 },
-    bag = { pocket = 1, page = 1 },
+    bag = { pocket = 1, page = 1, pending = nil },
   }
+  function displayRuntime.pcStateKey(state)
+    if not state then return "" end
+    local qty, confirm, pack, message = state.qtyState, state.confirm,
+      state.pack, state.message
+    return table.concat({
+      tostring(state.index), tostring(state.pickIndex),
+      tostring(state.listIndex), tostring(state.boxIndex),
+      tostring(state.scroll), tostring(state.phase), tostring(state.mode),
+      tostring(state.picking), tostring(state.savePhase),
+      tostring(state.saveChoice), tostring(state.submenuIndex),
+      tostring(state.message), tostring(state.messagePage),
+      tostring(type(message) == "table" and message.page),
+      tostring(qty and qty.qty), tostring(qty and qty.max),
+      tostring(confirm and confirm.choice),
+      tostring(pack and pack.index), tostring(pack and pack.pocketIndex),
+      tostring(pack and pack.__gen3uiBagPocketIndex),
+    }, ":")
+  end
+  assert(displayRuntime.pcStateKey({ pickIndex = 2 })
+      ~= displayRuntime.pcStateKey({ pickIndex = 3 })
+      and displayRuntime.pcStateKey({ listIndex = 1 })
+        ~= displayRuntime.pcStateKey({ listIndex = 2 })
+      and displayRuntime.pcStateKey({ qtyState = { qty = 1 } })
+        ~= displayRuntime.pcStateKey({ qtyState = { qty = 2 } })
+      and displayRuntime.pcStateKey({ message = { page = 1 } })
+        ~= displayRuntime.pcStateKey({ message = { page = 2 } }),
+    "PC redraw key follows every native cursor")
   function displayRuntime.adjustExplorerZoom(direction)
     local explorer = displayRuntime.explorer
     local current = math.max(1, math.min(3, explorer.mapZoom or 1))
@@ -3639,18 +3667,68 @@ return function(mod)
 
     local picker = screenById("Gen2MoveDeleter")
     local pack = screenById("Gen2PackMenu")
-    if not (picker and type(picker.mon) == "table"
+    local pending = displayRuntime.bag.pending
+    if picker and type(picker.mon) == "table"
         and type(picker.list) == "table" and picker.list == picker.mon.moves
-        and type(picker.row) == "number" and pack
-        and type(pack.rows) == "table" and type(pack.index) == "number") then
+        and type(picker.row) == "number" then
+      local moveId = pending and pending.moveId
+      if not moveId and pack and type(pack.rows) == "table"
+          and type(pack.index) == "number" then
+        local row = pack.rows[pack.index]
+        local item = row and game and game.data and game.data.items
+          and game.data.items[row.id]
+        moveId = item and item.teaches
+      end
+      if moveId then
+        return { native = picker, mon = picker.mon, newMoveId = moveId,
+                 selecting = true, index = picker.row, field = pending ~= nil }
+      end
+    end
+
+    local top = game and game.stack and game.stack:top()
+    local textFlow = top and top.isTextBox
+    for _, state in ipairs(game and game.stack and game.stack.states or {}) do
+      if state.isTextBox then textFlow = true break end
+    end
+    if pending and pending.moveId and type(pending.mon) == "table"
+        and textFlow and not screenContract(top, "party") then
+      return { mon = pending.mon, newMoveId = pending.moveId,
+               selecting = false, field = true }
+    end
+  end
+
+  function displayRuntime.fieldBagParty()
+    local pending = displayRuntime.bag.pending
+    local top = game and game.stack and game.stack:top()
+    local menu = not battle and pending and screenContract(top, "party")
+    if not menu then return nil end
+    local party = menu.party or (game.save and game.save.party) or {}
+    if menu.index >= 1 and menu.index <= #party then
+      pending.mon = party[menu.index]
+    end
+    local title = pending.moveId and "TEACH MOVE TO"
+      or menu.prompt == "Give to which <PK><MN>?" and "GIVE ITEM TO"
+      or "USE ITEM ON"
+    return menu, party, title
+  end
+
+  function displayRuntime.fieldPpMoveScreen()
+    local pending = displayRuntime.bag.pending
+    local picker = screenById("Gen2MoveDeleter")
+    if not (pending and not pending.moveId and picker
+        and type(picker.mon) == "table" and type(picker.row) == "number"
+        and type(picker.list) == "table" and picker.list == picker.mon.moves) then
       return nil
     end
-    local row = pack and pack.rows and pack.rows[pack.index]
-    local items = game and game.data and game.data.items
-    local item = row and items and items[row.id]
-    if not (item and item.teaches) then return nil end
-    return { native = picker, mon = picker.mon, newMoveId = item.teaches,
-             selecting = true, index = picker.row }
+    local items = {}
+    for index, move in ipairs(picker.mon.moves or {}) do
+      local def = game.data and game.data.moves and game.data.moves[move.id]
+      items[index] = {
+        label = def and def.name or move.id or "MOVE",
+        right = THEME:format("%d/%d", move.pp or 0, move.maxPp or move.pp or 0),
+      }
+    end
+    return { native = picker, items = items, index = picker.row }
   end
 
   local function pcSession()
@@ -6737,8 +6815,11 @@ return function(mod)
     local state = displayRuntime.bag
     state.message = nil
     if compat.isGen2() then
+      local def = game.data and game.data.items and game.data.items[itemId]
+      state.pending = { itemId = itemId, moveId = def and def.teaches }
       local ok, PackMenu = pcall(require, "src.ui.gen2.PackMenu")
       if not ok or type(PackMenu) ~= "table" or type(PackMenu.new) ~= "function" then
+        state.pending = nil
         return false
       end
       local backend = PackMenu.new(game, {
@@ -6751,9 +6832,10 @@ return function(mod)
         if row.id == itemId then backend.index = index break end
       end
       local row = backend.rows and backend.rows[backend.index]
-      if not row or row.id ~= itemId then return false end
+      if not row or row.id ~= itemId then state.pending = nil; return false end
       local used, err = pcall(backend.useSelected, backend)
       if not used then
+        state.pending = nil
         mod.log:warn("HGSS bag item %s rejected: %s", tostring(itemId), tostring(err))
         return false
       end
@@ -7473,7 +7555,9 @@ return function(mod)
     local deposit = kind == "pc_box_deposit" or kind == "gen2_box_deposit"
     local mons = (deposit or (gen2 and current == 0))
       and (game.save.party or {}) or (boxes[current] or {})
-    local total = gen2 and (#mons + 1) or #(list.items or {})
+    local inserting = gen2 and list.phase == "insert"
+    local total = gen2 and (inserting and math.max(1, #mons) or #mons + 1)
+      or #(list.items or {})
     local first, count = pageWindow(list.index, total)
     local action = ({ pc_box_withdraw = "WITHDRAW",
       pc_box_deposit = "DEPOSIT", pc_box_release = "RELEASE",
@@ -7492,7 +7576,7 @@ return function(mod)
       for slot = 1, count do
         local index = first + slot - 1
         local item = list.items and list.items[index]
-        if gen2 and index > #mons then
+        if gen2 and not inserting and index > #mons then
           entries[slot] = { label = THEME:translate("BACK"), back = true,
             selected = list.index == index }
         else
@@ -7662,15 +7746,93 @@ return function(mod)
     button(102, 104, 50, 29, "CANCEL", false)
   end
 
+  function displayRuntime.gen2BoxSubmenu(state)
+    if not (state and state.screenId == "Gen2BoxMenu"
+        and state.phase == "submenu"
+        and type(state.submenuIndex) == "number") then return nil end
+    if state.mode == "move" then return { "MOVE", "STATS", "CANCEL" } end
+    if state.mode == "deposit" then
+      return { "DEPOSIT", "STATS", "RELEASE", "CANCEL" }
+    end
+    return { "WITHDRAW", "STATS", "RELEASE", "CANCEL" }
+  end
+
+  function displayRuntime.drawPcBoxSubmenu(state)
+    local rows = displayRuntime.gen2BoxSubmenu(state)
+    header("POKEMON", true)
+    local entries = {}
+    for index, label in ipairs(rows) do
+      entries[index] = { label = THEME:translate(label),
+        selected = state.submenuIndex == index }
+    end
+    G.push()
+    G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    THEME.hgss:pcList({ summary = THEME:translate("CHOOSE ACTION"),
+      entries = entries })
+    G.pop()
+  end
+
+  function displayRuntime.drawPcDeposit(root)
+    local menu = compat.battleBagMenu(root.pack)
+    if not menu then return drawTopSummaryControls(nil, true) end
+    local first, count = choiceWindow(menu.items or {}, menu.index)
+    local entries = {}
+    for row = 1, count do
+      local index, item = first + row - 1, menu.items[first + row - 1]
+      entries[row] = {
+        kind = item.cancel and nil or "item",
+        icon = item.cancel and nil or "item",
+        label = item.label or tostring(index), right = item.right,
+        back = item.cancel, selected = menu.index == index,
+      }
+    end
+    header("DEPOSIT ITEM", true)
+    G.push()
+    G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    THEME.hgss:pcList({ summary = THEME:translate(menu.title or "ITEMS"),
+      entries = entries })
+    G.pop()
+  end
+
+  function displayRuntime.pcNotice(kind, root, top)
+    local source = top and top.screenId == "Gen2BoxMenu" and top.message
+      or root and root.message
+    if not source then return nil end
+    local lines
+    if type(source) == "table" and type(source.pages) == "table" then
+      lines = source.pages[source.page or 1]
+    elseif type(source) == "table" then
+      lines = source
+    else
+      lines = THEME:messageLines({ tostring(source) }, 24, 4)
+    end
+    if type(lines) ~= "table" then lines = { tostring(lines or "...") } end
+    return { kind = kind, lines = displayRuntime.bagMessage(lines) }
+  end
+
   local function drawPc(kind, root, top)
     local list = pcList()
     local activeList = list and top == list and list or nil
     local activeKind = pcListKind(activeList)
-    local quantity = kind == "items" and list and top
+    local nativeQuantity = root.screenId == "Gen2ItemPcMenu"
+      and root.qtyState or nil
+    local quantity = nativeQuantity or (kind == "items" and list and top
       and type(top.qty) == "number" and type(top.max) == "number"
-      and type(top.onDone) == "function"
-    if quantity then
-      drawPcQuantity(top, list)
+      and type(top.onDone) == "function" and top)
+    local notice = displayRuntime.pcNotice(kind, root, top)
+    if notice then
+      header(kind == "items" and "ITEM PC" or "PC", true)
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:pcNotice(notice)
+      G.pop()
+    elseif quantity then
+      drawPcQuantity(quantity, nativeQuantity and root or list)
+    elseif displayRuntime.gen2BoxSubmenu(top) then
+      displayRuntime.drawPcBoxSubmenu(top)
+    elseif root.screenId == "Gen2ItemPcMenu"
+        and root.phase == "deposit" and root.pack then
+      displayRuntime.drawPcDeposit(root)
     elseif activeList and (activeKind == "pc_box_change"
         or activeKind == "gen2_box_change") then
       drawPcBoxChange(activeList)
@@ -8045,7 +8207,7 @@ return function(mod)
     return compat.moveInfoEntry(pending.move)
   end
 
-  local function drawLearnMove(learn, top)
+  local function drawLearnMove(learn, top, choice, choiceField)
     local newDef = moveDef(learn.newMoveId) or {}
     local newName = newDef.name or learn.newMoveId or "MOVE"
     if battle and top and top.isTextBox and hideUpperBattleUI() then
@@ -8083,6 +8245,8 @@ return function(mod)
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:moveLearnPrompt({ mon = mon, newMove = newMove,
         details = assist("move_details"),
+        choices = choice and { "YES", "NO" } or nil,
+        choice = choice and compat.choiceIndex(choice, choiceField) or nil,
         drawPokemon = function(_, x, y, size)
           drawSprite(learn.mon.species, "front", x, y, size, size,
             nil, learn.mon.source or learn.mon)
@@ -8167,11 +8331,14 @@ return function(mod)
     local learnScreen = screenById("MoveLearnMenu")
       or screenById("Gen2MoveDeleter")
     local learn = displayRuntime.moveLearnScreen()
+    local fieldParty, fieldPartyData, fieldPartyTitle =
+      displayRuntime.fieldBagParty()
+    local fieldPp = displayRuntime.fieldPpMoveScreen()
     local pcKind, pcRoot = pcSession()
     local choice, labels, choiceField = dialogueChoice()
     local namingKeys = screenContract(top, "naming")
     local naming = namingKeys and top or nil
-    local unsupportedSpecial = (learnScreen and not learn)
+    local unsupportedSpecial = (learnScreen and not learn and not fieldPp)
       or (compat.isScreen(top, "naming") and not naming)
     local levelStats = battle and compat.levelUpMon(top)
     if THEME.style == "hgss" then
@@ -8182,8 +8349,8 @@ return function(mod)
     end
     if moveInfo then
       drawMoveInfo(moveInfo)
-    elseif learn and not choice then
-      drawLearnMove(learn, top)
+    elseif learn and (not choice or learn.field) then
+      drawLearnMove(learn, top, choice, choiceField)
     elseif naming then
       drawNaming(naming, namingKeys)
     elseif unsupportedSpecial then
@@ -8194,6 +8361,11 @@ return function(mod)
       drawDialogueChoice(choice, labels, battle and battle.message, choiceField)
     elseif battle then
       drawBattle()
+    elseif fieldPp then
+      drawPpItemMoves(fieldPp)
+    elseif fieldParty then
+      drawParty(fieldPartyData, fieldPartyTitle, true, nil,
+        fieldParty.index, false)
     elseif hgssSummary then
       drawBattleSummary(summary)
     elseif pcKind then
@@ -9200,8 +9372,17 @@ return function(mod)
   local function tapPc(kind, root, top, x, y)
     local list = pcList()
     local listKind = pcListKind(list)
-    if kind == "items" and list and top and type(top.qty) == "number"
-        and type(top.max) == "number" and type(top.onDone) == "function" then
+    if displayRuntime.pcNotice(kind, root, top) then
+      press("a")
+      dirty = true
+      return
+    end
+    local nativeQuantity = root.screenId == "Gen2ItemPcMenu"
+      and root.qtyState or nil
+    local quantity = nativeQuantity or (kind == "items" and list and top
+      and type(top.qty) == "number" and type(top.max) == "number"
+      and type(top.onDone) == "function" and top)
+    if quantity then
       if THEME.style == "hgss" then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
         local action = THEME.hgss:pcQuantityHit(hx, hy)
@@ -9242,7 +9423,9 @@ return function(mod)
               and (game.save.party or {})
               or ((game.save.boxes or {})[
                 list.boxIndex or game.save.currentBox or 1] or {})
-            selected, total = list.index, #mons + 1
+            selected = list.index
+            total = list.phase == "insert" and math.max(1, #mons)
+              or #mons + 1
           elseif listKind and listKind:find("^gen2_item_") then
             selected, total = list.listIndex, #(list.rows or {}) + 1
           else
@@ -9278,7 +9461,9 @@ return function(mod)
           and (game.save.party or {})
           or ((game.save.boxes or {})[list.boxIndex or game.save.currentBox or 1]
             or {})
-        local first, count = pageWindow(list.index, #mons + 1)
+        local total = list.phase == "insert" and math.max(1, #mons)
+          or #mons + 1
+        local first, count = pageWindow(list.index, total)
         for row = 1, count do
           if inside(x, y, 8, 38 + (row - 1) * 24, 144, 22) then
             list.index = first + row - 1
@@ -9332,9 +9517,38 @@ return function(mod)
       return
     end
 
-    if top ~= root then
+    local submenu = displayRuntime.gen2BoxSubmenu(top)
+    if submenu then
+      local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+      if hy < 30 and hx < 27 then
+        press("b")
+      else
+        local row = THEME.hgss:pcListHit(hx, hy, #submenu)
+        if row then top.submenuIndex = row; press("a") end
+      end
+      dirty = true
       return
     end
+
+    if root.screenId == "Gen2ItemPcMenu"
+        and root.phase == "deposit" and root.pack then
+      local menu = compat.battleBagMenu(root.pack)
+      local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+      if hy < 30 and hx < 27 then
+        press("b")
+      elseif menu then
+        local first, count = choiceWindow(menu.items or {}, menu.index)
+        local row = THEME.hgss:pcListHit(hx, hy, count)
+        if row then
+          compat.selectBattleBagItem(root.pack, first + row - 1)
+          press("a")
+        end
+      end
+      dirty = true
+      return
+    end
+
+    if top ~= root then return end
     if root.screenId == "Gen2PcMenu"
         and (root.message or root.savePhase or root.picking) then return end
     if root.screenId == "Gen2ItemPcMenu" and root.phase ~= "menu" then return end
@@ -9360,17 +9574,26 @@ return function(mod)
     dirty = true
   end
 
-  local function tapDialogueChoice(top, labels, x, y, field)
+  function displayRuntime.commitDialogueChoice(top, field, selected)
     local now = love.timer.getTime()
     if trackChoice(top, now) then dirty = true end
-    if choiceCommitted == top then return end
+    if choiceCommitted == top then return false end
     if not choiceReady(now, choiceReadyAt) then
       choiceReadyAt = now + CHOICE_QUIET
       choiceNudgeUntil = now + 0.55
       dirty = true
-      return
+      return false
     end
+    compat.choiceIndex(top, field, selected)
+    if type(top.clampScroll) == "function" then
+      pcall(top.clampScroll, top)
+    end
+    choiceCommitted = top
+    press("a")
+    return true
+  end
 
+  local function tapDialogueChoice(top, labels, x, y, field)
     local selected
     local rows, cols, left, topY, cellW, cellH, gap =
       compat.choiceGrid(top, field, #labels)
@@ -9399,12 +9622,7 @@ return function(mod)
       end
     end
     if not selected then return end
-    compat.choiceIndex(top, field, selected)
-    if type(top.clampScroll) == "function" then
-      pcall(top.clampScroll, top)
-    end
-    choiceCommitted = top
-    press("a")
+    displayRuntime.commitDialogueChoice(top, field, selected)
   end
 
   local function tapNaming(top, grid, x, y)
@@ -9664,10 +9882,50 @@ return function(mod)
     local learnScreen = screenById("MoveLearnMenu")
       or screenById("Gen2MoveDeleter")
     local learn = displayRuntime.moveLearnScreen()
-    if learn and not choice then
+    if learn and choice and learn.field and THEME.style == "hgss" then
+      local selected = THEME.hgss:moveLearnChoiceHit(
+        x * THEME.hgssScale, y * THEME.hgssScale)
+      if selected then
+        displayRuntime.commitDialogueChoice(choice, field, selected)
+      end
+      return
+    elseif learn and not choice then
       tapLearn(learn, game.stack:top(), x, y)
       return
+    end
+    local fieldPp = displayRuntime.fieldPpMoveScreen()
+    if fieldPp then
+      local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+      if hy < 30 and hx < 27 then
+        press("b")
+      else
+        local first, count = choiceWindow(fieldPp.items, fieldPp.index)
+        local row = THEME.hgss:pcListHit(hx, hy, count)
+        if row then
+          fieldPp.native.row = first + row - 1
+          press("a")
+        end
+      end
+      dirty = true
+      return
     elseif learnScreen and not choice then
+      return
+    end
+    local fieldParty, fieldPartyData = displayRuntime.fieldBagParty()
+    if fieldParty then
+      if y < HEADER and x < 24 then
+        press("b")
+      else
+        local slot = THEME.style == "hgss"
+          and THEME.hgss:partySlot(x, y, #fieldPartyData)
+          or partySlotAt(x, y, #fieldPartyData)
+        if slot then
+          fieldParty.index = slot
+          displayRuntime.bag.pending.mon = fieldPartyData[slot]
+          press("a")
+        end
+      end
+      dirty = true
       return
     end
     local battleTop = game and game.stack and game.stack:top()
@@ -10993,6 +11251,9 @@ return function(mod)
           and THEME.hgss:partyActionClosed(now) then
         partyActionSlot, dirty = nil, true
       end
+      if displayRuntime.bag.pending and mode == "active" then
+        displayRuntime.bag.pending, dirty = nil, true
+      end
       local learn = displayRuntime.moveLearnScreen()
       local currentPcList = pcList()
       local currentChoice, _, currentChoiceField = dialogueChoice()
@@ -11040,9 +11301,14 @@ return function(mod)
          tostring(top and top.qty), tostring(top and top.page),
          tostring(top and top.moveDetail), tostring(top and top.moveIndex),
          tostring(top and top.mon),
-        tostring(currentPcList), tostring(currentPcList and currentPcList.index),
+        tostring(currentPcList), displayRuntime.pcStateKey(currentPcList),
+        displayRuntime.pcStateKey(top),
         tostring(learn and learn.selecting),
         tostring(learn and learn.index), tostring(externalLoading),
+        tostring(displayRuntime.bag.pending
+          and displayRuntime.bag.pending.itemId),
+        tostring(displayRuntime.bag.pending
+          and displayRuntime.bag.pending.mon),
         tostring(pendingFly and pendingFly.id),
         tostring(pendingAction and pendingAction.id),
         tostring(partyActionSlot), tostring(partyMoveFrom),

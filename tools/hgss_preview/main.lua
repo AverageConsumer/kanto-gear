@@ -472,9 +472,12 @@ function love.load()
   local legacyPcChange = screen == "legacy_pc_change"
   local legacyPcItems = screen == "legacy_pc_items"
   local legacyPcQuantity = screen == "legacy_pc_quantity"
+  local legacyPcSubmenu = screen == "legacy_pc_submenu"
+  local legacyPcNotice = screen == "legacy_pc_notice"
   local legacyPcTop = screen == "legacy_pc_top"
   local legacyPc = legacyPcRoot or legacyPcBox or legacyPcChange
-    or legacyPcItems or legacyPcQuantity or legacyPcTop
+    or legacyPcItems or legacyPcQuantity or legacyPcSubmenu
+    or legacyPcNotice or legacyPcTop
   local legacyTitle = screen == "legacy_title"
   local legacyLoading = screen == "legacy_loading"
   local legacyOverlay = screen == "legacy_overlay"
@@ -548,6 +551,8 @@ function love.load()
     or legacyPcChange and "BOX CHANGE"
     or legacyPcItems and "WITHDRAW"
     or legacyPcQuantity and "QUANTITY"
+    or legacyPcSubmenu and "POKEMON"
+    or legacyPcNotice and "ITEM PC"
     or legacyPcTop and "MENU ON TOP"
     or legacyPpMoves and "RESTORE PP"
     or legacy and "CHOOSE"
@@ -729,6 +734,9 @@ function love.load()
       { "ANN & ANNE", "OPEN", "TWINS", 36, 7, "open",
         "trainer3" },
     }
+    if explorerTrainerDetail then
+      trainers[1][1] = "COOLTRAINERF BETH"
+    end
     local function routeOverview()
       local width, height = 42, 18
       local rows = {}
@@ -927,6 +935,11 @@ function love.load()
       end
       local selected = (explorerDetail or explorerItems or explorerItemDetail
         or explorerTrainers or explorerTrainerDetail) and sourceRows[1] or nil
+      if selected and view == "wild"
+          and os.getenv("KANTO_GEAR_PREVIEW_SINGLE_HABITAT") == "1" then
+        selected.matches = { selected.matches[1] }
+        selected.detailPages = 1
+      end
       local selectedMarker
       for _, marker in ipairs(markers) do
         if marker.source == selected then selectedMarker = marker break end
@@ -977,6 +990,12 @@ function love.load()
         end,
       }
       theme:explorer(explorerModel)
+      if explorerTrainerDetail then
+        local first, second = theme:splitPartyInfo(selected.label, 75)
+        assert(first == "COOLTRAINERF" and second == "BETH"
+            and not first:find("…", 1, true) and not second:find("…", 1, true),
+          "Explorer trainer detail uses its two-line name region")
+      end
       local sx = 1 / 1.5
       local function mapMarkerIsReachable(kind)
         for y = 60, 142, 4 do
@@ -1043,7 +1062,7 @@ function love.load()
           "Explorer gallery and map markers are interactive")
       elseif view == "wild" then
         assert(theme:explorerHit(210 * sx, 114 * sx, explorerModel)
-            == "detail_next",
+            == (explorerModel.detailPages > 1 and "detail_next" or nil),
           "habitat details expose every exact encounter condition")
       elseif selected then
         assert(mapMarkerIsReachable(),
@@ -1490,6 +1509,16 @@ function love.load()
         } })
     elseif legacyPcQuantity then
       theme:pcQuantity({ label = "RARE CANDY", qty = 3, icon = "item" })
+    elseif legacyPcSubmenu then
+      theme:pcList({ summary = translate("CHOOSE ACTION"), entries = {
+        { label = translate("WITHDRAW"), selected = true },
+        { label = translate("STATS") },
+        { label = translate("RELEASE") },
+        { label = translate("CANCEL") },
+      } })
+    elseif legacyPcNotice then
+      theme:pcNotice({ kind = "items",
+        lines = { "WITHDREW 2", "RARE CANDY(S)." } })
     elseif legacyPcTop then
       theme:pcTopOnly({ kind = "items" })
     else
@@ -1599,6 +1628,9 @@ function love.load()
     }
     if legacyMoveNew then
       theme:moveLearnPrompt({ mon = mon, newMove = newMove, details = true,
+        choices = os.getenv("KANTO_GEAR_PREVIEW_CHOICE") == "1"
+          and { "YES", "NO" } or nil,
+        choice = os.getenv("KANTO_GEAR_PREVIEW_CHOICE") == "1" and 1 or nil,
         drawPokemon = function(_, x, y, size, fainted)
           drawPortrait(slot, x, y, size, fainted)
         end,

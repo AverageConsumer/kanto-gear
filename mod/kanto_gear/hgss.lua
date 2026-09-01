@@ -341,6 +341,31 @@ return function(ui)
     return fitFont(value, width, partyInfoFont)
   end
 
+  function H:splitPartyInfo(value, width)
+    value = tostring(value or "")
+    if partyInfoFont:getWidth(value) <= width then return value end
+    local bestFirst, bestSecond, bestBalance
+    for cut = 1, #value do
+      if value:sub(cut, cut):match("%s") then
+        local first = value:sub(1, cut - 1):gsub("%s+$", "")
+        local second = value:sub(cut + 1):gsub("^%s+", "")
+        if first ~= "" and second ~= ""
+            and partyInfoFont:getWidth(first) <= width
+            and partyInfoFont:getWidth(second) <= width then
+          local balance = math.abs(partyInfoFont:getWidth(first)
+            - partyInfoFont:getWidth(second))
+          if not bestBalance or balance < bestBalance then
+            bestFirst, bestSecond, bestBalance = first, second, balance
+          end
+        end
+      end
+    end
+    if bestFirst then return bestFirst, bestSecond end
+    local first, second = splitFont(value, width, partyInfoFont)
+    if first then return first, second end
+    return fitFont(value, width, partyInfoFont)
+  end
+
   function H:fitPartyType(value, width)
     return fitFont(value, width, partyTypeFont)
   end
@@ -2992,7 +3017,8 @@ return function(ui)
       if model.detailPages > 1 then
         pager(166, 106, 58, model.detailPage, model.detailPages)
       else
-        chip(166, 106, 58, "HABITAT", true)
+        self:partyType(translate("HABITAT"), 166, 111,
+          colors.green, 58)
       end
       local detailRows = model.detailRows or {}
       local function levels(appearance)
@@ -3068,8 +3094,17 @@ return function(ui)
     elseif selected and view == "trainers" then
       self:panel(7, 140, 226, 70, false, nil, colors.blueLight)
       if model.drawActor then model.drawActor(selected, 23, 180, 1, false) end
-      self:partyInfo(self:fitPartyInfo(selected.label, 75),
-        39, 157, colors.ink)
+      local trainerLine1, trainerLine2 = self:splitPartyInfo(
+        selected.label, 75)
+      local trainerNameY = trainerLine2 and 151 or 157
+      self:partyInfo(trainerLine1,
+        39 + math.floor((75 - self:partyInfoWidth(trainerLine1)) / 2),
+        trainerNameY, colors.ink)
+      if trainerLine2 then
+        self:partyInfo(trainerLine2,
+          39 + math.floor((75 - self:partyInfoWidth(trainerLine2)) / 2),
+          trainerNameY + 12, colors.ink)
+      end
       local trainerState = selected.missed and "MISSED"
         or selected.done and "BEATEN" or selected.status or "OPEN"
       self:partyType(self:fitPartyType(translate(trainerState), 75),
@@ -4114,6 +4149,29 @@ return function(ui)
       colors.green, 184, "center")
     self:partyInfo(translate("INPUT STAYS ON TOP"), 28, 137,
       colors.ink, 184, "center")
+  end
+
+  function H:pcNotice(model)
+    local colors = self.colors
+    local pressed = self:beginPress(12, 48, 216, 132)
+    self:panel(12, 48, 216, 132, false, nil, colors.blueLight)
+    self:pcStorageIcon(104, 58, model and model.kind)
+    box("fill", 28, 99, 184, 1, colors.band)
+    local lines = model and model.lines or { "..." }
+    local lineHeight = 18
+    local blockHeight = 11 + math.max(0, #lines - 1) * lineHeight
+    local y = 111 + math.floor((45 - blockHeight) / 2)
+    for _, line in ipairs(lines) do
+      self:partyInfo(self:fitPartyInfo(line, 184), 28, y,
+        colors.ink, 184, "center")
+      y = y + lineHeight
+    end
+    local bob = self:battleContinueMotion(model and model.now)
+    local arrowY = 163 + bob
+    box("fill", 115, arrowY, 10, 2, colors.outline)
+    box("fill", 117, arrowY + 2, 6, 2, colors.outline)
+    box("fill", 119, arrowY + 4, 2, 2, colors.outline)
+    self:endPress(pressed)
   end
 
   function H:pcRootHit(x, y, count)
@@ -5259,9 +5317,27 @@ return function(ui)
       model.details == true, model.details == true)
     self:partyType(self:fitPartyType(translate("NEW"), 48),
       14, 96, colors.amber, 48)
-    self:panel(27, 145, 186, 40, false, nil, colors.greenLight)
-    self:partyInfo(self:fitPartyInfo(translate("FOLLOW TOP SCREEN"), 170),
-      35, 160, colors.green, 170, "center")
+    if model.choices then
+      for index, label in ipairs(model.choices) do
+        local x = index == 1 and 27 or 123
+        local selected = model.choice == index
+        local pressed = self:beginPress(x, 145, 90, 40)
+        self:panel(x, 145, 90, 40, selected, nil, colors.greenLight)
+        self:partyInfo(translate(label), x + 7, 160,
+          selected and colors.ink or colors.green, 76, "center")
+        self:endPress(pressed)
+      end
+    else
+      self:panel(27, 145, 186, 40, false, nil, colors.greenLight)
+      self:partyInfo(self:fitPartyInfo(translate("FOLLOW TOP SCREEN"), 170),
+        35, 160, colors.green, 170, "center")
+    end
+  end
+
+  function H:moveLearnChoiceHit(x, y)
+    if y < 145 or y >= 185 then return nil end
+    if x >= 27 and x < 117 then return 1 end
+    if x >= 123 and x < 213 then return 2 end
   end
 
   function H:moveLearnHit(x, y, selecting)

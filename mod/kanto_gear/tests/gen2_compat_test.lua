@@ -1135,6 +1135,7 @@ do
     if entry.owner == "kanto_gear" then composeHook = entry.callback end
   end
   local touchEvent = upvalue(composeHook, "touchEvent")
+  local displayRuntime = upvalue(touchEvent, "displayRuntime")
   local previousStates, previousInput = game.stack.states, game.input
   local previousBoxes, previousBox, previousParty = game.save.boxes,
     game.save.currentBox, game.save.party
@@ -1152,6 +1153,45 @@ do
     { species = "FIXMON_A", nickname = "BOX ONE", level = 7 },
     { species = "FIXMON_B", nickname = "BOX TWO", level = 8 },
   } }
+
+  T.check(displayRuntime.pcStateKey({ pickIndex = 2 })
+      ~= displayRuntime.pcStateKey({ pickIndex = 3 })
+      and displayRuntime.pcStateKey({ listIndex = 1 })
+        ~= displayRuntime.pcStateKey({ listIndex = 2 })
+      and displayRuntime.pcStateKey({ message = { page = 1 } })
+        ~= displayRuntime.pcStateKey({ message = { page = 2 } }),
+    "Gold PC redraws immediately for every native cursor field")
+
+  displayRuntime.bag.pending = { itemId = "TM_FIX", moveId = "FIX_MOVE_A" }
+  local fieldParty = { screenId = "Gen2PartyMenu", index = 2,
+    party = game.save.party, prompt = "Use on which <PK><MN>?" }
+  game.stack.states = { fieldParty }
+  local partyMenu, partyRows, partyTitle = displayRuntime.fieldBagParty()
+  T.eq(partyMenu, fieldParty, "field Bag owns the native party picker below")
+  T.eq(partyRows[2], game.save.party[2],
+    "field Bag party picker keeps the native party data")
+  T.eq(partyTitle, "TEACH MOVE TO",
+    "TM use explains the party selection on the bottom screen")
+
+  local textBox = { isTextBox = true }
+  local yesNo = { index = 1, onChoose = function() end }
+  game.stack.states = { textBox, yesNo }
+  displayRuntime.bag.pending.mon = game.save.party[2]
+  local fieldLearn = displayRuntime.moveLearnScreen()
+  T.check(fieldLearn and fieldLearn.field
+      and fieldLearn.newMoveId == "FIX_MOVE_A",
+    "field TM questions retain the move and Pokemon information below")
+
+  displayRuntime.bag.pending = { itemId = "PP_UP", mon = game.save.party[1] }
+  game.save.party[1].moves = {
+    { id = "FIX_MOVE_A", pp = 5, maxPp = 10 },
+  }
+  local ppPicker = { screenId = "Gen2MoveDeleter", mon = game.save.party[1],
+    list = game.save.party[1].moves, row = 1 }
+  game.stack.states = { ppPicker }
+  T.check(displayRuntime.fieldPpMoveScreen(),
+    "field PP items mirror their native move picker below")
+  displayRuntime.bag.pending = nil
 
   local root = { screenId = "Gen2PcMenu", index = 1, entries = {
     { label = "WITHDRAW <PK><MN>" }, { label = "DEPOSIT <PK><MN>" },
@@ -1198,11 +1238,43 @@ do
   T.eq(itemPc.listIndex, 2,
     "Gold item PC touch follows the native vertical item list")
 
-  box.phase, box.index = "submenu", 1
+  itemPc.qtyState = { qty = 2, max = 5 }
+  game.stack.states = { itemPc }
+  pressed = nil
+  touchEvent("tap,10,70")
+  T.eq(pressed, "down",
+    "Gold item PC quantity controls remain mirrored below")
+  itemPc.qtyState = nil
+
+  itemPc.message = { pages = { { "WITHDREW 2", "POTION(S)." } }, page = 1 }
+  game.stack.states = { itemPc }
+  T.check(displayRuntime.pcNotice("items", itemPc, itemPc),
+    "Gold item PC messages remain visible below")
+  pressed = nil
+  touchEvent("tap,120,100")
+  T.eq(pressed, "a", "Gold item PC notice advances from the bottom screen")
+  itemPc.message = nil
+
+  local pack = { screenId = "Gen2PackMenu", index = 1, pocketIndex = 1,
+    rows = { { id = "POTION", name = "POTION", count = 2,
+      showCount = true } },
+    pocket = function() return { label = "ITEMS" } end }
+  itemPc.phase, itemPc.pack = "deposit", pack
+  game.stack.states = { itemPc }
+  pressed = nil
+  touchEvent("tap,120,50")
+  T.eq(pack.index, 1,
+    "Gold item PC deposit keeps the native Pack cursor")
+  T.eq(pressed, "a", "Gold item PC deposit confirms through native input")
+  itemPc.pack = nil
+
+  box.phase, box.index, box.submenuIndex = "submenu", 1, 1
   game.stack.states = { root, box }
-  touchEvent("tap,120,64")
-  T.eq(box.index, 1,
-    "Gold PC submenus stay owned by the top screen instead of splitting focus")
+  pressed = nil
+  touchEvent("tap,120,70")
+  T.eq(box.submenuIndex, 2,
+    "Gold PC submenu touch follows the native action cursor")
+  T.eq(pressed, "a", "Gold PC submenu touch confirms through native input")
 
   game.stack.states, game.input = previousStates, previousInput
   game.save.boxes, game.save.currentBox, game.save.party =
