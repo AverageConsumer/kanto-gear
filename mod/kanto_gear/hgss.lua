@@ -1899,7 +1899,7 @@ return function(ui)
         end
       end
       self:partyType((preview.page or 1) .. "/" .. (preview.pages or 28),
-        x + 88, top + 50, colors.green, 50)
+        x + math.floor((w - 50) / 2), top + 50, colors.green, 50)
     elseif id == "bag" then
       local kinds = { "medicine", "ball", "status", "machine",
         "key", "medicine" }
