@@ -1770,6 +1770,10 @@ function love.load()
           widget = "pokedex", columns = 5, label = "POKEDEX" },
         trainer_widget = { package = "trainer", kind = "widget",
           widget = "trainer", columns = 5, label = language.homeTrainer },
+        map_widget = { package = "map", kind = "widget",
+          widget = "map", columns = 7, label = "MAP" },
+        bag_widget = { package = "bag", kind = "widget",
+          widget = "bag", columns = 5, label = "BAG" },
         party_app = { package = "party", kind = "app", columns = 3,
           icon = "party", accent = "green", label = "PARTY" },
         bag_app = { package = "bag", kind = "app", columns = 3,
@@ -1842,6 +1846,13 @@ function love.load()
         { id = "explorer_widget", page = 1, column = 1, row = 2 },
         { id = "party_widget", page = 1, column = 8, row = 2 },
       }
+    elseif screen == "home-widgets-map-bag" then
+      layout.tiles = {
+        { id = "map_widget", page = 1, column = 1, row = 1 },
+        { id = "bag_widget", page = 1, column = 8, row = 1 },
+        { id = "explorer_widget", page = 1, column = 1, row = 2 },
+        { id = "party_widget", page = 1, column = 8, row = 2 },
+      }
     end
     if homeAdd then
       Home.remove(layout, "party_widget")
@@ -1894,6 +1905,31 @@ function love.load()
         time = gen1 and "18:42" or "42:17",
         badgeOwned = { true, true, true, true, true,
           not gen1, not gen1, false },
+      },
+      bag = { item = 18, medicine = 9, ball = 24, machine = 7 },
+      regionMap = {
+        region = gen1 and "KANTO" or "JOHTO",
+        area = gen1 and "ROUTE 15" or "ROUTE 37",
+        drawMap = function(x, y, w, h)
+          box("fill", x, y, w, h, theme.colors.blueLight)
+          color(theme.colors.band)
+          love.graphics.setLineWidth(3)
+          love.graphics.line(x + 7, y + h - 8, x + 27, y + h - 8,
+            x + 27, y + 10, x + 58, y + 10, x + 58, y + h - 15,
+            x + 88, y + h - 15, x + 88, y + 8, x + w - 8, y + 8)
+          love.graphics.setLineWidth(1)
+          for _, point in ipairs({ {7,h-8}, {27,10}, {58,h-15},
+              {88,8}, {w-8,8} }) do
+            color(theme.colors.surface)
+            love.graphics.circle("fill", x + point[1], y + point[2], 4)
+            color(theme.colors.outline)
+            love.graphics.circle("line", x + point[1], y + point[2], 4)
+          end
+          color(theme.colors.red)
+          love.graphics.circle("fill", x + 58, y + h - 15, 4)
+          color(theme.colors.white)
+          love.graphics.circle("fill", x + 58, y + h - 15, 1)
+        end,
       },
       drawPlayer = function(_, x, y, tileSize)
         drawOverworld("player", x, y, tileSize / 16, theme.colors.redLight)

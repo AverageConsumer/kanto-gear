@@ -2082,6 +2082,10 @@ return function(mod)
         widget = "pokedex", columns = 5, label = "POKEDEX" },
       trainer_widget = { package = "trainer", kind = "widget",
         widget = "trainer", columns = 5, label = "TRAINER" },
+      map_widget = { package = "map", kind = "widget",
+        widget = "map", columns = 7, label = "MAP" },
+      bag_widget = { package = "bag", kind = "widget",
+        widget = "bag", columns = 5, label = "BAG" },
       explorer_app = { package = "explorer", kind = "app", columns = 3,
         icon = "explorer", accent = "green", label = "EXPLORER" },
       map_app = { package = "map", kind = "app", columns = 3,
@@ -2797,6 +2801,21 @@ return function(mod)
       badgeOwned = badges, badgeCount = badgeCount,
       badgeTotal = #badges,
     }
+  end
+
+  function displayRuntime.bagSummary()
+    local counts = { item = 0, medicine = 0, ball = 0, machine = 0 }
+    for id, value in pairs(game.save and game.save.inventory or {}) do
+      local amount = tonumber(value) or 0
+      if amount > 0 then
+        local def = game.data.items and game.data.items[id] or {}
+        local kind = displayRuntime.bagItemKind(id, def)
+        if kind == "status" then kind = "medicine" end
+        if counts[kind] ~= nil then counts[kind] = counts[kind] + amount
+        else counts.item = counts.item + amount end
+      end
+    end
+    return counts
   end
 
   local function pageNames()
@@ -4158,6 +4177,59 @@ return function(mod)
            22 + (y * 8 + 4) * 0.75
   end
 
+  function displayRuntime.homeRegionMap()
+    local asset = loadMap()
+    local region = compat.currentRegion() or "kanto"
+    local cells = asset and (asset.gen2 and asset.maps[region] or asset.map)
+    if not (asset and cells) then
+      return { region = region:upper(), area = areaName(mapId) }
+    end
+    return {
+      region = region:upper(), area = areaName(mapId),
+      drawMap = function(x, y, w, h)
+        local rows = math.max(1, math.ceil(#cells / 20)
+          - (asset.gen2 and 0 or 1))
+        local scale = w / 160
+        local mapHeight = rows * 8 * scale
+        local px, py = mapPoint(locationEntry(mapId))
+        local oldTop = asset.gen2 and 20 or 22
+        local sourceY = py and (py - oldTop) / 0.75 or rows * 4
+        local top = y + math.floor((h - mapHeight) / 2 + 0.5)
+        if mapHeight > h then
+          top = math.floor(y + h / 2 - sourceY * scale + 0.5)
+          top = math.max(math.floor(y + h - mapHeight), math.min(y, top))
+        end
+        local gbc = require("src.render.GbcPalette")
+        local mapColors = not asset.gen2
+          and PaletteFX.pal(game.data, "TOWNMAP") or nil
+        for index, tile in ipairs(cells) do
+          local quad = asset.quads[tile]
+          if quad then
+            local column, row = (index - 1) % 20,
+              math.floor((index - 1) / 20)
+            local visibleRow = asset.gen2 and row or row - 1
+            if asset.gen2 or row > 0 then
+              local palette = asset.gen2 and asset.palettes
+                and asset.palettes[(asset.palMap
+                  and asset.palMap[tile + 1]) or 1] or mapColors
+              local function paint()
+                G.setColor(1, 1, 1, 1)
+                G.draw(asset.image, quad, x + column * 8 * scale,
+                  top + visibleRow * 8 * scale, 0, scale, scale)
+              end
+              if palette and gbc.available() then gbc.with(palette, paint)
+              else paint() end
+            end
+          end
+        end
+        if px then
+          compat.drawMapMarker(x + (px - 20) / 0.75 * scale,
+            top + sourceY * scale, 1)
+        end
+      end,
+    }
+  end
+
   function displayRuntime.hgssMapPoint(x, y, left, top, scale, oldTop)
     return (left + (x - 20) / 0.75 * scale) / THEME.hgssScale,
       (top + (y - oldTop) / 0.75 * scale) / THEME.hgssScale
@@ -5344,18 +5416,24 @@ return function(mod)
     home.page = math.max(1, math.min(pages, home.page or 1))
     header(home.library and "ADD TO HOME"
       or home.editing and "EDIT HOME" or "SILPH LINK", home.library == true)
-    local overview = loadLocalMap()
+    local tiles, slots = displayRuntime.homePageElements()
+    local needed = {}
+    for _, tile in ipairs(tiles or {}) do
+      if tile.widget then needed[tile.widget] = true end
+    end
+    local overview = needed.explorer and loadLocalMap() or nil
     local explorer = overview and displayRuntime.explorerModel(overview) or {}
-    local party = partyData()
-    local lead, leadView = party[1], displayRuntime.partyView(party[1])
-    local dex = displayRuntime.pokedexData()
+    local party = needed.party and partyData() or {}
+    local lead = party[1]
+    local leadView = lead and displayRuntime.partyView(lead) or nil
+    local dex = (needed.pokedex or needed.trainer)
+      and displayRuntime.pokedexData() or { entries = {}, caught = 0, total = 0 }
     local dexSeen, dexLatest = 0, nil
     for _, entry in ipairs(dex.entries or {}) do
       if entry.seen then dexSeen = dexSeen + 1 end
       if entry.caught then dexLatest = entry end
     end
-    local trainer = displayRuntime.trainerSummary()
-    local tiles, slots = displayRuntime.homePageElements()
+    local trainer = needed.trainer and displayRuntime.trainerSummary() or nil
     local model = {
       page = home.page, pages = pages,
       tiles = tiles,
@@ -5370,6 +5448,8 @@ return function(mod)
       dexCaught = dex.caught, dexSeen = dexSeen, dexTotal = dex.total,
       dexLatest = dexLatest,
       trainer = trainer,
+      bag = needed.bag and displayRuntime.bagSummary() or nil,
+      regionMap = needed.map and displayRuntime.homeRegionMap() or nil,
       drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
       drawPokemon = function(_, x, y, size)
         if not lead then return end

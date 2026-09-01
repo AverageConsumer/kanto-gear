@@ -1414,6 +1414,14 @@ return function(ui)
       self:homePokedexIcon(x + 1, y + 1)
     elseif kind == "trainer" then
       self:homeTrainerIcon(x + 1, y + 1)
+    elseif kind == "map" then
+      self:homeMapIcon(x + 1, y + 1)
+    elseif kind == "bag" then
+      ui.graphics.push()
+      ui.graphics.translate(x + 2, y + 2)
+      ui.graphics.scale(0.92, 0.92)
+      self:battleBagIcon(0, 0)
+      ui.graphics.pop()
     elseif kind == "tool" then
       self:toolIcon(item and item.icon or "tools", x + 1, y + 1)
     else
@@ -1597,6 +1605,61 @@ return function(ui)
       right + 3, y + 64, colors.ink, half - 6, "center")
   end
 
+  function H:homeMap(model, tile, selected)
+    local colors = self.colors
+    local map = model.regionMap or {}
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.blueLight, selected)
+    self:homeWidgetHeader(x, y, w, "MAP", colors.blue,
+      colors.blueLight, model.editing)
+    clipped(x + 5, y + 22, w - 10, h - 27,
+      mixed(colors.surface, colors.blueLight, self.dark and 0.20 or 0.14))
+    border(x + 5, y + 22, w - 10, h - 27, colors.outline)
+    ui.graphics.setScissor(x + 6, y + 23, w - 12, h - 29)
+    if map.drawMap then map.drawMap(x + 6, y + 23, w - 12, h - 29) end
+    ui.graphics.setScissor()
+    local area = self:fitPartyType(map.area or translate("UNKNOWN AREA"),
+      w - 32)
+    local areaWidth = math.max(44, partyTypeFont:getWidth(area) + 8)
+    clipped(x + 7, y + h - 19, areaWidth, 12, colors.surface)
+    border(x + 7, y + h - 19, areaWidth, 12, colors.outline)
+    self:partyType(area, x + 7, y + h - 19, colors.ink, areaWidth)
+    local region = self:fitPartyType(map.region or "KANTO", 38)
+    clipped(x + w - 45, y + 25, 38, 12, colors.bandLight)
+    border(x + w - 45, y + 25, 38, 12, colors.outline)
+    self:partyType(region, x + w - 45, y + 25, colors.blue, 38)
+  end
+
+  function H:homeBag(model, tile, selected)
+    local colors = self.colors
+    local counts = model.bag or {}
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.amberLight, selected)
+    self:homeWidgetHeader(x, y, w, "BAG", colors.amber,
+      colors.amberLight, model.editing)
+    local kinds = {
+      { "item", counts.item or 0 },
+      { "medicine", counts.medicine or 0 },
+      { "ball", counts.ball or 0 },
+      { "machine", counts.machine or 0 },
+    }
+    local gap, cardW, cardH = 5, math.floor((w - 15) / 2), 24
+    for index, entry in ipairs(kinds) do
+      local column, row = (index - 1) % 2, math.floor((index - 1) / 2)
+      local left = x + 5 + column * (cardW + gap)
+      local top = y + 24 + row * 28
+      local accent = self:itemAccent(entry[1])
+      clipped(left, top, cardW, cardH,
+        mixed(colors.surface, accent, self.dark and 0.24 or 0.16))
+      border(left, top, cardW, cardH, colors.outline)
+      self:battleItemIcon({ icon = entry[1] }, left + 2, top + 3, accent)
+      box("fill", left + 20, top + 4, 1, cardH - 8, colors.band)
+      local amount = entry[2] > 999 and "999+" or tostring(entry[2])
+      self:partyInfo(self:fitPartyInfo(amount, cardW - 24),
+        left + 22, top + 7, colors.ink, cardW - 24, "center")
+    end
+  end
+
   function H:homeSteps(model, tile, selected)
     local colors = self.colors
     local quiet = self.dark and colors.silver or colors.silverDark
@@ -1679,6 +1742,10 @@ return function(ui)
         self:homePokedex(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "trainer" then
         self:homeTrainer(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "map" then
+        self:homeMap(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "bag" then
+        self:homeBag(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "steps" then
         self:homeSteps(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "tool" then
