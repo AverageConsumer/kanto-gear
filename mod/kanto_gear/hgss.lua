@@ -2614,6 +2614,21 @@ return function(ui)
       and mapTileSize(42, 18, 222, 147, { full = true, zoom = 3 }) == 15,
     "Explorer normal and fullscreen zoom scales stay independent")
 
+  local function explorerMapFocus(model)
+    local marker = model.selectedMarker
+    return marker and marker.kind == "trainer" and marker or model.player
+  end
+  do
+    local player, trainer = { x = 1, y = 2 },
+      { kind = "trainer", x = 9, y = 8 }
+    assert(explorerMapFocus({ player = player, selectedMarker = trainer })
+        == trainer
+      and explorerMapFocus({ player = player,
+        selectedMarker = { kind = "item", x = 7, y = 6 } }) == player
+      and explorerMapFocus({ player = player }) == player,
+      "Explorer camera follows only a selected NPC")
+  end
+
   local function mapLayout(overview, x, y, w, h, opts)
     if not overview or not overview.rows then return nil end
     local rows, width, height, density = mapGrid(overview)
@@ -2625,7 +2640,7 @@ return function(ui)
       tonumber(overview.height) or height / density)
     local tileSize = mapTileSize(baseWidth, baseHeight, innerW, innerH, opts)
     local scale = tileSize / density
-    local focus = opts.player or {}
+    local focus = opts.focus or opts.player or {}
     local focusX = (tonumber(focus.x) or (overview.width or 1) / 2) * density
       + density / 2
     local focusY = (tonumber(focus.y) or (overview.height or 1) / 2) * density
@@ -2813,6 +2828,7 @@ return function(ui)
 
   function H:explorer(model)
     local colors, view, selected = self.colors, model.view, model.selected
+    local mapFocus = explorerMapFocus(model)
     local function mapToggle(x, y, collapse)
       local pressed = self:beginPress(x, y, 19, 14)
       self:panel(x, y, 19, 14, false)
@@ -2901,13 +2917,15 @@ return function(ui)
     end
     self:mapOverview(model.overview, mapX, mapY, mapW, mapH, {
       image = model.image, player = model.player, markers = model.markers,
+      focus = mapFocus,
       selected = model.selectedMarker, drawPlayer = model.drawPlayer,
       drawTrainer = model.drawTrainer, full = model.mapFull,
       zoom = model.mapZoom,
     })
-    if model.canScan and model.player then
+    if model.canScan and model.player and mapFocus == model.player then
       local layout = mapLayout(model.overview, mapX, mapY, mapW, mapH, {
-        full = model.mapFull, player = model.player, zoom = model.mapZoom,
+        full = model.mapFull, player = model.player, focus = mapFocus,
+        zoom = model.mapZoom,
       })
       if layout then
         local G = ui.graphics
@@ -3101,6 +3119,7 @@ return function(ui)
   function H:explorerHit(x, y, model)
     x, y = x * 1.5, y * 1.5
     local view, selected = model.view, model.selected
+    local mapFocus = explorerMapFocus(model)
     local mapX, mapW = 7, 226
     local mapY = model.mapFull and 72 or 53
     local mapH = model.mapFull and 138
@@ -3114,9 +3133,10 @@ return function(ui)
       if x >= 64 and x < 82 then return "zoom_in" end
       return nil
     end
-    if model.canScan and model.player then
+    if model.canScan and model.player and mapFocus == model.player then
       local layout = mapLayout(model.overview, mapX, mapY, mapW, mapH, {
-        full = model.mapFull, player = model.player, zoom = model.mapZoom,
+        full = model.mapFull, player = model.player, focus = mapFocus,
+        zoom = model.mapZoom,
       })
       if layout then
         local px = layout.left + (model.player.x + 0.5) * layout.tileSize
@@ -3129,8 +3149,8 @@ return function(ui)
     end
     local marker = self:mapMarkerAt(x, y, model.overview,
       { x = mapX, y = mapY, w = mapW, h = mapH }, {
-        player = model.player, markers = model.markers, full = model.mapFull,
-        zoom = model.mapZoom,
+        player = model.player, focus = mapFocus, markers = model.markers,
+        full = model.mapFull, zoom = model.mapZoom,
       })
     if marker then return "marker", marker end
     if model.mapFull then return nil end
