@@ -1,8 +1,8 @@
 # Translating Kanto Gear
 
 The folders here are normal Gen1Recomp companion mods. They translate only
-text drawn by Kanto Gear; the base game still needs its own language mod.
-Install them alongside Kanto Gear 1.7.2 or newer.
+text drawn by Kanto Gear and Silph Link OS; the base game still needs its own
+language mod. Install them alongside Kanto Gear 3.0.0 or newer.
 
 Included language packs:
 
@@ -18,7 +18,8 @@ To add a language:
    format placeholder (`%s`, `%d`, and `%%`) unchanged.
 3. Rename the language file and update its path in `main.lua`.
 4. Run the copied `tests/catalog_test.lua` with LuaJIT. Its fixed-field checks
-   catch translations that would overflow Kanto Gear's compact UI.
+   catch missing Silph Link strings and translations that would overflow the
+   pixel-aligned interface.
 
 Missing entries safely remain in English. No Kanto Gear source changes are
 needed for another language. The companion `main.lua` namespaces its entries

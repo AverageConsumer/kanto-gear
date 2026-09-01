@@ -1,14 +1,15 @@
 <div align="center">
 
-# Kanto Gear
+# Kanto Gear 3.0
 
-### A second screen when you have one. A better layout when you do not.
+### Silph Link OS — Your adventure. Reconnected.
 
-Kanto Gear is a single- and dual-screen companion UI for Pokémon Red, Blue,
-Yellow, Gold, Silver and Crystal in
-[Gen1Recomp](https://github.com/bryanthaboi/gen1recomp). It adds live maps,
-party and Pokédex data, battle controls and touch-friendly tools on Android,
-Windows and Linux—without requiring a custom host or 3D renderer.
+**Silph Link OS** turns Kanto Gear into a customizable companion system for
+Pokémon Red, Blue, Yellow, Gold, Silver and Crystal in
+[Gen1Recomp](https://github.com/bryanthaboi/gen1recomp). Apps, live widgets,
+touch-first battle controls and a Nintendo DS-inspired interface connect the
+original adventure to the information it always had—but never had room to
+show.
 
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest Kanto Gear release"></a>
@@ -19,8 +20,8 @@ Windows and Linux—without requiring a custom host or 3D renderer.
 </p>
 
 <p>
-  <img src="screenshots/kanto-gear-hero-game.png" width="63%" alt="Pokémon Gold running at night on the primary AYN Thor display">
-  <img src="screenshots/kanto-gear-hero-local.png" width="35%" alt="Kanto Gear showing a terrain-colored local map on the secondary AYN Thor display">
+  <img src="screenshots/kanto-gear-hgss-home-light.png" width="49%" alt="Customizable Silph Link OS Home screen in HGSS Light">
+  <img src="screenshots/kanto-gear-hgss-battle-dark.png" width="49%" alt="Silph Link OS battle controls in HGSS Dark">
 </p>
 
 <p>
@@ -32,12 +33,14 @@ Windows and Linux—without requiring a custom host or 3D renderer.
 
 </div>
 
-## More than a second map
+## A companion OS, not another overlay
 
-Kanto Gear follows the game and turns otherwise unused screen space into a
-companion interface. Assistance is optional: **Purist** keeps the experience
-close to the original games, while **Enhanced** exposes useful information the
-game already knows.
+Silph Link OS follows the live game state and turns otherwise unused screen
+space into something that feels native to the Pokémon world. It is equally at
+home on a second display, beside the game, or as a fullscreen view on a
+single-screen device. Assistance remains optional: **Vanilla** stays close to
+the original games, **Enhanced** adds contextual help and **Spoilers** exposes
+optional discoveries directly.
 
 | Explore | Manage | Battle | Adapt |
 | --- | --- | --- | --- |
@@ -55,40 +58,60 @@ and Modern Dark, plus high-resolution HGSS Light, Dark and Auto themes. Auto
 switches to Dark during Gen 2's night period; Gen 1 applies the same 18:00
 boundary to the device clock.
 
-## Kanto Gear 3.0: Silph Link
+## Kanto Gear 3.0: Silph Link OS
 
-The HGSS themes turn the companion screen into a touch-first Silph
-Link instead of repainting the older tab bar. Its Home screen can span any
-number of pages and mix app icons with live widgets. Long-press a card to enter
-Edit mode, swap cards or move them to another page, and use **Silph Store** to
-choose which optional apps and widgets are available. Store installs are local
-Kanto Gear preferences; no code or network download occurs.
+Version 3 is a new interaction model, not merely another coat of paint. The
+HGSS interface replaces the fixed tab strip with a touch-first operating
+system: Home pages can mix compact app icons with live widgets. Where an app
+provides both, the player can use either surface or keep both. Long-press a card
+to enter Edit mode, then swap cards with another compatible position or an
+empty slot—even across pages.
+
+| Kanto Gear 2.x | Silph Link OS in 3.0 |
+| --- | --- |
+| Fixed sequence of companion tabs | Customizable Home with as many persistent pages as needed |
+| One standard presentation per feature | Dedicated apps, compact shortcuts and live widgets |
+| Mostly static companion panels | Touch-first actions, contextual flows and consistent press feedback |
+| Game Boy-inspired themes | HGSS Light, Dark and automatic day/night switching, with every Legacy theme still available |
+
+**Silph Store** is the in-world catalog for the complete system. App of the Day,
+recommendations, previews and `NEW` badges explain what each app adds before
+you place it on Home. `GET` and removal change local Kanto Gear preferences
+only; the Store never downloads or executes additional code.
 
 The fixed **Options** app groups appearance, display, battle, research and
-control settings by purpose. It updates them immediately, hides irrelevant
-layout controls and includes separate resets for options and Home layout.
-**Transitions** can disable Silph Link page movement without changing the
-games' own battle-animation setting.
+control settings by purpose. Changes apply immediately and persist across
+restarts, irrelevant rows stay hidden, and Home layout and system options have
+separate resets. **Transitions** can disable Silph Link page movement without
+changing the games' own battle-animation setting.
 
 <p align="center">
   <img src="screenshots/kanto-gear-hgss-home-light.png" width="49%" alt="Customizable Silph Link Home screen in HGSS Light">
   <img src="screenshots/kanto-gear-hgss-home-dark.png" width="49%" alt="Customizable Silph Link Home screen in HGSS Dark">
 </p>
 
-Explorer combines a live tile map with encounters, trainers, visible items and
-Itemfinder behavior. Party, Bag, Pokédex, Trainer Card, Map, Step Counter and
-Field Kit each have a dedicated bottom-screen app. Battle menus, contextual
-Party pickers, move learning, move details and PC storage use the same visual
-and touch language without replacing the original game logic.
+Explorer combines a live tile map with current encounters, trainers, visible
+items and Itemfinder behavior. Party, Bag, Pokédex, Trainer Card, Map, Step
+Counter, Field Kit, Store and Options are real bottom-screen apps rather than
+mirrored top-screen menus. Explorer, Party, Pokédex, Trainer, Map, Bag, Store
+and Steps also provide widgets; Field Kit can create multiple one-tap widgets
+for tools the player has actually unlocked. Notes is already previewed in the
+Store as a future Silph Labs app, without being silently installed.
+
+Battle menus, contextual Party pickers, move learning, move details, item use
+and PC storage use the same visual and touch language while continuing through
+the original game actions. Silph Link adds presentation and interaction—it
+does not replace battle rules, save data or progression.
 
 <p align="center">
   <img src="screenshots/kanto-gear-hgss-party-light.png" width="49%" alt="HGSS Light party app with live status, HP and EXP">
   <img src="screenshots/kanto-gear-hgss-battle-dark.png" width="49%" alt="HGSS Dark battle controls">
 </p>
 
-Fresh 3.0 installations start with HGSS Light. Upgrades do not force the new
-theme: existing theme, display and gameplay settings remain in place, and every
-pre-3.0 Kanto Gear theme remains available.
+The first 3.0 launch starts everyone in **HGSS Light** so the new OS cannot be
+missed. After that first switch, the selected theme is yours: HGSS Dark and
+HGSS Auto are available, every pre-3.0 theme remains installed, and choosing a
+Legacy theme persists normally across restarts.
 
 ## One mod, three display modes
 
@@ -117,7 +140,8 @@ not need the former Kanto host or any Voxel renderer.
 2. Open Gen1Recomp's **MODS** screen and install **Kanto Gear** from the official
    Mod Index, or import `kanto_gear-*.zip` from the
    [latest Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
-3. Enable Kanto Gear and start Pokémon Red, Blue, Yellow, Gold or Silver.
+3. Enable Kanto Gear and start Pokémon Red, Blue, Yellow, Gold, Silver or
+   Crystal.
 4. Open Kanto Gear's settings and choose **Fullscreen Swap**,
    **Combined Screen** or **Separate Screens**.
 
@@ -176,10 +200,10 @@ bundle.
 
 | Action | Control |
 | --- | --- |
-| Change Kanto Gear page | Swipe left/right or tap the header arrows |
+| Change a paged Silph Link view | Swipe left/right or tap the matching header arrows |
 | Edit the HGSS Home screen | Long-press an app or widget, then swap it with another card or a free slot |
 | Add an HGSS Home item | Enter Edit mode and tap a free `+` slot |
-| Open Silph Link settings | Open the **OPTIONS** app on Home page 2 |
+| Open Silph Link settings | Open the fixed **OPTIONS** app |
 | Swap the two views | Enable **QUICK SWAP (Y)**, then press **Y** |
 | Cycle pages with a controller | Enable **TRIGGER TABS**, then use **L2/R2** |
 | Hide or show the Combined Screen overlay | Choose **OVERLAY BUTTON**, then press the selected control |
