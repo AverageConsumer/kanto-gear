@@ -5,7 +5,7 @@
 ### A second screen when you have one. A better layout when you do not.
 
 Kanto Gear is a single- and dual-screen companion UI for Pokémon Red, Blue,
-Yellow, Gold and Silver in
+Yellow, Gold, Silver and Crystal in
 [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp). It adds live maps,
 party and Pokédex data, battle controls and touch-friendly tools on Android,
 Windows and Linux—without requiring a custom host or 3D renderer.
@@ -41,7 +41,7 @@ game already knows.
 
 | Explore | Manage | Battle | Adapt |
 | --- | --- | --- | --- |
-| Region map, detailed local map, exits, visible items and hidden items | Party, Trainer Card, badges, Pokédex progress, area guide and step counter | Standard HUD, touch controls, Full Gear HUD and optional Enemy Info | Single screen, combined layouts, overlays and independent second displays |
+| Region map, live Explorer, encounters, trainers and items | Party, Bag, Pokédex, Trainer Card, tools and step counter | Standard HUD, touch controls, Full Gear HUD and optional Enemy Info | Customizable Home, single screen, combined layouts and independent second displays |
 
 | Party at a glance | Know the opponent | Find what lives here |
 | --- | --- | --- |
@@ -50,8 +50,36 @@ game already knows.
 
 Kanto Gear uses native game palettes where the host exposes them, keeps unknown
 Pokémon as silhouettes and renders LOCAL terrain with consistent cartographic
-colors. The interface supports classic Game Boy-inspired themes as well as
-Modern Light and Modern Dark.
+colors. The interface supports classic Game Boy-inspired themes, Modern Light
+and Modern Dark, plus the new high-resolution HGSS Light and HGSS Dark themes.
+
+## Kanto Gear 3.0: Silph Link
+
+HGSS Light and HGSS Dark turn the companion screen into a touch-first Silph
+Link instead of repainting the older tab bar. Its Home screen can span any
+number of pages and mix app icons with live widgets. Long-press a card to enter
+Edit mode, swap cards or move them to another page, and use **Silph Store** to
+choose which optional apps and widgets are available. Store installs are local
+Kanto Gear preferences; no code or network download occurs.
+
+<p align="center">
+  <img src="screenshots/kanto-gear-hgss-home-light.png" width="49%" alt="Customizable Silph Link Home screen in HGSS Light">
+  <img src="screenshots/kanto-gear-hgss-home-dark.png" width="49%" alt="Customizable Silph Link Home screen in HGSS Dark">
+</p>
+
+Explorer combines a live tile map with encounters, trainers, visible items and
+Itemfinder behavior. Party, Bag, Pokédex, Trainer Card, Map, Step Counter and
+Field Kit each have a dedicated bottom-screen app. Battle menus, contextual
+Party pickers, move learning, move details and PC storage use the same visual
+and touch language without replacing the original game logic.
+
+<p align="center">
+  <img src="screenshots/kanto-gear-hgss-party-light.png" width="49%" alt="HGSS Light party app with live status, HP and EXP">
+  <img src="screenshots/kanto-gear-hgss-battle-dark.png" width="49%" alt="HGSS Dark battle controls">
+</p>
+
+Version 3.0 does not force the new theme. Existing theme, display and gameplay
+settings remain in place, and every pre-3.0 Kanto Gear theme remains available.
 
 ## One mod, three display modes
 
@@ -98,6 +126,7 @@ can use the small [language-pack template](translations/README.md).
 | Pokémon Red, Blue and Yellow | Full Gen 1 companion UI | Gen1Recomp 0.1.99 |
 | Pokémon Gold | Full Gen 2 companion UI | Gen1Recomp 0.1.99 |
 | Pokémon Silver | Full Gen 2 companion UI | Gen1Recomp 0.2.10 |
+| Pokémon Crystal | Full Gen 2 companion UI | Gen1Recomp 0.2.22 |
 
 The legacy Android host `0.1.94-kanto.22` remains accepted only as a temporary
 save-migration bridge. Current users should use the official host.
@@ -139,6 +168,8 @@ bundle.
 | Action | Control |
 | --- | --- |
 | Change Kanto Gear page | Swipe left/right or tap the header arrows |
+| Edit the HGSS Home screen | Long-press an app or widget, then swap it with another card or a free slot |
+| Add an HGSS Home item | Enter Edit mode and tap a free `+` slot |
 | Swap the two views | Enable **QUICK SWAP (Y)**, then press **Y** |
 | Cycle pages with a controller | Enable **TRIGGER TABS**, then use **L2/R2** |
 | Hide or show the Combined Screen overlay | Press **R3** |

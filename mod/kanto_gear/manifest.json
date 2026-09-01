@@ -1,7 +1,7 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "2.10.0",
+  "version": "3.0.0",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",
@@ -13,6 +13,6 @@
   "optional_dependencies": [],
   "conflicts": [],
   "permissions": ["engine_internals"],
-  "description": "Flexible companion UI for Gen 1 and Pokemon Gold/Silver on single- and dual-screen Gen1Recomp hosts.",
+  "description": "Flexible companion UI for Pokemon Gen 1 and Gen 2 on single- and dual-screen Gen1Recomp hosts.",
   "github": "AverageConsumer/kanto-gear"
 }

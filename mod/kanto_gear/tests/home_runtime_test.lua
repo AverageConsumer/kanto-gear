@@ -198,6 +198,17 @@ T.check(savedTools and savedTools.page == 2,
   "Home placement survives a process-style durable reload")
 T.eq(savedTools and savedTools.column, 1,
   "durable Home state is a serialized snapshot, not a live table alias")
+local legacyState = copy(durableHome)
+durableHome = nil
+api.save:set("home_packages", copy(legacyState.packages))
+api.save:set("home_layout", copy(legacyState.layout))
+home.layout = { tiles = {} }
+display.loadHome()
+T.check(durableHome and durableHome.format == 1,
+  "a pre-durable Home save migrates to restart-safe storage")
+T.check(display.Home.find(home.layout, "party_app") ~= nil
+    and display.Home.find(home.layout, "tools_app") ~= nil,
+  "Home migration preserves existing app placement")
 
 tapHomeTile("party_app", true)
 T.eq(page(), "PARTY", "tapping a Home icon opens its installed app")
