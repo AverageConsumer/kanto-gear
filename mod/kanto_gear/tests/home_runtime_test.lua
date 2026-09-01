@@ -54,6 +54,36 @@ end
 
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
+local theme = upvalue(display.drawContents, "THEME")
+local function homeTile(id)
+  local tiles = display.homePageElements()
+  for _, tile in ipairs(tiles) do
+    if tile.id == id then return tile end
+  end
+end
+local function tapHomeTile(id, routed)
+  local tile = assert(homeTile(id), "missing Home tile " .. id)
+  local x, y, w, h = theme.hgss:homeRect(tile)
+  x, y = x + math.floor(w / 2), y + math.floor(h / 2)
+  if routed then
+    tap(math.floor(x / theme.hgssScale), math.floor(y / theme.hgssScale))
+  else
+    display.tapHome(x, y)
+  end
+end
+local function tapStoreAppAction(id)
+  local entries, absolute = display.storeEntries()
+  for index, entry in ipairs(entries) do
+    if entry.id == id then absolute = index break end
+  end
+  assert(type(absolute) == "number", "missing Store app " .. id)
+  local size = display.storePageSizes.apps
+  home.storeView = "apps"
+  home.storePages.apps = math.ceil(absolute / size)
+  local visible = (absolute - 1) % size
+  local column, row = visible % 2, math.floor(visible / 2)
+  display.tapStore(7 + column * 115 + 57, 53 + row * 44 + 33)
+end
 local appWidgets = {
   pokedex = { id = "pokedex_widget", columns = 5 },
   trainer = { id = "trainer_widget", columns = 5 },
@@ -146,7 +176,7 @@ display.tapStore(130, 13)
 T.eq(home.storeView, "apps",
   "the Store header's right arrow matches a left swipe")
 display.setPackageInstalled("tools", false)
-display.tapStore(160, 170)
+tapStoreAppAction("tools")
 T.eq(display.storeEntry(store.tools).state, "open",
   "the visible GET button enables its matching app")
 home.storeDetail = "tools"
@@ -169,7 +199,7 @@ T.check(savedTools and savedTools.page == 2,
 T.eq(savedTools and savedTools.column, 1,
   "durable Home state is a serialized snapshot, not a live table alias")
 
-tap(60, 49)
+tapHomeTile("party_app", true)
 T.eq(page(), "PARTY", "tapping a Home icon opens its installed app")
 tap(80, 80)
 T.eq(page(), "PARTY", "touching app content does not close the app")
@@ -192,8 +222,12 @@ T.eq(home.activeApp, "explorer", "Explorer remains open after internal back")
 tap(5, 5)
 T.eq(page(), "HOME", "Explorer root back returns Home")
 
+T.eq(display.storeEntry(store.pokedex).state, "get",
+  "the new Pokedex waits for an explicit Store install")
+T.check(display.setPackageInstalled("pokedex", true),
+  "the finished Pokedex installs from Silph Store")
 T.eq(display.storeEntry(store.pokedex).state, "open",
-  "the finished Pokedex is available in Silph Store")
+  "the installed Pokedex is available in Silph Store")
 T.check(display.openHomeApp("pokedex"), "Pokedex opens from Home")
 T.eq(page(), "POKEDEX", "Pokedex owns an independent bottom-screen app")
 local dexModel = display.pokedexModel()
@@ -233,39 +267,56 @@ local toolsIndex
 for index, item in ipairs(apps) do
   if item.id == "tools_app" then toolsIndex = index end
 end
-T.check(toolsIndex and toolsIndex <= 6, "Tools is visible in Add to Home")
-local visible = toolsIndex - 1
+T.check(toolsIndex ~= nil, "Tools is available in Add to Home")
+home.libraryPage = math.ceil(toolsIndex / 6)
+local visible = (toolsIndex - 1) % 6
 display.tapHome(15 + visible % 2 * 111,
   54 + math.floor(visible / 2) * 48)
 local centeredTools = display.Home.find(home.layout, "tools_app")
-T.eq(centeredTools.column, 9,
-  "a three-column app is centered inside Explorer's five-column gap")
+T.eq(centeredTools.column, 8,
+  "Home storage keeps Explorer and Tools in stable row order")
+local explorerTile, toolsTile = homeTile("explorer_widget"), homeTile("tools_app")
+local explorerX, _, explorerW = theme.hgss:homeRect(explorerTile)
+local toolsX, _, toolsW = theme.hgss:homeRect(toolsTile)
+T.eq(explorerX - 7, toolsX - explorerX - explorerW,
+  "Explorer and Tools keep equal left and inner visual gaps")
+T.eq(toolsX - explorerX - explorerW, 233 - toolsX - toolsW,
+  "Explorer and Tools keep equal inner and right visual gaps")
 
 home.layout = { tiles = {
   { id = "tools_app", page = 1, column = 1, row = 1 },
   { id = "trainer_app", page = 2, column = 1, row = 1 },
 } }
 home.page, home.editing, home.library, home.swapSource = 1, true, false, nil
-display.tapHome(30, 70)
+tapHomeTile("tools_app")
 T.eq(home.swapSource, "tools_app", "tapping an app selects it for swapping")
 touchEvent("down,140,100")
 touchEvent("up,20,100")
 T.eq(home.page, 2, "the selected app survives a swipe to the next Home page")
-display.tapHome(30, 70)
+tapHomeTile("trainer_app")
 T.eq(display.Home.find(home.layout, "tools_app").page, 2,
   "tapping an app on another page swaps it with the selection")
 T.eq(display.Home.find(home.layout, "trainer_app").page, 1,
   "the cross-page swap returns the other app to the source position")
 T.eq(home.swapSource, nil, "a completed swap clears the selection")
-display.tapHome(30, 70)
+tapHomeTile("tools_app")
 touchEvent("down,140,100")
 touchEvent("up,20,100")
-display.tapHome(120, 70)
+local _, emptySlots = display.homePageElements()
+local empty = assert(emptySlots and emptySlots[1], "missing empty Home row")
+local emptyX, emptyY, emptyW, emptyH = theme.hgss:homeRect(empty)
+display.tapHome(emptyX + math.floor(emptyW / 2),
+  emptyY + math.floor(emptyH / 2))
 local movedTools = display.Home.find(home.layout, "tools_app")
 T.eq(home.page, 3, "swiping reaches a new empty Home page")
 T.eq(movedTools.page, 3, "an empty region accepts the selected app")
-T.eq(movedTools.column, 5,
-  "an app moved to an empty row snaps to its centered position")
+T.eq(movedTools.column, 1,
+  "an app moved to an empty row keeps canonical storage coordinates")
+home.editing = false
+local movedTile = homeTile("tools_app")
+local movedX, _, movedW = theme.hgss:homeRect(movedTile)
+T.eq(movedX - 7, 233 - movedX - movedW,
+  "an app moved to an empty row is visually centered")
 
 api.device = api.device or {
   powerInfo = function() return "battery", 80 end,
@@ -297,8 +348,6 @@ world.phase = "quantity"
 T.check(display.motionKey() ~= phaseKey,
   "an in-place context phase change receives shallow motion")
 world.screenId, world.phase, world.index = nil, nil, nil
-local theme = upvalue(display.drawContents, "THEME")
-
 local oldRodSurface = catalog.surfaces.tool_widget_old_rod
 display.refreshToolSurfaces({})
 T.check(oldRodSurface.hidden,
