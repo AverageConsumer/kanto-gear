@@ -620,8 +620,8 @@ do
   screen.menuIndex = 1
   game.input.pressQueue = { "left" }
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  T.eq(screen.menuIndex, 3,
-    "FULL GEAR maps LEFT from FIGHT to BAG")
+  T.eq(screen.menuIndex, 2,
+    "FULL GEAR maps LEFT from FIGHT to POKEMON in its two-by-two grid")
   local partyMenu = {
     screenId = "Gen2PartyMenu", index = 1,
     submenu = { index = 3, items = {
