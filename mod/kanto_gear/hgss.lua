@@ -3915,6 +3915,84 @@ return function(ui)
     end
   end
 
+  function H:silphLinkIcon(x, y, phase)
+    local colors = self.colors
+    self:pcStorageIcon(x, y, "pokemon")
+    self:pcStorageIcon(x + 49, y, "items")
+    box("fill", x + 29, y + 13, 20, 2, colors.outline)
+    for index = 0, 2 do
+      local tint = index == (phase or 0) and colors.greenLight or colors.band
+      clipped(x + 32 + index * 6, y + 10, 4, 8, tint)
+      border(x + 32 + index * 6, y + 10, 4, 8, colors.outline)
+    end
+  end
+
+  function H:titleBoot(model, now)
+    local colors = self.colors
+    local pressed = self:beginPress(0, 0, 240, 216)
+    self:panel(18, 13, 204, 156, false, nil, colors.blueLight)
+    self:partyType(translate("SILPH CO."), 30, 22,
+      colors.green, 180)
+    local phase = math.floor((tonumber(now) or 0) * 2) % 3
+    self:silphLinkIcon(81, 42, phase)
+    box("fill", 34, 79, 172, 1, colors.band)
+    self:label(translate("SILPH LINK"), 28, 88,
+      colors.ink, 184, "center")
+    self:partyType(translate("SYSTEM"), 28, 107,
+      colors.green, 184)
+    clipped(36, 121, 168, 22, colors.bandLight)
+    border(36, 121, 168, 22, colors.outline)
+    self:partyInfo(self:fitPartyInfo(model.systemId or "SLS-DEV", 156),
+      42, 128, colors.ink, 156, "center")
+    self:partyType(translate("LINK ONLINE"), 28, 153,
+      colors.green, 184)
+
+    self:panel(38, 177, 164, 32, false, nil, colors.greenLight)
+    clipped(41, 180, 158, 26,
+      self:focusSurface(pressed, colors.surface, colors.greenLight))
+    self:partyInfo(translate("START GAME"), 38, 187,
+      colors.ink, 164, "center")
+    if pressed then self:focusFrame(38, 177, 164, 32) end
+    self:endPress(pressed)
+  end
+
+  function H:systemOverlay(alpha, prompt, now)
+    local colors = self.colors
+    color({ 0, 0, 0, alpha or 0.5 })
+    ui.graphics.rectangle("fill", 0, 0, 240, 216)
+    if not prompt then return end
+    local bob, shadowWidth = self:battleContinueMotion(now)
+    local x, y = 115, 179 + bob
+    local shadowX = x + 5 - math.floor(shadowWidth / 2)
+    if self:shadowVisible() then
+      box("fill", shadowX, 192, shadowWidth, 2, colors.shadow)
+    end
+    box("fill", x, y, 10, 2, colors.outline)
+    box("fill", x + 1, y + 2, 8, 2, colors.outline)
+    box("fill", x + 2, y + 4, 6, 2, colors.outline)
+    box("fill", x + 3, y + 6, 4, 2, colors.outline)
+    box("fill", x + 4, y + 8, 2, 1, colors.outline)
+    box("fill", x + 1, y + 1, 8, 1, colors.greenLight)
+    box("fill", x + 2, y + 2, 6, 2, colors.green)
+    box("fill", x + 3, y + 4, 4, 2, colors.green)
+    box("fill", x + 4, y + 6, 2, 2, colors.green)
+  end
+
+  function H:loadingOverlay(label, now)
+    local colors = self.colors
+    self:systemOverlay(0.58, false)
+    self:panel(45, 72, 150, 72, false, nil, colors.blueLight)
+    self:partyInfo(translate(label or "LOADING AREA"), 55, 91,
+      colors.ink, 130, "center")
+    local phase = math.floor((tonumber(now) or 0) * 3) % 3
+    local groupLeft = 107
+    for index = 0, 2 do
+      local tint = index == phase and colors.greenLight or colors.band
+      clipped(groupLeft + index * 9, 116, 6, 6, tint)
+      border(groupLeft + index * 9, 116, 6, 6, colors.outline)
+    end
+  end
+
   do
     assert(H:pcRootHit(120, 90, 4) == 1
         and H:pcListHit(120, 100, 4) == 2

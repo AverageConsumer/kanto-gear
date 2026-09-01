@@ -292,6 +292,7 @@ return {
   ["BOX  USED"] = "CAJA  OCUPADA",
   ["TOSS"] = "TIRAR",
   ["QUANTITY"] = "CANTIDAD",
+  ["RESTORE PP"] = "RECUPERAR PP",
   ["NOTHING HERE"] = "NO HAY NADA AQUÍ",
   ["LOG OFF"] = "CERRAR SESIÓN",
   ["PRINT"] = "IMPRIMIR",

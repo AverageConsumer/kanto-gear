@@ -462,11 +462,16 @@ function love.load()
   local legacyPcTop = screen == "legacy_pc_top"
   local legacyPc = legacyPcRoot or legacyPcBox or legacyPcChange
     or legacyPcItems or legacyPcQuantity or legacyPcTop
+  local legacyTitle = screen == "legacy_title"
+  local legacyLoading = screen == "legacy_loading"
+  local legacyOverlay = screen == "legacy_overlay"
+  local legacyPpMoves = screen == "legacy_pp_moves"
   local legacy = legacyChoice or legacyChoiceGrid or legacyNaming
     or legacyLevelUp or legacyMoveNew or legacyMoveForget or legacyMoveInfo
-    or legacyEnemy or legacyPc
+    or legacyEnemy or legacyPc or legacyPpMoves
   local legacyBack = legacyMoveForget or legacyMoveInfo
     or legacyEnemy and not legacyEnemyInfo or legacyPc and not legacyPcRoot
+    or legacyPpMoves
   local pokedexIndex = screen == "pokedex"
   local pokedexProfile = screen == "pokedex_profile"
   local pokedexHabitat = screen == "pokedex_habitat"
@@ -531,6 +536,7 @@ function love.load()
     or legacyPcItems and "WITHDRAW"
     or legacyPcQuantity and "QUANTITY"
     or legacyPcTop and "MENU ON TOP"
+    or legacyPpMoves and "RESTORE PP"
     or legacy and "CHOOSE"
     or pokedexHabitat and "HABITAT 1/4"
     or pokedexStats and "STATS"
@@ -557,7 +563,8 @@ function love.load()
       and (transitionProgress >= 0.5 and movesTitle or statsTitle)
     or (summary or transition and transitionProgress >= 0.42) and statsTitle
     or language.title
-  if not battleRoot and not battleMessage and not battlePartyTransition
+  if not legacyTitle
+      and not battleRoot and not battleMessage and not battlePartyTransition
       and not battlePartyMenu
       and not battleMoves and not battleMovesTransition
       and not battleMoveInfo and not battleMoveInfoTransition
@@ -1446,7 +1453,20 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if legacyPc then
+  if legacyPpMoves then
+    theme:pcList({ summary = translate("CHOOSE MOVE"), entries = {
+      { kind = "move", label = "SURF", right = "PP 12/15", selected = true },
+      { kind = "move", label = "ICE PUNCH", right = "PP 8/15" },
+      { kind = "move", label = "BITE", right = "PP 20/25" },
+      { kind = "move", label = "SCARY FACE", right = "PP 10/10" },
+    } })
+  elseif legacyTitle then
+    theme:titleBoot({ systemId = "SLS-GSC-3.0" }, 1)
+  elseif legacyLoading then
+    theme:loadingOverlay("LOADING AREA", 1)
+  elseif legacyOverlay then
+    theme:systemOverlay(0.48, true, 1)
+  elseif legacyPc then
     if legacyPcRoot then
       theme:pcRoot({ kind = "pokemon", title = "PC BOX 3",
         status = "BOX 3  12/20", entries = {

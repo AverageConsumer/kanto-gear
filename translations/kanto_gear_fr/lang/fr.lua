@@ -290,6 +290,7 @@ return {
   ["BOX  USED"] = "BOÎTE UTILISÉE",
   ["TOSS"] = "JETER",
   ["QUANTITY"] = "QUANTITÉ",
+  ["RESTORE PP"] = "RESTAURER PP",
   ["NOTHING HERE"] = "RIEN ICI",
   ["LOG OFF"] = "SE DÉCONNECTER",
   ["PRINT"] = "IMPRIMER",

@@ -3806,6 +3806,14 @@ return function(mod)
   end
 
   local function drawTitle()
+    if THEME.style == "hgss" then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:titleBoot({ systemId = compat.systemId() },
+        love.timer.getTime())
+      G.pop()
+      return
+    end
     local modern = THEME.style ~= "classic"
     local foreground = modern and INK or PAPER
     local primary = modern and THEME.blue or PAPER
@@ -3861,6 +3869,13 @@ return function(mod)
   end
 
   local function drawDim(alpha, prompt)
+    if THEME.style == "hgss" then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:systemOverlay(alpha, prompt, love.timer.getTime())
+      G.pop()
+      return
+    end
     color({ 0, 0, 0, alpha })
     G.rectangle("fill", 0, 0, WIDTH, HEIGHT)
     if prompt then displayRuntime.drawContinueArrow(75, 122) end
@@ -7005,7 +7020,25 @@ return function(mod)
   end
 
   local function drawPpItemMoves(menu)
-    header("CHOOSE MOVE", true)
+    header(THEME.style == "hgss" and "RESTORE PP" or "CHOOSE MOVE", true)
+    if THEME.style == "hgss" then
+      local first, count = choiceWindow(menu.items or {}, menu.index)
+      local entries = {}
+      for row = 1, count do
+        local index, item = first + row - 1, menu.items[first + row - 1]
+        entries[row] = {
+          kind = "move", label = item.label or tostring(index),
+          right = THEME:format("PP %s", item.right or "--"),
+          selected = menu.index == index,
+        }
+      end
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:pcList({ summary = THEME:translate("CHOOSE MOVE"),
+        entries = entries })
+      G.pop()
+      return
+    end
     for i, item in ipairs(menu.items or {}) do
       button(8, 25 + (i - 1) * 28, 144, 25,
              THEME:format("%s  PP %s", item.label or tostring(i),
@@ -7784,13 +7817,15 @@ return function(mod)
     elseif battle.prompt == "moves" then
       drawMoves()
     elseif battle.prompt ~= "menu" then
-      if fullBottomBattleUI() and raw and (raw.draining or raw.hpAnim) then
+      if THEME.style ~= "hgss" and fullBottomBattleUI()
+          and raw and (raw.draining or raw.hpAnim) then
         drawFullBattleStatuses()
       else
         drawBattleLocked()
       end
     else
-      if fullBottomBattleUI() then drawFullBattleRoot()
+      if THEME.style == "hgss" then drawBattleRoot()
+      elseif fullBottomBattleUI() then drawFullBattleRoot()
       else drawBattleRoot() end
     end
   end
@@ -8000,11 +8035,18 @@ return function(mod)
         and not hgssSummary
         and not (pcKind and mode == "locked")
         and mode ~= "title" and mode ~= "active" then
-      drawDim(fade, mode == "textbox" and textPrompt(top))
-      if mode == "loading" then
-        box("fill", 27, 57, 106, 30, DARK)
-        outline(27, 57, 106, 30, PAPER)
-        centered(fit("LOADING AREA", 16), 69, PAPER)
+      if THEME.style == "hgss" and mode == "loading" then
+        G.push()
+        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:loadingOverlay("LOADING AREA", love.timer.getTime())
+        G.pop()
+      else
+        drawDim(fade, mode == "textbox" and textPrompt(top))
+        if mode == "loading" then
+          box("fill", 27, 57, 106, 30, DARK)
+          outline(27, 57, 106, 30, PAPER)
+          centered(fit("LOADING AREA", 16), 69, PAPER)
+        end
       end
     end
     if not learn and not battle and mode == "active" then
@@ -8664,7 +8706,16 @@ return function(mod)
     local top = game and game.stack and game.stack:top()
     local ppMoves = screenContract(top, "pp")
     if ppMoves then
-      if y < HEADER and x < 24 then
+      if THEME.style == "hgss" then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        if hy < 30 and hx < 27 then
+          press("b")
+        else
+          local first, count = choiceWindow(ppMoves.items or {}, ppMoves.index)
+          local row = THEME.hgss:pcListHit(hx, hy, count)
+          if row then ppMoves.index = first + row - 1; press("a") end
+        end
+      elseif y < HEADER and x < 24 then
         press("b")
       else
         local row = math.floor((y - 25) / 28) + 1
@@ -8916,11 +8967,11 @@ return function(mod)
     end
     if battle.prompt ~= "menu" then return end
     local choice
-    if fullBottomBattleUI() then
-      choice = fullBattleChoice(x, y)
-    elseif THEME.style == "hgss" then
+    if THEME.style == "hgss" then
       choice = THEME.hgss:battleChoice(
         x * THEME.hgssScale, y * THEME.hgssScale)
+    elseif fullBottomBattleUI() then
+      choice = fullBattleChoice(x, y)
     elseif y >= 24 then
       local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
       choice = row * 2 + col + 1

@@ -300,6 +300,7 @@ return {
   ["BOX  USED"] = "BOX  BELEGT",
   ["TOSS"] = "WEGWERFEN",
   ["QUANTITY"] = "ANZAHL",
+  ["RESTORE PP"] = "AP AUFFÜLLEN",
   ["NOTHING HERE"] = "NICHTS VORHANDEN",
   ["LOG OFF"] = "ABMELDEN",
   ["PRINT"] = "DRUCKEN",
