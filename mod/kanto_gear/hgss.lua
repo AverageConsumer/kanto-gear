@@ -4395,8 +4395,9 @@ return function(ui)
       x + 2, y - 1, self.colors.white, 44)
   end
 
-  function H:summaryMoveRow(move, x, y, selected, interactive)
+  function H:summaryMoveRow(move, x, y, selected, interactive, showChevron)
     local colors = self.colors
+    if showChevron == nil then showChevron = interactive end
     local pressed = self:beginPress(x, y, 228, 34, interactive)
     self:panel(x, y, 228, 34, interactive and selected,
       self:typeColor(move.type), self:typeColor(move.type))
@@ -4405,7 +4406,7 @@ return function(ui)
     self:partyInfo(move.ppLabel or "PP", x + 157, y + 4, colors.green)
     self:partyInfo(move.ppText or "--", x + 177, y + 4,
       colors.ink, 35, "right")
-    if interactive then self:detailChevron(x + 217, y + 6, colors.ink) end
+    if showChevron then self:detailChevron(x + 217, y + 6, colors.ink) end
     self:partyInfo(move.powerLabel or "PWR", x + 64, y + 18,
       colors.green)
     local power = move.powerText
@@ -4420,6 +4421,56 @@ return function(ui)
     self:partyInfo(move.accuracyText or "--", x + 153, y + 18,
       colors.ink, 32, "right")
     self:endPress(pressed)
+  end
+
+  function H:moveLearnList(model)
+    local colors = self.colors
+    local details = model.details == true
+    self:summaryMoveRow(model.newMove or {}, 6, 33, false,
+      details, details)
+    self:partyType(self:fitPartyType(translate("NEW"), 48),
+      14, 35, colors.amber, 48)
+    for slot = 1, 4 do
+      local move = model.moves and model.moves[slot] or {}
+      self:summaryMoveRow(move, 6, 70 + (slot - 1) * 35,
+        model.index == slot, move.available ~= false,
+        details and move.available ~= false)
+    end
+  end
+
+  function H:moveLearnPrompt(model)
+    local colors = self.colors
+    local mon = model.mon or {}
+    self:panel(6, 33, 228, 55, false, nil, self:typeColor(mon.type))
+    self:partyPortrait(13, 36, false, false)
+    if model.drawPokemon then model.drawPokemon(mon, 14, 39, 34) end
+    self:partyName(mon.name or "POKEMON", 57, 41, colors.ink, 122)
+    self:partyInfo(mon.levelText or "L--", 186, 41,
+      colors.ink, 38, "right")
+    self:typeBadges(mon, 57, 64, false)
+
+    self:summaryMoveRow(model.newMove or {}, 6, 94, false,
+      model.details == true, model.details == true)
+    self:partyType(self:fitPartyType(translate("NEW"), 48),
+      14, 96, colors.amber, 48)
+    self:panel(27, 145, 186, 40, false, nil, colors.greenLight)
+    self:partyInfo(self:fitPartyInfo(translate("FOLLOW TOP SCREEN"), 170),
+      35, 160, colors.green, 170, "center")
+  end
+
+  function H:moveLearnHit(x, y, selecting)
+    if x < 6 or x >= 234 then return nil end
+    if not selecting then
+      if y >= 94 and y < 128 then return "new", 0 end
+      return nil
+    end
+    if y >= 33 and y < 67 then return "new", 0 end
+    for slot = 1, 4 do
+      local top = 70 + (slot - 1) * 35
+      if y >= top and y < top + 34 then
+        return x >= 210 and "info" or "move", slot
+      end
+    end
   end
 
   function H:summaryMoves(mon, drawPortrait)

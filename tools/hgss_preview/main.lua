@@ -315,6 +315,14 @@ function love.load()
       and not theme:levelUpHit(41, 170)
       and not theme:levelUpHit(198, 203),
     "level-up continue hitbox follows its visible HGSS button")
+  local learnAction, learnSlot = theme:moveLearnHit(20, 70, true)
+  local infoAction, infoSlot = theme:moveLearnHit(220, 105, true)
+  assert(learnAction == "move" and learnSlot == 1
+      and infoAction == "info" and infoSlot == 2
+      and theme:moveLearnHit(20, 33, true) == "new"
+      and theme:moveLearnHit(20, 94, false) == "new"
+      and theme:moveLearnHit(20, 68, true) == nil,
+    "move-learning touch targets follow every visible card")
   assert(theme:moveHasStab({ type = "WATER" },
       { type = "WATER", powerText = "95" })
       and not theme:moveHasStab({ type = "WATER" },
@@ -414,8 +422,12 @@ function love.load()
   local legacyChoiceGrid = screen == "legacy_choice_grid"
   local legacyNaming = screen == "legacy_naming"
   local legacyLevelUp = screen == "legacy_level_up"
+  local legacyMoveNew = screen == "legacy_move_new"
+  local legacyMoveForget = screen == "legacy_move_forget"
+  local legacyMoveInfo = screen == "legacy_move_info"
   local legacy = legacyChoice or legacyChoiceGrid or legacyNaming
-    or legacyLevelUp
+    or legacyLevelUp or legacyMoveNew or legacyMoveForget or legacyMoveInfo
+  local legacyBack = legacyMoveForget or legacyMoveInfo
   local pokedexIndex = screen == "pokedex"
   local pokedexProfile = screen == "pokedex_profile"
   local pokedexHabitat = screen == "pokedex_habitat"
@@ -466,6 +478,9 @@ function love.load()
     or regionMap and (gen1 and "KANTO MAP" or "JOHTO MAP")
     or legacyNaming and "NAME INPUT"
     or legacyLevelUp and "LEVEL UP"
+    or legacyMoveNew and "NEW MOVE"
+    or legacyMoveForget and "FORGET MOVE"
+    or legacyMoveInfo and (gen1 and "THUNDERBOLT" or "ICE PUNCH")
     or legacy and "CHOOSE"
     or pokedexHabitat and "HABITAT 1/4"
     or pokedexStats and "STATS"
@@ -501,7 +516,8 @@ function love.load()
     title = translate(title)
     local titleX, titleWidth = theme:headerBar(title,
       homeAdd or store or explorer and not explorerOverview
-        or pokedex or bag or regionMap or legacy or trainerScreen or trainerSteps
+        or pokedex or bag or regionMap or legacyBack
+        or trainerScreen or trainerSteps
         or tools or swapMode
         or context or summary
         or moves or memo or memoTransition
@@ -1378,7 +1394,35 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if legacyChoice then
+  if legacyMoveNew or legacyMoveForget or legacyMoveInfo then
+    local mon = battleMon()
+    local slot = gen1 and 6 or 1
+    local newMove = gen1 and {
+      name = "THUNDERBOLT", type = "ELECTRIC", typeLabel = "ELECTRIC",
+      ppText = "15/15", powerText = "95", accuracyText = "100",
+      power = 95, available = true, descriptionLines = {
+        "A STRONG ELECTRIC ATTACK.", "MAY PARALYZE THE TARGET." },
+    } or {
+      name = "ICE PUNCH", type = "ICE", typeLabel = "ICE",
+      ppText = "15/15", powerText = "75", accuracyText = "100",
+      power = 75, available = true, descriptionLines = {
+        "AN ICY PUNCH.", "MAY FREEZE THE TARGET." },
+    }
+    if legacyMoveNew then
+      theme:moveLearnPrompt({ mon = mon, newMove = newMove, details = true,
+        drawPokemon = function(_, x, y, size, fainted)
+          drawPortrait(slot, x, y, size, fainted)
+        end,
+      })
+    elseif legacyMoveForget then
+      for _, move in ipairs(mon.moves) do move.available = true end
+      theme:moveLearnList({ newMove = newMove, moves = mon.moves,
+        index = 2, details = true })
+    else
+      theme:battleMoveInfoBody(newMove,
+        theme:moveHasStab(mon, newMove))
+    end
+  elseif legacyChoice then
     theme:choiceScreen({
       prompt = { "WOULD YOU LIKE TO GIVE", "THIS POKEMON A NICKNAME?" },
       entries = {

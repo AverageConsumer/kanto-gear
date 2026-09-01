@@ -5595,6 +5595,41 @@ return function(mod)
     return ("%.1f"):format(value)
   end
 
+  function hgssRuntime.moveView(move, enemyTypes)
+    local source = compat.moveInfoEntry(move)
+      or type(move) == "table" and move or {}
+    local def = game.data.moves[source.id] or {}
+    local moveType = source.type or def.type
+    local power = source.displayPower
+    if power == nil then power = source.power or def.power end
+    if power == 0 then power = nil end
+    local accuracy = source.hitChance
+    if accuracy == nil then accuracy = source.accuracy or def.accuracy end
+    local maxPp = source.maxPp or def.pp or source.pp or 0
+    return {
+      id = source.id,
+      available = source.id ~= nil,
+      name = THEME:moveName(source, game.data),
+      type = moveType,
+      typeLabel = THEME:typeName(moveType, mod.content),
+      ppLabel = THEME:translate("PP"),
+      ppText = THEME:format("%d/%d", source.pp or maxPp, maxPp),
+      powerLabel = THEME:translate("PWR"),
+      power = power or 0,
+      powerText = hgssRuntime.numberLabel(power),
+      accuracyLabel = THEME:translate("ACC"),
+      accuracyText = hgssRuntime.numberLabel(accuracy),
+      stabLabel = "STAB",
+      matchupLabel = THEME:translate("MATCHUP"),
+      effectiveness = source.effectiveness or enemyTypes
+        and assist("type_hints") and compat.typeEffectiveness(
+          moveType, enemyTypes, game.data.type_chart) or nil,
+      disabled = THEME:moveUnavailableReason(source) ~= nil,
+      descriptionLines = compat.moveInfoLines(source, def,
+        battleState() and battleState().ruleset),
+    }
+  end
+
   function hgssRuntime.battleMon()
     local player = battle and battle.player or {}
     local def = game.data.pokemon[player.species] or {}
@@ -5611,27 +5646,7 @@ return function(mod)
     }
     for slot = 1, 4 do
       local move = (battle.moves or {})[slot] or {}
-      local moveDef = game.data.moves[move.id] or {}
-      local power = move.displayPower
-      if power == nil then power = move.power or moveDef.power end
-      if power == 0 then power = nil end
-      view.moves[slot] = {
-        id = move.id,
-        name = THEME:moveName(move, game.data),
-        type = move.type,
-        typeLabel = THEME:typeName(move.type, mod.content),
-        ppLabel = THEME:translate("PP"),
-        ppText = THEME:format("%d/%d", move.pp or 0, move.maxPp or 0),
-        powerLabel = THEME:translate("PWR"),
-        power = power,
-        powerText = hgssRuntime.numberLabel(power),
-        accuracyLabel = THEME:translate("ACC"),
-        accuracyText = hgssRuntime.numberLabel(move.hitChance or move.accuracy),
-        effectiveness = move.effectiveness,
-        disabled = THEME:moveUnavailableReason(move) ~= nil,
-        descriptionLines = compat.moveInfoLines(move,
-          game.data.moves[move.id] or {}, battleState() and battleState().ruleset),
-      }
+      view.moves[slot] = hgssRuntime.moveView(move)
     end
     return view
   end
@@ -6707,6 +6722,24 @@ return function(mod)
       G.pop()
       return
     end
+    if THEME.style == "hgss" then
+      local learn = displayRuntime.moveLearnScreen()
+      local owner = learn and learn.mon
+        or raw and screenContract(raw, "forget")
+      local ownerDef = owner and game.data.pokemon[owner.species] or {}
+      local ownerTypes = owner and (owner.types or ownerDef.types) or {}
+      local enemy = battle and battle.enemy
+      local enemyDef = enemy and game.data.pokemon[enemy.species] or {}
+      local enemyTypes = enemy and (enemy.types or enemyDef.types)
+      local info = hgssRuntime.moveView(move, enemyTypes)
+      header(info.name, true)
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:battleMoveInfoBody(info,
+        THEME.hgss:moveHasStab({ types = ownerTypes }, info))
+      G.pop()
+      return
+    end
     header(fit(THEME:moveName(move, game and game.data), 12), true)
     box("fill", 12, 25, 136, 112, MID)
     outline(12, 25, 136, 112, INK)
@@ -7390,6 +7423,27 @@ return function(mod)
 
   displayRuntime.drawForgetMoves = function()
     header("FORGET MOVE", true)
+    if THEME.style == "hgss" then
+      local raw = battleState()
+      local mon = raw and screenContract(raw, "forget")
+      local pending = raw and raw.pendingLearn
+      local newMove = hgssRuntime.moveView(pending and pending.move)
+      if battle.learningMove then newMove.name = battle.learningMove end
+      local moves = {}
+      for slot = 1, 4 do
+        local source = mon and mon.moves and mon.moves[slot]
+        moves[slot] = hgssRuntime.moveView(source)
+        if not source and battle.forgetMoves and battle.forgetMoves[slot] then
+          moves[slot].name = battle.forgetMoves[slot]
+        end
+      end
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:moveLearnList({ newMove = newMove, moves = moves,
+        index = battle.forgetIndex or 1, details = assist("move_details") })
+      G.pop()
+      return
+    end
     text(fit(THEME:format("NEW %s", battle.learningMove or "MOVE"), 18),
          8, 25, DARK)
     if assist("move_details") then displayRuntime.moveInfoBadge(139, 24, false) end
@@ -7578,6 +7632,45 @@ return function(mod)
     local newName = newDef.name or learn.newMoveId or "MOVE"
     if battle and top and top.isTextBox and hideUpperBattleUI() then
       drawBattleLocked("NEW MOVE")
+      return
+    end
+    if THEME.style == "hgss" then
+      local newMove = hgssRuntime.moveView(learn.newMoveId)
+      if learn.selecting and top == (learn.native or learn) then
+        local moves = {}
+        for slot = 1, 4 do
+          moves[slot] = hgssRuntime.moveView(learn.mon.moves[slot])
+        end
+        header("FORGET MOVE", true)
+        G.push()
+        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:moveLearnList({ newMove = newMove, moves = moves,
+          index = learn.index, details = assist("move_details") })
+        G.pop()
+        return
+      end
+
+      local monDef = game.data.pokemon[learn.mon.species] or {}
+      local types = learn.mon.types or monDef.types or {}
+      local mon = {
+        source = learn.mon, species = learn.mon.species,
+        name = learn.mon.nickname or monDef.name or learn.mon.species,
+        levelText = THEME:format("L%d", learn.mon.level or 0),
+        type = types[1], type2 = types[2] or types[1],
+        typeLabel = THEME:typeName(types[1], mod.content),
+        type2Label = THEME:typeName(types[2] or types[1], mod.content),
+      }
+      header("NEW MOVE")
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:moveLearnPrompt({ mon = mon, newMove = newMove,
+        details = assist("move_details"),
+        drawPokemon = function(_, x, y, size)
+          drawSprite(learn.mon.species, "front", x, y, size, size,
+            nil, learn.mon.source or learn.mon)
+        end,
+      })
+      G.pop()
       return
     end
     if learn.selecting and top == (learn.native or learn) then
@@ -8268,6 +8361,38 @@ return function(mod)
   end
 
   local function tapLearn(learn, top, x, y)
+    if THEME.style == "hgss" then
+      local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+      if learn.selecting and hy < 30 and hx < 27 then
+        press("b")
+        return
+      end
+      local action, slot = THEME.hgss:moveLearnHit(
+        hx, hy, learn.selecting)
+      local details = assist("move_details")
+      if action == "new" and details then
+        moveInfo = compat.moveInfoEntry(learn.newMoveId)
+        dirty = moveInfo ~= nil or dirty
+        return
+      elseif learn.selecting and action then
+        if action == "info" and not details then action = "move" end
+        local source = learn.mon.moves[slot]
+        if not source then return end
+        learn.index = slot
+        if learn.native then learn.native.row = slot end
+        if action == "info" then
+          moveInfo = compat.moveInfoEntry(source)
+          dirty = moveInfo ~= nil or dirty
+        else
+          press("a")
+        end
+        return
+      elseif top and top.isTextBox then
+        if top.waiting or (top.done and not top.choice) then press("a") end
+        return
+      end
+      return
+    end
     if assist("move_details") then
       if learn.selecting and inside(x, y, 137, 22, 17, 15) then
         moveInfo = compat.moveInfoEntry(learn.newMoveId)
@@ -8481,6 +8606,29 @@ return function(mod)
     end
     if battle.prompt == "forget" then
       local mon = raw and screenContract(raw, "forget")
+      if THEME.style == "hgss" then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        if hy < 30 and hx < 27 then
+          press("b")
+          return
+        end
+        local action, slot = THEME.hgss:moveLearnHit(hx, hy, true)
+        local details = assist("move_details")
+        if action == "new" and details then
+          moveInfo = compat.moveInfoEntry(
+            raw.pendingLearn and raw.pendingLearn.move)
+        elseif action and mon and mon.moves[slot] then
+          if action == "info" and not details then action = "move" end
+          raw.forgetIndex, battle.forgetIndex = slot, slot
+          if action == "info" then
+            moveInfo = compat.moveInfoEntry(mon.moves[slot])
+          else
+            press("a")
+          end
+        end
+        dirty = moveInfo ~= nil or dirty
+        return
+      end
       if y < HEADER and x < 24 then
         press("b")
       elseif raw and assist("move_details")
