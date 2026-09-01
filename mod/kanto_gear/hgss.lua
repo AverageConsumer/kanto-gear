@@ -3003,6 +3003,96 @@ return function(ui)
     self:endPress(pressed)
   end
 
+  local function legacyRect(entry)
+    return math.floor(entry.x * 1.5 + 0.5),
+      math.floor(entry.y * 1.5 + 0.5),
+      math.floor(entry.w * 1.5 + 0.5),
+      math.floor(entry.h * 1.5 + 0.5)
+  end
+
+  function H:choiceScreen(model)
+    local colors = self.colors
+    if #(model.prompt or {}) > 0 then
+      self:panel(20, 35, 200, 42, false, nil, colors.greenLight)
+      local firstY = 43 + math.floor((24 - #model.prompt * 10) / 2)
+      for index, line in ipairs(model.prompt) do
+        self:partyInfo(self:fitPartyInfo(line, 184), 28,
+          firstY + (index - 1) * 10, colors.ink, 184, "center")
+      end
+    end
+    for _, entry in ipairs(model.entries or {}) do
+      local x, y, w, h = legacyRect(entry)
+      local pressed = self:beginPress(x, y, w, h)
+      self:homeTile(x, y, w, h,
+        entry.selected and colors.green or colors.blue, entry.selected)
+      self:partyInfo(self:fitPartyInfo(translate(entry.label), w - 16),
+        x + 8, y + math.floor((h - 9) / 2), colors.ink,
+        w - 16, "center")
+      self:endPress(pressed)
+    end
+    if model.nudge then
+      self:partyType(translate("PAUSE THEN CHOOSE"), 20, 201,
+        colors.amber, 200)
+    end
+  end
+
+  function H:naming(model)
+    local colors = self.colors
+    self:panel(28, 33, 184, 18, false, nil, colors.greenLight)
+    local shown = fitFont(model.name or "-", 168, partyNameFont)
+    self:partyName(shown,
+      36 + math.floor((168 - partyNameFont:getWidth(shown)) / 2 + 0.5),
+      38, colors.ink, 168)
+    for _, entry in ipairs(model.entries or {}) do
+      local x, y, w, h = legacyRect(entry)
+      local pressed = self:beginPress(x, y, w, h)
+      self:panel(x, y, w, h, entry.selected, colors.greenLight,
+        entry.action and colors.amberLight or colors.blueLight)
+      local label = translate(entry.label)
+      self:partyInfo(self:fitPartyInfo(label, w - 8), x + 4,
+        y + math.floor((h - 9) / 2), colors.ink, w - 8, "center")
+      self:endPress(pressed)
+    end
+  end
+
+  function H:levelUp(model)
+    local colors = self.colors
+    self:panel(7, 33, 226, 44, false, nil,
+      self:typeColor(model.type))
+    self:partyPortrait(14, 37, false, false)
+    if model.drawPokemon then model.drawPokemon(14, 39, 34) end
+    self:partyName(model.name or "POKEMON", 57, 42, colors.ink, 124)
+    self:partyType(translate("NEW LEVEL"), 57, 58, colors.green, 72)
+    self:partyInfo(model.level or "L--", 133, 55,
+      colors.ink, 48, "right")
+
+    local rows = model.rows or {}
+    for index, row in ipairs(rows) do
+      local line = math.floor((index - 1) / 3)
+      local columns = math.min(3, #rows - line * 3)
+      local width, gap = 68, 5
+      local group = columns * width + (columns - 1) * gap
+      local column = (index - 1) % 3
+      local x = math.floor((240 - group) / 2) + column * (width + gap)
+      local y = 83 + line * 40
+      self:panel(x, y, width, 34, false, nil, colors.blueLight)
+      self:partyType(self:fitPartyType(translate(row.label), width - 8),
+        x + 4, y + 5, colors.green, width - 8)
+      self:partyInfo(tostring(row.value or 0), x + 4, y + 19,
+        colors.ink, width - 8, "center")
+    end
+
+    local pressed = self:beginPress(42, 170, 156, 34)
+    self:homeTile(42, 170, 156, 34, colors.green, false)
+    self:partyInfo(translate("CONTINUE"), 50, 181,
+      colors.ink, 140, "center")
+    self:endPress(pressed)
+  end
+
+  function H:levelUpHit(x, y)
+    return x >= 42 and x < 198 and y >= 170 and y < 204
+  end
+
   function H:partyActionRow(index, count)
     return 18, count == 1 and 139 or 112 + (index - 1) * 49, 204, 40
   end

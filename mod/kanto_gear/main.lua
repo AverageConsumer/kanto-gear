@@ -3475,6 +3475,7 @@ return function(mod)
   end
 
   local function header(title, back, paged, hgssContentOffsetY)
+    title = THEME:translate(title)
     local modern = THEME.style ~= "classic"
     local hgss = THEME.style == "hgss"
     local background = hgss and THEME.hgss.colors.surface
@@ -3894,6 +3895,29 @@ return function(mod)
     local gen2 = top.screenId == "Gen2NamingScreen"
     local name = gen2 and top.text or table.concat(top.glyphs or {})
     name = name == "" and "-" or name
+    if THEME.style == "hgss" then
+      local entries = {}
+      for row, cells in ipairs(grid) do
+        local y = 36 + (row - 1) * 17
+        for col, label in ipairs(cells) do
+          local left = 3 + math.floor((col - 1) * 154 / #cells)
+          local right = 3 + math.floor(col * 154 / #cells)
+          local shown = label == "lower case" and "LOWER"
+            or label == "UPPER CASE" and "UPPER" or label
+          local selected = gen2 and top.row == row - 1
+              and (row < #grid and top.col == col - 1
+                or row == #grid and math.floor(top.col / 3) + 1 == col)
+            or not gen2 and top.row == row and top.col == col
+          entries[#entries + 1] = { x = left, y = y, w = right - left,
+            h = 15, label = shown, selected = selected,
+            action = row == #grid }
+        end
+      end
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:naming({ name = name, entries = entries })
+      G.pop()
+      return
+    end
     local nameWidth = math.max(24, EngineFont.width(name) + 8)
     namingKey(math.floor((WIDTH - nameWidth) / 2), 20, nameWidth,
       name, false, true)
@@ -3922,6 +3946,43 @@ return function(mod)
     local selected = compat.choiceIndex(top, field)
     local rows, cols, left, topY, cellW, cellH, gap =
       compat.choiceGrid(top, field, #labels)
+    if THEME.style == "hgss" then
+      local entries = {}
+      if rows then
+        for row = 1, rows do
+          for col = 1, cols do
+            local index = (row - 1) * cols + col
+            if labels[index] then
+              entries[#entries + 1] = {
+                x = left + (col - 1) * (cellW + gap),
+                y = topY + (row - 1) * (cellH + gap),
+                w = cellW, h = cellH, label = labels[index],
+                selected = selected == index,
+              }
+            end
+          end
+        end
+      elseif #labels == 2 then
+        for index, y in ipairs({ 54, 90 }) do
+          entries[#entries + 1] = { x = 24, y = y, w = 112, h = 32,
+            label = labels[index], selected = selected == index }
+        end
+      else
+        local start, count = choiceWindow(labels, selected)
+        for row = 1, count do
+          local index = start + row - 1
+          entries[#entries + 1] = { x = 8,
+            y = 24 + (row - 1) * 27, w = 144, h = 24,
+            label = labels[index], selected = selected == index }
+        end
+      end
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:choiceScreen({ entries = entries,
+        prompt = THEME:messageLines(prompt, 24, 3),
+        nudge = choiceNudgeUntil > love.timer.getTime() })
+      G.pop()
+      return
+    end
     if rows then
       for row = 1, rows do
         for col = 1, cols do
@@ -3974,6 +4035,24 @@ return function(mod)
       { "ATTACK", stats.attack }, { "DEFENSE", stats.defense },
       { "SPEED", stats.speed }, { "SPECIAL", stats.special },
     }
+    if THEME.style == "hgss" then
+      local modelRows = {}
+      for _, row in ipairs(rows) do
+        modelRows[#modelRows + 1] = { label = row[1], value = row[2] }
+      end
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:levelUp({
+        name = mon.nickname or def.name or mon.species or "POKEMON",
+        level = THEME:format("L%d", mon.level or 0),
+        type = def.types and def.types[1], rows = modelRows,
+        drawPokemon = function(x, y, size)
+          drawSprite(mon.species, "front", x, y, size, size,
+            nil, mon.source or mon)
+        end,
+      })
+      G.pop()
+      return
+    end
     local firstY, step = splitSpecial and 39 or 44, splitSpecial and 13 or 15
     for i, row in ipairs(rows) do
       local y = firstY + (i - 1) * step
@@ -8919,9 +8998,14 @@ return function(mod)
     local battleTop = game and game.stack and game.stack:top()
     local levelMon = battle and compat.levelUpMon(battleTop)
     if levelMon then
-      local buttonY = levelMon.stats and (levelMon.stats.specialAttack ~= nil
-        or levelMon.stats.specialDefense ~= nil) and 111 or 108
-      if inside(x, y, 24, buttonY, 112, 27) then press("a") end
+      if THEME.style == "hgss" then
+        if THEME.hgss:levelUpHit(x * THEME.hgssScale,
+            y * THEME.hgssScale) then press("a") end
+      else
+        local buttonY = levelMon.stats and (levelMon.stats.specialAttack ~= nil
+          or levelMon.stats.specialDefense ~= nil) and 111 or 108
+        if inside(x, y, 24, buttonY, 112, 27) then press("a") end
+      end
       return
     end
     if choice then

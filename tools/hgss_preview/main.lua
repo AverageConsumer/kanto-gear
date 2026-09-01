@@ -311,6 +311,10 @@ function love.load()
       == "2X" and theme:battleEffectLabel({ powerText = "--",
         effectiveness = 20 }) == "--",
     "battle effectiveness labels distinguish damage and status moves")
+  assert(theme:levelUpHit(42, 170) and theme:levelUpHit(197, 203)
+      and not theme:levelUpHit(41, 170)
+      and not theme:levelUpHit(198, 203),
+    "level-up continue hitbox follows its visible HGSS button")
   assert(theme:moveHasStab({ type = "WATER" },
       { type = "WATER", powerText = "95" })
       and not theme:moveHasStab({ type = "WATER" },
@@ -406,6 +410,12 @@ function love.load()
   local explorerRadar = screen == "explorer_radar"
   local regionMapFly = screen == "region_map_fly"
   local regionMap = screen == "region_map" or regionMapFly
+  local legacyChoice = screen == "legacy_choice"
+  local legacyChoiceGrid = screen == "legacy_choice_grid"
+  local legacyNaming = screen == "legacy_naming"
+  local legacyLevelUp = screen == "legacy_level_up"
+  local legacy = legacyChoice or legacyChoiceGrid or legacyNaming
+    or legacyLevelUp
   local pokedexIndex = screen == "pokedex"
   local pokedexProfile = screen == "pokedex_profile"
   local pokedexHabitat = screen == "pokedex_habitat"
@@ -454,6 +464,9 @@ function love.load()
     or explorerRadar and translate("ITEM RADAR")
     or explorer and translate("EXPLORER")
     or regionMap and (gen1 and "KANTO MAP" or "JOHTO MAP")
+    or legacyNaming and "NAME INPUT"
+    or legacyLevelUp and "LEVEL UP"
+    or legacy and "CHOOSE"
     or pokedexHabitat and "HABITAT 1/4"
     or pokedexStats and "STATS"
     or pokedexMoves and "MOVES 1/7"
@@ -485,9 +498,10 @@ function love.load()
       and not battleMoveInfo and not battleMoveInfoTransition
       and not battleBag and not battleBagTransition then
     local headerOffset = summary and -1 or 0
+    title = translate(title)
     local titleX, titleWidth = theme:headerBar(title,
       homeAdd or store or explorer and not explorerOverview
-        or pokedex or bag or regionMap or trainerScreen or trainerSteps
+        or pokedex or bag or regionMap or legacy or trainerScreen or trainerSteps
         or tools or swapMode
         or context or summary
         or moves or memo or memoTransition
@@ -495,6 +509,7 @@ function love.load()
       store and not storeDetail
         or pokedexProfile or pokedexHabitat or pokedexStats or pokedexMoves
         or not home and not store and not explorer and not regionMap
+        and not legacy
         and not pokedex and not bag
         and not trainerScreen
         and not trainerSteps and not tools and not swapMode and (summary or moves or memo or memoTransition
@@ -1363,7 +1378,61 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if regionMap then
+  if legacyChoice then
+    theme:choiceScreen({
+      prompt = { "WOULD YOU LIKE TO GIVE", "THIS POKEMON A NICKNAME?" },
+      entries = {
+        { x = 24, y = 54, w = 112, h = 32, label = "YES", selected = true },
+        { x = 24, y = 90, w = 112, h = 32, label = "NO" },
+      },
+    })
+  elseif legacyChoiceGrid then
+    local labels = { "HEAL", "MOVE", "ITEM", "CANCEL" }
+    local entries = {}
+    for index, label in ipairs(labels) do
+      entries[index] = { x = 8 + ((index - 1) % 2) * 74,
+        y = 38 + math.floor((index - 1) / 2) * 39,
+        w = 70, h = 34, label = label, selected = index == 2 }
+    end
+    theme:choiceScreen({ entries = entries })
+  elseif legacyNaming then
+    local rows = {
+      { "A", "B", "C", "D", "E", "F", "G", "H", "I" },
+      { "J", "K", "L", "M", "N", "O", "P", "Q", "R" },
+      { "S", "T", "U", "V", "W", "X", "Y", "Z", "-" },
+      { "LOWER", "DEL", "END" },
+    }
+    local entries = {}
+    for row, cells in ipairs(rows) do
+      for col, label in ipairs(cells) do
+        local left = 3 + math.floor((col - 1) * 154 / #cells)
+        local right = 3 + math.floor(col * 154 / #cells)
+        entries[#entries + 1] = { x = left, y = 36 + (row - 1) * 17,
+          w = right - left, h = 15, label = label,
+          selected = row == 1 and col == 4, action = row == #rows }
+      end
+    end
+    theme:naming({ name = "GOLD", entries = entries })
+  elseif legacyLevelUp then
+    theme:levelUp({ name = gen1 and "TAUROS" or "FERALIGATR",
+      level = "L36", type = gen1 and "NORMAL" or "WATER",
+      rows = gen1 and {
+        { label = "ATTACK", value = 84 },
+        { label = "DEFENSE", value = 78 },
+        { label = "SPEED", value = 91 },
+        { label = "SPECIAL", value = 58 },
+      } or {
+        { label = "ATTACK", value = 92 },
+        { label = "DEFENSE", value = 83 },
+        { label = "SPCL.ATK", value = 70 },
+        { label = "SPCL.DEF", value = 75 },
+        { label = "SPEED", value = 66 },
+      },
+      drawPokemon = function(x, y, size)
+        drawPortrait(gen1 and 6 or 1, x, y, size, false)
+      end,
+    })
+  elseif regionMap then
     theme:regionMap({ area = gen1 and "ROUTE 15" or "ROUTE 37",
       drawMap = function(x, y, w, h)
         local coast = theme.dark and { 0.08, 0.20, 0.27, 1 }
