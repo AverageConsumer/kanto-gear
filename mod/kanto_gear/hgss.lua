@@ -2173,6 +2173,16 @@ return function(ui)
     end
   end
 
+  function H:storePager(page, pages)
+    page, pages = tonumber(page) or 1, tonumber(pages) or 1
+    if pages < 2 then return false end
+    self:pageChevron(161, 42, false)
+    self:partyType(page .. "/" .. pages, 170, 36,
+      self.colors.green, 43)
+    self:pageChevron(222, 42, true)
+    return true
+  end
+
   function H:storeToday(model)
     local G, colors, icons = ui.graphics, self.colors, homeIcons(self)
     local featured = model.featured or {}
@@ -2222,11 +2232,12 @@ return function(ui)
     local colors, icons = self.colors, homeIcons(self)
     clipped(7, 32, 226, 17, colors.surface)
     border(7, 32, 226, 17, colors.outline)
-    self:partyType(translate("DISCOVER APPS"), 10, 36, colors.ink, 112)
-    self:partyType(translate("SILPH VERIFIED"), 122, 36,
-      colors.green, 108)
+    self:partyType(translate("DISCOVER APPS"), 10, 36, colors.ink, 132)
+    if not self:storePager(model.page, model.pages) then
+      self:partyType(translate("SILPH VERIFIED"), 122, 36,
+        colors.green, 108)
+    end
     for index, app in ipairs(model.apps or {}) do
-      if index > 6 then break end
       local column, row = (index - 1) % 2, math.floor((index - 1) / 2)
       self:storeAppCard(7 + column * 115, 53 + row * 44, 111,
         app, icons)
@@ -2238,10 +2249,11 @@ return function(ui)
     local colors, icons = self.colors, homeIcons(self)
     clipped(7, 32, 226, 21, colors.surface)
     border(7, 32, 226, 21, colors.outline)
-    self:partyType(translate(model.summary or "APPS READY"),
-      10, 37, colors.ink, 220)
+    local summaryWidth = (model.pages or 1) > 1 and 134 or 220
+    self:partyType(self:fitPartyType(translate(model.summary or "APPS READY"),
+      summaryWidth), 10, 37, colors.ink, summaryWidth)
+    self:storePager(model.page, model.pages)
     for index, app in ipairs(model.apps or {}) do
-      if index > 4 then break end
       self:storeInstalledRow(7, 57 + (index - 1) * 33, 226,
         app, icons)
     end
@@ -2291,6 +2303,10 @@ return function(ui)
     end
     if y < 29 and x >= 27 and x < 50 then return "prev" end
     if y < 29 and x >= 116 and x < 139 then return "next" end
+    if (page == "apps" or page == "library") and y >= 32 and y < 53 then
+      if x >= 149 and x < 183 then return "page_prev" end
+      if x >= 207 and x < 233 then return "page_next" end
+    end
     for index = 1, 3 do
       if inside(7 + (index - 1) * 76, 195, 73, 18) then
         return "tab", index

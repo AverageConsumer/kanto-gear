@@ -294,6 +294,8 @@ function love.load()
     local recommendation, index = theme:storeHit(150, 160, "today")
     local app, appIndex = theme:storeHit(150, 110, "apps")
     local installed, installedIndex = theme:storeHit(20, 135, "library")
+    local storePagePrevious = theme:storeHit(160, 42, "apps")
+    local storePageNext = theme:storeHit(220, 42, "library")
     local tab, tabIndex = theme:storeHit(170, 202, "today")
     local previous = theme:storeHit(34, 13, "today")
     local nextPage = theme:storeHit(130, 13, "today")
@@ -302,6 +304,8 @@ function love.load()
         and recommendation == "recommendation" and index == 2
         and app == "app" and appIndex == 4
         and installed == "installed" and installedIndex == 3
+        and storePagePrevious == "page_prev"
+        and storePageNext == "page_next"
         and tab == "tab" and tabIndex == 3
         and previous == "prev" and nextPage == "next"
         and theme:storeHit(34, 13, "detail") == nil,
@@ -1696,13 +1700,28 @@ function love.load()
       },
     })
   elseif storeApps then
-    theme:storeApps({ apps = storeCatalog })
+    local page, size = tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1, 6
+    local pages, apps = math.ceil(#storeCatalog / size), {}
+    page = math.max(1, math.min(pages, page))
+    for index = (page - 1) * size + 1,
+        math.min(#storeCatalog, page * size) do
+      apps[#apps + 1] = storeCatalog[index]
+    end
+    theme:storeApps({ apps = apps, page = page, pages = pages })
   elseif storeLibrary then
+    local installed = {
+      storeCatalog[1], storeCatalog[2], storeCatalog[3], storeCatalog[5],
+      storeCatalog[6], storeCatalog[7], storeCatalog[8],
+    }
+    local page, size = tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1, 4
+    local pages, apps = math.ceil(#installed / size), {}
+    page = math.max(1, math.min(pages, page))
+    for index = (page - 1) * size + 1, math.min(#installed, page * size) do
+      apps[#apps + 1] = installed[index]
+    end
     theme:storeMyApps({
-      summary = "4 APPS READY",
-      apps = {
-        storeCatalog[1], storeCatalog[2], storeCatalog[3], storeCatalog[5],
-      },
+      summary = #installed .. " APPS READY", apps = apps,
+      page = page, pages = pages,
     })
   elseif storeDetail then
     local detailId = os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "notes"

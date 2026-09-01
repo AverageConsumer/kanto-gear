@@ -2156,7 +2156,7 @@ return function(mod)
     displayRuntime.storeById[app.id] = app
   end
   displayRuntime.home = {
-    page = 1, storeView = "today", libraryKind = "app",
+    page = 1, storeView = "today", storePages = {}, libraryKind = "app",
   }
   displayRuntime.defaultHomeTiles = {
     { id = "explorer_widget", page = 1, column = 1, row = 1 },
@@ -5355,6 +5355,40 @@ return function(mod)
     return apps
   end
 
+  displayRuntime.storePageSizes = { apps = 6, library = 4 }
+  function displayRuntime.storePageSlice(entries, page, size)
+    local pages = math.max(1, math.ceil(#entries / size))
+    page = math.max(1, math.min(pages, tonumber(page) or 1))
+    local first, shown = (page - 1) * size + 1, {}
+    for index = first, math.min(#entries, first + size - 1) do
+      shown[#shown + 1] = entries[index]
+    end
+    return shown, page, pages, first - 1
+  end
+  do
+    local shown, page, pages, offset = displayRuntime.storePageSlice(
+      { "A", "B", "C", "D", "E", "F", "G" }, 2, 4)
+    assert(#shown == 3 and shown[1] == "E" and shown[3] == "G"
+        and page == 2 and pages == 2 and offset == 4,
+      "Silph Store pagination exposes every catalog entry")
+  end
+
+  function displayRuntime.storePage(view, entries)
+    local home = displayRuntime.home
+    home.storePages = home.storePages or {}
+    local shown, page, pages, offset = displayRuntime.storePageSlice(entries,
+      home.storePages[view], displayRuntime.storePageSizes[view])
+    home.storePages[view] = page
+    return shown, page, pages, offset
+  end
+
+  function displayRuntime.cycleStorePage(view, direction)
+    local entries = displayRuntime.storeEntries(view == "library")
+    local _, page, pages = displayRuntime.storePage(view, entries)
+    displayRuntime.home.storePages[view] =
+      (page - 1 + direction) % pages + 1
+  end
+
   function displayRuntime.storeTodayEntries()
     local featured
     for _, app in ipairs(displayRuntime.storeCatalog) do
@@ -5469,11 +5503,15 @@ return function(mod)
     if detail then
       THEME.hgss:storeDetail({ app = detail })
     elseif view == "apps" then
-      THEME.hgss:storeApps({ apps = displayRuntime.storeEntries() })
+      local apps, page, pages = displayRuntime.storePage(
+        view, displayRuntime.storeEntries())
+      THEME.hgss:storeApps({ apps = apps, page = page, pages = pages })
     elseif view == "library" then
-      local apps = displayRuntime.storeEntries(true)
+      local all = displayRuntime.storeEntries(true)
+      local apps, page, pages = displayRuntime.storePage(view, all)
       THEME.hgss:storeMyApps({
-        summary = THEME:format("%d APPS READY", #apps), apps = apps,
+        summary = THEME:format("%d APPS READY", #all), apps = apps,
+        page = page, pages = pages,
       })
     else
       local today = displayRuntime.storeTodayEntries()
@@ -8461,6 +8499,12 @@ return function(mod)
       dirty = true
       return
     end
+    if action == "page_prev" or action == "page_next" then
+      displayRuntime.cycleStorePage(view,
+        action == "page_next" and 1 or -1)
+      dirty = true
+      return
+    end
     if view == "detail" then
       if action == "remove" and detail.removable then
         displayRuntime.setPackageInstalled(detail.id, false)
@@ -8480,12 +8524,16 @@ return function(mod)
         home.storeDetail = entries[index + 1].id
       end
     elseif view == "apps" then
-      local entry = displayRuntime.storeEntries()[index]
+      local entries = displayRuntime.storeEntries()
+      local _, _, _, offset = displayRuntime.storePage(view, entries)
+      local entry = index and entries[offset + index]
       if action == "app_action" then
         displayRuntime.activateStoreEntry(entry)
       elseif action == "app" and entry then home.storeDetail = entry.id end
     elseif view == "library" then
-      local entry = displayRuntime.storeEntries(true)[index]
+      local entries = displayRuntime.storeEntries(true)
+      local _, _, _, offset = displayRuntime.storePage(view, entries)
+      local entry = index and entries[offset + index]
       if action == "installed_action" then
         displayRuntime.activateStoreEntry(entry)
       elseif action == "installed" and entry then home.storeDetail = entry.id end
