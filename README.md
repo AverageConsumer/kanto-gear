@@ -126,9 +126,11 @@ Legacy theme persists normally across restarts.
   <img src="screenshots/kanto-gear-combined-overlay.png" width="49%" alt="Kanto Gear local map displayed as a resizable overlay over Pokémon Gold">
 </p>
 
-The game viewport and Android touch controls adapt when a combined layout makes
-the main view smaller. Display changes and disconnects are handled live so the
-game remains reachable when a second display disappears.
+The game viewport adapts when a combined layout makes the main view smaller.
+Android touch controls retain their saved window positions; use the host's
+**Touch Controls** editor if they overlap the companion panel. Display changes
+and disconnects are handled live so the game remains reachable when a second
+display disappears.
 
 ## Install
 

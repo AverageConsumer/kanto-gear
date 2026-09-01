@@ -20,7 +20,7 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count == 454, "Übersetzungskatalog ist unvollständig")
+assert(count == 458, "Übersetzungskatalog ist unvollständig")
 
 for _, source in ipairs({
   "NEW GAME", "OPTION", "EXIT GAME", "INPUT STAYS ON TOP",
@@ -34,8 +34,9 @@ for _, source in ipairs({
   "BAG", "POKE BALLS", "KEY ITEMS", "USE AGAIN",
   "TOOLS %d/%d", "ITM%d", "HID%d", "%s  L%d", "L%d", "L%d-%d",
   "LV.%d", "EXP", "EXP %d", "NO.%03d %s", "NO.%03d LV.%d", "OT %s",
-  "ID %05d", "MIMIC", "DVS >", "NEW %s", "PC BOX %d %d/20",
+  "ID %05d", "MIMIC", "DVS >", "NEW %s", "PC BOX %d %d/20", "BOX %d",
   "PARTY %d/6  %d/%d", "BOX %d  %d/20  %d/%d",
+  "NO ITEMS", "NO HIDDEN", "NO TRAINERS",
 }) do
   assert(catalog[source], "Fehlender UI-Text: " .. source)
 end
@@ -48,6 +49,7 @@ end
 -- Keep deliberate translations within the actual renderer budgets so they do
 -- not fall back to automatic dot truncation.
 local layoutLimits = {
+  ["NO ITEMS"] = 24, ["NO HIDDEN"] = 24, ["NO TRAINERS"] = 24,
   ["USE ITEM ON"] = 14,
   ["LOADING AREA"] = 16,
   ["MAP + FLY"] = 10,

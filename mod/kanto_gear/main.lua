@@ -5560,7 +5560,10 @@ return function(mod)
     local complete = screen.total > 0 and screen.done == screen.total
     box("fill", 4, 34, 152, 12, complete and DARK or MID)
     local name = THEME:translate(screen.name)
-    local status = screen.total == 0 and THEME:format("NO %s", name)
+    local emptySource = "NO " .. screen.name
+    local empty = THEME:translate(emptySource)
+    if empty == emptySource then empty = THEME:format("NO %s", name) end
+    local status = screen.total == 0 and empty
       or complete and THEME:format("+ %s CLEARED +", name)
       or THEME:format("%s %d/%d", name, screen.done, screen.total)
     centered(status, 37, complete and PAPER or INK)
@@ -7992,6 +7995,12 @@ return function(mod)
     local items = list.items or {}
     local selected = gen2 and list.pickIndex or list.index
     local total = gen2 and 14 or #items
+    local function boxName(item, index)
+      local name = item and item.label or (game.save.boxNames or {})[index]
+      local number = tostring(name or ""):match("^BOX%s*(%d+)$")
+      if number then return THEME:format("BOX %d", tonumber(number)) end
+      return name or THEME:format("BOX %d", index)
+    end
     header(THEME.style == "hgss" and "BOX CHANGE" or "CHANGE BOX", true)
     local first, count = pageWindow(selected, total)
     if THEME.style == "hgss" then
@@ -8000,8 +8009,7 @@ return function(mod)
         local index, item = first + row - 1, items[first + row - 1]
         entries[row] = {
           kind = "box",
-          label = THEME:translate(item and item.label
-            or ((game.save.boxNames or {})[index] or ("BOX" .. index))),
+          label = THEME:translate(boxName(item, index)),
           right = item and item.right or (#(boxes[index] or {}) .. "/20"),
           selected = selected == index,
         }
@@ -8018,8 +8026,7 @@ return function(mod)
     end
     for row = 1, count do
       local index, item = first + row - 1, items[first + row - 1]
-      local label = item and item.label
-        or ((game.save.boxNames or {})[index] or ("BOX" .. index))
+      local label = boxName(item, index)
       button(8, 25 + (row - 1) * 25, 144, 22,
              THEME:format("%s %s", label,
                           item and item.right or (#(boxes[index] or {}) .. "/20")),

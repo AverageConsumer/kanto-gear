@@ -49,6 +49,18 @@ T.eq(kg("SCREEN SWAP (Y)"), "ÉCHANGE ÉCRANS (Y)",
   "companion mod translates optional screen swapping")
 T.eq(kg("TAP ANYWHERE / A"), "TOUCHER PARTOUT / A",
   "companion mod translates the HGSS battle prompt")
+T.eq(kg("TAP TO CONTINUE"), "TOUCHER POUR AVANCER",
+  "companion mod keeps the legacy continue prompt concise")
+T.eq(kg("NEED ITEMFINDER"), "CHERCH'OBJET REQUIS",
+  "companion mod uses the game-faithful Itemfinder label")
+T.eq(kg("NO %s"), "AUCUN %s",
+  "companion mod keeps empty-section labels grammatical")
+T.eq(kg("NO ITEMS"), "AUCUN OBJET",
+  "empty item sections use a complete grammatical translation")
+T.eq(kg("BOX %d"), "BOÎTE %d",
+  "companion mod translates generated PC box names")
+T.eq(kg("NO DETAILS AVAILABLE"), "AUCUN DÉTAIL DISPO",
+  "companion mod keeps missing-detail text concise")
 
 run.release()
 T.finish("Kanto Gear French integration")

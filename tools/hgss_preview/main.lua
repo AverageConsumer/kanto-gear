@@ -1544,11 +1544,11 @@ function love.load()
         }
       elseif legacyPcChange then
         entries = {
-          { kind = "box", label = "BOX 1", right = "20/20" },
-          { kind = "box", label = "BOX 2", right = "08/20" },
+          { kind = "box", label = format("BOX %d", 1), right = "20/20" },
+          { kind = "box", label = format("BOX %d", 2), right = "08/20" },
           { kind = "box", label = "WATER", right = "12/20",
             selected = true },
-          { kind = "box", label = "BOX 4", right = "00/20" },
+          { kind = "box", label = format("BOX %d", 4), right = "00/20" },
         }
       else
         entries = {
