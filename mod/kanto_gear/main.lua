@@ -7166,6 +7166,13 @@ return function(mod)
 
   local function drawTopSummaryControls(_, generic)
     header(generic and "MENU ON TOP" or "STATS ON TOP", true)
+    if THEME.style == "hgss" then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:pcTopOnly({ kind = generic and "items" or "pokemon" })
+      G.pop()
+      return
+    end
     centered("FOLLOW TOP SCREEN", 58, DARK)
     if generic then
       centered("INPUT STAYS ON TOP", 78, INK)
@@ -7182,6 +7189,27 @@ return function(mod)
       or kind == "items" and "ITEM PC"
       or THEME:format("PC BOX %d %d/20", current, #(boxes[current] or {})))
     local count = #items
+    if THEME.style == "hgss" then
+      local entries = {}
+      for index, item in ipairs(items) do
+        entries[index] = {
+          label = THEME:translate(item.label or tostring(index)),
+          selected = root.index == index,
+        }
+      end
+      local title = root.screenId == "Gen2CenterPcMenu" and "PC"
+        or kind == "items" and "ITEM PC"
+        or THEME:format("PC BOX %d", current)
+      local status = kind == "items"
+        and THEME:translate("READY")
+        or THEME:format("BOX %d  %d/20", current, #(boxes[current] or {}))
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:pcRoot({ kind = kind, title = THEME:translate(title),
+        status = THEME:translate(status), entries = entries })
+      G.pop()
+      return
+    end
     if count == 0 then
       centered("NOTHING HERE", 61, INK)
       return
@@ -7237,6 +7265,42 @@ return function(mod)
       and THEME:format("PARTY %d/6  %d/%d", #mons, page, pages)
       or THEME:format("BOX %d  %d/20  %d/%d",
                       current, #mons, page, pages)
+    if THEME.style == "hgss" then
+      local entries = {}
+      for slot = 1, count do
+        local index = first + slot - 1
+        local item = list.items and list.items[index]
+        if gen2 and index > #mons then
+          entries[slot] = { label = THEME:translate("BACK"), back = true,
+            selected = list.index == index }
+        else
+          local mon = mons[item and item.value or index]
+          local def = mon and game.data.pokemon[mon.species] or {}
+          entries[slot] = {
+            mon = mon,
+            label = mon and (mon.nickname or def.name or mon.species)
+              or THEME:translate("POKEMON"),
+            right = mon and THEME:format("LV.%d", mon.level or 0) or "--",
+            selected = list.index == index,
+          }
+        end
+      end
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:pcList({ summary = THEME:translate(summary),
+        entries = entries,
+        drawPokemon = function(mon, x, y, size)
+          if compat.partyEgg(mon) then
+            compat.drawPokemonIcon(mon, x, y, size)
+          else
+            drawSprite(mon.species, "front", x, y, size, size,
+              nil, mon.source or mon)
+          end
+        end,
+      })
+      G.pop()
+      return
+    end
     centered(summary, 22, DARK)
     if total == 0 then
       centered("NOTHING HERE", 61, INK)
@@ -7262,8 +7326,30 @@ return function(mod)
     local items = list.items or {}
     local selected = gen2 and list.pickIndex or list.index
     local total = gen2 and 14 or #items
-    header("CHANGE BOX", true)
+    header(THEME.style == "hgss" and "BOX CHANGE" or "CHANGE BOX", true)
     local first, count = pageWindow(selected, total)
+    if THEME.style == "hgss" then
+      local entries = {}
+      for row = 1, count do
+        local index, item = first + row - 1, items[first + row - 1]
+        entries[row] = {
+          kind = "box",
+          label = THEME:translate(item and item.label
+            or ((game.save.boxNames or {})[index] or ("BOX" .. index))),
+          right = item and item.right or (#(boxes[index] or {}) .. "/20"),
+          selected = selected == index,
+        }
+      end
+      local summary = THEME:format("PAGE %d/%d",
+        math.floor((selected - 1) / 4) + 1,
+        math.max(1, math.ceil(total / 4)))
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:pcList({ summary = THEME:translate(summary),
+        entries = entries })
+      G.pop()
+      return
+    end
     for row = 1, count do
       local index, item = first + row - 1, items[first + row - 1]
       local label = item and item.label
@@ -7288,6 +7374,29 @@ return function(mod)
     local selected = gen2 and list.listIndex or list.index
     local total = #items + (gen2 and 1 or 0)
     header(titles[kind] or "ITEMS", true)
+    if THEME.style == "hgss" then
+      local first, count = pageWindow(selected, total)
+      local entries = {}
+      for row = 1, count do
+        local index, item = first + row - 1, items[first + row - 1]
+        entries[row] = item and {
+          kind = "item", icon = "item",
+          label = THEME:translate(item.label or item.name or tostring(index)),
+          right = item.right or (gen2 and ("x" .. (item.count or 0)) or ""),
+          selected = selected == index,
+        } or { label = THEME:translate("BACK"), back = true,
+          selected = selected == index }
+      end
+      local summary = THEME:format("PAGE %d/%d",
+        math.floor((selected - 1) / 4) + 1,
+        math.max(1, math.ceil(total / 4)))
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:pcList({ summary = THEME:translate(summary),
+        entries = entries })
+      G.pop()
+      return
+    end
     if total == 0 then
       centered("NOTHING HERE", 56, INK)
       button(34, 94, 92, 30, "BACK", false)
@@ -7309,8 +7418,18 @@ return function(mod)
   end
 
   local function drawPcQuantity(quantity, list)
-    local item = list and list.items and list.items[list.index]
+    local item = list and ((list.items and list.items[list.index])
+      or (list.rows and list.rows[list.listIndex]))
     header("QUANTITY", true)
+    if THEME.style == "hgss" then
+      G.push()
+      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:pcQuantity({ label = THEME:translate(
+        item and (item.label or item.name) or "ITEM"),
+        qty = quantity.qty or 1, icon = "item" })
+      G.pop()
+      return
+    end
     centered(fit(item and item.label or "ITEM", 20), 28, INK)
     button(8, 51, 43, 38, "-", false)
     box("fill", 55, 51, 50, 38, PAPER)
@@ -8820,6 +8939,17 @@ return function(mod)
     local listKind = pcListKind(list)
     if kind == "items" and list and top and type(top.qty) == "number"
         and type(top.max) == "number" and type(top.onDone) == "function" then
+      if THEME.style == "hgss" then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        local action = THEME.hgss:pcQuantityHit(hx, hy)
+        if hy < 30 and hx < 27 then press("b")
+        elseif action == "minus" then press("down")
+        elseif action == "plus" then press("up")
+        elseif action == "confirm" then press("a")
+        elseif action == "cancel" then press("b") end
+        dirty = true
+        return
+      end
       if y < HEADER and x < 24 then
         press("b")
       elseif inside(x, y, 8, 51, 43, 38) then
@@ -8836,6 +8966,39 @@ return function(mod)
     end
 
     if list and top == list then
+      if THEME.style == "hgss" then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        if hy < 30 and hx < 27 then
+          press("b")
+        else
+          local selected, total
+          if listKind == "gen2_box_change" then
+            selected, total = list.pickIndex, 14
+          elseif listKind and listKind:find("^gen2_box_") then
+            local mons = (list.mode == "deposit" or list.boxIndex == 0)
+              and (game.save.party or {})
+              or ((game.save.boxes or {})[
+                list.boxIndex or game.save.currentBox or 1] or {})
+            selected, total = list.index, #mons + 1
+          elseif listKind and listKind:find("^gen2_item_") then
+            selected, total = list.listIndex, #(list.rows or {}) + 1
+          else
+            selected, total = list.index, #(list.items or {})
+          end
+          local first, count = pageWindow(selected, total)
+          local row = THEME.hgss:pcListHit(hx, hy, count)
+          if row then
+            local index = first + row - 1
+            if listKind == "gen2_box_change" then list.pickIndex = index
+            elseif listKind and listKind:find("^gen2_item_") then
+              list.listIndex = index
+            else list.index = index end
+            press("a")
+          end
+        end
+        dirty = true
+        return
+      end
       if y < HEADER and x < 24 then
         press("b")
       elseif listKind == "gen2_box_change" then
@@ -8914,6 +9077,13 @@ return function(mod)
     if root.screenId == "Gen2ItemPcMenu" and root.phase ~= "menu" then return end
     local items = root.items or root.entries or {}
     local count = #items
+    if THEME.style == "hgss" then
+      local row = THEME.hgss:pcRootHit(
+        x * THEME.hgssScale, y * THEME.hgssScale, count)
+      if row then root.index = row; press("a") end
+      dirty = true
+      return
+    end
     if count > 0 then
       local rowHeight = math.floor(116 / count)
       local row = math.floor((y - 23) / rowHeight) + 1

@@ -454,11 +454,19 @@ function love.load()
   local legacyEnemyResist = screen == "legacy_enemy_resist"
   local legacyEnemy = legacyEnemyInfo or legacyEnemyProfile
     or legacyEnemyDvs or legacyEnemyWeak or legacyEnemyResist
+  local legacyPcRoot = screen == "legacy_pc_root"
+  local legacyPcBox = screen == "legacy_pc_box"
+  local legacyPcChange = screen == "legacy_pc_change"
+  local legacyPcItems = screen == "legacy_pc_items"
+  local legacyPcQuantity = screen == "legacy_pc_quantity"
+  local legacyPcTop = screen == "legacy_pc_top"
+  local legacyPc = legacyPcRoot or legacyPcBox or legacyPcChange
+    or legacyPcItems or legacyPcQuantity or legacyPcTop
   local legacy = legacyChoice or legacyChoiceGrid or legacyNaming
     or legacyLevelUp or legacyMoveNew or legacyMoveForget or legacyMoveInfo
-    or legacyEnemy
+    or legacyEnemy or legacyPc
   local legacyBack = legacyMoveForget or legacyMoveInfo
-    or legacyEnemy and not legacyEnemyInfo
+    or legacyEnemy and not legacyEnemyInfo or legacyPc and not legacyPcRoot
   local pokedexIndex = screen == "pokedex"
   local pokedexProfile = screen == "pokedex_profile"
   local pokedexHabitat = screen == "pokedex_habitat"
@@ -517,6 +525,12 @@ function love.load()
     or legacyEnemyWeak and "WEAK"
     or legacyEnemyResist and "RESIST"
     or legacyEnemyInfo and "ENEMY INFO"
+    or legacyPcRoot and "PC BOX 3 12/20"
+    or legacyPcBox and "WITHDRAW"
+    or legacyPcChange and "BOX CHANGE"
+    or legacyPcItems and "WITHDRAW"
+    or legacyPcQuantity and "QUANTITY"
+    or legacyPcTop and "MENU ON TOP"
     or legacy and "CHOOSE"
     or pokedexHabitat and "HABITAT 1/4"
     or pokedexStats and "STATS"
@@ -1432,7 +1446,56 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if legacyEnemy then
+  if legacyPc then
+    if legacyPcRoot then
+      theme:pcRoot({ kind = "pokemon", title = "PC BOX 3",
+        status = "BOX 3  12/20", entries = {
+          { label = translate("WITHDRAW"), selected = true },
+          { label = translate("DEPOSIT") },
+          { label = translate("RELEASE") },
+          { label = translate("CHANGE BOX") },
+        } })
+    elseif legacyPcQuantity then
+      theme:pcQuantity({ label = "RARE CANDY", qty = 3, icon = "item" })
+    elseif legacyPcTop then
+      theme:pcTopOnly({ kind = "items" })
+    else
+      local entries
+      if legacyPcBox then
+        entries = {
+          { mon = party[1], label = party[1].name, right = "LV.35",
+            selected = true },
+          { mon = party[2], label = party[2].name, right = "LV.28" },
+          { mon = party[3], label = party[3].name, right = "LV.28" },
+          { label = translate("BACK"), back = true },
+        }
+      elseif legacyPcChange then
+        entries = {
+          { kind = "box", label = "BOX 1", right = "20/20" },
+          { kind = "box", label = "BOX 2", right = "08/20" },
+          { kind = "box", label = "WATER", right = "12/20",
+            selected = true },
+          { kind = "box", label = "BOX 4", right = "00/20" },
+        }
+      else
+        entries = {
+          { kind = "item", icon = "item", label = "POTION", right = "x12",
+            selected = true },
+          { kind = "item", icon = "item", label = "RARE CANDY", right = "x3" },
+          { kind = "item", icon = "item", label = "ESCAPE ROPE", right = "x2" },
+          { label = translate("BACK"), back = true },
+        }
+      end
+      theme:pcList({ summary = legacyPcChange and "PAGE 1/4"
+          or legacyPcItems and "ITEM PC  1/3" or "BOX 3  12/20  1/3",
+        entries = entries,
+        drawPokemon = function(mon, x, y, size, fainted)
+          local slot = mon == party[1] and 1 or mon == party[2] and 2 or 3
+          drawPortrait(slot, x, y, size, fainted)
+        end,
+      })
+    end
+  elseif legacyEnemy then
     local source = party[gen1 and 6 or 1]
     local mon = {
       name = source.name, levelText = gen1 and "L30" or "L35",

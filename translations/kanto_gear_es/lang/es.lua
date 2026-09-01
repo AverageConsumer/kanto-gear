@@ -287,6 +287,8 @@ return {
   ["RELEASE"] = "LIBERAR",
   ["BOXES"] = "CAJAS",
   ["CHANGE BOX"] = "CAMBIAR CAJA",
+  ["BOX CHANGE"] = "CAMBIO CAJA",
+  ["MENU ON TOP"] = "MENÚ ARRIBA",
   ["BOX  USED"] = "CAJA  OCUPADA",
   ["TOSS"] = "TIRAR",
   ["QUANTITY"] = "CANTIDAD",

@@ -295,6 +295,8 @@ return {
   ["RELEASE"] = "FREILASSEN",
   ["BOXES"] = "BOXEN",
   ["CHANGE BOX"] = "BOX WECHSELN",
+  ["BOX CHANGE"] = "BOX-WECHSEL",
+  ["MENU ON TOP"] = "MENÜ OBEN",
   ["BOX  USED"] = "BOX  BELEGT",
   ["TOSS"] = "WEGWERFEN",
   ["QUANTITY"] = "ANZAHL",

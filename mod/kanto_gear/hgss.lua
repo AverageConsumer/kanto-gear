@@ -3729,6 +3729,201 @@ return function(ui)
     end
   end
 
+  local PC_LIST_TOP, PC_LIST_HEIGHT, PC_LIST_GAP = 63, 33, 3
+
+  function H:pcStorageIcon(x, y, kind)
+    local colors = self.colors
+    local accent = kind == "items" and colors.amberLight or colors.blueLight
+    clipped(x + 2, y + 1, 27, 20, colors.outline)
+    clipped(x + 4, y + 3, 23, 16,
+      mixed(colors.surface, accent, self.dark and 0.32 or 0.22))
+    box("fill", x + 7, y + 6, 17, 8, accent)
+    box("fill", x + 13, y + 21, 5, 3, colors.outline)
+    box("fill", x + 8, y + 24, 15, 2, colors.outline)
+    if kind == "items" then
+      box("fill", x + 12, y + 8, 7, 5, colors.white)
+      box("fill", x + 10, y + 10, 11, 2, colors.white)
+    else
+      self:battleTeamBall(x + 15, y + 10, true)
+    end
+  end
+
+  function H:pcRootRows(count)
+    count = math.max(1, math.min(4, count or 0))
+    local height = math.floor((124 - (count - 1) * 3) / count)
+    return 86, height
+  end
+
+  function H:pcRoot(model)
+    local colors = self.colors
+    local entries = model.entries or {}
+    self:panel(7, 34, 226, 46, false, nil,
+      model.kind == "items" and colors.amberLight or colors.blueLight)
+    self:pcStorageIcon(16, 43, model.kind)
+    box("fill", 53, 40, 1, 34, colors.band)
+    self:partyInfo(self:fitPartyInfo(model.title or "PC", 160),
+      62, 45, colors.ink, 160, "center")
+    self:partyType(self:fitPartyType(model.status or translate("READY"), 160),
+      62, 61, colors.green, 160)
+    if #entries == 0 then
+      self:panel(24, 105, 192, 70, false, nil, colors.silverDark)
+      self:partyInfo(translate("NOTHING HERE"), 32, 134,
+        colors.silverDark, 176, "center")
+      return
+    end
+    local top, height = self:pcRootRows(#entries)
+    for index, entry in ipairs(entries) do
+      local y = top + (index - 1) * (height + 3)
+      local pressed = self:beginPress(7, y, 226, height)
+      self:panel(7, y, 226, height, false, nil,
+        index % 2 == 0 and colors.blueLight or colors.greenLight)
+      if entry.selected then
+        clipped(9, y + 2, 222, height - 4,
+          self:focusSurface(true, colors.surface, colors.blueLight))
+      end
+      self:partyName(self:fitPartyInfo(entry.label or tostring(index), 184),
+        19, y + math.floor((height - 10) / 2), colors.ink, 184)
+      self:detailChevron(216, y + math.floor(height / 2), colors.green)
+      if entry.selected then self:focusFrame(7, y, 226, height) end
+      self:endPress(pressed)
+    end
+  end
+
+  function H:pcList(model)
+    local colors = self.colors
+    local entries = model.entries or {}
+    self:panel(7, 34, 226, 24, false, nil, colors.blueLight)
+    self:partyInfo(self:fitPartyInfo(model.summary or "PC", 210),
+      15, 41, colors.green, 210, "center")
+    if #entries == 0 then
+      self:panel(24, 91, 192, 70, false, nil, colors.silverDark)
+      self:partyInfo(translate("NOTHING HERE"), 32, 120,
+        colors.silverDark, 176, "center")
+      return
+    end
+    for index, entry in ipairs(entries) do
+      local y = PC_LIST_TOP + (index - 1) * (PC_LIST_HEIGHT + PC_LIST_GAP)
+      local accent = entry.back and colors.silverDark
+        or entry.kind == "item" and colors.amberLight
+        or entry.kind == "box" and colors.greenLight or colors.blueLight
+      local pressed = self:beginPress(7, y, 226, PC_LIST_HEIGHT)
+      self:panel(7, y, 226, PC_LIST_HEIGHT, false, nil, accent)
+      if entry.selected then
+        clipped(9, y + 2, 222, PC_LIST_HEIGHT - 4,
+          self:focusSurface(true, colors.surface, accent))
+      end
+      if entry.mon and model.drawPokemon then
+        model.drawPokemon(entry.mon, 12, y + 3, 27)
+        box("fill", 46, y + 4, 1, 25, colors.band)
+      elseif entry.kind == "item" then
+        clipped(13, y + 6, 21, 21, colors.bandLight)
+        border(13, y + 6, 21, 21, colors.band)
+        self:battleItemIcon(entry, 15, y + 8, accent)
+        box("fill", 42, y + 4, 1, 25, colors.band)
+      end
+      local left = (entry.mon and 53) or (entry.kind == "item" and 49) or 17
+      local right = entry.right and tostring(entry.right) or nil
+      local rightWidth = right and math.max(26,
+        math.min(72, self:partyInfoWidth(right))) or 0
+      self:partyName(self:fitPartyInfo(entry.label or tostring(index),
+        199 - left - rightWidth), left, y + 6, colors.ink,
+        199 - left - rightWidth)
+      if right then
+        self:partyInfo(right, 199 - rightWidth, y + 7,
+          colors.green, rightWidth, "right")
+      end
+      self:detailChevron(216, y + 16, colors.green)
+      if entry.selected then self:focusFrame(7, y, 226, PC_LIST_HEIGHT) end
+      self:endPress(pressed)
+    end
+  end
+
+  function H:pcQuantity(model)
+    local colors = self.colors
+    self:panel(7, 34, 226, 50, false, nil, colors.amberLight)
+    clipped(17, 44, 30, 30, colors.bandLight)
+    border(17, 44, 30, 30, colors.outline)
+    self:battleItemIcon({ icon = model.icon or "item" }, 24, 51,
+      colors.amberLight)
+    box("fill", 55, 41, 1, 36, colors.band)
+    self:partyName(self:fitPartyInfo(model.label or "ITEM", 161),
+      64, 47, colors.ink, 161)
+    self:partyType(translate("QUANTITY"), 64, 64,
+      colors.green, 161)
+
+    local controls = {
+      { x = 7, label = "-" }, { x = 83, value = tostring(model.qty or 1) },
+      { x = 159, label = "+" },
+    }
+    for _, control in ipairs(controls) do
+      local interactive = control.label ~= nil
+      local pressed = interactive and self:beginPress(control.x, 91, 74, 48)
+      self:panel(control.x, 91, 74, 48, false, nil,
+        interactive and colors.blueLight or colors.greenLight)
+      self:partyInfo(control.label or control.value, control.x, 108,
+        colors.ink, 74, "center")
+      if pressed then self:endPress(pressed) end
+    end
+    local buttons = {
+      { x = 7, label = translate("CONFIRM"), accent = colors.greenLight },
+      { x = 123, label = translate("CANCEL"), accent = colors.redLight },
+    }
+    for _, action in ipairs(buttons) do
+      local pressed = self:beginPress(action.x, 146, 110, 64)
+      self:panel(action.x, 146, 110, 64, false, nil, action.accent)
+      self:partyInfo(action.label, action.x, 171,
+        colors.ink, 110, "center")
+      self:endPress(pressed)
+    end
+  end
+
+  function H:pcTopOnly(model)
+    local colors = self.colors
+    self:panel(18, 48, 204, 132, false, nil, colors.blueLight)
+    self:pcStorageIcon(104, 62, model and model.kind)
+    box("fill", 34, 101, 172, 1, colors.band)
+    self:partyInfo(translate("FOLLOW TOP SCREEN"), 28, 116,
+      colors.green, 184, "center")
+    self:partyInfo(translate("INPUT STAYS ON TOP"), 28, 137,
+      colors.ink, 184, "center")
+  end
+
+  function H:pcRootHit(x, y, count)
+    if x < 7 or x >= 233 or count < 1 then return nil end
+    local top, height = self:pcRootRows(count)
+    for index = 1, math.min(4, count) do
+      local rowTop = top + (index - 1) * (height + 3)
+      if y >= rowTop and y < rowTop + height then return index end
+    end
+  end
+
+  function H:pcListHit(x, y, count)
+    if x < 7 or x >= 233 then return nil end
+    local row = math.floor((y - PC_LIST_TOP) / (PC_LIST_HEIGHT + PC_LIST_GAP)) + 1
+    local top = PC_LIST_TOP + (row - 1) * (PC_LIST_HEIGHT + PC_LIST_GAP)
+    if row >= 1 and row <= math.min(4, count or 0)
+        and y >= top and y < top + PC_LIST_HEIGHT then return row end
+  end
+
+  function H:pcQuantityHit(x, y)
+    if y >= 91 and y < 139 then
+      if x >= 7 and x < 81 then return "minus" end
+      if x >= 159 and x < 233 then return "plus" end
+    elseif y >= 146 and y < 210 then
+      if x >= 7 and x < 117 then return "confirm" end
+      if x >= 123 and x < 233 then return "cancel" end
+    end
+  end
+
+  do
+    assert(H:pcRootHit(120, 90, 4) == 1
+        and H:pcListHit(120, 100, 4) == 2
+        and H:pcListHit(120, 96, 4) == nil
+        and H:pcQuantityHit(30, 110) == "minus"
+        and H:pcQuantityHit(200, 180) == "cancel",
+      "HGSS PC hitboxes match visible storage controls")
+  end
+
   function H:battleBagWindow(bag)
     local items = bag.items or {}
     local count = math.min(4, #items)

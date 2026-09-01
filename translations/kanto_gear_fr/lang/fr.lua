@@ -285,6 +285,8 @@ return {
   ["RELEASE"] = "RELÂCHER",
   ["BOXES"] = "BOÎTES",
   ["CHANGE BOX"] = "CHANGER DE BOÎTE",
+  ["BOX CHANGE"] = "CHANGER BOÎTE",
+  ["MENU ON TOP"] = "MENU EN HAUT",
   ["BOX  USED"] = "BOÎTE UTILISÉE",
   ["TOSS"] = "JETER",
   ["QUANTITY"] = "QUANTITÉ",

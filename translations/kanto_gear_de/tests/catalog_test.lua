@@ -20,7 +20,7 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count == 404, "Übersetzungskatalog ist unvollständig")
+assert(count == 406, "Übersetzungskatalog ist unvollständig")
 
 for _, source in ipairs({
   "NEW GAME", "OPTION", "EXIT GAME", "INPUT STAYS ON TOP",
