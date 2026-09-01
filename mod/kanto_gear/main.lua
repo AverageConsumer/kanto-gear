@@ -5541,6 +5541,18 @@ return function(mod)
       (page - 1 + direction) % pages + 1
   end
 
+  function displayRuntime.storeSwipeTarget(view, y, pages)
+    return (view == "apps" or view == "library")
+      and (pages or 1) > 1 and y >= 53 and y < 195
+  end
+  assert(displayRuntime.storeSwipeTarget("apps", 53, 2)
+      and displayRuntime.storeSwipeTarget("library", 194, 3)
+      and not displayRuntime.storeSwipeTarget("apps", 52, 2)
+      and not displayRuntime.storeSwipeTarget("apps", 195, 2)
+      and not displayRuntime.storeSwipeTarget("apps", 100, 1)
+      and not displayRuntime.storeSwipeTarget("today", 100, 2),
+    "Silph Store app-grid swipes target paginated app lists")
+
   function displayRuntime.storeTodayEntries()
     local featured
     for _, app in ipairs(displayRuntime.storeCatalog) do
@@ -10074,6 +10086,22 @@ return function(mod)
         displayRuntime.cycleBagPocket(dx < 0 and 1 or -1)
       else
         displayRuntime.cycleBagPage(dx < 0 and 1 or -1)
+      end
+      return
+    end
+    if THEME.style == "hgss" and page == "STORE" then
+      local home, direction = displayRuntime.home, dx < 0 and 1 or -1
+      local view = home.storeView
+      local entries = view == "library" and displayRuntime.storeEntries(true)
+        or view == "apps" and displayRuntime.storeEntries()
+      local pages = entries and select(3,
+        displayRuntime.storePage(view, entries)) or 1
+      if not home.storeDetail and displayRuntime.storeSwipeTarget(view,
+          (down.y or 0) * THEME.hgssScale, pages) then
+        displayRuntime.cycleStorePage(view, direction)
+        dirty = true
+      else
+        changePage(direction)
       end
       return
     end
