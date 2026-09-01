@@ -1173,9 +1173,18 @@ do
   T.eq(partyTitle, "TEACH MOVE TO",
     "TM use explains the party selection on the bottom screen")
 
+  displayRuntime.bag.pending = { itemId = "POTION" }
+  fieldParty.index, pressed = 1, nil
+  touchEvent("down,82,25")
+  touchEvent("up,82,25")
+  T.eq(fieldParty.index, 2,
+    "field item party touch owns the bottom screen while native UI is locked")
+  T.eq(pressed, "a", "field item party touch reaches native input")
+
   local textBox = { isTextBox = true }
   local yesNo = { index = 1, onChoose = function() end }
   game.stack.states = { textBox, yesNo }
+  displayRuntime.bag.pending = { itemId = "TM_FIX", moveId = "FIX_MOVE_A" }
   displayRuntime.bag.pending.mon = game.save.party[2]
   local fieldLearn = displayRuntime.moveLearnScreen()
   T.check(fieldLearn and fieldLearn.field

@@ -8300,8 +8300,10 @@ return function(mod)
     end
   end
 
-  function displayRuntime.pressTouch(mode, choice, touch)
-    if mode == "loading" or (mode == "textbox" and not choice) then
+  function displayRuntime.pressTouch(mode, choice, touch, owned)
+    if mode == "loading"
+        or (mode == "textbox" and not choice and not owned)
+        or (mode == "locked" and not owned) then
       return nil
     end
     return touch
@@ -8309,6 +8311,8 @@ return function(mod)
   assert(displayRuntime.pressTouch("textbox", nil, true) == nil
       and displayRuntime.pressTouch("loading", nil, true) == nil
       and displayRuntime.pressTouch("textbox", {}, true) == true
+      and displayRuntime.pressTouch("locked", nil, true) == nil
+      and displayRuntime.pressTouch("locked", nil, true, true) == true
       and displayRuntime.pressTouch("active", nil, true) == true,
     "modal text and loading overlays capture HGSS press animation")
 
@@ -8342,7 +8346,10 @@ return function(mod)
       or (compat.isScreen(top, "naming") and not naming)
     local levelStats = battle and compat.levelUpMon(top)
     if THEME.style == "hgss" then
-      local pressTouch = displayRuntime.pressTouch(mode, choice, touchDown)
+      local owned = learn or naming or levelStats or battle or fieldPp
+        or fieldParty or hgssSummary or pcKind
+      local pressTouch = displayRuntime.pressTouch(
+        mode, choice, touchDown, owned)
       THEME.hgss:setTouch(pressTouch and pressTouch.x,
         pressTouch and pressTouch.y)
       THEME.hgss:backdrop()
@@ -8406,7 +8413,7 @@ return function(mod)
       drawTools()
     end
     if not learn and not naming and not battle and not choice
-        and not hgssSummary
+        and not fieldPp and not fieldParty and not hgssSummary
         and not (pcKind and mode == "locked")
         and mode ~= "title" and mode ~= "active" then
       if THEME.style == "hgss" and mode == "loading" then
@@ -10502,6 +10509,8 @@ return function(mod)
           or screenContract(top, "naming")
           or dialogueChoice() or compat.isScreen(top, "summary")
           or displayRuntime.moveLearnScreen()
+          or displayRuntime.fieldPpMoveScreen()
+          or displayRuntime.fieldBagParty()
           or pcSession() }
       if THEME.style == "hgss" and page == "HOME"
           and not displayRuntime.home.library then
