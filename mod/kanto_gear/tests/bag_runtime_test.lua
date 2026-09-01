@@ -53,6 +53,12 @@ for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
 end
 local display = upvalue(inputHook, "displayRuntime")
 T.check(type(display) == "table", "Bag runtime is reachable")
+local rawPartyView = display.partyView({ species = "FIXMON_A", hp = 5,
+  stats = { hp = 12 } })
+T.eq(rawPartyView.maxHp, 12,
+  "native party records expose their calculated maximum HP")
+T.eq(rawPartyView.hpText, "5/12",
+  "contextual party screens never render current HP over zero")
 T.eq(display.storeEntry(display.storeById.bag).state, "get",
   "the optional Bag app is available from Silph Store")
 T.check(display.setPackageInstalled("bag", false),

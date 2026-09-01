@@ -5430,12 +5430,13 @@ return function(mod)
     if not mon then return nil end
     local source = mon.source or mon
     local def = game.data.pokemon[mon.species] or {}
+    local maxHp = mon.maxHp or source.stats and source.stats.hp or mon.hp or 0
     local type1 = mon.types and mon.types[1] or def.types and def.types[1]
     local type2 = mon.types and (mon.types[2] or mon.types[1])
       or def.types and (def.types[2] or def.types[1])
     return {
       name = mon.name, egg = compat.partyEgg(source),
-      gender = mon.gender, hp = mon.hp, maxHp = mon.maxHp,
+      gender = mon.gender, hp = mon.hp, maxHp = maxHp,
       expProgress = mon.expProgress,
       statusId = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content),
@@ -5443,7 +5444,7 @@ return function(mod)
       typeLabel = THEME:typeName(type1, mod.content),
       type2Label = THEME:typeName(type2, mod.content),
       levelText = THEME:format("L%d", mon.level or 0),
-      hpText = THEME:format("%d/%d", mon.hp or 0, mon.maxHp or 0),
+      hpText = THEME:format("%d/%d", mon.hp or 0, maxHp),
       hpLabel = THEME:translate("HP"), expLabel = THEME:translate("EXP"),
     }
   end
