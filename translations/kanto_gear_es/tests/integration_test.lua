@@ -51,6 +51,8 @@ T.eq(kg("TAP ANYWHERE / A"), "TOCA DONDE SEA / A",
   "companion mod translates the HGSS battle prompt")
 T.eq(kg("MOVE WITHOUT MAIL"), "MOVER SIN CORREO",
   "companion mod translates the full Gen 2 PC action")
+T.eq(kg("DEPOSIT ITEM"), "GUARDAR OBJETO",
+  "companion mod translates the Item PC deposit heading")
 
 run.release()
 T.finish("Kanto Gear Spanish integration")

@@ -333,6 +333,7 @@ return {
   ["BOX %d  %d/20  %d/%d"] = "BOÎTE %d %d/20 %d/%d",
   ["WITHDRAW"] = "RETIRER",
   ["DEPOSIT"] = "DÉPOSER",
+  ["DEPOSIT ITEM"] = "DÉPOSER OBJET",
   ["RELEASE"] = "RELÂCHER",
   ["MOVE WITHOUT MAIL"] = "DÉPLACER SANS LETTRE",
   ["BOXES"] = "BOÎTES",

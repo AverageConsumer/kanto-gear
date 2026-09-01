@@ -1257,10 +1257,12 @@ do
     "Gold item PC quantity controls remain mirrored below")
   itemPc.qtyState = nil
 
-  itemPc.message = { pages = { { "WITHDREW 2", "POTION(S)." } }, page = 1 }
+  itemPc.message = { pages = { { "THE ITEM STORAGE", "IS COMPLETELY FULL.",
+    "CHOOSE ANOTHER ITEM", "OR GO BACK." } }, page = 1 }
   game.stack.states = { itemPc }
-  T.check(displayRuntime.pcNotice("items", itemPc, itemPc),
-    "Gold item PC messages remain visible below")
+  local notice = displayRuntime.pcNotice("items", itemPc, itemPc)
+  T.check(notice and #notice.lines == 4,
+    "Gold item PC keeps four-line storage and mail notices visible below")
   pressed = nil
   touchEvent("tap,120,100")
   T.eq(pressed, "a", "Gold item PC notice advances from the bottom screen")

@@ -52,6 +52,8 @@ T.eq(kg("TAP ANYWHERE / A"), "ÜBERALL TIPPEN / A",
   "Begleitmod übersetzt den HGSS-Kampfhinweis")
 T.eq(kg("MOVE WITHOUT MAIL"), "OHNE POST VERSCH.",
   "Begleitmod übersetzt die vollständige Gen-2-PC-Aktion")
+T.eq(kg("DEPOSIT ITEM"), "ITEM ABLEGEN",
+  "Begleitmod übersetzt die Überschrift der Item-Ablage")
 
 run.release()
 T.finish("Kanto Gear Deutsch integration")

@@ -343,6 +343,7 @@ return {
   ["BOX %d  %d/20  %d/%d"] = "BOX %d %d/20 %d/%d",
   ["WITHDRAW"] = "ABHEBEN",
   ["DEPOSIT"] = "ABLEGEN",
+  ["DEPOSIT ITEM"] = "ITEM ABLEGEN",
   ["RELEASE"] = "FREILASSEN",
   ["MOVE WITHOUT MAIL"] = "OHNE POST VERSCH.",
   ["BOXES"] = "BOXEN",

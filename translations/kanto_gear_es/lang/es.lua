@@ -335,6 +335,7 @@ return {
   ["BOX %d  %d/20  %d/%d"] = "CAJA %d %d/20 %d/%d",
   ["WITHDRAW"] = "RETIRAR",
   ["DEPOSIT"] = "DEPOSITAR",
+  ["DEPOSIT ITEM"] = "GUARDAR OBJETO",
   ["RELEASE"] = "LIBERAR",
   ["MOVE WITHOUT MAIL"] = "MOVER SIN CORREO",
   ["BOXES"] = "CAJAS",

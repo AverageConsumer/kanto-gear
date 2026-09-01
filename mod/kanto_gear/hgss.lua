@@ -4379,6 +4379,13 @@ return function(ui)
       colors.ink, 184, "center")
   end
 
+  function H:pcNoticeRows(count)
+    local visible = math.max(1, math.min(4, count or 0))
+    local lineHeight = visible == 4 and 13 or visible == 3 and 16 or 18
+    local blockHeight = 9 + (visible - 1) * lineHeight
+    return 105 + math.floor((53 - blockHeight) / 2), lineHeight, visible
+  end
+
   function H:pcNotice(model)
     local colors = self.colors
     local pressed = self:beginPress(12, 48, 216, 132)
@@ -4386,11 +4393,10 @@ return function(ui)
     self:pcStorageIcon(104, 58, model and model.kind)
     box("fill", 28, 99, 184, 1, colors.band)
     local lines = model and model.lines or { "..." }
-    local lineHeight = 18
-    local blockHeight = 11 + math.max(0, #lines - 1) * lineHeight
-    local y = 111 + math.floor((45 - blockHeight) / 2)
-    for _, line in ipairs(lines) do
-      self:partyInfo(self:fitPartyInfo(line, 184), 28, y,
+    if #lines == 0 then lines = { "..." } end
+    local y, lineHeight, visible = self:pcNoticeRows(#lines)
+    for index = 1, visible do
+      self:partyInfo(self:fitPartyInfo(lines[index], 184), 28, y,
         colors.ink, 184, "center")
       y = y + lineHeight
     end
@@ -4546,6 +4552,7 @@ return function(ui)
   do
     local rootTop5, rootHeight5 = H:pcRootRows(5)
     local rootTop6, rootHeight6 = H:pcRootRows(6)
+    local noticeTop, noticeStep, noticeCount = H:pcNoticeRows(4)
     assert(H:pcRootHit(120, 90, 4) == 1
         and H:pcRootHit(120, 207, 5) == 5
         and H:pcRootHit(120, 208, 6) == 6
@@ -4553,6 +4560,7 @@ return function(ui)
         and rootTop6 + 6 * rootHeight6 + 5 * 3 <= 210
         and H:fitPartyInfo("WITHDRAW <PK><MN>", 220)
           == "WITHDRAW PKMN"
+        and noticeTop + (noticeCount - 1) * noticeStep + 9 <= 158
         and H:pcListHit(120, 100, 4) == 2
         and H:pcListHit(120, 96, 4) == nil
         and H:pcQuantityHit(30, 110) == "minus"

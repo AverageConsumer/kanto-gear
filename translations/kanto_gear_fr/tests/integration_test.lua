@@ -61,6 +61,8 @@ T.eq(kg("BOX %d"), "BOÎTE %d",
   "companion mod translates generated PC box names")
 T.eq(kg("MOVE WITHOUT MAIL"), "DÉPLACER SANS LETTRE",
   "companion mod translates the full Gen 2 PC action")
+T.eq(kg("DEPOSIT ITEM"), "DÉPOSER OBJET",
+  "companion mod translates the Item PC deposit heading")
 T.eq(kg("NO DETAILS AVAILABLE"), "AUCUN DÉTAIL DISPO",
   "companion mod keeps missing-detail text concise")
 

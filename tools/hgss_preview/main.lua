@@ -472,12 +472,13 @@ function love.load()
   local legacyPcBox = screen == "legacy_pc_box"
   local legacyPcChange = screen == "legacy_pc_change"
   local legacyPcItems = screen == "legacy_pc_items"
+  local legacyPcDeposit = screen == "legacy_pc_deposit"
   local legacyPcQuantity = screen == "legacy_pc_quantity"
   local legacyPcSubmenu = screen == "legacy_pc_submenu"
   local legacyPcNotice = screen == "legacy_pc_notice"
   local legacyPcTop = screen == "legacy_pc_top"
   local legacyPc = legacyPcRoot or legacyPcBox or legacyPcChange
-    or legacyPcItems or legacyPcQuantity or legacyPcSubmenu
+    or legacyPcItems or legacyPcDeposit or legacyPcQuantity or legacyPcSubmenu
     or legacyPcNotice or legacyPcTop
   local legacyTitle = screen == "legacy_title"
   local legacyLoading = screen == "legacy_loading"
@@ -557,6 +558,7 @@ function love.load()
     or legacyPcBox and "WITHDRAW"
     or legacyPcChange and "BOX CHANGE"
     or legacyPcItems and "WITHDRAW"
+    or legacyPcDeposit and "DEPOSIT ITEM"
     or legacyPcQuantity and "QUANTITY"
     or legacyPcSubmenu and "POKEMON"
     or legacyPcNotice and "ITEM PC"
@@ -1529,7 +1531,7 @@ function love.load()
         status = format("%s  %d/20", format("BOX %d", 3), 12),
         entries = entries })
     elseif legacyPcQuantity then
-      theme:pcQuantity({ label = "RARE CANDY", qty = 3, icon = "item" })
+      theme:pcQuantity({ label = "RARE CANDY", qty = 99, icon = "item" })
     elseif legacyPcSubmenu then
       theme:pcList({ summary = translate("CHOOSE ACTION"), entries = {
         { label = translate("WITHDRAW"), selected = true },
@@ -1539,7 +1541,8 @@ function love.load()
       } })
     elseif legacyPcNotice then
       theme:pcNotice({ kind = "items",
-        lines = { "WITHDREW 2", "RARE CANDY(S)." } })
+        lines = { "THE ITEM STORAGE", "IS COMPLETELY FULL.",
+          "CHOOSE ANOTHER ITEM", "OR GO BACK." } })
     elseif legacyPcTop then
       theme:pcTopOnly({ kind = "items" })
     else
@@ -1556,9 +1559,19 @@ function love.load()
         entries = {
           { kind = "box", label = format("BOX %d", 1), right = "20/20" },
           { kind = "box", label = format("BOX %d", 2), right = "08/20" },
-          { kind = "box", label = "WATER", right = "12/20",
+          { kind = "box", label = "WATERMON", right = "12/20",
             selected = true },
           { kind = "box", label = format("BOX %d", 4), right = "00/20" },
+        }
+      elseif legacyPcDeposit then
+        entries = {
+          { kind = "item", icon = "item", label = "MAX POTION",
+            right = "x99", selected = true },
+          { kind = "item", icon = "item", label = "SILVER LEAF",
+            right = "x1" },
+          { kind = "item", icon = "item", label = "ESCAPE ROPE",
+            right = "x12" },
+          { label = translate("CANCEL"), back = true },
         }
       else
         entries = {
@@ -1570,6 +1583,7 @@ function love.load()
         }
       end
       theme:pcList({ summary = legacyPcChange and "PAGE 1/4"
+          or legacyPcDeposit and translate("ITEMS")
           or legacyPcItems and "ITEM PC  1/3" or "BOX 3  12/20  1/3",
         entries = entries,
         drawPokemon = function(mon, x, y, size, fainted)

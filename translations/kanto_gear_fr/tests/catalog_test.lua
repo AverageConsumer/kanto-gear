@@ -18,7 +18,7 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count == 459, "Le catalogue de traduction est incomplet")
+assert(count == 460, "Le catalogue de traduction est incomplet")
 
 for _, source in ipairs({
   "NEW GAME", "OPTION", "EXIT GAME", "INPUT STAYS ON TOP",
@@ -34,6 +34,7 @@ for _, source in ipairs({
   "LV.%d", "EXP", "EXP %d", "NO.%03d %s", "NO.%03d LV.%d", "OT %s",
   "ID %05d", "MIMIC", "DVS >", "NEW %s", "PC BOX %d %d/20", "BOX %d",
   "PARTY %d/6  %d/%d", "BOX %d  %d/20  %d/%d", "MOVE WITHOUT MAIL",
+  "DEPOSIT ITEM",
   "NO ITEMS", "NO HIDDEN", "NO TRAINERS",
 }) do
   assert(catalog[source], "Texte d'interface manquant : " .. source)
@@ -46,6 +47,7 @@ end
 local layoutLimits = {
   ["NO ITEMS"] = 24, ["NO HIDDEN"] = 24, ["NO TRAINERS"] = 24,
   ["USE ITEM ON"] = 14,
+  ["DEPOSIT ITEM"] = 15,
   ["LOADING AREA"] = 16,
   ["MAP + FLY"] = 10,
   ["JOHTO MAP"] = 10,
