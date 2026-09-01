@@ -3550,6 +3550,185 @@ return function(ui)
         and y < top + 34 then return slot end
   end
 
+  function H:enemyInfoHero(model, height)
+    local G, colors = ui.graphics, self.colors
+    local mon = model.pokemon or {}
+    height = height or 66
+    self:homeTile(7, 34, 226, height, colors.red, false)
+    color(mixed(colors.surface, colors.redLight,
+      self.dark and 0.22 or 0.12))
+    G.circle("fill", 41, 34 + math.floor(height / 2), 25)
+    color(colors.outline)
+    G.circle("line", 41, 34 + math.floor(height / 2), 25)
+    if model.drawPokemon then
+      model.drawPokemon(mon, 16, 34 + math.floor((height - 50) / 2), 50, false)
+    end
+    self:partyName(self:fitPartyInfo(mon.name or "POKEMON", 104),
+      73, 40, colors.ink, 104)
+    self:partyInfo(mon.levelText or "L--", 181, 40,
+      colors.ink, 38, "right")
+    self:typeBadges(mon, 73, 57, false)
+    if mon.caught then
+      self:battleTeamBall(218, 61, true)
+    else
+      self:partyType(translate("NOT CAUGHT"), 153, 58,
+        colors.red, 70)
+    end
+  end
+
+  function H:enemyInfoOverview(model)
+    local colors = self.colors
+    local mon = model.pokemon or {}
+    self:enemyInfoHero(model, 66)
+
+    local dvsPressed = self:beginPress(151, 72, 73, 21, mon.dvs ~= nil)
+    self:panel(151, 72, 73, 21, false, nil,
+      mon.dvs and colors.blueLight or colors.silverDark)
+    self:partyType(mon.dvs and translate("DVS >") or "DVS --",
+      155, 78, mon.dvs and colors.green or colors.silverDark, 65)
+    self:endPress(dvsPressed)
+
+    local profilePressed = self:beginPress(7, 105, 226, 39)
+    self:homeTile(7, 105, 226, 39, colors.blue, false)
+    self:partyInfo(translate("POKEDEX"), 17, 112,
+      colors.ink, 130, "center")
+    local dex = mon.dex and format("NO.%03d", mon.dex) or "NO.---"
+    self:partyType(dex, 153, 116, colors.green, 56)
+    self:detailChevron(216, 120, colors.green)
+    self:endPress(profilePressed)
+
+    local cards = {
+      { key = "WEAK", rows = mon.weak or {}, x = 7,
+        accent = colors.red },
+      { key = "RESIST", rows = mon.resist or {}, x = 123,
+        accent = colors.green },
+    }
+    for _, card in ipairs(cards) do
+      local pressed = self:beginPress(card.x, 149, 110, 61)
+      self:homeTile(card.x, 149, 110, 61, card.accent, false)
+      self:partyType(translate(card.key), card.x + 7, 158,
+        colors.ink, 96)
+      self:partyInfo(tostring(#card.rows), card.x + 7, 176,
+        colors.ink, 96, "center")
+      self:partyType(translate("MATCHUP"), card.x + 7, 192,
+        colors.green, 80)
+      self:detailChevron(card.x + 96, 198, colors.green)
+      self:endPress(pressed)
+    end
+  end
+
+  function H:enemyInfoProfile(model)
+    local colors = self.colors
+    local mon = model.pokemon or {}
+    self:enemyInfoHero(model, 66)
+    self:partyType(self:fitPartyType(mon.kind or "UNKNOWN", 71),
+      73, 76, colors.green, 71)
+    self:partyType(self:fitPartyType(mon.height or "HEIGHT --", 71),
+      146, 76, colors.green, 71)
+    self:panel(7, 105, 226, 105, false, nil,
+      self:typeColor(mon.type))
+    self:partyType(translate("POKEDEX"), 15, 112,
+      colors.green, 210)
+    box("fill", 15, 126, 210, 1, colors.band)
+    local lines = mon.description or {}
+    if #lines == 0 then lines = { translate("NO DETAILS AVAILABLE") } end
+    local visible = math.min(8, #lines)
+    local blockHeight = visible * 10 - 1
+    local top = 132 + math.floor((70 - blockHeight) / 2)
+    for index = 1, visible do
+      self:partyInfo(self:fitPartyInfo(lines[index], 206),
+        17, top + (index - 1) * 10, colors.ink, 206, "center")
+    end
+    self:partyType(self:fitPartyType(mon.weight or "WEIGHT --", 84),
+      141, 193, colors.green, 84)
+  end
+
+  function H:enemyInfoDvs(model)
+    local colors = self.colors
+    local mon, rows = model.pokemon or {}, model.rows or {}
+    self:homeTile(7, 34, 226, 37, colors.blue, false)
+    if model.drawPokemon then model.drawPokemon(mon, 13, 37, 31, false) end
+    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 112),
+      50, 40, colors.ink)
+    self:partyType(translate("ENEMY DVS"), 157, 44,
+      colors.green, 68)
+    if #rows == 0 then
+      self:panel(24, 82, 192, 90, false, nil, colors.silverDark)
+      self:partyInfo(translate("NO DETAILS AVAILABLE"), 32, 121,
+        colors.silverDark, 176, "center")
+    else
+      for index, row in ipairs(rows) do
+        local line = math.floor((index - 1) / 3)
+        local columns = math.min(3, #rows - line * 3)
+        local width, gap = 68, 5
+        local group = columns * width + (columns - 1) * gap
+        local column = (index - 1) % 3
+        local x = math.floor((240 - group) / 2) + column * (width + gap)
+        local y = 78 + line * 47
+        self:panel(x, y, width, 42, false, nil, colors.blueLight)
+        self:partyType(self:fitPartyType(translate(row.label), width - 8),
+          x + 4, y + 7, colors.green, width - 8)
+        self:partyInfo(tostring(row.value or 0), x + 4, y + 24,
+          colors.ink, width - 8, "center")
+      end
+    end
+    self:panel(42, 172, 156, 38, false, nil, colors.blueLight)
+    self:partyInfo(translate("RANGE 0-15"), 50, 185,
+      colors.green, 140, "center")
+  end
+
+  function H:enemyInfoMatchup(model)
+    local colors = self.colors
+    local mon, rows = model.pokemon or {}, model.rows or {}
+    self:homeTile(7, 34, 226, 37,
+      model.kind == "weak" and colors.red or colors.green, false)
+    if model.drawPokemon then model.drawPokemon(mon, 13, 37, 31, false) end
+    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 101),
+      50, 40, colors.ink)
+    self:partyType(translate("BASE MATCHUP"), 151, 44,
+      colors.green, 74)
+    if #rows == 0 then
+      self:panel(24, 92, 192, 70, false, nil, colors.silverDark)
+      self:partyInfo("--", 32, 122, colors.silverDark, 176, "center")
+      return
+    end
+    local columns = #rows > 7 and 2 or 1
+    local rowsPerColumn = math.ceil(#rows / columns)
+    local gap = 2
+    local height = math.min(24, math.floor(
+      (133 - (rowsPerColumn - 1) * gap) / rowsPerColumn))
+    local groupWidth = columns * 110 + (columns - 1) * 6
+    local left = math.floor((240 - groupWidth) / 2)
+    local totalHeight = rowsPerColumn * height
+      + (rowsPerColumn - 1) * gap
+    local top = 77 + math.floor((133 - totalHeight) / 2)
+    for index, row in ipairs(rows) do
+      local column = math.floor((index - 1) / rowsPerColumn)
+      local line = (index - 1) % rowsPerColumn
+      local x, y = left + column * 116, top + line * (height + gap)
+      self:panel(x, y, 110, height, false, nil,
+        self:typeColor(row.type))
+      local badgeY = y + math.floor((height - 10) / 2)
+      clipped(x + 5, badgeY, 63, 10, self:typeColor(row.type))
+      border(x + 5, badgeY, 63, 10, colors.outline)
+      self:partyType(self:fitPartyType(row.typeLabel or row.type, 59),
+        x + 7, badgeY - 1, colors.white, 59)
+      self:partyInfo(row.effectLabel or "--", x + 73,
+        y + math.floor((height - 9) / 2), colors.ink, 30, "center")
+    end
+  end
+
+  function H:enemyInfoHit(x, y, hasDvs)
+    if hasDvs and x >= 151 and x < 224 and y >= 72 and y < 93 then
+      return "dvs"
+    end
+    if x >= 7 and x < 233 and y >= 105 and y < 144 then return "profile" end
+    if y >= 149 and y < 210 then
+      if x >= 7 and x < 117 then return "weak" end
+      if x >= 123 and x < 233 then return "resist" end
+    end
+  end
+
   function H:battleBagWindow(bag)
     local items = bag.items or {}
     local count = math.min(4, #items)

@@ -335,6 +335,13 @@ function love.load()
       and theme:mimicHit(20, 95, 4) == nil
       and theme:mimicHit(20, 166, 3) == nil,
     "Mimic touch targets follow only populated move cards")
+  assert(theme:enemyInfoHit(190, 80, true) == "dvs"
+      and theme:enemyInfoHit(120, 120, true) == "profile"
+      and theme:enemyInfoHit(60, 180, true) == "weak"
+      and theme:enemyInfoHit(180, 180, true) == "resist"
+      and theme:enemyInfoHit(190, 80, false) == nil
+      and theme:enemyInfoHit(120, 146, true) == nil,
+    "enemy-info touch targets follow only the visible research cards")
   assert(theme:moveHasStab({ type = "WATER" },
       { type = "WATER", powerText = "95" })
       and not theme:moveHasStab({ type = "WATER" },
@@ -440,9 +447,18 @@ function love.load()
   local legacyMoveNew = screen == "legacy_move_new"
   local legacyMoveForget = screen == "legacy_move_forget"
   local legacyMoveInfo = screen == "legacy_move_info"
+  local legacyEnemyInfo = screen == "legacy_enemy_info"
+  local legacyEnemyProfile = screen == "legacy_enemy_profile"
+  local legacyEnemyDvs = screen == "legacy_enemy_dvs"
+  local legacyEnemyWeak = screen == "legacy_enemy_weak"
+  local legacyEnemyResist = screen == "legacy_enemy_resist"
+  local legacyEnemy = legacyEnemyInfo or legacyEnemyProfile
+    or legacyEnemyDvs or legacyEnemyWeak or legacyEnemyResist
   local legacy = legacyChoice or legacyChoiceGrid or legacyNaming
     or legacyLevelUp or legacyMoveNew or legacyMoveForget or legacyMoveInfo
+    or legacyEnemy
   local legacyBack = legacyMoveForget or legacyMoveInfo
+    or legacyEnemy and not legacyEnemyInfo
   local pokedexIndex = screen == "pokedex"
   local pokedexProfile = screen == "pokedex_profile"
   local pokedexHabitat = screen == "pokedex_habitat"
@@ -496,6 +512,11 @@ function love.load()
     or legacyMoveNew and "NEW MOVE"
     or legacyMoveForget and "FORGET MOVE"
     or legacyMoveInfo and (gen1 and "THUNDERBOLT" or "ICE PUNCH")
+    or legacyEnemyProfile and "POKEDEX"
+    or legacyEnemyDvs and "ENEMY DVS"
+    or legacyEnemyWeak and "WEAK"
+    or legacyEnemyResist and "RESIST"
+    or legacyEnemyInfo and "ENEMY INFO"
     or legacy and "CHOOSE"
     or pokedexHabitat and "HABITAT 1/4"
     or pokedexStats and "STATS"
@@ -1411,7 +1432,62 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if legacyMoveNew or legacyMoveForget or legacyMoveInfo then
+  if legacyEnemy then
+    local source = party[gen1 and 6 or 1]
+    local mon = {
+      name = source.name, levelText = gen1 and "L30" or "L35",
+      dex = gen1 and 128 or 160,
+      type = source.type, type2 = source.type2,
+      typeLabel = source.typeLabel, type2Label = source.type2Label,
+      types = { source.type, source.type2 }, caught = true,
+      kind = gen1 and "WILD BULL" or "BIG JAW",
+      height = gen1 and "HEIGHT 4 FT 7 IN" or "HEIGHT 7 FT 7 IN",
+      weight = gen1 and "WEIGHT 194.9 LB" or "WEIGHT 195.8 LB",
+      description = gen1 and {
+        "WHEN IT TARGETS AN ENEMY,", "IT CHARGES FURIOUSLY WHILE",
+        "WHIPPING ITS BODY WITH", "ITS LONG TAILS.",
+      } or {
+        "WHEN IT BITES WITH ITS", "MASSIVE JAWS, IT SHAKES ITS",
+        "HEAD AND SAVAGELY TEARS", "ITS VICTIM UP.",
+      },
+      dvs = { hp = 14, attack = 15, defense = 12, speed = 11,
+        special = 13 },
+      weak = {
+        { type = "ELECTRIC", typeLabel = "ELECTRIC", effectLabel = "2X" },
+        { type = "GRASS", typeLabel = language.types.GRASS or "GRASS",
+          effectLabel = "2X" },
+      },
+      resist = {
+        { type = "FIRE", typeLabel = "FIRE", effectLabel = "1/2" },
+        { type = "WATER", typeLabel = language.types.WATER or "WATER",
+          effectLabel = "1/2" },
+        { type = "ICE", typeLabel = "ICE", effectLabel = "1/2" },
+      },
+    }
+    local model = { pokemon = mon,
+      drawPokemon = function(_, x, y, size, fainted)
+        drawPortrait(gen1 and 6 or 1, x, y, size, fainted)
+      end,
+    }
+    if legacyEnemyProfile then
+      theme:enemyInfoProfile(model)
+    elseif legacyEnemyDvs then
+      model.rows = {
+        { label = "HP", value = mon.dvs.hp },
+        { label = "ATTACK", value = mon.dvs.attack },
+        { label = "DEFENSE", value = mon.dvs.defense },
+        { label = "SPEED", value = mon.dvs.speed },
+        { label = "SPECIAL", value = mon.dvs.special },
+      }
+      theme:enemyInfoDvs(model)
+    elseif legacyEnemyWeak or legacyEnemyResist then
+      model.kind = legacyEnemyWeak and "weak" or "resist"
+      model.rows = mon[model.kind]
+      theme:enemyInfoMatchup(model)
+    else
+      theme:enemyInfoOverview(model)
+    end
+  elseif legacyMoveNew or legacyMoveForget or legacyMoveInfo then
     local mon = battleMon()
     local slot = gen1 and 6 or 1
     local newMove = gen1 and {

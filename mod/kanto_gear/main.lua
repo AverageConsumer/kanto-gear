@@ -7492,6 +7492,57 @@ return function(mod)
   local function drawBattle()
     if currentBattleUIMode() == "info" then
       local info = displayRuntime.enemyInfo()
+      if THEME.style == "hgss" then
+        local firstType = info.types[1]
+        local secondType = info.types[2] or firstType
+        info.type, info.type2 = firstType, secondType
+        info.typeLabel = THEME:typeName(firstType, mod.content)
+        info.type2Label = THEME:typeName(secondType, mod.content)
+        info.levelText = info.level and THEME:format("L%d", info.level)
+          or "L--"
+        local model = {
+          pokemon = info,
+          drawPokemon = function(_, x, y, size)
+            drawSprite(info.species, "front", x, y, size, size,
+              nil, battle and battle.enemy)
+          end,
+        }
+        local title = battleInfoDetail == "profile" and "POKEDEX"
+          or battleInfoDetail == "dvs" and "ENEMY DVS"
+          or battleInfoDetail == "weak" and "WEAK"
+          or battleInfoDetail == "resist" and "RESIST"
+          or "ENEMY INFO"
+        header(title, battleInfoDetail ~= nil)
+        G.push()
+        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        if battleInfoDetail == "profile" then
+          THEME.hgss:enemyInfoProfile(model)
+        elseif battleInfoDetail == "dvs" then
+          local dvs = info.dvs
+          model.rows = dvs and {
+            { label = "HP", value = dvs.hp },
+            { label = "ATTACK", value = dvs.attack },
+            { label = "DEFENSE", value = dvs.defense },
+            { label = "SPEED", value = dvs.speed },
+            { label = "SPECIAL", value = dvs.special },
+          } or {}
+          THEME.hgss:enemyInfoDvs(model)
+        elseif battleInfoDetail == "weak" or battleInfoDetail == "resist" then
+          model.kind, model.rows = battleInfoDetail, {}
+          for _, row in ipairs(info[battleInfoDetail] or {}) do
+            model.rows[#model.rows + 1] = {
+              type = row.type,
+              typeLabel = THEME:typeName(row.type, mod.content),
+              effectLabel = effectLabel(row.multiplier),
+            }
+          end
+          THEME.hgss:enemyInfoMatchup(model)
+        else
+          THEME.hgss:enemyInfoOverview(model)
+        end
+        G.pop()
+        return
+      end
       if battleInfoDetail == "profile" then
         header("POKEDEX", true)
         centered(fit(info.name, 24), 25, INK)
@@ -8469,6 +8520,17 @@ return function(mod)
 
   local function tapBattle(x, y)
     if currentBattleUIMode() == "info" then
+      if THEME.style == "hgss" then
+        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+        if battleInfoDetail then
+          if hy < 30 and hx < 27 then battleInfoDetail, dirty = nil, true end
+        else
+          local info = displayRuntime.enemyInfo()
+          local action = THEME.hgss:enemyInfoHit(hx, hy, info.dvs ~= nil)
+          if action then battleInfoDetail, dirty = action, true end
+        end
+        return
+      end
       if battleInfoDetail then
         if y < HEADER and x < 22 then battleInfoDetail, dirty = nil, true end
       elseif y >= 52 and y < 72 and x >= 118 and displayRuntime.enemyInfo().dvs then
