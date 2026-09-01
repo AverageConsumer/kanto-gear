@@ -559,7 +559,14 @@ T.eq(#home.layout.tiles, 1,
   "the first Home reset tap preserves the custom layout")
 display.runSettingsAction("reset_home")
 T.check(display.Home.find(home.layout, "explorer_widget") ~= nil
-    and display.Home.find(home.layout, "settings_app") ~= nil,
+    and display.Home.find(home.layout, "party_widget") ~= nil
+    and display.Home.find(home.layout, "map_app") ~= nil
+    and display.Home.find(home.layout, "tools_app") ~= nil
+    and display.Home.find(home.layout, "store_app") ~= nil
+    and display.Home.find(home.layout, "settings_app") ~= nil
+    and display.Home.find(home.layout, "trainer_app") == nil
+    and display.Home.find(home.layout, "party_app") == nil
+    and display.Home.pageCount(home.layout) == 1,
   "the confirmed Home reset restores the complete default layout")
 
 run.release()

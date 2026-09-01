@@ -2291,11 +2291,10 @@ return function(mod)
   displayRuntime.defaultHomeTiles = {
     { id = "explorer_widget", page = 1, column = 1, row = 1 },
     { id = "party_widget", page = 1, column = 8, row = 1 },
-    { id = "trainer_app", page = 1, column = 1, row = 2 },
+    { id = "map_app", page = 1, column = 1, row = 2 },
     { id = "tools_app", page = 1, column = 4, row = 2 },
     { id = "store_app", page = 1, column = 7, row = 2 },
-    { id = "party_app", page = 1, column = 10, row = 2 },
-    { id = "settings_app", page = 2, column = 5, row = 1 },
+    { id = "settings_app", page = 1, column = 10, row = 2 },
   }
 
   function displayRuntime.optionRow(key)
