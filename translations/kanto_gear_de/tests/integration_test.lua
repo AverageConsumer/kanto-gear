@@ -50,6 +50,8 @@ T.eq(kg("SCREEN SWAP (Y)"), "SCREEN-TAUSCH (Y)",
   "Begleitmod übersetzt den optionalen Bildschirmtausch")
 T.eq(kg("TAP ANYWHERE / A"), "ÜBERALL TIPPEN / A",
   "Begleitmod übersetzt den HGSS-Kampfhinweis")
+T.eq(kg("MOVE WITHOUT MAIL"), "OHNE POST VERSCH.",
+  "Begleitmod übersetzt die vollständige Gen-2-PC-Aktion")
 
 run.release()
 T.finish("Kanto Gear Deutsch integration")

@@ -334,6 +334,7 @@ return {
   ["WITHDRAW"] = "RETIRER",
   ["DEPOSIT"] = "DÉPOSER",
   ["RELEASE"] = "RELÂCHER",
+  ["MOVE WITHOUT MAIL"] = "DÉPLACER SANS LETTRE",
   ["BOXES"] = "BOÎTES",
   ["CHANGE BOX"] = "CHANGER DE BOÎTE",
   ["BOX CHANGE"] = "CHANGER BOÎTE",

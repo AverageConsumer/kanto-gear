@@ -1511,13 +1511,23 @@ function love.load()
     theme:systemOverlay(0.48, true, 1)
   elseif legacyPc then
     if legacyPcRoot then
-      theme:pcRoot({ kind = "pokemon", title = "PC BOX 3",
-        status = "BOX 3  12/20", entries = {
-          { label = translate("WITHDRAW"), selected = true },
-          { label = translate("DEPOSIT") },
-          { label = translate("RELEASE") },
-          { label = translate("CHANGE BOX") },
-        } })
+      local entries = gen1 and {
+        { label = translate("WITHDRAW"), selected = true },
+        { label = translate("DEPOSIT") },
+        { label = translate("RELEASE") },
+        { label = translate("CHANGE BOX") },
+        { label = translate("PRINT") },
+        { label = translate("BACK") },
+      } or {
+        { label = translate("WITHDRAW"), selected = true },
+        { label = translate("DEPOSIT") },
+        { label = translate("CHANGE BOX") },
+        { label = translate("MOVE WITHOUT MAIL") },
+        { label = translate("BACK") },
+      }
+      theme:pcRoot({ kind = "pokemon", title = translate("POKEMON PC"),
+        status = format("%s  %d/20", format("BOX %d", 3), 12),
+        entries = entries })
     elseif legacyPcQuantity then
       theme:pcQuantity({ label = "RARE CANDY", qty = 3, icon = "item" })
     elseif legacyPcSubmenu then

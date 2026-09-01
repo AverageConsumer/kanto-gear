@@ -829,6 +829,11 @@ do
   T.eq(pcRoot.index, 1,
     "wide PC root rows keep right-side touch on the native first item")
   T.eq(pressed, "a", "PC root touch confirms through native input")
+  pressed = nil
+  touchEvent("tap,120,128")
+  T.eq(pcRoot.index, 6,
+    "Yellow's sixth PC root row remains touchable")
+  T.eq(pressed, "a", "sixth PC root row confirms through native input")
 
   local deposit = { kind = "pc_box_deposit", index = 1, items = {
     { value = 1 }, { value = 2 }, { value = 3 }, { value = 4 },

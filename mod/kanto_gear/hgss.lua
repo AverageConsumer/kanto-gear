@@ -280,8 +280,12 @@ return function(ui)
     end
   end
 
+  local function displayText(value)
+    return tostring(value or ""):gsub("<PK><MN>", "PKMN")
+  end
+
   local function fitFont(value, width, font)
-    local chars = glyphs(tostring(value or ""))
+    local chars = glyphs(displayText(value))
     if font:getWidth(table.concat(chars)) <= width then
       return table.concat(chars)
     end
@@ -291,7 +295,7 @@ return function(ui)
   end
 
   local function splitFont(value, width, font)
-    local chars = glyphs(tostring(value or ""))
+    local chars = glyphs(displayText(value))
     local middle = math.floor(#chars / 2)
     for distance = 0, #chars do
       for _, cut in ipairs({ middle - distance, middle + distance }) do
@@ -312,11 +316,12 @@ return function(ui)
 
   function H:partyName(value, x, y, tint, width)
     local G, previous = ui.graphics, ui.graphics.getFont()
-    local chars = glyphs(tostring(value or ""))
+    value = displayText(value)
+    local chars = glyphs(value)
     while partyNameFont:getWidth(table.concat(chars)) > width
         and #chars > 0 do table.remove(chars) end
     local shown = table.concat(chars)
-    if shown ~= tostring(value or "") then
+    if shown ~= value then
       while partyNameFont:getWidth(shown .. "…") > width
           and #chars > 0 do
         table.remove(chars)
@@ -332,15 +337,16 @@ return function(ui)
 
   function H:partyInfo(value, x, y, tint, width, align)
     local G, previous = ui.graphics, ui.graphics.getFont()
+    value = displayText(value)
     ui.color(tint)
     G.setFont(partyInfoFont)
-    if width then G.printf(tostring(value), x, y, width, align or "left")
-    else G.print(tostring(value), x, y) end
+    if width then G.printf(value, x, y, width, align or "left")
+    else G.print(value, x, y) end
     if previous then G.setFont(previous) end
   end
 
   function H:partyInfoWidth(value)
-    return partyInfoFont:getWidth(tostring(value or ""))
+    return partyInfoFont:getWidth(displayText(value))
   end
 
   function H:fitPartyInfo(value, width)
@@ -348,7 +354,7 @@ return function(ui)
   end
 
   function H:splitPartyInfo(value, width)
-    value = tostring(value or "")
+    value = displayText(value)
     if partyInfoFont:getWidth(value) <= width then return value end
     local bestFirst, bestSecond, bestBalance
     for cut = 1, #value do
@@ -378,7 +384,7 @@ return function(ui)
 
   function H:partyType(value, x, y, tint, width)
     local G, previous = ui.graphics, ui.graphics.getFont()
-    local shown = tostring(value)
+    local shown = displayText(value)
     ui.color(tint)
     G.setFont(partyTypeFont)
     G.print(shown, x + math.floor((width - partyTypeFont:getWidth(shown))
@@ -4233,7 +4239,7 @@ return function(ui)
   end
 
   function H:pcRootRows(count)
-    count = math.max(1, math.min(4, count or 0))
+    count = math.max(1, math.min(6, count or 0))
     local height = math.floor((124 - (count - 1) * 3) / count)
     return 86, height
   end
@@ -4256,7 +4262,8 @@ return function(ui)
       return
     end
     local top, height = self:pcRootRows(#entries)
-    for index, entry in ipairs(entries) do
+    for index = 1, math.min(6, #entries) do
+      local entry = entries[index]
       local y = top + (index - 1) * (height + 3)
       local pressed = self:beginPress(7, y, 226, height)
       self:panel(7, y, 226, height, false, nil,
@@ -4398,7 +4405,7 @@ return function(ui)
   function H:pcRootHit(x, y, count)
     if x < 7 or x >= 233 or count < 1 then return nil end
     local top, height = self:pcRootRows(count)
-    for index = 1, math.min(4, count) do
+    for index = 1, math.min(6, count) do
       local rowTop = top + (index - 1) * (height + 3)
       if y >= rowTop and y < rowTop + height then return index end
     end
@@ -4537,7 +4544,15 @@ return function(ui)
   end
 
   do
+    local rootTop5, rootHeight5 = H:pcRootRows(5)
+    local rootTop6, rootHeight6 = H:pcRootRows(6)
     assert(H:pcRootHit(120, 90, 4) == 1
+        and H:pcRootHit(120, 207, 5) == 5
+        and H:pcRootHit(120, 208, 6) == 6
+        and rootTop5 + 5 * rootHeight5 + 4 * 3 <= 210
+        and rootTop6 + 6 * rootHeight6 + 5 * 3 <= 210
+        and H:fitPartyInfo("WITHDRAW <PK><MN>", 220)
+          == "WITHDRAW PKMN"
         and H:pcListHit(120, 100, 4) == 2
         and H:pcListHit(120, 96, 4) == nil
         and H:pcQuantityHit(30, 110) == "minus"

@@ -49,6 +49,8 @@ T.eq(kg("SCREEN SWAP (Y)"), "INTERCAMBIAR PANT. (Y)",
   "companion mod translates optional screen swapping")
 T.eq(kg("TAP ANYWHERE / A"), "TOCA DONDE SEA / A",
   "companion mod translates the HGSS battle prompt")
+T.eq(kg("MOVE WITHOUT MAIL"), "MOVER SIN CORREO",
+  "companion mod translates the full Gen 2 PC action")
 
 run.release()
 T.finish("Kanto Gear Spanish integration")

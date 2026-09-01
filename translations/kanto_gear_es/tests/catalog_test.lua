@@ -20,7 +20,7 @@ for source, translated in pairs(catalog) do
   count = count + 1
 end
 
-assert(count == 458, "El catálogo de traducción está incompleto")
+assert(count == 459, "El catálogo de traducción está incompleto")
 
 for _, source in ipairs({
   "NEW GAME", "OPTION", "EXIT GAME", "INPUT STAYS ON TOP",
@@ -35,7 +35,7 @@ for _, source in ipairs({
   "TOOLS %d/%d", "ITM%d", "HID%d", "%s  L%d", "L%d", "L%d-%d",
   "LV.%d", "EXP", "EXP %d", "NO.%03d %s", "NO.%03d LV.%d", "OT %s",
   "ID %05d", "MIMIC", "DVS >", "NEW %s", "PC BOX %d %d/20", "BOX %d",
-  "PARTY %d/6  %d/%d", "BOX %d  %d/20  %d/%d",
+  "PARTY %d/6  %d/%d", "BOX %d  %d/20  %d/%d", "MOVE WITHOUT MAIL",
   "NO ITEMS", "NO HIDDEN", "NO TRAINERS",
 }) do
   assert(catalog[source], "Falta texto de interfaz: " .. source)

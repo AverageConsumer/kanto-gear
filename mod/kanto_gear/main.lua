@@ -108,6 +108,20 @@ function THEME:translate(source)
     or source
 end
 
+local PC_ROOT_LABELS = {
+  ["WITHDRAW <PK><MN>"] = "WITHDRAW",
+  ["DEPOSIT <PK><MN>"] = "DEPOSIT",
+  ["RELEASE <PK><MN>"] = "RELEASE",
+  ["MOVE <PK><MN> W/O MAIL"] = "MOVE WITHOUT MAIL",
+  ["PRINT BOX"] = "PRINT",
+  ["SEE YA!"] = "BACK",
+}
+
+function THEME:pcRootLabel(value)
+  value = tostring(value or "")
+  return self:translate(PC_ROOT_LABELS[value] or value)
+end
+
 function THEME:batteryState(state, percent, tick)
   percent = math.max(0, math.min(100, tonumber(percent) or 100))
   tick = math.floor(tonumber(tick) or 0)
@@ -7860,16 +7874,17 @@ return function(mod)
       local entries = {}
       for index, item in ipairs(items) do
         entries[index] = {
-          label = THEME:translate(item.label or tostring(index)),
+          label = THEME:pcRootLabel(item.label or tostring(index)),
           selected = root.index == index,
         }
       end
       local title = root.screenId == "Gen2CenterPcMenu" and "PC"
         or kind == "items" and "ITEM PC"
-        or THEME:format("PC BOX %d", current)
+        or "POKEMON PC"
       local status = kind == "items"
         and THEME:translate("READY")
-        or THEME:format("BOX %d  %d/20", current, #(boxes[current] or {}))
+        or THEME:format("%s  %d/20", THEME:format("BOX %d", current),
+          #(boxes[current] or {}))
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:pcRoot({ kind = kind, title = THEME:translate(title),
@@ -7884,7 +7899,7 @@ return function(mod)
     local rowHeight = math.floor(116 / count)
     for i, item in ipairs(items) do
       button(8, 23 + (i - 1) * rowHeight, 144, rowHeight - 3,
-             item.label or tostring(i), root.index == i)
+             THEME:pcRootLabel(item.label or tostring(i)), root.index == i)
     end
   end
 
