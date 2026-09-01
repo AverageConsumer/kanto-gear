@@ -4020,6 +4020,16 @@ return function(mod)
            22 + (y * 8 + 4) * 0.75
   end
 
+  function displayRuntime.hgssMapPoint(x, y, left, top, scale, oldTop)
+    return (left + (x - 20) / 0.75 * scale) / THEME.hgssScale,
+      (top + (y - oldTop) / 0.75 * scale) / THEME.hgssScale
+  end
+  do
+    local x, y = displayRuntime.hgssMapPoint(20, 20, 30, 39, 1, 20)
+    assert(x == 20 and y == 26,
+      "HGSS region map touch targets follow the rendered map transform")
+  end
+
   local function outside(map)
     local tileset = map and map.def and map.def.tileset
     for _, id in ipairs(game.data.field.outsideTilesets or {}) do
@@ -4067,29 +4077,85 @@ return function(mod)
       if asset.gen2 then
         cells = asset.maps[region]
       end
-      for i, tile in ipairs(cells or {}) do
-        local quad = asset.quads[tile]
-        if quad then
-          local col, row = (i - 1) % 20, math.floor((i - 1) / 20)
-          local y = asset.gen2 and 20 + row * 6 or 22 + (row - 1) * 6
-          local colors = asset.gen2 and asset.palettes
-            and asset.palettes[(asset.palMap and asset.palMap[tile + 1]) or 1]
-            or mapColors
-          local function paint()
-            color(colors and { 1, 1, 1, 1 }
-              or asset.gen2 and (THEME.style == "modern_dark" and INK or PAPER)
-              or { 1, 1, 1, 1 })
-            G.draw(asset.image, quad, 20 + col * 6, y, 0, 0.75, 0.75)
-          end
-          if (asset.gen2 or row > 0) then
-            if colors and gbc.available() then gbc.with(colors, paint)
-            else paint() end
+      local function paintMap(left, top, tileScale, markerScale)
+        for i, tile in ipairs(cells or {}) do
+          local quad = asset.quads[tile]
+          if quad then
+            local col, row = (i - 1) % 20, math.floor((i - 1) / 20)
+            local visibleRow = asset.gen2 and row or row - 1
+            local colors = asset.gen2 and asset.palettes
+              and asset.palettes[(asset.palMap and asset.palMap[tile + 1]) or 1]
+              or mapColors
+            local function paint()
+              color(colors and { 1, 1, 1, 1 }
+                or asset.gen2 and (THEME.style == "modern_dark" and INK or PAPER)
+                or { 1, 1, 1, 1 })
+              G.draw(asset.image, quad, left + col * 8 * tileScale,
+                top + visibleRow * 8 * tileScale, 0, tileScale, tileScale)
+            end
+            if asset.gen2 or row > 0 then
+              if colors and gbc.available() then gbc.with(colors, paint)
+              else paint() end
+            end
           end
         end
+        local px, py = mapPoint(locationEntry(mapId))
+        if px then
+          local oldTop = asset.gen2 and 20 or 22
+          compat.drawMapMarker(left + (px - 20) / 0.75 * tileScale,
+            top + (py - oldTop) / 0.75 * tileScale, markerScale)
+        end
       end
-      local px, py = mapPoint(locationEntry(mapId))
-      if px then compat.drawMapMarker(px, py) end
+      if THEME.style == "hgss" then
+        G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:regionMap({ area = areaName(mapId),
+          drawMap = function(x, y, w, h)
+            local rows = math.max(1, math.ceil(#(cells or {}) / 20)
+              - (asset.gen2 and 0 or 1))
+            local scale = math.min(w / 160, h / (rows * 8))
+            local mapWidth, mapHeight = 160 * scale, rows * 8 * scale
+            local left = math.floor(x + (w - mapWidth) / 2 + 0.5)
+            local top = math.floor(y + (h - mapHeight) / 2 + 0.5)
+            paintMap(left, top, scale, 1.5)
+            local oldTop = asset.gen2 and 20 or 22
+            displayRuntime.regionMapTargets = {}
+            for _, target in ipairs(flyTargets()) do
+              local targetX, targetY = displayRuntime.hgssMapPoint(
+                target.x, target.y, left, top, scale, oldTop)
+              displayRuntime.regionMapTargets[#displayRuntime.regionMapTargets + 1] = {
+                id = target.id, name = target.name,
+                x = targetX, y = targetY,
+              }
+            end
+          end })
+        G.pop()
+        return
+      end
+      paintMap(20, asset.gen2 and 20 or 22, 0.75)
     else
+      if THEME.style == "hgss" then
+        displayRuntime.regionMapTargets = {}
+        G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:regionMap({ area = areaName(mapId),
+          drawMap = function(x, y, w, h)
+            local townMap = game.data.field and game.data.field.townMap
+            local locations = townMap and (townMap.locations or townMap) or {}
+            local playerX, playerY
+            for id, entry in pairs(locations) do
+              local c = entry.coords or entry
+              local cx, cy = tonumber(c.x or c.col), tonumber(c.y or c.row)
+              if cx and cy then
+                local px = math.floor(x + 12 + cx * 10)
+                local py = math.floor(y + 8 + cy * 9)
+                box("fill", px, py, 6, 6, DARK)
+                if id == mapId then playerX, playerY = px + 3, py + 3 end
+              end
+            end
+            if playerX then compat.drawMapMarker(playerX, playerY, 1.5) end
+          end })
+        G.pop()
+        return
+      end
       drawMapFallback()
     end
     box("fill", 4, 128, 152, 14, DARK)
@@ -4475,6 +4541,12 @@ return function(mod)
   end
 
   local function drawFlyPrompt()
+    if THEME.style == "hgss" then
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:toolPrompt({ icon = "teleport", label = pendingFly.name })
+      G.pop()
+      return
+    end
     drawDim(0.54, false)
     box("fill", 10, 38, 140, 91, MID)
     outline(10, 38, 140, 91, PAPER)
@@ -8952,7 +9024,14 @@ return function(mod)
       return
     end
     if pendingFly then
-      if inside(x, y, 18, 91, 58, 27) then
+      local yes, no = inside(x, y, 18, 91, 58, 27),
+        inside(x, y, 84, 91, 58, 27)
+      if THEME.style == "hgss" then
+        local choice = THEME.hgss:toolPromptHit(x * THEME.hgssScale,
+          y * THEME.hgssScale)
+        yes, no = choice == true, choice == false
+      end
+      if yes then
         local target = pendingFly
         pendingFly = nil
         if canFly() then
@@ -8960,7 +9039,7 @@ return function(mod)
           if not ok then mod.log:warn("fly rejected: %s", tostring(err)) end
         end
         dirty = true
-      elseif inside(x, y, 84, 91, 58, 27) then
+      elseif no then
         pendingFly, dirty = nil, true
       end
       return
@@ -9115,7 +9194,9 @@ return function(mod)
     end
     if page == "MAP" and canFly() then
       local best, distance
-      for _, target in ipairs(flyTargets()) do
+      local targets = THEME.style == "hgss"
+        and displayRuntime.regionMapTargets or flyTargets()
+      for _, target in ipairs(targets or {}) do
         local d = (x - target.x) ^ 2 + (y - target.y) ^ 2
         if d <= 144 and (not distance or d < distance) then
           best, distance = target, d

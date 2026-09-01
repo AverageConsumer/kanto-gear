@@ -404,6 +404,8 @@ function love.load()
   local explorerTrainers = screen == "explorer_trainers"
   local explorerTrainerDetail = screen == "explorer_trainer_detail"
   local explorerRadar = screen == "explorer_radar"
+  local regionMapFly = screen == "region_map_fly"
+  local regionMap = screen == "region_map" or regionMapFly
   local pokedexIndex = screen == "pokedex"
   local pokedexProfile = screen == "pokedex_profile"
   local pokedexHabitat = screen == "pokedex_habitat"
@@ -451,6 +453,7 @@ function love.load()
     or home and "SILPH LINK"
     or explorerRadar and translate("ITEM RADAR")
     or explorer and translate("EXPLORER")
+    or regionMap and (gen1 and "KANTO MAP" or "JOHTO MAP")
     or pokedexHabitat and "HABITAT 1/4"
     or pokedexStats and "STATS"
     or pokedexMoves and "MOVES 1/7"
@@ -484,13 +487,15 @@ function love.load()
     local headerOffset = summary and -1 or 0
     local titleX, titleWidth = theme:headerBar(title,
       homeAdd or store or explorer and not explorerOverview
-        or pokedex or bag or trainerScreen or trainerSteps or tools or swapMode
+        or pokedex or bag or regionMap or trainerScreen or trainerSteps
+        or tools or swapMode
         or context or summary
         or moves or memo or memoTransition
         or transition or movesTransition,
       store and not storeDetail
         or pokedexProfile or pokedexHabitat or pokedexStats or pokedexMoves
-        or not home and not store and not explorer and not pokedex and not bag
+        or not home and not store and not explorer and not regionMap
+        and not pokedex and not bag
         and not trainerScreen
         and not trainerSteps and not tools and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
@@ -1358,7 +1363,40 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if storeToday then
+  if regionMap then
+    theme:regionMap({ area = gen1 and "ROUTE 15" or "ROUTE 37",
+      drawMap = function(x, y, w, h)
+        local coast = theme.dark and { 0.08, 0.20, 0.27, 1 }
+          or { 0.60, 0.82, 0.88, 1 }
+        local land = theme.dark and { 0.22, 0.38, 0.20, 1 }
+          or { 0.67, 0.82, 0.54, 1 }
+        local road = theme.dark and { 0.50, 0.39, 0.18, 1 }
+          or { 0.91, 0.73, 0.34, 1 }
+        box("fill", x, y, w, h, coast)
+        local tile = 9
+        for row = 1, 13 do
+          for col = 1, 18 do
+            local shore = (row <= 2 and col > 4)
+              or (row >= 10 and col < 15)
+              or (col <= 2 and row > 5)
+            if not shore then
+              box("fill", x + 17 + (col - 1) * tile,
+                y + 10 + (row - 1) * tile, tile, tile,
+                (row == 7 or col == 9 and row > 3 and row < 11)
+                  and road or land)
+            end
+          end
+        end
+        box("fill", x + 17 + 8 * tile, y + 10 + 6 * tile,
+          tile, tile, theme.colors.redLight)
+        box("fill", x + 20 + 8 * tile, y + 13 + 6 * tile,
+          3, 3, theme.colors.white)
+      end })
+    if regionMapFly then
+      theme:toolPrompt({ icon = "teleport",
+        label = gen1 and "FUCHSIA CITY" or "GOLDENROD CITY" })
+    end
+  elseif storeToday then
     theme:storeToday({
       featured = storeCatalog[4],
       recommended = {

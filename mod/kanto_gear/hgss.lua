@@ -518,17 +518,6 @@ return function(ui)
       or colors.blueLight
   end
 
-  function H:panel(x, y, w, h, selected, focusAccent)
-    local colors = self.colors
-    if self:shadowVisible() then
-      clipped(x + 1, y + 1, w, h, colors.shadow)
-    end
-    clipped(x, y, w, h,
-      self:focusSurface(selected, colors.surface, focusAccent))
-    border(x, y, w, h, colors.ink)
-    if selected then self:focusFrame(x, y, w, h) end
-  end
-
   local function mixed(a, b, amount)
     return {
       a[1] + (b[1] - a[1]) * amount,
@@ -536,6 +525,23 @@ return function(ui)
       a[3] + (b[3] - a[3]) * amount,
       a[4] or 1,
     }
+  end
+
+  function H:panel(x, y, w, h, selected, focusAccent, baseAccent)
+    local colors = self.colors
+    if self:shadowVisible() then
+      clipped(x + 1, y + 1, w, h, colors.shadow)
+    end
+    local base = baseAccent and mixed(colors.surface, baseAccent,
+      self.dark and 0.15 or 0.10) or colors.surface
+    clipped(x, y, w, h,
+      self:focusSurface(selected, base, focusAccent))
+    border(x, y, w, h, colors.ink)
+    if baseAccent then
+      box("fill", x + 5, y + 2, w - 10, 1,
+        mixed(colors.highlight, baseAccent, 0.20))
+    end
+    if selected then self:focusFrame(x, y, w, h) end
   end
 
   function H:homeTile(x, y, w, h, accent, selected)
@@ -765,14 +771,20 @@ return function(ui)
     local G, colors = ui.graphics, self.colors
     local quiet = self.dark and colors.silver or colors.silverDark
     self:homeTile(12, 42, 216, 101, colors.green, false)
-    box("fill", 17, 47, 206, 3, colors.greenLight)
-    color(mixed(colors.surface, colors.greenLight, self.dark and 0.25 or 0.14))
-    G.circle("fill", 120, 87, 31)
-    trainerStatIcon(self, "steps", 120, 54, colors.greenLight)
-    local exact = trainerFit(trainerNumberFont, model.steps, 194)
-    fontText(trainerNumberFont, exact, 23, 73, colors.ink, 194, "center")
-    self:partyInfo(self:fitPartyInfo(translate("TOTAL"), 194),
-      23, 106, quiet, 194, "center")
+    box("fill", 14, 44, 212, 18, colors.green)
+    box("fill", 19, 44, 202, 2, colors.greenLight)
+    self:partyType(translate("STEP COUNTER"), 20, 48,
+      colors.white, 200)
+    clipped(24, 70, 52, 52,
+      mixed(colors.surface, colors.greenLight, self.dark and 0.20 or 0.28))
+    border(24, 70, 52, 52, colors.outline)
+    G.push(); G.translate(23, 69); G.scale(2, 2)
+    self:homeStepsIcon(0, 0); G.pop()
+    local exact = trainerFit(trainerNumberFont, model.steps, 132)
+    fontText(trainerNumberFont, exact, 84, 73, colors.ink, 132, "center")
+    self:partyInfo(self:fitPartyInfo(translate("TOTAL STEPS"), 132),
+      84, 105, quiet, 132, "center")
+    box("fill", 84, 119, 132, 3, colors.greenLight)
 
     local pressed = self:beginPress(54, 165, 132, 38, true)
     self:homeTile(54, 165, 132, 38, colors.red, false)
@@ -816,7 +828,10 @@ return function(ui)
       local column, row = (index - 1) % 3, math.floor((index - 1) / 3)
       local left, top = 7 + column * 77, 68 + row * 43
       local pressed = self:beginPress(left, top, 72, 41)
-      self:panel(left, top, 72, 41, entry.selected, colors.redLight)
+      local entryAccent = entry.caught and colors.greenLight
+        or entry.seen and colors.blueLight or colors.silverDark
+      self:panel(left, top, 72, 41, entry.selected, colors.redLight,
+        entryAccent)
       self:partyType(("%03d"):format(tonumber(entry.dex) or 0),
         left + 3, top + 2, quiet, 22)
       color(entry.caught and colors.bandLight
@@ -858,7 +873,8 @@ return function(ui)
       self:partyType(translate("NOT CAUGHT"), 152, 40, colors.red, 70)
     end
 
-    self:panel(7, 108, 226, 43, false)
+    self:panel(7, 108, 226, 43, false, nil,
+      self:typeColor(mon.types and mon.types[1]))
     local lines = mon.description or { translate("NO DETAILS AVAILABLE") }
     local visible = math.min(3, #lines)
     local firstY = 115 + math.floor((29 - visible * 9) / 2)
@@ -911,7 +927,7 @@ return function(ui)
     local height = #rows > 5 and 20 or 22
     for index, row in ipairs(rows) do
       local top = 76 + (index - 1) * (height + gap)
-      self:panel(7, top, 226, height, false)
+      self:panel(7, top, 226, height, false, nil, colors.blueLight)
       self:partyType(row.label or "STAT", 13, top + 6, colors.green, 54)
       border(72, top + 7, 119, 6, colors.outline)
       box("fill", 73, top + 8, 117, 4, colors.silverDark)
@@ -929,7 +945,8 @@ return function(ui)
       translate("LEARNSET"), translate("LEVEL + TM/HM"))
     for index, row in ipairs(model.rows or {}) do
       local top = 76 + (index - 1) * 28
-      self:panel(7, top, 226, 25, false)
+      self:panel(7, top, 226, 25, false, nil,
+        self:typeColor(row.type or row.types and row.types[1]))
       self:partyType(row.method or "--", 13, top + 8, colors.green, 36)
       self:partyInfo(self:fitPartyInfo(row.name or "MOVE", 101),
         53, top + 7, colors.ink, 101)
@@ -947,7 +964,8 @@ return function(ui)
 
     for index, row in ipairs(model.rows or {}) do
       local top = 76 + (index - 1) * 39
-      self:panel(7, top, 226, 35, row.current, colors.greenLight)
+      self:panel(7, top, 226, 35, row.current, colors.greenLight,
+        colors.greenLight)
       self:partyInfo(self:fitPartyInfo(row.area or "UNKNOWN AREA", 136),
         14, top + 4, colors.ink)
       if row.current then
@@ -2567,6 +2585,24 @@ return function(ui)
     return best
   end
 
+  function H:regionMap(model)
+    local G, colors = ui.graphics, self.colors
+    self:panel(7, 32, 226, 178, false, nil, colors.blueLight)
+    clipped(12, 37, 216, 142,
+      mixed(colors.surface, colors.blueLight, self.dark and 0.18 or 0.12))
+    border(12, 37, 216, 142, colors.outline)
+    G.setScissor(14, 39, 212, 138)
+    if model.drawMap then model.drawMap(14, 39, 212, 138) end
+    G.setScissor()
+
+    self:panel(12, 184, 216, 20, false, nil, colors.greenLight)
+    self:partyType(self:fitPartyType(translate("AREA"), 66),
+      17, 189, colors.green, 66)
+    box("fill", 86, 188, 1, 12, colors.band)
+    self:partyInfo(self:fitPartyInfo(model.area or translate("UNKNOWN AREA"),
+      132), 91, 187, colors.ink, 132, "center")
+  end
+
   function H:explorer(model)
     local colors, view, selected = self.colors, model.view, model.selected
     local function mapToggle(x, y, collapse)
@@ -2636,7 +2672,7 @@ return function(ui)
       self:partyInfo(model.trainersText,
         trainerLeft + iconWidth + gap, y + 2, colors.ink)
     end
-    self:panel(7, 32, 226, 18, false)
+    self:panel(7, 32, 226, 18, false, nil, colors.greenLight)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
       56), 12, 35, colors.ink, 56, "center")
     self:partyType(self:fitPartyType(translate(model.subarea or "OUTDOORS"),
@@ -2651,7 +2687,7 @@ return function(ui)
       or view == "wild" and (selected and 42 or 84)
       or 84
     if model.mapFull then
-      self:panel(7, 53, 226, 16, false)
+      self:panel(7, 53, 226, 16, false, nil, colors.greenLight)
       zoomControls(53, model.mapZoom or 1)
       mapProgress(53)
     end
@@ -2718,7 +2754,8 @@ return function(ui)
       self:endPress(pressed)
     end
     if selected and view == "wild" then
-      self:panel(7, 99, 226, 111, false)
+      local wildAccent = self:typeColor(selected.type)
+      self:panel(7, 99, 226, 111, false, nil, wildAccent)
       self:partyPortrait(16, 106, false, false)
       if model.drawPokemon then model.drawPokemon(selected, 16, 109, 34) end
       self:partyInfo(self:fitPartyInfo(selected.name, 100),
@@ -2740,7 +2777,8 @@ return function(ui)
       end
       if #detailRows == 1 then
         local appearance = detailRows[1]
-        self:panel(12, 150, 216, 53, false)
+        self:panel(12, 150, 216, 53, false, nil,
+          appearance.current and colors.greenLight or wildAccent)
         if appearance.current then
           box("fill", 14, 152, 212, 49, colors.bandLight)
         end
@@ -2766,7 +2804,8 @@ return function(ui)
       else
         for index, appearance in ipairs(detailRows) do
           local y = 149 + (index - 1) * 27
-          self:panel(12, y, 216, 24, false)
+          self:panel(12, y, 216, 24, false, nil,
+            appearance.current and colors.greenLight or wildAccent)
           if appearance.current then
             box("fill", 14, y + 2, 212, 20, colors.bandLight)
           end
@@ -2787,7 +2826,7 @@ return function(ui)
       end
       return
     elseif selected and view == "items" then
-      self:panel(7, 140, 226, 70, false)
+      self:panel(7, 140, 226, 70, false, nil, colors.amberLight)
       self:battleItemIcon({ icon = selected.kind == "hidden" and "item"
         or selected.icon or "item" }, 15, 166, colors.amberLight)
       self:partyInfo(self:fitPartyInfo(selected.displayLabel or selected.label,
@@ -2801,7 +2840,7 @@ return function(ui)
         or "ON THIS MAP"), 100), 126, 180, colors.ink, 100, "center")
       return
     elseif selected and view == "trainers" then
-      self:panel(7, 140, 226, 70, false)
+      self:panel(7, 140, 226, 70, false, nil, colors.blueLight)
       if model.drawActor then model.drawActor(selected, 23, 180, 1, false) end
       self:partyInfo(self:fitPartyInfo(selected.label, 75),
         39, 157, colors.ink)
@@ -2919,12 +2958,12 @@ return function(ui)
   function H:explorerRadar(model)
     local G, colors = ui.graphics, self.colors
     local pressed = self:beginPress(7, 32, 226, 178)
-    self:panel(7, 32, 226, 178, false)
+    self:panel(7, 32, 226, 178, false, nil, colors.blueLight)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
       108), 13, 38, colors.ink)
     self:partyType(self:fitPartyType(translate(model.ready and "SCAN COMPLETE"
       or "SCANNING"), 90), 132, 40, colors.green, 90)
-    self:panel(18, 58, 204, 116, false)
+    self:panel(18, 58, 204, 116, false, nil, colors.blueLight)
     for x = 42, 198, 24 do box("fill", x, 61, 1, 110, colors.band) end
     for y = 82, 154, 24 do box("fill", 21, y, 198, 1, colors.band) end
     local cx, cy = 120, 116
@@ -3197,7 +3236,8 @@ return function(ui)
     self:battleTeamStrip(playerTeam, enemyTeam)
     local pressed = self:beginPress(MESSAGE_X, 38, MESSAGE_WIDTH, 165,
       canAdvance)
-    self:panel(MESSAGE_X, 38, MESSAGE_WIDTH, 165, false)
+    self:panel(MESSAGE_X, 38, MESSAGE_WIDTH, 165, false, nil,
+      colors.greenLight)
     clipped(16, 45, 208, 150, colors.bandLight)
     border(16, 45, 208, 150, colors.band)
     local contentTop, contentHeight = 53, 105
@@ -3396,9 +3436,10 @@ return function(ui)
     local colors = self.colors
     local accent = self:itemAccent(item.icon)
     local pressed = self:beginPress(x, y, 112, 43)
-    self:panel(x, y, 112, 43, false)
-    clipped(x + 5, y + 7, 29, 29, colors.bandLight)
-    border(x + 5, y + 7, 29, 29, colors.band)
+    self:panel(x, y, 112, 43, false, nil, accent)
+    clipped(x + 5, y + 7, 29, 29,
+      mixed(colors.surface, accent, self.dark and 0.24 or 0.18))
+    border(x + 5, y + 7, 29, 29, colors.outline)
     self:battleItemIcon(item, x + 11, y + 13, accent)
     box("fill", x + 39, y + 5, 1, 33, colors.band)
     self:partyName(item.label or "ITEM", x + 45, y + 7,
@@ -3417,7 +3458,7 @@ return function(ui)
 
   function H:bagOverview(model)
     local colors = self.colors
-    self:panel(6, 34, 228, 34, false)
+    self:panel(6, 34, 228, 34, false, nil, colors.amberLight)
     self:battleBagIcon(14, 37)
     box("fill", 46, 38, 1, 26, colors.band)
     if (model.pockets or 1) > 1 then
@@ -3451,9 +3492,10 @@ return function(ui)
   function H:bagDetail(model)
     local item, colors = model.detail, self.colors
     local accent = self:itemAccent(item.icon)
-    self:panel(6, 34, 228, 124, false)
-    clipped(16, 44, 45, 45, colors.bandLight)
-    border(16, 44, 45, 45, colors.band)
+    self:panel(6, 34, 228, 124, false, nil, accent)
+    clipped(16, 44, 45, 45,
+      mixed(colors.surface, accent, self.dark and 0.24 or 0.18))
+    border(16, 44, 45, 45, colors.outline)
     ui.graphics.push()
     ui.graphics.translate(20, 48)
     ui.graphics.scale(2, 2)
@@ -3472,7 +3514,7 @@ return function(ui)
 
     local enabled = model.canUse ~= false
     local pressed = self:beginPress(54, 166, 132, 40, enabled)
-    self:panel(54, 166, 132, 40, false)
+    self:panel(54, 166, 132, 40, false, nil, colors.amberLight)
     clipped(57, 169, 126, 34,
       enabled and self:focusSurface(true, colors.surface, colors.amberLight)
         or colors.bandLight)
@@ -3562,7 +3604,7 @@ return function(ui)
       not disabled)
     G.push()
     G.translate(offsetX or 0, 0)
-    self:panel(7, y, 226, 31, false)
+    self:panel(7, y, 226, 31, false, nil, iconTint)
     if selected and not disabled then
       clipped(9, y + 2, 222, 27,
         self:focusSurface(true, colors.surface, iconTint))
@@ -3670,7 +3712,7 @@ return function(ui)
     local disabled = move.disabled
     local pressed = self:beginPress(x, y, 112, 80, not disabled)
     self:panel(x, y, 112, 80, selected and not disabled,
-      self:typeColor(move.type))
+      self:typeColor(move.type), self:typeColor(move.type))
 
     local ink = disabled and colors.silverDark or colors.ink
     self:partyName(move.name or "-", x + 9, y + 7, ink, 88)
@@ -3715,9 +3757,9 @@ return function(ui)
     end
   end
 
-  function H:battleMoveInfoStat(x, label, value)
+  function H:battleMoveInfoStat(x, label, value, accent)
     local colors = self.colors
-    self:panel(x, 70, 66, 41, false)
+    self:panel(x, 70, 66, 41, false, nil, accent)
     self:partyInfo(label, x, 76, colors.green, 66, "center")
     self:partyInfo(value, x, 91, colors.ink, 66, "center")
   end
@@ -3725,7 +3767,7 @@ return function(ui)
   function H:battleMoveInfoBody(move, stab)
     local colors = self.colors
     local accent = self:typeColor(move.type)
-    self:panel(6, 33, 228, 169, false)
+    self:panel(6, 33, 228, 169, false, nil, accent)
     self:partyName(move.name or "-", 20, 42, colors.ink, 144)
     self:moveTypeBadge(move, 176, 43)
     box("fill", 16, 63, 208, 1, colors.band)
@@ -3735,12 +3777,13 @@ return function(ui)
       accuracy = accuracy .. "%"
     end
     self:battleMoveInfoStat(14, move.powerLabel or "PWR",
-      tostring(move.powerText or "--"))
-    self:battleMoveInfoStat(87, move.accuracyLabel or "ACC", accuracy)
+      tostring(move.powerText or "--"), colors.redLight)
+    self:battleMoveInfoStat(87, move.accuracyLabel or "ACC", accuracy,
+      colors.blueLight)
     self:battleMoveInfoStat(160, move.ppLabel or "PP",
-      tostring(move.ppText or "--"))
+      tostring(move.ppText or "--"), colors.greenLight)
 
-    self:panel(14, 117, 103, 36, false)
+    self:panel(14, 117, 103, 36, false, nil, accent)
     self:partyInfo(move.stabLabel or "STAB", 14, 122,
       colors.green, 103, "center")
     local stabFill = stab and accent or colors.silverDark
@@ -3749,7 +3792,7 @@ return function(ui)
     self:partyType(stab and "1.5X" or "--", 50, 136,
       colors.white, 31)
 
-    self:panel(123, 117, 103, 36, false)
+    self:panel(123, 117, 103, 36, false, nil, colors.greenLight)
     self:partyInfo(move.matchupLabel or "MATCHUP", 123, 122,
       colors.green, 103, "center")
     local effectLabel, effectiveness = self:battleEffectLabel(move)
@@ -3761,7 +3804,7 @@ return function(ui)
     border(161, 137, 27, 11, colors.outline)
     self:partyType(effectLabel, 163, 136, colors.white, 23)
 
-    self:panel(14, 158, 212, 36, false)
+    self:panel(14, 158, 212, 36, false, nil, accent)
     local lines = move.descriptionLines or { move.description or "--" }
     if lines[2] then
       self:partyInfo(self:fitPartyInfo(lines[1], 196),
@@ -4162,7 +4205,8 @@ return function(ui)
 
   function H:summaryTop(mon, drawPortrait)
     local colors = self.colors
-    self:panel(6, 34, 228, 80, false)
+    self:panel(6, 34, 228, 80, false, nil,
+      self:typeColor(mon.types and mon.types[1]))
     self:summaryBall(38, 69, 29)
     drawPortrait(mon, 14, 44, 48, false)
 
@@ -4205,7 +4249,7 @@ return function(ui)
 
   function H:summaryStats(mon)
     local colors = self.colors
-    self:panel(6, 118, 228, 92, false)
+    self:panel(6, 118, 228, 92, false, nil, colors.blueLight)
     self:label(mon.statsTitle or "BATTLE STATS", 12, 121, colors.ink)
     box("fill", 11, 137, 218, 1, colors.band)
     box("fill", 120, 138, 1, 66, colors.band)
@@ -4236,7 +4280,8 @@ return function(ui)
 
   function H:summaryIdentity(mon, drawPortrait)
     local colors = self.colors
-    self:panel(6, 34, 228, 25, false)
+    self:panel(6, 34, 228, 25, false, nil,
+      self:typeColor(mon.types and mon.types[1]))
     self:summaryBall(20, 46, 10)
     drawPortrait(mon, 10, 36, 20, false)
     self:partyName(mon.name, 36, 37, colors.ink, 108)
@@ -4264,7 +4309,7 @@ return function(ui)
     local colors = self.colors
     local pressed = self:beginPress(x, y, 228, 34, interactive)
     self:panel(x, y, 228, 34, interactive and selected,
-      self:typeColor(move.type))
+      self:typeColor(move.type), self:typeColor(move.type))
     self:moveTypeBadge(move, x + 8, y + 12)
     self:partyName(move.name or "-", x + 64, y + 4, colors.ink, 88)
     self:partyInfo(move.ppLabel or "PP", x + 157, y + 4, colors.green)
@@ -4299,10 +4344,7 @@ return function(ui)
 
   function H:summaryTrainerMemo(mon)
     local colors = self.colors
-    self:panel(6, 63, 228, 62, false)
-    box("fill", 7, 65, 4, 58, colors.blue)
-    box("fill", 8, 64, 3, 1, colors.blue)
-    box("fill", 8, 123, 3, 1, colors.blue)
+    self:panel(6, 63, 228, 62, false, nil, colors.blueLight)
     self:partyInfo(mon.memoTitle or "TRAINER MEMO", 17, 68, colors.green)
     box("fill", 16, 82, 208, 1, colors.band)
     self:partyInfo(mon.otLabel or "ORIGINAL TRAINER", 17, 88, colors.green)
@@ -4314,10 +4356,7 @@ return function(ui)
 
   function H:summaryGrowthMemo(mon)
     local colors = self.colors
-    self:panel(6, 130, 228, 80, false)
-    box("fill", 7, 132, 4, 76, colors.exp)
-    box("fill", 8, 131, 3, 1, colors.exp)
-    box("fill", 8, 208, 3, 1, colors.exp)
+    self:panel(6, 130, 228, 80, false, nil, colors.exp)
     self:partyInfo(mon.growthTitle or "GROWTH RECORD", 17, 135,
       colors.green)
     box("fill", 16, 149, 208, 1, colors.band)
