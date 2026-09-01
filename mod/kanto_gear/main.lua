@@ -7985,6 +7985,18 @@ return function(mod)
     end
   end
 
+  function displayRuntime.pressTouch(mode, choice, touch)
+    if mode == "loading" or (mode == "textbox" and not choice) then
+      return nil
+    end
+    return touch
+  end
+  assert(displayRuntime.pressTouch("textbox", nil, true) == nil
+      and displayRuntime.pressTouch("loading", nil, true) == nil
+      and displayRuntime.pressTouch("textbox", {}, true) == true
+      and displayRuntime.pressTouch("active", nil, true) == true,
+    "modal text and loading overlays capture HGSS press animation")
+
   displayRuntime.drawContents = function()
     G.setCanvas(canvas)
     G.origin()
@@ -7996,11 +8008,6 @@ return function(mod)
     local highResolution = THEME.style == "hgss"
     if highResolution then
       G.push(); G.scale(THEME.hgssScale, THEME.hgssScale)
-    end
-    if THEME.style == "hgss" then
-      THEME.hgss:setTouch(touchDown and touchDown.x,
-        touchDown and touchDown.y)
-      THEME.hgss:backdrop()
     end
     local mode, top, fade = screenState()
     local summary = compat.isScreen(top, "summary") and top or nil
@@ -8016,6 +8023,12 @@ return function(mod)
     local unsupportedSpecial = (learnScreen and not learn)
       or (compat.isScreen(top, "naming") and not naming)
     local levelStats = battle and compat.levelUpMon(top)
+    if THEME.style == "hgss" then
+      local pressTouch = displayRuntime.pressTouch(mode, choice, touchDown)
+      THEME.hgss:setTouch(pressTouch and pressTouch.x,
+        pressTouch and pressTouch.y)
+      THEME.hgss:backdrop()
+    end
     if moveInfo then
       drawMoveInfo(moveInfo)
     elseif learn and not choice then
