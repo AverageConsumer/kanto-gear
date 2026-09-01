@@ -509,6 +509,12 @@ function love.load()
   local toolsPrompt = screen == "tools_prompt"
   local toolsRods = screen == "tools_rods"
   local tools = toolsScreen or toolsPrompt or toolsRods
+  local settingsRoot, settingsDisplay = screen == "settings",
+    screen == "settings_display"
+  local settingsAppearance, settingsSystem = screen == "settings_appearance",
+    screen == "settings_system"
+  local settings = settingsRoot or settingsDisplay
+    or settingsAppearance or settingsSystem
   local store = storeToday or storeApps or storeLibrary or storeDetail
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
@@ -567,6 +573,10 @@ function love.load()
     or trainerScreen and translate("TRAINER")
     or toolsRods and translate("CHOOSE ROD")
     or tools and translate("FIELD KIT")
+    or settingsDisplay and "DISPLAY"
+    or settingsAppearance and "APPEARANCE"
+    or settingsSystem and "SYSTEM"
+    or settings and "SETTINGS"
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
     or partySwap and language.swapWith
@@ -595,7 +605,7 @@ function love.load()
       homeAdd or store or explorer and not explorerOverview
         or pokedex or bag or regionMap or legacyBack
         or trainerScreen or trainerSteps
-        or tools or swapMode
+        or tools or settings or swapMode
         or context or summary
         or moves or memo or memoTransition
         or transition or movesTransition,
@@ -605,9 +615,9 @@ function love.load()
         and not legacy
         and not pokedex and not bag
         and not trainerScreen
-        and not trainerSteps and not tools and not swapMode and (summary or moves or memo or memoTransition
+        and not trainerSteps and not tools and not settings and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
-        or not context) or toolsScreen, headerOffset)
+        or not context) or toolsScreen or settingsDisplay, headerOffset)
     if context then
       local left, width = 26, 112
       assert(math.abs(titleX - left - (width - titleWidth - (titleX - left)))
@@ -1778,6 +1788,38 @@ function love.load()
       "EVERYTHING CLOSE AT HAND.",
     }
     theme:storeDetail({ app = detail })
+  elseif settingsRoot then
+    theme:settings({ categories = {
+      { label = "APPEARANCE", detail = "THEME AND MOTION", accent = "blue" },
+      { label = "DISPLAY", detail = "SCREENS AND LAYOUT", accent = "green" },
+      { label = "BATTLE", detail = "HUD AND BATTLE INFO", accent = "red" },
+      { label = "RESEARCH", detail = "VANILLA TO SPOILERS", accent = "amber" },
+      { label = "CONTROLS", detail = "OPTIONAL SHORTCUTS", accent = "blue" },
+      { label = "SYSTEM", detail = "RESET SILPH LINK", accent = "green" },
+    } })
+  elseif settingsDisplay then
+    theme:settings({ category = "display", accent = "green", page = 1,
+      pages = 2, rows = {
+        { label = "DISPLAY MODE", value = "COMBINED SCREEN" },
+        { label = "LAYOUT", value = "SIDE BY SIDE" },
+        { label = "PRIMARY VIEW", value = "GAME" },
+        { label = "SECONDARY SIZE", value = "40%" },
+        { label = "OVERLAY CORNER", value = "BOTTOM RIGHT" },
+      } })
+  elseif settingsAppearance then
+    theme:settings({ category = "appearance", accent = "blue", page = 1,
+      pages = 1, rows = {
+        { label = "THEME", value = "HGSS LIGHT" },
+        { label = "CLOCK", value = "GAME" },
+        { label = "UI MOTION", value = "ON" },
+      } })
+  elseif settingsSystem then
+    theme:settings({ category = "system", accent = "green", page = 1,
+      pages = 1, rows = {
+        { label = "RESET HOME", value = "RESET", action = "reset_home" },
+        { label = "RESET OPTIONS", value = "TAP AGAIN",
+          action = "reset_options" },
+      } })
   elseif toolsPrompt then
     theme:tools({ actions = toolActions, page = toolPage, pages = toolPages })
     theme:toolPrompt({ icon = "teleport", label = "TELEPORT" })
@@ -1797,7 +1839,8 @@ function love.load()
         bag = { installed = true }, pokedex = { installed = true },
         trainer = { installed = true }, tools = { installed = true },
         steps = { installed = true },
-        store = { installed = true }, notes = { installed = true },
+        store = { installed = true }, settings = { installed = true },
+        notes = { installed = true },
       },
       surfaces = {
         explorer_widget = { package = "explorer", kind = "widget",
@@ -1846,6 +1889,8 @@ function love.load()
           actionId = "cut", ready = true },
         store_app = { package = "store", kind = "app", columns = 3,
           icon = "store", accent = "green", label = language.homeStore },
+        settings_app = { package = "settings", kind = "app", columns = 3,
+          icon = "settings", accent = "blue", label = "OPTIONS" },
         notes_app = { package = "notes", kind = "app", columns = 3,
           icon = "notes", accent = "amber", label = language.homeNotes },
       },
@@ -1860,6 +1905,7 @@ function love.load()
       { id = "store_app", page = 2, column = 1, row = 1 },
       { id = "notes_app", page = 2, column = 4, row = 1 },
       { id = "party_app", page = 2, column = 7, row = 1 },
+      { id = "settings_app", page = 2, column = 10, row = 1 },
       { id = "steps_widget", page = 3, column = 1, row = 1 },
       { id = "steps_app", page = 3, column = 6, row = 1 },
     } }

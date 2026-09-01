@@ -62,6 +62,12 @@ Edit mode, swap cards or move them to another page, and use **Silph Store** to
 choose which optional apps and widgets are available. Store installs are local
 Kanto Gear preferences; no code or network download occurs.
 
+The fixed **Options** app groups appearance, display, battle, research and
+control settings by purpose. It updates them immediately, hides irrelevant
+layout controls and includes separate resets for options and Home layout.
+**UI Motion** can disable Silph Link page transitions without changing the
+games' own battle-animation setting.
+
 <p align="center">
   <img src="screenshots/kanto-gear-hgss-home-light.png" width="49%" alt="Customizable Silph Link Home screen in HGSS Light">
   <img src="screenshots/kanto-gear-hgss-home-dark.png" width="49%" alt="Customizable Silph Link Home screen in HGSS Dark">
@@ -78,8 +84,9 @@ and touch language without replacing the original game logic.
   <img src="screenshots/kanto-gear-hgss-battle-dark.png" width="49%" alt="HGSS Dark battle controls">
 </p>
 
-Version 3.0 does not force the new theme. Existing theme, display and gameplay
-settings remain in place, and every pre-3.0 Kanto Gear theme remains available.
+Fresh 3.0 installations start with HGSS Light. Upgrades do not force the new
+theme: existing theme, display and gameplay settings remain in place, and every
+pre-3.0 Kanto Gear theme remains available.
 
 ## One mod, three display modes
 

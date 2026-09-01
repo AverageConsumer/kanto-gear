@@ -1851,6 +1851,7 @@ return function(mod)
     and compactSteps(100000) == "100K"
     and compactSteps(10000000) == "10M", "compact step count")
 
+  THEME.storedTheme = mod.options:get("theme")
   local infoDefault = mod.options:get("info_level")
   if infoDefault == nil then
     local legacyProfile = mod.options:get("profile")
@@ -1874,9 +1875,10 @@ return function(mod)
   THEME.displayModeDefault, THEME.combinedLayoutDefault = THEME:displayDefaults(
     function(key) return mod.options:get(key) end)
 
-  mod.options:define({
+  THEME.optionSchema = mod.options:define({
     { key = "theme", label = "THEME", type = "choice",
-      default = "kanto", choices = {
+      default = type(mod.options.set) == "function" and "hgss" or "kanto",
+      choices = {
         { "KANTO GREEN", "kanto" }, { "MATCH GAME", "match" },
         { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" },
         { "MODERN LIGHT", "modern_light" },
@@ -1889,6 +1891,8 @@ return function(mod)
       default = "game", choices = {
         { "GAME", "game" }, { "SYSTEM", "system" },
       } },
+    { key = "ui_motion", label = "UI MOTION",
+      type = "toggle", default = true },
     { key = "info_level", label = "INFO", type = "choice",
       default = infoDefault, choices = infoChoices },
     { key = "local_map", label = "AREA MAP",
@@ -2085,6 +2089,14 @@ return function(mod)
     translate = function(value) return THEME:translate(value) end,
     format = function(value, ...) return THEME:format(value, ...) end,
   })
+
+  if mod.migrations and mod.migrations.add then
+    mod.migrations:add("3.0.0", function(modSave)
+      if modSave.preserve_legacy_theme == nil then
+        modSave.preserve_legacy_theme = true
+      end
+    end)
+  end
   assert(THEME.hgss:battleChoice(120, 80) == 1
       and THEME.hgss:battleChoice(200, 170) == 2
       and THEME.hgss:battleChoice(40, 170) == 3
@@ -2112,6 +2124,7 @@ return function(mod)
       steps = { installed = true, defaultInstalled = true },
       tools = { installed = true, defaultInstalled = true },
       store = { installed = true, fixed = true },
+      settings = { installed = true, fixed = true },
       bag = { installed = false },
       pokedex = { installed = false },
       notes = { installed = false, available = false },
@@ -2153,6 +2166,8 @@ return function(mod)
         icon = "pokedex", accent = "red", label = "POKEDEX" },
       notes_app = { package = "notes", kind = "app", columns = 3,
         icon = "notes", accent = "amber", label = "NOTES" },
+      settings_app = { package = "settings", kind = "app", columns = 3,
+        icon = "settings", accent = "blue", label = "OPTIONS" },
     },
   }
   for _, def in ipairs(THEME.fieldTools.widgets) do
@@ -2211,6 +2226,23 @@ return function(mod)
   displayRuntime.home = {
     page = 1, storeView = "today", storePages = {}, libraryKind = "app",
   }
+  displayRuntime.settings = { page = 1 }
+  displayRuntime.settingsCategories = {
+    { id = "appearance", label = "APPEARANCE", detail = "THEME AND MOTION",
+      accent = "blue", keys = { "theme", "clock_source", "ui_motion" } },
+    { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
+      accent = "green", keys = { "display_mode", "fullscreen_start",
+        "combined_layout", "combined_primary", "secondary_size",
+        "overlay_corner", "overlay_button", "display_target", "screen_swap" } },
+    { id = "battle", label = "BATTLE", detail = "HUD AND BATTLE INFO",
+      accent = "red", keys = { "battle_view", "caught_icon" } },
+    { id = "research", label = "RESEARCH", detail = "VANILLA TO SPOILERS",
+      accent = "amber", keys = { "info_level" } },
+    { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS",
+      accent = "blue", keys = { "trigger_tabs" } },
+    { id = "system", label = "SYSTEM", detail = "RESET SILPH LINK",
+      accent = "green", actions = { "reset_home", "reset_options" } },
+  }
   displayRuntime.defaultHomeTiles = {
     { id = "explorer_widget", page = 1, column = 1, row = 1 },
     { id = "party_widget", page = 1, column = 8, row = 1 },
@@ -2218,7 +2250,109 @@ return function(mod)
     { id = "tools_app", page = 1, column = 4, row = 2 },
     { id = "store_app", page = 1, column = 7, row = 2 },
     { id = "party_app", page = 1, column = 10, row = 2 },
+    { id = "settings_app", page = 2, column = 5, row = 1 },
   }
+
+  function displayRuntime.optionRow(key)
+    for _, row in ipairs(THEME.optionSchema or {}) do
+      if row.key == key then return row end
+    end
+  end
+
+  function displayRuntime.optionVisible(row)
+    local condition = row and row.visible_if
+    if not condition then return true end
+    local value = mod.options:get(condition.key)
+    if condition.equals ~= nil then return value == condition.equals end
+    if condition.not_equals ~= nil then return value ~= condition.not_equals end
+    return true
+  end
+
+  function displayRuntime.optionChoices(row)
+    if row and row.key == "theme" then
+      return { { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" } }
+    end
+    return row and row.choices or {}
+  end
+
+  function displayRuntime.optionValueLabel(row)
+    local value = mod.options:get(row.key)
+    if row.type == "toggle" then return value == true and "ON" or "OFF" end
+    for _, choice in ipairs(displayRuntime.optionChoices(row)) do
+      if choice[2] == value then return choice[1] end
+    end
+    return tostring(value or row.default or "--"):upper()
+  end
+
+  function displayRuntime.settingsModel()
+    local state = displayRuntime.settings
+    if not state.category then
+      return { categories = displayRuntime.settingsCategories }
+    end
+    local category = displayRuntime.settingsCategories[state.category]
+    local rows = {}
+    for _, key in ipairs(category.keys or {}) do
+      local row = displayRuntime.optionRow(key)
+      if row and displayRuntime.optionVisible(row) then
+        rows[#rows + 1] = { key = key, label = row.label,
+          value = displayRuntime.optionValueLabel(row), source = row,
+          enabled = type(mod.options.set) == "function" }
+      end
+    end
+    for _, action in ipairs(category.actions or {}) do
+      rows[#rows + 1] = { action = action,
+        label = action == "reset_home" and "RESET HOME" or "RESET OPTIONS",
+        value = state.confirm == action and "TAP AGAIN" or "RESET" }
+    end
+    local pages = math.max(1, math.ceil(#rows / 4))
+    state.page = math.max(1, math.min(pages, state.page or 1))
+    return { category = category.id, label = category.label,
+      accent = category.accent, rows = rows, page = state.page, pages = pages }
+  end
+
+  function displayRuntime.cycleSetting(row, direction)
+    if not (row and row.source and mod.options.set) then return false end
+    local source, value = row.source, mod.options:get(row.key)
+    if source.type == "toggle" then
+      return mod.options:set(row.key, value ~= true)
+    end
+    local choices = displayRuntime.optionChoices(source)
+    for index, choice in ipairs(choices) do
+      if choice[2] == value then
+        return mod.options:set(row.key,
+          choices[((index - 1 + direction) % #choices) + 1][2])
+      end
+    end
+    return choices[1] and mod.options:set(row.key, choices[1][2]) or false
+  end
+
+  function displayRuntime.resetHome()
+    for _, package in pairs(displayRuntime.homeCatalog.packages) do
+      package.installed = package.fixed == true or package.defaultInstalled == true
+    end
+    local layout = { tiles = {} }
+    for _, tile in ipairs(displayRuntime.defaultHomeTiles) do
+      displayRuntime.Home.place(layout, displayRuntime.homeCatalog,
+        tile.id, tile.page, tile.column, tile.row)
+    end
+    displayRuntime.Home.compactRows(layout, displayRuntime.homeCatalog)
+    displayRuntime.home.layout, displayRuntime.home.page = layout, 1
+    displayRuntime.saveHome()
+  end
+
+  function displayRuntime.runSettingsAction(action)
+    local state = displayRuntime.settings
+    if state.confirm ~= action then state.confirm, dirty = action, true; return end
+    state.confirm = nil
+    if action == "reset_home" then
+      displayRuntime.resetHome()
+    elseif action == "reset_options" and mod.options.set then
+      for _, row in ipairs(THEME.optionSchema or {}) do
+        mod.options:set(row.key, row.default)
+      end
+    end
+    dirty = true
+  end
 
   local PaletteFX = require("src.render.PaletteFX")
   local PokemonSprites = require("src.pokemon.Sprites")
@@ -2285,7 +2419,10 @@ return function(mod)
   local themeKey = nil
 
   function hgssRuntime.beginAnimation(kind, data)
-    if THEME.style ~= "hgss" then return end
+    if THEME.style ~= "hgss" or mod.options:get("ui_motion") == false then
+      hgssRuntime.animation = nil
+      return
+    end
     data = data or {}
     data.kind, data.queued = kind, love.timer.getTime()
     data.started = nil
@@ -2732,6 +2869,7 @@ return function(mod)
       page = "LOCAL"
     end
     THEME.hgss:setVariant(theme == "hgss_dark")
+    THEME.hgss.motionEnabled = mod.options:get("ui_motion") ~= false
     if not hgss then hgssRuntime.animation = nil end
     local scale = THEME.style == "hgss" and THEME.hgssScale or 1
     local width, height = WIDTH * scale, HEIGHT * scale
@@ -3964,7 +4102,7 @@ return function(mod)
 
   function displayRuntime.prepareMotion()
     local motion, key = displayRuntime.motion, displayRuntime.motionKey()
-    if not key then
+    if not key or mod.options:get("ui_motion") == false then
       motion.key, motion.started = nil, nil
       return
     end
@@ -5489,6 +5627,14 @@ return function(mod)
       }
     end
     return out
+  end
+
+  function displayRuntime.drawSettings()
+    local model = displayRuntime.settingsModel()
+    header(model.label or "SETTINGS", true, model.pages and model.pages > 1)
+    G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    THEME.hgss:settings(model)
+    G.pop()
   end
 
   function displayRuntime.partyView(mon)
@@ -8529,6 +8675,8 @@ return function(mod)
       displayRuntime.drawPokedex()
     elseif THEME.style == "hgss" and page == "BAG" then
       displayRuntime.drawBag()
+    elseif THEME.style == "hgss" and page == "SETTINGS" then
+      displayRuntime.drawSettings()
     elseif page == "MAP" then
       drawMap()
     elseif page == "LOCAL" then
@@ -8843,6 +8991,12 @@ return function(mod)
       dirty = true
       return true
     end
+    if id == "settings" then
+      displayRuntime.settings.category, displayRuntime.settings.page,
+        displayRuntime.settings.confirm = nil, 1, nil
+      page, dirty = "SETTINGS", true
+      return true
+    end
     local app = displayRuntime.storeById[id]
     local package = displayRuntime.homeCatalog.packages[id]
     if not app or not app.target or not package or not package.installed then
@@ -8899,6 +9053,15 @@ return function(mod)
           displayRuntime.saveHome()
           return
         end
+      end
+      return
+    elseif THEME.style == "hgss" and page == "SETTINGS" then
+      local model = displayRuntime.settingsModel()
+      if model.category and model.pages > 1 then
+        displayRuntime.settings.page = ((model.page - 1 + direction)
+          % model.pages) + 1
+        displayRuntime.settings.confirm = nil
+        dirty = true
       end
       return
     end
@@ -9073,6 +9236,30 @@ return function(mod)
     elseif action == "use" and model.detail then
       displayRuntime.useBagItem(model.detail.id)
     end
+  end
+
+  function displayRuntime.tapSettings(x, y)
+    local state = displayRuntime.settings
+    local model = displayRuntime.settingsModel()
+    local action, index, direction = THEME.hgss:settingsHit(x, y, model)
+    if action == "back" then
+      if state.category then
+        state.category, state.page, state.confirm = nil, 1, nil
+      else
+        page, displayRuntime.home.activeApp = "HOME", nil
+      end
+    elseif action == "category" then
+      state.category, state.page, state.confirm = index, 1, nil
+    elseif action == "prev" or action == "next" then
+      state.page = ((state.page - 1 + (action == "next" and 1 or -1))
+        % model.pages) + 1
+      state.confirm = nil
+    elseif action == "row" then
+      local row = model.rows[index]
+      if row.action then displayRuntime.runSettingsAction(row.action)
+      else displayRuntime.cycleSetting(row, direction) end
+    end
+    dirty = true
   end
 
   local function tapFieldChoice(x, y)
@@ -10149,6 +10336,9 @@ return function(mod)
     elseif THEME.style == "hgss" and page == "BAG" then
       displayRuntime.tapBag(x, y)
       return
+    elseif THEME.style == "hgss" and page == "SETTINGS" then
+      displayRuntime.tapSettings(x * THEME.hgssScale, y * THEME.hgssScale)
+      return
     end
     if partyActionSlot then
       local slot = partyActionSlot
@@ -10530,7 +10720,8 @@ return function(mod)
       return
     end
     if THEME.style == "hgss" and page ~= "HOME"
-        and page ~= "STORE" and page ~= "LOCAL" then return end
+        and page ~= "STORE" and page ~= "LOCAL"
+        and page ~= "SETTINGS" then return end
     if page ~= "LOCAL" or THEME.style ~= "hgss" then
       changePage(dx < 0 and 1 or -1)
       return
@@ -10729,6 +10920,12 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     game = payload.game
+    if THEME.storedTheme == nil
+        and mod.save:get("preserve_legacy_theme", false)
+        and type(mod.options.set) == "function" then
+      mod.options:set("theme", "kanto")
+    end
+    THEME.storedTheme = mod.options:get("theme")
     spriteCache.__badges = nil
     spriteCache.__gen2Badges = nil
     spriteCache.__caughtBall = nil
@@ -10779,7 +10976,20 @@ return function(mod)
 
   mod.events:on("mod.options_changed", function(payload)
     if payload and payload.mod == "kanto_gear" then
-      if payload.key == "theme" then refreshTheme(true) end
+      if payload.key == "theme" then
+        THEME.storedTheme = payload.value
+        refreshTheme(true)
+        if page == "SETTINGS" and THEME.style ~= "hgss" then
+          page, displayRuntime.home.activeApp = "MAP", nil
+        end
+      end
+      if payload.key == "ui_motion" then
+        hgssRuntime.animation = nil
+        displayRuntime.motion.started = nil
+        if THEME.hgss then
+          THEME.hgss.motionEnabled = payload.value ~= false
+        end
+      end
       if payload.key == "display_mode"
           or payload.key == "fullscreen_start"
           or payload.key == "combined_layout"

@@ -10,6 +10,20 @@ local run = T.sdk.loadMod(path, {
 T.eq(run.mod and run.mod.state, "loaded", "Kanto Gear loads")
 T.eq(#run.errors, 0, "Kanto Gear boots without errors")
 
+local optionRows = run.loader.optionSchemas.kanto_gear
+local optionByKey = {}
+for _, row in ipairs(optionRows or {}) do optionByKey[row.key] = row end
+T.eq(optionByKey.theme and optionByKey.theme.default, "hgss",
+  "a fresh 3.0 install starts in the Silph Link HGSS theme")
+T.eq(optionByKey.ui_motion and optionByKey.ui_motion.default, true,
+  "Silph Link motion is an explicit opt-out setting")
+local legacySave = {}
+local migration = run.loader.migrations.kanto_gear
+  and run.loader.migrations.kanto_gear[1]
+T.check(migration ~= nil, "3.0 registers a legacy-theme migration")
+migration.apply(legacySave)
+run.loader.modSave.kanto_gear = legacySave
+
 local world = { map = { id = "PALLET_TOWN" } }
 local game = {
   data = run.data,
@@ -25,6 +39,8 @@ local game = {
   end },
 }
 run.loader.events:emit("game.ready", { game = game })
+T.eq(run.loader.modOptions.kanto_gear.theme, "kanto",
+  "an existing Kanto Gear save keeps its legacy default theme")
 run.loader.modOptions.kanto_gear = { theme = "hgss" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "theme" })
@@ -438,6 +454,73 @@ T.eq(theme.hgss.touchX, 20, "touch-down reaches the HGSS renderer immediately")
 touchEvent("cancel,0,0")
 T.check(pcall(display.drawContents), "touch cancel redraws safely")
 T.eq(theme.hgss.touchX, nil, "touch cancel clears the pressed state")
+
+T.check(catalog.packages.settings.fixed
+    and catalog.surfaces.settings_app.package == "settings",
+  "Silph Link Settings is a fixed OS app with its own Home icon")
+T.check(display.openHomeApp("settings"), "Settings opens from Home")
+T.eq(page(), "SETTINGS", "Settings owns a real Silph Link page")
+local settings = display.settingsModel()
+T.eq(#settings.categories, 6,
+  "Settings groups the existing options into six readable sections")
+display.settings.category, display.settings.page = 3, 1
+settings = display.settingsModel()
+local caughtRow
+for _, row in ipairs(settings.rows) do
+  if row.key == "caught_icon" then caughtRow = row end
+end
+T.check(caughtRow ~= nil, "Battle settings exposes the caught marker")
+T.check(display.cycleSetting(caughtRow, 1),
+  "an in-app setting writes through the public option API")
+T.eq(run.loader.modOptions.kanto_gear.caught_icon, false,
+  "the Settings app and classic mod menu share one live option value")
+display.settings.category, display.settings.page = 2, 1
+run.loader.modOptions.kanto_gear.display_mode = "fullscreen"
+settings = display.settingsModel()
+T.eq(#settings.rows, 2,
+  "Display settings only shows controls relevant to fullscreen mode")
+run.loader.modOptions.kanto_gear.display_mode = "combined"
+settings = display.settingsModel()
+T.check(#settings.rows >= 6,
+  "Display settings reveals the combined-layout controls when relevant")
+display.settings.category, display.settings.page = 1, 1
+settings = display.settingsModel()
+local motionRow
+for _, row in ipairs(settings.rows) do
+  if row.key == "ui_motion" then motionRow = row end
+end
+T.check(motionRow ~= nil, "Appearance settings exposes reduced UI motion")
+T.check(display.cycleSetting(motionRow, 1),
+  "UI motion can be disabled from Silph Link Settings")
+T.eq(theme.hgss.motionEnabled, false,
+  "the HGSS renderer receives the reduced-motion setting immediately")
+display.motion.key, display.motion.started = "old", nil
+display.prepareMotion()
+T.eq(display.motion.started, nil,
+  "reduced motion suppresses shared page transitions")
+theme.hgss:beginPartyAction(love.timer.getTime())
+T.eq(theme.hgss.partyActionStarted, nil,
+  "reduced motion suppresses Party context entrance movement")
+T.check(display.cycleSetting(motionRow, 1),
+  "UI motion can be restored without restarting")
+display.runSettingsAction("reset_options")
+T.eq(run.loader.modOptions.kanto_gear.caught_icon, false,
+  "the first reset tap only arms the destructive action")
+display.runSettingsAction("reset_options")
+T.eq(run.loader.modOptions.kanto_gear.caught_icon, true,
+  "the confirmed options reset restores the 3.0 defaults")
+T.eq(run.loader.modOptions.kanto_gear.theme, "hgss",
+  "resetting options returns to the Silph Link default theme")
+home.layout = { tiles = {
+  { id = "map_app", page = 1, column = 1, row = 1 },
+} }
+display.runSettingsAction("reset_home")
+T.eq(#home.layout.tiles, 1,
+  "the first Home reset tap preserves the custom layout")
+display.runSettingsAction("reset_home")
+T.check(display.Home.find(home.layout, "explorer_widget") ~= nil
+    and display.Home.find(home.layout, "settings_app") ~= nil,
+  "the confirmed Home reset restores the complete default layout")
 
 run.release()
 T.finish("Kanto Gear Home runtime")

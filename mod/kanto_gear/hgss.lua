@@ -1280,6 +1280,21 @@ return function(ui)
     box("fill", x + 17, y + 24, 2, 1, c.ink)
   end
 
+  function H:homeSettingsIcon(x, y)
+    local G, c = ui.graphics, homeIconColors
+    local knobs = { 5, 13, 8 }
+    for index, knob in ipairs(knobs) do
+      local top = 3 + (index - 1) * 9
+      box("fill", x + 2, y + top + 1, 24, 3, c.ink)
+      box("fill", x + 3, y + top + 2, 22, 1, c.silverLight)
+      color(c.ink); G.circle("fill", x + knob, y + top + 2, 5)
+      color(index == 2 and c.blue or c.green)
+      G.circle("fill", x + knob, y + top + 2, 3)
+      box("fill", x + knob - 1, y + top, 2, 2,
+        index == 2 and c.blueLight or c.greenLight)
+    end
+  end
+
   local function homeIcons(theme)
     return {
       bag = {
@@ -1321,6 +1336,10 @@ return function(ui)
       notes = {
         left = 2, top = 1, right = 23, bottom = 26,
         draw = function(x, y) theme:homeNotesIcon(x, y) end,
+      },
+      settings = {
+        left = 2, top = 1, right = 26, bottom = 26,
+        draw = function(x, y) theme:homeSettingsIcon(x, y) end,
       },
     }
   end
@@ -1925,6 +1944,94 @@ return function(ui)
       local left, top = self:toolCardRect(visible, count)
       if action and action.ready and x >= left and x < left + 109
           and y >= top and y < top + 76 then return "action", index end
+    end
+  end
+
+  function H:settings(model)
+    local colors = self.colors
+    model = model or {}
+    if not model.category then
+      for index, category in ipairs(model.categories or {}) do
+        local y = 34 + (index - 1) * 30
+        local pressed = self:beginPress(7, y, 226, 26)
+        self:homeTile(7, y, 226, 26,
+          colors[category.accent .. "Light"] or colors.greenLight, false)
+        box("fill", 11, y + 5, 4, 16,
+          colors[category.accent] or colors.green)
+        self:partyInfo(translate(category.label), 22, y + 4,
+          colors.ink, 180)
+        self:partyType(translate(category.detail), 22, y + 13,
+          colors.green, 180)
+        self:detailChevron(221, y + 10, colors.ink, true)
+        self:endPress(pressed)
+      end
+      return
+    end
+
+    local first = (model.page - 1) * 4 + 1
+    for visible = 0, 3 do
+      local row = model.rows[first + visible]
+      if row then
+        local y = 36 + visible * 40
+        local pressed = self:beginPress(7, y, 226, 35, row.enabled ~= false)
+        self:homeTile(7, y, 226, 35,
+          colors[model.accent .. "Light"] or colors.greenLight, false)
+        self:partyInfo(translate(row.label), 15, y + 5, colors.ink, 135)
+        if row.action then
+          local value = translate(row.value)
+          local firstLine, secondLine
+          if partyTypeFont:getWidth(value) > 63 then
+            firstLine, secondLine = splitFont(value, 63, partyTypeFont)
+          end
+          if secondLine then
+            self:partyType(firstLine, 151, y + 8, colors.green, 63)
+            self:partyType(secondLine, 151, y + 18, colors.green, 63)
+          else
+            self:partyType(self:fitPartyType(value, 63),
+              151, y + 13, colors.green, 63)
+          end
+          self:detailChevron(222, y + 13, colors.ink, true)
+        else
+          local value = translate(row.value)
+          local firstLine, secondLine
+          if partyTypeFont:getWidth(value) > 84 then
+            firstLine, secondLine = splitFont(value, 84, partyTypeFont)
+          end
+          self:pageChevron(130, y + 24, false, false)
+          if secondLine then
+            self:partyType(firstLine, 135, y + 13, colors.green, 84)
+            self:partyType(secondLine, 135, y + 21, colors.green, 84)
+          else
+            self:partyType(self:fitPartyType(value, 84),
+              135, y + 18, colors.green, 84)
+          end
+          self:pageChevron(224, y + 24, true, false)
+        end
+        self:endPress(pressed)
+      end
+    end
+    self:homePager(model.page, model.pages)
+  end
+
+  function H:settingsHit(x, y, model)
+    if y < 29 and x < 27 then return "back" end
+    if not model.category then
+      local index = math.floor((y - 34) / 30) + 1
+      local top = 34 + (index - 1) * 30
+      if x >= 7 and x < 233 and index >= 1
+          and index <= #(model.categories or {}) and y >= top and y < top + 26
+          then return "category", index end
+      return
+    end
+    if y < 29 and x >= 27 and x < 50 then return "prev" end
+    if y < 29 and x >= 116 and x < 139 then return "next" end
+    local visible = math.floor((y - 36) / 40)
+    local index = (model.page - 1) * 4 + visible + 1
+    local row = model.rows and model.rows[index]
+    if x >= 7 and x < 233 and visible >= 0 and visible < 4 and row then
+      if y < 36 + visible * 40 or y >= 71 + visible * 40 then return end
+      if row.action then return "row", index, 1 end
+      return "row", index, x < 120 and -1 or 1
     end
   end
 
@@ -3379,6 +3486,12 @@ return function(ui)
   end
 
   function H:beginPartyAction(now)
+    if self.motionEnabled == false then
+      self.partyActionStarted = nil
+      self.partyActionClosing = false
+      self.partyActionCloseFrom = nil
+      return
+    end
     self.partyActionStarted = now
     self.partyActionClosing = false
     self.partyActionCloseFrom = nil
