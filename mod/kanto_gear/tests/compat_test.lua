@@ -479,7 +479,7 @@ T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
   "Y screen swapping is disabled by default")
 run.loader.modOptions.kanto_gear = {
-  theme = "kanto", display_mode = "combined", combined_layout = "stacked",
+  theme_v3 = "kanto", display_mode = "combined", combined_layout = "stacked",
 }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_mode" })
@@ -564,7 +564,7 @@ run.loader.hooks:call("input.pointer", function() return false end, game, {
   phase = "cancelled", x = gearRect.x, y = gearRect.y,
 })
 run.loader.modOptions.kanto_gear = {
-  theme = "kanto", display_mode = "combined", combined_layout = "overlay",
+  theme_v3 = "kanto", display_mode = "combined", combined_layout = "overlay",
   combined_primary = "game",
 }
 run.loader.events:emit("mod.options_changed",
@@ -652,7 +652,7 @@ T.eq(#hiddenGameDraws, 1,
 overlayPressed = false
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 run.loader.modOptions.kanto_gear = {
-  theme = "kanto", display_mode = "fullscreen", fullscreen_start = "game",
+  theme_v3 = "kanto", display_mode = "fullscreen", fullscreen_start = "game",
   screen_swap = false,
 }
 run.loader.events:emit("mod.options_changed",
@@ -704,7 +704,7 @@ T.eq(run.loader.hooks:call("render.output", function() return true end, {
 }), true, "an earlier final-output owner remains authoritative")
 T.love.graphics.draw = outputDraw
 T.eq(ownedDraws, 0, "Kanto Gear does not paint over another output owner")
-run.loader.modOptions.kanto_gear = { theme = "kanto", display_mode = "separate" }
+run.loader.modOptions.kanto_gear = { theme_v3 = "kanto", display_mode = "separate" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_mode" })
 local separateEnabled = false
@@ -737,7 +737,7 @@ T.eq(separateEnabled, true,
 T.eq(desktopFrames, 1,
   "an idle page does not resubmit a frame when no choice exists")
 run.loader.modOptions.kanto_gear = {
-  theme = "kanto", display_mode = "separate", display_target = "handheld",
+  theme_v3 = "kanto", display_mode = "separate", display_target = "handheld",
 }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_target" })
@@ -759,7 +759,7 @@ for i = 1, debug.getinfo(outputHook, "u").nups do
 end
 T.eq(handheldReady, true,
   "a rendered handheld frame stays clean until its contents change")
-run.loader.modOptions.kanto_gear = { theme = "kanto", display_mode = "separate" }
+run.loader.modOptions.kanto_gear = { theme_v3 = "kanto", display_mode = "separate" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_target" })
 do
@@ -1108,7 +1108,7 @@ do
     "HGSS Gen 1 summary navigation observes companion readiness")
   local _, previousSummaryReady = debug.getupvalue(
     hgssRuntime.remapSummaryMovesInput, summaryReadyUpvalue)
-  local previousTheme = run.loader.modOptions.kanto_gear.theme
+  local previousTheme = run.loader.modOptions.kanto_gear.theme_v3
   local previousMoveDetails = run.loader.modOptions.kanto_gear.move_details
   local previousStates = game.stack.states
   local previousSummaryInput = game.input
@@ -1129,10 +1129,10 @@ do
     screenId = "SummaryMenu", page = 2, moveIndex = 1,
     mon = summaryMon,
   }
-  run.loader.modOptions.kanto_gear.theme = "hgss"
+  run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
   run.loader.modOptions.kanto_gear.move_details = true
   run.loader.events:emit("mod.options_changed",
-    { mod = "kanto_gear", key = "theme" })
+    { mod = "kanto_gear", key = "theme_v3" })
   debug.setupvalue(hgssRuntime.remapSummaryMovesInput,
     summaryReadyUpvalue, true)
   game.stack.states = { world, rawSummaryBattle, summaryState }
@@ -1154,10 +1154,10 @@ do
   game.data.moves.FIX_SUMMARY_2 = oldSecondMove
   game.stack.states = previousStates
   game.input = previousSummaryInput
-  run.loader.modOptions.kanto_gear.theme = previousTheme
+  run.loader.modOptions.kanto_gear.theme_v3 = previousTheme
   run.loader.modOptions.kanto_gear.move_details = previousMoveDetails
   run.loader.events:emit("mod.options_changed",
-    { mod = "kanto_gear", key = "theme" })
+    { mod = "kanto_gear", key = "theme_v3" })
   debug.setupvalue(hgssRuntime.remapSummaryMovesInput,
     summaryReadyUpvalue, previousSummaryReady)
   game.data.moves.TACKLE = oldTackle
@@ -1368,9 +1368,9 @@ end
 for _, theme in ipairs({
   "hgss", "hgss_dark", "hgss_auto", "modern_light", "modern_dark", "kanto",
 }) do
-  run.loader.modOptions.kanto_gear.theme = theme
+  run.loader.modOptions.kanto_gear.theme_v3 = theme
   run.loader.events:emit("mod.options_changed",
-    { mod = "kanto_gear", key = "theme" })
+    { mod = "kanto_gear", key = "theme_v3" })
   local hgss = theme == "hgss" or theme == "hgss_dark"
     or theme == "hgss_auto"
   local activeCanvas = ownedHookUpvalue("render.output", "canvas")

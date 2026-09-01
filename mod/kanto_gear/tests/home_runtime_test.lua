@@ -13,9 +13,9 @@ T.eq(#run.errors, 0, "Kanto Gear boots without errors")
 local optionRows = run.loader.optionSchemas.kanto_gear
 local optionByKey = {}
 for _, row in ipairs(optionRows or {}) do optionByKey[row.key] = row end
-T.eq(optionByKey.theme and optionByKey.theme.default, "hgss",
+T.eq(optionByKey.theme_v3 and optionByKey.theme_v3.default, "hgss",
   "a fresh 3.0 install starts in the Silph Link HGSS theme")
-T.eq(optionByKey.theme and optionByKey.theme.choices[5][2], "hgss_auto",
+T.eq(optionByKey.theme_v3 and optionByKey.theme_v3.choices[5][2], "hgss_auto",
   "HGSS Auto is the third Silph Link theme choice")
 T.eq(optionByKey.ui_motion and optionByKey.ui_motion.default, true,
   "Silph Link motion is an explicit opt-out setting")
@@ -26,12 +26,7 @@ T.eq(optionByKey.battle_view and optionByKey.battle_view.reset_default, "standar
 T.check(optionByKey.ui_motion.visible_if.one_of
     and optionByKey.local_map.visible_if.not_one_of,
   "HGSS transitions and the legacy area map are mutually exclusive options")
-local legacySave = {}
-local migration = run.loader.migrations.kanto_gear
-  and run.loader.migrations.kanto_gear[1]
-T.check(migration ~= nil, "3.0 registers a legacy-theme migration")
-migration.apply(legacySave)
-run.loader.modSave.kanto_gear = legacySave
+run.loader.modOptions.kanto_gear = { theme = "kanto" }
 
 local world = { map = { id = "PALLET_TOWN" } }
 local game = {
@@ -48,11 +43,6 @@ local game = {
   end },
 }
 run.loader.events:emit("game.ready", { game = game })
-T.eq(run.loader.modOptions.kanto_gear.theme, "kanto",
-  "an existing Kanto Gear save keeps its legacy default theme")
-run.loader.modOptions.kanto_gear = { theme = "hgss" }
-run.loader.events:emit("mod.options_changed",
-  { mod = "kanto_gear", key = "theme" })
 
 local function upvalue(fn, target)
   for index = 1, debug.getinfo(fn, "u").nups do
@@ -80,11 +70,19 @@ end
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
 local theme = upvalue(display.drawContents, "THEME")
+T.eq(theme.storedTheme, "hgss",
+  "3.0 ignores the old theme key and starts existing users in HGSS")
+run.loader.modOptions.kanto_gear.theme_v3 = "kanto"
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "theme_v3", value = "kanto" })
+run.loader.events:emit("game.ready", { game = game })
+T.eq(theme.storedTheme, "kanto",
+  "a Legacy choice made in 3.0 survives the next start")
 world.hour, world.minute, world.tod = function() return 21 end,
   function() return 5 end, "NITE"
-run.loader.modOptions.kanto_gear.theme = "hgss_auto"
+run.loader.modOptions.kanto_gear.theme_v3 = "hgss_auto"
 run.loader.events:emit("mod.options_changed",
-  { mod = "kanto_gear", key = "theme", value = "hgss_auto" })
+  { mod = "kanto_gear", key = "theme_v3", value = "hgss_auto" })
 T.eq(theme.hgss.dark, true,
   "HGSS Auto follows the Gen 2 night period")
 world.hour, world.tod = function() return 12 end, "DAY"
@@ -93,9 +91,9 @@ T.check(type(refreshTheme) == "function", "automatic theme refresh is reachable"
 refreshTheme()
 T.eq(theme.hgss.dark, false,
   "HGSS Auto returns to Light when the Gen 2 day period begins")
-run.loader.modOptions.kanto_gear.theme = "hgss"
+run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
 run.loader.events:emit("mod.options_changed",
-  { mod = "kanto_gear", key = "theme", value = "hgss" })
+  { mod = "kanto_gear", key = "theme_v3", value = "hgss" })
 world.hour, world.minute, world.tod = nil, nil, nil
 local function homeTile(id)
   local tiles = display.homePageElements()
@@ -543,7 +541,7 @@ T.eq(run.loader.modOptions.kanto_gear.caught_icon, false,
 display.runSettingsAction("reset_options")
 T.eq(run.loader.modOptions.kanto_gear.caught_icon, true,
   "the confirmed options reset restores the 3.0 defaults")
-T.eq(run.loader.modOptions.kanto_gear.theme, "hgss",
+  T.eq(run.loader.modOptions.kanto_gear.theme_v3, "hgss",
   "resetting options returns to the Silph Link default theme")
 T.eq(run.loader.modOptions.kanto_gear.info_level, "enhanced",
   "resetting options does not preserve a migrated research mode")

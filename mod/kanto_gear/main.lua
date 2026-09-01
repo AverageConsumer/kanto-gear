@@ -1862,7 +1862,7 @@ return function(mod)
     and compactSteps(100000) == "100K"
     and compactSteps(10000000) == "10M", "compact step count")
 
-  THEME.storedTheme = mod.options:get("theme")
+  THEME.storedTheme = mod.options:get("theme_v3")
   local infoDefault = mod.options:get("info_level")
   if infoDefault == nil then
     local legacyProfile = mod.options:get("profile")
@@ -1887,8 +1887,7 @@ return function(mod)
     function(key) return mod.options:get(key) end)
 
   THEME.optionSchema = mod.options:define({
-    { key = "theme", label = "THEME", type = "choice",
-      default = type(mod.options.set) == "function" and "hgss" or "kanto",
+    { key = "theme_v3", label = "THEME", type = "choice", default = "hgss",
       choices = {
         { "KANTO GREEN", "kanto" }, { "MATCH GAME", "match" },
         { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" },
@@ -1905,7 +1904,7 @@ return function(mod)
       } },
     { key = "ui_motion", label = "TRANSITIONS",
       type = "toggle", default = true, visible_if = {
-        key = "theme", one_of = { "hgss", "hgss_dark", "hgss_auto" },
+        key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
       } },
     { key = "info_level", label = "INFO", type = "choice",
       default = infoDefault, reset_default = "enhanced", choices = infoChoices },
@@ -1913,7 +1912,7 @@ return function(mod)
       type = "choice", default = false, choices = {
         { "OFF", false }, { "MAP", true }, { "ENHANCED", "enhanced" },
       }, visible_if = {
-        key = "theme", not_one_of = { "hgss", "hgss_dark", "hgss_auto" },
+        key = "theme_v3", not_one_of = { "hgss", "hgss_dark", "hgss_auto" },
       } },
     { key = "display_mode", label = "DISPLAY MODE", type = "choice",
       default = THEME.displayModeDefault, reset_default = "separate", choices = {
@@ -2105,13 +2104,6 @@ return function(mod)
     format = function(value, ...) return THEME:format(value, ...) end,
   })
 
-  if mod.migrations and mod.migrations.add then
-    mod.migrations:add("3.0.0", function(modSave)
-      if modSave.preserve_legacy_theme == nil then
-        modSave.preserve_legacy_theme = true
-      end
-    end)
-  end
   assert(THEME.hgss:battleChoice(120, 80) == 1
       and THEME.hgss:battleChoice(200, 170) == 2
       and THEME.hgss:battleChoice(40, 170) == 3
@@ -2245,7 +2237,7 @@ return function(mod)
   displayRuntime.settingsCategories = {
     { id = "appearance", label = "APPEARANCE",
       detail = "THEME AND TRANSITIONS",
-      accent = "blue", keys = { "theme", "clock_source", "ui_motion" } },
+      accent = "blue", keys = { "theme_v3", "clock_source", "ui_motion" } },
     { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
       accent = "green", keys = { "display_mode", "fullscreen_start",
         "combined_layout", "combined_primary", "secondary_size",
@@ -2297,7 +2289,7 @@ return function(mod)
   end
 
   function displayRuntime.optionChoices(row)
-    if row and row.key == "theme" then
+    if row and row.key == "theme_v3" then
       return { { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" },
         { "HGSS AUTO", "hgss_auto" } }
     end
@@ -2906,7 +2898,7 @@ return function(mod)
   end
 
   local function refreshTheme(force)
-    local theme = mod.options:get("theme") or "kanto"
+    local theme = mod.options:get("theme_v3") or "hgss"
     local autoDark = theme == "hgss_auto" and compat.autoThemeDark(game,
       mod.options:get("clock_source"), os.time())
     local key = theme .. (theme == "match" and (":" .. PaletteFX.mode) or "")
@@ -10986,12 +10978,7 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     game = payload.game
-    if THEME.storedTheme == nil
-        and mod.save:get("preserve_legacy_theme", false)
-        and type(mod.options.set) == "function" then
-      mod.options:set("theme", "kanto")
-    end
-    THEME.storedTheme = mod.options:get("theme")
+    THEME.storedTheme = mod.options:get("theme_v3")
     spriteCache.__badges = nil
     spriteCache.__gen2Badges = nil
     spriteCache.__caughtBall = nil
@@ -11042,7 +11029,7 @@ return function(mod)
 
   mod.events:on("mod.options_changed", function(payload)
     if payload and payload.mod == "kanto_gear" then
-      if payload.key == "theme" then
+      if payload.key == "theme_v3" then
         THEME.storedTheme = payload.value
         refreshTheme(true)
         if page == "SETTINGS" and THEME.style ~= "hgss" then

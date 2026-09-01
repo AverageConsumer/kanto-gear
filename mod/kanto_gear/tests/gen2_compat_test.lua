@@ -110,9 +110,9 @@ local game = {
   end },
 }
 run.loader.events:emit("game.ready", { game = game })
-run.loader.modOptions.kanto_gear = { theme = "kanto", trigger_tabs = true }
+run.loader.modOptions.kanto_gear = { theme_v3 = "kanto", trigger_tabs = true }
 run.loader.events:emit("mod.options_changed",
-  { mod = "kanto_gear", key = "theme", value = "kanto" })
+  { mod = "kanto_gear", key = "theme_v3", value = "kanto" })
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "trigger_tabs" })
 
@@ -563,7 +563,7 @@ T.eq(run.loader.hooks:call("battle.status_hud_visible",
   "GEAR leaves Gold's native status HUD visible")
 do
   local previousInput = game.input
-  local previousTheme = run.loader.modOptions.kanto_gear.theme
+  local previousTheme = run.loader.modOptions.kanto_gear.theme_v3
   local inputHook
   for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
     if entry.owner == "kanto_gear" then inputHook = entry.callback end
@@ -593,9 +593,9 @@ do
   end
   T.check(readyUpvalue ~= nil,
     "HGSS battle navigation observes companion readiness")
-  run.loader.modOptions.kanto_gear.theme = "hgss"
+  run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
   run.loader.events:emit("mod.options_changed",
-    { mod = "kanto_gear", key = "theme" })
+    { mod = "kanto_gear", key = "theme_v3" })
   debug.setupvalue(runtime.remapBattleRootInput, readyUpvalue, true)
   screen.menuIndex = 1
   game.input = { pressQueue = { "down" } }
@@ -759,9 +759,9 @@ do
   run.loader.modOptions.kanto_gear.move_details = previousMoveDetails
   game.stack.states = { screen }
   game.input = previousInput
-  run.loader.modOptions.kanto_gear.theme = previousTheme
+  run.loader.modOptions.kanto_gear.theme_v3 = previousTheme
   run.loader.events:emit("mod.options_changed",
-    { mod = "kanto_gear", key = "theme" })
+    { mod = "kanto_gear", key = "theme_v3" })
   debug.setupvalue(runtime.remapBattleRootInput, readyUpvalue, true)
 end
 run.loader.modOptions.kanto_gear.battle_view = "full"

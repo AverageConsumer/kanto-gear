@@ -37,9 +37,9 @@ local game = {
 }
 if generation == 1 then stack:push(world) end
 run.loader.events:emit("game.ready", { game = game })
-run.loader.modOptions.kanto_gear = { theme = "hgss" }
+run.loader.modOptions.kanto_gear = { theme_v3 = "hgss" }
 run.loader.events:emit("mod.options_changed",
-  { mod = "kanto_gear", key = "theme" })
+  { mod = "kanto_gear", key = "theme_v3" })
 
 local function upvalue(fn, target)
   for index = 1, debug.getinfo(fn, "u").nups do
