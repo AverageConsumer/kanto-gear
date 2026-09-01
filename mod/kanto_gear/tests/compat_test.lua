@@ -334,7 +334,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 17, "Kanto Gear keeps one compact display hierarchy")
+T.eq(#options, 18, "Kanto Gear keeps one compact display hierarchy")
 T.eq(options[1].label, "THEME", "theme setting is device-neutral")
 T.eq(#options[1].choices, 12, "classic and modern themes share one setting")
 T.eq(options[1].choices[3][2], "hgss", "HGSS theme is available")
@@ -1396,6 +1396,7 @@ T.love.graphics.newCanvas = function(...)
   function canvas:pollImageData() return nil end
   return canvas
 end
+local previousThemeCanvas
 for _, theme in ipairs({
   "hgss", "hgss_dark", "hgss_auto", "modern_light", "modern_dark", "kanto",
 }) do
@@ -1405,6 +1406,11 @@ for _, theme in ipairs({
   local hgss = theme == "hgss" or theme == "hgss_dark"
     or theme == "hgss_auto"
   local activeCanvas = ownedHookUpvalue("render.output", "canvas")
+  if previousThemeCanvas then
+    T.check(activeCanvas ~= previousThemeCanvas,
+      "live theme changes replace an in-flight companion canvas")
+  end
+  previousThemeCanvas = activeCanvas
   T.eq(activeCanvas:getWidth(), hgss and 240 or 160,
     "theme canvas width follows its renderer")
   T.eq(activeCanvas:getHeight(), hgss and 216 or 144,

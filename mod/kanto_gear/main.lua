@@ -2986,11 +2986,12 @@ return function(mod)
     if not hgss then hgssRuntime.animation = nil end
     local scale = THEME.style == "hgss" and THEME.hgssScale or 1
     local width, height = WIDTH * scale, HEIGHT * scale
-    if canvas:getWidth() ~= width or canvas:getHeight() ~= height then
-      canvas = G.newCanvas(width, height, { dpiscale = 1 })
-      canvas:setFilter("nearest", "nearest")
-      readbackPending, displayReady = false, false
-    end
+    -- Never repaint a canvas while Android may still be reading it for the
+    -- physical second screen. A fresh surface also recovers an in-app restart
+    -- from a stalled readback without requiring an application force-close.
+    canvas = G.newCanvas(width, height, { dpiscale = 1 })
+    canvas:setFilter("nearest", "nearest")
+    readbackPending, displayReady = false, false
     usePalette(themePalette(theme), hgss and THEME.hgss.colors.partyBg)
     invalidateLocalMap()
     themeKey, dirty = key, true
