@@ -95,6 +95,12 @@ return function(ui)
       [3] = { x = 6, y = 159, w = 68, h = 52, color = "amber" },
       [4] = { x = 86, y = 159, w = 68, h = 52, color = "blue" },
     },
+    fullBattleActions = {
+      [1] = { x = 6, y = 117, w = 112, h = 44, color = "red" },
+      [2] = { x = 122, y = 117, w = 112, h = 44, color = "green" },
+      [3] = { x = 6, y = 166, w = 112, h = 44, color = "amber" },
+      [4] = { x = 122, y = 166, w = 112, h = 44, color = "blue" },
+    },
   }
 
   function H:setVariant(dark)
@@ -3480,6 +3486,20 @@ return function(ui)
     end
   end
 
+  function H:fullBattleChoice(x, y)
+    for index, action in ipairs(self.fullBattleActions) do
+      if x >= action.x and x < action.x + action.w
+          and y >= action.y and y < action.y + action.h then return index end
+    end
+  end
+
+  assert(H:fullBattleChoice(62, 139) == 1
+      and H:fullBattleChoice(178, 139) == 2
+      and H:fullBattleChoice(62, 188) == 3
+      and H:fullBattleChoice(178, 188) == 4
+      and H:fullBattleChoice(120, 139) == nil,
+    "HGSS Full Gear hitboxes follow the visible two-by-two action grid")
+
   function H:battleTeamBall(x, y, state)
     local colors, G = self.colors, ui.graphics
     local alive = state
@@ -3727,6 +3747,94 @@ return function(ui)
     self:battleBagAction(mon, selected == 3)
     self:battlePartyAction(mon, selected == 2)
     self:battleRunAction(mon, selected == 4)
+  end
+
+  function H:battleStatusCard(mon, x, y, w, player, drawPortrait)
+    if not mon then return end
+    local colors = self.colors
+    local accent = player and colors.green or colors.red
+    local accentLight = player and colors.greenLight or colors.redLight
+    local fainted = mon.statusId == "FNT" or (mon.hp or 0) <= 0
+    self:panel(x, y, w, 78, false, nil, accent)
+    box("fill", x + 2, y + 2, w - 4, 16, accent)
+    box("fill", x + 5, y + 2, w - 10, 2, accentLight)
+    local level = mon.levelText or "L--"
+    local levelWidth = self:partyInfoWidth(level)
+    local nameWidth = w - levelWidth - 19 - (mon.caught and 10 or 0)
+    self:partyName(mon.name or "POKEMON", x + 7, y + 5,
+      colors.white, nameWidth)
+    if mon.caught then self:battleTeamBall(x + w - levelWidth - 14, y + 10, true) end
+    self:partyInfo(level, x + w - levelWidth - 7, y + 5, colors.white)
+
+    drawPortrait(mon, x + 5, y + 21, 50, fainted)
+    local infoX, infoW = x + 60, w - 67
+    if mon.statusId then self:statusIcon(mon.statusId, infoX, y + 24) end
+    self:partyInfo(mon.hpLabel or "HP", infoX, y + 39, colors.green)
+    self:hpBar(infoX, y + 51, infoW, mon.hp, mon.maxHp)
+    if player then
+      self:partyInfo(mon.hpText or "--/--", infoX, y + 59,
+        colors.ink, infoW, "right")
+    else
+      self:partyInfo(mon.statusLabel or "", infoX + 10, y + 23,
+        colors.ink, math.max(0, infoW - 10), "right")
+    end
+  end
+
+  function H:battleFullAction(mon, index, selected, labels)
+    local G, colors = ui.graphics, self.colors
+    local action = self.fullBattleActions[index]
+    local pressed = self:beginPress(action.x, action.y, action.w, action.h)
+    self:battleActionPanel(action.x, action.y, action.w, action.h,
+      action.color, selected)
+    local iconX, iconY = action.x + 22, action.y + 22
+    if index == 1 then
+      G.push()
+      G.translate(iconX - 10, iconY - 10)
+      G.scale(2, 2)
+      self:battleTeamBall(5, 5, true)
+      G.pop()
+    elseif index == 2 then
+      self:battleTeamBall(iconX - 8, iconY + 2, true)
+      self:battleTeamBall(iconX, iconY - 3, true)
+      self:battleTeamBall(iconX + 8, iconY + 2, true)
+    elseif index == 3 then
+      self:battleBagIcon(action.x + 6, action.y + 6)
+    else
+      self:battleRunnerIcon(iconX, iconY)
+    end
+    local label = self:fitLabel(labels[index], action.w - 43)
+    self:label(label, action.x + 39, action.y + 15, colors.white,
+      action.w - 43, "center")
+    self:endPress(pressed)
+  end
+
+  function H:battleFullStatuses(player, enemy, drawPortrait,
+      playerTeam, enemyTeam)
+    self:battleTeamStrip(playerTeam, enemyTeam)
+    self:battleStatusCard(player, 6, 33, 112, true, drawPortrait)
+    self:battleStatusCard(enemy, 122, 33, 112, false, drawPortrait)
+  end
+
+  function H:battleFullRoot(mon, player, enemy, drawPortrait,
+      playerTeam, enemyTeam, selected)
+    self:battleFullStatuses(player, enemy, drawPortrait,
+      playerTeam, enemyTeam)
+    local labels = { mon.fightLabel or "FIGHT", mon.partyLabel or "POKEMON",
+      mon.bagLabel or "BAG", mon.runLabel or "RUN" }
+    for index = 1, 4 do
+      self:battleFullAction(mon, index, selected == index, labels)
+    end
+  end
+
+  function H:battleFullSafari(model, enemy, drawPortrait,
+      playerTeam, enemyTeam)
+    self:battleTeamStrip(playerTeam, enemyTeam)
+    self:battleStatusCard(enemy, 6, 33, 228, false, drawPortrait)
+    local labels = { format("BALL x%d", model.balls or 0),
+      translate("BAIT"), translate("ROCK"), translate("RUN") }
+    for index = 1, 4 do
+      self:battleFullAction(model, index, model.index == index, labels)
+    end
   end
 
   function H:battleSafariAction(action, index, selected)

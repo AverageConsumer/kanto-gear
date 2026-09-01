@@ -2317,6 +2317,21 @@ return function(mod)
       and hgssRuntime.rootDirection(2, "up") == 1,
     "HGSS battle root navigation follows its visible geometry")
 
+  function hgssRuntime.fullRootDirection(index, direction)
+    index = math.max(1, math.min(4, tonumber(index) or 1))
+    if direction == "left" or direction == "right" then
+      return index % 2 == 1 and index + 1 or index - 1
+    elseif direction == "up" or direction == "down" then
+      return index <= 2 and index + 2 or index - 2
+    end
+  end
+
+  assert(hgssRuntime.fullRootDirection(1, "right") == 2
+      and hgssRuntime.fullRootDirection(2, "left") == 1
+      and hgssRuntime.fullRootDirection(1, "down") == 3
+      and hgssRuntime.fullRootDirection(4, "up") == 2,
+    "HGSS Full Gear navigation follows its visible two-by-two action grid")
+
   local compat = { screens = {
     party = { PartyMenu = true, Gen2PartyMenu = true },
     summary = { SummaryMenu = true, Gen2SummaryMenu = true },
@@ -5947,6 +5962,31 @@ return function(mod)
     return view
   end
 
+  function hgssRuntime.battleStatus(side)
+    local source = battle and battle[side] or nil
+    if not source then return nil end
+    local def = game.data.pokemon[source.species] or {}
+    local hp = math.max(0, source.hp or 0)
+    local maxHp = source.maxHp or source.stats and source.stats.hp or hp
+    local statusId = hp <= 0 and "FNT"
+      or THEME:statusName(source.status, mod.content)
+    return {
+      species = source.species,
+      source = source,
+      name = source.name or def.name or source.species or "POKEMON",
+      levelText = THEME:format("L%d", source.level or 0),
+      hpLabel = THEME:translate("HP"),
+      hp = hp,
+      maxHp = math.max(1, maxHp or 1),
+      hpText = THEME:format("%d/%d", hp, maxHp or 0),
+      statusId = statusId,
+      statusLabel = statusId or "",
+      caught = side == "enemy" and mod.options:get("caught_icon") ~= false
+        and caughtWild(battle.kind,
+          compat.caughtDex(game.save)[source.species]),
+    }
+  end
+
   function hgssRuntime.battlePortrait(mon, x, y, size, fainted)
     if not drawSprite(mon.species, "front", x, y, size, size,
         nil, mon.source or mon, true, fainted and 0.48 or nil) then
@@ -6127,6 +6167,14 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      if fullBottomBattleUI() then
+        THEME.hgss:battleFullRoot(mon,
+          hgssRuntime.battleStatus("player"),
+          hgssRuntime.battleStatus("enemy"),
+          hgssRuntime.battlePortrait, playerTeam, enemyTeam, battle.menuIndex)
+        G.pop()
+        return
+      end
       local movesClose = hgssRuntime.progress("battle_moves_close")
       local bagClose = hgssRuntime.progress("battle_bag_close")
       local partyClose = hgssRuntime.progress("battle_party_close")
@@ -6163,8 +6211,15 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:battleSafari({ balls = battle.safariBalls or 0,
-        index = battle.menuIndex or 1 }, playerTeam, enemyTeam)
+      local model = { balls = battle.safariBalls or 0,
+        index = battle.menuIndex or 1 }
+      if fullBottomBattleUI() then
+        THEME.hgss:battleFullSafari(model,
+          hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam)
+      else
+        THEME.hgss:battleSafari(model, playerTeam, enemyTeam)
+      end
       G.pop()
       return
     end
@@ -8191,9 +8246,19 @@ return function(mod)
     elseif battle.prompt == "moves" then
       drawMoves()
     elseif battle.prompt ~= "menu" then
-      if THEME.style ~= "hgss" and fullBottomBattleUI()
-          and raw and (raw.draining or raw.hpAnim) then
-        drawFullBattleStatuses()
+      if fullBottomBattleUI() and raw and (raw.draining or raw.hpAnim) then
+        if THEME.style == "hgss" then
+          local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+          G.push()
+          G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+          THEME.hgss:battleFullStatuses(
+            hgssRuntime.battleStatus("player"),
+            hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
+            playerTeam, enemyTeam)
+          G.pop()
+        else
+          drawFullBattleStatuses()
+        end
       else
         drawBattleLocked()
       end
@@ -9256,8 +9321,13 @@ return function(mod)
     if battle.prompt == "safari" then
       local choice
       if THEME.style == "hgss" then
-        choice = THEME.hgss:safariHit(
-          x * THEME.hgssScale, y * THEME.hgssScale)
+        if fullBottomBattleUI() then
+          choice = THEME.hgss:fullBattleChoice(
+            x * THEME.hgssScale, y * THEME.hgssScale)
+        else
+          choice = THEME.hgss:safariHit(
+            x * THEME.hgssScale, y * THEME.hgssScale)
+        end
       elseif fullBottomBattleUI() then
         choice = fullBattleChoice(x, y)
       elseif y >= 24 then
@@ -9382,8 +9452,13 @@ return function(mod)
     if battle.prompt ~= "menu" then return end
     local choice
     if THEME.style == "hgss" then
-      choice = THEME.hgss:battleChoice(
-        x * THEME.hgssScale, y * THEME.hgssScale)
+      if fullBottomBattleUI() then
+        choice = THEME.hgss:fullBattleChoice(
+          x * THEME.hgssScale, y * THEME.hgssScale)
+      else
+        choice = THEME.hgss:battleChoice(
+          x * THEME.hgssScale, y * THEME.hgssScale)
+      end
     elseif fullBottomBattleUI() then
       choice = fullBattleChoice(x, y)
     elseif y >= 24 then
@@ -10714,8 +10789,13 @@ return function(mod)
     end
     if battle.prompt ~= "menu" or top ~= raw then return end
     for i = 1, #queue do
-      local target = hgssRuntime.rootDirection(
-        raw.menuIndex or battle.menuIndex or 1, queue[i])
+      local current = raw.menuIndex or battle.menuIndex or 1
+      local target
+      if fullBottomBattleUI() then
+        target = hgssRuntime.fullRootDirection(current, queue[i])
+      else
+        target = hgssRuntime.rootDirection(current, queue[i])
+      end
       if target then
         table.remove(queue, i)
         raw.menuIndex, battle.menuIndex = target, target

@@ -430,6 +430,7 @@ function love.load()
   love.graphics.clear(theme.colors.bg)
   local gen1 = os.getenv("KANTO_GEAR_PREVIEW_GEN") == "1"
   local battleRoot = screen == "battle_root"
+  local battleFull = screen == "battle_full"
   local battleMessage = screen == "battle_message"
   local battlePartyTransition = screen == "battle_party_transition"
   local battlePartyMenu = screen == "battle_party_menu"
@@ -582,7 +583,7 @@ function love.load()
     or (summary or transition and transitionProgress >= 0.42) and statsTitle
     or language.title
   if not legacyTitle
-      and not battleRoot and not battleMessage and not battlePartyTransition
+      and not battleRoot and not battleFull and not battleMessage and not battlePartyTransition
       and not battlePartyMenu
       and not battleMoves and not battleMovesTransition
       and not battleMoveInfo and not battleMoveInfoTransition
@@ -636,7 +637,7 @@ function love.load()
         theme.colors.greenLight)
     end
   end
-  if battleRoot or battleMessage or battlePartyTransition or battlePartyMenu
+  if battleRoot or battleFull or battleMessage or battlePartyTransition or battlePartyMenu
       or battleMoves or battleMovesTransition or battleMoveInfo
       or battleMoveInfoTransition or battleBag or battleBagTransition
       or battleSpecial then
@@ -2263,6 +2264,30 @@ function love.load()
     theme:actionRow(x, y, w, h, "SWITCH", "switch", 0, true)
     x, y, w, h = theme:partyActionRow(2, actionCount)
     theme:actionRow(x, y, w, h, "STATS", "stats", 0, false)
+  elseif battleFull then
+    local mon = battleMon()
+    local slot = gen1 and 6 or 1
+    local player = party[slot]
+    player.statusId = gen1 and "SLP" or nil
+    player.hpText = string.format("%d/%d", player.hp, player.maxHp)
+    player.levelText = player.levelText or "L" .. tostring(player.level or 0)
+    local enemy = {
+      species = gen1 and "RHYDON" or "RATICATE",
+      name = gen1 and "RHYDON" or "RATICATE",
+      level = gen1 and 42 or 16,
+      levelText = gen1 and "L42" or "L16",
+      hp = gen1 and 88 or 31,
+      maxHp = gen1 and 126 or 45,
+      statusId = "PAR",
+      statusLabel = "PAR",
+      caught = true,
+    }
+    theme:battleFullRoot(mon, player, enemy,
+      function(subject, x, y, size, fainted)
+        if subject == player then drawPortrait(slot, x, y, size, fainted)
+        else drawPortrait(gen1 and 4 or 2, x, y, size, fainted) end
+      end, playerTeam, enemyTeam,
+      tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 1)
   elseif battleRoot then
     local mon = battleMon()
     local slot = gen1 and 6 or 1
