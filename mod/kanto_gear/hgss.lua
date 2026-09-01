@@ -2039,12 +2039,11 @@ return function(ui)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, 46, 4, 4)
     local icon = icons[app.icon]
     if icon then drawHomeIcon(icon, x + 4, y + 8, 29) end
-    self:partyType(self:fitPartyType(translate(app.label), w - 39),
-      x + 36, y + 5, colors.ink, w - 39)
+    self:storeTitle(app.label, x + 36, y + 5, w - 39, app.new)
     self:partyType(self:fitPartyType(translate(app.reason), w - 39),
       x + 36, y + 18, colors.green, w - 39)
-    self:partyType(translate(app.state == "open" and "OPEN" or "VIEW"),
-      x + 36, y + 31, colors.blueLight, w - 39)
+    self:partyType(translate(app.action or (app.state == "open"
+      and "OPEN" or "VIEW")), x + 36, y + 31, colors.blueLight, w - 39)
     self:endPress(pressed)
   end
 
@@ -2058,6 +2057,29 @@ return function(ui)
     border(x, y, w, 11, colors.outline)
     self:partyType(translate(label), x + 1, y, colors.white, w - 2)
     self:endPress(pressed)
+  end
+
+  function H:storeNewBadge(x, y, w)
+    local colors = self.colors
+    clipped(x, y, w, 10, colors.red)
+    border(x, y, w, 10, colors.outline)
+    self:partyType(translate("NEW"), x + 1, y, colors.white, w - 2)
+  end
+
+  function H:storeTitle(label, x, y, w, isNew)
+    local colors = self.colors
+    label = translate(label)
+    if not isNew then
+      self:partyType(self:fitPartyType(label, w), x, y, colors.ink, w)
+      return
+    end
+    local badgeW, gap = 25, 4
+    local shown = self:fitPartyType(label, w - badgeW - gap)
+    local textW = partyTypeFont:getWidth(shown)
+    local groupW = textW + gap + badgeW
+    local left = x + math.floor((w - groupW) / 2)
+    self:partyType(shown, left, y, colors.ink, textW)
+    self:storeNewBadge(left + textW + gap, y - 1, badgeW)
   end
 
   function H:storeAppCard(x, y, w, app, icons)
@@ -2074,8 +2096,7 @@ return function(ui)
     border(x + 4, y + 6, 29, 29, colors.outline)
     local icon = icons[app.icon or app.id]
     if icon then drawHomeIcon(icon, x + 4, y + 6, 29) end
-    self:partyType(self:fitPartyType(translate(app.label), w - 39),
-      x + 36, y + 4, colors.ink, w - 39)
+    self:storeTitle(app.label, x + 36, y + 4, w - 39, app.new)
     self:partyType(self:fitPartyType(translate(app.category), w - 39),
       x + 36, y + 16, colors.green, w - 39)
     self:storeMiniAction(x + 36, y + 28, 43,
@@ -2095,8 +2116,7 @@ return function(ui)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, 29, 4, 4)
     local icon = icons[app.icon or app.id]
     if icon then drawHomeIcon(icon, x + 4, y + 2, 27) end
-    self:partyType(self:fitPartyType(translate(app.label), 91),
-      x + 34, y + 3, colors.ink, 91)
+    self:storeTitle(app.label, x + 34, y + 3, 91, app.new)
     self:partyType(self:fitPartyType(translate(app.category), 91),
       x + 34, y + 15, colors.green, 91)
     self:storeMiniAction(x + w - 54, y + 9, 44,
@@ -2131,7 +2151,18 @@ return function(ui)
     color(colors.surface); G.rectangle("fill", 7, 32, 226, 89, 5, 5)
     color(colors.outline); G.rectangle("line", 7.5, 32.5, 225, 88, 5, 5)
     box("fill", 9, 34, 222, 15, colors.blue)
-    self:partyType(translate("APP OF THE DAY"), 12, 36, colors.white, 216)
+    local title = translate("APP OF THE DAY")
+    if featured.new then
+      local badgeW, gap = 25, 5
+      local titleW = partyTypeFont:getWidth(title)
+      local groupW = badgeW + gap + titleW
+      local left = 9 + math.floor((222 - groupW) / 2)
+      self:storeNewBadge(left, 36, badgeW)
+      self:partyType(title, left + badgeW + gap, 36,
+        colors.white, titleW)
+    else
+      self:partyType(title, 12, 36, colors.white, 216)
+    end
     color(mixed(colors.surface, colors.white, self.dark and 0.08 or 0.22))
     G.rectangle("fill", 13, 56, 39, 39, 5, 5)
     border(13, 56, 39, 39, colors.outline)
@@ -2196,8 +2227,7 @@ return function(ui)
     G.rectangle("fill", 13, 39, 39, 39, 5, 5)
     border(13, 39, 39, 39, colors.outline)
     drawHomeIcon(icons[app.icon or app.id] or icons.tools, 18, 44, 29)
-    self:partyType(self:fitPartyType(translate(app.label or "APP"), 104),
-      55, 39, colors.ink, 104)
+    self:storeTitle(app.label or "APP", 55, 39, 104, app.new)
     self:partyType(self:fitPartyType(translate(app.category or "UTILITY"),
       104), 55, 53, colors.green, 104)
     self:partyType(self:fitPartyType(translate(app.publisher or "SILPH CO."),

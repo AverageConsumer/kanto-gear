@@ -2066,8 +2066,8 @@ return function(mod)
       map = { installed = true, fixed = true },
       party = { installed = true, fixed = true },
       trainer = { installed = true, fixed = true },
-      steps = { installed = true },
-      tools = { installed = true },
+      steps = { installed = true, defaultInstalled = true },
+      tools = { installed = true, defaultInstalled = true },
       store = { installed = true, fixed = true },
       bag = { installed = false },
       pokedex = { installed = false },
@@ -2127,6 +2127,7 @@ return function(mod)
         "VIEW STATS, MOVES AND STATUS.", "KEEP EVERY PARTNER READY." } },
     { id = "pokedex", icon = "pokedex", label = "POKEDEX",
       category = "RESEARCH", reason = "DEX RESEARCH", target = "POKEDEX",
+      featured = true, new = true,
       description = { "RESEARCH EVERY SPECIES.",
         "CHECK STATS, MOVES AND HABITATS.", "YOUR FIELD ENCYCLOPEDIA." } },
     { id = "bag", icon = "bag", label = "BAG",
@@ -2673,6 +2674,18 @@ return function(mod)
     end
   end
 
+  function displayRuntime.packageInstalled(package, saved)
+    if package.fixed then return true end
+    if package.available == false then return false end
+    if type(saved) == "boolean" then return saved end
+    return package.defaultInstalled == true
+  end
+  assert(displayRuntime.packageInstalled({ fixed = true }, false)
+      and displayRuntime.packageInstalled({ defaultInstalled = true }, nil)
+      and not displayRuntime.packageInstalled({}, nil)
+      and not displayRuntime.packageInstalled({ available = false }, true),
+    "Store packages require an explicit default or user installation")
+
   function displayRuntime.loadHome()
     local durable
     if game and mod.storage and mod.storage.read then
@@ -2683,8 +2696,8 @@ return function(mod)
       or mod.save:get("home_packages", {})
     if type(installed) ~= "table" then installed = {} end
     for id, package in pairs(displayRuntime.homeCatalog.packages) do
-      package.installed = package.fixed == true
-        or package.available ~= false and installed[id] ~= false
+      package.installed = displayRuntime.packageInstalled(
+        package, installed[id])
     end
     local saved = durable and durable.layout or mod.save:get("home_layout")
     local hasSaved = type(saved) == "table" and type(saved.tiles) == "table"
@@ -2732,6 +2745,7 @@ return function(mod)
     return app and {
       id = app.id, icon = app.icon, label = app.label,
       category = app.category, publisher = "SILPH CO.",
+      new = app.new == true,
       reason = app.reason or app.category,
       target = app.target, state = state,
       action = state == "soon" and "SOON"
@@ -5175,6 +5189,21 @@ return function(mod)
     return apps
   end
 
+  function displayRuntime.storeTodayEntries()
+    local featured
+    for _, app in ipairs(displayRuntime.storeCatalog) do
+      if app.featured and app.available ~= false then
+        featured = app
+        break
+      end
+    end
+    return {
+      displayRuntime.storeEntry(featured or displayRuntime.storeById.tools),
+      displayRuntime.storeEntry(displayRuntime.storeById.party),
+      displayRuntime.storeEntry(displayRuntime.storeById.bag),
+    }
+  end
+
   function displayRuntime.cycleStoreView(direction)
     local home = displayRuntime.home
     local views = { "today", "apps", "library" }
@@ -5185,21 +5214,19 @@ return function(mod)
     home.storeView = views[(current - 1 + direction) % #views + 1]
   end
 
-  function displayRuntime.drawStore()
-    local home, view = displayRuntime.home, displayRuntime.home.storeView
-    local detail = home.storeDetail and displayRuntime.storeEntry(
-      displayRuntime.storeById[home.storeDetail])
-    if detail and detail.id == "explorer" then
+  function displayRuntime.enrichStorePreview(entry)
+    if not entry then return entry end
+    if entry.id == "explorer" then
       local overview = loadLocalMap()
-      if overview then detail.preview = displayRuntime.explorerModel(overview) end
-    elseif detail and detail.id == "map" then
-      detail.preview = {
+      if overview then entry.preview = displayRuntime.explorerModel(overview) end
+    elseif entry.id == "map" then
+      entry.preview = {
         region = (compat.currentRegion() or "kanto"):upper(),
         location = areaName(mapId),
       }
-    elseif detail and detail.id == "party" then
+    elseif entry.id == "party" then
       local party = partyData()
-      detail.preview = { party = party,
+      entry.preview = { party = party,
         drawPokemon = function(mon, x, y, size)
           local source = mon.source or mon
           if not drawSprite(mon.species, "front", x, y, size, size,
@@ -5207,12 +5234,12 @@ return function(mod)
             compat.drawPokemonIcon(source, x, y, size)
           end
         end }
-    elseif detail and detail.id == "pokedex" then
+    elseif entry.id == "pokedex" then
       local dex, entries = displayRuntime.pokedexData(), {}
       for index = 1, math.min(6, #(dex.entries or {})) do
         entries[index] = dex.entries[index]
       end
-      detail.preview = { entries = entries,
+      entry.preview = { entries = entries,
         page = 1,
         pages = math.max(1, math.ceil(#(dex.entries or {}) / 9)),
         progress = (tonumber(dex.caught) or 0)
@@ -5224,9 +5251,9 @@ return function(mod)
           drawSprite(row.species, "front", x, y, size, size,
             tint, nil, true)
         end }
-    elseif detail and detail.id == "bag" then
-      detail.preview = displayRuntime.bagModel()
-    elseif detail and detail.id == "trainer" then
+    elseif entry.id == "bag" then
+      entry.preview = displayRuntime.bagModel()
+    elseif entry.id == "trainer" then
       local save, player = game.save or {}, game.save and game.save.player or {}
       local elapsed = math.max(0, math.floor(compat.playSeconds(save)))
       local owned, total = 0, 0
@@ -5237,7 +5264,7 @@ return function(mod)
           if caught[species] then owned = owned + 1 end
         end
       end
-      detail.preview = {
+      entry.preview = {
         name = player.name or (compat.isGen2() and "GOLD" or "RED"),
         region = (compat.currentRegion() or "kanto"):upper(),
         idText = THEME:format("ID %05d", player.id or 0),
@@ -5260,10 +5287,17 @@ return function(mod)
           badges[#badges + 1] = not not inventory[badge.item or badge.id]
         end
       end
-      detail.preview.badgeOwned = badges
-    elseif detail and detail.id == "steps" then
-      detail.preview = { steps = compactSteps(steps) }
+      entry.preview.badgeOwned = badges
+    elseif entry.id == "steps" then
+      entry.preview = { steps = compactSteps(steps) }
     end
+    return entry
+  end
+
+  function displayRuntime.drawStore()
+    local home, view = displayRuntime.home, displayRuntime.home.storeView
+    local detail = home.storeDetail and displayRuntime.enrichStorePreview(
+      displayRuntime.storeEntry(displayRuntime.storeById[home.storeDetail]))
     header(detail and detail.label or "SILPH STORE", true, not detail)
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
     if detail then
@@ -5276,12 +5310,10 @@ return function(mod)
         summary = THEME:format("%d APPS READY", #apps), apps = apps,
       })
     else
+      local today = displayRuntime.storeTodayEntries()
+      displayRuntime.enrichStorePreview(today[1])
       THEME.hgss:storeToday({
-        featured = displayRuntime.storeEntry(displayRuntime.storeById.tools),
-        recommended = {
-          displayRuntime.storeEntry(displayRuntime.storeById.party),
-          displayRuntime.storeEntry(displayRuntime.storeById.pokedex),
-        },
+        featured = today[1], recommended = { today[2], today[3] },
       })
     end
     G.pop()
@@ -7960,11 +7992,7 @@ return function(mod)
     if action == "tab" then
       home.storeView = ({ "today", "apps", "library" })[index]
     elseif view == "today" then
-      local entries = {
-        displayRuntime.storeEntry(displayRuntime.storeById.tools),
-        displayRuntime.storeEntry(displayRuntime.storeById.party),
-        displayRuntime.storeEntry(displayRuntime.storeById.pokedex),
-      }
+      local entries = displayRuntime.storeTodayEntries()
       if action == "featured_action" then
         displayRuntime.activateStoreEntry(entries[1])
       elseif action == "featured" then home.storeDetail = entries[1].id

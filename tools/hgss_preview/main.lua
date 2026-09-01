@@ -1226,7 +1226,7 @@ function love.load()
       description = { "CHECK YOUR TEAM AT A GLANCE.",
         "VIEW STATS, MOVES AND STATUS.", "KEEP EVERY PARTNER READY." } },
     { id = "pokedex", icon = "pokedex", label = "POKEDEX",
-      category = "RESEARCH", action = "OPEN", state = "open",
+      category = "RESEARCH", action = "GET", state = "get", new = true,
       description = { "RESEARCH EVERY SPECIES.",
         "CHECK STATS, MOVES AND HABITATS.", "YOUR FIELD ENCYCLOPEDIA." } },
     { id = "bag", icon = "bag", label = "BAG",
@@ -1360,13 +1360,12 @@ function love.load()
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
   if storeToday then
     theme:storeToday({
-      featured = { id = "tools", icon = "tools", label = "TOOLS",
-        category = "FIELD KIT", action = "OPEN", state = "open" },
+      featured = storeCatalog[4],
       recommended = {
         { id = "party", icon = "party", label = "PARTY",
           reason = "TEAM STATUS", state = "open" },
-        { id = "pokedex", icon = "pokedex", label = "POKEDEX",
-          reason = "DEX RESEARCH", state = "open" },
+        { id = "bag", icon = "bag", label = "BAG",
+          reason = "ITEM POCKETS", action = "GET", state = "get" },
       },
     })
   elseif storeApps then
@@ -1375,7 +1374,7 @@ function love.load()
     theme:storeMyApps({
       summary = "4 APPS READY",
       apps = {
-        storeCatalog[1], storeCatalog[2], storeCatalog[5], storeCatalog[4],
+        storeCatalog[1], storeCatalog[2], storeCatalog[3], storeCatalog[5],
       },
     })
   elseif storeDetail then
