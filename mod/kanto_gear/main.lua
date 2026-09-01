@@ -1847,8 +1847,45 @@ THEME.gen2Badges = {
     STORM = 6, GLACIER = 7, RISING = 8 },
 }
 
+function THEME:installOptionFallback(mod)
+  if type(mod.options.set) ~= "function" and mod.cache
+      and type(mod.cache.read) == "function"
+      and type(mod.cache.write) == "function" then
+    local nativeGet, loaded, values = mod.options.get, {}, {}
+    function mod.options:get(key)
+      if not loaded[key] then
+        local raw = mod.cache:read("options/" .. key)
+        if raw == "b1" or raw == "b0" then
+          values[key] = raw == "b1"
+        elseif type(raw) == "string" and raw:sub(1, 1) == "n" then
+          values[key] = tonumber(raw:sub(2))
+        elseif type(raw) == "string" and raw:sub(1, 1) == "s" then
+          values[key] = raw:sub(2)
+        end
+        loaded[key] = true
+      end
+      if values[key] ~= nil then return values[key] end
+      return nativeGet(self, key)
+    end
+    function mod.options:set(key, value)
+      local kind, encoded = type(value)
+      if kind == "boolean" then encoded = value and "b1" or "b0"
+      elseif kind == "number" then encoded = "n" .. tostring(value)
+      elseif kind == "string" then encoded = "s" .. value
+      else return false end
+      local ok = mod.cache:write("options/" .. key, encoded)
+      if not ok then return false end
+      loaded[key], values[key] = true, value
+      mod.events:emit("mod.kanto_gear.options_changed",
+        { mod = "kanto_gear", key = key, value = value })
+      return true
+    end
+  end
+end
+
 return function(mod)
   THEME.strings = mod.content.strings
+  THEME:installOptionFallback(mod)
 
   local RADAR_FRAMES = 16
   local function compactSteps(value)
@@ -11027,7 +11064,7 @@ return function(mod)
     dirty = true
   end)
 
-  mod.events:on("mod.options_changed", function(payload)
+  function displayRuntime.optionsChanged(payload)
     if payload and payload.mod == "kanto_gear" then
       if payload.key == "theme_v3" then
         THEME.storedTheme = payload.value
@@ -11081,7 +11118,9 @@ return function(mod)
       displayRuntime.explorer.data = nil
       dirty = true
     end
-  end)
+  end
+  mod.events:on("mod.options_changed", displayRuntime.optionsChanged)
+  mod.events:on("mod.kanto_gear.options_changed", displayRuntime.optionsChanged)
 
   function hgssRuntime.remapBattleRootInput(stepGame)
     if stepGame ~= game or THEME.style ~= "hgss"
