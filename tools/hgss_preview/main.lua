@@ -1766,6 +1766,10 @@ function love.load()
           icon = "map", accent = "blue", label = "MAP" },
         party_widget = { package = "party", kind = "widget",
           widget = "party", columns = 5, label = "PARTY" },
+        pokedex_widget = { package = "pokedex", kind = "widget",
+          widget = "pokedex", columns = 5, label = "POKEDEX" },
+        trainer_widget = { package = "trainer", kind = "widget",
+          widget = "trainer", columns = 5, label = language.homeTrainer },
         party_app = { package = "party", kind = "app", columns = 3,
           icon = "party", accent = "green", label = "PARTY" },
         bag_app = { package = "bag", kind = "app", columns = 3,
@@ -1831,6 +1835,13 @@ function love.load()
         { id = "map_app", page = 1, column = 5, row = 1 },
         { id = "tools_app", page = 1, column = 9, row = 1 },
       }
+    elseif screen == "home-widgets-dex" then
+      layout.tiles = {
+        { id = "pokedex_widget", page = 1, column = 1, row = 1 },
+        { id = "trainer_widget", page = 1, column = 6, row = 1 },
+        { id = "explorer_widget", page = 1, column = 1, row = 2 },
+        { id = "party_widget", page = 1, column = 8, row = 2 },
+      }
     end
     if homeAdd then
       Home.remove(layout, "party_widget")
@@ -1870,11 +1881,28 @@ function love.load()
       },
       lead = party[gen1 and 6 or 1],
       steps = "184K",
+      dexCaught = gen1 and 83 or 146,
+      dexSeen = gen1 and 112 or 201,
+      dexTotal = gen1 and 151 or 251,
+      dexLatest = { name = gen1 and "TAUROS" or "JUMPLUFF" },
+      trainer = {
+        name = gen1 and "RED" or "GOLD",
+        region = gen1 and "KANTO" or "JOHTO",
+        badgeCount = gen1 and 5 or 6, badgeTotal = 8,
+        money = gen1 and "¥34820" or "¥67240",
+        moneyShort = gen1 and "¥34K" or "¥67K",
+        time = gen1 and "18:42" or "42:17",
+        badgeOwned = { true, true, true, true, true,
+          not gen1, not gen1, false },
+      },
       drawPlayer = function(_, x, y, tileSize)
         drawOverworld("player", x, y, tileSize / 16, theme.colors.redLight)
       end,
       drawPokemon = function(_, x, y, size)
         drawPortrait(gen1 and 6 or 1, x, y, size, false)
+      end,
+      drawDexPokemon = function(_, x, y, size)
+        drawPortrait(gen1 and 6 or 2, x, y, size, false)
       end,
     }
     if homeEdit then

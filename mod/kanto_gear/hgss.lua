@@ -1410,6 +1410,10 @@ return function(ui)
       box("fill", x + 13, y + 12, 3, 5, colors.red)
     elseif kind == "steps" then
       self:homeStepsIcon(x + 1, y + 1)
+    elseif kind == "pokedex" then
+      self:homePokedexIcon(x + 1, y + 1)
+    elseif kind == "trainer" then
+      self:homeTrainerIcon(x + 1, y + 1)
     elseif kind == "tool" then
       self:toolIcon(item and item.icon or "tools", x + 1, y + 1)
     else
@@ -1520,6 +1524,79 @@ return function(ui)
       model.lead and model.lead.maxHp or 1)
   end
 
+  function H:homePokedex(model, tile, selected)
+    local colors = self.colors
+    local quiet = self.dark and colors.silver or colors.silverDark
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.redLight, selected)
+    self:homeWidgetHeader(x, y, w, "POKEDEX", colors.red,
+      colors.redLight, model.editing)
+    local portraitX = x + 6
+    self:partyPortrait(portraitX, y + 23, false, false)
+    if model.drawDexPokemon and model.dexLatest then
+      model.drawDexPokemon(model.dexLatest, portraitX + 2, y + 26, 30)
+    else
+      self:homePokedexIcon(portraitX + 4, y + 26)
+    end
+    local infoX, infoW = x + 43, w - 49
+    self:partyType(self:fitPartyType(translate("CAUGHT"), infoW),
+      infoX, y + 24, quiet, infoW)
+    self:partyInfo((model.dexCaught or 0) .. "/" .. (model.dexTotal or 0),
+      infoX, y + 34, colors.ink, infoW, "center")
+    self:partyType(self:fitPartyType(translate("SEEN"), infoW - 20),
+      infoX, y + 47, quiet, infoW - 20)
+    self:partyInfo(tostring(model.dexSeen or 0), infoX + infoW - 20,
+      y + 46, colors.green, 20, "right")
+    self:expBar(infoX, y + 58, infoW,
+      (model.dexCaught or 0) / math.max(1, model.dexTotal or 0))
+    local latest = model.dexLatest and model.dexLatest.name or "---"
+    self:partyType(self:fitPartyType(latest, w - 10),
+      x + 5, y + 67, colors.ink, w - 10)
+  end
+
+  function H:homeTrainer(model, tile, selected)
+    local colors = self.colors
+    local trainer = model.trainer or {}
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.blueLight, selected)
+    self:homeWidgetHeader(x, y, w, "TRAINER", colors.blue,
+      colors.blueLight, model.editing)
+    ui.graphics.push()
+    ui.graphics.translate(x + 6, y + 23)
+    ui.graphics.scale(0.76, 0.76)
+    self:homeTrainerIcon(0, 0)
+    ui.graphics.pop()
+    local infoX, infoW = x + 31, w - 37
+    self:partyType(self:fitPartyType(trainer.name or "---", infoW),
+      infoX, y + 23, colors.ink, infoW)
+    local badgeText = (trainer.region or "KANTO") .. " "
+      .. (trainer.badgeCount or 0) .. "/" .. (trainer.badgeTotal or 0)
+    self:partyType(self:fitPartyType(badgeText, infoW),
+      infoX, y + 34, colors.blue, infoW)
+    local badgeLeft, badgeWidth = x + 6, w - 12
+    for index = 1, math.max(1, trainer.badgeTotal or 8) do
+      local cx = badgeLeft + math.floor((index - 0.5) * badgeWidth
+        / math.max(1, trainer.badgeTotal or 8))
+      color(trainer.badgeOwned and trainer.badgeOwned[index]
+        and colors.amberLight or colors.silverDark)
+      ui.graphics.circle("fill", cx, y + 52, 3)
+      color(colors.outline); ui.graphics.circle("line", cx, y + 52, 3)
+    end
+    local half = math.floor((w - 13) / 2)
+    clipped(x + 5, y + 61, half, 15,
+      mixed(colors.surface, colors.amberLight, self.dark and 0.22 or 0.14))
+    border(x + 5, y + 61, half, 15, colors.outline)
+    self:partyInfo(self:fitPartyInfo(trainer.moneyShort or trainer.money
+      or "¥0", half - 6), x + 8, y + 64, colors.ink, half - 6,
+      "center")
+    local right = x + w - 5 - half
+    clipped(right, y + 61, half, 15,
+      mixed(colors.surface, colors.blueLight, self.dark and 0.22 or 0.14))
+    border(right, y + 61, half, 15, colors.outline)
+    self:partyInfo(self:fitPartyInfo(trainer.time or "0:00", half - 6),
+      right + 3, y + 64, colors.ink, half - 6, "center")
+  end
+
   function H:homeSteps(model, tile, selected)
     local colors = self.colors
     local quiet = self.dark and colors.silver or colors.silverDark
@@ -1598,6 +1675,10 @@ return function(ui)
         self:homeExplorer(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "party" then
         self:homeParty(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "pokedex" then
+        self:homePokedex(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "trainer" then
+        self:homeTrainer(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "steps" then
         self:homeSteps(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "tool" then

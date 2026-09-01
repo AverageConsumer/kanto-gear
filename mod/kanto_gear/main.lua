@@ -2078,6 +2078,10 @@ return function(mod)
         widget = "explorer", columns = 7, label = "EXPLORER" },
       party_widget = { package = "party", kind = "widget",
         widget = "party", columns = 5, label = "PARTY" },
+      pokedex_widget = { package = "pokedex", kind = "widget",
+        widget = "pokedex", columns = 5, label = "POKEDEX" },
+      trainer_widget = { package = "trainer", kind = "widget",
+        widget = "trainer", columns = 5, label = "TRAINER" },
       explorer_app = { package = "explorer", kind = "app", columns = 3,
         icon = "explorer", accent = "green", label = "EXPLORER" },
       map_app = { package = "map", kind = "app", columns = 3,
@@ -2752,6 +2756,46 @@ return function(mod)
         or state == "open" and "OPEN" or "GET",
       removable = installed and not package.fixed,
       description = app.description,
+    }
+  end
+
+  function displayRuntime.trainerSummary()
+    local save, player = game.save or {}, game.save and game.save.player or {}
+    local elapsed = math.max(0, math.floor(compat.playSeconds(save)))
+    local dex = displayRuntime.pokedexData()
+    local region = (compat.currentRegion() or "kanto"):upper()
+    local held, badges = player.badges or {}, {}
+    if compat.isGen2() then
+      if region == "KANTO" then held = player.kantoBadges or {} end
+      for index, id in ipairs(THEME.gen2Badges[region:lower()] or {}) do
+        badges[index] = not not (held[id] or held[index])
+      end
+    else
+      local inventory = save.inventory or {}
+      for index, badge in ipairs(game.data.constants
+          and game.data.constants.badges or {}) do
+        badges[index] = not not inventory[badge.item or badge.id]
+      end
+    end
+    local badgeCount = 0
+    for _, owned in ipairs(badges) do
+      if owned then badgeCount = badgeCount + 1 end
+    end
+    local money = tonumber(player.money or save.money) or 0
+    local moneyShort = money >= 1000000
+      and THEME:format("¥%.1fM", money / 1000000)
+      or money >= 1000 and THEME:format("¥%dK", math.floor(money / 1000))
+      or THEME:format("¥%d", money)
+    return {
+      name = player.name or (compat.isGen2() and "GOLD" or "RED"),
+      region = region,
+      idText = THEME:format("ID %05d", player.id or 0),
+      money = THEME:format("¥%d", money), moneyShort = moneyShort,
+      time = ("%d:%02d"):format(math.floor(elapsed / 3600),
+        math.floor(elapsed / 60) % 60),
+      pokedex = THEME:format("%d/%d", dex.caught or 0, dex.total or 0),
+      badgeOwned = badges, badgeCount = badgeCount,
+      badgeTotal = #badges,
     }
   end
 
@@ -5304,6 +5348,13 @@ return function(mod)
     local explorer = overview and displayRuntime.explorerModel(overview) or {}
     local party = partyData()
     local lead, leadView = party[1], displayRuntime.partyView(party[1])
+    local dex = displayRuntime.pokedexData()
+    local dexSeen, dexLatest = 0, nil
+    for _, entry in ipairs(dex.entries or {}) do
+      if entry.seen then dexSeen = dexSeen + 1 end
+      if entry.caught then dexLatest = entry end
+    end
+    local trainer = displayRuntime.trainerSummary()
     local tiles, slots = displayRuntime.homePageElements()
     local model = {
       page = home.page, pages = pages,
@@ -5316,6 +5367,9 @@ return function(mod)
       player = explorer.player, markers = explorer.markers,
       lead = leadView,
       steps = compactSteps(steps),
+      dexCaught = dex.caught, dexSeen = dexSeen, dexTotal = dex.total,
+      dexLatest = dexLatest,
+      trainer = trainer,
       drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
       drawPokemon = function(_, x, y, size)
         if not lead then return end
@@ -5326,6 +5380,11 @@ return function(mod)
             nil, source, true) then
           compat.drawPokemonIcon(source, x, y, size)
         end
+      end,
+      drawDexPokemon = function(entry, x, y, size)
+        if not entry then return end
+        drawSprite(entry.species, "front", x, y, size, size,
+          nil, nil, true)
       end,
     }
     if home.library and home.addSlot then
@@ -5454,40 +5513,7 @@ return function(mod)
     elseif entry.id == "bag" then
       entry.preview = displayRuntime.bagModel()
     elseif entry.id == "trainer" then
-      local save, player = game.save or {}, game.save and game.save.player or {}
-      local elapsed = math.max(0, math.floor(compat.playSeconds(save)))
-      local owned, total = 0, 0
-      local caught = compat.caughtDex(save)
-      for species, def in pairs(game.data.pokemon or {}) do
-        if def.dex then
-          total = total + 1
-          if caught[species] then owned = owned + 1 end
-        end
-      end
-      entry.preview = {
-        name = player.name or (compat.isGen2() and "GOLD" or "RED"),
-        region = (compat.currentRegion() or "kanto"):upper(),
-        idText = THEME:format("ID %05d", player.id or 0),
-        money = THEME:format("¥%d", player.money or save.money or 0),
-        time = ("%d:%02d"):format(math.floor(elapsed / 3600),
-          math.floor(elapsed / 60) % 60),
-        pokedex = THEME:format("%d/%d", owned, total),
-      }
-      local inventory, badges = save.inventory or {}, {}
-      if compat.isGen2() then
-        local region = compat.currentRegion() or "johto"
-        local held = region == "kanto" and (player.kantoBadges or {})
-          or player.badges or {}
-        for index, id in ipairs(THEME.gen2Badges[region] or {}) do
-          badges[#badges + 1] = not not (held[id] or held[index])
-        end
-      else
-        for _, badge in ipairs(game.data.constants
-            and game.data.constants.badges or {}) do
-          badges[#badges + 1] = not not inventory[badge.item or badge.id]
-        end
-      end
-      entry.preview.badgeOwned = badges
+      entry.preview = displayRuntime.trainerSummary()
     elseif entry.id == "steps" then
       entry.preview = { steps = compactSteps(steps) }
     end
