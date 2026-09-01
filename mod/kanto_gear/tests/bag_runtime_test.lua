@@ -65,6 +65,9 @@ local model = display.bagModel()
 T.eq(model.total, 1, "Bag reads the live inventory")
 T.eq(model.entries[1].id, itemId, "Bag preserves the real item id")
 T.check(model.canUse, "Bag enables USE only on the idle overworld")
+local summary = display.bagSummary()
+T.eq(summary.item + summary.medicine + summary.ball + summary.machine, 2,
+  "Bag widget counts only the real ordered Bag contents")
 
 local before = #stack.states
 T.check(display.useBagItem(itemId),

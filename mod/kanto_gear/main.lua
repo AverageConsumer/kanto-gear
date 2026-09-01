@@ -2807,8 +2807,18 @@ return function(mod)
 
   function displayRuntime.bagSummary()
     local counts = { item = 0, medicine = 0, ball = 0, machine = 0 }
-    for id, value in pairs(game.save and game.save.inventory or {}) do
-      local amount = tonumber(value) or 0
+    local inventory = game.save and game.save.inventory or {}
+    local ok, Bag = pcall(require, "src.inventory.Bag")
+    local order = ok and Bag.order and Bag.order(game.save) or {}
+    if #order == 0 then
+      for id, value in pairs(inventory) do
+        if tonumber(value) and tonumber(value) > 0 then
+          order[#order + 1] = id
+        end
+      end
+    end
+    for _, id in ipairs(order) do
+      local amount = tonumber(inventory[id]) or 0
       if amount > 0 then
         local def = game.data.items and game.data.items[id] or {}
         local kind = displayRuntime.bagItemKind(id, def)
