@@ -2511,6 +2511,10 @@ return function(mod)
   local partyActionSlot = nil
   local hgssRuntime = {}
   displayRuntime.motion = { duration = 0.16 }
+  displayRuntime.stepRefreshDelay = 0.4
+  assert(1.39 - 1 < displayRuntime.stepRefreshDelay
+      and 1.41 - 1 >= displayRuntime.stepRefreshDelay,
+    "step-driven companion updates wait for movement to settle")
   local choiceTop = nil
   local choiceReadyAt = 0
   local choiceNudgeUntil = 0
@@ -3010,6 +3014,16 @@ return function(mod)
   local function reloadSteps()
     steps = savedSteps(mod.save:get("steps", 0))
     dirty = true
+  end
+
+  function displayRuntime.updateStepRefresh(now)
+    if not displayRuntime.lastStepAt
+        or now - displayRuntime.lastStepAt
+          < displayRuntime.stepRefreshDelay then return false end
+    displayRuntime.lastStepAt = nil
+    if page == "TRAINER" or page == "STEPS" or page == "HOME"
+        or page == "LOCAL" then dirty = true; return true end
+    return false
   end
 
   function displayRuntime.homeSnapshot()
@@ -11078,7 +11092,7 @@ return function(mod)
     if voxel and voxel.exports.isLoading then
       externalLoading = voxel.exports.isLoading() == true
     end
-    active, dirty = true, true
+    active, dirty, displayRuntime.lastStepAt = true, true, nil
     mod.log:info("ready")
   end)
 
@@ -11093,6 +11107,7 @@ return function(mod)
   mod.events:on("map.entered", function(payload)
     mapId, pendingFly, pendingAction, fieldChoice, dirty =
       payload.mapId, nil, nil, nil, true
+    displayRuntime.lastStepAt = nil
     invalidateLocalMap()
     displayRuntime.pokedex.data = nil
     guidePage, displayRuntime.guideDetail, areaPage = 1, nil, 1
@@ -11608,7 +11623,9 @@ return function(mod)
     mapId = payload.mapId or mapId
     if radarOpen then radarOpen, dirty = false, true end
     if page == "TRAINER" or page == "STEPS" or page == "HOME"
-        or page == "LOCAL" then dirty = true end
+        or page == "LOCAL" then
+      displayRuntime.lastStepAt = love.timer.getTime()
+    end
   end)
 
   for _, event in ipairs({ "world.block_replaced", "map.reloaded", "screen.pushed" }) do
@@ -11854,9 +11871,7 @@ return function(mod)
       end
       if page == "LOCAL" and mod.world and mod.world.current then
         local pos = mod.world:current()
-        screenKey = screenKey .. ":" .. tostring(pos and pos.x)
-          .. ":" .. tostring(pos and pos.y)
-          .. ":" .. tostring(pos and pos.facing)
+        screenKey = screenKey .. ":" .. tostring(pos and pos.facing)
       end
       if screenKey ~= lastScreenKey or mode == "transition" then
         lastScreenKey, dirty = screenKey, true
@@ -11876,6 +11891,7 @@ return function(mod)
       end
     end
     if displayRuntime.motion.started then dirty = true end
+    displayRuntime.updateStepRefresh(now)
     if now >= nextClock then
       local title = screenState() == "title"
       nextClock = now + (title and 0.5

@@ -1256,6 +1256,31 @@ do
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
     if entry.owner == "kanto_gear" then composeHook = entry.callback end
   end
+  local previousTheme = run.loader.modOptions.kanto_gear.theme_v3
+  run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "theme_v3" })
+  local getStepTime, stepNow = T.love.timer.getTime, 100
+  T.love.timer.getTime = function() return stepNow end
+  run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
+  stepNow = 100.2
+  run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
+  T.eq(displayRuntime.lastStepAt, 100.2,
+    "successive steps coalesce into one companion refresh")
+  stepNow = 100.55
+  T.eq(displayRuntime.updateStepRefresh(stepNow), false,
+    "step-driven companion rendering waits while movement continues")
+  T.eq(displayRuntime.lastStepAt, 100.2,
+    "step-driven companion rendering waits while movement continues")
+  stepNow = 100.7
+  T.eq(displayRuntime.updateStepRefresh(stepNow), true,
+    "the companion schedules one refresh once movement pauses")
+  T.eq(displayRuntime.lastStepAt, nil,
+    "the companion catches up once movement pauses")
+  T.love.timer.getTime = getStepTime
+  run.loader.modOptions.kanto_gear.theme_v3 = previousTheme
+  run.loader.events:emit("mod.options_changed",
+    { mod = "kanto_gear", key = "theme_v3" })
   local refreshBattle = upvalue(composeHook, "refreshBattle")
   local compat = upvalue(refreshBattle, "compat")
   local enemyInfo = compat.enemyInfo({
