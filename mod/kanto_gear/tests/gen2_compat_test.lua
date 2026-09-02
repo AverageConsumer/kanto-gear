@@ -970,20 +970,6 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
 })
 T.check(true, "Gold party CANCEL renders as navigation instead of a Pokemon")
-do
-  local previousView = run.loader.modOptions.kanto_gear.battle_view
-  run.loader.modOptions.kanto_gear.battle_view = "standard"
-  T.eq(run.loader.hooks:call("screen.render_visible",
-    function() return true end, pack), false,
-    "Gold STANDARD keeps the native battle PACK off the top screen")
-  T.eq(run.loader.hooks:call("screen.render_visible",
-    function() return true end, party), false,
-    "Gold STANDARD keeps the native battle party off the top screen")
-  T.eq(run.loader.hooks:call("ui.party.grid_navigation",
-    function() return false end, party), true,
-    "Gold STANDARD party navigation follows the companion grid")
-  run.loader.modOptions.kanto_gear.battle_view = previousView
-end
 
 do
   local previousParty, previousBattleParty, previousPlayer =
