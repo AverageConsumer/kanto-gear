@@ -1,6 +1,6 @@
 # Built-in Kanto Gear languages
 
-The next Kanto Gear release includes English, German, Spanish (Spain), and
+Kanto Gear 3.1 includes English, German, Spanish (Spain), and
 French. Select **Settings → Appearance → Language**, or **LANGUAGE** in the
 host's Kanto Gear mod options. English is the default. The selection is saved
 outside the game save and can be changed without restarting.

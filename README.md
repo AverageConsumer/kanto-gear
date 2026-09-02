@@ -1,6 +1,6 @@
 <div align="center">
 
-# Kanto Gear 3.0
+# Kanto Gear 3.1
 
 ### Silph Link OS — Your adventure. Reconnected.
 
@@ -38,6 +38,9 @@ from apps, shortcuts and widgets.
   bottom-screen apps with contextual touch flows.
 - **Silph Store** explains and manages optional apps and widgets. Everything
   already ships inside Kanto Gear; the Store never downloads executable code.
+- **Achievements** collects exploration stamps and helps track area progress.
+  Install it from Silph Store; it respects your research mode.
+- **Team View** puts all six party members on Home, with a tap into their details.
 - **HGSS Light, Dark and Auto** provide the new high-resolution visual system.
   Auto follows Gen 2 night and uses the same 18:00 boundary in Gen 1.
 - **Vanilla, Enhanced and Spoilers** let each player choose how much assistance
@@ -65,9 +68,10 @@ installation starts once in HGSS Light so Silph Link OS cannot be missed.
    the fixed **Options** app.
 
 You need your own supported ROM. Kanto Gear contains no ROM, ROM-derived game
-data or save file. The next release integrates German, Spanish (Spain) and
-French directly under **Settings → Appearance → Language**, without companion
-packs. Only Kanto Gear's interface changes language; game text remains untouched.
+data or save file. English, German, Spanish (Spain) and French are built in under
+**Settings → Appearance → Language**. Disable the old companion language packs;
+they are no longer needed. Only Kanto Gear's interface changes language; game
+text remains untouched.
 See [language support](translations/README.md).
 
 ## Display modes
