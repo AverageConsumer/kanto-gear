@@ -189,6 +189,84 @@ T.eq(pressedCount, 1, "exactly one member reacts to touch")
 T.eq(pressedX, secondX, "pressed feedback belongs to the touched member")
 renderer:setTouch()
 renderer.beginPress = beginPress
+
+-- Team summaries outside battle use the same touch detail screen, respecting
+-- research mode, without taking over the native D-pad or changing party data.
+local summaryMon = party[1]
+summaryMon.moves = {
+  { id = "FIX_TACKLE", pp = 7, ppUps = 2,
+    maxPp = generation == 2 and 42 or nil },
+  { id = "FIX_EMBERISH", pp = 3 },
+}
+summaryMon.types = { run.data.moves.FIX_TACKLE.type }
+local summary = { screenId = generation == 2 and "Gen2SummaryMenu" or "SummaryMenu",
+  page = 2, moveIndex = 1, mon = summaryMon,
+  itemName = function() return "---" end, expToNext = function() return 20 end,
+  otName = function() return "RED" end, otId = function() return 7 end }
+game.stack.states = { world, summary }
+game.input = { pressQueue = {}, sourcePress = function() end, sourceRelease = function() end }
+local summaryModel, detailModel, detailStab
+local summaryMoves, detailBody = renderer.summaryMoves, renderer.battleMoveInfoBody
+renderer.summaryMoves = function(self, model, ...)
+  summaryModel = model
+  return summaryMoves(self, model, ...)
+end
+renderer.battleMoveInfoBody = function(self, model, stab)
+  detailModel, detailStab = model, stab
+  return detailBody(self, model, stab)
+end
+local function tapMove(slot)
+  local position = "80," .. math.floor((63 + (slot - 1) * 37 + 17) / theme.hgssScale)
+  touchEvent("down," .. position)
+  touchEvent("up," .. position)
+end
+for _, mode in ipairs({ "purist", "enhanced", "spoiler" }) do
+  run.loader.modOptions.kanto_gear.info_level = mode
+  display.drawContents()
+  T.eq(summaryModel.moveDetails, mode ~= "purist", mode .. " controls detail affordances")
+  T.eq(summaryModel.moveIndex, nil, "field summary has no controller focus")
+  for slot = 1, 2 do
+    tapMove(slot)
+    local selected = upvalue(tap, "moveInfo")
+    if mode == "purist" then
+      T.eq(selected, nil, "Vanilla does not open assisted move details")
+    else
+      T.eq(selected and selected.id, summaryMon.moves[slot].id,
+        mode .. " touch opens the exact team move outside battle")
+      display.drawContents()
+      T.eq(detailModel and detailModel.name, run.data.moves[summaryMon.moves[slot].id].name,
+        "existing detail screen renders the selected move")
+      T.eq(detailStab, slot == 1, "STAB uses the viewed team member, not a battle owner")
+      T.eq(detailModel and detailModel.effectiveness, nil,
+        "no opponent means no invented matchup multiplier")
+      if slot == 1 then
+        local basePp = run.data.moves.FIX_TACKLE.pp
+        local maxPp = generation == 2 and 42 or basePp + 2 * math.floor(basePp / 5)
+        T.eq(detailModel and detailModel.ppText, "7/" .. maxPp, "details retain PP bonuses")
+      end
+      tap(3, 3)
+      T.eq(upvalue(tap, "moveInfo"), nil, "touch back closes only the move overlay")
+      T.eq(game.stack:top(), summary, "return keeps the same summary")
+      T.eq(summary.page, 2, "return keeps the Moves page")
+    end
+  end
+  tapMove(3)
+  T.eq(upvalue(tap, "moveInfo"), nil, "empty move slot is inert")
+end
+local inputHook = hook("input.step")
+local hgss = upvalue(inputHook, "hgssRuntime")
+game.input.pressQueue = { "down" }
+local selectedSlot = summary.moveIndex
+hgss.remapSummaryMovesInput(game)
+T.eq(game.input.pressQueue[1], "down", "field summary leaves D-pad input native")
+T.eq(summary.moveIndex, selectedSlot, "field summary adds no D-pad move selection")
+tapMove(1)
+game.input.pressQueue = { "b" }
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+T.eq(upvalue(tap, "moveInfo"), nil, "B also closes the field move overlay")
+T.eq(#game.input.pressQueue, 0, "closing details does not send B into the summary")
+T.eq(summaryMon.moves[1].pp, 7, "browsing does not spend PP")
+renderer.summaryMoves, renderer.battleMoveInfoBody = summaryMoves, detailBody
 T.eq(#run.errors, 0, "no runtime errors")
 run.release()
 T.finish("Team View widget Gen " .. generation)

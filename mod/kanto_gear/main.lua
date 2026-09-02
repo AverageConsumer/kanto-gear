@@ -6518,7 +6518,7 @@ return function(mod)
       nextLevelText = level < 100 and THEME:format("L%d", level + 1)
         or THEME:translate("MAX"),
       nextExpLabel = THEME:translate("TO NEXT"),
-      moveDetails = battle ~= nil and assist("move_details"),
+      moveDetails = assist("move_details"),
     }
     local stats = view.stats or {}
     local rows = view.gen2 and {
@@ -6550,7 +6550,7 @@ return function(mod)
         accuracyText = move.accuracy and tostring(move.accuracy) or "--",
       }
     end
-    out.moveIndex = summary.moveIndex or 1
+    out.moveIndex = battle and (summary.moveIndex or 1) or nil
     return out, view
   end
 
@@ -7486,12 +7486,12 @@ return function(mod)
     local accuracy = move.hitChance
     if accuracy == nil then accuracy = move.accuracy or def.accuracy end
     local summary = screenById("summary")
-    if THEME.style == "hgss" and battle and summary
+    if THEME.style == "hgss" and summary
         and compat.summary.supports(summary, game) then
       local _, view = hgssRuntime.summaryMove(summary,
         summary.moveIndex or 1)
       local moveType = move.type or def.type
-      local enemy = battle.enemy
+      local enemy = battle and battle.enemy
       local enemyDef = enemy and game.data.pokemon
         and game.data.pokemon[enemy.species]
       local enemyTypes = enemy and enemy.types
@@ -10489,7 +10489,7 @@ return function(mod)
           press("left")
         elseif hy < 30 and hx < 139 then
           press("right")
-        elseif battle and assist("move_details")
+        elseif assist("move_details")
             and tonumber(summary.page) == 2 then
           for slot = 1, 4 do
             local rowY = 63 + (slot - 1) * 37

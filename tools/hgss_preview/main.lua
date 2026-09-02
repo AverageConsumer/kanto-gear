@@ -507,6 +507,7 @@ function love.load()
   local swapMode = partySwap or partySwapTransition or partySwapCommit
   local context, summary = screen == "context", screen == "summary"
   local moves = screen == "summary_moves"
+  local summaryMoveInfo = screen == "summary_move_info"
   local memo = screen == "summary_memo"
   local memoTransition = screen == "summary_memo_transition"
   local transition = screen == "summary_transition"
@@ -570,6 +571,7 @@ function love.load()
     or memoTransition
       and (transitionProgress >= 0.5 and format("%s %d/%d", translate("TRAINER"), 3, 3) or movesTitle)
     or moves and movesTitle
+    or summaryMoveInfo and "MOVES"
     or movesTransition
       and (transitionProgress >= 0.5 and movesTitle or statsTitle)
     or (summary or transition and transitionProgress >= 0.42) and statsTitle
@@ -594,12 +596,12 @@ function love.load()
         or trainerScreen or trainerSteps
         or tools or settings or swapMode
         or context or summary
-        or moves or memo or memoTransition
+        or moves or memo or memoTransition or summaryMoveInfo
         or transition or movesTransition,
       store and not storeDetail
         or pokedexProfile or pokedexHabitat or pokedexStats or pokedexMoves
         or not home and not store and not explorer and not regionMap
-        and not legacy
+        and not legacy and not summaryMoveInfo
         and not pokedex and not bag
         and not trainerScreen
         and not trainerSteps and not tools and not settings and not swapMode and (summary or moves or memo or memoTransition
@@ -2333,6 +2335,11 @@ function love.load()
   elseif battleMoveInfoTransition then
     theme:battleMoveInfoTransition(battleMon(), playerTeam, enemyTeam,
       transitionProgress)
+  elseif summaryMoveInfo then
+    local mon = battleMon()
+    local move = mon.moves[mon.moveIndex] or {}
+    move.effectiveness = nil
+    theme:battleMoveInfoBody(move, theme:moveHasStab(mon, move))
   elseif battleMoveInfo then
     local mon = battleMon()
     local move = mon.moves[mon.moveIndex] or {}
@@ -2471,7 +2478,7 @@ function love.load()
             ppText = "10/10", powerText = "--", accuracyText = "90" },
         }
       end
-      mon.moveIndex = 1
+      mon.moveIndex = os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") ~= "field" and 1 or nil
       mon.moveDetails = true
       for _, move in ipairs(mon.moves) do move.available = true end
       if memoTransition then
