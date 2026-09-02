@@ -3651,10 +3651,15 @@ return function(ui)
   end
 
   function H:partyActionRow(index, count)
+    if count > 2 then
+      local step = math.floor(108 / count)
+      return 18, 102 + (index - 1) * step, 204, step - 4
+    end
     return 18, count == 1 and 139 or 112 + (index - 1) * 49, 204, 40
   end
 
   function H:partyActionHeroY(count)
+    if count > 2 then return 35 end
     return count == 1 and 67 or 44
   end
 
@@ -3736,11 +3741,20 @@ return function(ui)
     clipped(x, y, w, h,
       self:focusSurface(selected, colors.surface, accent))
     border(x, y, w, h, colors.outline)
+    local contentY = y + math.floor((h - 40) / 2)
+    G.push()
+    G.translate(0, contentY - y)
     if kind == "swap" or kind == "switch" then
       color(accent)
       G.setLineWidth(2)
       G.line(x + 15, y + 17, x + 29, y + 17, x + 25, y + 13)
       G.line(x + 29, y + 23, x + 15, y + 23, x + 19, y + 27)
+      G.setLineWidth(1)
+    elseif kind == "cancel" then
+      color(accent)
+      G.setLineWidth(2)
+      G.line(x + 17, y + 15, x + 27, y + 25)
+      G.line(x + 27, y + 15, x + 17, y + 25)
       G.setLineWidth(1)
     else
       box("fill", x + 15, y + 22, 3, 7, accent)
@@ -3751,6 +3765,7 @@ return function(ui)
     local shown = self:fitLabel(label, w - 69)
     self:label(shown, x + 43, y + 13, colors.ink)
     self:detailChevron(x + w - 16, y + 16, colors.ink, true)
+    G.pop()
     if selected then self:focusFrame(x, y, w, h) end
     self:endPress(pressed)
   end
@@ -4199,6 +4214,140 @@ return function(ui)
     return row * 2 + column + 1
   end
 
+  -- Standard retains the native cursor order. Reuse the Safari 2x2 bounds
+  -- for both drawing and hit testing; Gear's asymmetric menu is independent.
+  function H:battleStandardRoot(mon, drawPortrait, playerTeam, enemyTeam, selected)
+    local G, colors = ui.graphics, self.colors
+    self:battleTeamStrip(playerTeam, enemyTeam)
+    local labels = { mon.fightLabel, mon.partyLabel, mon.bagLabel, mon.runLabel }
+    for slot, tint in ipairs({ "red", "green", "amber", "blue" }) do
+      local x, y = 6 + (slot - 1) % 2 * 116, 33 + math.floor((slot - 1) / 2) * 91
+      local pressed = self:beginPress(x, y, 112, 86)
+      self:battleActionPanel(x, y, 112, 86, tint, selected == slot)
+      local cx, cy = x + 56, y + 32
+      if slot == 1 then
+        color(colors.selectedDark); G.circle("fill", cx, cy, 25)
+        color(colors.surface); G.circle("fill", cx, cy, 23)
+        box("fill", cx - 23, cy - 1, 46, 2, colors.selectedDark)
+        drawPortrait(mon, cx - 22, cy - 22, 44, false)
+      elseif slot == 2 then
+        self:battleTeamBall(cx - 15, cy + 3, true)
+        self:battleTeamBall(cx, cy - 3, true)
+        self:battleTeamBall(cx + 15, cy + 3, true)
+      elseif slot == 3 then
+        self:battleBagIcon(cx - 13, cy - 14)
+      else
+        self:battleRunnerIcon(cx, cy)
+      end
+      self:label(self:fitLabel(labels[slot] or "", 96), x + 8, y + 65,
+        colors.white, 96, "center")
+      self:endPress(pressed)
+    end
+  end
+
+  function H:battleStandardMoveRect(slot)
+    return 6, 33 + (slot - 1) * 45, 228, 41
+  end
+
+  function H:battleStandardMoveHit(x, y)
+    for slot = 1, 4 do
+      local left, top, width, height = self:battleStandardMoveRect(slot)
+      if x >= left and x < left + width and y >= top and y < top + height then
+        return slot, x >= left + width - 24
+      end
+    end
+  end
+
+  function H:battleStandardMoves(mon, playerTeam, enemyTeam)
+    local colors = self.colors
+    self:battleTeamStrip(playerTeam, enemyTeam, true)
+    for slot = 1, 4 do
+      local move = mon.moves[slot]
+      if move and move.available ~= false then
+        local x, y, w, h = self:battleStandardMoveRect(slot)
+        local pressed = self:beginPress(x, y, w, h, not move.disabled)
+        self:panel(x, y, w, h, mon.moveIndex == slot,
+          self:typeColor(move.type))
+        local ink = move.disabled and colors.silverDark or colors.ink
+        self:partyName(move.name or "-", x + 8, y + 5, ink, 141)
+        self:partyInfo((move.ppLabel or translate("PP")) .. " " .. (move.ppText or "--"),
+          x + 153, y + 5, ink, 49, "right")
+        if mon.details ~= false then self:detailChevron(x + 217, y + 9, ink) end
+        self:moveTypeBadge(move, x + 8, y + 25)
+        self:partyType((move.powerLabel or translate("PWR")) .. " " .. (move.powerText or "--"),
+          x + 61, y + 24, ink, 44)
+        self:partyType((move.accuracyLabel or translate("ACC")) .. " " .. (move.accuracyText or "--"),
+          x + 110, y + 24, ink, 44)
+        if self:moveHasStab(mon, move) then
+          clipped(x + 159, y + 25, 29, 10, self:typeColor(move.type))
+          border(x + 159, y + 25, 29, 10, colors.outline)
+          self:partyType(translate("STAB"), x + 160, y + 24, colors.white, 27)
+        end
+        local label, effect = self:battleEffectLabel(move)
+        local fill = effect == 0 and colors.red
+          or effect and effect > 10 and colors.greenLight
+          or effect and effect < 10 and colors.amber or colors.silverDark
+        clipped(x + 193, y + 25, 27, 10, fill)
+        border(x + 193, y + 25, 27, 10, colors.outline)
+        self:partyType(label, x + 195, y + 24, colors.white, 23)
+        self:endPress(pressed)
+      end
+    end
+  end
+
+  function H:battleStandardPartyRect(slot, count, cancel)
+    count = math.max(1, math.min(6, count))
+    local height = math.min(50, math.floor((177 - (count - 1) * 3
+      - (cancel and 22 or 0)) / count))
+    local used = count * height + (count - 1) * 3 + (cancel and 22 or 0)
+    local top = 33 + math.floor((177 - used) / 2)
+    if slot == count + 1 and cancel then
+      return 6, top + count * (height + 3) + 1, 228, 18
+    end
+    return 6, top + (slot - 1) * (height + 3), 228, height
+  end
+
+  function H:battleStandardPartyHit(x, y, count, cancel)
+    for slot = 1, count + (cancel and 1 or 0) do
+      local left, top, width, height = self:battleStandardPartyRect(slot, count, cancel)
+      if x >= left and x < left + width and y >= top and y < top + height then
+        return slot
+      end
+    end
+  end
+
+  function H:battleStandardParty(party, selected, cancel, drawPortrait)
+    local colors = self.colors
+    for slot, mon in ipairs(party) do
+      local x, y, w, h = self:battleStandardPartyRect(slot, #party, cancel)
+      local fainted = mon.statusId == "FNT"
+      local pressed = self:beginPress(x, y, w, h)
+      self:partyPanel(x, y, w, h, selected == slot, fainted, selected == slot)
+      local size = math.min(40, h - 4)
+      drawPortrait(mon, x + 4 + math.floor((40 - size) / 2),
+        y + math.floor((h - size) / 2), size, fainted)
+      local line = y + math.floor((h - 21) / 2)
+      self:partyName(mon.name or "", x + 46, line, colors.white, 108)
+      if not mon.egg then
+        self:partyInfo(mon.hpText, x + 161, line, colors.white, 61, "right")
+        self:typeBadges(mon, x + 46, line + 11, fainted)
+        self:partyInfo(mon.levelText, x + 95, line + 10, colors.white, 29)
+        self:statusIcon(mon.statusId, x + 128, line + 12)
+        self:genderIcon(mon.gender, x + 142, line + 11)
+        self:hpBar(x + 161, line + 11, 61, mon.hp, mon.maxHp)
+        self:expBar(x + 161, line + 17, 61, mon.expProgress)
+      end
+      self:endPress(pressed)
+    end
+    if cancel then
+      local x, y, w, h = self:battleStandardPartyRect(#party + 1, #party, true)
+      local pressed = self:beginPress(x, y, w, h)
+      self:panel(x, y, w, h, selected == #party + 1, colors.greenLight)
+      self:partyInfo(translate("CANCEL"), x, y + 3, colors.ink, w, "center")
+      self:endPress(pressed)
+    end
+  end
+
   function H:battleMimic(model, playerTeam, enemyTeam)
     local colors = self.colors
     self:battleTeamStrip(playerTeam, enemyTeam)
@@ -4497,13 +4646,13 @@ return function(ui)
       local rightWidth = right and math.max(26,
         math.min(72, self:partyInfoWidth(right))) or 0
       self:partyName(self:fitPartyInfo(entry.label or tostring(index),
-        199 - left - rightWidth), left, y + 6, colors.ink,
+        199 - left - rightWidth), left, y + 10, colors.ink,
         199 - left - rightWidth)
       if right then
-        self:partyInfo(right, 199 - rightWidth, y + 7,
+        self:partyInfo(right, 199 - rightWidth, y + 10,
           colors.green, rightWidth, "right")
       end
-      self:detailChevron(216, y + 16, colors.green)
+      self:detailChevron(216, y + 14, colors.green)
       if entry.selected then self:focusFrame(7, y, 226, PC_LIST_HEIGHT) end
       self:endPress(pressed)
     end
@@ -5705,7 +5854,7 @@ return function(ui)
     self:partyInfo(move.ppLabel or translate("PP"), x + 157, y + 4, colors.green)
     self:partyInfo(move.ppText or "--", x + 177, y + 4,
       colors.ink, 35, "right")
-    if showChevron then self:detailChevron(x + 217, y + 6, colors.ink) end
+    if showChevron then self:detailChevron(x + 217, y + 8, colors.ink) end
     self:partyInfo(move.powerLabel or translate("PWR"), x + 64, y + 18,
       colors.green)
     local power = move.powerText

@@ -412,7 +412,9 @@ function love.load()
       sprites[slot] = { image = image, quad = quad, width = width, height = height }
     end
   end
+  local standardBattle = os.getenv("KANTO_GEAR_PREVIEW_BATTLE_VIEW") == "standard"
   local battleRoot = screen == "battle_root"
+  local battleParty = screen == "battle_party" or screen == "battle_item_target"
   local battleFull = screen == "battle_full"
   local battleMessage = screen == "battle_message"
   local battlePartyTransition = screen == "battle_party_transition"
@@ -581,7 +583,7 @@ function love.load()
     or language.title
   if not legacyTitle and not achievements
       and not battleRoot and not battleFull and not battleMessage and not battlePartyTransition
-      and not battlePartyMenu
+      and not battlePartyMenu and not battleParty
       and not battleMoves and not battleMovesTransition
       and not battleMoveInfo and not battleMoveInfoTransition
       and not battleBag and not battleBagTransition
@@ -2366,7 +2368,31 @@ function love.load()
       drawPortrait(slot, x, y, size, fainted)
     end, playerTeam, enemyTeam, transitionProgress)
   elseif battleMoves then
-    theme:battleMoves(battleMon(), playerTeam, enemyTeam)
+    local drawMoves = standardBattle and theme.battleStandardMoves or theme.battleMoves
+    drawMoves(theme, battleMon(), playerTeam, enemyTeam)
+  elseif battleParty then
+    theme:headerBar(translate(screen == "battle_item_target" and "USE ITEM ON" or "PARTY"),
+      true, false, -1)
+    theme:headerClock("20:04", "NITE", 139, 72, 6)
+    theme:battery(214, 8, 4, nil, true, theme.colors.ink, theme.colors.greenLight)
+    theme:partyBackdrop()
+    if standardBattle then
+      local list = {}
+      for slot, mon in ipairs(party) do
+        list[slot] = {}
+        for key, value in pairs(mon) do list[slot][key] = value end
+        list[slot].slot = slot
+        if gen1 then list[slot].gender = nil end
+      end
+      theme:battleStandardParty(list,
+        tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 2, not gen1,
+        function(mon, x, y, size, fainted) drawPortrait(mon.slot, x, y, size, fainted) end)
+    else
+      for slot = 1, #party do
+        local x, y = theme:partyPosition(slot)
+        drawMon(slot, x, y, slot == 2, false)
+      end
+    end
   elseif battlePartyTransition then
     local mon = battleMon()
     local slot = gen1 and 6 or 1
@@ -2378,12 +2404,18 @@ function love.load()
       end, transitionProgress, "PARTY", "20:04", "NITE")
   elseif battlePartyMenu then
     theme:headerBar("PARTY", true, false, -1)
-    local actionCount = 2
+    theme:headerClock("20:04", "NITE", 139, 72, 6)
+    theme:battery(214, 8, 4, nil, true, theme.colors.ink, theme.colors.greenLight)
+    local actionCount = standardBattle and 3 or 2
     drawMon(1, 64, theme:partyActionHeroY(actionCount), true, false, false)
     local x, y, w, h = theme:partyActionRow(1, actionCount)
     theme:actionRow(x, y, w, h, "SWITCH", "switch", 0, true)
     x, y, w, h = theme:partyActionRow(2, actionCount)
     theme:actionRow(x, y, w, h, "STATS", "stats", 0, false)
+    if standardBattle then
+      x, y, w, h = theme:partyActionRow(3, actionCount)
+      theme:actionRow(x, y, w, h, translate("CANCEL"), "cancel", 0, false)
+    end
   elseif battleFull then
     local mon = battleMon()
     local slot = gen1 and 6 or 1
@@ -2411,7 +2443,8 @@ function love.load()
   elseif battleRoot then
     local mon = battleMon()
     local slot = gen1 and 6 or 1
-    theme:battleRoot(mon, function(_, x, y, size, fainted)
+    local drawRoot = standardBattle and theme.battleStandardRoot or theme.battleRoot
+    drawRoot(theme, mon, function(_, x, y, size, fainted)
       drawPortrait(slot, x, y, size, fainted)
     end, playerTeam, enemyTeam,
       tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 1)

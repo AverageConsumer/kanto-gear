@@ -2572,8 +2572,15 @@ return function(mod)
   local nextPresentAttempt = 0
   local themeKey = nil
 
+  function hgssRuntime.standardBattle()
+    return THEME.style == "hgss" and currentBattleUIMode() == "standard"
+  end
+
   function hgssRuntime.beginAnimation(kind, data)
-    if THEME.style ~= "hgss" or mod.options:get("ui_motion") == false then
+    if THEME.style ~= "hgss" or mod.options:get("ui_motion") == false
+        or hgssRuntime.standardBattle() and kind:match("^battle_") then
+      -- The existing hero transitions use Gear's grid geometry. Standard
+      -- uses the shared page transition instead, without a one-frame grid.
       hgssRuntime.animation = nil
       return
     end
@@ -2600,7 +2607,7 @@ return function(mod)
       or nil
     local items = menu and (menu.subItems or (submenu and submenu.items)) or {}
     local actions = {}
-    for index = 1, math.min(2, #items) do
+    for index = 1, hgssRuntime.standardBattle() and #items or math.min(2, #items) do
       actions[#actions + 1] = { index = index, item = items[index] }
     end
     return actions, submenu
@@ -6535,6 +6542,7 @@ return function(mod)
       partyLabel = THEME:translate("POKEMON"),
       runLabel = THEME:translate("RUN"),
       moveIndex = battle.moveIndex or 1,
+      details = assist("move_details"),
       moves = {},
     }
     for slot = 1, 4 do
@@ -6751,6 +6759,12 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      if hgssRuntime.standardBattle() then
+        THEME.hgss:battleStandardRoot(mon, hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, battle.menuIndex)
+        G.pop()
+        return
+      end
       if fullBottomBattleUI() then
         THEME.hgss:battleFullRoot(mon,
           hgssRuntime.battleStatus("player"),
@@ -6909,6 +6923,11 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      if hgssRuntime.standardBattle() then
+        THEME.hgss:battleStandardMoves(mon, playerTeam, enemyTeam)
+        G.pop()
+        return
+      end
       local progress = hgssRuntime.progress("battle_moves")
       local closing = hgssRuntime.progress("battle_moves_close")
       local infoClose = hgssRuntime.progress("battle_move_info_close")
@@ -7778,7 +7797,7 @@ return function(mod)
           local x, y, w, h = THEME.hgss:partyActionRow(row, #actions)
           local label = THEME:menuActionLabel(action.item.label or tostring(action.index))
           THEME.hgss:actionRow(x, y, w, h, label,
-            row == 1 and "switch" or "stats", 0,
+            row == 1 and "switch" or row == 2 and "stats" or "cancel", 0,
             selected == action.index)
         end
         G.pop()
@@ -7805,6 +7824,27 @@ return function(mod)
     local title = compat.battlePartyTitle(menu, cancel)
     if THEME.style == "hgss" then
       local list = battle.party or {}
+      if hgssRuntime.standardBattle() then
+        header(compat.battlePartyTitle(menu), true, false, -1)
+        local views = {}
+        for slot, mon in ipairs(list) do
+          views[slot] = displayRuntime.partyView(mon)
+          views[slot].species, views[slot].source = mon.species, mon.source or mon
+        end
+        G.push()
+        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:partyBackdrop()
+        THEME.hgss:battleStandardParty(views, menu.index,
+          hgssRuntime.partyHasCancel(menu, #list), function(mon, x, y, size, fainted)
+            if mon.egg then
+              compat.drawPokemonIcon(mon.source, x, y, size)
+            else
+              hgssRuntime.battlePortrait(mon, x, y, size, fainted)
+            end
+          end)
+        G.pop()
+        return
+      end
       local progress = hgssRuntime.progress("battle_party")
       if progress then
         local mon = hgssRuntime.battleMon()
@@ -7823,6 +7863,14 @@ return function(mod)
       end
     end
     drawParty(battle.party or {}, title, true, nil, selected)
+  end
+
+  function hgssRuntime.partyHasCancel(menu, count)
+    if type(menu.isCancel) ~= "function" or type(menu.count) ~= "function" then
+      return false
+    end
+    local ok, total = pcall(menu.count, menu)
+    return ok and total == count + 1
   end
 
   function compat.battleBagMenu(menu)
@@ -9955,7 +10003,19 @@ return function(mod)
       elseif y >= 23 then
         local slot
         if THEME.style == "hgss" then
-          slot = THEME.hgss:partySlot(x, y, #(battle.party or {}))
+          if hgssRuntime.standardBattle() then
+            local count = #(battle.party or {})
+            local cancel = hgssRuntime.partyHasCancel(party, count)
+            slot = THEME.hgss:battleStandardPartyHit(
+              x * THEME.hgssScale, y * THEME.hgssScale, count, cancel)
+            if cancel and slot == count + 1 then
+              party.index = slot
+              press("a")
+              return
+            end
+          else
+            slot = THEME.hgss:partySlot(x, y, #(battle.party or {}))
+          end
         else
           local col, row = x >= 81 and 1 or 0, math.floor((y - 23) / 39)
           slot = row * 2 + col + 1
@@ -10108,17 +10168,22 @@ return function(mod)
       if THEME.style == "hgss" then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
         if hy < 30 and hx < 28 then back(); return end
-        if hy < 33 or hy >= 198 then return end
-        local column = hx >= 120 and 1 or 0
-        local row = hy >= 118 and 1 or 0
-        local slot = row * 2 + column + 1
+        local slot, info
+        if hgssRuntime.standardBattle() then
+          slot, info = THEME.hgss:battleStandardMoveHit(hx, hy)
+        else
+          if hy < 33 or hy >= 198 then return end
+          local column = hx >= 120 and 1 or 0
+          local row = hy >= 118 and 1 or 0
+          slot = row * 2 + column + 1
+          local cardX, cardY = 6 + column * 116, 33 + row * 85
+          info = hx >= cardX + 94 and hx < cardX + 112
+            and hy >= cardY and hy < cardY + 24
+        end
         local move = battle.moves[slot]
         if not move then return end
         local disabled = THEME:moveUnavailableReason(move) ~= nil
-        local cardX, cardY = 6 + column * 116, 33 + row * 85
-        if assist("move_details") and hx >= cardX + 94
-            and hx < cardX + 112 and hy >= cardY
-            and hy < cardY + 24 then
+        if assist("move_details") and info then
           local raw = battleState()
           if raw and not disabled then raw.moveIndex = slot end
           battle.moveIndex = slot
@@ -10152,7 +10217,9 @@ return function(mod)
     if battle.prompt ~= "menu" then return end
     local choice
     if THEME.style == "hgss" then
-      if fullBottomBattleUI() then
+      if hgssRuntime.standardBattle() then
+        choice = THEME.hgss:safariHit(x * THEME.hgssScale, y * THEME.hgssScale)
+      elseif fullBottomBattleUI() then
         choice = THEME.hgss:fullBattleChoice(
           x * THEME.hgssScale, y * THEME.hgssScale)
       else
@@ -11512,7 +11579,10 @@ return function(mod)
       if not assist("move_details")
           or (payload.key == "battle_view"
             and currentBattleUIMode() == "info") then moveInfo = nil end
-      if payload.key == "battle_view" then battleInfoDetail = nil end
+      if payload.key == "battle_view" then
+        battleInfoDetail, hgssRuntime.animation = nil, nil
+        displayRuntime.motion.started = nil
+      end
       if page == "GUIDE" and not assist("guide") then
         page, displayRuntime.guideDetail = "MAP", nil
       end
