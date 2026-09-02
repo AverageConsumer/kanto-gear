@@ -1027,6 +1027,16 @@ do
   T.eq(run.loader.hooks:call("ui.party.grid_navigation",
     function() return false end, validParty), true,
     "native-contract battle party menus opt into companion navigation")
+  run.loader.modOptions.kanto_gear.battle_view = "standard"
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, validParty), false,
+    "STANDARD keeps the native battle party menu off the top screen")
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, validBag), false,
+    "STANDARD keeps the native battle bag menu off the top screen")
+  T.eq(run.loader.hooks:call("ui.party.grid_navigation",
+    function() return false end, validParty), true,
+    "STANDARD party navigation follows the companion grid")
   run.loader.modOptions.kanto_gear.battle_view = nil
   debug.setupvalue(summaryHook, battleUpvalue, previousBattle)
   debug.setupvalue(summaryHook, readyUpvalue, previousReady)

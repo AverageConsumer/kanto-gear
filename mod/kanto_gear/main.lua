@@ -11671,7 +11671,7 @@ return function(mod)
   mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
     if next(state) == true then return true end
     return screenContract(state, "party") ~= nil and bottomOwnsBattleUI(
-      hideUpperBattleUI(), active,
+      true, active,
       hasDisplay(), displayReady, battleState(), battle)
   end)
 
@@ -11695,7 +11695,7 @@ return function(mod)
         and battleState() ~= nil and battle ~= nil)
     end
     local owned = bottomOwnsBattleUI(
-      hideUpperBattleUI(), active,
+      true, active,
       hasDisplay(), displayReady, battleState(), battle)
     return not (owned and screenContract(state))
   end)
