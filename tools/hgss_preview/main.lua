@@ -146,6 +146,7 @@ end
 
 function love.load()
   local screen = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") or "party"
+  local achievements = screen:sub(1, 12) == "achievements"
   local homePreview = screen:sub(1, 4) == "home"
   local storeExplorerPreview = screen == "store-detail"
     and os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "explorer"
@@ -576,7 +577,7 @@ function love.load()
       and (transitionProgress >= 0.5 and movesTitle or statsTitle)
     or (summary or transition and transitionProgress >= 0.42) and statsTitle
     or language.title
-  if not legacyTitle
+  if not legacyTitle and not achievements
       and not battleRoot and not battleFull and not battleMessage and not battlePartyTransition
       and not battlePartyMenu
       and not battleMoves and not battleMovesTransition
@@ -1485,7 +1486,10 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if legacyPpMoves then
+  if achievements then
+    assert(loadfile(root .. "/tools/hgss_preview/achievements.lua"))()(
+      theme, screen, gen1, font)
+  elseif legacyPpMoves then
     theme:pcList({ summary = translate("CHOOSE MOVE"), entries = {
       { kind = "move", label = "SURF", right = "PP 12/15", selected = true },
       { kind = "move", label = "ICE PUNCH", right = "PP 8/15" },
