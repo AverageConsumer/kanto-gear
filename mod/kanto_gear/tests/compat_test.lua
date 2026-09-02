@@ -272,30 +272,28 @@ if movesPath then
   end
   T.eq(known, total, "all imported Gen 1 moves have known details")
 end
-theme.strings = {
-  get = function(_, source)
-    return ({
-      ["kanto_gear|LEVEL UP"] = "LEVEL AUF",
-      ["kanto_gear|Trainer battle"] = "TRAINER-KAMPF",
-      ["kanto_gear|BADGES"] = "ORDEN",
-      ["kanto_gear|PP %d"] = "AP",
-      ["TO LOWER"] = "KLEIN",
-    })[source]
-  end,
-}
-T.eq(fit("LEVEL UP", 20), "LEVEL AUF",
-  "Kanto Gear reads its scoped entries from the Recomp strings registry")
-T.eq(fit("Trainer battle", 20), "TRAINER-KAMPF",
-  "battle headers use the catalog's canonical source spelling")
+theme.i18n = assert(loadfile(path .. "/i18n.lua"))().new(function()
+  return { ["LEVEL UP"] = "LEVEL AUF", ["Trainer battle"] = "TRAINER-KAMPF",
+    ["BADGES"] = "ORDEN", ["PP %d"] = "AP" }
+end, function() return "de" end)
+theme.strings = { get = function() error("must not read the host registry") end }
+T.eq(fit("LEVEL UP", 20), "LEVEL UP",
+  "rendering raw game text never implicitly translates it")
+T.eq(fit(theme:translate("LEVEL UP"), 20), "LEVEL AUF",
+  "explicit Kanto Gear UI text uses its built-in catalog")
+T.eq(fit(theme:translate("Trainer battle"), 20), "TRAINER-KAMPF",
+  "battle headers translate their owned source key once")
 T.eq(fit("KANTO GEAR", 20), "KANTO GEAR",
   "untranslated Kanto Gear text keeps its English fallback")
 T.eq(theme:format("%s %d/%d", theme:translate("BADGES"), 3, 8),
   "ORDEN 3/8", "dynamic UI text reuses translated labels")
 T.eq(theme:format("PP %d", 12), "PP 12",
   "malformed dynamic translations fall back without losing values")
-T.eq(theme:translate("TO LOWER"), "KLEIN",
-  "a full-game translation remains a compatible fallback")
-theme.strings = nil
+T.eq(theme:translate("TO LOWER"), "TO LOWER",
+  "missing UI keys never borrow a full-game translation")
+T.eq(fit("MIMIC", 20), "MIMIC",
+  "game move names bypass Kanto Gear translation")
+theme.strings, theme.i18n = nil, nil
 for _, stale in ipairs({
   'newDef.type or "STATUS"',
   'fit(mon.status, 3)',
@@ -334,70 +332,74 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 18, "Kanto Gear keeps one compact display hierarchy")
-T.eq(options[1].label, "THEME", "theme setting is device-neutral")
-T.eq(#options[1].choices, 12, "classic and modern themes share one setting")
-T.eq(options[1].choices[3][2], "hgss", "HGSS theme is available")
-T.eq(options[1].choices[4][2], "hgss_dark",
+T.eq(#options, 19, "Kanto Gear adds one language setting")
+local optionsByKey = {}
+for _, row in ipairs(options) do optionsByKey[row.key] = row end
+T.eq(optionsByKey.language.default, "en", "language preserves English by default")
+T.eq(#optionsByKey.language.choices, 4, "language offers four built-in languages")
+T.eq(optionsByKey.theme_v3.label, "THEME", "theme setting is device-neutral")
+T.eq(#optionsByKey.theme_v3.choices, 12, "classic and modern themes share one setting")
+T.eq(optionsByKey.theme_v3.choices[3][2], "hgss", "HGSS theme is available")
+T.eq(optionsByKey.theme_v3.choices[4][2], "hgss_dark",
   "HGSS dark theme is available")
-T.eq(options[1].choices[5][2], "hgss_auto",
+T.eq(optionsByKey.theme_v3.choices[5][2], "hgss_auto",
   "HGSS automatic day and night theme is available")
-T.eq(options[1].choices[6][2], "modern_light",
+T.eq(optionsByKey.theme_v3.choices[6][2], "modern_light",
   "modern light theme is available")
-T.eq(options[1].choices[7][2], "modern_dark",
+T.eq(optionsByKey.theme_v3.choices[7][2], "modern_dark",
   "modern dark theme is available")
-T.eq(options[2].label, "CLOCK SOURCE", "clock source is one compact choice")
-T.eq(options[2].default, "game", "Gen 2 follows its encounter clock by default")
-T.eq(options[2].choices[1][1], "GAME (GEN 2)",
+T.eq(optionsByKey.clock_source.label, "CLOCK SOURCE", "clock source is one compact choice")
+T.eq(optionsByKey.clock_source.default, "game", "Gen 2 follows its encounter clock by default")
+T.eq(optionsByKey.clock_source.choices[1][1], "GAME (GEN 2)",
   "the game-clock choice states its generation boundary")
-T.eq(options[3].label, "TRANSITIONS", "HGSS motion names its actual scope")
-T.check(options[3].visible_if.one_of,
+T.eq(optionsByKey.ui_motion.label, "TRANSITIONS", "HGSS motion names its actual scope")
+T.check(optionsByKey.ui_motion.visible_if.one_of,
   "transition settings stay out of classic themes")
-T.eq(options[4].label, "INFO", "assist features use one preset")
-T.eq(#options[4].choices, 3,
+T.eq(optionsByKey.info_level.label, "INFO", "assist features use one preset")
+T.eq(#optionsByKey.info_level.choices, 3,
   "research mode separates vanilla, enhanced, and spoiler behavior")
-T.eq(options[4].choices[1][1], "VANILLA",
+T.eq(optionsByKey.info_level.choices[1][1], "VANILLA",
   "the old purist value has a clear player-facing name")
-T.eq(options[4].choices[3][2], "spoiler",
+T.eq(optionsByKey.info_level.choices[3][2], "spoiler",
   "spoiler features require an explicit research mode")
-T.check(options[5].visible_if.not_one_of,
+T.check(optionsByKey.local_map.visible_if.not_one_of,
   "the legacy area-map row stays out of HGSS themes")
-T.eq(options[6].label, "DISPLAY MODE", "display modes share one entry point")
-T.eq(#options[6].choices, 3, "display mode exposes three clear families")
-T.eq(options[7].label, "START SCREEN", "fullscreen owns its start surface")
-T.eq(options[7].visible_if.equals, "fullscreen",
+T.eq(optionsByKey.display_mode.label, "DISPLAY MODE", "display modes share one entry point")
+T.eq(#optionsByKey.display_mode.choices, 3, "display mode exposes three clear families")
+T.eq(optionsByKey.fullscreen_start.label, "START SCREEN", "fullscreen owns its start surface")
+T.eq(optionsByKey.fullscreen_start.visible_if.equals, "fullscreen",
   "fullscreen settings stay inside fullscreen mode")
-T.eq(options[8].label, "LAYOUT", "combined mode owns its layout")
-T.eq(options[8].default, "auto", "combined layout adapts by default")
-T.eq(#options[8].choices, 4, "combined mode exposes four compact presets")
-T.eq(options[9].label, "PRIMARY VIEW", "combined mode can invert its priority")
-T.eq(options[10].label, "SECONDARY SIZE", "combined layouts share one size control")
-T.eq(options[10].default, "auto", "existing layout sizes remain the default")
-T.eq(#options[10].choices, 14, "secondary sizing offers granular safe presets")
-T.eq(options[11].label, "BOTTOM SAFE AREA",
+T.eq(optionsByKey.combined_layout.label, "LAYOUT", "combined mode owns its layout")
+T.eq(optionsByKey.combined_layout.default, "auto", "combined layout adapts by default")
+T.eq(#optionsByKey.combined_layout.choices, 4, "combined mode exposes four compact presets")
+T.eq(optionsByKey.combined_primary.label, "PRIMARY VIEW", "combined mode can invert its priority")
+T.eq(optionsByKey.secondary_size.label, "SECONDARY SIZE", "combined layouts share one size control")
+T.eq(optionsByKey.secondary_size.default, "auto", "existing layout sizes remain the default")
+T.eq(#optionsByKey.secondary_size.choices, 14, "secondary sizing offers granular safe presets")
+T.eq(optionsByKey.bottom_safe_area.label, "BOTTOM SAFE AREA",
   "combined mode can reserve space for host touch controls")
-T.eq(options[11].default, 0, "safe area stays opt-in")
-T.eq(options[11].choices[#options[11].choices][2], 40,
+T.eq(optionsByKey.bottom_safe_area.default, 0, "safe area stays opt-in")
+T.eq(optionsByKey.bottom_safe_area.choices[#optionsByKey.bottom_safe_area.choices][2], 40,
   "safe-area presets cover large phone control layouts")
-T.eq(options[12].label, "OVERLAY CORNER", "overlay owns one position setting")
-T.eq(options[12].default, "bottom_right", "overlay keeps its familiar corner")
-T.eq(#options[12].choices, 4, "overlay supports every screen corner")
-T.eq(options[13].label, "OVERLAY BUTTON", "overlay owns one visibility shortcut")
-T.eq(options[13].default, "off", "overlay cannot claim a button by default")
-T.eq(options[14].label, "GEAR OUTPUT", "separate mode owns its output target")
-T.eq(options[14].visible_if.equals, "separate",
+T.eq(optionsByKey.overlay_corner.label, "OVERLAY CORNER", "overlay owns one position setting")
+T.eq(optionsByKey.overlay_corner.default, "bottom_right", "overlay keeps its familiar corner")
+T.eq(#optionsByKey.overlay_corner.choices, 4, "overlay supports every screen corner")
+T.eq(optionsByKey.overlay_button.label, "OVERLAY BUTTON", "overlay owns one visibility shortcut")
+T.eq(optionsByKey.overlay_button.default, "off", "overlay cannot claim a button by default")
+T.eq(optionsByKey.display_target.label, "GEAR OUTPUT", "separate mode owns its output target")
+T.eq(optionsByKey.display_target.visible_if.equals, "separate",
   "separate output stays inside separate mode")
-T.eq(options[15].label, "QUICK SWAP (Y)", "live swapping names its control")
-T.eq(options[15].default, false, "screen swap cannot claim Y by default")
-T.eq(options[15].visible_if.not_equals, "fullscreen",
+T.eq(optionsByKey.screen_swap.label, "QUICK SWAP (Y)", "live swapping names its control")
+T.eq(optionsByKey.screen_swap.default, false, "screen swap cannot claim Y by default")
+T.eq(optionsByKey.screen_swap.visible_if.not_equals, "fullscreen",
   "fullscreen swap claims Y explicitly through its selected mode")
-T.eq(options[16].label, "BATTLE VIEW", "battle layout uses one setting")
-T.eq(#options[16].choices, 4, "battle view exposes four clear layouts")
-T.eq(options[16].choices[4][2], "info",
+T.eq(optionsByKey.battle_view.label, "BATTLE VIEW", "battle layout uses one setting")
+T.eq(#optionsByKey.battle_view.choices, 4, "battle view exposes four clear layouts")
+T.eq(optionsByKey.battle_view.choices[4][2], "info",
   "battle view offers a read-only enemy information layout")
-T.eq(options[17].label, "CAUGHT ICON", "caught marker has one clear toggle")
-T.eq(options[18].label, "TRIGGER TABS", "trigger navigation is opt-in")
-T.eq(options[18].default, false, "trigger navigation cannot claim controls by default")
+T.eq(optionsByKey.caught_icon.label, "CAUGHT ICON", "caught marker has one clear toggle")
+T.eq(optionsByKey.trigger_tabs.label, "TRIGGER TABS", "trigger navigation is opt-in")
+T.eq(optionsByKey.trigger_tabs.default, false, "trigger navigation cannot claim controls by default")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")

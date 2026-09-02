@@ -95,7 +95,14 @@ if (-not $process.WaitForExit(10000)) {
   Stop-Process -Id $process.Id
   throw "Preview renderer timed out."
 }
-if ($process.ExitCode) { exit $process.ExitCode }
+if ($process.ExitCode) {
+  $errorFile = $rendered + ".error.txt"
+  if (Test-Path -LiteralPath $errorFile) {
+    Copy-Item -LiteralPath $errorFile -Destination ($Output + ".error.txt") -Force
+    throw (Get-Content -LiteralPath $errorFile -First 1)
+  }
+  throw "Preview renderer exited with code $($process.ExitCode)."
+}
 if (-not (Test-Path -LiteralPath $rendered)) { throw "Preview was not created." }
 Move-Item -LiteralPath $rendered -Destination $Output -Force
 Write-Output $Output

@@ -895,14 +895,14 @@ return function(ui)
     G.circle("fill", 45, 69, 27)
     color(colors.outline); G.circle("line", 45, 69, 27)
     if model.drawPokemon then model.drawPokemon(mon, 18, 42, 54, false) end
-    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 142),
+    self:partyInfo(self:fitPartyInfo(mon.name or translate("POKEMON"), 142),
       80, 39, colors.ink)
     self:typeBadges(mon, 80, 56, false)
-    self:partyType(self:fitPartyType(mon.kind or "UNKNOWN", 67),
+    self:partyType(self:fitPartyType(mon.kind or translate("UNKNOWN"), 67),
       155, 57, quiet, 67)
-    self:partyType(self:fitPartyType(mon.height or "HEIGHT --", 67),
+    self:partyType(self:fitPartyType(mon.height or translate("HEIGHT --"), 67),
       80, 76, colors.green, 67)
-    self:partyType(self:fitPartyType(mon.weight or "WEIGHT --", 67),
+    self:partyType(self:fitPartyType(mon.weight or translate("WEIGHT --"), 67),
       155, 76, colors.green, 67)
     if mon.caught then
       self:battleTeamBall(214, 44, true)
@@ -921,16 +921,16 @@ return function(ui)
     end
 
     local cards = {
-      { "STATS", model.statsText or "BASE POWER", colors.blue },
-      { "HABITAT", model.habitatText or "WHERE TO FIND", colors.green },
-      { "MOVES", model.movesText or "LEARNSET", colors.amber },
+      { "STATS", model.statsText or translate("BASE POWER"), colors.blue },
+      { "HABITAT", model.habitatText or translate("WHERE TO FIND"), colors.green },
+      { "MOVES", model.movesText or translate("LEARNSET"), colors.amber },
     }
     for index, card in ipairs(cards) do
       local left = 7 + (index - 1) * 77
       local pressed = self:beginPress(left, 156, 72, 54)
       self:homeTile(left, 156, 72, 54, card[3], false)
       self:partyType(translate(card[1]), left + 5, 164, colors.ink, 62)
-      self:partyInfo(self:fitPartyInfo(translate(card[2]), 58),
+      self:partyInfo(self:fitPartyInfo(card[2], 58),
         left + 7, 183, quiet, 58, "center")
       self:detailChevron(left + 62, 201, colors.green)
       self:endPress(pressed)
@@ -942,7 +942,7 @@ return function(ui)
     local mon = model.pokemon or {}
     self:homeTile(7, 34, 226, 37, accent, false)
     if model.drawPokemon then model.drawPokemon(mon, 13, 37, 31, false) end
-    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 108),
+    self:partyInfo(self:fitPartyInfo(mon.name or translate("POKEMON"), 108),
       50, 39, colors.ink)
     self:typeBadges(mon, 50, 55, false)
     self:partyInfo(self:fitPartyInfo(summary or "", 69),
@@ -954,10 +954,10 @@ return function(ui)
   function H:pokedexStats(model)
     local colors = self.colors
     dexResearchHero(self, model, colors.blue,
-      model.summary or "BASE STATS", "")
-    self:partyType(model.catchText or "CATCH --", 105, 56,
+      model.summary or translate("BASE STATS"), "")
+    self:partyType(model.catchText or translate("CATCH --"), 105, 56,
       colors.green, 59)
-    self:partyType(model.expText or "XP --", 167, 56,
+    self:partyType(model.expText or translate("XP --"), 167, 56,
       colors.green, 59)
     local rows = model.stats or {}
     local gap = #rows > 5 and 1 or 3
@@ -965,7 +965,7 @@ return function(ui)
     for index, row in ipairs(rows) do
       local top = 76 + (index - 1) * (height + gap)
       self:panel(7, top, 226, height, false, nil, colors.blueLight)
-      self:partyType(row.label or "STAT", 13, top + 6, colors.green, 54)
+      self:partyType(translate(row.label or "STAT"), 13, top + 6, colors.green, 54)
       border(72, top + 7, 119, 6, colors.outline)
       box("fill", 73, top + 8, 117, 4, colors.silverDark)
       box("fill", 73, top + 8,
@@ -985,7 +985,7 @@ return function(ui)
       self:panel(7, top, 226, 25, false, nil,
         self:typeColor(row.type or row.types and row.types[1]))
       self:partyType(row.method or "--", 13, top + 8, colors.green, 36)
-      self:partyInfo(self:fitPartyInfo(row.name or "MOVE", 101),
+      self:partyInfo(self:fitPartyInfo(row.name or translate("MOVE"), 101),
         53, top + 7, colors.ink, 101)
       self:typeBadges(row, 178, top + 7, false)
     end
@@ -997,13 +997,13 @@ return function(ui)
     local quiet = self.dark and colors.silver or colors.silverDark
     local mon = model.pokemon or {}
     dexResearchHero(self, model, colors.green,
-      model.status or "", model.summary or "NO WILD HABITAT")
+      translate(model.status or ""), model.summary or translate("NO WILD HABITAT"))
 
     for index, row in ipairs(model.rows or {}) do
       local top = 76 + (index - 1) * 39
       self:panel(7, top, 226, 35, row.current, colors.greenLight,
         colors.greenLight)
-      self:partyInfo(self:fitPartyInfo(row.area or "UNKNOWN AREA", 136),
+      self:partyInfo(self:fitPartyInfo(row.area or translate("UNKNOWN AREA"), 136),
         14, top + 4, colors.ink)
       if row.current then
         self:partyType(translate("HERE NOW"), 158, top + 4,
@@ -1546,7 +1546,8 @@ return function(ui)
     local icon = icons[item.icon or item.id]
     if item.kind == "app" and icon then drawHomeIcon(icon, x + 4, y + 5, 29)
     else self:homeWidgetLibraryIcon(item.widget, x + 4, y + 5, item) end
-    local label = self:fitPartyType(translate(item.label), w - 39)
+    local label = self:fitPartyType(item.widget == "tool" and item.label
+      or translate(item.label), w - 39)
     self:partyType(label, x + 36, y + 6, colors.ink, w - 39)
     local kind = item.kind == "app" and translate("APP")
       or translate("WIDGET") .. " " .. item.columns .. "x" .. item.rows
@@ -1824,7 +1825,7 @@ return function(ui)
       ready and accent or colors.silverDark)
     box("fill", x + 4, y + 2, w - 8, 2,
       ready and mixed(accent, colors.white, 0.36) or colors.silver)
-    self:partyType(self:fitPartyType(translate(tile.label), w - 6),
+    self:partyType(self:fitPartyType(tile.label, w - 6),
       x + 3, y + 4, ready and colors.outline or colors.white, w - 6)
     local iconLeft = x + math.floor((w - 28) / 2)
     clipped(iconLeft, y + 24, 28, 28,
@@ -1919,7 +1920,7 @@ return function(ui)
     self:toolIcon(action.icon, iconLeft + 3, iconTop + 3,
       action.ready and accent or colors.silver)
 
-    local label = translate(action.label)
+    local label = tostring(action.label or "")
     if self:partyInfoWidth(label) <= 53 then
       self:partyInfo(label, infoLeft, y + 10, colors.ink, 53, "center")
     else
@@ -2093,7 +2094,7 @@ return function(ui)
       mixed(colors.surface, colors.white, self.dark and 0.06 or 0.24))
     border(39, 70, 40, 40, colors.outline)
     self:toolIcon(action.icon, 45, 76, accent)
-    self:partyInfo(self:fitPartyInfo(translate(action.label), 116),
+    self:partyInfo(self:fitPartyInfo(action.label, 116),
       86, 72, colors.ink, 116, "center")
     self:partyType(translate("USE NOW?"), 86, 94, colors.green, 116)
     for index, option in ipairs({ "YES", "NO" }) do
@@ -2122,7 +2123,7 @@ return function(ui)
         mixed(colors.surface, colors.white, self.dark and 0.06 or 0.24))
       border(23, y + 7, 30, 30, colors.outline)
       self:toolIcon("fish", 25, y + 9, colors.blueLight)
-      self:partyInfo(self:fitPartyInfo(translate(rod.label), 132),
+      self:partyInfo(self:fitPartyInfo(rod.label, 132),
         65, y + 8, colors.ink, 132, "center")
       self:partyType(translate("TAP TO USE"), 65, y + 26,
         colors.green, 132)
@@ -2263,7 +2264,7 @@ return function(ui)
         else
           self:battleTeamBall(left + 10, cardTop + 7, mon ~= false)
         end
-        local name = mon and self:fitPartyType(mon.name or "POKEMON",
+        local name = mon and self:fitPartyType(mon.name or translate("POKEMON"),
           cardW - 27) or "---"
         self:partyType(name, left + 20, cardTop - 2, colors.white,
           cardW - 24)
@@ -2323,7 +2324,7 @@ return function(ui)
           miniCard(left, cardTop, cardW, 15, self:itemAccent(item.icon))
           self:battleItemIcon(item, left + 2, cardTop - 1,
             self:itemAccent(item.icon))
-          self:partyType(self:fitPartyType(item.label or "ITEM", cardW - 49),
+          self:partyType(self:fitPartyType(item.label or translate("ITEM"), cardW - 49),
             left + 22, cardTop + 2, colors.ink, cardW - 46)
           self:partyType("x" .. tostring(item.count or 1),
             left + cardW - 23, cardTop + 2, quiet, 20)
@@ -2399,8 +2400,8 @@ return function(ui)
         self:toolIcon(kind, 0, 0, self:toolAccent(kind))
         G.pop()
         if detailed then
-          local labels = { "BICYCLE", "FISH", "CUT", "SURF" }
-          self:partyType(self:fitPartyType(translate(labels[index]),
+          local labels = { "BICYCLE", translate("FISH"), "CUT", "SURF" }
+          self:partyType(self:fitPartyType(labels[index],
             cardW - 35), left + 31,
             cardTop + math.floor((cardH - 8) / 2), colors.ink,
             cardW - 35)
@@ -2627,7 +2628,7 @@ return function(ui)
     clipped(7, 32, 226, 21, colors.surface)
     border(7, 32, 226, 21, colors.outline)
     local summaryWidth = (model.pages or 1) > 1 and 134 or 220
-    self:partyType(self:fitPartyType(translate(model.summary or "APPS READY"),
+    self:partyType(self:fitPartyType(model.summary or translate("APPS READY"),
       summaryWidth), 10, 37, colors.ink, summaryWidth)
     self:storePager(model.page, model.pages)
     for index, app in ipairs(model.apps or {}) do
@@ -3084,7 +3085,7 @@ return function(ui)
     self:panel(7, 32, 226, 18, false, nil, colors.greenLight)
     self:partyInfo(self:fitPartyInfo(model.route or translate("UNKNOWN AREA"),
       56), 12, 35, colors.ink, 56, "center")
-    self:partyType(self:fitPartyType(translate(model.subarea or "OUTDOORS"),
+    self:partyType(self:fitPartyType(model.subarea or translate("OUTDOORS"),
       82), 72, 36, colors.green, 82)
     self:partyInfo(self:fitPartyInfo(model.region or "KANTO", 36),
       160, 35, colors.green, 36, "center")
@@ -3448,7 +3449,7 @@ return function(ui)
       local pressed = self:beginPress(x, y, w, h)
       self:homeTile(x, y, w, h,
         entry.selected and colors.green or colors.blue, entry.selected)
-      self:partyInfo(self:fitPartyInfo(translate(entry.label), w - 16),
+      self:partyInfo(self:fitPartyInfo(entry.label, w - 16),
         x + 8, y + math.floor((h - 9) / 2), colors.ink,
         w - 16, "center")
       self:endPress(pressed)
@@ -3471,7 +3472,7 @@ return function(ui)
       local pressed = self:beginPress(x, y, w, h)
       self:panel(x, y, w, h, entry.selected, colors.greenLight,
         entry.action and colors.amberLight or colors.blueLight)
-      local label = translate(entry.label)
+      local label = tostring(entry.label or "")
       self:partyInfo(self:fitPartyInfo(label, w - 8), x + 4,
         y + math.floor((h - 9) / 2), colors.ink, w - 8, "center")
       self:endPress(pressed)
@@ -3484,7 +3485,7 @@ return function(ui)
       self:typeColor(model.type))
     self:partyPortrait(14, 37, false, false)
     if model.drawPokemon then model.drawPokemon(14, 39, 34) end
-    self:partyName(model.name or "POKEMON", 57, 42, colors.ink, 124)
+    self:partyName(model.name or translate("POKEMON"), 57, 42, colors.ink, 124)
     self:partyType(translate("NEW LEVEL"), 57, 58, colors.green, 72)
     self:partyInfo(model.level or "L--", 133, 55,
       colors.ink, 48, "right")
@@ -3734,12 +3735,12 @@ return function(ui)
       self:battleTeamBall(TEAM_LEFT + 4 + (slot - 1) * 11, 20,
         playerTeam and playerTeam[slot])
     end
-    self:partyInfo("YOU", TEAM_LEFT, 3, colors.green, TEAM_WIDTH, "center")
-    self:partyInfo("VS", VS_LEFT, 9, colors.ink, VS_WIDTH, "center")
+    self:partyInfo(translate("YOU"), TEAM_LEFT, 3, colors.green, TEAM_WIDTH, "center")
+    self:partyInfo(translate("VS"), VS_LEFT, 9, colors.ink, VS_WIDTH, "center")
     if enemyTeam and enemyTeam.wild then
-      self:partyInfo("WILD", WILD_LEFT, 3, colors.green,
+      self:partyInfo(translate("WILD"), WILD_LEFT, 3, colors.green,
         WILD_WIDTH, "center")
-      local detail = tostring(enemyTeam.name or "POKEMON")
+      local detail = tostring(enemyTeam.name or translate("POKEMON"))
       if enemyTeam.level then detail = detail .. " L" .. enemyTeam.level end
       self:partyInfo(self:fitPartyInfo(detail, WILD_WIDTH),
         WILD_LEFT, 15, colors.ink, WILD_WIDTH, "center")
@@ -3748,7 +3749,7 @@ return function(ui)
         self:battleTeamBall(FOE_LEFT + 4 + (slot - 1) * 11, 20,
           enemyTeam and enemyTeam[slot])
       end
-      self:partyInfo("FOE", FOE_LEFT, 3, colors.green, TEAM_WIDTH, "center")
+      self:partyInfo(translate("FOE"), FOE_LEFT, 3, colors.green, TEAM_WIDTH, "center")
     end
   end
 
@@ -3832,7 +3833,7 @@ return function(ui)
     color(colors.selectedDark)
     G.circle("line", 120, 83, 7)
     drawPortrait(mon, 91, 50, 58, false)
-    local fight = self:fitLabel(mon.fightLabel or "FIGHT", 96)
+    local fight = self:fitLabel(mon.fightLabel or translate("FIGHT"), 96)
     self:label(fight, 120 - math.floor(self:labelWidth(fight) / 2),
       126, colors.white)
     G.pop()
@@ -3855,7 +3856,7 @@ return function(ui)
     self:battleActionPanel(6, 149, 68, 52, "amber", selected)
     G.translate(0, -BATTLE_ACTION_CONTENT_RISE)
     self:battleBagIcon(27, 154)
-    self:label(mon.bagLabel or "BAG", 6, 183, colors.white, 68, "center")
+    self:label(mon.bagLabel or translate("BAG"), 6, 183, colors.white, 68, "center")
     G.pop()
     self:endPress(pressed)
   end
@@ -3871,7 +3872,7 @@ return function(ui)
     self:battleTeamBall(185, 169, true)
     self:battleTeamBall(200, 164, true)
     self:battleTeamBall(215, 169, true)
-    self:label(mon.partyLabel or "POKEMON", 166, 183,
+    self:label(mon.partyLabel or translate("POKEMON"), 166, 183,
       colors.white, 68, "center")
     G.pop()
     self:endPress(pressed)
@@ -3900,7 +3901,7 @@ return function(ui)
     self:battleActionPanel(86, 149, 68, 52, "blue", selected)
     G.translate(0, -BATTLE_ACTION_CONTENT_RISE)
     self:battleRunnerIcon(119, 168)
-    self:label(mon.runLabel or "RUN", 86, 183, colors.white, 68, "center")
+    self:label(mon.runLabel or translate("RUN"), 86, 183, colors.white, 68, "center")
     G.pop()
     self:endPress(pressed)
   end
@@ -3926,7 +3927,7 @@ return function(ui)
     local level = mon.levelText or "L--"
     local levelWidth = self:partyInfoWidth(level)
     local nameWidth = w - levelWidth - 19 - (mon.caught and 10 or 0)
-    self:partyName(mon.name or "POKEMON", x + 7, y + 5,
+    self:partyName(mon.name or translate("POKEMON"), x + 7, y + 5,
       colors.white, nameWidth)
     if mon.caught then self:battleTeamBall(x + w - levelWidth - 14, y + 10, true) end
     self:partyInfo(level, x + w - levelWidth - 7, y + 5, colors.white)
@@ -3934,7 +3935,7 @@ return function(ui)
     drawPortrait(mon, x + 5, y + 21, 50, fainted)
     local infoX, infoW = x + 60, w - 67
     if mon.statusId then self:statusIcon(mon.statusId, infoX, y + 24) end
-    self:partyInfo(mon.hpLabel or "HP", infoX, y + 39, colors.green)
+    self:partyInfo(mon.hpLabel or translate("HP"), infoX, y + 39, colors.green)
     self:hpBar(infoX, y + 51, infoW, mon.hp, mon.maxHp)
     if player then
       self:partyInfo(mon.hpText or "--/--", infoX, y + 59,
@@ -3984,8 +3985,8 @@ return function(ui)
       playerTeam, enemyTeam, selected)
     self:battleFullStatuses(player, enemy, drawPortrait,
       playerTeam, enemyTeam)
-    local labels = { mon.fightLabel or "FIGHT", mon.partyLabel or "POKEMON",
-      mon.bagLabel or "BAG", mon.runLabel or "RUN" }
+    local labels = { mon.fightLabel or translate("FIGHT"), mon.partyLabel or translate("POKEMON"),
+      mon.bagLabel or translate("BAG"), mon.runLabel or translate("RUN") }
     for index = 1, 4 do
       self:battleFullAction(mon, index, selected == index, labels)
     end
@@ -4069,7 +4070,7 @@ return function(ui)
     local colors = self.colors
     self:battleTeamStrip(playerTeam, enemyTeam)
     self:panel(6, 33, 228, 24, false, nil, colors.blueLight)
-    self:partyInfo(translate("MIMIC"), 14, 41,
+    self:partyInfo(model.title or "MIMIC", 14, 41,
       colors.green, 212, "center")
     for slot = 1, math.min(4, #(model.moves or {})) do
       local move = model.moves[slot]
@@ -4099,7 +4100,7 @@ return function(ui)
     if model.drawPokemon then
       model.drawPokemon(mon, 16, 34 + math.floor((height - 50) / 2), 50, false)
     end
-    self:partyName(self:fitPartyInfo(mon.name or "POKEMON", 104),
+    self:partyName(self:fitPartyInfo(mon.name or translate("POKEMON"), 104),
       73, 40, colors.ink, 104)
     self:partyInfo(mon.levelText or "L--", 181, 40,
       colors.ink, 38, "right")
@@ -4157,9 +4158,9 @@ return function(ui)
     local colors = self.colors
     local mon = model.pokemon or {}
     self:enemyInfoHero(model, 66)
-    self:partyType(self:fitPartyType(mon.kind or "UNKNOWN", 71),
+    self:partyType(self:fitPartyType(mon.kind or translate("UNKNOWN"), 71),
       73, 76, colors.green, 71)
-    self:partyType(self:fitPartyType(mon.height or "HEIGHT --", 71),
+    self:partyType(self:fitPartyType(mon.height or translate("HEIGHT --"), 71),
       146, 76, colors.green, 71)
     self:panel(7, 105, 226, 105, false, nil,
       self:typeColor(mon.type))
@@ -4175,7 +4176,7 @@ return function(ui)
       self:partyInfo(self:fitPartyInfo(lines[index], 206),
         17, top + (index - 1) * 10, colors.ink, 206, "center")
     end
-    self:partyType(self:fitPartyType(mon.weight or "WEIGHT --", 84),
+    self:partyType(self:fitPartyType(mon.weight or translate("WEIGHT --"), 84),
       141, 193, colors.green, 84)
   end
 
@@ -4184,7 +4185,7 @@ return function(ui)
     local mon, rows = model.pokemon or {}, model.rows or {}
     self:homeTile(7, 34, 226, 37, colors.blue, false)
     if model.drawPokemon then model.drawPokemon(mon, 13, 37, 31, false) end
-    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 112),
+    self:partyInfo(self:fitPartyInfo(mon.name or translate("POKEMON"), 112),
       50, 40, colors.ink)
     self:partyType(translate("ENEMY DVS"), 157, 44,
       colors.green, 68)
@@ -4219,7 +4220,7 @@ return function(ui)
     self:homeTile(7, 34, 226, 37,
       model.kind == "weak" and colors.red or colors.green, false)
     if model.drawPokemon then model.drawPokemon(mon, 13, 37, 31, false) end
-    self:partyInfo(self:fitPartyInfo(mon.name or "POKEMON", 101),
+    self:partyInfo(self:fitPartyInfo(mon.name or translate("POKEMON"), 101),
       50, 40, colors.ink)
     self:partyType(translate("BASE MATCHUP"), 151, 44,
       colors.green, 74)
@@ -4297,7 +4298,7 @@ return function(ui)
       model.kind == "items" and colors.amberLight or colors.blueLight)
     self:pcStorageIcon(16, 43, model.kind)
     box("fill", 53, 40, 1, 34, colors.band)
-    self:partyInfo(self:fitPartyInfo(model.title or "PC", 160),
+    self:partyInfo(self:fitPartyInfo(model.title or translate("PC"), 160),
       62, 45, colors.ink, 160, "center")
     self:partyType(self:fitPartyType(model.status or translate("READY"), 160),
       62, 61, colors.green, 160)
@@ -4330,7 +4331,7 @@ return function(ui)
     local colors = self.colors
     local entries = model.entries or {}
     self:panel(7, 34, 226, 24, false, nil, colors.blueLight)
-    self:partyInfo(self:fitPartyInfo(model.summary or "PC", 210),
+    self:partyInfo(self:fitPartyInfo(model.summary or translate("PC"), 210),
       15, 41, colors.green, 210, "center")
     if #entries == 0 then
       self:panel(24, 91, 192, 70, false, nil, colors.silverDark)
@@ -4383,7 +4384,7 @@ return function(ui)
     self:battleItemIcon({ icon = model.icon or "item" }, 24, 51,
       colors.amberLight)
     box("fill", 55, 41, 1, 36, colors.band)
-    self:partyName(self:fitPartyInfo(model.label or "ITEM", 161),
+    self:partyName(self:fitPartyInfo(model.label or translate("ITEM"), 161),
       64, 47, colors.ink, 161)
     self:partyType(translate("QUANTITY"), 64, 64,
       colors.green, 161)
@@ -4686,7 +4687,7 @@ return function(ui)
     border(x + 5, y + 7, 29, 29, colors.outline)
     self:battleItemIcon(item, x + 11, y + 13, accent)
     box("fill", x + 39, y + 5, 1, 33, colors.band)
-    self:partyName(item.label or "ITEM", x + 45, y + 7,
+    self:partyName(item.label or translate("ITEM"), x + 45, y + 7,
       colors.ink, 58)
     local second = item.detail and self:fitPartyInfo(item.detail, 43)
       or ("x%d"):format(tonumber(item.count) or 0)
@@ -4711,7 +4712,7 @@ return function(ui)
     end
     local labelX, labelW = (model.pockets or 1) > 1 and 68 or 53,
       (model.pockets or 1) > 1 and 88 or 118
-    self:partyInfo(self:fitPartyInfo(model.pocket or "ITEMS", labelW),
+    self:partyInfo(self:fitPartyInfo(model.pocket or translate("ITEMS"), labelW),
       labelX, 44, colors.ink, labelW, "center")
     box("fill", 177, 38, 1, 26, colors.band)
     local page = ("%d/%d"):format(model.page or 1, model.pages or 1)
@@ -4746,7 +4747,7 @@ return function(ui)
     self:battleItemIcon(item, 0, 0, accent)
     ui.graphics.pop()
     box("fill", 68, 42, 1, 51, colors.band)
-    self:partyName(item.label or "ITEM", 77, 47, colors.ink, 140)
+    self:partyName(item.label or translate("ITEM"), 77, 47, colors.ink, 140)
     self:partyInfo(("x%d"):format(tonumber(item.count) or 0),
       77, 67, colors.silverDark)
     local lines = model.message or item.lines or {}
@@ -4821,7 +4822,7 @@ return function(ui)
       self:pageChevron(69, 48, false)
       self:pageChevron(178, 48, true)
     end
-    self:partyInfo(self:fitPartyInfo(bag.title or "BAG",
+    self:partyInfo(self:fitPartyInfo(bag.title or translate("BAG"),
       bag.categorized and 96 or 112), bag.categorized and 74 or 65,
       42, colors.ink, bag.categorized and 99 or 114, "center")
     local pageX, pageWidth = 185, 44
@@ -4870,13 +4871,13 @@ return function(ui)
         224 - rightWidth, labelY, ink, rightWidth, "right")
     end
     if chance then
-      self:partyInfo(item.catchLabel or "CATCH", 46, y + 17,
+      self:partyInfo(item.catchLabel or translate("CATCH"), 46, y + 17,
         colors.green, 37)
       clipped(84, y + 16, 42, 12, colors.greenLight)
       border(84, y + 16, 42, 12, colors.outline)
       self:partyType(chance, 86, y + 16, colors.white, 38)
     elseif disabled then
-      self:partyInfo(item.disabledLabel or "UNUSABLE", 46, y + 17,
+      self:partyInfo(item.disabledLabel or translate("UNUSABLE"), 46, y + 17,
         colors.silverDark)
     end
     if selected and not disabled then self:focusFrame(7, y, 226, 31) end
@@ -4962,14 +4963,14 @@ return function(ui)
     self:partyName(move.name or "-", x + 9, y + 7, ink, 88)
     self:detailChevron(x + 99, y + 11, ink)
     self:moveTypeBadge(move, x + 9, y + 26)
-    self:partyInfo(move.ppLabel or "PP", x + 61, y + 25, colors.green)
+    self:partyInfo(move.ppLabel or translate("PP"), x + 61, y + 25, colors.green)
     self:partyInfo(move.ppText or "--", x + 76, y + 25,
       ink, 29, "right")
     box("fill", x + 9, y + 42, 94, 1, colors.band)
-    self:partyInfo(move.powerLabel or "PWR", x + 9, y + 51, colors.green)
+    self:partyInfo(move.powerLabel or translate("PWR"), x + 9, y + 51, colors.green)
     self:partyInfo(move.powerText or "--", x + 35, y + 51,
       ink, 22, "right")
-    self:partyInfo(move.accuracyLabel or "ACC", x + 62, y + 51,
+    self:partyInfo(move.accuracyLabel or translate("ACC"), x + 62, y + 51,
       colors.green)
     self:partyInfo(move.accuracyText or "--", x + 84, y + 51,
       ink, 19, "right")
@@ -4983,7 +4984,7 @@ return function(ui)
     if stab then
       clipped(x + 26, y + 66, 34, 10, self:typeColor(move.type))
       border(x + 26, y + 66, 34, 10, colors.outline)
-      self:partyType("STAB", x + 28, y + 65, colors.white, 30)
+      self:partyType(translate("STAB"), x + 28, y + 65, colors.white, 30)
     end
     clipped(effectX, y + 66, 27, 10, effectFill)
     border(effectX, y + 66, 27, 10, colors.outline)
@@ -5020,15 +5021,15 @@ return function(ui)
     if accuracy ~= "--" and not accuracy:find("%%") then
       accuracy = accuracy .. "%"
     end
-    self:battleMoveInfoStat(14, move.powerLabel or "PWR",
+    self:battleMoveInfoStat(14, move.powerLabel or translate("PWR"),
       tostring(move.powerText or "--"), colors.redLight)
-    self:battleMoveInfoStat(87, move.accuracyLabel or "ACC", accuracy,
+    self:battleMoveInfoStat(87, move.accuracyLabel or translate("ACC"), accuracy,
       colors.blueLight)
-    self:battleMoveInfoStat(160, move.ppLabel or "PP",
+    self:battleMoveInfoStat(160, move.ppLabel or translate("PP"),
       tostring(move.ppText or "--"), colors.greenLight)
 
     self:panel(14, 117, 103, 36, false, nil, accent)
-    self:partyInfo(move.stabLabel or "STAB", 14, 122,
+    self:partyInfo(move.stabLabel or translate("STAB"), 14, 122,
       colors.green, 103, "center")
     local stabFill = stab and accent or colors.silverDark
     clipped(48, 137, 35, 11, stabFill)
@@ -5037,7 +5038,7 @@ return function(ui)
       colors.white, 31)
 
     self:panel(123, 117, 103, 36, false, nil, colors.greenLight)
-    self:partyInfo(move.matchupLabel or "MATCHUP", 123, 122,
+    self:partyInfo(move.matchupLabel or translate("MATCHUP"), 123, 122,
       colors.green, 103, "center")
     local effectLabel, effectiveness = self:battleEffectLabel(move)
     local effectFill = effectiveness == 0 and colors.red
@@ -5137,7 +5138,7 @@ return function(ui)
     G.push()
     G.translate(math.floor(240 * (1 - pageProgress) + 0.5), 0)
     self:partyBackdrop()
-    self:headerBar(title or "PARTY", true, false)
+    self:headerBar(title or translate("PARTY"), true, false)
     self:headerClock(clock or "20:04", period, 139, 72, 6)
     self:battery(214, 8, 4, nil, true, self.colors.ink,
       self.colors.greenLight)
@@ -5353,10 +5354,10 @@ return function(ui)
     if mon.statusId then
       self:statusIcon(mon.statusId, x + 70, y + 19)
     end
-    self:partyInfo(mon.hpLabel or "HP", x + 45, y + 27, quiet)
+    self:partyInfo(mon.hpLabel or translate("HP"), x + 45, y + 27, quiet)
     self:partyInfo(mon.hpText, x + 45, y + 27, quiet, 62, "right")
     self:hpBar(x + 45, y + 38, 62, mon.hp, mon.maxHp)
-    self:partyInfo(mon.expLabel or "EXP", x + 45, y + 41, quiet)
+    self:partyInfo(mon.expLabel or translate("EXP"), x + 45, y + 41, quiet)
     self:expBar(x + 65, y + 45, 42, mon.expProgress)
     self:endPress(pressed)
   end
@@ -5472,29 +5473,40 @@ return function(ui)
       self:partyInfo(self:fitPartyInfo(mon.info2Text, 37),
         190, 66, colors.ink, 37, "right")
     else
-      self:partyInfo(mon.infoLabel or "ITEM", 121, 66, colors.green)
+      self:partyInfo(mon.infoLabel or translate("ITEM"), 121, 66, colors.green)
       self:partyInfo(self:fitPartyInfo(mon.infoText or "---", 76),
         151, 66, colors.ink, 76, "right")
     end
-    self:partyInfo(mon.hpLabel or "HP", 72, 79, colors.green)
+    self:partyInfo(mon.hpLabel or translate("HP"), 72, 79, colors.green)
     self:partyInfo(mon.hpText, 72, 79, colors.ink, 155, "right")
     self:hpBar(72, 90, 155, mon.hp, mon.maxHp)
-    self:partyInfo(mon.expLabel or "EXP", 72, 98, colors.green)
-    if mon.expProgress then
-      self:expBar(99, 103, mon.nextValue and 64 or 128, mon.expProgress)
-    elseif mon.expText then
-      self:partyInfo(mon.expText, 99, 98, colors.ink, 128, "right")
-    end
+    self:summaryExperience(mon)
+  end
+
+  function H:summaryExperience(mon)
+    local colors, barWidth = self.colors, 128
+    self:partyInfo(mon.expLabel or translate("EXP"), 72, 98, colors.green)
     if mon.nextValue then
-      self:partyInfo(mon.nextLabel or "NEXT", 168, 98, colors.green)
-      self:partyInfo(mon.nextValue, 195, 98, colors.ink, 32, "right")
+      local valueWidth = self:partyInfoWidth(mon.nextValue)
+      local label = self:fitPartyInfo(mon.nextLabel or translate("NEXT"),
+        95 - valueWidth)
+      local groupWidth = self:partyInfoWidth(label) + 4 + valueWidth
+      local left = 227 - groupWidth
+      barWidth = left - 104
+      self:partyInfo(label, left, 98, colors.green)
+      self:partyInfo(mon.nextValue, 227 - valueWidth, 98, colors.ink)
+    end
+    if mon.expProgress then
+      self:expBar(99, 103, barWidth, mon.expProgress)
+    elseif mon.expText then
+      self:partyInfo(mon.expText, 99, 98, colors.ink, barWidth, "right")
     end
   end
 
   function H:summaryStats(mon)
     local colors = self.colors
     self:panel(6, 118, 228, 92, false, nil, colors.blueLight)
-    self:label(mon.statsTitle or "BATTLE STATS", 12, 121, colors.ink)
+    self:label(mon.statsTitle or translate("BATTLE STATS"), 12, 121, colors.ink)
     box("fill", 11, 137, 218, 1, colors.band)
     box("fill", 120, 138, 1, 66, colors.band)
     local rows = math.max(1, math.ceil(#mon.stats / 2))
@@ -5536,7 +5548,7 @@ return function(ui)
     end
     self:partyInfo(mon.levelText, 158, 39, colors.ink)
     if mon.statusId then self:statusIcon(mon.statusId, 194, 40) end
-    self:partyInfo(mon.hpLabel or "HP", 36, 47, colors.green)
+    self:partyInfo(mon.hpLabel or translate("HP"), 36, 47, colors.green)
     self:hpBar(55, 50, 96, mon.hp, mon.maxHp)
     self:partyInfo(mon.hpText, 158, 47, colors.ink, 69, "right")
   end
@@ -5557,11 +5569,11 @@ return function(ui)
       self:typeColor(move.type), self:typeColor(move.type))
     self:moveTypeBadge(move, x + 8, y + 12)
     self:partyName(move.name or "-", x + 64, y + 4, colors.ink, 88)
-    self:partyInfo(move.ppLabel or "PP", x + 157, y + 4, colors.green)
+    self:partyInfo(move.ppLabel or translate("PP"), x + 157, y + 4, colors.green)
     self:partyInfo(move.ppText or "--", x + 177, y + 4,
       colors.ink, 35, "right")
     if showChevron then self:detailChevron(x + 217, y + 6, colors.ink) end
-    self:partyInfo(move.powerLabel or "PWR", x + 64, y + 18,
+    self:partyInfo(move.powerLabel or translate("PWR"), x + 64, y + 18,
       colors.green)
     local power = move.powerText
     if not power or power == "--" then
@@ -5570,7 +5582,7 @@ return function(ui)
       self:partyInfo(power, x + 90, y + 18,
         colors.ink, 26, "right")
     end
-    self:partyInfo(move.accuracyLabel or "ACC", x + 126, y + 18,
+    self:partyInfo(move.accuracyLabel or translate("ACC"), x + 126, y + 18,
       colors.green)
     self:partyInfo(move.accuracyText or "--", x + 153, y + 18,
       colors.ink, 32, "right")
@@ -5598,7 +5610,7 @@ return function(ui)
     self:panel(6, 33, 228, 55, false, nil, self:typeColor(mon.type))
     self:partyPortrait(13, 36, false, false)
     if model.drawPokemon then model.drawPokemon(mon, 14, 39, 34) end
-    self:partyName(mon.name or "POKEMON", 57, 41, colors.ink, 122)
+    self:partyName(mon.name or translate("POKEMON"), 57, 41, colors.ink, 122)
     self:partyInfo(mon.levelText or "L--", 186, 41,
       colors.ink, 38, "right")
     self:typeBadges(mon, 57, 64, false)
@@ -5658,29 +5670,29 @@ return function(ui)
   function H:summaryTrainerMemo(mon)
     local colors = self.colors
     self:panel(6, 63, 228, 62, false, nil, colors.blueLight)
-    self:partyInfo(mon.memoTitle or "TRAINER MEMO", 17, 68, colors.green)
+    self:partyInfo(mon.memoTitle or translate("TRAINER MEMO"), 17, 68, colors.green)
     box("fill", 16, 82, 208, 1, colors.band)
-    self:partyInfo(mon.otLabel or "ORIGINAL TRAINER", 17, 88, colors.green)
+    self:partyInfo(mon.otLabel or translate("ORIGINAL TRAINER"), 17, 88, colors.green)
     self:partyName(mon.otText or "---", 17, 101, colors.ink, 109)
     box("fill", 136, 86, 1, 31, colors.bandLight)
-    self:partyInfo(mon.idLabel or "ID NO.", 146, 88, colors.green)
+    self:partyInfo(mon.idLabel or translate("ID NO."), 146, 88, colors.green)
     self:partyName(mon.idText or "00000", 146, 101, colors.ink, 77)
   end
 
   function H:summaryGrowthMemo(mon)
     local colors = self.colors
     self:panel(6, 130, 228, 80, false, nil, colors.exp)
-    self:partyInfo(mon.growthTitle or "GROWTH RECORD", 17, 135,
+    self:partyInfo(mon.growthTitle or translate("GROWTH RECORD"), 17, 135,
       colors.green)
     box("fill", 16, 149, 208, 1, colors.band)
-    self:partyInfo(mon.totalExpLabel or "TOTAL EXP", 17, 156,
+    self:partyInfo(mon.totalExpLabel or translate("TOTAL EXP"), 17, 156,
       colors.green)
     self:label(mon.experienceText or "0", 17, 169, colors.ink)
     box("fill", 124, 153, 1, 39, colors.bandLight)
-    self:partyInfo(mon.nextLevelLabel or "NEXT LEVEL", 134, 156,
+    self:partyInfo(mon.nextLevelLabel or translate("NEXT LEVEL"), 134, 156,
       colors.green)
     self:label(mon.nextLevelText or "MAX", 134, 169, colors.ink)
-    self:partyInfo(mon.nextExpLabel or "TO NEXT", 17, 193, colors.green)
+    self:partyInfo(mon.nextExpLabel or translate("TO NEXT"), 17, 193, colors.green)
     self:partyInfo(mon.nextValue or "0", 66, 193, colors.ink,
       158, "right")
   end
@@ -5746,7 +5758,7 @@ return function(ui)
     if mon.statusId then
       self:statusIcon(mon.statusId, mix(191, 194), mix(55, 40))
     end
-    self:partyInfo(mon.hpLabel or "HP", mix(72, 36), mix(79, 47),
+    self:partyInfo(mon.hpLabel or translate("HP"), mix(72, 36), mix(79, 47),
       colors.green)
     self:partyInfo(mon.hpText, mix(72, 158), mix(79, 47), colors.ink,
       mix(155, 69), "right")
@@ -5766,18 +5778,11 @@ return function(ui)
       self:partyInfo(mon.info2Label, 171, 66, colors.green)
       self:partyInfo(mon.info2Text, 190, 66, colors.ink, 37, "right")
     else
-      self:partyInfo(mon.infoLabel or "ITEM", 121, 66, colors.green)
+      self:partyInfo(mon.infoLabel or translate("ITEM"), 121, 66, colors.green)
       self:partyInfo(mon.infoText or "---", 151, 66, colors.ink,
         76, "right")
     end
-    self:partyInfo(mon.expLabel or "EXP", 72, 98, colors.green)
-    if mon.expProgress then
-      self:expBar(99, 103, mon.nextValue and 64 or 128, mon.expProgress)
-    end
-    if mon.nextValue then
-      self:partyInfo(mon.nextLabel or "NEXT", 168, 98, colors.green)
-      self:partyInfo(mon.nextValue, 195, 98, colors.ink, 32, "right")
-    end
+    self:summaryExperience(mon)
     G.pop()
     if oldX then G.setScissor(oldX, oldY, oldWidth, oldHeight)
     else G.setScissor() end

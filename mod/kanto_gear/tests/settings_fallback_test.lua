@@ -4,9 +4,9 @@ local T = require("tests.modkit")
 local Loader = require("src.mods.Loader")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
 
-local function loadWithoutNativeSetter()
+local function loadWithoutNativeSetter(cache)
   local original = Loader._api
-  local cache = {}
+  cache = cache or {}
   Loader._api = function(self, loadedMod)
     local api = original(self, loadedMod)
     api.options.set = nil
@@ -18,11 +18,11 @@ local function loadWithoutNativeSetter()
   end
   local ok, run = pcall(T.sdk.loadMod, path, {
     generation = 2,
-    data = T.fixtures.load(),
+    data = T.fixtures.fresh(),
   })
   Loader._api = original
   if not ok then error(run, 0) end
-  return run
+  return run, cache
 end
 
 local function gameFor(run)
@@ -57,16 +57,21 @@ local function runtime(run)
   return upvalue(inputHook, "displayRuntime")
 end
 
-local run = loadWithoutNativeSetter()
+local run, persistedCache = loadWithoutNativeSetter()
 T.eq(run.mod and run.mod.state, "loaded", "Kanto Gear loads on the stock host")
 run.loader.events:emit("game.ready", { game = gameFor(run) })
 local display = runtime(run)
 display.settings.category, display.settings.page = 1, 1
 local model = display.settingsModel()
-T.eq(model.rows[1].value, "HGSS LIGHT", "the fallback reads the 3.0 default")
-T.eq(model.rows[1].enabled, true, "touch settings stay enabled without host setter")
-T.check(display.cycleSetting(model.rows[1], 1), "touch can change the theme")
-T.eq(display.settingsModel().rows[1].value, "HGSS DARK",
+local function rowFor(key)
+  for _, row in ipairs(display.settingsModel().rows) do
+    if row.key == key then return row end
+  end
+end
+T.eq(rowFor("theme_v3").value, "HGSS LIGHT", "the fallback reads the 3.0 default")
+T.eq(rowFor("theme_v3").enabled, true, "touch settings stay enabled without host setter")
+T.check(display.cycleSetting(rowFor("theme_v3"), 1), "touch can change the theme")
+T.eq(rowFor("theme_v3").value, "HGSS DARK",
   "the changed theme is visible immediately")
 local api = upvalue(display.saveHome, "mod")
 T.eq(api.cache:read("options/theme_v3"), "shgss_dark",
@@ -82,9 +87,50 @@ run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "theme_v3", value = "hgss" })
 T.eq(api.options:get("theme_v3"), "hgss",
   "the native mod menu replaces a cached touch setting")
-T.eq(display.settingsModel().rows[1].value, "HGSS LIGHT",
+T.eq(rowFor("theme_v3").value, "HGSS LIGHT",
   "the touch menu immediately follows the native mod menu")
 T.eq(api.cache:read("options/theme_v3"), "shgss",
   "the synchronized native value survives the next restart")
+
+T.check(display.cycleSetting(rowFor("language"), 1), "touch changes language")
+T.eq(api.options:get("language"), "de", "touch selected German")
+T.eq(api.cache:read("options/language"), "sde", "language persists independently of saves")
+run.loader.modOptions.kanto_gear.language = "fr"
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "language", value = "fr" })
+T.eq(api.options:get("language"), "fr", "native language selection replaces touch choice")
+T.eq(api.cache:read("options/language"), "sfr", "native language selection also persists")
+
+-- Audit all dynamic metadata, not only the currently visible settings page.
+local theme = upvalue(display.drawContents, "THEME")
+for _, language in ipairs({ "de", "es", "fr" }) do
+  api.options:set("language", language)
+  for _, row in ipairs(run.loader.optionSchemas.kanto_gear) do
+    theme:translate(row.label)
+    for _, choice in ipairs(row.choices or {}) do theme:translate(choice[1]) end
+  end
+  for _, category in ipairs(display.settingsCategories) do
+    theme:translate(category.label)
+    theme:translate(category.detail)
+  end
+  for _, surface in pairs(display.homeCatalog.surfaces) do
+    if surface.widget ~= "tool" then theme:translate(surface.label) end
+  end
+  for _, app in ipairs(display.storeCatalog) do
+    theme:translate(app.label)
+    theme:translate(app.category)
+    if app.reason then theme:translate(app.reason) end
+    for _, line in ipairs(app.description) do theme:translate(line) end
+  end
+  local missing = theme.i18n:coverage(language)
+  T.eq(#missing, 0, language .. " runtime metadata covered: " .. table.concat(missing, "; "))
+end
+
+run.release()
+local restarted = loadWithoutNativeSetter(persistedCache)
+restarted.loader.events:emit("game.ready", { game = gameFor(restarted) })
+local restartedTheme = upvalue(runtime(restarted).drawContents, "THEME")
+T.eq(restartedTheme.i18n:language(), "fr", "language survives loading a new mod instance")
+T.eq(restartedTheme:translate("PARTY"), "ÉQUIPE", "new instance immediately renders the saved language")
 
 T.finish("Kanto Gear settings fallback")

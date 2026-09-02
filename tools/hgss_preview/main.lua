@@ -27,14 +27,15 @@ local function glyphs(value)
 end
 local function fit(value, limit)
   value = tostring(value or "")
-  if #glyphs(value) <= limit then return value end
-  return value:sub(1, math.max(1, limit - 1)) .. "~"
+  local characters = glyphs(value)
+  if #characters <= limit then return value end
+  return table.concat(characters, "", 1, math.max(1, limit - 1)) .. "~"
 end
 local function wrap(value, limit, maximum)
   local lines, current = {}, ""
   for word in tostring(value or ""):gmatch("%S+") do
     local joined = current == "" and word or current .. " " .. word
-    if #joined <= limit then current = joined
+    if #glyphs(joined) <= limit then current = joined
     else
       if current ~= "" then lines[#lines + 1] = fit(current, limit) end
       current = word
@@ -55,54 +56,24 @@ local languages = {
   en = {
     title = "PARTY", hp = "HP", exp = "EXP", stats = "STATS", swap = "SWAP",
     swapWith = "SWAP WITH?", useItemOn = "USE ITEM ON",
-    homeTrainer = "CARD", homeStore = "STORE", homeNotes = "NOTES",
+    homeTrainer = "TRAINER", homeStore = "STORE", homeNotes = "NOTES",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
     types = {},
   },
-  de = {
-    title = "TEAM", hp = "KP", exp = "EP", stats = "WERTE", swap = "TAUSCHEN",
-    swapWith = "TAUSCHEN MIT?", useItemOn = "ITEM NUTZEN",
-    homeTrainer = "KARTE", homeStore = "STORE", homeNotes = "NOTIZEN",
-    names = { "IMPERGATOR", "PAPUNGHA", "TAUBOGA", "SANDAMER",
-      "TRAUMATO", "TAUROS" },
-    types = { WATER = "WASSER", GRASS = "PFLANZE", FLYING = "FLUG",
-      NORMAL = "NORMAL", GROUND = "BODEN", PSYCHIC = "PSYCHO" },
-  },
-  es = {
-    title = "EQUIPO", hp = "PS", exp = "EXP",
-    stats = "ESTADÍSTICAS", swap = "CAMBIAR", swapWith = "¿CAMBIAR POR?",
-    useItemOn = "USAR OBJETO",
-    homeTrainer = "FICHA", homeStore = "TIENDA", homeNotes = "NOTAS",
-    names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
-      "DROWZEE", "TAUROS" },
-    types = { WATER = "AGUA", GRASS = "PLANTA", FLYING = "VOLADOR",
-      NORMAL = "NORMAL", GROUND = "TIERRA", PSYCHIC = "PSÍQUICO" },
-  },
-  fr = {
-    title = "ÉQUIPE", hp = "PV", exp = "EXP", stats = "STATS", swap = "ÉCHANGER",
-    swapWith = "ÉCHANGER AVEC?", useItemOn = "UTILISER SUR",
-    homeTrainer = "CARTE", homeStore = "BOUTIQUE", homeNotes = "NOTES",
-    names = { "ALIGATUEUR", "COTOVOL", "ROUCOUPS", "SABLAIREAU",
-      "SOPORIFIK", "TAUROS" },
-    types = { WATER = "EAU", GRASS = "PLANTE", FLYING = "VOL",
-      NORMAL = "NORMAL", GROUND = "SOL", PSYCHIC = "PSY" },
-  },
 }
 local languageCode = os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "en"
-local language = languages[languageCode] or languages.en
-local translations = {}
-if languageCode ~= "en" then
-  local path = root .. "/translations/kanto_gear_" .. languageCode
-    .. "/lang/" .. languageCode .. ".lua"
-  local loader = loadfile(path)
-  if loader then translations = loader() end
-end
+-- Game fixtures stay in their original language; only Kanto Gear labels vary.
+local language = languages.en
+local I18N = assert(loadfile(root .. "/mod/kanto_gear/i18n.lua"))()
+local i18n = I18N.new(function(code)
+  return assert(loadfile(root .. "/mod/kanto_gear/lang/" .. code .. ".lua"))()
+end, function() return languageCode end)
 local function translate(value)
-  return translations[tostring(value)] or tostring(value)
+  return i18n:text(value)
 end
 local function format(value, ...)
-  return string.format(translate(value), ...)
+  return i18n:format(value, ...)
 end
 
 local party = {
@@ -132,8 +103,8 @@ local party = {
 
 for slot, mon in ipairs(party) do
   mon.name = language.names[slot]
-  mon.hpLabel = language.hp
-  mon.expLabel = language.exp
+  mon.hpLabel = translate(language.hp)
+  mon.expLabel = translate(language.exp)
   mon.typeLabel = language.types[mon.type] or mon.type
   mon.type2Label = language.types[mon.type2] or mon.type2
 end
@@ -533,16 +504,16 @@ function love.load()
   local movesTransition = screen == "summary_moves_transition"
   local transitionProgress = math.max(0, math.min(1,
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
-  local statsTitle = gen1 and "STATS 1/2" or "STATS 1/3"
-  local movesTitle = gen1 and "MOVES 2/2" or "MOVES 2/3"
+  local statsTitle = format("STATS %d/%d", 1, gen1 and 2 or 3)
+  local movesTitle = format("MOVES %d/%d", 2, gen1 and 2 or 3)
   local title = storeDetail and
       (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "NOTES"):upper()
     or store and "SILPH STORE"
     or homeAdd and "ADD TO HOME"
     or homeEdit and "EDIT HOME"
     or home and "SILPH LINK"
-    or explorerRadar and translate("ITEM RADAR")
-    or explorer and translate("EXPLORER")
+    or explorerRadar and "ITEM RADAR"
+    or explorer and "EXPLORER"
     or regionMap and (gen1 and "KANTO MAP" or "JOHTO MAP")
     or legacyNaming and "NAME INPUT"
     or legacyLevelUp and "LEVEL UP"
@@ -554,7 +525,7 @@ function love.load()
     or legacyEnemyWeak and "WEAK"
     or legacyEnemyResist and "RESIST"
     or legacyEnemyInfo and "ENEMY INFO"
-    or legacyPcRoot and "PC BOX 3 12/20"
+    or legacyPcRoot and format("PC BOX %d %d/20", 3, 12)
     or legacyPcBox and "WITHDRAW"
     or legacyPcChange and "BOX CHANGE"
     or legacyPcItems and "WITHDRAW"
@@ -565,16 +536,16 @@ function love.load()
     or legacyPcTop and "MENU ON TOP"
     or legacyPpMoves and "RESTORE PP"
     or legacy and "CHOOSE"
-    or pokedexHabitat and "HABITAT 1/4"
+    or pokedexHabitat and format("HABITAT %d/%d", 1, 4)
     or pokedexStats and "STATS"
-    or pokedexMoves and "MOVES 1/7"
-    or pokedexProfile and "NO.130"
+    or pokedexMoves and format("MOVES %d/%d", 1, 7)
+    or pokedexProfile and format("NO.%03d", 130)
     or pokedex and "POKEDEX"
-    or bag and translate("BAG")
-    or trainerSteps and translate("STEPS")
-    or trainerScreen and translate("TRAINER")
-    or toolsRods and translate("CHOOSE ROD")
-    or tools and translate("FIELD KIT")
+    or bag and "BAG"
+    or trainerSteps and "STEPS"
+    or trainerScreen and "TRAINER"
+    or toolsRods and "CHOOSE ROD"
+    or tools and "FIELD KIT"
     or settingsDisplay and "DISPLAY"
     or settingsAppearance and "APPEARANCE"
     or settingsSystem and "SYSTEM"
@@ -586,9 +557,9 @@ function love.load()
       and (transitionProgress >= 0.45 and language.swapWith or language.title)
     or partySwapCommit
       and (transitionProgress >= 0.72 and language.title or language.swapWith)
-    or memo and "TRAINER 3/3"
+    or memo and format("%s %d/%d", translate("TRAINER"), 3, 3)
     or memoTransition
-      and (transitionProgress >= 0.5 and "TRAINER 3/3" or movesTitle)
+      and (transitionProgress >= 0.5 and format("%s %d/%d", translate("TRAINER"), 3, 3) or movesTitle)
     or moves and movesTitle
     or movesTransition
       and (transitionProgress >= 0.5 and movesTitle or statsTitle)
@@ -602,7 +573,12 @@ function love.load()
       and not battleBag and not battleBagTransition
       and not battleSpecial then
     local headerOffset = summary and -1 or 0
-    title = translate(title)
+    if not (legacyMoveInfo or legacyPcRoot or pokedexHabitat
+        or pokedexMoves or pokedexProfile or memo or memoTransition
+        or moves or movesTransition or summary
+        or transition and transitionProgress >= 0.42) then
+      title = translate(title)
+    end
     local titleX, titleWidth = theme:headerBar(title,
       homeAdd or store or explorer and not explorerOverview
         or pokedex or bag or regionMap or legacyBack
@@ -846,7 +822,7 @@ function love.load()
     theme:panel(7, 32, 226, 23, false)
     theme:partyInfo(theme:fitPartyInfo(data.route, 64),
       13, 38, colors.ink, 64, "center")
-    theme:partyType(theme:fitPartyType(translate(data.subarea), 92),
+    theme:partyType(theme:fitPartyType(data.subarea, 92),
       81, 39, colors.green, 92)
     theme:partyInfo(data.region, 177, 38, colors.green, 42, "center")
     theme:detailChevron(222, 41, colors.green)
@@ -1271,15 +1247,15 @@ function love.load()
   end
   local function battleMon()
     local mon = party[gen1 and 6 or 1]
-    mon.fightLabel, mon.bagLabel = "FIGHT", "BAG"
-    mon.partyLabel, mon.runLabel = "POKEMON", "RUN"
+    mon.fightLabel, mon.bagLabel = translate("FIGHT"), translate("BAG")
+    mon.partyLabel, mon.runLabel = translate("POKEMON"), translate("RUN")
     mon.moveIndex = 1
     if gen1 then
       mon.moves = {
         { name = "BODY SLAM", type = "NORMAL", typeLabel = "NORMAL",
           ppText = "15/15", powerText = "85", accuracyText = "100",
           effectiveness = 10, descriptionLines = {
-            "MAY PARALYZE THE TARGET.", "A RELIABLE PHYSICAL ATTACK." } },
+            translate("30.1% CHANCE"), translate("TO PARALYZE TARGET") } },
         { name = "EARTHQUAKE", type = "GROUND", typeLabel = "GROUND",
           ppText = "10/10", powerText = "100", accuracyText = "100",
           effectiveness = 20 },
@@ -1313,26 +1289,26 @@ function love.load()
     local wild = os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild"
     if gen1 then
       return {
-        title = "BAG", index = 2,
+        title = translate("BAG"), index = 2,
         items = {
           { label = "POKE BALL", right = "x12", icon = "ball",
             catchChance = wild and 64.8 or nil },
           { label = "SUPER POTION", right = "x3", icon = "medicine" },
           { label = "ANTIDOTE", right = "x2", icon = "status" },
           { label = "ESCAPE ROPE", right = "x1" },
-          { label = "CANCEL", cancel = true },
+          { label = translate("CANCEL"), cancel = true },
         },
       }
     end
     return {
-      title = "ITEM POCKET", categorized = true, index = 2,
+      title = translate("ITEM POCKET"), categorized = true, index = 2,
       items = {
         { label = "TM02", right = "DYNAMIC PUNCH", icon = "machine" },
         { label = "HM03", right = "WHIRLPOOL", icon = "machine" },
         { label = "GREAT BALL", right = "x8", icon = "ball",
           catchChance = wild and 79.7 or nil },
         { label = "PARLYZ HEAL", right = "x2", icon = "status" },
-        { label = "CANCEL", cancel = true },
+        { label = translate("CANCEL"), cancel = true },
       },
     }
   end
@@ -1582,9 +1558,10 @@ function love.load()
           { label = translate("BACK"), back = true },
         }
       end
-      theme:pcList({ summary = legacyPcChange and "PAGE 1/4"
+      theme:pcList({ summary = legacyPcChange and format("PAGE %d/%d", 1, 4)
           or legacyPcDeposit and translate("ITEMS")
-          or legacyPcItems and "ITEM PC  1/3" or "BOX 3  12/20  1/3",
+          or legacyPcItems and format("%s %d/%d", translate("ITEM PC"), 1, 3)
+          or format("BOX %d  %d/20  %d/%d", 3, 12, 1, 3),
         entries = entries,
         drawPokemon = function(mon, x, y, size, fainted)
           local slot = mon == party[1] and 1 or mon == party[2] and 2 or 3
@@ -1654,7 +1631,7 @@ function love.load()
       name = "THUNDERBOLT", type = "ELECTRIC", typeLabel = "ELECTRIC",
       ppText = "15/15", powerText = "95", accuracyText = "100",
       power = 95, available = true, descriptionLines = {
-        "A STRONG ELECTRIC ATTACK.", "MAY PARALYZE THE TARGET." },
+        translate("10.2% CHANCE"), translate("TO PARALYZE TARGET") },
     } or {
       name = "ICE PUNCH", type = "ICE", typeLabel = "ICE",
       ppText = "15/15", powerText = "75", accuracyText = "100",
@@ -1796,7 +1773,7 @@ function love.load()
       apps[#apps + 1] = installed[index]
     end
     theme:storeMyApps({
-      summary = #installed .. " APPS READY", apps = apps,
+      summary = format("%d APPS READY", #installed), apps = apps,
       page = page, pages = pages,
     })
   elseif storeDetail then
@@ -1835,6 +1812,8 @@ function love.load()
   elseif settingsAppearance then
     theme:settings({ category = "appearance", accent = "blue", page = 1,
       pages = 1, rows = {
+        { label = "LANGUAGE", value = ({ en = "ENGLISH", de = "DEUTSCH",
+          es = "ESPANOL", fr = "FRANCAIS" })[languageCode] or "ENGLISH" },
         { label = "THEME", value = "HGSS AUTO" },
         { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
         { label = "TRANSITIONS", value = "ON" },
@@ -2111,7 +2090,7 @@ function love.load()
         } },
     }
     local model = {
-      pocket = gen1 and "ITEMS" or "ITEMS", pocketIndex = 1,
+      pocket = translate("ITEMS"), pocketIndex = 1,
       pockets = gen1 and 1 or 4, page = 1, pages = 2,
       entries = entries, total = 12, canUse = true, money = 34820,
       detail = bagDetail and entries[4] or nil,
@@ -2179,13 +2158,13 @@ function love.load()
         or (gen1 and 17 or 28),
       entries = entries,
       pokemon = gyarados, drawPokemon = drawDexPokemon,
-      statsText = gen1 and "BST 480" or "BST 540",
-      habitatText = gen1 and "12 AREAS" or "17 AREAS",
-      movesText = gen1 and "34 MOVES" or "48 MOVES",
-      summary = gen1 and "12 AREAS" or "17 AREAS",
+      statsText = format("BST %d", gen1 and 480 or 540),
+      habitatText = format("%d AREAS", gen1 and 12 or 17),
+      movesText = format("%d MOVES", gen1 and 34 or 48),
+      summary = format("%d AREAS", gen1 and 12 or 17),
       status = "NOT HERE", current = false,
-      catchText = "CATCH 45",
-      expText = gen1 and "XP 214" or "XP 216",
+      catchText = format("CATCH %d", 45),
+      expText = format("XP %d", gen1 and 214 or 216),
       stats = gen1 and {
         { label = "HP", value = 95 }, { label = "ATK", value = 125 },
         { label = "DEF", value = 79 }, { label = "SPECIAL", value = 100 },
@@ -2210,13 +2189,13 @@ function love.load()
     if pokedexStats then model.summary = model.statsText end
     if pokedexMoves then
       model.rows = {
-        { method = "START", name = "THRASH", type = "NORMAL",
+        { method = translate("START"), name = "THRASH", type = "NORMAL",
           type2 = "NORMAL", typeLabel = "NOR", type2Label = "NOR" },
         { method = "L20", name = "BITE", type = "DARK",
           type2 = "DARK", typeLabel = "DAR", type2Label = "DAR" },
         { method = "L30", name = "DRAGON RAGE", type = "DRAGON",
           type2 = "DRAGON", typeLabel = "DRA", type2Label = "DRA" },
-        { method = "TM/HM", name = "SURF", type = "WATER",
+        { method = translate("TM/HM"), name = "SURF", type = "WATER",
           type2 = "WATER", typeLabel = "WAT", type2Label = "WAT" },
       }
     end
@@ -2366,7 +2345,7 @@ function love.load()
   elseif partySwapTransition then
     theme:partySwapTransition(function(slot, x, y, selected, details)
       drawMon(slot, x, y, selected, details)
-    end, 1, 2, transitionProgress, 2, language.stats, language.swap)
+    end, 1, 2, transitionProgress, 2, translate(language.stats), translate(language.swap))
   elseif partySwapCommit then
     theme:partySwapCommitTransition(function(slot, x, y, selected, details)
       drawMon(slot, x, y, selected, details)
@@ -2379,15 +2358,15 @@ function love.load()
       or transition or movesTransition then
     local slot = gen1 and 6 or 1
     local mon = party[slot]
-    mon.statsTitle = "BATTLE STATS"
+    mon.statsTitle = translate("BATTLE STATS")
     if gen1 then
       mon.dexText, mon.levelText = "NO.128", "L35"
       mon.gender, mon.statusId = nil, nil
       mon.hp, mon.maxHp, mon.hpText = 96, 108, "96/108"
       mon.expProgress, mon.expText = 0.46, nil
-      mon.nextLabel, mon.nextValue = "NEXT", "2415"
-      mon.infoLabel, mon.infoText = "OT", "RED"
-      mon.info2Label, mon.info2Text = "ID", "12345"
+      mon.nextLabel, mon.nextValue = translate("NEXT"), "2415"
+      mon.infoLabel, mon.infoText = translate("OT"), "RED"
+      mon.info2Label, mon.info2Text = translate("ID"), "12345"
       mon.stats = {
         { label = "ATTACK", value = 84 },
         { label = "SPEED", value = 91 },
@@ -2396,8 +2375,8 @@ function love.load()
       }
     else
       mon.dexText = "NO.160"
-      mon.infoLabel, mon.infoText = "ITEM", "MYSTIC WATER"
-      mon.nextLabel, mon.nextValue = "NEXT", "4218"
+      mon.infoLabel, mon.infoText = translate("ITEM"), "MYSTIC WATER"
+      mon.nextLabel, mon.nextValue = translate("NEXT"), "4218"
       mon.otText, mon.idText = "GOLD", "12345"
       mon.experienceText, mon.nextLevelText = "125682", "L36"
       mon.stats = {
@@ -2409,6 +2388,7 @@ function love.load()
         { label = "MAX HP", value = 117 },
       }
     end
+    for _, stat in ipairs(mon.stats) do stat.label = translate(stat.label) end
     local function summaryPortrait(_, x, y, size, fainted)
       drawPortrait(slot, x, y, size, fainted)
     end
@@ -2452,7 +2432,7 @@ function love.load()
       end
     elseif transition then
       theme:summaryTransition(mon, summaryPortrait, transitionProgress, 2,
-        language.stats, language.swap)
+        translate(language.stats), translate(language.swap))
     else
       theme:summaryPage(mon, summaryPortrait)
     end
@@ -2460,10 +2440,10 @@ function love.load()
     local actionCount = tonumber(os.getenv("KANTO_GEAR_PREVIEW_ACTIONS")) or 2
     drawMon(1, 64, theme:partyActionHeroY(actionCount), true, false, false)
     local x, y, w, h = theme:partyActionRow(1, actionCount)
-    theme:actionRow(x, y, w, h, language.stats, "stats", 0, true)
+    theme:actionRow(x, y, w, h, translate(language.stats), "stats", 0, true)
     if actionCount > 1 then
       x, y, w, h = theme:partyActionRow(2, actionCount)
-      theme:actionRow(x, y, w, h, language.swap, "swap", 0)
+      theme:actionRow(x, y, w, h, translate(language.swap), "swap", 0)
     end
   else
     for slot = 1, #party do
@@ -2482,6 +2462,9 @@ function love.load()
   love.graphics.draw(canvas, 0, 0, 0, 4, 4)
   love.graphics.setCanvas()
   local data = preview:newImageData():encode("png")
+  local missing = i18n:coverage(languageCode)
+  assert(#missing == 0, "missing " .. languageCode
+    .. " translations: " .. table.concat(missing, ", "))
   local file = assert(io.open(output, "wb"))
   file:write(data:getString())
   file:close()

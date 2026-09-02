@@ -2,10 +2,26 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
+-- This suite exercises the native setter contract. Older SDK fixtures omit
+-- it; the cache-only host path is covered by settings_fallback_test.lua.
+local Loader = require("src.mods.Loader")
+local nativeApi = Loader._api
+Loader._api = function(self, loadedMod)
+  local api = nativeApi(self, loadedMod)
+  api.options.set = api.options.set or function(_, key, value)
+    self.modOptions[api.id] = self.modOptions[api.id] or {}
+    self.modOptions[api.id][key] = value
+    self.events:emit("mod.options_changed",
+      { mod = api.id, key = key, value = value })
+    return true
+  end
+  return api
+end
 local run = T.sdk.loadMod(path, {
   generation = 2,
   data = T.fixtures.load(),
 })
+Loader._api = nativeApi
 
 T.eq(run.mod and run.mod.state, "loaded", "Kanto Gear loads")
 T.eq(#run.errors, 0, "Kanto Gear boots without errors")
@@ -70,6 +86,27 @@ end
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
 local theme = upvalue(display.drawContents, "THEME")
+do
+  local renderer = theme.hgss
+  local originalText, originalBar = renderer.partyInfo, renderer.expBar
+  for _, code in ipairs({ "de", "es", "fr" }) do
+    local labels = assert(loadfile(path .. "/lang/" .. code .. ".lua"))()
+    local nextLabel, value = labels.NEXT, "999999"
+    local positions, bar = {}, {}
+    renderer.partyInfo = function(_, text, x) positions[text] = x end
+    renderer.expBar = function(_, x, _, width) bar.x, bar.width = x, width end
+    renderer:summaryExperience({ expLabel = "EXP", expProgress = 0.5,
+      nextLabel = nextLabel, nextValue = value })
+    T.check(positions[nextLabel] ~= nil and positions[value] ~= nil,
+      code .. " summary preserves both translated label and full EXP value")
+    T.eq(positions[value] - positions[nextLabel]
+      - renderer:partyInfoWidth(nextLabel), 4,
+      code .. " summary label and value retain four pixels of separation")
+    T.eq(positions[nextLabel] - bar.x - bar.width, 5,
+      code .. " EXP bar stays separate from the translated next-value group")
+  end
+  renderer.partyInfo, renderer.expBar = originalText, originalBar
+end
 T.eq(theme.storedTheme, "hgss",
   "3.0 ignores the old theme key and starts existing users in HGSS")
 run.loader.modOptions.kanto_gear.theme_v3 = "kanto"

@@ -65,8 +65,10 @@ installation starts once in HGSS Light so Silph Link OS cannot be missed.
    the fixed **Options** app.
 
 You need your own supported ROM. Kanto Gear contains no ROM, ROM-derived game
-data or save file. Optional German, Spanish (Spain) and French interface packs
-are attached to every release.
+data or save file. The next release integrates German, Spanish (Spain) and
+French directly under **Settings → Appearance → Language**, without companion
+packs. Only Kanto Gear's interface changes language; game text remains untouched.
+See [language support](translations/README.md).
 
 ## Display modes
 

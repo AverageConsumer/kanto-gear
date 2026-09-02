@@ -1,6 +1,5 @@
 local WIDTH, HEIGHT = 160, 144
 local HEADER = 20
-local STRING_PREFIX = "kanto_gear|"
 local G
 
 local INK, DARK, MID, PAPER
@@ -102,24 +101,27 @@ function THEME:moveUnavailableReason(move)
 end
 
 function THEME:translate(source)
-  if not self.strings then return source end
-  return self.strings:get(STRING_PREFIX .. source)
-    or self.strings:get(source)
-    or source
+  if not self.i18n then return tostring(source or "") end
+  return self.i18n:text(source)
 end
 
-local PC_ROOT_LABELS = {
+local MENU_ACTION_LABELS = {
   ["WITHDRAW <PK><MN>"] = "WITHDRAW",
   ["DEPOSIT <PK><MN>"] = "DEPOSIT",
   ["RELEASE <PK><MN>"] = "RELEASE",
   ["MOVE <PK><MN> W/O MAIL"] = "MOVE WITHOUT MAIL",
   ["PRINT BOX"] = "PRINT",
   ["SEE YA!"] = "BACK",
+  ["WITHDRAW"] = "WITHDRAW", ["DEPOSIT"] = "DEPOSIT",
+  ["RELEASE"] = "RELEASE", ["CHANGE BOX"] = "CHANGE BOX",
+  ["STATS"] = "STATS", ["SWITCH"] = "SWITCH",
+  ["MOVE"] = "MOVE", ["CANCEL"] = "CANCEL", ["BACK"] = "BACK",
 }
 
-function THEME:pcRootLabel(value)
+function THEME:menuActionLabel(value)
   value = tostring(value or "")
-  return self:translate(PC_ROOT_LABELS[value] or value)
+  local key = MENU_ACTION_LABELS[value]
+  return key and self:translate(key) or value
 end
 
 function THEME:batteryState(state, percent, tick)
@@ -149,21 +151,10 @@ do
     "charging previews the next quarter")
 end
 
-local function formatSpecifierCount(value)
-  local count = 0
-  for spec in value:gmatch("%%(.)") do
-    if spec ~= "%" then count = count + 1 end
-  end
-  return count
-end
-
 function THEME:format(source, ...)
-  local template = self:translate(source)
-  if formatSpecifierCount(template) ~= formatSpecifierCount(source) then
-    template = source
-  end
-  local ok, value = pcall(string.format, template, ...)
-  return ok and value or string.format(source, ...)
+  if self.i18n then return self.i18n:format(source, ...) end
+  local ok, value = pcall(string.format, source, ...)
+  return ok and value or tostring(source or "")
 end
 
 function THEME:typeName(id, content)
@@ -300,15 +291,20 @@ function THEME:drawCanvas(canvas, rect)
 end
 
 function THEME:moveDescription(move, def, ruleset)
+  local function lines(keys)
+    local translated = {}
+    for index, key in ipairs(keys) do translated[index] = self:translate(key) end
+    return translated
+  end
   def = def or {}
   local id = move and move.id or def.id
   local fixed = def.fixedDamage
   if type(fixed) == "number" then
     return { self:format("DEALS %d FIXED DAMAGE", fixed) }, true
   elseif fixed == "level" then
-    return { "DAMAGE EQUALS", "USER LEVEL" }, true
+    return lines({ "DAMAGE EQUALS", "USER LEVEL" }), true
   elseif type(fixed) == "function" then
-    return { "DEALS CUSTOM", "FIXED DAMAGE" }, true
+    return lines({ "DEALS CUSTOM", "FIXED DAMAGE" }), true
   end
   local hits = def.multiHit
   if type(hits) == "number" then
@@ -321,47 +317,47 @@ function THEME:moveDescription(move, def, ruleset)
     return { self:format("HITS %d-%d TIMES", low, high) }, true
   end
   local special = self.moveSpecial[id]
-  if special then return special, true end
+  if special then return lines(special), true end
   if def.highCrit or self.highCritMoves[id] then
-    return { "HIGH CRITICAL-HIT", "RATE" }, true
+    return lines({ "HIGH CRITICAL-HIT", "RATE" }), true
   end
   local effect = def.effect
   if effect == "FOCUS_ENERGY_EFFECT" then
-    return ruleset and ruleset.focusEnergyBug == false
+    return lines(ruleset and ruleset.focusEnergyBug == false
       and { "RAISES CRITICAL-HIT", "RATE" }
-      or { "LOWERS CRITICAL-HIT", "RATE DUE TO GEN 1 BUG" }, true
+      or { "LOWERS CRITICAL-HIT", "RATE DUE TO GEN 1 BUG" }), true
   elseif effect == "HYPER_BEAM_EFFECT" then
-    return ruleset and ruleset.hyperBeamSkipRechargeOnKO == false
+    return lines(ruleset and ruleset.hyperBeamSkipRechargeOnKO == false
       and { "USER MUST RECHARGE", "NEXT TURN" }
-      or { "RECHARGES NEXT TURN", "UNLESS TARGET FAINTS" }, true
+      or { "RECHARGES NEXT TURN", "UNLESS TARGET FAINTS" }), true
   elseif effect == "SPECIAL_DAMAGE_EFFECT" then
-    return { "SPECIAL DAMAGE", "NO DETAILS AVAILABLE" }, false
+    return lines({ "SPECIAL DAMAGE", "NO DETAILS AVAILABLE" }), false
   end
   local stat, stages = effect and effect:match("^([A-Z]+)_UP([12])_EFFECT$")
   if stat then
     return { self:format("RAISES USER %s", self:translate(stat)),
-             stages == "2" and "BY TWO STAGES" or "BY ONE STAGE" }, true
+             self:translate(stages == "2" and "BY TWO STAGES" or "BY ONE STAGE") }, true
   end
   stat, stages = effect and effect:match("^([A-Z]+)_DOWN([12])_EFFECT$")
   if stat then
     local amount = stages == "2" and "BY TWO STAGES" or "BY ONE STAGE"
     stat = self:translate(stat)
     local first = self:format("LOWERS TARGET %s", stat)
-    return #first <= 21 and { first, amount }
-      or { "LOWERS TARGET", self:format("%s %s", stat,
+    return #first <= 21 and { first, self:translate(amount) }
+      or { self:translate("LOWERS TARGET"), self:format("%s %s", stat,
                                          self:translate(amount)) }, true
   end
   stat = effect and effect:match("^([A-Z]+)_DOWN_SIDE_EFFECT$")
   if stat then
-    return { "33.2% CHANCE TO LOWER",
+    return { self:translate("33.2% CHANCE TO LOWER"),
              self:format("TARGET %s", self:translate(stat)) }, true
   end
   local description = self.moveEffects[effect]
-  if description then return description, true end
+  if description then return lines(description), true end
   if effect == "NO_ADDITIONAL_EFFECT" then
-    return { "DEALS DAMAGE" }, true
+    return lines({ "DEALS DAMAGE" }), true
   end
-  return { "NO DETAILS AVAILABLE" }, false
+  return lines({ "NO DETAILS AVAILABLE" }), false
 end
 local RADAR_RED = { 220 / 255, 38 / 255, 28 / 255, 1 }
 local MAP_EXIT = { 0.20, 0.65, 1, 1 }
@@ -784,7 +780,7 @@ local function oneShotTrainerStatus(defeated, battled, result)
 end
 
 local function compactClock(value)
-  return THEME:format((value or "--:--"):gsub("^0", ""):gsub("%s+", ""))
+  return ((value or "--:--"):gsub("^0", ""):gsub("%s+", ""))
 end
 
 local Area = {}
@@ -1620,6 +1616,10 @@ local FONT = {
   ["Ñ"]="01010101001000111001101011001110001",
   ["¿"]="00100000000010000100010001000101110",
   ["¡"]="00100000000010000100001000010000100",
+  ["="]="00000000001111100000111110000000000",
+  ["°"]="01100100101001001100000000000000000",
+  ["º"]="01100100101001001100000000111100000",
+  ["¥"]="10001010100010011111001001111100100",
 }
 
 local function color(c) G.setColor(c[1], c[2], c[3], c[4]) end
@@ -1660,8 +1660,7 @@ local function normalize(value)
 end
 
 local function clean(value)
-  value = THEME:translate(tostring(value or ""))
-    :gsub("<PK><MN>", "PKMN")
+  value = tostring(value or ""):gsub("<PK><MN>", "PKMN")
   return normalize(value)
 end
 
@@ -1913,8 +1912,14 @@ function THEME:installOptionFallback(mod)
 end
 
 return function(mod)
-  THEME.strings = mod.content.strings
   THEME:installOptionFallback(mod)
+
+  THEME.i18n = assert(load(mod:read("i18n.lua"),
+    "@kanto_gear/i18n.lua"))().new(function(language)
+    local body = assert(mod:read("lang/" .. language .. ".lua"),
+      "missing built-in language: " .. language)
+    return assert(load(body, "@kanto_gear/lang/" .. language .. ".lua"))()
+  end, function() return mod.options:get("language") or "en" end)
 
   local RADAR_FRAMES = 16
   local function compactSteps(value)
@@ -1953,6 +1958,11 @@ return function(mod)
     function(key) return mod.options:get(key) end)
 
   THEME.optionSchema = mod.options:define({
+    { key = "language", label = "LANGUAGE", type = "choice",
+      default = "en", choices = {
+        { "ENGLISH", "en" }, { "DEUTSCH", "de" },
+        { "ESPANOL", "es" }, { "FRANCAIS", "fr" },
+      } },
     { key = "theme_v3", label = "THEME", type = "choice", default = "hgss",
       choices = {
         { "KANTO GREEN", "kanto" }, { "MATCH GAME", "match" },
@@ -2155,17 +2165,17 @@ return function(mod)
     return mod.options:get("display_target")
   end
 
-  local runtime = rawget(_G, "love")
-  G = runtime and runtime.graphics
+  G = rawget(_G, "love") and rawget(_G, "love").graphics
   if not G then
     mod.log:warn("host has no graphics runtime; mod stays inactive")
     return
   end
 
-  if runtime.filesystem and runtime.filesystem.newFileData then
-    THEME.hgssFont = runtime.filesystem.newFileData(
+  if rawget(_G, "love").filesystem
+      and rawget(_G, "love").filesystem.newFileData then
+    THEME.hgssFont = rawget(_G, "love").filesystem.newFileData(
       mod:read("rounded_mplus.ttf"), "rounded_mplus.ttf")
-    THEME.hgssBagIcon = G.newImage(runtime.filesystem.newFileData(
+    THEME.hgssBagIcon = G.newImage(rawget(_G, "love").filesystem.newFileData(
       mod:read("kanto_bag.png"), "kanto_bag.png"))
     THEME.hgssBagIcon:setFilter("nearest", "nearest")
   end
@@ -2310,7 +2320,8 @@ return function(mod)
   displayRuntime.settingsCategories = {
     { id = "appearance", label = "APPEARANCE",
       detail = "THEME AND TRANSITIONS",
-      accent = "blue", keys = { "theme_v3", "clock_source", "ui_motion" } },
+      accent = "blue", keys = {
+        "language", "theme_v3", "clock_source", "ui_motion" } },
     { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
       accent = "green", keys = { "display_mode", "fullscreen_start",
         "combined_layout", "combined_primary", "secondary_size",
@@ -3919,7 +3930,7 @@ return function(mod)
   end
 
   local function header(title, back, paged, hgssContentOffsetY)
-    title = THEME:translate(title)
+    title = tostring(title or "")
     local modern = THEME.style ~= "classic"
     local hgss = THEME.style == "hgss"
     local background = hgss and THEME.hgss.colors.surface
@@ -4140,12 +4151,12 @@ return function(mod)
     if type(top) ~= "table" then return end
     if field ~= "index" and field ~= "script" and field ~= "cursor" then
       if type(top[field]) == "number" then
-        return top, { "YES", "NO" }, field
+        return top, { THEME:translate("YES"), THEME:translate("NO") }, field
       end
       return
     end
     if battleChoice(top) then
-      return top, { "YES", "NO" }, field
+      return top, { THEME:translate("YES"), THEME:translate("NO") }, field
     end
     if top.screenId == "Gen2ElevatorMenu" then
       if type(top.floors) ~= "table" or type(top.index) ~= "number" then
@@ -4331,7 +4342,7 @@ return function(mod)
     box("fill", 3, 3, 28, 2, secondary)
     box("fill", 129, 139, 28, 2, secondary)
 
-    centered("SILPH CO.", 9, secondary)
+    centered(THEME:translate("SILPH CO."), 9, secondary)
     outline(47, 24, 22, 18, foreground)
     outline(91, 24, 22, 18, foreground)
     box("fill", 51, 28, 14, 10, modern and MID or INK)
@@ -4342,14 +4353,14 @@ return function(mod)
         i == phase and secondary or foreground)
     end
 
-    centered("SILPH LINK", 50, foreground, 2)
+    centered(THEME:translate("SILPH LINK"), 50, foreground, 2)
     box("fill", 24, 67, 36, 1, secondary)
     box("fill", 100, 67, 36, 1, secondary)
-    centered("SYSTEM", 65, primary)
+    centered(THEME:translate("SYSTEM"), 65, primary)
 
     box("fill", 15, 81, 130, 21, modern and MID or INK)
     outline(15, 81, 130, 21, primary)
-    centered(compat.systemId(), 88, foreground)
+    centered(compat.systemId(), 88, foreground, nil, true)
 
     local linkStatus = fit("LINK ONLINE", 18)
     local linkWidth = #glyphList(linkStatus) * 6
@@ -4358,7 +4369,7 @@ return function(mod)
     box("fill", linkX + linkWidth + 8, 114, 4, 4, secondary)
     text(linkStatus, linkX, 112, primary)
     if math.floor(love.timer.getTime() * 2) % 2 == 0 then
-      centered("START GAME", 128, foreground)
+      centered(THEME:translate("START GAME"), 128, foreground)
     end
   end
 
@@ -4391,7 +4402,7 @@ return function(mod)
   local function namingKey(x, y, w, label, selected, raw)
     local pressed = THEME.style == "hgss"
       and THEME.hgss:beginPress(x, y, w, 15, true, 1, 4 / 3)
-    label = raw and tostring(label) or THEME:translate(label)
+    label = tostring(label or "")
     local paperLuma = PAPER[1] * 0.2126
       + PAPER[2] * 0.7152 + PAPER[3] * 0.0722
     local inkLuma = INK[1] * 0.2126
@@ -4413,7 +4424,7 @@ return function(mod)
   end
 
   local function drawNaming(top, grid)
-    header("NAME INPUT")
+    header(THEME:translate("NAME INPUT"))
     local gen2 = top.screenId == "Gen2NamingScreen"
     local name = gen2 and top.text or table.concat(top.glyphs or {})
     name = name == "" and "-" or name
@@ -4424,8 +4435,8 @@ return function(mod)
         for col, label in ipairs(cells) do
           local left = 3 + math.floor((col - 1) * 154 / #cells)
           local right = 3 + math.floor(col * 154 / #cells)
-          local shown = label == "lower case" and "LOWER"
-            or label == "UPPER CASE" and "UPPER" or label
+          local shown = label == "lower case" and THEME:translate("LOWER")
+            or label == "UPPER CASE" and THEME:translate("UPPER") or label
           local selected = gen2 and top.row == row - 1
               and (row < #grid and top.col == col - 1
                 or row == #grid and math.floor(top.col / 3) + 1 == col)
@@ -4448,8 +4459,8 @@ return function(mod)
       for col, label in ipairs(cells) do
         local left = 3 + math.floor((col - 1) * 154 / #cells)
         local right = 3 + math.floor(col * 154 / #cells)
-        local shown = label == "lower case" and "LOWER"
-          or label == "UPPER CASE" and "UPPER" or label
+        local shown = label == "lower case" and THEME:translate("LOWER")
+          or label == "UPPER CASE" and THEME:translate("UPPER") or label
         local selected
         if gen2 then
           selected = top.row == row - 1
@@ -4464,7 +4475,7 @@ return function(mod)
   end
 
   local function drawDialogueChoice(top, labels, prompt, field)
-    header("CHOOSE")
+    header(THEME:translate("CHOOSE"))
     local selected = compat.choiceIndex(top, field)
     local rows, cols, left, topY, cellW, cellH, gap =
       compat.choiceGrid(top, field, #labels)
@@ -4511,7 +4522,7 @@ return function(mod)
           local index = (row - 1) * cols + col
           button(left + (col - 1) * (cellW + gap),
                  topY + (row - 1) * (cellH + gap), cellW, cellH,
-                 labels[index], selected == index)
+                 labels[index], selected == index, true)
         end
       end
     elseif #labels == 2 then
@@ -4519,34 +4530,34 @@ return function(mod)
       if #lines > 0 then
         local y = 35 - (#lines - 1) * 6
         for _, line in ipairs(lines) do
-          centered(line, y, DARK)
+          centered(line, y, DARK, nil, true)
           y = y + 12
         end
       else
-        centered("MAKE A CHOICE", 37, DARK)
+        centered(THEME:translate("MAKE A CHOICE"), 37, DARK)
       end
-      button(24, 58, 112, 28, labels[1], selected == 1)
-      button(24, 91, 112, 28, labels[2], selected == 2)
+      button(24, 58, 112, 28, labels[1], selected == 1, true)
+      button(24, 91, 112, 28, labels[2], selected == 2, true)
     else
       local start, count = choiceWindow(labels, selected)
       for row = 1, count do
         local index = start + row - 1
         button(8, 24 + (row - 1) * 27, 144, 24,
-               labels[index], selected == index)
+               labels[index], selected == index, true)
       end
     end
     if choiceNudgeUntil > love.timer.getTime() then
-      centered("PAUSE THEN CHOOSE", 134, DARK)
+      centered(THEME:translate("PAUSE THEN CHOOSE"), 134, DARK)
     end
   end
 
   local function drawLevelUpStats(mon)
     local stats = mon.stats
     local def = game.data.pokemon[mon.species] or {}
-    header("LEVEL UP")
-    centered(fit(THEME:format("%s  L%d",
+    header(THEME:translate("LEVEL UP"))
+    centered(fit(string.format("%s  L%d",
       mon.nickname or def.name or mon.species or "POKEMON",
-      mon.level or 0), 24), 27, DARK)
+      mon.level or 0), 24), 27, DARK, nil, true)
     local splitSpecial = stats.specialAttack ~= nil
       or stats.specialDefense ~= nil
     local rows = splitSpecial and {
@@ -4578,10 +4589,11 @@ return function(mod)
     local firstY, step = splitSpecial and 39 or 44, splitSpecial and 13 or 15
     for i, row in ipairs(rows) do
       local y = firstY + (i - 1) * step
-      text(row[1], 24, y, INK)
+      text(THEME:translate(row[1]), 24, y, INK)
       text(tostring(row[2] or 0), 119, y, DARK)
     end
-    button(24, splitSpecial and 111 or 108, 112, 27, "CONTINUE", false)
+    button(24, splitSpecial and 111 or 108, 112, 27,
+      THEME:translate("CONTINUE"), false)
   end
 
   local function drawMapFallback()
@@ -4721,7 +4733,8 @@ return function(mod)
     local region = compat.currentRegion()
     local mapTitle = region and (region:upper() .. (canFly() and " FLY" or " MAP"))
       or (canFly() and "MAP + FLY" or "MAP")
-    header(mapTitle, THEME.style == "hgss", THEME.style ~= "hgss")
+    header(THEME:translate(mapTitle), THEME.style == "hgss",
+      THEME.style ~= "hgss")
     local asset = loadMap()
     if asset then
       local cells = asset.map
@@ -4813,7 +4826,7 @@ return function(mod)
       drawMapFallback()
     end
     box("fill", 4, 128, 152, 14, DARK)
-    centered(areaName(mapId), 130, PAPER)
+    centered(areaName(mapId), 130, PAPER, nil, true)
   end
 
   local function loadLocalMap()
@@ -4953,7 +4966,7 @@ return function(mod)
         and "machine" or "item"
       row.displayLabel = row.kind == "hidden" and not enhanced and not row.done
           and not row.scanned
-        and "HIDDEN SIGNAL" or row.label
+        and THEME:translate("HIDDEN SIGNAL") or row.label
       row.location = row.kind == "hidden" and not enhanced and not row.done
           and not row.scanned
         and "USE ITEMFINDER" or "MARKED ON MAP"
@@ -5034,7 +5047,8 @@ return function(mod)
       view = view, selected = selected, rows = rows,
       total = #source, page = explorer.page, pages = pages, perPage = perPage,
       route = areaName(overview.mapId or mapId),
-      subarea = displayRuntime.sectionName(overview.mapId or mapId, "OUTDOORS"),
+      subarea = displayRuntime.sectionName(overview.mapId or mapId,
+        THEME:translate("OUTDOORS")),
       region = (compat.currentRegion() or "kanto"):upper(),
       overview = overview,
       image = loadLocalMapImage(overview, rows_, width, height, density),
@@ -5111,7 +5125,7 @@ return function(mod)
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       if not overview then
         THEME.hgss:panel(7, 32, 226, 178, false)
-        THEME.hgss:partyInfo("HOST UPDATE REQUIRED", 31, 112,
+        THEME.hgss:partyInfo(THEME:translate("HOST UPDATE REQUIRED"), 31, 112,
           THEME.hgss.colors.ink, 178, "center")
       else
         THEME.hgss:explorer(displayRuntime.explorerModel(overview))
@@ -5119,9 +5133,9 @@ return function(mod)
       G.pop()
       return
     end
-    header("LOCAL", false, true)
+    header(THEME:translate("LOCAL"), false, true)
     if not overview then
-      centered("HOST UPDATE REQUIRED", 62, DARK)
+      centered(THEME:translate("HOST UPDATE REQUIRED"), 62, DARK)
     else
       local rows, width, height, density = localMapGrid(overview)
       local pos = mod.world:current()
@@ -5184,13 +5198,13 @@ return function(mod)
     if enhanced then
       local remaining = areaData({ overview and overview.mapId or mapId }).remaining
       box("fill", 8, 132, 3, 3, MAP_EXIT)
-      text(fit("EXIT", 7), 14, 130, PAPER)
+      text(fit(THEME:translate("EXIT"), 7), 14, 130, PAPER)
       box("fill", 60, 132, 3, 3, MAP_ITEM)
       text(THEME:format("ITM%d", remaining[2] or 0), 66, 130, PAPER)
       box("fill", 111, 132, 3, 3, MAP_HIDDEN)
       text(THEME:format("HID%d", remaining[3] or 0), 117, 130, PAPER)
     else
-      centered(areaName(mapId), 130, PAPER)
+      centered(areaName(mapId), 130, PAPER, nil, true)
     end
   end
 
@@ -5204,10 +5218,10 @@ return function(mod)
     drawDim(0.54, false)
     box("fill", 10, 38, 140, 91, MID)
     outline(10, 38, 140, 91, PAPER)
-    centered("FLY TO", 49, DARK)
-    centered(fit(pendingFly.name, 20), 66, INK)
-    button(18, 91, 58, 27, "YES", true)
-    button(84, 91, 58, 27, "NO", false)
+    centered(THEME:translate("FLY TO"), 49, DARK)
+    centered(fit(pendingFly.name, 20), 66, INK, nil, true)
+    button(18, 91, 58, 27, THEME:translate("YES"), true)
+    button(84, 91, 58, 27, THEME:translate("NO"), false)
   end
 
   function compat.gen2BadgeAsset()
@@ -5335,7 +5349,7 @@ return function(mod)
     local gen1BadgeColors = not compat.isGen2()
       and PaletteFX.pal(game.data, "MEWMON") or nil
 
-    header("TRAINER", THEME.style == "hgss"
+    header(THEME:translate("TRAINER"), THEME.style == "hgss"
       and displayRuntime.home.activeApp ~= nil,
       THEME.style ~= "hgss")
     if THEME.style == "hgss" then
@@ -5435,28 +5449,28 @@ return function(mod)
     end
     box("fill", 4, 76, 74, 29, PAPER)
     outline(4, 76, 74, 29, INK)
-    text("MONEY", 8, 80, DARK)
+    text(THEME:translate("MONEY"), 8, 80, DARK)
     text(fit(THEME:format("¥%d", player.money or save.money or 0), 11), 8, 92, INK)
     box("fill", 82, 76, 74, 29, PAPER)
     outline(82, 76, 74, 29, INK)
-    text("TIME", 86, 80, DARK)
+    text(THEME:translate("TIME"), 86, 80, DARK)
     text(("%d:%02d"):format(math.floor(elapsed / 3600),
       math.floor(elapsed / 60) % 60), 86, 92, INK)
     box("fill", 4, 109, 74, 29, PAPER)
     outline(4, 109, 74, 29, INK)
-    text("POKEDEX", 8, 113, DARK)
+    text(THEME:translate("POKEDEX"), 8, 113, DARK)
     text(("%d/%d"):format(owned,
       game.data.constants and game.data.constants.dexSize or dexTotal), 8, 125, INK)
     box("fill", 82, 109, 74, 29, PAPER)
     outline(82, 109, 74, 29, INK)
-    text("STEPS", 86, 113, DARK)
+    text(THEME:translate("STEPS"), 86, 113, DARK)
     text(fit(compactSteps(steps), 8), 86, 125, INK)
     text(">", 146, 120, DARK)
   end
 
   local function drawStepsDetail()
     local exact = ("%.0f"):format(steps)
-    header("STEPS", true)
+    header(THEME:translate("STEPS"), true)
     if THEME.style == "hgss" then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
@@ -5468,9 +5482,9 @@ return function(mod)
     box("fill", 71, 37, 11, 9, DARK)
     box("fill", 69, 33, 3, 4, DARK)
     box("fill", 73, 30, 3, 4, DARK)
-    centered(exact, 55, INK, #exact <= 12 and 2 or 1)
-    centered("TOTAL", 82, DARK)
-    button(34, 105, 92, 28, "RESET", false)
+    centered(exact, 55, INK, #exact <= 12 and 2 or 1, true)
+    centered(THEME:translate("TOTAL"), 82, DARK)
+    button(34, 105, 92, 28, THEME:translate("RESET"), false)
   end
 
   local function drawCaughtBall(x, y)
@@ -5514,7 +5528,7 @@ return function(mod)
 
     box("fill", 4, 34, 152, 12, guide.complete and DARK or MID)
     local status = #guide.rows > 0 and guide.section
-      or "NO WILD ENCOUNTERS"
+      or THEME:translate("NO WILD ENCOUNTERS")
     centered(fit(status, 25), 37, guide.complete and PAPER or INK)
 
     for slot = 1, 3 do
@@ -5531,12 +5545,12 @@ return function(mod)
           local times = {}
           for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
             times[#times + 1] = (row.mapAllTimes or row.mapTimes[time])
-              and fit(time, 1, false) or "-"
+              and fit(THEME:translate(time), 1, false) or "-"
           end
           text(table.concat(times, " "), 112, y + 3, DARK)
         end
         if row.caught and not caughtBall then
-          text(fit("CAUGHT", 7), 113, y + 3, DARK)
+          text(fit(THEME:translate("CAUGHT"), 7), 113, y + 3, DARK)
         end
         local minLevel = row.currentMinLevel or row.minLevel
         local maxLevel = row.currentMaxLevel or row.maxLevel
@@ -5550,7 +5564,7 @@ return function(mod)
           for _, appearance in ipairs(row.appearances) do
             if appearance.rank == 2 then
               local label = THEME:format("%s %d%%",
-                appearance.time or "ALL", appearance.chance)
+                THEME:translate(appearance.time or "ALL"), appearance.chance)
               if not seen[label] then shown[#shown + 1], seen[label] = label, true end
             end
           end
@@ -5590,8 +5604,8 @@ return function(mod)
         local y = 36 + (slot - 1) * 33
         box("fill", 3, y, 154, 31, appearance.rank == 1 and MID or PAPER)
         outline(3, y, 154, 31, INK)
-        text(fit(THEME:translate(appearance.section), 23), 7, y + 4, INK)
-        local time = appearance.time or THEME:translate("ALL")
+        text(fit(appearance.section, 23), 7, y + 4, INK)
+        local time = THEME:translate(appearance.time or "ALL")
         local method = THEME:translate(appearance.method)
         text(fit(THEME:format("%s %s %d%%", time, method,
           appearance.chance), 18), 7, y + 15, DARK)
@@ -5634,7 +5648,7 @@ return function(mod)
     end
     if screen.name == "HIDDEN" and assist("item_radar") then
       button(20, 118, 120, 20,
-        hasItemfinder() and "SCAN" or "NEED ITEMFINDER", false)
+        THEME:translate(hasItemfinder() and "SCAN" or "NEED ITEMFINDER"), false)
     end
   end
 
@@ -5681,8 +5695,8 @@ return function(mod)
       end
     end
     box("fill", cx - 3, cy - 3, 6, 6, INK)
-    centered(radarFrame < RADAR_FRAMES and "SCANNING"
-      or #signals == 0 and "NO SIGNAL"
+    centered(radarFrame < RADAR_FRAMES and THEME:translate("SCANNING")
+      or #signals == 0 and THEME:translate("NO SIGNAL")
       or THEME:format("SIGNALS %d", #signals), 132, DARK)
   end
 
@@ -5691,7 +5705,7 @@ return function(mod)
       local actions = displayRuntime.toolModels()
       local pages = math.max(1, math.ceil(#actions / 4))
       tools.page = math.max(1, math.min(pages, tools.page or 1))
-      header("FIELD KIT", true, pages > 1)
+      header(THEME:translate("FIELD KIT"), true, pages > 1)
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:tools({ actions = actions, page = tools.page, pages = pages })
       G.pop()
@@ -5702,18 +5716,18 @@ return function(mod)
     local first = (current - 1) * 6 + 1
     local count = math.min(6, math.max(0, #tools - first + 1))
     header(pages > 1 and THEME:format("TOOLS %d/%d", current, pages)
-      or "TOOLS", THEME.style == "hgss"
+      or THEME:translate("TOOLS"), THEME.style == "hgss"
         and displayRuntime.home.activeApp ~= nil,
       THEME.style ~= "hgss")
     if #tools == 0 then
       box("fill", 12, 42, 136, 58, MID)
       outline(12, 42, 136, 58, INK)
       if hasUnlockedTool(game and game.save) then
-        centered("NO ACTION HERE", 59, INK)
-        centered("CONTEXT REQUIRED", 76, DARK)
+        centered(THEME:translate("NO ACTION HERE"), 59, INK)
+        centered(THEME:translate("CONTEXT REQUIRED"), 76, DARK)
       else
-        centered("NO TOOLS UNLOCKED", 59, INK)
-        centered("KEEP EXPLORING", 76, DARK)
+        centered(THEME:translate("NO TOOLS UNLOCKED"), 59, INK)
+        centered(THEME:translate("KEEP EXPLORING"), 76, DARK)
       end
       return
     end
@@ -5738,10 +5752,10 @@ return function(mod)
     drawDim(0.54, false)
     box("fill", 10, 38, 140, 91, MID)
     outline(10, 38, 140, 91, PAPER)
-    centered("USE", 49, DARK)
+    centered(THEME:translate("USE"), 49, DARK)
     centered(fit(pendingAction.label, 20), 66, INK)
-    button(18, 91, 58, 27, "YES", true)
-    button(84, 91, 58, 27, "NO", false)
+    button(18, 91, 58, 27, THEME:translate("YES"), true)
+    button(84, 91, 58, 27, THEME:translate("NO"), false)
   end
 
   local function partyData()
@@ -5772,7 +5786,8 @@ return function(mod)
 
   function displayRuntime.drawSettings()
     local model = displayRuntime.settingsModel()
-    header(model.label or "SETTINGS", true, model.pages and model.pages > 1)
+    header(THEME:translate(model.label or "SETTINGS"), true,
+      model.pages and model.pages > 1)
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
     THEME.hgss:settings(model)
     G.pop()
@@ -5841,7 +5856,8 @@ return function(mod)
     hpBar(x + 29, y + 25, 41, mon.hp, mon.maxHp)
     expBar(x + 29, y + 30, 41, mon.expProgress or 0, selected)
     if (mon.hp or 0) <= 0 then
-      text("FNT", x + 52, y + 14, selected and PAPER or INK)
+      text(THEME:translate("FNT"), x + 52, y + 14,
+        selected and PAPER or INK)
     elseif mon.status then
       text(fit(THEME:statusName(mon.status, mod.content), 3),
            x + 52, y + 14, selected and PAPER or INK)
@@ -5870,8 +5886,8 @@ return function(mod)
     local pages = displayRuntime.Home.pageCount(layout)
       + (home.editing and 1 or 0)
     home.page = math.max(1, math.min(pages, home.page or 1))
-    header(home.library and "ADD TO HOME"
-      or home.editing and "EDIT HOME" or "SILPH LINK", home.library == true)
+    header(THEME:translate(home.library and "ADD TO HOME"
+      or home.editing and "EDIT HOME" or "SILPH LINK"), home.library == true)
     local tiles, slots = displayRuntime.homePageElements()
     local needed = {}
     for _, tile in ipairs(tiles or {}) do
@@ -6093,7 +6109,8 @@ return function(mod)
     local home, view = displayRuntime.home, displayRuntime.home.storeView
     local detail = home.storeDetail and displayRuntime.enrichStorePreview(
       displayRuntime.storeEntry(displayRuntime.storeById[home.storeDetail]))
-    header(detail and detail.label or "SILPH STORE", true, not detail)
+    header(THEME:translate(detail and detail.label or "SILPH STORE"),
+      true, not detail)
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
     if detail then
       THEME.hgss:storeDetail({ app = detail })
@@ -6120,7 +6137,8 @@ return function(mod)
 
   local function drawParty(list, title, back, activeSpecies, selectedSlot,
                            paged)
-    header(title or "PARTY", back or displayRuntime.home.activeApp ~= nil,
+    header(THEME:translate(title or "PARTY"),
+      back or displayRuntime.home.activeApp ~= nil,
       paged and displayRuntime.home.activeApp == nil)
     if THEME.style == "hgss" then
       G.push()
@@ -6210,15 +6228,15 @@ return function(mod)
       return
     end
     header(fit(mon.name, 18), true)
-    button(14, 37, 132, 38, "STATS", false)
+    button(14, 37, 132, 38, THEME:translate("STATS"), false)
     if #(game.save.party or {}) > 1 then
-      button(14, 84, 132, 38, "SWAP", false)
+      button(14, 84, 132, 38, THEME:translate("SWAP"), false)
     end
   end
 
   local function drawFieldChoice()
     if fieldChoice.kind == "fish" then
-      header("CHOOSE ROD", true)
+      header(THEME:translate("CHOOSE ROD"), true)
       if THEME.style == "hgss" then
         G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
         THEME.hgss:rodPicker(fieldChoice.action.rods)
@@ -6387,7 +6405,8 @@ return function(mod)
     end
     local items = {}
     for index, item in ipairs(menu.items or {}) do
-      local label = item.label or tostring(index)
+      local label = item.cancel and THEME:translate("CANCEL")
+        or item.label or tostring(index)
       local icon = kinds[item.value]
       local upper = tostring(label):upper()
       if upper:match("^TM%d") or upper:match("^HM%d") then
@@ -6401,7 +6420,7 @@ return function(mod)
       }
     end
     return {
-      title = menu.title or "BAG", items = items,
+      title = menu.title or THEME:translate("BAG"), items = items,
       index = menu.index or 1, categorized = categorizedBag(menu),
     }
   end
@@ -6437,9 +6456,9 @@ return function(mod)
         or progressRatio(view.experience, currentLevelExp, nextLevelExp),
       nextLabel = THEME:translate("NEXT"),
       nextValue = nextValue and tostring(nextValue) or nil,
-      infoLabel = view.gen2 and THEME:translate("ITEM") or "OT",
+      infoLabel = THEME:translate(view.gen2 and "ITEM" or "OT"),
       infoText = view.gen2 and (view.item or "---") or view.ot,
-      info2Label = view.gen2 and nil or "ID",
+      info2Label = view.gen2 and nil or THEME:translate("ID"),
       info2Text = view.gen2 and nil or ("%05d"):format(view.otId or 0),
       statsTitle = THEME:translate("BATTLE STATS"),
       moves = {}, stats = {},
@@ -6452,7 +6471,8 @@ return function(mod)
       totalExpLabel = THEME:translate("TOTAL EXP"),
       experienceText = tostring(view.experience or 0),
       nextLevelLabel = THEME:translate("NEXT LEVEL"),
-      nextLevelText = level < 100 and THEME:format("L%d", level + 1) or "MAX",
+      nextLevelText = level < 100 and THEME:format("L%d", level + 1)
+        or THEME:translate("MAX"),
       nextExpLabel = THEME:translate("TO NEXT"),
       moveDetails = battle ~= nil and assist("move_details"),
     }
@@ -6535,12 +6555,12 @@ return function(mod)
       G.pop()
       return
     end
-    header(battle.kind == "wild" and "Wild battle"
-      or battle.kind == "trainer" and "Trainer battle" or "BATTLE")
-    button(3, 24, 76, 54, "FIGHT", battle.menuIndex == 1)
-    button(81, 24, 76, 54, "PKMN", battle.menuIndex == 2)
-    button(3, 81, 76, 56, "ITEM", battle.menuIndex == 3)
-    button(81, 81, 76, 56, "RUN", battle.menuIndex == 4)
+    header(THEME:translate(battle.kind == "wild" and "Wild battle"
+      or battle.kind == "trainer" and "Trainer battle" or "BATTLE"))
+    button(3, 24, 76, 54, THEME:translate("FIGHT"), battle.menuIndex == 1)
+    button(81, 24, 76, 54, THEME:translate("PKMN"), battle.menuIndex == 2)
+    button(3, 81, 76, 56, THEME:translate("ITEM"), battle.menuIndex == 3)
+    button(81, 81, 76, 56, THEME:translate("RUN"), battle.menuIndex == 4)
   end
 
   local function drawSafari()
@@ -6560,13 +6580,14 @@ return function(mod)
       G.pop()
       return
     end
-    header("SAFARI")
+    header(THEME:translate("SAFARI"))
     button(3, 24, 76, 54,
            THEME:format("BALL x%d", battle.safariBalls or 0),
            battle.menuIndex == 1)
-    button(81, 24, 76, 54, "BAIT", battle.menuIndex == 2)
-    button(3, 81, 76, 56, "THROW ROCK", battle.menuIndex == 3)
-    button(81, 81, 76, 56, "RUN", battle.menuIndex == 4)
+    button(81, 24, 76, 54, THEME:translate("BAIT"), battle.menuIndex == 2)
+    button(3, 81, 76, 56, THEME:translate("THROW ROCK"),
+      battle.menuIndex == 3)
+    button(81, 81, 76, 56, THEME:translate("RUN"), battle.menuIndex == 4)
   end
 
   local function drawMimic()
@@ -6579,14 +6600,16 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:battleMimic({ moves = moves,
+        title = THEME:moveName({ id = "MIMIC" }, game and game.data),
         index = battle.mimicIndex or 1 }, playerTeam, enemyTeam)
       G.pop()
       return
     end
-    header("MIMIC")
+    header(THEME:moveName({ id = "MIMIC" }, game and game.data))
     for i, move in ipairs(battle.mimicMoves or {}) do
       button(8, 25 + (i - 1) * 28, 144, 25,
-             THEME:moveName(move, game and game.data), battle.mimicIndex == i)
+             THEME:moveName(move, game and game.data), battle.mimicIndex == i,
+             true)
     end
   end
 
@@ -6674,7 +6697,7 @@ return function(mod)
       G.pop()
       return
     end
-    header("MOVES", true)
+    header(THEME:translate("MOVES"), true)
     local grid = companionMoveGrid(battleState())
     for i = 1, 4 do
       local move = battle.moves[i]
@@ -6757,15 +6780,22 @@ return function(mod)
     if entry then
       local heightM, height = tonumber(entry.heightM), tonumber(entry.height)
       if heightM then
+        info.heightValue = ("%.1f M"):format(heightM)
+        info.weightValue = ("%.1f KG"):format(tonumber(entry.weightKg) or 0)
         info.height = THEME:format("HEIGHT %.1f M", heightM)
         info.weight = THEME:format("WEIGHT %.1f KG",
           tonumber(entry.weightKg) or 0)
       elseif compat.isGen2() and height then
+        info.heightValue = ("%d FT %d IN"):format(math.floor(height / 100), height % 100)
+        info.weightValue = ("%.1f LB"):format((tonumber(entry.weight) or 0) / 10)
         info.height = THEME:format("HEIGHT %d FT %d IN",
           math.floor(height / 100), height % 100)
         info.weight = THEME:format("WEIGHT %.1f LB",
           (tonumber(entry.weight) or 0) / 10)
       elseif entry.heightFt then
+        info.heightValue = ("%d FT %d IN"):format(tonumber(entry.heightFt) or 0,
+          tonumber(entry.heightIn) or 0)
+        info.weightValue = ("%.1f LB"):format((tonumber(entry.weight) or 0) / 10)
         info.height = THEME:format("HEIGHT %d FT %d IN",
           tonumber(entry.heightFt) or 0, tonumber(entry.heightIn) or 0)
         info.weight = THEME:format("WEIGHT %.1f LB",
@@ -6896,11 +6926,13 @@ return function(mod)
         type2Label = THEME:typeName(typeId, mod.content),
       }
     end
-    for _, moveId in ipairs(def.level1Moves or {}) do add(moveId, "START") end
+    for _, moveId in ipairs(def.level1Moves or {}) do
+      add(moveId, THEME:translate("START"))
+    end
     for _, row in ipairs(def.learnset or def.levelMoves or {}) do
       add(row.move or row.id, THEME:format("L%d", row.level or 1))
     end
-    for _, moveId in ipairs(def.tmhm or {}) do add(moveId, "TM/HM") end
+    for _, moveId in ipairs(def.tmhm or {}) do add(moveId, THEME:translate("TM/HM")) end
     return rows
   end
 
@@ -6944,11 +6976,11 @@ return function(mod)
     info.type2 = info.types[2] or info.type
     info.typeLabel = THEME:typeName(info.type, mod.content)
     info.type2Label = THEME:typeName(info.type2, mod.content)
-    info.kind = info.kind or "UNKNOWN"
-    info.height = tostring(info.height or "--"):gsub("^HEIGHT%s+", "")
-    info.weight = tostring(info.weight or "--"):gsub("^WEIGHT%s+", "")
+    info.kind = info.kind or THEME:translate("UNKNOWN")
+    info.height = info.heightValue or "--"
+    info.weight = info.weightValue or "--"
     if #info.description == 0 then
-      info.description = { "NO RESEARCH DATA AVAILABLE." }
+      info.description = { THEME:translate("NO RESEARCH DATA AVAILABLE.") }
     end
     local base, stats, bst = def.baseStats or {}, {}, 0
     local definitions = compat.isGen2() and {
@@ -7003,7 +7035,7 @@ return function(mod)
     common.view, common.page, common.pages = "habitat",
       state.habitatPage, habitatPages
     common.summary = areaCount > 0
-      and THEME:format("%d AREAS", areaCount) or "NO WILD AREA"
+      and THEME:format("%d AREAS", areaCount) or THEME:translate("NO WILD AREA")
     common.status, common.current = "NOT HERE", false
     common.rows = {}
     local currentTime = compat.timePeriod(game.world) or "DAY"
@@ -7311,14 +7343,14 @@ return function(mod)
 
   function displayRuntime.drawPokedex()
     local model = displayRuntime.pokedexModel()
-    local title = model.view == "index" and "POKEDEX"
+    local title = model.view == "index" and THEME:translate("POKEDEX")
       or model.view == "profile" and THEME:format("NO.%03d",
         tonumber(model.pokemon and model.pokemon.dex) or 0)
       or model.view == "habitat" and THEME:format("HABITAT %d/%d",
         model.page or 1, model.pages or 1)
       or model.view == "moves" and THEME:format("MOVES %d/%d",
         model.page or 1, model.pages or 1)
-      or "STATS"
+      or THEME:translate("STATS")
     header(title, true, model.view ~= "index")
     G.push()
     G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
@@ -7466,15 +7498,16 @@ return function(mod)
     header(fit(THEME:moveName(move, game and game.data), 12), true)
     box("fill", 12, 25, 136, 112, MID)
     outline(12, 25, 136, 112, INK)
-    centered(THEME:typeName(def.type or move.type, mod.content), 33, INK, 2)
-    text("POWER", 20, 54, DARK)
+    centered(THEME:typeName(def.type or move.type, mod.content), 33, INK, 2,
+      true)
+    text(THEME:translate("POWER"), 20, 54, DARK)
     text(tostring(power or "--"), 20, 65, INK)
-    text("HIT", 69, 54, DARK)
+    text(THEME:translate("HIT"), 69, 54, DARK)
     text(chanceLabel(accuracy), 61, 65, INK)
-    text("PP", 121, 54, DARK)
+    text(THEME:translate("PP"), 121, 54, DARK)
     text(("%d/%d"):format(move.pp or 0, move.maxPp or 0), 108, 65, INK)
     if assist("type_hints") then
-      text("MATCHUP", 25, 83, DARK)
+      text(THEME:translate("MATCHUP"), 25, 83, DARK)
       text(effectLabel(move.effectiveness), 112, 83, INK)
     end
     box("fill", 19, 95, 122, 1, DARK)
@@ -7516,7 +7549,7 @@ return function(mod)
           false)
         for row, action in ipairs(actions) do
           local x, y, w, h = THEME.hgss:partyActionRow(row, #actions)
-          local label = action.item.label or tostring(action.index)
+          local label = THEME:menuActionLabel(action.item.label or tostring(action.index))
           THEME.hgss:actionRow(x, y, w, h, label,
             row == 1 and "switch" or "stats", 0,
             selected == action.index)
@@ -7524,13 +7557,14 @@ return function(mod)
         G.pop()
         return
       end
-      header(fit(((battle.party or {})[menu.index] or {}).name or "POKEMON", 12), true)
+      header(fit(((battle.party or {})[menu.index] or {}).name or "POKEMON", 12),
+        true)
       local submenu = type(menu.submenu) == "table" and menu.submenu or nil
       local items = menu.subItems or (submenu and submenu.items) or {}
       local index = menu.subIndex or (submenu and submenu.index)
       for i, item in ipairs(items) do
         button(14, 29 + (i - 1) * 35, 132, 30,
-               item.label or tostring(i), index == i)
+               THEME:menuActionLabel(item.label or tostring(i)), index == i, true)
       end
       return
     end
@@ -7541,7 +7575,7 @@ return function(mod)
       if not ok then return end
     end
     local selected = not cancel and menu.index or nil
-    local title = THEME:translate(compat.battlePartyTitle(menu, cancel))
+    local title = compat.battlePartyTitle(menu, cancel)
     if THEME.style == "hgss" then
       local list = battle.party or {}
       local progress = hgssRuntime.progress("battle_party")
@@ -7601,7 +7635,7 @@ return function(mod)
         screenId = menu.screenId,
         items = items,
         index = viewIndex,
-        title = compat.bagLabels[pocketIndex] or "ITEMS",
+        title = THEME:translate(compat.bagLabels[pocketIndex] or "ITEMS"),
         pocketIndex = pocketIndex,
       }
     end
@@ -7615,14 +7649,15 @@ return function(mod)
           or "",
       }
     end
-    items[#items + 1] = { label = "CANCEL", cancel = true }
+    items[#items + 1] = { label = THEME:translate("CANCEL"), cancel = true }
     local ok, pocket = pcall(menu.pocket, menu)
     if not ok or type(pocket) ~= "table" then return nil end
     return {
       screenId = menu.screenId,
       items = items,
       index = menu.index or 1,
-      title = pocket.label or "ITEMS",
+      title = THEME:translate(({ ITEM = "ITEMS", BALL = "BALLS",
+        KEY_ITEM = "KEY ITEMS", TM_HM = "TM/HM" })[pocket.id] or "ITEMS"),
       pocketIndex = menu.pocketIndex,
     }
   end
@@ -7684,7 +7719,7 @@ return function(mod)
       G.pop()
       return
     end
-    header(menu.title or "ITEMS", true, categorizedBag(menu))
+    header(menu.title or THEME:translate("ITEMS"), true, categorizedBag(menu))
     local odds = {}
     if assist("catch_odds")
         and (caughtWild(battle.kind, true) or battle.wild == true) then
@@ -7700,13 +7735,15 @@ return function(mod)
         right = right .. " " .. chanceLabel(odds[item.value])
       end
       button(8, 25 + (row - 1) * 28, 144, 25,
-             THEME:format("%s %s", item.label or tostring(index), right),
-             menu.index == index)
+             THEME:format("%s %s", item.cancel and THEME:translate("CANCEL")
+               or item.label or tostring(index), right),
+             menu.index == index, true)
     end
   end
 
   local function drawPpItemMoves(menu)
-    header(THEME.style == "hgss" and "RESTORE PP" or "CHOOSE MOVE", true)
+    header(THEME:translate(THEME.style == "hgss"
+      and "RESTORE PP" or "CHOOSE MOVE"), true)
     if THEME.style == "hgss" then
       local first, count = choiceWindow(menu.items or {}, menu.index)
       local entries = {}
@@ -7728,7 +7765,7 @@ return function(mod)
     for i, item in ipairs(menu.items or {}) do
       button(8, 25 + (i - 1) * 28, 144, 25,
              THEME:format("%s  PP %s", item.label or tostring(i),
-                          item.right or "--"), menu.index == i)
+                          item.right or "--"), menu.index == i, true)
     end
   end
 
@@ -7819,7 +7856,7 @@ return function(mod)
             and growth.expForLevel(level + 1) or 0) - view.experience)
         text(THEME:format("NEXT L.%d %d", level + 1, nextExp), 5, 51, DARK)
       else
-        text("NEXT MAX", 5, 51, DARK)
+        text(THEME:translate("NEXT MAX"), 5, 51, DARK)
       end
       box("fill", 4, 61, 152, 1, DARK)
       for i = 1, 4 do
@@ -7850,7 +7887,7 @@ return function(mod)
         text(THEME:format("NEXT L.%d", level + 1), 77, 94, DARK)
         text(tostring(view.nextExp or 0), 77, 105, DARK)
       else
-        text("NEXT MAX", 77, 94, DARK)
+        text(THEME:translate("NEXT MAX"), 77, 94, DARK)
       end
     elseif page == 2 then
       text(fit(view.name, 17), 5, 25, INK)
@@ -7880,11 +7917,12 @@ return function(mod)
         text(("%3d"):format(row[2] or 0), 120, y, INK)
       end
     end
-    button(103, 125, 53, 15, page < view.pages and "NEXT" or "CLOSE", false)
+    button(103, 125, 53, 15,
+      THEME:translate(page < view.pages and "NEXT" or "CLOSE"), false)
   end
 
   local function drawTopSummaryControls(_, generic)
-    header(generic and "MENU ON TOP" or "STATS ON TOP", true)
+    header(THEME:translate(generic and "MENU ON TOP" or "STATS ON TOP"), true)
     if THEME.style == "hgss" then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
@@ -7892,27 +7930,28 @@ return function(mod)
       G.pop()
       return
     end
-    centered("FOLLOW TOP SCREEN", 58, DARK)
+    centered(THEME:translate("FOLLOW TOP SCREEN"), 58, DARK)
     if generic then
-      centered("INPUT STAYS ON TOP", 78, INK)
+      centered(THEME:translate("INPUT STAYS ON TOP"), 78, INK)
       return
     end
-    button(14, 94, 132, 34, "BACK", false)
+    button(14, 94, 132, 34, THEME:translate("BACK"), false)
   end
 
   local function drawPcRoot(kind, root)
     local boxes = game.save.boxes or {}
     local current = game.save.currentBox or 1
     local items = root.items or root.entries or {}
-    header(root.screenId == "Gen2CenterPcMenu" and "PC"
-      or kind == "items" and "ITEM PC"
-      or THEME:format("PC BOX %d %d/20", current, #(boxes[current] or {})))
+    header(root.screenId == "Gen2CenterPcMenu" and THEME:translate("PC")
+      or kind == "items" and THEME:translate("ITEM PC")
+      or THEME:format("PC BOX %d %d/20", current,
+        #(boxes[current] or {})))
     local count = #items
     if THEME.style == "hgss" then
       local entries = {}
       for index, item in ipairs(items) do
         entries[index] = {
-          label = THEME:pcRootLabel(item.label or tostring(index)),
+          label = THEME:menuActionLabel(item.label or tostring(index)),
           selected = root.index == index,
         }
       end
@@ -7926,18 +7965,19 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:pcRoot({ kind = kind, title = THEME:translate(title),
-        status = THEME:translate(status), entries = entries })
+        status = status, entries = entries })
       G.pop()
       return
     end
     if count == 0 then
-      centered("NOTHING HERE", 61, INK)
+      centered(THEME:translate("NOTHING HERE"), 61, INK)
       return
     end
     local rowHeight = math.floor(116 / count)
     for i, item in ipairs(items) do
       button(8, 23 + (i - 1) * rowHeight, 144, rowHeight - 3,
-             THEME:pcRootLabel(item.label or tostring(i)), root.index == i)
+             THEME:menuActionLabel(item.label or tostring(i)), root.index == i,
+             true)
     end
   end
 
@@ -7980,7 +8020,7 @@ return function(mod)
       gen2_box_withdraw = "WITHDRAW", gen2_box_deposit = "DEPOSIT",
       gen2_box_move = "MOVE" })[kind]
       or "POKEMON"
-    header(action, true)
+    header(THEME:translate(action), true)
     local pages = math.max(1, math.ceil(total / 4))
     local page = math.floor((math.max(1, list.index) - 1) / 4) + 1
     local summary = (deposit or (gen2 and current == 0))
@@ -8009,7 +8049,7 @@ return function(mod)
       end
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:pcList({ summary = THEME:translate(summary),
+      THEME.hgss:pcList({ summary = summary,
         entries = entries,
         drawPokemon = function(mon, x, y, size)
           if compat.partyEgg(mon) then
@@ -8025,15 +8065,15 @@ return function(mod)
     end
     centered(summary, 22, DARK)
     if total == 0 then
-      centered("NOTHING HERE", 61, INK)
-      button(34, 101, 92, 28, "BACK", false)
+      centered(THEME:translate("NOTHING HERE"), 61, INK)
+      button(34, 101, 92, 28, THEME:translate("BACK"), false)
       return
     end
     for slot = 1, count do
       local index = first + slot - 1
       local item = list.items and list.items[index]
       if gen2 and index > #mons then
-        button(8, 38 + (slot - 1) * 24, 144, 22, "BACK",
+        button(8, 38 + (slot - 1) * 24, 144, 22, THEME:translate("BACK"),
                list.index == index)
       else
         pcMonCard(mons[item and item.value or index],
@@ -8054,7 +8094,8 @@ return function(mod)
       if number then return THEME:format("BOX %d", tonumber(number)) end
       return name or THEME:format("BOX %d", index)
     end
-    header(THEME.style == "hgss" and "BOX CHANGE" or "CHANGE BOX", true)
+    header(THEME:translate(THEME.style == "hgss"
+      and "BOX CHANGE" or "CHANGE BOX"), true)
     local first, count = pageWindow(selected, total)
     if THEME.style == "hgss" then
       local entries = {}
@@ -8062,7 +8103,7 @@ return function(mod)
         local index, item = first + row - 1, items[first + row - 1]
         entries[row] = {
           kind = "box",
-          label = THEME:translate(boxName(item, index)),
+          label = boxName(item, index),
           right = item and item.right or (#(boxes[index] or {}) .. "/20"),
           selected = selected == index,
         }
@@ -8072,7 +8113,7 @@ return function(mod)
         math.max(1, math.ceil(total / 4)))
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:pcList({ summary = THEME:translate(summary),
+      THEME.hgss:pcList({ summary = summary,
         entries = entries })
       G.pop()
       return
@@ -8083,7 +8124,7 @@ return function(mod)
       button(8, 25 + (row - 1) * 25, 144, 22,
              THEME:format("%s %s", label,
                           item and item.right or (#(boxes[index] or {}) .. "/20")),
-             selected == index)
+             selected == index, true)
     end
     centered(THEME:format("PAGE %d/%d",
       math.floor((selected - 1) / 4) + 1,
@@ -8099,7 +8140,7 @@ return function(mod)
     local items = gen2 and (list.rows or {}) or (list.items or {})
     local selected = gen2 and list.listIndex or list.index
     local total = #items + (gen2 and 1 or 0)
-    header(titles[kind] or "ITEMS", true)
+    header(THEME:translate(titles[kind] or "ITEMS"), true)
     if THEME.style == "hgss" then
       local first, count = pageWindow(selected, total)
       local entries = {}
@@ -8107,7 +8148,7 @@ return function(mod)
         local index, item = first + row - 1, items[first + row - 1]
         entries[row] = item and {
           kind = "item", icon = "item",
-          label = THEME:translate(item.label or item.name or tostring(index)),
+          label = item.label or item.name or tostring(index),
           right = item.right or (gen2 and ("x" .. (item.count or 0)) or ""),
           selected = selected == index,
         } or { label = THEME:translate("BACK"), back = true,
@@ -8118,14 +8159,14 @@ return function(mod)
         math.max(1, math.ceil(total / 4)))
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:pcList({ summary = THEME:translate(summary),
+      THEME.hgss:pcList({ summary = summary,
         entries = entries })
       G.pop()
       return
     end
     if total == 0 then
-      centered("NOTHING HERE", 56, INK)
-      button(34, 94, 92, 30, "BACK", false)
+      centered(THEME:translate("NOTHING HERE"), 56, INK)
+      button(34, 94, 92, 30, THEME:translate("BACK"), false)
       return
     end
     local first, count = pageWindow(selected, total)
@@ -8136,7 +8177,7 @@ return function(mod)
                item.label or item.name or tostring(index),
                item.right or (gen2 and ("x" .. (item.count or 0)) or ""))
                or "BACK",
-             selected == index)
+             selected == index, item ~= nil)
     end
     centered(THEME:format("PAGE %d/%d",
       math.floor((selected - 1) / 4) + 1,
@@ -8146,24 +8187,25 @@ return function(mod)
   local function drawPcQuantity(quantity, list)
     local item = list and ((list.items and list.items[list.index])
       or (list.rows and list.rows[list.listIndex]))
-    header("QUANTITY", true)
+    header(THEME:translate("QUANTITY"), true)
     if THEME.style == "hgss" then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:pcQuantity({ label = THEME:translate(
-        item and (item.label or item.name) or "ITEM"),
+      THEME.hgss:pcQuantity({ label = item
+        and (item.label or item.name) or THEME:translate("ITEM"),
         qty = quantity.qty or 1, icon = "item" })
       G.pop()
       return
     end
-    centered(fit(item and item.label or "ITEM", 20), 28, INK)
+    centered(fit(item and item.label or THEME:translate("ITEM"), 20),
+      28, INK, nil, true)
     button(8, 51, 43, 38, "-", false)
     box("fill", 55, 51, 50, 38, PAPER)
     outline(55, 51, 50, 38, INK)
-    centered(tostring(quantity.qty or 1), 63, INK, 2)
+    centered(tostring(quantity.qty or 1), 63, INK, 2, true)
     button(109, 51, 43, 38, "+", false)
-    button(8, 104, 90, 29, "CONFIRM", false)
-    button(102, 104, 50, 29, "CANCEL", false)
+    button(8, 104, 90, 29, THEME:translate("CONFIRM"), false)
+    button(102, 104, 50, 29, THEME:translate("CANCEL"), false)
   end
 
   function displayRuntime.gen2BoxSubmenu(state)
@@ -8179,7 +8221,7 @@ return function(mod)
 
   function displayRuntime.drawPcBoxSubmenu(state)
     local rows = displayRuntime.gen2BoxSubmenu(state)
-    header("POKEMON", true)
+    header(THEME:translate("POKEMON"), true)
     local entries = {}
     for index, label in ipairs(rows) do
       entries[index] = { label = THEME:translate(label),
@@ -8206,10 +8248,10 @@ return function(mod)
         back = item.cancel, selected = menu.index == index,
       }
     end
-    header("DEPOSIT ITEM", true)
+    header(THEME:translate("DEPOSIT ITEM"), true)
     G.push()
     G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-    THEME.hgss:pcList({ summary = THEME:translate(menu.title or "ITEMS"),
+    THEME.hgss:pcList({ summary = menu.title or THEME:translate("ITEMS"),
       entries = entries })
     G.pop()
   end
@@ -8241,7 +8283,7 @@ return function(mod)
       and type(top.onDone) == "function" and top)
     local notice = displayRuntime.pcNotice(kind, root, top)
     if notice then
-      header(kind == "items" and "ITEM PC" or "PC", true)
+      header(THEME:translate(kind == "items" and "ITEM PC" or "PC"), true)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:pcNotice(notice)
@@ -8287,8 +8329,8 @@ return function(mod)
       G.pop()
       return
     end
-    header(title or (battle.kind == "wild" and "Wild battle"
-      or battle.kind == "trainer" and "Trainer battle" or "BATTLE"))
+    header(THEME:translate(title or (battle.kind == "wild" and "Wild battle"
+      or battle.kind == "trainer" and "Trainer battle" or "BATTLE")))
     if hideUpperBattleUI()
         and battle.message and #battle.message > 0 then
       box("fill", 6, 30, 148, 106, DARK)
@@ -8333,7 +8375,7 @@ return function(mod)
       or THEME:statusName(mon.status, mod.content)
     if status then text(fit(status, 3), 100, y + 5, DARK) end
     text(fit(THEME:format("L%d", mon.level or 0), 4), 124, y + 5, DARK)
-    text("HP", 9, y + 24, DARK)
+    text(THEME:translate("HP"), 9, y + 24, DARK)
     drawFullBattleHpBar(28, y + 24, 68, mon.hp, mon.maxHp)
     if player then
       text(fit(("%d/%d"):format(mon.hp or 0, mon.maxHp or 0), 7),
@@ -8345,7 +8387,7 @@ return function(mod)
     for i, label in ipairs(labels) do
       local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
       button(3 + col * 78, 94 + row * 24, 76, 22,
-             label, battle.menuIndex == i)
+             THEME:translate(label), battle.menuIndex == i)
     end
   end
 
@@ -8367,7 +8409,7 @@ return function(mod)
   end
 
   displayRuntime.drawForgetMoves = function()
-    header("FORGET MOVE", true)
+    header(THEME:translate("FORGET MOVE"), true)
     if THEME.style == "hgss" then
       local raw = battleState()
       local mon = raw and screenContract(raw, "forget")
@@ -8435,7 +8477,7 @@ return function(mod)
           or battleInfoDetail == "weak" and "WEAK"
           or battleInfoDetail == "resist" and "RESIST"
           or "ENEMY INFO"
-        header(title, battleInfoDetail ~= nil)
+        header(THEME:translate(title), battleInfoDetail ~= nil)
         G.push()
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
         if battleInfoDetail == "profile" then
@@ -8467,27 +8509,27 @@ return function(mod)
         return
       end
       if battleInfoDetail == "profile" then
-        header("POKEDEX", true)
-        centered(fit(info.name, 24), 25, INK)
+        header(THEME:translate("POKEDEX"), true)
+        centered(fit(info.name, 24), 25, INK, nil, true)
         centered(fit(THEME:format("NO.%03d %s", info.dex or 0,
           info.kind or "--"), 24), 37, DARK)
-        centered(fit(info.height or "--", 24), 50, INK)
-        centered(fit(info.weight or "--", 24), 61, INK)
+        centered(fit(info.height or "--", 24), 50, INK, nil, true)
+        centered(fit(info.weight or "--", 24), 61, INK, nil, true)
         box("fill", 4, 74, 152, 1, DARK)
         if #info.description == 0 then
-          centered("NO DETAILS AVAILABLE", 103, DARK)
+          centered(THEME:translate("NO DETAILS AVAILABLE"), 103, DARK)
         else
           for i = 1, math.min(8, #info.description) do
-            centered(info.description[i], 80 + (i - 1) * 8, INK)
+            centered(info.description[i], 80 + (i - 1) * 8, INK, nil, true)
           end
         end
         return
       elseif battleInfoDetail == "dvs" then
         header(THEME:translate("ENEMY DVS"), true)
-        centered(fit(info.name, 24), 25, INK)
+        centered(fit(info.name, 24), 25, INK, nil, true)
         box("fill", 4, 34, 152, 1, DARK)
         if not info.dvs then
-          centered("NO DETAILS AVAILABLE", 80, DARK)
+          centered(THEME:translate("NO DETAILS AVAILABLE"), 80, DARK)
         else
           local rows = {
             { "HP", info.dvs.hp }, { "ATTACK", info.dvs.attack },
@@ -8504,8 +8546,9 @@ return function(mod)
         return
       elseif battleInfoDetail == "weak" or battleInfoDetail == "resist" then
         local rows = info[battleInfoDetail]
-        header(battleInfoDetail == "weak" and "WEAK" or "RESIST", true)
-        centered("BASE MATCHUP", 23, DARK)
+        header(THEME:translate(battleInfoDetail == "weak"
+          and "WEAK" or "RESIST"), true)
+        centered(THEME:translate("BASE MATCHUP"), 23, DARK)
         box("fill", 4, 33, 152, 1, DARK)
         if #rows == 0 then
           centered("--", 76, INK)
@@ -8532,16 +8575,16 @@ return function(mod)
       text(fit(THEME:format("TYPE %s",
         #typeNames > 0 and table.concat(typeNames, "/") or "--"), 17),
         52, 46, DARK)
-      text("CAUGHT", 52, 57, DARK)
-      text(info.caught and "YES" or "NO", info.dvs and 96 or 112, 57, INK)
-      if info.dvs then text("DVS >", 123, 57, DARK) end
+      text(THEME:translate("CAUGHT"), 52, 57, DARK)
+      text(THEME:translate(info.caught and "YES" or "NO"), info.dvs and 96 or 112, 57, INK)
+      if info.dvs then text(THEME:translate("DVS >"), 123, 57, DARK) end
       box("fill", 4, 78, 152, 1, DARK)
-      centered("BASE MATCHUP", 81, DARK)
+      centered(THEME:translate("BASE MATCHUP"), 81, DARK)
       box("fill", 79, 90, 1, 52, MID)
-      text(fit("WEAK", 7), 5, 91, DARK)
+      text(fit(THEME:translate("WEAK"), 7), 5, 91, DARK)
       text(tostring(#info.weak), 57, 91, DARK)
       text(">", 71, 91, DARK)
-      text(fit("RESIST", 7), 84, 91, DARK)
+      text(fit(THEME:translate("RESIST"), 7), 84, 91, DARK)
       text(tostring(#info.resist), 136, 91, DARK)
       text(">", 150, 91, DARK)
       for column, rows in ipairs({ info.weak, info.resist }) do
@@ -8651,7 +8694,7 @@ return function(mod)
         for slot = 1, 4 do
           moves[slot] = hgssRuntime.moveView(learn.mon.moves[slot])
         end
-        header("FORGET MOVE", true)
+        header(THEME:translate("FORGET MOVE"), true)
         G.push()
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
         THEME.hgss:moveLearnList({ newMove = newMove, moves = moves,
@@ -8670,7 +8713,7 @@ return function(mod)
         typeLabel = THEME:typeName(types[1], mod.content),
         type2Label = THEME:typeName(types[2] or types[1], mod.content),
       }
-      header("NEW MOVE")
+      header(THEME:translate("NEW MOVE"))
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:moveLearnPrompt({ mon = mon, newMove = newMove,
@@ -8686,7 +8729,7 @@ return function(mod)
       return
     end
     if learn.selecting and top == (learn.native or learn) then
-      header("FORGET MOVE")
+      header(THEME:translate("FORGET MOVE"))
       text(fit(newName, 13), 5, 25, INK)
       text(fit(THEME:typeName(newDef.type, mod.content), 7), 95, 25, DARK)
       if assist("move_details") then
@@ -8708,7 +8751,7 @@ return function(mod)
       return
     end
 
-    header("NEW MOVE")
+    header(THEME:translate("NEW MOVE"))
     drawSprite(learn.mon.species, "front", 5, 25, 42, 42,
                nil, learn.mon.source or learn.mon)
     local monDef = game.data.pokemon[learn.mon.species] or {}
@@ -8721,10 +8764,10 @@ return function(mod)
       displayRuntime.moveInfoBadge(145, 41, false)
     end
     box("fill", 7, 75, 146, 1, DARK)
-    centered("FOLLOW TOP SCREEN", 83, INK)
+    centered(THEME:translate("FOLLOW TOP SCREEN"), 83, INK)
     if top and top.onChoose and (top.index == 1 or top.index == 2) then
-      button(18, 106, 58, 27, "YES", top.index == 1)
-      button(84, 106, 58, 27, "NO", top.index == 2)
+      button(18, 106, 58, 27, THEME:translate("YES"), top.index == 1)
+      button(84, 106, 58, 27, THEME:translate("NO"), top.index == 2)
     elseif top and top.isTextBox then
       drawDim(0.48, textPrompt(top))
     end
@@ -8858,7 +8901,7 @@ return function(mod)
         if mode == "loading" then
           box("fill", 27, 57, 106, 30, DARK)
           outline(27, 57, 106, 30, PAPER)
-          centered(fit("LOADING AREA", 16), 69, PAPER)
+          centered(fit(THEME:translate("LOADING AREA"), 16), 69, PAPER)
         end
       end
     end
