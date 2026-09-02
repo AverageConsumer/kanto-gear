@@ -1399,6 +1399,46 @@ return function(ui)
       rows * 82 + (rows - 1) * 3
   end
 
+  function H:homeEmptyRect()
+    return 31, 75, 178, 82
+  end
+
+  function H:homeEmpty()
+    local G, colors = ui.graphics, self.colors
+    local x, y, w, h = self:homeEmptyRect()
+    local pressed = self:beginPress(x, y, w, h)
+    if self:shadowVisible() then
+      color(colors.shadow); G.rectangle("fill", x + 1, y + 3, w, h, 5, 5)
+    end
+    color(mixed(colors.surface, colors.greenLight,
+      self.dark and 0.10 or 0.05))
+    G.rectangle("fill", x, y, w, h, 5, 5)
+    color(colors.outline)
+    G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 5, 5)
+    box("fill", x + 6, y + 3, w - 12, 2,
+      mixed(colors.greenLight, colors.white, 0.24))
+
+    local wellX, wellY, wellSize = x + 14, y + 21, 40
+    clipped(wellX, wellY, wellSize, wellSize,
+      mixed(colors.surface, colors.greenLight, self.dark and 0.18 or 0.12))
+    border(wellX, wellY, wellSize, wellSize, colors.outline)
+    local cx, cy = wellX + math.floor(wellSize / 2),
+      wellY + math.floor(wellSize / 2)
+    color(colors.greenLight); G.setLineWidth(2)
+    G.line(cx - 7, cy, cx + 7, cy)
+    G.line(cx, cy - 7, cx, cy + 7)
+    G.setLineWidth(1)
+
+    local textX, textW = x + 64, 96
+    self:partyType(self:fitPartyType(translate("ADD TO HOME"), textW),
+      textX, y + 25, colors.ink, textW)
+    self:partyType(self:fitPartyType(
+      translate("APPS") .. " + " .. translate("WIDGETS"), textW),
+      textX, y + 42, colors.green, textW)
+    self:detailChevron(x + w - 13, y + 39, colors.green)
+    self:endPress(pressed)
+  end
+
   function H:homePlus(tile)
     local G, colors = ui.graphics, self.colors
     local x, y, w, h = self:homeRect(tile)
@@ -1827,6 +1867,7 @@ return function(ui)
     model = model or {}
     if model.library then self:homeCatalog(model); return end
     local icon = homeIcons(self)
+    if not model.editing and #(model.tiles or {}) == 0 then self:homeEmpty() end
     for _, slot in ipairs(model.slots or {}) do self:homePlus(slot) end
     for index, tile in ipairs(model.tiles or {}) do
       local selected = model.selected == index or model.selected == tile.id

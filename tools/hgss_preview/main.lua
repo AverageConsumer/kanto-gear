@@ -1929,7 +1929,9 @@ function love.load()
       { id = "store_app", page = 1, column = 7, row = 2 },
       { id = "settings_app", page = 1, column = 10, row = 2 },
     } }
-    if screen == "home-tools" then
+    if screen == "home-empty" then
+      layout.tiles = {}
+    elseif screen == "home-tools" then
       layout.tiles = {
         { id = "tool_widget_bicycle", page = 1, column = 1, row = 1 },
         { id = "tool_widget_old_rod", page = 1, column = 4, row = 1 },

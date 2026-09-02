@@ -9217,6 +9217,19 @@ return function(mod)
       return
     end
     local tile = displayRuntime.homeTileAt(x, y)
+    if not home.editing and not tile and #(layout.tiles or {}) == 0 then
+      local left, top, width, height = THEME.hgss:homeEmptyRect()
+      if inside(x, y, left, top, width, height) then
+        local slots = displayRuntime.Home.plusSlots(layout,
+          displayRuntime.homeCatalog, home.page)
+        if slots[1] then
+          home.editing, home.library, home.addSlot = true, true, slots[1]
+          home.libraryKind, home.libraryPage = "app", 1
+          dirty = true
+        end
+      end
+      return
+    end
     if home.editing then
       if tile then
         local left, top = THEME.hgss:homeRect(tile)
@@ -11020,7 +11033,9 @@ return function(mod)
           and not displayRuntime.home.library then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
         local tile = displayRuntime.homeTileAt(hx, hy)
+        local emptyHome = #(displayRuntime.home.layout.tiles or {}) == 0
         touchDown.homeTile = tile and tile.id
+          or (emptyHome and hy >= 30 and "__empty" or nil)
       end
       if speed then holdTextSpeed(true) end
       dirty = true

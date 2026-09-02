@@ -369,6 +369,19 @@ local movedX, _, movedW = theme.hgss:homeRect(movedTile)
 T.eq(movedX - 7, 233 - movedX - movedW,
   "an app moved to an empty row is visually centered")
 
+home.layout = { tiles = {} }
+home.page, home.editing, home.library, home.addSlot = 1, false, false, nil
+T.check(pcall(display.drawContents),
+  "an empty Home renders a recoverable Add to Home state")
+local emptyHomeX, emptyHomeY, emptyHomeW, emptyHomeH =
+  theme.hgss:homeEmptyRect()
+display.tapHome(emptyHomeX + math.floor(emptyHomeW / 2),
+  emptyHomeY + math.floor(emptyHomeH / 2))
+T.check(home.editing and home.library and home.addSlot ~= nil,
+  "tapping the empty Home opens the existing app and widget library")
+T.eq(home.addSlot.row, 1,
+  "the empty Home starts additions in the first centered row")
+
 api.device = api.device or {
   powerInfo = function() return "battery", 80 end,
 }
@@ -468,6 +481,16 @@ fakeTime = fakeTime + display.Home.holdSeconds + 0.01
 T.check(display.updateHomeLongPress(fakeTime),
   "Home touch input resumes after the long-press finger is released")
 touchEvent(("up,%d,%d"):format(downX, downY))
+home.layout = { tiles = {} }
+home.page, home.editing, home.library, home.addSlot = 1, false, false, nil
+fakeTime = fakeTime + 1
+local emptyDownX = math.floor((emptyHomeX + emptyHomeW / 2) / scale)
+local emptyDownY = math.floor((emptyHomeY + emptyHomeH / 2) / scale)
+touchEvent(("down,%d,%d"):format(emptyDownX, emptyDownY))
+fakeTime = fakeTime + display.Home.holdSeconds + 0.01
+T.check(display.updateHomeLongPress(fakeTime) and home.editing,
+  "holding an empty Home still enters edit mode")
+touchEvent(("up,%d,%d"):format(emptyDownX, emptyDownY))
 love.timer.getTime = realTime
 display.openHomeApp("store")
 
