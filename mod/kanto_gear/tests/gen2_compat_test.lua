@@ -595,7 +595,7 @@ do
     "HGSS battle navigation observes companion readiness")
   run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
   run.loader.events:emit("mod.options_changed",
-    { mod = "kanto_gear", key = "theme_v3" })
+    { mod = "kanto_gear", key = "theme_v3", value = "hgss" })
   debug.setupvalue(runtime.remapBattleRootInput, readyUpvalue, true)
   screen.menuIndex = 1
   game.input = { pressQueue = { "down" } }
@@ -761,7 +761,7 @@ do
   game.input = previousInput
   run.loader.modOptions.kanto_gear.theme_v3 = previousTheme
   run.loader.events:emit("mod.options_changed",
-    { mod = "kanto_gear", key = "theme_v3" })
+    { mod = "kanto_gear", key = "theme_v3", value = previousTheme })
   debug.setupvalue(runtime.remapBattleRootInput, readyUpvalue, true)
 end
 run.loader.modOptions.kanto_gear.battle_view = "full"

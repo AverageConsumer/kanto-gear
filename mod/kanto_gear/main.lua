@@ -1871,6 +1871,16 @@ function THEME:installOptionFallback(mod)
       and type(mod.cache.read) == "function"
       and type(mod.cache.write) == "function" then
     local nativeGet, loaded, values = mod.options.get, {}, {}
+    local function store(key, value)
+      local kind, encoded = type(value)
+      if kind == "boolean" then encoded = value and "b1" or "b0"
+      elseif kind == "number" then encoded = "n" .. tostring(value)
+      elseif kind == "string" then encoded = "s" .. value
+      else return false end
+      if not mod.cache:write("options/" .. key, encoded) then return false end
+      loaded[key], values[key] = true, value
+      return true
+    end
     function mod.options:get(key)
       if not loaded[key] then
         local raw = mod.cache:read("options/" .. key)
@@ -1887,16 +1897,16 @@ function THEME:installOptionFallback(mod)
       return nativeGet(self, key)
     end
     function mod.options:set(key, value)
-      local kind, encoded = type(value)
-      if kind == "boolean" then encoded = value and "b1" or "b0"
-      elseif kind == "number" then encoded = "n" .. tostring(value)
-      elseif kind == "string" then encoded = "s" .. value
-      else return false end
-      local ok = mod.cache:write("options/" .. key, encoded)
-      if not ok then return false end
-      loaded[key], values[key] = true, value
+      if not store(key, value) then return false end
       mod.events:emit("mod.kanto_gear.options_changed",
         { mod = "kanto_gear", key = key, value = value })
+      return true
+    end
+    function mod.options:syncExternal(key, value)
+      if type(key) ~= "string" or value == nil then return false end
+      if not store(key, value) then
+        loaded[key], values[key] = true, value
+      end
       return true
     end
   end
@@ -11155,7 +11165,13 @@ return function(mod)
       dirty = true
     end
   end
-  mod.events:on("mod.options_changed", displayRuntime.optionsChanged)
+  mod.events:on("mod.options_changed", function(payload)
+    if payload and payload.mod == "kanto_gear"
+        and payload.value ~= nil and mod.options.syncExternal then
+      mod.options:syncExternal(payload.key, payload.value)
+    end
+    displayRuntime.optionsChanged(payload)
+  end)
   mod.events:on("mod.kanto_gear.options_changed", displayRuntime.optionsChanged)
 
   function hgssRuntime.remapBattleRootInput(stepGame)
