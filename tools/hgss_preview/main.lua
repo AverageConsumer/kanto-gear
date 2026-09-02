@@ -164,6 +164,8 @@ function love.load()
     bagIcon = bagIcon, translate = translate, format = format,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  assert(loadfile(root .. "/mod/kanto_gear/achievements_ui.lua"))()(
+    theme, love.graphics, translate, format)
   theme:setTouch(20, 20)
   assert(theme:isPressed(29, 29, 3, 3)
       and not theme:isPressed(29, 29, 3, 3, false),
@@ -1378,6 +1380,10 @@ function love.load()
       description = { "PLAN ROUTES AND REMINDERS.",
         "KEEP CLUES CLOSE AT HAND.", "COMING SOON FROM SILPH LABS." } },
   }
+  storeCatalog[#storeCatalog + 1] = { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
+    category = "ADVENTURE", action = "GET", state = "get", new = true,
+    description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
+      "REVISIT AREAS AND FINISH EXPLORING.", "YOUR ADVENTURE, ONE STAMP AT A TIME." } }
   for _, app in ipairs(storeCatalog) do
     if app.id == "party" then
       app.preview = { party = {}, drawPokemon = function(row, x, y, size)
@@ -1488,7 +1494,7 @@ function love.load()
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
   if achievements then
     assert(loadfile(root .. "/tools/hgss_preview/achievements.lua"))()(
-      theme, screen, gen1, font)
+      theme, screen, gen1, translate)
   elseif legacyPpMoves then
     theme:pcList({ summary = translate("CHOOSE MOVE"), entries = {
       { kind = "move", label = "SURF", right = "PP 12/15", selected = true },
@@ -1861,7 +1867,7 @@ function love.load()
         trainer = { installed = true }, tools = { installed = true },
         steps = { installed = true },
         store = { installed = true }, settings = { installed = true },
-        notes = { installed = true },
+        notes = { installed = true }, achievements = { installed = true },
       },
       surfaces = {
         explorer_widget = { package = "explorer", kind = "widget",
@@ -1916,6 +1922,8 @@ function love.load()
           icon = "settings", accent = "blue", label = "OPTIONS" },
         notes_app = { package = "notes", kind = "app", columns = 3,
           icon = "notes", accent = "amber", label = language.homeNotes },
+        achievements_app = { package = "achievements", kind = "app", columns = 3,
+          icon = "achievements", accent = "amber", label = "STAMPS" },
       },
     }
     local layout = { tiles = {
@@ -1926,7 +1934,9 @@ function love.load()
       { id = "store_app", page = 1, column = 7, row = 2 },
       { id = "settings_app", page = 1, column = 10, row = 2 },
     } }
-    if screen:sub(1, 9) == "home-team" then
+    if screen == "home-achievements" then
+      layout.tiles[3].id = "achievements_app"
+    elseif screen:sub(1, 9) == "home-team" then
       layout.tiles = {
         { id = "party_team_widget", page = 1, column = 1, row = 1 },
         { id = "explorer_widget", page = 1, column = 1, row = 2 },

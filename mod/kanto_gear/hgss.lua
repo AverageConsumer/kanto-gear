@@ -1319,6 +1319,10 @@ return function(ui)
         left = 2, top = 3, right = 25, bottom = 24,
         draw = function(x, y) theme:homeStepsIcon(x, y) end,
       },
+      achievements = {
+        left = 1, top = 1, right = 26, bottom = 27,
+        draw = function(x, y) theme:achievementSeal(x + 13, y + 13, 12, "forest", true) end,
+      },
       party = {
         left = 2, top = 3, right = 26, bottom = 22,
         draw = function(x, y) theme:homePartyIcon(x, y) end,
@@ -2490,6 +2494,12 @@ return function(ui)
           quiet, statW - 25)
         self:partyType(self:fitPartyType(statValues[stat + 1], statW - 25),
           left + 22, top + 44, colors.ink, statW - 25)
+      end
+    elseif id == "achievements" then
+      local radius = detailed and 21 or 17
+      for index, kind in ipairs({ "route", "forest", "cave" }) do
+        self:achievementSeal(x + math.floor(w * (index - .5) / 3),
+          top + math.floor(height / 2) - 3, radius, kind, index ~= 3)
       end
     elseif id == "steps" then
       local iconX = x + (detailed and 15 or 7)

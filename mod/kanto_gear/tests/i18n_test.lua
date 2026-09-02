@@ -84,7 +84,7 @@ end
 -- exercised by the preview matrix. Game-provided values never enter this API.
 local requested = {}
 local mainSource
-for _, filename in ipairs({ "main.lua", "hgss.lua" }) do
+for _, filename in ipairs({ "main.lua", "hgss.lua", "achievements_ui.lua" }) do
   local file = assert(io.open(root .. "/" .. filename, "rb"))
   local source = file:read("*a")
   file:close()

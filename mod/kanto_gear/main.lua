@@ -938,7 +938,7 @@ function Area.gen2Hidden(data, world, mapId)
       out[#out + 1] = {
         label = gen2ItemName(data, hidden.item),
         done = gen2FlagSet(world, hidden.event),
-        x = event.x, y = event.y,
+        x = event.x, y = event.y, event = hidden.event,
       }
     end
   end
@@ -976,12 +976,14 @@ function Area.gen2Rows(data, save, world, mapIds)
           id = string.format("%s_obj_%d", mapId, obj.index or 0),
           mapId = mapId, index = obj.index or 0, x = obj.x, y = obj.y,
           spriteId = obj.sprite, palette = obj.palette,
+          event = trainer.event, hideEvent = obj.eventFlag,
+          scripted = obj.trainer == nil,
         }
       elseif obj.itemball and obj.itemball.item ~= 0 then
         rows[2][#rows[2] + 1] = {
           label = gen2ItemName(data, obj.itemball.item),
           done = gen2FlagSet(world, obj.eventFlag),
-          mapId = mapId, x = obj.x, y = obj.y, kind = "item",
+          mapId = mapId, x = obj.x, y = obj.y, kind = "item", event = obj.eventFlag,
         }
       end
     end
@@ -2205,6 +2207,23 @@ return function(mod)
 
   displayRuntime.Home = assert(load(mod:read("home_layout.lua"),
     "@kanto_gear/home_layout.lua"))()
+  displayRuntime.Achievements = assert(load(mod:read("achievements.lua"),
+    "@kanto_gear/achievements.lua"))()
+  assert(load(mod:read("achievements_ui.lua"), "@kanto_gear/achievements_ui.lua"))()(
+    THEME.hgss, G, function(value) return THEME:translate(value) end,
+    function(value, ...) return THEME:format(value, ...) end)
+  displayRuntime.achievements = { view = "goals", page = 1, stale = true }
+  function displayRuntime.resetAchievements()
+    local image = displayRuntime.achievements.locationImage
+    if image and image.release then image:release() end
+    displayRuntime.achievements = { view = "goals", page = 1, stale = true }
+  end
+  for _, event in ipairs({ "flag.changed", "world.interacted", "world.object_toggled", "battle.ended" }) do
+    mod.events:on(event, function()
+      displayRuntime.achievements.stale = true
+      if page == "ACHIEVEMENTS" then dirty = true end
+    end)
+  end
   displayRuntime.homeCatalog = {
     packages = {
       explorer = { installed = true, fixed = true },
@@ -2217,6 +2236,7 @@ return function(mod)
       settings = { installed = true, fixed = true },
       bag = { installed = false },
       pokedex = { installed = false },
+      achievements = { installed = false },
       notes = { installed = false, available = false },
     },
     surfaces = {
@@ -2256,6 +2276,8 @@ return function(mod)
         icon = "bag", accent = "amber", label = "BAG" },
       pokedex_app = { package = "pokedex", kind = "app", columns = 3,
         icon = "pokedex", accent = "red", label = "POKEDEX" },
+      achievements_app = { package = "achievements", kind = "app", columns = 3,
+        icon = "achievements", accent = "amber", label = "STAMPS" },
       notes_app = { package = "notes", kind = "app", columns = 3,
         icon = "notes", accent = "amber", label = "NOTES" },
       settings_app = { package = "settings", kind = "app", columns = 3,
@@ -2271,6 +2293,10 @@ return function(mod)
     }
   end
   displayRuntime.storeCatalog = {
+    { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
+      category = "ADVENTURE", target = "ACHIEVEMENTS", featured = true, new = true,
+      description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
+        "REVISIT AREAS AND FINISH EXPLORING.", "YOUR ADVENTURE, ONE STAMP AT A TIME." } },
     { id = "explorer", icon = "explorer", label = "EXPLORER",
       category = "ADVENTURE", target = "LOCAL", fixed = true,
       description = { "EXPLORE THE AREA AROUND YOU.",
@@ -2287,7 +2313,7 @@ return function(mod)
         "VIEW STATS, MOVES AND STATUS.", "KEEP EVERY PARTNER READY." } },
     { id = "pokedex", icon = "pokedex", label = "POKEDEX",
       category = "RESEARCH", reason = "DEX RESEARCH", target = "POKEDEX",
-      featured = true, new = true,
+      new = true,
       description = { "RESEARCH EVERY SPECIES.",
         "CHECK STATS, MOVES AND HABITATS.", "YOUR FIELD ENCYCLOPEDIA." } },
     { id = "bag", icon = "bag", label = "BAG",
@@ -3010,7 +3036,8 @@ return function(mod)
     if hgss and not wasHgss then
       page, displayRuntime.home.activeApp = "HOME", nil
     elseif not hgss and (page == "HOME" or page == "STORE"
-        or page == "STEPS" or page == "POKEDEX" or page == "BAG") then
+        or page == "STEPS" or page == "POKEDEX" or page == "BAG"
+        or page == "ACHIEVEMENTS") then
       page = "MAP"
     elseif hgss and (page == "GUIDE" or page == "AREA") then
       page = "LOCAL"
@@ -3616,7 +3643,7 @@ return function(mod)
       time = currentTime, section = displayRuntime.sectionName(mapId) }
   end
 
-  local function areaData(mapIds)
+  local function areaData(mapIds, completion)
     local sections = { { name = "TRAINERS", rows = {} },
       { name = "ITEMS", rows = {} }, { name = "HIDDEN", rows = {},
         perPage = assist("item_radar") and 3 or 4 } }
@@ -3630,7 +3657,7 @@ return function(mod)
       return { name = areaName(mapId), screens = screens, pages = #screens,
         sections = sections, remaining = Area.remaining(sections) }
     end
-    local showFuture = assist("spoilers")
+    local showFuture = completion or assist("spoilers")
     for _, id in ipairs(maps) do
       local map = data.maps and data.maps[id]
       for _, obj in ipairs(map and map.objects or {}) do
@@ -3681,7 +3708,7 @@ return function(mod)
           sections[2].rows[#sections[2].rows + 1] = {
             label = item and item.name or obj.item,
             done = save.itemsTaken and save.itemsTaken[key] == true or false,
-            mapId = id, x = obj.x, y = obj.y, kind = "item",
+            mapId = id, x = obj.x, y = obj.y, kind = "item", itemId = obj.item,
           }
         end
       end
@@ -3706,6 +3733,95 @@ return function(mod)
     local screens = checklistPages(sections)
     return { name = areaName(mapId), screens = screens, pages = #screens,
       sections = sections, remaining = Area.remaining(sections) }
+  end
+
+  function displayRuntime.achievementData()
+    local state, Progress = displayRuntime.achievements, displayRuntime.Achievements
+    -- Gen 1 pickups update these sets without a flag event. Compare only when
+    -- this app is drawn, not in the overworld step/update hot path.
+    local pickups = 0
+    for _, field in ipairs({ "itemsTaken", "hiddenTaken" }) do
+      for _, taken in pairs(game.save[field] or {}) do if taken then pickups = pickups + 1 end end
+    end
+    if pickups ~= state.pickups then state.pickups, state.stale = pickups, true end
+    if not state.data or state.stale then
+      local gen2 = compat.isGen2()
+      local visited = mod.save:get("achievement_visits", {})
+      if type(visited) ~= "table" then visited = {} end
+      state.groups = state.groups or Progress.groups(gen2 and game.data.gen2Maps
+        or game.data.maps, locationEntries())
+      state.data = Progress.build(state.groups, function(maps) return areaData(maps, true) end, {
+        gen2 = gen2, save = game.save, mapId = mapId,
+        visited = visited,
+        flag = function(id) return mod.world and mod.world.getFlag
+          and mod.world:getFlag(id) == true or false end,
+      })
+      state.stale = false
+    end
+    return state.data
+  end
+
+  function displayRuntime.achievementModel()
+    local state, Progress = displayRuntime.achievements, displayRuntime.Achievements
+    local mode = THEME:researchMode(mod.options:get("info_level"))
+    if mode == "legacy" then mode = assist("spoilers") and "spoiler" or "vanilla" end
+    local data = displayRuntime.achievementData()
+    local areas, goals, earned = Progress.visible(data, mode)
+    local area = state.selected and data.byId[state.selected]
+    if area and mode ~= "spoiler" and not area.evidence then area = nil end
+    if not area and state.view ~= "album" and state.view ~= "goals" then state.view = "album" end
+    if mode ~= "spoiler" and state.view == "location" then state.view, state.location = "detail", nil end
+    if state.view == "location" and state.location then
+      displayRuntime.loadAchievementLocation(state.location)
+    end
+    local entries = state.view == "finds" and area
+      and Progress.visibleRows(area, state.category, mode) or areas
+    local size = state.view == "finds" and 4 or 6
+    local pages = math.max(1, math.ceil(#entries / size))
+    state.page = math.max(1, math.min(state.page or 1, pages))
+    local shown = {}
+    for index = (state.page - 1) * size + 1, math.min(#entries, state.page * size) do
+      shown[#shown + 1] = entries[index]
+    end
+    return { view = state.view, page = state.page, pages = pages, area = area,
+      goal = goals[1], earned = earned, entries = shown, mode = mode,
+      location = state.location,
+      section = state.location and displayRuntime.sectionName(state.location.mapId) or "",
+      drawLocation = state.location and state.locationImage
+        and function(x, y, w, h) displayRuntime.drawAchievementLocation(x, y, w, h) end or nil }
+  end
+
+  function displayRuntime.cycleAchievements(direction)
+    local state, model = displayRuntime.achievements, displayRuntime.achievementModel()
+    if state.view == "album" or state.view == "finds" then
+      state.page = (state.page - 1 + direction) % model.pages + 1
+    elseif state.view == "goals" then state.view, state.page = "album", 1 end
+    dirty = true
+  end
+
+  function displayRuntime.tapAchievements(x, y)
+    local state = displayRuntime.achievements
+    if y < 30 and x < 35 then
+      if state.view == "location" then state.view, state.location = "finds", nil
+      elseif state.view == "finds" then state.view, state.page = "detail", 1
+      elseif state.view == "detail" then
+        state.view, state.selected, state.page = state.parent or "album", nil, state.parentPage or 1
+      else page, displayRuntime.home.activeApp = "HOME", nil end
+      dirty = true
+      return
+    end
+    local action, value = THEME.hgss:achievementsHit(x, y)
+    if action == "view" then state.view, state.page, state.selected = value, 1, nil
+    elseif action == "area" then
+      state.parent, state.parentPage = state.view, state.page
+      state.selected, state.view, state.page = value, "detail", 1
+    elseif action == "category" then state.category, state.view, state.page = value, "finds", 1
+    elseif action == "page" then displayRuntime.cycleAchievements(value)
+    elseif action == "locate" and displayRuntime.achievementModel().mode == "spoiler" then
+      state.location, state.view = value, "location"
+      displayRuntime.loadAchievementLocation(value)
+    end
+    dirty = true
   end
 
   local function hasItemfinder()
@@ -4242,6 +4358,9 @@ return function(mod)
       page == "POKEDEX" and tostring(displayRuntime.pokedex.page) or "",
       page == "POKEDEX" and tostring(displayRuntime.pokedex.habitatPage) or "",
       page == "POKEDEX" and tostring(displayRuntime.pokedex.movePage) or "",
+      page == "ACHIEVEMENTS" and tostring(displayRuntime.achievements.view) or "",
+      page == "ACHIEVEMENTS" and tostring(displayRuntime.achievements.selected) or "",
+      page == "ACHIEVEMENTS" and tostring(displayRuntime.achievements.page) or "",
       page == "BAG" and tostring(displayRuntime.bag.pocket) or "",
       page == "BAG" and tostring(displayRuntime.bag.page) or "",
       page == "BAG" and tostring(displayRuntime.bag.detail) or "",
@@ -5125,6 +5244,70 @@ return function(mod)
     end)
     localMapImage = ok and image or false
     return localMapImage or nil
+  end
+
+  function displayRuntime.drawAchievements()
+    local model = displayRuntime.achievementModel()
+    header(model.area and model.area.name or THEME:translate("ACHIEVEMENTS"), true, false)
+    G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    THEME.hgss:achievements(model)
+    G.pop()
+  end
+
+  function displayRuntime.loadAchievementLocation(row)
+    local state = displayRuntime.achievements
+    if state.locationMap == row.mapId and state.locationDark == THEME.hgss.dark then return end
+    if state.locationImage and state.locationImage.release then state.locationImage:release() end
+    state.locationMap, state.locationImage = row.mapId, nil
+    state.locationDark = THEME.hgss.dark
+    -- Build a detached, read-only map. Never enter/warp the live world or touch
+    -- its MapLoader cache just because the user browses a different area.
+    local ok, result, density = pcall(function()
+      local gen2 = compat.isGen2()
+      local def = (gen2 and game.data.gen2Maps or game.data.maps)[row.mapId]
+      local tilesets = gen2 and game.data.gen2Tilesets or game.data.tilesets
+      local tileset = def and tilesets and tilesets[def.tileset]
+      if not def or not tileset then return nil end
+      local copy = {}
+      for key, value in pairs(def) do copy[key] = value end
+      copy.id, copy.connections = row.mapId, {}
+      local Map = require(gen2 and "src.world.gen2.Map" or "src.world.Map")
+      local overview = require("src.world.MapOverview").build(Map.new(copy, tileset), {})
+      local rows = overview.tileDetailRows or overview.tileRows
+      if not rows or #rows == 0 then return nil end
+      local d = overview.tileDetailRows and 4 or 2
+      local pixels = love.image.newImageData(#rows[1], #rows)
+      for y, line in ipairs(rows) do for x = 1, #line do
+        local color = THEME.hgss:mapColor(overview, x, y, d, line:sub(x, x))
+        pixels:setPixel(x - 1, y - 1, unpack(color))
+      end end
+      local image = G.newImage(pixels); image:setFilter("nearest", "nearest")
+      if pixels.release then pixels:release() end
+      return image, d
+    end)
+    if ok then state.locationImage, state.locationDensity = result, density
+    else mod.log:warn("achievement map preview unavailable: %s", tostring(result)) end
+  end
+
+  function displayRuntime.drawAchievementLocation(x, y, w, h)
+    local state = displayRuntime.achievements
+    local image, row = state.locationImage, state.location
+    if not image or not row then return end
+    local iw, ih = image:getDimensions()
+    local scale = math.max(1, w / iw, h / ih)
+    local px, py = (row.x + .5) * state.locationDensity, (row.y + .5) * state.locationDensity
+    local left = math.floor(math.max(x + w - iw * scale, math.min(x, x + w / 2 - px * scale)))
+    local top = math.floor(math.max(y + h - ih * scale, math.min(y, y + h / 2 - py * scale)))
+    G.push("all")
+    local sx, sy = G.transformPoint(x, y)
+    local right, bottom = G.transformPoint(x + w, y + h)
+    G.setScissor(sx, sy, right - sx, bottom - sy)
+    G.setColor(1, 1, 1, 1); G.draw(image, left, top, 0, scale, scale)
+    local mx, my = math.floor(left + px * scale), math.floor(top + py * scale)
+    G.setColor(.08, .14, .12, 1); G.rectangle("fill", mx - 4, my - 4, 9, 9)
+    G.setColor(1, .77, .21, 1); G.rectangle("fill", mx - 3, my - 3, 7, 7)
+    G.setColor(.08, .14, .12, 1); G.rectangle("fill", mx - 1, my - 1, 3, 3)
+    G.pop()
   end
 
   local function drawLocalMap()
@@ -8906,6 +9089,8 @@ return function(mod)
       displayRuntime.drawStore()
     elseif THEME.style == "hgss" and page == "POKEDEX" then
       displayRuntime.drawPokedex()
+    elseif THEME.style == "hgss" and page == "ACHIEVEMENTS" then
+      displayRuntime.drawAchievements()
     elseif THEME.style == "hgss" and page == "BAG" then
       displayRuntime.drawBag()
     elseif THEME.style == "hgss" and page == "SETTINGS" then
@@ -9235,7 +9420,10 @@ return function(mod)
     if not app or not app.target or not package or not package.installed then
       return false
     end
-    if id == "pokedex" then
+    if id == "achievements" then
+      local state = displayRuntime.achievements
+      state.view, state.page, state.selected, state.stale = "goals", 1, nil, true
+    elseif id == "pokedex" then
       displayRuntime.pokedex.view, displayRuntime.pokedex.page = "index", 1
       displayRuntime.pokedex.habitatPage = 1
       displayRuntime.pokedex.movePage = 1
@@ -10289,6 +10477,9 @@ return function(mod)
     elseif THEME.style == "hgss" and page == "POKEDEX" then
       displayRuntime.cyclePokedex(direction)
       return
+    elseif THEME.style == "hgss" and page == "ACHIEVEMENTS" then
+      displayRuntime.cycleAchievements(direction)
+      return
     elseif THEME.style == "hgss" and page == "BAG" then
       if displayRuntime.bag.detail then
         displayRuntime.bag.detail, displayRuntime.bag.message = nil, nil
@@ -10622,6 +10813,9 @@ return function(mod)
       return
     elseif THEME.style == "hgss" and page == "POKEDEX" then
       displayRuntime.tapPokedex(x, y)
+      return
+    elseif THEME.style == "hgss" and page == "ACHIEVEMENTS" then
+      displayRuntime.tapAchievements(x * THEME.hgssScale, y * THEME.hgssScale)
       return
     elseif THEME.style == "hgss" and page == "BAG" then
       displayRuntime.tapBag(x, y)
@@ -10975,6 +11169,15 @@ return function(mod)
       displayRuntime.cyclePokedex(dx < 0 and 1 or -1)
       return
     end
+    if THEME.style == "hgss" and page == "ACHIEVEMENTS" then
+      local state = displayRuntime.achievements
+      if (down.y or 0) * THEME.hgssScale < 53
+          and (state.view == "album" or state.view == "goals") then
+        state.view, state.page = state.view == "album" and "goals" or "album", 1
+        dirty = true
+      else displayRuntime.cycleAchievements(dx < 0 and 1 or -1) end
+      return
+    end
     if THEME.style == "hgss" and page == "BAG" then
       if displayRuntime.bag.detail then return end
       local y = (down.y or 0) * THEME.hgssScale
@@ -11216,6 +11419,7 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     game = payload.game
+    displayRuntime.resetAchievements()
     THEME.storedTheme = mod.options:get("theme_v3")
     spriteCache.__badges = nil
     spriteCache.__gen2Badges = nil
@@ -11239,6 +11443,7 @@ return function(mod)
   end)
 
   function displayRuntime.reloadSavedUi()
+    displayRuntime.resetAchievements()
     displayRuntime.pokedex.data = nil
     reloadSteps()
     displayRuntime.loadHome()
@@ -11254,6 +11459,13 @@ return function(mod)
     displayRuntime.pokedex.data = nil
     guidePage, displayRuntime.guideDetail, areaPage = 1, nil, 1
     radarOpen = false
+    displayRuntime.achievements.stale = true
+    local visited = mod.save:get("achievement_visits", {})
+    if type(visited) ~= "table" then visited = {} end
+    if type(mapId) == "string" and not visited[mapId] then
+      visited[mapId] = true
+      mod.save:set("achievement_visits", visited)
+    end
   end)
 
   mod.events:on("pokemon.caught", function()
