@@ -66,12 +66,13 @@ New-Item -ItemType Directory -Path (Join-Path $runtime "local\overworld") `
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot "main.lua") `
   -Destination (Join-Path $runtime "main.lua") -Force
 $sourceImages | Copy-Item -Destination (Join-Path $runtime "local") -Force
-if ($pokedex) {
+if ($pokedex -or $env:KANTO_GEAR_PREVIEW_SCREEN -like "home-team*") {
   $fronts = Join-Path $env:APPDATA `
     "pokemon-love2d\red\assets\generated\battle\front"
   $dexNames = @("bulbasaur", "ivysaur", "venusaur", "charmander",
     "charmeleon", "charizard", "squirtle", "wartortle", "blastoise",
     "caterpie", "metapod", "butterfree", "gyarados")
+  if (-not $pokedex) { $dexNames = @("venusaur", "charizard") }
   New-Item -ItemType Directory -Path (Join-Path $runtime "local\dex") `
     -Force | Out-Null
   foreach ($name in $dexNames) {

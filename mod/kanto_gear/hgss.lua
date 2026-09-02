@@ -1506,6 +1506,17 @@ return function(ui)
       box("fill", x + 13, y + 12, 3, 5, colors.red)
     elseif kind == "steps" then
       self:homeStepsIcon(x + 1, y + 1)
+    elseif kind == "team" then
+      for row = 0, 1 do
+        for column = 0, 2 do
+          local cx, cy = x + 6 + column * 8, y + 9 + row * 10
+          color(colors.outline); G.circle("fill", cx, cy, 4)
+          color(colors.redLight); G.circle("fill", cx, cy, 3)
+          box("fill", cx - 2, cy + 1, 5, 2, colors.white)
+          box("fill", cx - 3, cy, 7, 1, colors.outline)
+          box("fill", cx, cy, 1, 1, colors.white)
+        end
+      end
     elseif kind == "pokedex" then
       self:homePokedexIcon(x + 1, y + 1)
     elseif kind == "trainer" then
@@ -1629,6 +1640,62 @@ return function(ui)
       x + w - 45, y + 65, colors.ink, 39)
     self:hpBar(x + 6, y + 74, w - 12, model.lead and model.lead.hp or 0,
       model.lead and model.lead.maxHp or 1)
+  end
+
+  function H:homeTeamSlotRect(tile, slot)
+    local x, y, w = self:homeRect(tile)
+    return x + math.floor((w - 214) / 2) + (slot - 1) * 36,
+      y + 22, 34, 56
+  end
+
+  function H:homeTeamSlotAt(x, y, tile, count)
+    for slot = 1, math.min(6, count or 0) do
+      local left, top, w, h = self:homeTeamSlotRect(tile, slot)
+      if x >= left and x < left + w and y >= top and y < top + h then
+        return slot
+      end
+    end
+  end
+
+  function H:homeTeam(model, tile, selected)
+    local G, colors = ui.graphics, self.colors
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.partyLight, selected)
+    self:homeWidgetHeader(x, y, w, "TEAM VIEW", colors.party,
+      colors.partyLight, model.editing)
+    for slot = 1, 6 do
+      local left, top, width, height = self:homeTeamSlotRect(tile, slot)
+      local mon = model.team and model.team[slot]
+      local pressed = self:beginPress(left, top, width, height,
+        mon ~= nil and not model.editing)
+      if mon then
+        local fainted = not mon.egg and (mon.hp or 0) <= 0
+        self:partyPortrait(left, top - 1, false, fainted)
+        if model.drawPokemon then
+          model.drawPokemon(mon, left + 1, top + 3, 32, fainted)
+        end
+        if mon.egg then
+          self:partyType(translate("EGG"), left, top + 43, colors.green, width)
+        else
+          local label = displayText(mon.levelText or "--")
+          local labelWidth = partyTypeFont:getWidth(label)
+          local statusWidth = mon.statusId and 11 or 0
+          local labelLeft = left + math.floor((width - labelWidth - statusWidth) / 2)
+          self:partyType(label, labelLeft, top + 39, colors.ink, labelWidth)
+          if mon.statusId then
+            self:statusIcon(mon.statusId, labelLeft + labelWidth + 3, top + 40)
+          end
+          self:hpBar(left + 2, top + 50, width - 4, mon.hp, mon.maxHp)
+        end
+      else
+        color(colors.band)
+        G.circle("line", left + 17, top + 19, 12)
+        G.line(left + 5, top + 19, left + 29, top + 19)
+        color(colors.surface); G.circle("fill", left + 17, top + 19, 3)
+        color(colors.band); G.circle("line", left + 17, top + 19, 3)
+      end
+      self:endPress(pressed)
+    end
   end
 
   function H:homePokedex(model, tile, selected)
@@ -1922,11 +1989,14 @@ return function(ui)
     for index, tile in ipairs(model.tiles or {}) do
       local selected = model.selected == index or model.selected == tile.id
       local x, y, w, h = self:homeRect(tile)
-      local pressed = self:beginPress(x, y, w, h)
+      local pressed = self:beginPress(x, y, w,
+        tile.widget == "team" and not model.editing and 20 or h)
       if tile.kind == "widget" and tile.widget == "explorer" then
         self:homeExplorer(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "party" then
         self:homeParty(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "team" then
+        self:homeTeam(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "pokedex" then
         self:homePokedex(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "trainer" then

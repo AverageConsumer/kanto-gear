@@ -2224,6 +2224,8 @@ return function(mod)
         widget = "explorer", columns = 7, label = "EXPLORER" },
       party_widget = { package = "party", kind = "widget",
         widget = "party", columns = 5, label = "PARTY" },
+      party_team_widget = { package = "party", kind = "widget",
+        widget = "team", columns = 12, label = "TEAM VIEW" },
       pokedex_widget = { package = "pokedex", kind = "widget",
         widget = "pokedex", columns = 5, label = "POKEDEX" },
       trainer_widget = { package = "trainer", kind = "widget",
@@ -5814,7 +5816,7 @@ return function(mod)
     local type2 = mon.types and (mon.types[2] or mon.types[1])
       or def.types and (def.types[2] or def.types[1])
     return {
-      name = mon.name, egg = compat.partyEgg(source),
+      slot = mon.slot, name = mon.name, egg = compat.partyEgg(source),
       gender = mon.gender, hp = mon.hp, maxHp = maxHp,
       expProgress = mon.expProgress,
       statusId = (mon.hp or 0) <= 0 and "FNT"
@@ -5929,9 +5931,15 @@ return function(mod)
     end
     local overview = needed.explorer and loadLocalMap() or nil
     local explorer = overview and displayRuntime.explorerModel(overview) or {}
-    local party = needed.party and partyData() or {}
+    local party = (needed.party or needed.team) and partyData() or {}
     local lead = party[1]
     local leadView = lead and displayRuntime.partyView(lead) or nil
+    local team = {}
+    if needed.team then
+      for index, mon in ipairs(party) do
+        team[index] = displayRuntime.partyView(mon)
+      end
+    end
     local dex = (needed.pokedex or needed.trainer)
       and displayRuntime.pokedexData() or { entries = {}, caught = 0, total = 0 }
     local dexSeen, dexLatest = 0, nil
@@ -5950,7 +5958,7 @@ return function(mod)
       route = explorer.route or "UNKNOWN AREA",
       overview = overview, image = explorer.image,
       player = explorer.player, markers = explorer.markers,
-      lead = leadView,
+      lead = leadView, team = team,
       steps = compactSteps(steps),
       dexCaught = dex.caught, dexSeen = dexSeen, dexTotal = dex.total,
       dexLatest = dexLatest,
@@ -5959,14 +5967,15 @@ return function(mod)
       regionMap = needed.map and displayRuntime.homeRegionMap() or nil,
       storePromo = needed.store and displayRuntime.storeWidgetSummary() or nil,
       drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
-      drawPokemon = function(_, x, y, size)
-        if not lead then return end
-        local source = lead.source or lead
+      drawPokemon = function(view, x, y, size, fainted)
+        local mon = party[view and view.slot or 1]
+        if not mon then return end
+        local source = mon.source or mon
         if compat.partyEgg(source) then
           compat.drawPokemonIcon(source, x, y, size)
-        elseif not drawSprite(lead.species, "front", x, y, size, size,
-            nil, source, true) then
-          compat.drawPokemonIcon(source, x, y, size)
+        elseif not drawSprite(mon.species, "front", x, y, size, size,
+            nil, source, true, fainted) then
+          compat.drawPokemonIcon(source, x, y, size, fainted and 0.48 or nil)
         end
       end,
       drawDexPokemon = function(entry, x, y, size)
@@ -9246,6 +9255,22 @@ return function(mod)
     end
   end
 
+  function displayRuntime.openPartySummary(slot)
+    local mon = game.save.party and game.save.party[slot]
+    if not mon then return false end
+    partyActionSlot, partyMoveFrom = nil, nil
+    if compat.isGen2() then
+      mod.ui.push(game, compat.screenName("summary", true), {
+        mon = mon, party = game.save.party, index = slot,
+        onClose = function() game.stack:pop() end,
+      })
+    else
+      mod.ui.push(game, compat.screenName("summary", false), mon)
+    end
+    dirty = true
+    return true
+  end
+
   function displayRuntime.tapHome(x, y)
     local home, layout = displayRuntime.home, displayRuntime.home.layout
     if displayRuntime.homeHelpActive() then
@@ -9356,6 +9381,17 @@ return function(mod)
     if surface and surface.widget == "tool" then
       if not displayRuntime.activateTool(surface.action, surface.rodId) then
         displayRuntime.openHomeApp("tools")
+      end
+    elseif surface and surface.widget == "team" then
+      local _, top = THEME.hgss:homeRect(tile)
+      if y < top + 20 then
+        displayRuntime.openHomeApp("party")
+      else
+        local slot = THEME.hgss:homeTeamSlotAt(x, y, tile,
+          #(game.save.party or {}))
+        if slot and displayRuntime.openHomeApp("party") then
+          displayRuntime.openPartySummary(slot)
+        end
       end
     elseif surface then displayRuntime.openHomeApp(surface.package) end
   end
@@ -10616,15 +10652,7 @@ return function(mod)
             actionCount = canSwap and 2 or 1,
           })
         end
-        partyActionSlot = nil
-        if compat.isGen2() then
-          mod.ui.push(game, compat.screenName("summary", true), {
-            mon = mon, party = game.save.party, index = slot,
-            onClose = function() game.stack:pop() end,
-          })
-        else
-          mod.ui.push(game, compat.screenName("summary", false), mon)
-        end
+        displayRuntime.openPartySummary(slot)
       elseif canSwap and (action == 2
           or THEME.style ~= "hgss" and inside(x, y, 14, 84, 132, 38)) then
         if THEME.style == "hgss" then

@@ -22,6 +22,8 @@ return {
   ["TRAINER"] = "TRAINER",
   ["STEP COUNTER"] = "SCHRITTZÄHLER",
   ["PARTY"] = "TEAM",
+  ["TEAM VIEW"] = "TEAMÜBERSICHT",
+  ["EGG"] = "EI",
   ["TOOLS"] = "TOOLS",
   ["STORE"] = "STORE",
   ["SETTINGS"] = "EINSTELLUNGEN",

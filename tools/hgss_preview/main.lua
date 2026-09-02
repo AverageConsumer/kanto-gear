@@ -400,6 +400,15 @@ function love.load()
   love.graphics.setCanvas(canvas)
   love.graphics.clear(theme.colors.bg)
   local gen1 = os.getenv("KANTO_GEAR_PREVIEW_GEN") == "1"
+  if gen1 and screen:sub(1, 9) == "home-team" then
+    for slot, name in ipairs({ "venusaur", "charizard" }) do
+      local data = love.image.newImageData("local/dex/" .. name .. ".png")
+      local image = love.graphics.newImage(data)
+      image:setFilter("nearest", "nearest")
+      local quad, width, height = spriteView(data)
+      sprites[slot] = { image = image, quad = quad, width = width, height = height }
+    end
+  end
   local battleRoot = screen == "battle_root"
   local battleFull = screen == "battle_full"
   local battleMessage = screen == "battle_message"
@@ -1857,6 +1866,8 @@ function love.load()
           icon = "map", accent = "blue", label = "MAP" },
         party_widget = { package = "party", kind = "widget",
           widget = "party", columns = 5, label = "PARTY" },
+        party_team_widget = { package = "party", kind = "widget",
+          widget = "team", columns = 12, label = "TEAM VIEW" },
         pokedex_widget = { package = "pokedex", kind = "widget",
           widget = "pokedex", columns = 5, label = "POKEDEX" },
         trainer_widget = { package = "trainer", kind = "widget",
@@ -1909,7 +1920,13 @@ function love.load()
       { id = "store_app", page = 1, column = 7, row = 2 },
       { id = "settings_app", page = 1, column = 10, row = 2 },
     } }
-    if screen == "home-empty" or screen == "home-help-empty" then
+    if screen:sub(1, 9) == "home-team" then
+      layout.tiles = {
+        { id = "party_team_widget", page = 1, column = 1, row = 1 },
+        { id = "explorer_widget", page = 1, column = 1, row = 2 },
+        { id = "party_widget", page = 1, column = 8, row = 2 },
+      }
+    elseif screen == "home-empty" or screen == "home-help-empty" then
       layout.tiles = {}
     elseif screen == "home-help-bottom" then
       layout.tiles = { { id = "party_widget", page = 1, column = 1, row = 2 } }
@@ -1982,6 +1999,15 @@ function love.load()
         "                        ",
       },
     }
+    local team = {}
+    for slot, mon in ipairs(party) do
+      if screen ~= "home-team-small" or slot <= 2 then
+        team[slot] = {}
+        for key, value in pairs(mon) do team[slot][key] = value end
+        team[slot].slot = slot
+      end
+    end
+    if screen == "home-team-small" then team[2].levelText = "L100" end
     local model = {
       page = homePage, pages = homePages,
       help = screen == "home-help" or screen == "home-help-bottom"
@@ -1995,7 +2021,7 @@ function love.load()
         { kind = "warp", x = 1, y = 6 },
         { kind = "item", x = 18, y = 6 },
       },
-      lead = party[gen1 and 6 or 1],
+      lead = party[gen1 and 6 or 1], team = team,
       steps = "184K",
       dexCaught = gen1 and 83 or 146,
       dexSeen = gen1 and 112 or 201,
@@ -2043,8 +2069,8 @@ function love.load()
       drawPlayer = function(_, x, y, tileSize)
         drawOverworld("player", x, y, tileSize / 16, theme.colors.redLight)
       end,
-      drawPokemon = function(_, x, y, size)
-        drawPortrait(gen1 and 6 or 1, x, y, size, false)
+      drawPokemon = function(mon, x, y, size, fainted)
+        drawPortrait(mon.slot or (gen1 and 6 or 1), x, y, size, fainted)
       end,
       drawDexPokemon = function(_, x, y, size)
         drawPortrait(gen1 and 6 or 2, x, y, size, false)
@@ -2070,6 +2096,25 @@ function love.load()
       model.libraryPages = math.max(1, math.ceil(#model.library / 6))
       model.libraryPage = math.max(1, math.min(model.libraryPages,
         math.floor(tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1)))
+    end
+    if screen:sub(1, 9) == "home-team" then
+      local tile = model.tiles[1]
+      local tx, _, tw = theme:homeRect(tile)
+      local firstX = theme:homeTeamSlotRect(tile, 1)
+      local lastX, _, lastW = theme:homeTeamSlotRect(tile, 6)
+      assert(firstX - tx == tx + tw - lastX - lastW,
+        "team portrait group has equal outer margins")
+      for slot = 1, 6 do
+        local x, y, w, h = theme:homeTeamSlotRect(tile, slot)
+        assert(theme:homeTeamSlotAt(x + w / 2, y + h / 2, tile, #team)
+            == (slot <= #team and slot or nil), "team touch follows each occupied slot")
+      end
+      assert(theme:homeTeamSlotAt(tx + tw / 2, 42, tile, #team) == nil,
+        "team header is separate from member touches")
+      if screen == "home-team-pressed" then
+        local x, y = theme:homeTeamSlotRect(tile, 2)
+        theme:setTouch((x + 17) / 1.5, (y + 20) / 1.5)
+      end
     end
     theme:home(model)
   elseif bag then
