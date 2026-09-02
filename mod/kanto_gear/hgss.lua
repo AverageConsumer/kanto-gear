@@ -3844,6 +3844,8 @@ return function(ui)
     ui.graphics.draw(ui.bagIcon, x, y)
   end
 
+  local BATTLE_ACTION_CONTENT_RISE = 2
+
   function H:battleBagAction(mon, selected, offsetX, offsetY)
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
@@ -3851,6 +3853,7 @@ return function(ui)
     G.push()
     G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(6, 149, 68, 52, "amber", selected)
+    G.translate(0, -BATTLE_ACTION_CONTENT_RISE)
     self:battleBagIcon(27, 154)
     self:label(mon.bagLabel or "BAG", 6, 183, colors.white, 68, "center")
     G.pop()
@@ -3864,6 +3867,7 @@ return function(ui)
     G.push()
     G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(166, 149, 68, 52, "green", selected)
+    G.translate(0, -BATTLE_ACTION_CONTENT_RISE)
     self:battleTeamBall(185, 169, true)
     self:battleTeamBall(200, 164, true)
     self:battleTeamBall(215, 169, true)
@@ -3894,6 +3898,7 @@ return function(ui)
     G.push()
     G.translate(offsetX, offsetY + 10)
     self:battleActionPanel(86, 149, 68, 52, "blue", selected)
+    G.translate(0, -BATTLE_ACTION_CONTENT_RISE)
     self:battleRunnerIcon(119, 168)
     self:label(mon.runLabel or "RUN", 86, 183, colors.white, 68, "center")
     G.pop()
