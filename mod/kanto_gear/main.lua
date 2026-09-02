@@ -5974,7 +5974,7 @@ return function(mod)
         if compat.partyEgg(source) then
           compat.drawPokemonIcon(source, x, y, size)
         elseif not drawSprite(mon.species, "front", x, y, size, size,
-            nil, source, true, fainted) then
+            nil, source, true, fainted and 0.48 or nil) then
           compat.drawPokemonIcon(source, x, y, size, fainted and 0.48 or nil)
         end
       end,

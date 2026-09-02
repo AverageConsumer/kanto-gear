@@ -3,7 +3,10 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 local T = require("tests.modkit")
 local generation = assert(tonumber(arg[1]), "choose generation 1 or 2")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
-local run = T.sdk.loadMod(path, { generation = generation, data = T.fixtures.load() })
+local data = T.fixtures.load()
+-- The headless image stub supplies pixels; the normal asset resolver stays live.
+data.pokemon.FIXMON_A.spriteFront = "team-widget-fixture.png"
+local run = T.sdk.loadMod(path, { generation = generation, data = data })
 T.eq(run.mod.state, "loaded", "mod loads")
 local function upvalue(fn, target)
   for index = 1, debug.getinfo(fn, "u").nups do
@@ -25,7 +28,7 @@ local tap = upvalue(touchEvent, "tap")
 local world = { map = { id = "PALLET_TOWN" } }
 local party = {}
 for index = 1, 6 do
-  party[index] = { species = "BULBASAUR", nickname = "PARTNER" .. index,
+  party[index] = { species = "FIXMON_A", nickname = "PARTNER" .. index,
     level = index * 10, hp = index == 5 and 0 or 30, stats = { hp = 50 },
     status = index == 6 and "SLP" or index == 1 and "PAR" or nil,
     exp = 1000, moves = {}, isEgg = generation == 2 and index == 4 }
@@ -82,6 +85,44 @@ for index, mon in ipairs(captured.team) do
   T.eq(mon.slot, index, "member view retains its exact party index")
   T.eq(mon.maxHp, 50, "member view retains maximum HP")
 end
+
+-- Exercise the real Home -> drawSprite -> graphics path, including KO tint.
+-- The host's permissive setColor stub otherwise accepts invalid booleans.
+love.graphics.arc = love.graphics.arc or function() end
+local graphics = love.graphics
+local setColor, draw, push, pop = graphics.setColor, graphics.draw,
+  graphics.push, graphics.pop
+local spritePath = require("src.pokemon.Sprites").path(run.data, "FIXMON_A", "front")
+T.check(spritePath ~= nil, "render fixture resolves a Pokemon image path")
+local dimmed, normal, depth = 0, 0, 0
+graphics.setColor = function(r, g, b, a)
+  if type(r) == "table" then r, g, b, a = unpack(r) end
+  assert(type(r) == "number" and type(g) == "number" and type(b) == "number"
+    and (a == nil or type(a) == "number"), "setColor requires numeric channels")
+  return setColor(r, g, b, a)
+end
+graphics.draw = function(image, ...)
+  if image.path == spritePath then
+    local r, g, b = graphics.getColor()
+    if r == 0.48 and g == 0.48 and b == 0.48 then dimmed = dimmed + 1 end
+    if r == 1 and g == 1 and b == 1 then normal = normal + 1 end
+  end
+  return draw(image, ...)
+end
+graphics.push = function(...) depth = depth + 1; return push(...) end
+graphics.pop = function(...) depth = depth - 1; return pop(...) end
+local rendered, renderError = pcall(function()
+  for frame = 1, 120 do
+    display.drawContents()
+    assert(depth == 0, "Home frame leaked graphics pushes")
+  end
+end)
+graphics.setColor, graphics.draw, graphics.push, graphics.pop = setColor, draw, push, pop
+while depth > 0 do pop(); depth = depth - 1 end
+T.check(rendered, "120 real Home frames render without errors: " .. tostring(renderError))
+T.eq(dimmed, 120, "KO portrait uses numeric dimming in every frame")
+T.eq(normal, 120 * (generation == 2 and 4 or 5),
+  "healthy portraits stay bright and Gen 2 eggs bypass Pokemon art")
 
 local opened, opens = nil, 0
 api.ui.push = function(receivedGame, screen, payload)
