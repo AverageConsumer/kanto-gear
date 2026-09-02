@@ -1,4 +1,13 @@
 return {
+  ["YOUR SILPH LINK."] = "TU SILPH LINK.",
+  ["YOUR HOME SCREEN."] = "TU PANTALLA DE INICIO.",
+  ["HOLD AN APP OR WIDGET"] = "MANTÉN PULSADA UNA APP O WIDGET",
+  ["TO CUSTOMIZE YOUR"] = "PARA PERSONALIZAR",
+  ["HOME SCREEN."] = "TU PANTALLA DE INICIO.",
+  ["GOT IT"] = "ENTENDIDO",
+  ["HELP AND RESET"] = "AYUDA Y RESTABLECER",
+  ["CUSTOMIZE HOME"] = "PERSONALIZAR INICIO",
+  ["SHOW ME"] = "VER GUÍA",
   -- Traducción al español de España de Kanto Gear.
   -- Las claves originales y los marcadores %s/%d/%% se mantienen sin cambios.
   ["START GAME"] = "INICIAR JUEGO",

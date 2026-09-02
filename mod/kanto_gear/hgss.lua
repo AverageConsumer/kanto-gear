@@ -1863,10 +1863,59 @@ return function(ui)
     end
   end
 
+  function H:homeHelpLayout(tiles)
+    local target = tiles and tiles[1]
+    for _, tile in ipairs(tiles or {}) do
+      if tile.kind == "widget" then target = tile; break end
+    end
+    local _, top = self:homeRect(target or {})
+    return target, target and (top < 115 and 123 or 29) or 66
+  end
+
+  function H:homeHelpHit(x, y, tiles)
+    local _, top = self:homeHelpLayout(tiles)
+    return x >= 70 and x < 170 and y >= top + 62 and y < top + 79
+  end
+
+  function H:homeHelp(tiles)
+    local colors = self.colors
+    local target, top = self:homeHelpLayout(tiles)
+    local dim = { 0, 0, 0, 0.55 }
+    if target then
+      local x, y, w, h = self:homeRect(target)
+      box("fill", 0, 0, 240, y, dim)
+      box("fill", 0, y + h, 240, 216 - y - h, dim)
+      box("fill", 0, y, x, h, dim)
+      box("fill", x + w, y, 240 - x - w, h, dim)
+      border(x - 1, y - 1, w + 2, h + 2, colors.greenLight)
+    else
+      box("fill", 0, 0, 240, 216, dim)
+    end
+    self:homeTile(7, top, 226, 84, colors.greenLight, false)
+    self:partyInfo(translate("YOUR SILPH LINK."), 17, top + 4,
+      colors.ink, 206, "center")
+    self:partyInfo(translate("YOUR HOME SCREEN."), 17, top + 15,
+      self.dark and colors.greenLight or colors.green, 206, "center")
+    for line, value in ipairs({ translate("HOLD AN APP OR WIDGET"),
+        translate("TO CUSTOMIZE YOUR"), translate("HOME SCREEN.") }) do
+      self:partyType(value, 17, top + 20 + line * 9, colors.ink, 206)
+    end
+    local pressed = self:beginPress(70, top + 62, 100, 17)
+    if self:shadowVisible() then
+      clipped(71, top + 64, 100, 17, colors.shadow)
+    end
+    clipped(70, top + 62, 100, 17, colors.green)
+    border(70, top + 62, 100, 17, colors.outline)
+    self:partyType(translate("GOT IT"), 70, top + 65, colors.white, 100)
+    self:endPress(pressed)
+  end
+
   function H:home(model)
     local colors = self.colors
     model = model or {}
     if model.library then self:homeCatalog(model); return end
+    local touchX, touchY = self.touchX, self.touchY
+    if model.help then self:setTouch() end
     local icon = homeIcons(self)
     if not model.editing and #(model.tiles or {}) == 0 then self:homeEmpty() end
     for _, slot in ipairs(model.slots or {}) do self:homePlus(slot) end
@@ -1904,6 +1953,10 @@ return function(ui)
       self:endPress(pressed)
     end
     self:homePager(model.page, model.pages)
+    if model.help then
+      self:setTouch(touchX, touchY)
+      self:homeHelp(model.tiles)
+    end
   end
 
   function H:toolCard(action, x, y)

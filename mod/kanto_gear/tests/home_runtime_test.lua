@@ -219,6 +219,84 @@ api.storage = {
     return nil, "not_found"
   end,
 }
+do
+  api.device = api.device or { powerInfo = function() return "battery", 80 end }
+  -- Complete the headless drawing stubs for existing Home portraits and icons.
+  love.graphics.arc = love.graphics.arc or function() end
+  love.graphics.polygon = love.graphics.polygon or function() end
+  T.check(home.help and display.homeHelpActive(),
+    "a fresh install introduces Home customization")
+  durableHome = display.homeSnapshot()
+  durableHome.helpSeen = nil
+  display.loadHome()
+  T.check(display.homeHelpActive(),
+    "existing layouts without the acknowledgement also receive the hint")
+  local initialTiles = #home.layout.tiles
+  local scale = theme.hgssScale
+  local _, panelY = theme.hgss:homeHelpLayout(display.homePageElements())
+  local acceptX, acceptY = math.floor(120 / scale), math.floor((panelY + 70) / scale)
+  local acceptDown = ("down,%d,%d"):format(acceptX, acceptY)
+  local acceptUp = ("up,%d,%d"):format(acceptX, acceptY)
+  touchEvent("down,20,35")
+  T.check(not display.updateHomeLongPress(love.timer.getTime() + 2)
+      and not home.editing, "the hint blocks long presses on the highlighted widget")
+  T.check(pcall(display.drawContents), "the first-run hint renders in the real Home")
+  local pressCalls, originalBeginPress = 0, theme.hgss.beginPress
+  theme.hgss.beginPress = function(self, left, top, width, height, ...)
+    local pressed = originalBeginPress(self, left, top, width, height, ...)
+    if pressed and top < panelY then pressCalls = pressCalls + 1 end
+    return pressed
+  end
+  display.drawContents()
+  theme.hgss.beginPress = originalBeginPress
+  T.eq(pressCalls, 0, "background widgets cannot animate beneath the hint")
+  touchEvent("up,20,35")
+  T.check(home.help and page() == "HOME", "tapping the spotlight cannot open an app")
+  touchEvent("down,140,100")
+  touchEvent("up,20,100")
+  T.check(home.help and home.page == 1, "a swipe cannot dismiss or page behind the hint")
+  touchEvent(acceptDown)
+  touchEvent("cancel,0,0")
+  T.check(home.help and not home.helpSeen, "a cancelled confirmation is not remembered")
+  world.isTextBox = true
+  T.check(not display.homeHelpActive(), "game dialogue takes priority over Home help")
+  world.isTextBox = nil
+  theme.style = "classic"
+  T.check(not display.homeHelpActive(), "Legacy themes never show the Home hint")
+  theme.style = "hgss"
+  touchEvent(acceptDown)
+  touchEvent(acceptUp)
+  T.check(not home.help and home.helpSeen,
+    "only confirming Got it dismisses the automatic hint")
+  T.check(durableHome.helpSeen, "confirmation is written without an in-game save")
+  T.eq(#home.layout.tiles, initialTiles, "confirmation preserves the Home layout")
+  api.save:set("home_help_seen", false)
+  home.help, home.helpSeen = nil, nil
+  display.loadHome()
+  T.check(not home.help, "durable acknowledgement survives a stale game-save reload")
+  display.openHomeApp("settings")
+  display.settings.category = 6
+  T.eq(display.settingsModel().rows[1].action, "home_help",
+    "System settings exposes the explanation above the reset actions")
+  display.tapSettings(30, 50)
+  T.check(page() == "HOME" and home.help and not home.editing,
+    "Show me reopens the hint with one tap without resetting Home")
+  T.eq(#home.layout.tiles, initialTiles, "replaying help preserves every Home tile")
+  local _, top = theme.hgss:homeHelpLayout(display.homePageElements())
+  display.tapHome(120, top + 70)
+  for _, tiles in ipairs({ {}, { { kind = "app", row = 1 } },
+      { { kind = "widget", row = 2 } } }) do
+    local target, helpTop = theme.hgss:homeHelpLayout(tiles)
+    T.check(theme.hgss:homeHelpHit(120, helpTop + 70, tiles)
+        and not theme.hgss:homeHelpHit(20, helpTop + 70, tiles),
+      "empty and rearranged layouts share the visible confirmation hitbox")
+    if target then
+      local _, tileY, _, tileH = theme.hgss:homeRect(target)
+      T.check(helpTop + 84 <= tileY or helpTop >= tileY + tileH,
+        "help stays in the opposite row without covering the spotlight")
+    end
+  end
+end
 home.layout = { tiles = {
   { id = "tools_app", page = 1, column = 1, row = 1 },
   { id = "party_app", page = 1, column = 4, row = 1 },

@@ -2333,8 +2333,8 @@ return function(mod)
       accent = "amber", keys = { "info_level" } },
     { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS",
       accent = "blue", keys = { "trigger_tabs" } },
-    { id = "system", label = "SYSTEM", detail = "RESET SILPH LINK",
-      accent = "green", actions = { "reset_home", "reset_options" } },
+    { id = "system", label = "SYSTEM", detail = "HELP AND RESET",
+      accent = "green", actions = { "home_help", "reset_home", "reset_options" } },
   }
   displayRuntime.defaultHomeTiles = {
     { id = "explorer_widget", page = 1, column = 1, row = 1 },
@@ -2406,8 +2406,10 @@ return function(mod)
     end
     for _, action in ipairs(category.actions or {}) do
       rows[#rows + 1] = { action = action,
-        label = action == "reset_home" and "RESET HOME" or "RESET OPTIONS",
-        value = state.confirm == action and "TAP AGAIN" or "RESET" }
+        label = action == "home_help" and "CUSTOMIZE HOME"
+          or action == "reset_home" and "RESET HOME" or "RESET OPTIONS",
+        value = action == "home_help" and "SHOW ME"
+          or state.confirm == action and "TAP AGAIN" or "RESET" }
     end
     local pages = math.max(1, math.ceil(#rows / 4))
     state.page = math.max(1, math.min(pages, state.page or 1))
@@ -2455,6 +2457,11 @@ return function(mod)
 
   function displayRuntime.runSettingsAction(action)
     local state = displayRuntime.settings
+    if action == "home_help" then
+      state.confirm = nil
+      displayRuntime.showHomeHelp()
+      return
+    end
     if state.confirm ~= action then state.confirm, dirty = action, true; return end
     state.confirm = nil
     if action == "reset_home" then
@@ -3049,7 +3056,8 @@ return function(mod)
         column = tile.column, row = tile.row,
       }
     end
-    return { format = 1, packages = installed, layout = layout }
+    return { format = 1, packages = installed, layout = layout,
+      helpSeen = displayRuntime.home.helpSeen == true }
   end
 
   function displayRuntime.saveHome()
@@ -3057,6 +3065,7 @@ return function(mod)
     -- Keep the normal-save copy for backwards compatibility and recovery.
     mod.save:set("home_packages", state.packages)
     mod.save:set("home_layout", state.layout)
+    mod.save:set("home_help_seen", state.helpSeen)
     -- Home customization is UI state: commit it immediately instead of
     -- requiring another in-game SAVE before the app may be restarted.
     if game and mod.storage and mod.storage.write then
@@ -3107,6 +3116,9 @@ return function(mod)
     displayRuntime.home.editing, displayRuntime.home.library = false, false
     displayRuntime.home.addSlot, displayRuntime.home.activeApp = nil, nil
     displayRuntime.home.swapSource = nil
+    displayRuntime.home.helpSeen = durable and durable.helpSeen == true
+      or mod.save:get("home_help_seen", false) == true
+    displayRuntime.home.help = not displayRuntime.home.helpSeen
     if not durable and hasSaved and game and mod.storage
         and mod.storage.write then
       mod.storage:write(game, "home/state", displayRuntime.homeSnapshot())
@@ -5864,6 +5876,28 @@ return function(mod)
     end
   end
 
+  function displayRuntime.homeHelpActive()
+    local home = displayRuntime.home
+    return THEME.style == "hgss" and page == "HOME" and home.help == true
+      and not home.editing and not home.library and not battle
+      and not pendingFly and not pendingAction and not fieldChoice
+      and screenState() == "active"
+  end
+
+  function displayRuntime.showHomeHelp()
+    local home = displayRuntime.home
+    home.editing, home.library, home.addSlot, home.swapSource = false, false, nil, nil
+    home.help, home.activeApp, page, touchDown, dirty = true, nil, "HOME", nil, true
+  end
+
+  function displayRuntime.tapHomeHelp(x, y)
+    if THEME.hgss:homeHelpHit(x, y, displayRuntime.homePageElements()) then
+      displayRuntime.home.help, displayRuntime.home.helpSeen = false, true
+      displayRuntime.saveHome()
+      dirty = true
+    end
+  end
+
   function displayRuntime.homePageElements()
     local home = displayRuntime.home
     local tiles = displayRuntime.Home.tiles(home.layout,
@@ -5908,6 +5942,7 @@ return function(mod)
     local trainer = needed.trainer and displayRuntime.trainerSummary() or nil
     local model = {
       page = home.page, pages = pages,
+      help = displayRuntime.homeHelpActive(),
       tiles = tiles,
       editing = home.editing,
       slots = slots,
@@ -9213,6 +9248,10 @@ return function(mod)
 
   function displayRuntime.tapHome(x, y)
     local home, layout = displayRuntime.home, displayRuntime.home.layout
+    if displayRuntime.homeHelpActive() then
+      displayRuntime.tapHomeHelp(x, y)
+      return
+    end
     if home.library then
       if y < 30 and x < 27 then
         home.library, home.addSlot, dirty = false, nil, true
@@ -10181,6 +10220,7 @@ return function(mod)
   end
 
   local function changePage(direction)
+    if displayRuntime.homeHelpActive() then return end
     if pendingFly or pendingAction or fieldChoice or partyActionSlot
         or partyMoveFrom
         or displayRuntime.moveLearnScreen()
@@ -10395,6 +10435,10 @@ return function(mod)
   end
 
   local function tap(x, y)
+    if displayRuntime.homeHelpActive() then
+      displayRuntime.tapHomeHelp(x * THEME.hgssScale, y * THEME.hgssScale)
+      return
+    end
     if moveInfo then
       if y < HEADER and x < 24 then back() end
       return
@@ -11021,7 +11065,8 @@ return function(mod)
     local down = touchDown
     if not down or down.blockedUntilRelease or not down.homeTile
         or THEME.style ~= "hgss" or page ~= "HOME"
-        or displayRuntime.home.editing then return false end
+        or displayRuntime.home.editing
+        or displayRuntime.homeHelpActive() then return false end
     local dx = ((down.currentX or down.x) - down.x) * THEME.hgssScale
     local dy = ((down.currentY or down.y) - down.y) * THEME.hgssScale
     if not displayRuntime.Home.longPress(now - down.at, dx, dy) then
@@ -11073,13 +11118,15 @@ return function(mod)
           or displayRuntime.fieldBagParty()
           or pcSession() }
       if THEME.style == "hgss" and page == "HOME"
-          and not displayRuntime.home.library then
+          and not displayRuntime.home.library
+          and not displayRuntime.homeHelpActive() then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
         local tile = displayRuntime.homeTileAt(hx, hy)
         local emptyHome = #(displayRuntime.home.layout.tiles or {}) == 0
         touchDown.homeTile = tile and tile.id
           or (emptyHome and hy >= 30 and "__empty" or nil)
       end
+      touchDown.homeHelp = displayRuntime.homeHelpActive()
       if speed then holdTextSpeed(true) end
       dirty = true
     elseif (action == "move" or action == "moved") and x and touchDown then
@@ -11102,6 +11149,15 @@ return function(mod)
       local dx, dy = x - down.x, y - down.y
       touchDown = nil
       dirty = true
+      if down.homeHelp then
+        if displayRuntime.homeHelpActive()
+            and math.abs(dx) < 12 and math.abs(dy) < 12
+            and THEME.hgss:homeHelpHit(down.x * THEME.hgssScale,
+              down.y * THEME.hgssScale, displayRuntime.homePageElements()) then
+          displayRuntime.tapHomeHelp(x * THEME.hgssScale, y * THEME.hgssScale)
+        end
+        return
+      end
       if down.textSpeed then
         textSpeedReleasePending = true
         return

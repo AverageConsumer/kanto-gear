@@ -1797,7 +1797,7 @@ function love.load()
       { label = "BATTLE", detail = "HUD AND BATTLE INFO", accent = "red" },
       { label = "RESEARCH", detail = "VANILLA TO SPOILERS", accent = "amber" },
       { label = "CONTROLS", detail = "OPTIONAL SHORTCUTS", accent = "blue" },
-      { label = "SYSTEM", detail = "RESET SILPH LINK", accent = "green" },
+      { label = "SYSTEM", detail = "HELP AND RESET", accent = "green" },
     } })
   elseif settingsDisplay then
     theme:settings({ category = "display", accent = "green", page = 1,
@@ -1821,6 +1821,7 @@ function love.load()
   elseif settingsSystem then
     theme:settings({ category = "system", accent = "green", page = 1,
       pages = 1, rows = {
+        { label = "CUSTOMIZE HOME", value = "SHOW ME", action = "home_help" },
         { label = "RESET HOME", value = "RESET", action = "reset_home" },
         { label = "RESET OPTIONS", value = "TAP AGAIN",
           action = "reset_options" },
@@ -1908,8 +1909,12 @@ function love.load()
       { id = "store_app", page = 1, column = 7, row = 2 },
       { id = "settings_app", page = 1, column = 10, row = 2 },
     } }
-    if screen == "home-empty" then
+    if screen == "home-empty" or screen == "home-help-empty" then
       layout.tiles = {}
+    elseif screen == "home-help-bottom" then
+      layout.tiles = { { id = "party_widget", page = 1, column = 1, row = 2 } }
+    elseif screen == "home-help-icon" then
+      layout.tiles = { { id = "map_app", page = 1, column = 1, row = 1 } }
     elseif screen == "home-tools" then
       layout.tiles = {
         { id = "tool_widget_bicycle", page = 1, column = 1, row = 1 },
@@ -1979,6 +1984,8 @@ function love.load()
     }
     local model = {
       page = homePage, pages = homePages,
+      help = screen == "home-help" or screen == "home-help-bottom"
+        or screen == "home-help-empty" or screen == "home-help-icon",
       tiles = Home.tiles(layout, catalog, homePage),
       editing = homeEdit,
       route = gen1 and "ROUTE 15" or "ROUTE 37",
