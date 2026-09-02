@@ -9,6 +9,7 @@ Silver and Crystal in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
 
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest Kanto Gear release"></a>
+  <a href="https://github.com/AverageConsumer/kanto-gear/releases"><img src="https://img.shields.io/github/downloads/AverageConsumer/kanto-gear/total?label=downloads&color=2f81f7" alt="Total Kanto Gear downloads"></a>
   <a href="https://bryanthaboi.github.io/gen1recomp-mod-index/"><img src="https://img.shields.io/badge/official-Mod%20Index-6f42c1" alt="Available in the official Gen1Recomp Mod Index"></a>
   <img src="https://img.shields.io/badge/games-Gen%201%20%2B%20Gen%202-e8b923" alt="Supports Pokémon Gen 1 and Gen 2">
 </p>
