@@ -992,9 +992,15 @@ do
     function() return true end, summary), true,
     "missing battle snapshots leave the native summary visible")
   debug.setupvalue(summaryHook, battleUpvalue, {})
+  local previousBattleView = run.loader.modOptions.kanto_gear.battle_view
+  run.loader.modOptions.kanto_gear.battle_view = "standard"
+  T.eq(run.loader.hooks:call("screen.render_visible",
+    function() return true end, summary), true,
+    "Gen 1 Standard battle summaries remain visible on the top screen")
+  run.loader.modOptions.kanto_gear.battle_view = "gear"
   T.eq(run.loader.hooks:call("screen.render_visible",
     function() return true end, summary), false,
-    "Gen 1 battle summaries render only on the companion screen")
+    "Gen 1 Gear battle summaries render only on the companion screen")
   local raw = { isBattleState = true, kind = "wild" }
   local invalidParty = { screenId = "PartyMenu" }
   local throwingParty = { screenId = "PartyMenu", index = 1,
@@ -1029,7 +1035,7 @@ do
   T.eq(run.loader.hooks:call("ui.party.grid_navigation",
     function() return false end, validParty), true,
     "native-contract battle party menus opt into companion navigation")
-  run.loader.modOptions.kanto_gear.battle_view = nil
+  run.loader.modOptions.kanto_gear.battle_view = previousBattleView
   debug.setupvalue(summaryHook, battleUpvalue, previousBattle)
   debug.setupvalue(summaryHook, readyUpvalue, previousReady)
   game.stack.states = previousStates
@@ -1143,6 +1149,7 @@ do
     hgssRuntime.remapSummaryMovesInput, summaryReadyUpvalue)
   local previousTheme = run.loader.modOptions.kanto_gear.theme_v3
   local previousMoveDetails = run.loader.modOptions.kanto_gear.move_details
+  local previousBattleView = run.loader.modOptions.kanto_gear.battle_view
   local previousStates = game.stack.states
   local previousSummaryInput = game.input
   local summaryMon = game.save.party[1]
@@ -1164,6 +1171,7 @@ do
   }
   run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
   run.loader.modOptions.kanto_gear.move_details = true
+  run.loader.modOptions.kanto_gear.battle_view = "gear"
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "theme_v3" })
   debug.setupvalue(hgssRuntime.remapSummaryMovesInput,
@@ -1189,6 +1197,7 @@ do
   game.input = previousSummaryInput
   run.loader.modOptions.kanto_gear.theme_v3 = previousTheme
   run.loader.modOptions.kanto_gear.move_details = previousMoveDetails
+  run.loader.modOptions.kanto_gear.battle_view = previousBattleView
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "theme_v3" })
   debug.setupvalue(hgssRuntime.remapSummaryMovesInput,

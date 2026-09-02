@@ -2525,7 +2525,8 @@ function love.load()
             ppText = "10/10", powerText = "--", accuracyText = "90" },
         }
       end
-      mon.moveIndex = os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") ~= "field" and 1 or nil
+      mon.moveIndex = not standardBattle
+        and os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") ~= "field" and 1 or nil
       mon.moveDetails = true
       for _, move in ipairs(mon.moves) do move.available = true end
       if memoTransition then

@@ -260,5 +260,64 @@ for members = 1, 6 do
       "party content group has equal top/bottom breathing room")
   end
 end
+-- Standard mirrors native screens; only Gear/Full Gear may hide them.
+local visibility = hook("screen.render_visible")
+local oldDisplay = upvalue(visibility, "hasDisplay", function() return true end, true)
+local oldReady = upvalue(visibility, "displayReady", true, true)
+local oldActive = upvalue(visibility, "active", true, true)
+local summary = { screenId = generation == 2 and "Gen2SummaryMenu" or "SummaryMenu",
+  mon = party[1], page = 1, moveIndex = 1,
+  expToNext = function() return 100 end, itemName = function() return "--" end,
+  otName = function() return "RED" end, otId = function() return 7 end }
+summary.mon.moves = { battle.moves[1], battle.moves[2] }
+local nativeScreens = { raw, menu, bag,
+  { kind = "pp_item_move", index = 1, items = { { label = "MOVE" } } },
+  { isTextBox = true }, { screenId = "MoveLearnMenu" },
+  { screenId = "Gen2ScriptMenu" }, { screenId = "UnrecognizedModMenu" } }
+for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
+  options.battle_view = mode
+  local mirrored = mode == "standard" or mode == "info"
+  stack.states = { world, raw, summary }
+  for page = 1, generation == 2 and 3 or 2 do
+    summary.page = page
+    T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, summary),
+      mirrored, mode .. " has correct native summary visibility on page " .. page)
+    T.eq(run.loader.hooks:call("screen.render_visible", function() return false end, summary),
+      false, "another renderer's explicit suppression is respected")
+  end
+  summary.page, summary.moveIndex = 2, 1
+  game.input.pressQueue = { "down" }
+  runtime.remapSummaryMovesInput(game)
+  T.eq(#game.input.pressQueue, mirrored and 1 or 0,
+    mode .. " only intercepts summary navigation when it owns the screen")
+  T.eq(runtime.summaryView(summary).moveIndex ~= nil, not mirrored,
+    mode .. " shows move focus only when D-pad actually controls it")
+  if mirrored then
+    game.input.pressQueue = { "a", "b", "up", "down", "left", "right" }
+    runtime.remapSummaryMovesInput(game)
+    T.eq(table.concat(game.input.pressQueue, ","), "a,b,up,down,left,right",
+      "mirrored summaries retain the original page/close/Pokemon controls")
+    for _, screen in ipairs(nativeScreens) do
+      stack.states = { world, raw, screen }
+      T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, screen),
+        true, mode .. " never hides a native battle submenu")
+      T.eq(run.loader.hooks:call("battle.bottom_ui_visible", function() return true end, screen),
+        true, mode .. " preserves native battle commands and dialogue")
+    end
+    T.eq(run.loader.hooks:call("battle.status_hud_visible", function() return true end, raw),
+      true, mode .. " preserves the native battle status HUD")
+  end
+end
+options.battle_view = "gear"
+stack.states = { world, summary }
+T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, summary),
+  true, "field summaries still render above")
+stack.states = { world, raw, summary }
+upvalue(visibility, "displayReady", false, true)
+T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, summary),
+  true, "Gear cannot hide a summary when the companion display is unavailable")
+upvalue(visibility, "hasDisplay", oldDisplay, true)
+upvalue(visibility, "displayReady", oldReady, true)
+upvalue(visibility, "active", oldActive, true)
 T.eq(#run.errors, 0, "no runtime errors during the battle screen audit")
 T.finish("Standard battle layouts Gen " .. generation)

@@ -6741,7 +6741,7 @@ return function(mod)
         accuracyText = move.accuracy and tostring(move.accuracy) or "--",
       }
     end
-    out.moveIndex = battle and (summary.moveIndex or 1) or nil
+    out.moveIndex = battle and hideUpperBattleUI() and (summary.moveIndex or 1) or nil
     return out, view
   end
 
@@ -11661,7 +11661,7 @@ return function(mod)
 
   function hgssRuntime.remapSummaryMovesInput(stepGame)
     if stepGame ~= game or THEME.style ~= "hgss" or not battle
-        or not assist("move_details") then return end
+        or not hideUpperBattleUI() or not assist("move_details") then return end
     local summary = screenById("summary")
     local raw, top = battleState(), game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
@@ -12098,6 +12098,8 @@ return function(mod)
 
   mod.hooks:wrap("screen.render_visible", function(next, state)
     if next(state) == false then return false end
+    -- Standard/Info never replace native screens, including every stats page.
+    if not hideUpperBattleUI() then return true end
     if compat.isScreen(state, "summary")
         and compat.summary.supports(state, game) then
       return not (active and hasDisplay() and displayReady
