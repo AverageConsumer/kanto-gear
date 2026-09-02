@@ -1601,9 +1601,9 @@ return function(ui)
     })
     local route = self:fitPartyType(model.route or translate("UNKNOWN AREA"), 76)
     local routeWidth = math.max(48, partyTypeFont:getWidth(route) + 10)
-    clipped(x + 6, y + h - 20, routeWidth, 12, colors.surface)
-    border(x + 6, y + h - 20, routeWidth, 12, colors.outline)
-    self:partyType(route, x + 6, y + h - 20, colors.ink, routeWidth)
+    clipped(x + 7, y + h - 20, routeWidth, 12, colors.surface)
+    border(x + 7, y + h - 20, routeWidth, 12, colors.outline)
+    self:partyType(route, x + 7, y + h - 20, colors.ink, routeWidth)
   end
 
   function H:homeParty(model, tile, selected)
@@ -1623,7 +1623,7 @@ return function(ui)
     self:partyType(model.lead and model.lead.levelText or "--",
       x + 6, y + 65, colors.green, 26)
     if model.lead and model.lead.statusId then
-      self:statusIcon(model.lead.statusId, x + 34, y + 65)
+      self:statusIcon(model.lead.statusId, x + 34, y + 66)
     end
     self:partyType(model.lead and model.lead.hpText or "--/--",
       x + w - 45, y + 65, colors.ink, 39)
