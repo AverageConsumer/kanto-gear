@@ -1,4 +1,5 @@
 return {
+  ["GEAR HAPTICS"] = "VIBRATION GEAR",
   ["%d OPTIONAL"] = "%d FACULTATIFS",
   ["%d ARCHIVED"] = "%d ARCHIVÉS",
   ["ACHIEVEMENTS"] = "SUCCÈS",

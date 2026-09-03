@@ -2069,6 +2069,10 @@ return function(mod)
       type = "toggle", default = true },
     { key = "trigger_tabs", label = "TRIGGER TABS",
       type = "toggle", default = false },
+    { key = "ui_haptics", label = "GEAR HAPTICS",
+      type = "toggle", default = false, visible_if = {
+        key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
+      } },
   })
 
   mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
@@ -2360,7 +2364,7 @@ return function(mod)
     { id = "research", label = "RESEARCH", detail = "VANILLA TO SPOILERS",
       accent = "amber", keys = { "info_level" } },
     { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS",
-      accent = "blue", keys = { "trigger_tabs" } },
+      accent = "blue", keys = { "trigger_tabs", "ui_haptics" } },
     { id = "system", label = "SYSTEM", detail = "HELP AND RESET",
       accent = "green", actions = { "home_help", "reset_home", "reset_options" } },
   }
@@ -2571,6 +2575,23 @@ return function(mod)
   local displayReady = false
   local nextPresentAttempt = 0
   local themeKey = nil
+
+  -- Feedback belongs to accepted actions, never drawing, pointer-down or focus.
+  -- Use the host's device vibration path without changing its touchpad settings.
+  function displayRuntime.haptic(seconds)
+    if THEME.style ~= "hgss" or mod.options:get("ui_haptics") ~= true then
+      return false
+    end
+    local now = love.timer.getTime()
+    if now < (displayRuntime.nextHaptic or 0) then return false end
+    displayRuntime.nextHaptic = now + 0.25
+    local ok, result = pcall(function()
+      local system = love.system
+      if not system or type(system.vibrate) ~= "function" then return false end
+      return system.vibrate(seconds or 0.012)
+    end)
+    return ok and result ~= false
+  end
 
   function hgssRuntime.standardBattle()
     return THEME.style == "hgss" and currentBattleUIMode() == "standard"
@@ -4278,6 +4299,29 @@ return function(mod)
     if world.flyAnim or world.teleportOut then return "locked", top, 0.58 end
     if (compat.isGen2() and not top) or top == world then return "active", top, 0 end
     return "locked", top, 0.58
+  end
+
+  function displayRuntime.finishScanFeedback()
+    if mod.options:get("ui_haptics") ~= true
+        or not active or THEME.style ~= "hgss" or page ~= "LOCAL" or battle
+        or displayRuntime.overlayHidden or screenState() ~= "active"
+        or displayRuntime.explorer.scanMapId ~= mapId
+        or assist("spoilers") or not assist("item_radar")
+        or not hasItemfinder() then return end
+    if #radarSignals() > 0 then displayRuntime.haptic(0.025) end
+  end
+
+  function displayRuntime.advanceExplorerScan(now)
+    local explorer = displayRuntime.explorer
+    if not explorer.scanFrame or explorer.scanFrame >= RADAR_FRAMES then return end
+    local frame = math.min(RADAR_FRAMES,
+      math.floor(math.max(0, now - explorer.scanStarted) / 0.05))
+    if frame == explorer.scanFrame then return end
+    explorer.scanFrame, dirty = frame, true
+    -- Never deliver an old confirmation after a pause or a stalled frame.
+    if frame == RADAR_FRAMES and now - explorer.scanStarted <= 1.3 then
+      displayRuntime.finishScanFeedback()
+    end
   end
 
   local function dialogueChoice()
@@ -9534,12 +9578,13 @@ return function(mod)
         local column, row = visible % 2, math.floor(visible / 2)
         if item and item.available and inside(x, y,
             10 + column * 111, 49 + row * 48, 108, 46) then
-          displayRuntime.Home.place(layout, displayRuntime.homeCatalog,
+          local placed = displayRuntime.Home.place(layout, displayRuntime.homeCatalog,
             item.id, home.page, home.addSlot.column, home.addSlot.row)
           displayRuntime.Home.compactRows(layout,
             displayRuntime.homeCatalog)
           home.library, home.addSlot = false, nil
           displayRuntime.saveHome()
+          if placed then displayRuntime.haptic() end
           return
         end
       end
@@ -9589,6 +9634,7 @@ return function(mod)
             home.swapSource, tile.id) then
           home.swapSource = nil
           displayRuntime.saveHome()
+          displayRuntime.haptic()
         end
         return
       end
@@ -9602,6 +9648,7 @@ return function(mod)
                 home.swapSource, home.page, column, slot.row) then
               home.swapSource = nil
               displayRuntime.saveHome()
+              displayRuntime.haptic()
             end
           else
             home.library, home.addSlot = true, slot
@@ -9614,22 +9661,24 @@ return function(mod)
       return
     end
     local surface = tile and displayRuntime.homeCatalog.surfaces[tile.id]
+    local opened
     if surface and surface.widget == "tool" then
       if not displayRuntime.activateTool(surface.action, surface.rodId) then
-        displayRuntime.openHomeApp("tools")
+        opened = displayRuntime.openHomeApp("tools")
       end
     elseif surface and surface.widget == "team" then
       local _, top = THEME.hgss:homeRect(tile)
       if y < top + 20 then
-        displayRuntime.openHomeApp("party")
+        opened = displayRuntime.openHomeApp("party")
       else
         local slot = THEME.hgss:homeTeamSlotAt(x, y, tile,
           #(game.save.party or {}))
         if slot and displayRuntime.openHomeApp("party") then
-          displayRuntime.openPartySummary(slot)
+          opened = displayRuntime.openPartySummary(slot)
         end
       end
-    elseif surface then displayRuntime.openHomeApp(surface.package) end
+    elseif surface then opened = displayRuntime.openHomeApp(surface.package) end
+    if opened then displayRuntime.haptic() end
   end
 
   function displayRuntime.activateStoreEntry(entry)
@@ -11547,6 +11596,9 @@ return function(mod)
 
   function displayRuntime.optionsChanged(payload)
     if payload and payload.mod == "kanto_gear" then
+      if payload.key == "ui_haptics" and payload.value == true then
+        displayRuntime.haptic()
+      end
       if payload.key == "theme_v3" then
         THEME.storedTheme = payload.value
         refreshTheme(true)
@@ -12239,14 +12291,7 @@ return function(mod)
           math.floor(math.max(0, now - radarStarted) / 0.05))
         if frame ~= radarFrame then radarFrame, dirty = frame, true end
       end
-      local explorer = displayRuntime.explorer
-      if explorer.scanFrame and explorer.scanFrame < RADAR_FRAMES then
-        local frame = math.min(RADAR_FRAMES,
-          math.floor(math.max(0, now - explorer.scanStarted) / 0.05))
-        if frame ~= explorer.scanFrame then
-          explorer.scanFrame, dirty = frame, true
-        end
-      end
+      displayRuntime.advanceExplorerScan(now)
       local screenKey = table.concat({ mode, tostring(top),
         tostring(page), tostring(guidePage), tostring(areaPage),
          tostring(displayRuntime.explorer.view),

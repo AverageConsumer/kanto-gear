@@ -121,8 +121,9 @@ for index = 1, debug.getinfo(entry, "u").nups do
   local name, value = debug.getupvalue(entry, index)
   if name == "methodLines" then methodLines = value break end
 end
-T.check(not source:find("love.system", 1, true),
-  "Kanto Gear uses sandbox-safe device and date/time facades")
+local nonHapticSource = source:gsub("local system = love%.system", "")
+T.check(not nonHapticSource:find("love.system", 1, true),
+  "device and date/time use safe facades; only haptics access the host system shim")
 T.check(type(methodLines) == "function",
   "Kanto Gear encounter method layout is available")
 local method1, method2 = methodLines({
@@ -332,7 +333,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 19, "Kanto Gear adds one language setting")
+T.eq(#options, 20, "Kanto Gear registers all settings including optional haptics")
 local optionsByKey = {}
 for _, row in ipairs(options) do optionsByKey[row.key] = row end
 T.eq(optionsByKey.language.default, "en", "language preserves English by default")

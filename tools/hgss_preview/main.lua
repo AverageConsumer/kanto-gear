@@ -499,8 +499,9 @@ function love.load()
     screen == "settings_display"
   local settingsAppearance, settingsSystem = screen == "settings_appearance",
     screen == "settings_system"
+  local settingsControls = screen == "settings_controls"
   local settings = settingsRoot or settingsDisplay
-    or settingsAppearance or settingsSystem
+    or settingsAppearance or settingsSystem or settingsControls
   local store = storeToday or storeApps or storeLibrary or storeDetail
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
@@ -563,6 +564,7 @@ function love.load()
     or tools and "FIELD KIT"
     or settingsDisplay and "DISPLAY"
     or settingsAppearance and "APPEARANCE"
+    or settingsControls and "CONTROLS"
     or settingsSystem and "SYSTEM"
     or settings and "SETTINGS"
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
@@ -1840,6 +1842,12 @@ function love.load()
         { label = "THEME", value = "HGSS AUTO" },
         { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
         { label = "TRANSITIONS", value = "ON" },
+      } })
+  elseif settingsControls then
+    theme:settings({ category = "controls", accent = "blue", page = 1,
+      pages = 1, rows = {
+        { label = "TRIGGER TABS", value = "OFF" },
+        { label = "GEAR HAPTICS", value = "ON" },
       } })
   elseif settingsSystem then
     theme:settings({ category = "system", accent = "green", page = 1,

@@ -78,6 +78,8 @@ T.eq(api.cache:read("options/theme_v3"), "shgss_dark",
   "the fallback persists the theme outside the game save")
 T.check(api.options:set("ui_motion", false), "the fallback accepts toggles")
 T.eq(api.cache:read("options/ui_motion"), "b0", "toggle values persist losslessly")
+T.check(api.options:set("ui_haptics", true), "haptics can be enabled independently")
+T.eq(api.cache:read("options/ui_haptics"), "b1", "haptics persist outside the game save")
 T.check(api.options:set("secondary_size", 20), "the fallback accepts numbers")
 T.eq(api.cache:read("options/secondary_size"), "n20",
   "numeric values persist losslessly")
@@ -130,6 +132,8 @@ run.release()
 local restarted = loadWithoutNativeSetter(persistedCache)
 restarted.loader.events:emit("game.ready", { game = gameFor(restarted) })
 local restartedTheme = upvalue(runtime(restarted).drawContents, "THEME")
+local restartedApi = upvalue(runtime(restarted).saveHome, "mod")
+T.eq(restartedApi.options:get("ui_haptics"), true, "haptics survive a new mod instance")
 T.eq(restartedTheme.i18n:language(), "fr", "language survives loading a new mod instance")
 T.eq(restartedTheme:translate("PARTY"), "ÉQUIPE", "new instance immediately renders the saved language")
 
