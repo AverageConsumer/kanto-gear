@@ -2498,7 +2498,9 @@ return function(mod)
     state.confirm = nil
     if action == "reset_home" then
       displayRuntime.resetHome()
+      displayRuntime.haptic("confirm")
     elseif action == "reset_options" and mod.options.set then
+      displayRuntime.haptic("confirm")
       for _, row in ipairs(THEME.optionSchema or {}) do
         local value = row.reset_default
         if value == nil then value = row.default end
@@ -2578,7 +2580,14 @@ return function(mod)
 
   -- Feedback belongs to accepted actions, never drawing, pointer-down or focus.
   -- Use the host's device vibration path without changing its touchpad settings.
-  function displayRuntime.haptic(seconds)
+  displayRuntime.hapticDurations = {
+    open = 0.012,
+    snap = 0.018,
+    confirm = 0.020,
+    discover = 0.025,
+    hold = 0.035,
+  }
+  function displayRuntime.haptic(cue)
     if THEME.style ~= "hgss" or mod.options:get("ui_haptics") ~= true then
       return false
     end
@@ -2588,7 +2597,8 @@ return function(mod)
     local ok, result = pcall(function()
       local system = love.system
       if not system or type(system.vibrate) ~= "function" then return false end
-      return system.vibrate(seconds or 0.012)
+      return system.vibrate(displayRuntime.hapticDurations[cue or "open"]
+        or displayRuntime.hapticDurations.open)
     end)
     return ok and result ~= false
   end
@@ -4308,7 +4318,7 @@ return function(mod)
         or displayRuntime.explorer.scanMapId ~= mapId
         or assist("spoilers") or not assist("item_radar")
         or not hasItemfinder() then return end
-    if #radarSignals() > 0 then displayRuntime.haptic(0.025) end
+    if #radarSignals() > 0 then displayRuntime.haptic("discover") end
   end
 
   function displayRuntime.advanceExplorerScan(now)
@@ -9430,6 +9440,7 @@ return function(mod)
     fields.id, fields.revision, fields.kind = intentId, battle.revision, kind
     local ok, err = mod.battle:submit(fields)
     if not ok then mod.log:warn("battle intent %s rejected: %s", kind, err) end
+    if ok and kind ~= "back" then displayRuntime.haptic("confirm") end
     refreshBattle()
   end
 
@@ -9584,7 +9595,7 @@ return function(mod)
             displayRuntime.homeCatalog)
           home.library, home.addSlot = false, nil
           displayRuntime.saveHome()
-          if placed then displayRuntime.haptic() end
+          if placed then displayRuntime.haptic("snap") end
           return
         end
       end
@@ -9634,7 +9645,7 @@ return function(mod)
             home.swapSource, tile.id) then
           home.swapSource = nil
           displayRuntime.saveHome()
-          displayRuntime.haptic()
+          displayRuntime.haptic("snap")
         end
         return
       end
@@ -9648,7 +9659,7 @@ return function(mod)
                 home.swapSource, home.page, column, slot.row) then
               home.swapSource = nil
               displayRuntime.saveHome()
-              displayRuntime.haptic()
+              displayRuntime.haptic("snap")
             end
           else
             home.library, home.addSlot = true, slot
@@ -9684,8 +9695,12 @@ return function(mod)
   function displayRuntime.activateStoreEntry(entry)
     if not entry or entry.state == "soon" then return end
     if entry.state == "get" then
-      displayRuntime.setPackageInstalled(entry.id, true)
-    else displayRuntime.openHomeApp(entry.id) end
+      if displayRuntime.setPackageInstalled(entry.id, true) then
+        displayRuntime.haptic("confirm")
+      end
+    elseif displayRuntime.openHomeApp(entry.id) then
+      displayRuntime.haptic("open")
+    end
   end
 
   function displayRuntime.tapStore(x, y)
@@ -9713,7 +9728,9 @@ return function(mod)
     end
     if view == "detail" then
       if action == "remove" and detail.removable then
-        displayRuntime.setPackageInstalled(detail.id, false)
+        if displayRuntime.setPackageInstalled(detail.id, false) then
+          displayRuntime.haptic("confirm")
+        end
       elseif action == "action" then
         displayRuntime.activateStoreEntry(detail)
       end
@@ -11422,6 +11439,7 @@ return function(mod)
     displayRuntime.home.editing = true
     displayRuntime.home.swapSource = nil
     down.blockedUntilRelease = true
+    displayRuntime.haptic("hold")
     dirty = true
     return true
   end

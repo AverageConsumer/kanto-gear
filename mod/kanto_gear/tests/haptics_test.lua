@@ -116,21 +116,24 @@ now = now + 1
 display.updateHomeLongPress(now)
 T.eq(home.editing, true, "long hold still enters edit mode")
 event("up", x, y)
-T.eq(#pulses, 2, "hold and swallowed release are silent")
+T.eq(#pulses, 3, "entering edit mode has one distinct hold confirmation")
+T.eq(pulses[3], 0.035, "edit-mode hold is longer than a normal app tap")
+now = now + 1
 homePage()
 game.stack.states[2] = { screenId = "BlockedMenu" }
 event("tap", x, y)
-T.eq(#pulses, 2, "dimmed locked screen does not vibrate")
+T.eq(#pulses, 3, "dimmed locked screen does not vibrate")
 game.stack.states[2] = { isTextBox = true }
 event("tap", x, y)
-T.eq(#pulses, 2, "dialogue tap cannot buzz the app underneath")
+T.eq(#pulses, 3, "dialogue tap cannot buzz the app underneath")
 game.stack.states[2] = nil
 homePage()
 home.editing = true
 display.tapHome(coords("map_app"))
-T.eq(#pulses, 2, "selecting a swap source is silent")
+T.eq(#pulses, 3, "selecting a swap source is silent")
 display.tapHome(coords("store_app"))
-T.eq(#pulses, 3, "successful Home swap confirms once")
+T.eq(#pulses, 4, "successful Home swap confirms once")
+T.eq(pulses[4], 0.018, "successful Home placement has a short snap")
 now = now + 1
 homePage()
 home.editing = true
@@ -139,13 +142,13 @@ local swap = display.Home.swap
 display.Home.swap = function() return false end
 display.tapHome(coords("store_app"))
 display.Home.swap = swap
-T.eq(#pulses, 3, "rejected swap does not confirm success")
+T.eq(#pulses, 4, "rejected swap does not confirm success")
 home.swapSource = "map_app"
 home.page = 2
 local _, slots = display.homePageElements()
 local sx, sy, sw, sh = theme.hgss:homeRect(slots[1])
 display.tapHome(sx + sw / 2, sy + sh / 2)
-T.eq(#pulses, 4, "drop onto empty space on another page confirms")
+T.eq(#pulses, 5, "drop onto empty space on another page confirms")
 now = now + 1
 home.swapSource, home.page = nil, 3
 local empty = display.Home.plusSlots(home.layout, display.homeCatalog, 3)[1]
@@ -158,17 +161,17 @@ for index, item in ipairs(library) do
 end
 assert(chosen, "available app fixture")
 display.tapHome(20 + ((chosen - 1) % 2) * 111, 60 + math.floor((chosen - 1) / 2) * 48)
-T.eq(#pulses, 5, "adding a Home card confirms its placement")
+T.eq(#pulses, 6, "adding a Home card confirms its placement")
 now = now + 1
 api.options:set("ui_haptics", false)
-T.eq(#pulses, 5, "turning feedback off is silent")
+T.eq(#pulses, 6, "turning feedback off is silent")
 T.eq(display.haptic(), false, "disabled setting suppresses all callers")
 run.loader.modOptions.kanto_gear = run.loader.modOptions.kanto_gear or {}
 run.loader.modOptions.kanto_gear.ui_haptics = true
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "ui_haptics", value = true })
 T.eq(api.options:get("ui_haptics"), true, "native menu synchronizes the touch setting")
-T.eq(#pulses, 6, "native menu enable also previews feedback")
+T.eq(#pulses, 7, "native menu enable also previews feedback")
 now = now + 1
 love.system.vibrate = function() error("unsupported backend") end
 T.eq(display.haptic(), false, "backend error cannot break the UI")
@@ -182,6 +185,23 @@ local style = theme.style
 theme.style = "og"
 T.eq(display.haptic(), false, "legacy themes remain silent")
 theme.style = style
+
+now = now + 1
+display.setPackageInstalled("bag", false)
+display.activateStoreEntry(display.storeEntry(display.storeById.bag))
+T.eq(#pulses, 8, "successful Store installation confirms once")
+T.eq(pulses[8], 0.020, "Store installation uses the confirmation cue")
+now = now + 1
+display.home.storeDetail = "bag"
+display.tapStore(180, 65)
+T.eq(#pulses, 9, "successful Store removal confirms once")
+T.eq(pulses[9], 0.020, "Store removal uses the confirmation cue")
+now = now + 1
+display.settings.confirm = nil
+display.runSettingsAction("reset_home")
+T.eq(#pulses, 9, "first reset tap only arms the confirmation")
+display.runSettingsAction("reset_home")
+T.eq(#pulses, 10, "confirmed Home reset gives one confirmation")
 
 local taken = false
 api.world = api.world or {}
