@@ -3984,7 +3984,9 @@ return function(mod)
 
   local function drawSprite(species, side, x, y, maxW, maxH, tint,
                             mon, quiet, brightness)
-    local image, trueColor = sprite(species, side, mon)
+    local image = mon and mon.presentationSprite
+    local trueColor = image ~= nil
+    if not image then image, trueColor = sprite(species, side, mon) end
     if not image then
       if not quiet then box("fill", x + 4, y + 4, maxW - 8, maxH - 8, DARK) end
       return false
@@ -4333,6 +4335,27 @@ return function(mod)
         or assist("spoilers") or not assist("item_radar")
         or not hasItemfinder() then return end
     if #radarSignals() > 0 then displayRuntime.haptic("discover") end
+  end
+
+  local function attachBattleArtSprites(raw, snapshot)
+    if compat.isGen2() or not (raw and snapshot) then return end
+    local provider = mod.find("BATTLE_ART_VOXEL_FORK")
+    local stage = provider and provider.exports
+      and provider.exports.battleStage
+    if not (stage and type(stage.state) == "function") then return end
+    local ok, state = pcall(stage.state, raw)
+    if not (ok and type(state) == "table" and state.staged == true
+        and state.ownership and state.ownership.battlers == true) then
+      return
+    end
+    for _, side in ipairs({ "player", "enemy" }) do
+      local source = raw[side] or (raw.battle and raw.battle[side])
+      local copy = snapshot[side]
+      local image = source and source.sprite
+      if copy and image and type(image.getDimensions) == "function" then
+        copy.presentationSprite = image
+      end
+    end
   end
 
   function displayRuntime.advanceExplorerScan(now)
@@ -9354,6 +9377,7 @@ return function(mod)
       prepareBattleSnapshot(nil, nextBattle, raw, game.data,
         bottomOwnsBattleUI(hideUpperBattleUI(), active, hasDisplay(),
           displayReady, raw, nextBattle))
+      attachBattleArtSprites(raw, nextBattle)
       if battleChoice(top) and not nextBattle.message
           and raw and type(raw.visibleText) == "function" then
         local ok, visible = pcall(raw.visibleText, raw)
@@ -9391,7 +9415,11 @@ return function(mod)
       or (battle and nextBattle and prepareBattleSnapshot(battle, nextBattle))
       or (battle and nextBattle and (
         (battle.player and battle.player.hp) ~= (nextBattle.player and nextBattle.player.hp)
-        or (battle.enemy and battle.enemy.hp) ~= (nextBattle.enemy and nextBattle.enemy.hp)))
+        or (battle.enemy and battle.enemy.hp) ~= (nextBattle.enemy and nextBattle.enemy.hp)
+        or (battle.player and battle.player.presentationSprite)
+          ~= (nextBattle.player and nextBattle.player.presentationSprite)
+        or (battle.enemy and battle.enemy.presentationSprite)
+          ~= (nextBattle.enemy and nextBattle.enemy.presentationSprite)))
     if THEME.style == "hgss" and battle and nextBattle then
       local oldParty, newParty = battle.partyIndex ~= nil,
         nextBattle.partyIndex ~= nil

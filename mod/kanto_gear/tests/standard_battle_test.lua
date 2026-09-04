@@ -26,6 +26,8 @@ local display, runtime = upvalue(input, "displayRuntime"), upvalue(input, "hgssR
 local theme = upvalue(display.drawContents, "THEME")
 local H = theme.hgss
 local drawBattle = upvalue(display.drawContents, "drawBattle")
+local refreshBattle = upvalue(hook("render.compose"), "refreshBattle")
+local attachBattleArtSprites = upvalue(refreshBattle, "attachBattleArtSprites")
 local tap = upvalue(upvalue(hook("render.compose"), "touchEvent"), "tap")
 local tapBattle = upvalue(tap, "tapBattle")
 local api = upvalue(display.saveHome, "mod")
@@ -72,6 +74,43 @@ local function hit(x, y) tapBattle(x / 1.5, y / 1.5) end
 love.graphics.arc = love.graphics.arc or function() end
 love.graphics.polygon = love.graphics.polygon or function() end
 love.graphics.transformPoint = love.graphics.transformPoint or function(x, y) return x, y end
+
+-- Battle Art owns live battler images separately from pokemon.sprite's normal
+-- summary path. Its public stage contract gates reuse of those images so a
+-- disabled provider and Gen 2 retain Kanto Gear's regular front portraits.
+local liveArt = { getDimensions = function() return 64, 64 end }
+raw.player = { mon = party[1], sprite = liveArt }
+raw.enemy = { mon = party[2], sprite = liveArt }
+run.loader.mods.BATTLE_ART_VOXEL_FORK = {
+  enabled = true, manifest = { version = "1.10.2" },
+}
+run.loader.exports.BATTLE_ART_VOXEL_FORK = { battleStage = {
+  state = function(expected)
+    if expected ~= raw then return nil end
+    return { staged = true, ownership = { battlers = true } }
+  end,
+} }
+local staged = { player = {}, enemy = {} }
+attachBattleArtSprites(raw, staged)
+if generation == 1 then
+  T.eq(staged.player.presentationSprite, liveArt,
+    "Battle Art's staged player image reaches the companion battle portrait")
+  T.eq(staged.enemy.presentationSprite, liveArt,
+    "Battle Art's staged enemy image reaches the companion battle portrait")
+  local nativeDraw, drewLiveArt = love.graphics.draw, false
+  love.graphics.draw = function(image, ...)
+    if image == liveArt then drewLiveArt = true end
+    return nativeDraw(image, ...)
+  end
+  runtime.battlePortrait({ species = "FIXMON_A", source = staged.player },
+    10, 10, 64, false)
+  love.graphics.draw = nativeDraw
+  T.check(drewLiveArt,
+    "the companion portrait draws Battle Art's live image instead of ROM art")
+else
+  T.eq(staged.player.presentationSprite, nil,
+    "Gen 2 ignores the Gen 1-only Battle Art provider")
+end
 
 -- Rendering dispatch, not just disconnected layout helpers.
 local rendered = {}
