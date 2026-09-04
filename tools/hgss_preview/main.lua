@@ -152,15 +152,25 @@ function love.load()
     and os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "explorer"
   local chunk = assert(loadfile(root .. "/mod/kanto_gear/hgss.lua"))
   local Home = assert(loadfile(root .. "/mod/kanto_gear/home_layout.lua"))()
-  local fontPath = os.getenv("KANTO_GEAR_PREVIEW_FONT")
-    or root .. "/mod/kanto_gear/rounded_mplus.ttf"
-  local font = fileData(fontPath, "preview.ttf")
+  local fontGlyphs = assert(loadfile(
+    root .. "/mod/kanto_gear/hgss_font_glyphs.lua"))()
+  local function imageFont(name)
+    local data = love.image.newImageData(fileData(
+      root .. "/mod/kanto_gear/" .. name, name))
+    local result = love.graphics.newImageFont(data, fontGlyphs)
+    result:setFilter("nearest", "nearest")
+    return result
+  end
+  local font = imageFont("hgss_font.png")
+  local smallFont = imageFont("hgss_small_font.png")
+  local largeFont = imageFont("hgss_large_font.png")
   local bagIcon = love.graphics.newImage(fileData(
     root .. "/mod/kanto_gear/kanto_bag.png", "kanto_bag.png"))
   bagIcon:setFilter("nearest", "nearest")
   local theme = chunk()({
     graphics = love.graphics, box = box, text = text,
     fit = fit, glyphs = glyphs, color = color, font = font,
+    smallFont = smallFont, largeFont = largeFont,
     bagIcon = bagIcon, translate = translate, format = format,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
@@ -199,7 +209,7 @@ function love.load()
   if screen:sub(1, 8) == "explorer" or homePreview or storeExplorerPreview
       or screen:sub(1, 7) == "trainer" then
     local typeLabels = {
-      { "HERE NOW", 66 }, { "WHOLE ROUTE", 68 }, { "HABITAT", 50 },
+      { "HERE NOW", 68 }, { "WHOLE ROUTE", 70 }, { "HABITAT", 52 },
       { "FOUND", 74 },
       { "BEATEN", 74 }, { "MISSED", 74 }, { "LATER", 74 },
       { "NEED FINDER", 63 },

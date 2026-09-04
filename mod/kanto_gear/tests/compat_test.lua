@@ -524,6 +524,10 @@ local gameFit = theme:fitRect(
   theme:windowLayout("stacked", 1280, 720).game, 640, 576)
 T.eq(outputDraws[1].args[1], gameFit.x,
   "one-window output preserves the complete composed Game frame")
+local fractionalFit = theme:fitRect(
+  { x = 0, y = 0, w = 1001, h = 700 }, 240, 216)
+T.check(math.abs(fractionalFit.w / 240 - fractionalFit.h / 216) < 1e-9,
+  "fractional output fit keeps one scale on both axes")
 local nativeGameRect = run.loader.hooks:call("render.viewport", function(ctx)
   return { x = 0, y = 0, width = ctx.width, height = ctx.height }
 end, { width = 1280, height = 720, generation = 1 })

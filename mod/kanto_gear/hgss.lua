@@ -164,27 +164,20 @@ return function(ui)
     { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 },
     { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 },
   }
-  local partyFont = ui.font and ui.graphics.newFont(ui.font, 11)
-    or ui.graphics.newFont(11)
-  local partyNameFont = ui.font and ui.graphics.newFont(ui.font, 9)
-    or ui.graphics.newFont(9)
-  local partyInfoFont = ui.font and ui.graphics.newFont(ui.font, 9)
-    or ui.graphics.newFont(9)
-  local partyTypeFont = ui.font and ui.graphics.newFont(ui.font, 8)
-    or ui.graphics.newFont(8)
-  local trainerNameFont = ui.font and ui.graphics.newFont(ui.font, 14)
-    or ui.graphics.newFont(14)
-  local trainerValueFont = ui.font and ui.graphics.newFont(ui.font, 12)
-    or ui.graphics.newFont(12)
-  local trainerNumberFont = ui.font and ui.graphics.newFont(ui.font, 22)
-    or ui.graphics.newFont(22)
-  partyFont:setFilter("linear", "linear")
-  partyNameFont:setFilter("linear", "linear")
-  partyInfoFont:setFilter("linear", "linear")
-  partyTypeFont:setFilter("linear", "linear")
-  trainerNameFont:setFilter("linear", "linear")
-  trainerValueFont:setFilter("linear", "linear")
-  trainerNumberFont:setFilter("linear", "linear")
+  local function hgssFont(source, size)
+    -- Production fonts are pre-rasterized image fonts, so every backend gets
+    -- the same source pixels. Headless test hosts fall back to a system font.
+    local font = source or ui.graphics.newFont(size, "mono")
+    font:setFilter("nearest", "nearest")
+    return font
+  end
+  local partyFont = hgssFont(ui.font, 10)
+  local partyNameFont = hgssFont(ui.smallFont or ui.font, 11)
+  local partyInfoFont = partyNameFont
+  local partyTypeFont = partyInfoFont
+  local trainerNameFont = partyFont
+  local trainerValueFont = partyInfoFont
+  local trainerNumberFont = hgssFont(ui.largeFont, 20)
 
   function H:label(value, x, y, tint, width, align)
     local G, previous = ui.graphics, ui.graphics.getFont()
@@ -2133,7 +2126,7 @@ return function(ui)
           colors[category.accent .. "Light"] or colors.greenLight, false)
         box("fill", 11, y + 5, 4, 16,
           colors[category.accent] or colors.green)
-        self:partyInfo(translate(category.label), 22, y + 4,
+        self:partyInfo(translate(category.label), 22, y + 3,
           colors.ink, 180)
         self:partyType(translate(category.detail), 22, y + 13,
           colors.green, 180)
@@ -3281,7 +3274,7 @@ return function(ui)
       if active then box("fill", x + 2, y + 2, width - 4, 12, colors.band) end
       label = translate(label)
       local arrowWidth, gap = arrow and 4 or 0, arrow and 3 or 0
-      local shown = self:fitPartyType(label, width - 8 - arrowWidth - gap)
+      local shown = self:fitPartyType(label, width - 6 - arrowWidth - gap)
       local textWidth = partyTypeFont:getWidth(shown)
       local groupWidth = textWidth + gap + arrowWidth
       local left = x + math.floor((width - groupWidth) / 2)

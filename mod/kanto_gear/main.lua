@@ -207,7 +207,9 @@ end
 
 function THEME:fitRect(rect, width, height)
   local scale = math.min(rect.w / width, rect.h / height)
-  local w, h = math.floor(width * scale), math.floor(height * scale)
+  -- Keep one scale on both axes. Flooring each dimension independently
+  -- subtly stretches nearest-filtered pixels whenever the fit is fractional.
+  local w, h = width * scale, height * scale
   return {
     x = math.floor(rect.x + (rect.w - w) / 2),
     y = math.floor(rect.y + (rect.h - h) / 2),
@@ -2179,8 +2181,18 @@ return function(mod)
 
   if rawget(_G, "love").filesystem
       and rawget(_G, "love").filesystem.newFileData then
-    THEME.hgssFont = rawget(_G, "love").filesystem.newFileData(
-      mod:read("rounded_mplus.ttf"), "rounded_mplus.ttf")
+    local L = rawget(_G, "love")
+    if L.image and L.image.newImageData and G.newImageFont then
+      local fontGlyphs = assert(load(mod:read("hgss_font_glyphs.lua"),
+        "@kanto_gear/hgss_font_glyphs.lua"))()
+      local function imageFont(name)
+        local data = L.filesystem.newFileData(mod:read(name), name)
+        return G.newImageFont(L.image.newImageData(data), fontGlyphs)
+      end
+      THEME.hgssFont = imageFont("hgss_font.png")
+      THEME.hgssSmallFont = imageFont("hgss_small_font.png")
+      THEME.hgssLargeFont = imageFont("hgss_large_font.png")
+    end
     THEME.hgssBagIcon = G.newImage(rawget(_G, "love").filesystem.newFileData(
       mod:read("kanto_bag.png"), "kanto_bag.png"))
     THEME.hgssBagIcon:setFilter("nearest", "nearest")
@@ -2188,6 +2200,8 @@ return function(mod)
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
+    smallFont = THEME.hgssSmallFont,
+    largeFont = THEME.hgssLargeFont,
     bagIcon = THEME.hgssBagIcon,
     translate = function(value) return THEME:translate(value) end,
     format = function(value, ...) return THEME:format(value, ...) end,
