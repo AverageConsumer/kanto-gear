@@ -86,6 +86,9 @@ end
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
 local theme = upvalue(display.drawContents, "THEME")
+T.eq(display.storeEntries()[1].id, "notes", "Notes is visible on the first Apps page")
+T.eq(display.storeTodayEntries()[1].id, "notes", "Notes is featured when the Store opens")
+T.eq(display.storeWidgetSummary().label, "NOTES", "Store widget promotes uninstalled Notes")
 do
   local renderer = theme.hgss
   local originalText, originalBar = renderer.partyInfo, renderer.expBar

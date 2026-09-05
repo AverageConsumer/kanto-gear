@@ -2540,7 +2540,7 @@ return function(ui)
       local noteLabels = { "CALL MOM", "BUY POTIONS", "CHECK ROUTE 39" }
       for row = 0, 2 do
         local rowTop = top + 18 + row * 11
-        local label = translate(noteLabels[row + 1])
+        local label = self:fitPartyType(translate(noteLabels[row + 1]), w - 33)
         local labelWidth = partyTypeFont:getWidth(label)
         local groupWidth = 6 + 7 + labelWidth
         local groupLeft = x + math.floor((w - groupWidth) / 2)
@@ -2555,7 +2555,6 @@ return function(ui)
         self:partyType(label, groupLeft + 13, rowTop - 1,
           row == 0 and colors.ink or quiet, labelWidth)
       end
-      box("fill", x + w - 14, top + 16, 3, height - 23, colors.amber)
     else
       local icon = homeIcons(self)[id]
       if icon then drawHomeIcon(icon, x + math.floor((w - 29) / 2),

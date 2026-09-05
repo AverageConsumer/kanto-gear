@@ -1,7 +1,7 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "3.2.0-notes.1",
+  "version": "3.2.0-notes.2",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",

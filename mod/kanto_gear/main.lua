@@ -2335,8 +2335,12 @@ return function(mod)
     }
   end
   displayRuntime.storeCatalog = {
+    { id = "notes", icon = "notes", label = "NOTES",
+      category = "TRAINER TOOL", target = "NOTES", featured = true, new = true,
+      description = { "PLAN ROUTES AND REMINDERS.",
+        "WRITE, CHECK TASKS AND DRAW.", "KEEP CLUES CLOSE AT HAND." } },
     { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
-      category = "ADVENTURE", target = "ACHIEVEMENTS", featured = true, new = true,
+      category = "ADVENTURE", target = "ACHIEVEMENTS", new = true,
       description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
         "REVISIT AREAS AND FINISH EXPLORING.", "YOUR ADVENTURE, ONE STAMP AT A TIME." } },
     { id = "explorer", icon = "explorer", label = "EXPLORER",
@@ -2374,10 +2378,6 @@ return function(mod)
       category = "FIELD KIT", target = "TOOLS",
       description = { "USE FIELD MOVES AND GEAR.",
         "KEEP UNLOCKED TOOLS CLOSE.", "READY WHEN THE ROUTE NEEDS IT." } },
-    { id = "notes", icon = "notes", label = "NOTES",
-      category = "TRAINER TOOL", target = "NOTES",
-      description = { "PLAN ROUTES AND REMINDERS.",
-        "WRITE, CHECK TASKS AND DRAW.", "KEEP CLUES CLOSE AT HAND." } },
   }
   displayRuntime.storeById = {}
   for _, app in ipairs(displayRuntime.storeCatalog) do

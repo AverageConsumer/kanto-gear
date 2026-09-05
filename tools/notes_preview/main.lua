@@ -15,10 +15,16 @@ function love.load()
   local catalog=assert(loadfile(root.."/mod/kanto_gear/lang/de.lua"))()
   local function tr(v)return catalog[v] or v end
   local H=assert(loadfile(root.."/mod/kanto_gear/hgss.lua"))()({graphics=G,
+    bagIcon=G.newImage(file("kanto_bag.png")),
     box=function(mode,x,y,w,h,c)G.setColor(c);G.rectangle(mode,x,y,w,h)end,
     color=function(c)G.setColor(c)end,glyphs=chars,translate=tr,format=string.format,
     font=font("hgss_font.png"),smallFont=font("hgss_small_font.png"),largeFont=font("hgss_large_font.png")})
   local Notes=assert(loadfile(root.."/mod/kanto_gear/notes.lua"))()
+  assert(loadfile(root.."/mod/kanto_gear/achievements_ui.lua"))()(H,G,tr,string.format)
+  local sourceFile=assert(io.open(root.."/mod/kanto_gear/main.lua","rb"))
+  local source=sourceFile:read("*a");sourceFile:close()
+  local store=assert(loadstring("return "..assert(source:match("displayRuntime.storeCatalog = (%b{})"))))()
+  for _,app in ipairs(store)do app.state="get";app.action="GET";app.reason=app.reason or app.category end
   assert(loadfile(root.."/mod/kanto_gear/notes_ui.lua"))()(H,G,tr)
   local S=Notes.new({time=function()return 0 end,measure=function(v)return H:partyInfoWidth(v)end,
     area=function()return "ROUTE_2","ROUTE 2"end,translate=tr,leave=function()end})
@@ -29,13 +35,19 @@ function love.load()
   for _,gen in ipairs({1,2})do for _,variant in ipairs({"light","dark"})do
     H:setVariant(variant=="dark")
     S.records[1].areaName=gen==1 and "ROUTE 2" or "ROUTE 32"
-    for _,view in ipairs({"text","tasks","sketch","edit","draw","colors","list"})do
+    for _,view in ipairs({"text","tasks","sketch","edit","draw","colors","list","store_today","store_apps"})do
       S.view=view=="colors" and "draw" or view;S.page=1;S.colorOpen=view=="colors"
       S.draft=S.records[1].text;S.cursor=#chars(S.draft);S.editTarget="text"
       G.push("all");G.setCanvas(c);G.origin();G.clear();G.scale(1.5);H:backdrop();G.origin()
       H:headerBar(tr(view=="edit" and "WRITE" or (view=="draw" or view=="colors") and "DRAW" or "NOTES"),true,false)
       H:headerClock("20:04","NITE",142,66,6);H:battery(214,8,4,false,true,H.colors.ink,H.colors.greenLight)
-      H:notes(S);G.setCanvas(export);G.origin();G.clear();G.setColor(1,1,1,1);G.draw(c,0,0,0,4,4);G.setCanvas();G.pop()
+      if view=="store_today" or view=="store_apps" then
+        H:headerBar(tr("SILPH STORE"),true,false)
+        H:headerClock("20:04","NITE",142,66,6);H:battery(214,8,4,false,true,H.colors.ink,H.colors.greenLight)
+        if view=="store_today" then H:storeToday({featured=store[1],recommended={store[5],store[7]}})
+        else H:storeApps({apps={unpack(store,1,6)},page=1,pages=math.ceil(#store/6)})end
+      else H:notes(S)end
+      G.setCanvas(export);G.origin();G.clear();G.setColor(1,1,1,1);G.draw(c,0,0,0,4,4);G.setCanvas();G.pop()
       local data=export:newImageData();write(output.."/gen"..gen.."-"..variant.."-"..view..".png",data:encode("png"):getString());data:release()
     end
   end end
