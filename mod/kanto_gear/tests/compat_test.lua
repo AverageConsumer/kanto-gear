@@ -333,7 +333,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 20, "Kanto Gear registers all settings including optional haptics")
+T.eq(#options, 21, "Kanto Gear registers all settings including clock format")
 local optionsByKey = {}
 for _, row in ipairs(options) do optionsByKey[row.key] = row end
 T.eq(optionsByKey.language.default, "en", "language preserves English by default")
@@ -353,6 +353,10 @@ T.eq(optionsByKey.clock_source.label, "CLOCK SOURCE", "clock source is one compa
 T.eq(optionsByKey.clock_source.default, "game", "Gen 2 follows its encounter clock by default")
 T.eq(optionsByKey.clock_source.choices[1][1], "GAME (GEN 2)",
   "the game-clock choice states its generation boundary")
+T.eq(optionsByKey.clock_format.default, "system",
+  "clock format preserves the host preference by default")
+T.eq(#optionsByKey.clock_format.choices, 3,
+  "clock format can explicitly select 12 or 24 hours")
 T.eq(optionsByKey.ui_motion.label, "TRANSITIONS", "HGSS motion names its actual scope")
 T.check(optionsByKey.ui_motion.visible_if.one_of,
   "transition settings stay out of classic themes")

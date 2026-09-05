@@ -103,6 +103,19 @@ run.loader.events:emit("mod.options_changed",
 T.eq(api.options:get("language"), "fr", "native language selection replaces touch choice")
 T.eq(api.cache:read("options/language"), "sfr", "native language selection also persists")
 
+T.check(display.cycleSetting(rowFor("clock_format"), 1),
+  "touch selects the explicit 12-hour clock")
+T.eq(api.options:get("clock_format"), "12", "touch clock format is applied")
+T.eq(api.cache:read("options/clock_format"), "s12",
+  "touch clock format persists independently of saves")
+run.loader.modOptions.kanto_gear.clock_format = "24"
+run.loader.events:emit("mod.options_changed",
+  { mod = "kanto_gear", key = "clock_format", value = "24" })
+T.eq(api.options:get("clock_format"), "24",
+  "native clock format replaces the touch choice")
+T.eq(api.cache:read("options/clock_format"), "s24",
+  "native clock format also persists")
+
 -- Audit all dynamic metadata, not only the currently visible settings page.
 local theme = upvalue(display.drawContents, "THEME")
 for _, language in ipairs({ "de", "es", "fr" }) do

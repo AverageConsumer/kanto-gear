@@ -639,16 +639,20 @@ function love.load()
       theme:homeEditDone()
     else
       local clockLeft, clockWidth = 139, 72
-      local clockX, periodX = theme:headerClock("20:04",
-        os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE",
-        clockLeft, clockWidth, 6)
-      local textWidth, iconWidth = theme:labelWidth("20:04"), 11
-      local gaps = { clockX - clockLeft,
-        periodX - 1 - (clockX + textWidth),
-        clockLeft + clockWidth - (periodX - 1 + iconWidth) }
-      table.sort(gaps)
-      assert(gaps[3] - gaps[1] <= 1,
-        "clock, period icon, and dividers keep equal spacing")
+      local previewClock = os.getenv("KANTO_GEAR_PREVIEW_CLOCK") or "20:04"
+      local previewPeriod = os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "NITE"
+      if previewPeriod == "NONE" then previewPeriod = nil end
+      local clockX, periodX = theme:headerClock(previewClock,
+        previewPeriod, clockLeft, clockWidth, 6)
+      if periodX then
+        local textWidth, iconWidth = theme:labelWidth(previewClock), 11
+        local gaps = { clockX - clockLeft,
+          periodX - 1 - (clockX + textWidth),
+          clockLeft + clockWidth - (periodX - 1 + iconWidth) }
+        table.sort(gaps)
+        assert(gaps[3] - gaps[1] <= 1,
+          "clock, period icon, and dividers keep equal spacing")
+      end
       theme:battery(214, 8, 4, nil, true, theme.colors.ink,
         theme.colors.greenLight)
     end
@@ -1846,11 +1850,12 @@ function love.load()
       } })
   elseif settingsAppearance then
     theme:settings({ category = "appearance", accent = "blue", page = 1,
-      pages = 1, rows = {
+      pages = 2, rows = {
         { label = "LANGUAGE", value = ({ en = "ENGLISH", de = "DEUTSCH",
           es = "ESPANOL", fr = "FRANCAIS" })[languageCode] or "ENGLISH" },
         { label = "THEME", value = "HGSS AUTO" },
         { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
+        { label = "CLOCK FORMAT", value = "SYSTEM" },
         { label = "TRANSITIONS", value = "ON" },
       } })
   elseif settingsControls then

@@ -785,6 +785,18 @@ local function compactClock(value)
   return ((value or "--:--"):gsub("^0", ""):gsub("%s+", ""))
 end
 
+local function clockText(timestamp, format, systemValue)
+  if format == "24" then return os.date("%H:%M", timestamp) end
+  if format == "12" then
+    local current = os.date("*t", timestamp)
+    local hour = current.hour % 12
+    if hour == 0 then hour = 12 end
+    return ("%d:%02d%s"):format(hour, current.min,
+      current.hour < 12 and "AM" or "PM")
+  end
+  return compactClock(systemValue)
+end
+
 local Area = {}
 
 -- Gen 1 stores ordinary trainers on their object, but story encounters set
@@ -1434,8 +1446,13 @@ do
     "one-shot trainer outcomes")
 end
 do
+  local timestamp = os.time({ year = 2026, month = 1, day = 15,
+    hour = 21, min = 5, sec = 0 })
   assert(compactClock("21:05") == "21:05"
-    and compactClock("09:05 PM") == "9:05PM", "system clock format")
+    and clockText(timestamp, "system", "09:05 PM") == "9:05PM"
+    and clockText(timestamp, "12", "ignored") == "9:05PM"
+    and clockText(timestamp, "24", "ignored") == "21:05",
+    "selectable system, 12-hour, and 24-hour clock format")
 end
 assert(Area.itemfinderNear(10, 10, 15, 14)
        and not Area.itemfinderNear(10, 10, 5, 10)
@@ -1982,6 +1999,10 @@ return function(mod)
       default = "game", choices = {
         { "GAME (GEN 2)", "game" }, { "DEVICE", "system" },
       } },
+    { key = "clock_format", label = "CLOCK FORMAT", type = "choice",
+      default = "system", choices = {
+        { "SYSTEM", "system" }, { "12 HOUR", "12" }, { "24 HOUR", "24" },
+      } },
     { key = "ui_motion", label = "TRANSITIONS",
       type = "toggle", default = true, visible_if = {
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
@@ -2367,7 +2388,7 @@ return function(mod)
     { id = "appearance", label = "APPEARANCE",
       detail = "THEME AND TRANSITIONS",
       accent = "blue", keys = {
-        "language", "theme_v3", "clock_source", "ui_motion" } },
+        "language", "theme_v3", "clock_source", "clock_format", "ui_motion" } },
     { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
       accent = "green", keys = { "display_mode", "fullscreen_start",
         "combined_layout", "combined_primary", "secondary_size",
@@ -4168,7 +4189,8 @@ return function(mod)
     local now = os.time()
     local timestamp, period = compat.clockDisplay(game,
       mod.options:get("clock_source"), now)
-    local clock = compactClock(mod.datetime:time(game, timestamp))
+    local clock = clockText(timestamp, mod.options:get("clock_format"),
+      mod.datetime:time(game, timestamp))
     if hgss then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
@@ -6713,7 +6735,8 @@ return function(mod)
     local now = os.time()
     local timestamp, period = compat.clockDisplay(game,
       mod.options:get("clock_source"), now)
-    return compactClock(mod.datetime:time(game, timestamp)), period
+    return clockText(timestamp, mod.options:get("clock_format"),
+      mod.datetime:time(game, timestamp)), period
   end
 
   function hgssRuntime.bagView(menu)
