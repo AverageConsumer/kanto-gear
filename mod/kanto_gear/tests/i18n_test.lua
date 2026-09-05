@@ -84,7 +84,7 @@ end
 -- exercised by the preview matrix. Game-provided values never enter this API.
 local requested = {}
 local mainSource
-for _, filename in ipairs({ "main.lua", "hgss.lua", "achievements_ui.lua" }) do
+for _, filename in ipairs({ "main.lua", "hgss.lua", "achievements_ui.lua", "notes_ui.lua", "notes.lua" }) do
   local file = assert(io.open(root .. "/" .. filename, "rb"))
   local source = file:read("*a")
   file:close()
@@ -129,6 +129,14 @@ for _, effects in ipairs({ theme.moveEffects, theme.moveSpecial }) do
   for _, lines in pairs(effects) do
     for _, key in ipairs(lines) do requested[key] = true end
   end
+end
+for _, key in ipairs({ "EDIT", "DELETE", "RED", "BLUE", "GREEN", "GOLD", "ERASER", "REVERT",
+    "TASK", "TASKS", "TITLE", "WRITE", "INK", "PEN", "COLOR", "THIN", "THICK", "PURPLE",
+    "GENERAL", "NEW NOTE", "DRAW", "DRAWING", "SPACE", "NEW LINE", "UNDO", "HERE", "ALL NOTES",
+    "EDIT DRAWING", "+ TASK", "NOTES STORAGE UNAVAILABLE", "NOTES COULD NOT BE LOADED",
+    "NOT SAVED - TRY AGAIN", "TEXT LIMIT REACHED", "NOTE LIMIT REACHED", "TASK LIMIT REACHED",
+    "DRAWING LIMIT REACHED", "HOST MISSING LIVE DRAWING INPUT", "WRITE, CHECK TASKS AND DRAW." }) do
+  requested[key] = true
 end
 local keys = {}
 for key in pairs(requested) do keys[#keys + 1] = key end

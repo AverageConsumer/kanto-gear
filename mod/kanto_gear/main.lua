@@ -2251,6 +2251,9 @@ return function(mod)
   assert(load(mod:read("achievements_ui.lua"), "@kanto_gear/achievements_ui.lua"))()(
     THEME.hgss, G, function(value) return THEME:translate(value) end,
     function(value, ...) return THEME:format(value, ...) end)
+  displayRuntime.Notes = assert(load(mod:read("notes.lua"), "@kanto_gear/notes.lua"))()
+  assert(load(mod:read("notes_ui.lua"), "@kanto_gear/notes_ui.lua"))()(
+    THEME.hgss, G, function(value) return THEME:translate(value) end)
   displayRuntime.achievements = { view = "goals", page = 1, stale = true }
   function displayRuntime.resetAchievements()
     local image = displayRuntime.achievements.locationImage
@@ -2276,7 +2279,7 @@ return function(mod)
       bag = { installed = false },
       pokedex = { installed = false },
       achievements = { installed = false },
-      notes = { installed = false, available = false },
+      notes = { installed = false },
     },
     surfaces = {
       explorer_widget = { package = "explorer", kind = "widget",
@@ -2372,9 +2375,9 @@ return function(mod)
       description = { "USE FIELD MOVES AND GEAR.",
         "KEEP UNLOCKED TOOLS CLOSE.", "READY WHEN THE ROUTE NEEDS IT." } },
     { id = "notes", icon = "notes", label = "NOTES",
-      category = "TRAINER TOOL", available = false,
+      category = "TRAINER TOOL", target = "NOTES",
       description = { "PLAN ROUTES AND REMINDERS.",
-        "KEEP CLUES CLOSE AT HAND.", "COMING SOON FROM SILPH LABS." } },
+        "WRITE, CHECK TASKS AND DRAW.", "KEEP CLUES CLOSE AT HAND." } },
   }
   displayRuntime.storeById = {}
   for _, app in ipairs(displayRuntime.storeCatalog) do
@@ -3110,7 +3113,7 @@ return function(mod)
       page, displayRuntime.home.activeApp = "HOME", nil
     elseif not hgss and (page == "HOME" or page == "STORE"
         or page == "STEPS" or page == "POKEDEX" or page == "BAG"
-        or page == "ACHIEVEMENTS") then
+        or page == "ACHIEVEMENTS" or page == "NOTES") then
       page = "MAP"
     elseif hgss and (page == "GUIDE" or page == "AREA") then
       page = "LOCAL"
@@ -5371,6 +5374,32 @@ return function(mod)
     header(model.area and model.area.name or THEME:translate("ACHIEVEMENTS"), true, false)
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
     THEME.hgss:achievements(model)
+    G.pop()
+  end
+
+  displayRuntime.notes = displayRuntime.Notes.new({
+    time = function() return love.timer.getTime() end,
+    measure = function(value) return THEME.hgss:partyInfoWidth(value) end,
+    translate = function(value) return THEME:translate(value) end,
+    area = function() return mapId, areaName(mapId) end,
+    leave = function() page, displayRuntime.home.activeApp, dirty = "HOME", nil, true end,
+  })
+  function displayRuntime.notesShown()
+    return page == "NOTES" and THEME.style == "hgss" and screenState() == "active"
+      and not battle and not moveInfo and not fieldChoice and not radarOpen
+  end
+  function displayRuntime.notesPointer(action, x, y)
+    displayRuntime.notes:pointer(action, x, y)
+    if displayRuntime.notes:takeChanged() then dirty = true end
+  end
+  function displayRuntime.drawNotes()
+    local state = displayRuntime.notes
+    local title = state.view == "edit" and (state.editTarget == "task" and "TASK"
+      or state.editTarget == "title" and "TITLE" or "WRITE")
+      or state.view == "draw" and "DRAW" or "NOTES"
+    header(THEME:translate(title), true, false)
+    G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    THEME.hgss:notes(state)
     G.pop()
   end
 
@@ -9253,6 +9282,8 @@ return function(mod)
       displayRuntime.drawPokedex()
     elseif THEME.style == "hgss" and page == "ACHIEVEMENTS" then
       displayRuntime.drawAchievements()
+    elseif THEME.style == "hgss" and page == "NOTES" then
+      displayRuntime.drawNotes()
     elseif THEME.style == "hgss" and page == "BAG" then
       displayRuntime.drawBag()
     elseif THEME.style == "hgss" and page == "SETTINGS" then
@@ -9588,7 +9619,9 @@ return function(mod)
     if not app or not app.target or not package or not package.installed then
       return false
     end
-    if id == "achievements" then
+    if id == "notes" then
+      displayRuntime.notes:open()
+    elseif id == "achievements" then
       local state = displayRuntime.achievements
       state.view, state.page, state.selected, state.stale = "goals", 1, nil, true
     elseif id == "pokedex" then
@@ -11015,6 +11048,9 @@ return function(mod)
     elseif THEME.style == "hgss" and page == "ACHIEVEMENTS" then
       displayRuntime.tapAchievements(x * THEME.hgssScale, y * THEME.hgssScale)
       return
+    elseif THEME.style == "hgss" and page == "NOTES" then
+      displayRuntime.notesPointer("tap", x * THEME.hgssScale, y * THEME.hgssScale)
+      return
     elseif THEME.style == "hgss" and page == "BAG" then
       displayRuntime.tapBag(x, y)
       return
@@ -11516,6 +11552,17 @@ return function(mod)
       sx, sy = value:match("^(%d+),(%d+)$")
       x, y, action = tonumber(sx), tonumber(sy), "tap"
     end
+    -- Notes consumes continuous input before the legacy 160x144 quantization
+    -- and before swipe recognition. All other Gear pages keep their contract.
+    if displayRuntime.notesShown() then
+      if x then
+        x = x * 240 / (sourceWidth or WIDTH)
+        y = y * 216 / (sourceHeight or HEIGHT)
+      end
+      displayRuntime.notesPointer(action, x, y)
+      touchDown = nil
+      return
+    end
     if x and sourceWidth and sourceHeight then
       x = math.max(0, math.min(WIDTH - 1,
         math.floor(x * WIDTH / sourceWidth)))
@@ -11606,6 +11653,8 @@ return function(mod)
   end
 
   local function resetSwapState()
+    displayRuntime.notes:suspend()
+    displayRuntime.notes:flush(true)
     displayReady = false
     primaryBottomRect = nil
     nextGameCapture = 0
@@ -11618,6 +11667,7 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     game = payload.game
+    displayRuntime.notes:bind(game, mod.storage)
     displayRuntime.resetAchievements()
     THEME.storedTheme = mod.options:get("theme_v3")
     spriteCache.__badges = nil
@@ -11642,6 +11692,7 @@ return function(mod)
   end)
 
   function displayRuntime.reloadSavedUi()
+    displayRuntime.notes:bind(game, mod.storage)
     displayRuntime.resetAchievements()
     displayRuntime.pokedex.data = nil
     reloadSteps()
@@ -12138,7 +12189,8 @@ return function(mod)
     if not (active and hasDisplay()
         and (inline or bottomOnHandheld())) then return false end
     local layout = THEME.nativeWindowLayout
-    if inline and layout and layout.gameOnTop then
+    if inline and layout and layout.gameOnTop
+        and not (displayRuntime.notesShown() and displayRuntime.notes.down) then
       local gameRect = layout.game
       if x >= gameRect.x and x < gameRect.x + gameRect.w
           and y >= gameRect.y and y < gameRect.y + gameRect.h then
@@ -12153,6 +12205,13 @@ return function(mod)
     if action == "down" and not insideRect then
       touchDown = nil
       return not inline
+    end
+    if displayRuntime.notesShown() then
+      if action == "down" and not insideRect then return not inline end
+      if action ~= "down" and not displayRuntime.notes.down then return not inline end
+      displayRuntime.notesPointer(action, (x - rect.x) * 240 / rect.w,
+        (y - rect.y) * 216 / rect.h)
+      return true
     end
     if inline and action ~= "down" and not touchDown then return false end
     local tx = math.max(0, math.min(WIDTH - 1,
@@ -12314,11 +12373,27 @@ return function(mod)
     end
 
     local now = love.timer.getTime()
+    -- Drain the native touch queue once per rendered frame while Notes owns
+    -- the Gear surface; the expensive game snapshots stay on their 50ms tick.
+    if displayRuntime.notesShown() then
+      if not inline and not bottomOnHandheld() then
+        for _ = 1, 128 do
+          local event = companion.pollTouch()
+          if not event then break end
+          touchEvent(event, canvas:getWidth(), canvas:getHeight())
+          if not displayRuntime.notesShown() then break end
+        end
+      end
+    else
+      displayRuntime.notes:suspend()
+    end
+    displayRuntime.notes:flush()
+    if displayRuntime.notes:takeChanged() then dirty = true end
     displayRuntime.updateHomeLongPress(now)
     if now >= nextPoll then
       nextPoll = now + 0.05
       refreshTheme()
-      if not inline then
+      if not inline and not displayRuntime.notesShown() then
         for _ = 1, 32 do
           local event = companion.pollTouch()
           if not event then break end
@@ -12454,6 +12529,8 @@ return function(mod)
     end
     local displayAvailable = hasDisplay()
     if not displayAvailable then
+      displayRuntime.notes:suspend()
+      displayRuntime.notes:flush(true)
       if not inline and displayRuntime.swapped ~= nil then
         displayRuntime.swapped = nil
         resetSwapState()

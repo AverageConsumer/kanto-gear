@@ -1,3 +1,14 @@
+tests/achievements_test.lua
+tests/bag_runtime_test.lua
 tests/compat_test.lua
-tests/gen2_compat_test.lua
 tests/desktop_compat_test.lua
+tests/gen2_compat_test.lua
+tests/haptics_test.lua
+tests/home_layout_test.lua
+tests/home_runtime_test.lua
+tests/i18n_test.lua
+tests/notes_runtime_test.lua
+tests/notes_test.lua
+tests/settings_fallback_test.lua
+tests/standard_battle_test.lua
+tests/team_widget_test.lua

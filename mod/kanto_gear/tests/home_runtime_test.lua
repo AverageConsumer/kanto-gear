@@ -314,10 +314,10 @@ T.eq(display.Home.find(home.layout, "tools_app"), nil,
   "removing an app also removes its Home surfaces")
 T.check(not display.setPackageInstalled("party", false),
   "fixed system apps cannot be removed")
-T.check(not display.setPackageInstalled("notes", true),
-  "unfinished apps cannot be enabled")
-T.eq(display.storeEntry(store.notes).state, "soon",
-  "unfinished apps stay marked SOON")
+T.check(display.setPackageInstalled("notes", true),
+  "Notes can be enabled through the existing Store")
+T.eq(display.storeEntry(store.notes).state, "open",
+  "installed Notes replaces its SOON placeholder")
 T.check(display.setPackageInstalled("tools", true),
   "removed bundled apps can be enabled again")
 T.eq(display.storeEntry(store.tools).state, "open",
