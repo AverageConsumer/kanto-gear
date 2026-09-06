@@ -90,3 +90,8 @@ A synthetic Windows LuaJIT benchmark (600 maps, 100 landmarks, seven-run median,
 an order list took 1.327 ms. With GC paused for 600 lookups, allocation fell
 from 15080.770 KiB to 1.484 KiB. These isolate the lookup and are not a prediction
 of total album speed or on-device frame times. Repeat the same device scenario.
+
+Test.4 also separates Home map preparation (`home_map`), Explorer model work
+(`home_explorer`), and widget painting (`home_paint`). These are nested inside
+`gear_draw`; the same device pass can identify the remaining Home drawing
+peaks without changing its layout or refresh settings.

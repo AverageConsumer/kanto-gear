@@ -6692,8 +6692,10 @@ return function(mod)
     for _, tile in ipairs(tiles or {}) do
       if tile.widget then needed[tile.widget] = true end
     end
-    local overview = needed.explorer and loadLocalMap() or nil
-    local explorer = overview and displayRuntime.explorerModel(overview) or {}
+    local overview = needed.explorer
+      and displayRuntime.perf:call("home_map", loadLocalMap) or nil
+    local explorer = overview
+      and displayRuntime.perf:call("home_explorer", displayRuntime.explorerModel, overview) or {}
     local model = {
       page = home.page, pages = pages, tiles = tiles, slots = slots,
       help = displayRuntime.homeHelpActive(), editing = home.editing,
@@ -6715,7 +6717,7 @@ return function(mod)
         home.libraryPage or 1))
     end
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-    THEME.hgss:home(model)
+    displayRuntime.perf:call("home_paint", THEME.hgss.home, THEME.hgss, model)
     if home.editing and not home.library then THEME.hgss:homeEditDone() end
     G.pop()
     displayRuntime.mapRefresh.homeModel = model

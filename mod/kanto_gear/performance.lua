@@ -5,7 +5,7 @@ Performance.__index = Performance
 local bounds = { 0.01, 0.025, 0.05, 0.1, 0.2, 0.4, 0.8, 1, 2, 4, 8,
   12, 16.7, 20, 25, 33.4, 50, 100, 250, 500, 1000, math.huge }
 local names = { "frame_interval", "gear_compose", "gear_draw", "battle_snapshot",
-  "tools", "home_data", "stamps_current", "stamps_album", "notes_flush",
+  "tools", "home_data", "home_map", "home_explorer", "home_paint", "stamps_current", "stamps_album", "notes_flush",
   "readback_request", "readback_poll", "readback_sync", "present", "game_capture",
   "profile_log" }
 
