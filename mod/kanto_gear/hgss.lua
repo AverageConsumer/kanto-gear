@@ -5227,6 +5227,7 @@ return function(ui)
   end
 
   function H:battleMoveCard(move, x, y, selected, stab)
+    if not move or move.available == false then return end
     local colors = self.colors
     local disabled = move.disabled
     local pressed = self:beginPress(x, y, 112, 80, not disabled)
@@ -5270,7 +5271,7 @@ return function(ui)
     self:battleTeamStrip(playerTeam, enemyTeam, true)
     for slot = 1, 4 do
       local column, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
-      local move = mon.moves[slot] or {}
+      local move = mon.moves[slot]
       self:battleMoveCard(move, 6 + column * 116,
         33 + row * 85, mon.moveIndex == slot, self:moveHasStab(mon, move))
     end
@@ -5390,7 +5391,7 @@ return function(ui)
       local direction = column == 0 and -1 or 1
       local x = 6 + column * 116
         + math.floor(direction * 122 * (1 - cardProgress) + 0.5)
-      local move = mon.moves[slot] or {}
+      local move = mon.moves[slot]
       self:battleMoveCard(move, x, 33 + row * 85,
         mon.moveIndex == slot, self:moveHasStab(mon, move))
     end
