@@ -2330,6 +2330,9 @@ return function(mod)
       and THEME.hgss:partySlot(82, 101, 5) == nil,
     "HGSS party hitboxes follow staggered cards")
 
+  displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
+    "@kanto_gear/level_up.lua"))()
+  displayRuntime.levelUp = displayRuntime.LevelUp.new()
   displayRuntime.Home = assert(load(mod:read("home_layout.lua"),
     "@kanto_gear/home_layout.lua"))()
   displayRuntime.Achievements = assert(load(mod:read("achievements.lua"),
@@ -5026,30 +5029,38 @@ return function(mod)
 
   local function drawLevelUpStats(mon)
     local stats = mon.stats
+    local gain = displayRuntime.levelUp:get(mon)
+    local levelText = THEME:format("L%d", mon.level or 0)
+    if gain then
+      levelText = THEME:format("L%d", gain.from) .. " → " .. levelText
+    end
     local def = game.data.pokemon[mon.species] or {}
     header(THEME:translate("LEVEL UP"))
-    centered(fit(string.format("%s  L%d",
-      mon.nickname or def.name or mon.species or "POKEMON",
-      mon.level or 0), 24), 27, DARK, nil, true)
+    centered(fit((mon.nickname or def.name or mon.species or "POKEMON")
+      .. "  " .. levelText, 24), 27, DARK, nil, true)
     local splitSpecial = stats.specialAttack ~= nil
       or stats.specialDefense ~= nil
     local rows = splitSpecial and {
-      { "ATTACK", stats.attack }, { "DEFENSE", stats.defense },
-      { "SPCL.ATK", stats.specialAttack },
-      { "SPCL.DEF", stats.specialDefense }, { "SPEED", stats.speed },
+      { "MAX HP", stats.hp, "hp" },
+      { "ATTACK", stats.attack, "attack" }, { "DEFENSE", stats.defense, "defense" },
+      { "SPCL.ATK", stats.specialAttack, "specialAttack" },
+      { "SPCL.DEF", stats.specialDefense, "specialDefense" },
+      { "SPEED", stats.speed, "speed" },
     } or {
-      { "ATTACK", stats.attack }, { "DEFENSE", stats.defense },
-      { "SPEED", stats.speed }, { "SPECIAL", stats.special },
+      { "MAX HP", stats.hp, "hp" },
+      { "ATTACK", stats.attack, "attack" }, { "DEFENSE", stats.defense, "defense" },
+      { "SPEED", stats.speed, "speed" }, { "SPECIAL", stats.special, "special" },
     }
     if THEME.style == "hgss" then
       local modelRows = {}
       for _, row in ipairs(rows) do
-        modelRows[#modelRows + 1] = { label = row[1], value = row[2] }
+        modelRows[#modelRows + 1] = { label = row[1], value = row[2],
+          delta = gain and gain.deltas[row[3]] }
       end
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:levelUp({
         name = mon.nickname or def.name or mon.species or "POKEMON",
-        level = THEME:format("L%d", mon.level or 0),
+        level = levelText,
         type = def.types and def.types[1], rows = modelRows,
         drawPokemon = function(x, y, size)
           drawSprite(mon.species, "front", x, y, size, size,
@@ -5059,11 +5070,14 @@ return function(mod)
       G.pop()
       return
     end
-    local firstY, step = splitSpecial and 39 or 44, splitSpecial and 13 or 15
+    local firstY, step = 38, splitSpecial and 11 or 13
     for i, row in ipairs(rows) do
       local y = firstY + (i - 1) * step
       text(THEME:translate(row[1]), 24, y, INK)
-      text(tostring(row[2] or 0), 119, y, DARK)
+      local delta = gain and gain.deltas[row[3]]
+      local value = tostring(row[2] or 0)
+      if delta ~= nil then value = value .. " " .. string.format("%+d", delta) end
+      text(value, 154 - THEME:textWidth(value), y, DARK)
     end
     button(24, splitSpecial and 111 or 108, 112, 27,
       THEME:translate("CONTINUE"), false)
@@ -9521,7 +9535,8 @@ return function(mod)
     local naming = namingKeys and top or nil
     local unsupportedSpecial = (learnScreen and not learn and not fieldPp)
       or (compat.isScreen(top, "naming") and not naming)
-    local levelStats = battle and compat.levelUpMon(top)
+    local levelStats = compat.levelUpMon(top)
+      or displayRuntime.levelUp:fieldMon(top)
     if THEME.style == "hgss" then
       local owned = learn or naming or levelStats or battle or fieldPp
         or fieldParty or hgssSummary or pcKind
@@ -9595,7 +9610,7 @@ return function(mod)
     else
       drawTools()
     end
-    if not learn and not naming and not battle and not choice
+    if not learn and not naming and not battle and not choice and not levelStats
         and not fieldPp and not fieldParty and not hgssSummary
         and not (pcKind and mode == "locked")
         and mode ~= "title" and mode ~= "active" then
@@ -11272,6 +11287,20 @@ return function(mod)
     elseif learnScreen and not choice then
       return
     end
+    local battleTop = game and game.stack and game.stack:top()
+    local levelMon = compat.levelUpMon(battleTop)
+      or displayRuntime.levelUp:fieldMon(battleTop)
+    if levelMon then
+      if THEME.style == "hgss" then
+        if THEME.hgss:levelUpHit(x * THEME.hgssScale,
+            y * THEME.hgssScale) then press("a") end
+      else
+        local buttonY = levelMon.stats and (levelMon.stats.specialAttack ~= nil
+          or levelMon.stats.specialDefense ~= nil) and 111 or 108
+        if inside(x, y, 24, buttonY, 112, 27) then press("a") end
+      end
+      return
+    end
     local fieldParty, fieldPartyData = displayRuntime.fieldBagParty()
     if fieldParty then
       if y < HEADER and x < 24 then
@@ -11287,19 +11316,6 @@ return function(mod)
         end
       end
       dirty = true
-      return
-    end
-    local battleTop = game and game.stack and game.stack:top()
-    local levelMon = battle and compat.levelUpMon(battleTop)
-    if levelMon then
-      if THEME.style == "hgss" then
-        if THEME.hgss:levelUpHit(x * THEME.hgssScale,
-            y * THEME.hgssScale) then press("a") end
-      else
-        local buttonY = levelMon.stats and (levelMon.stats.specialAttack ~= nil
-          or levelMon.stats.specialDefense ~= nil) and 111 or 108
-        if inside(x, y, 24, buttonY, 112, 27) then press("a") end
-      end
       return
     end
     if choice then
@@ -11889,6 +11905,7 @@ return function(mod)
           or displayRuntime.moveLearnScreen()
           or displayRuntime.fieldPpMoveScreen()
           or displayRuntime.fieldBagParty()
+          or compat.levelUpMon(top) or displayRuntime.levelUp:fieldMon(top)
           or pcSession() }
       if THEME.style == "hgss" and page == "HOME"
           and not displayRuntime.home.library
@@ -11963,6 +11980,8 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     game = payload.game
+    displayRuntime.levelUp = displayRuntime.LevelUp.new()
+    displayRuntime.levelUp:scan(game.save)
     displayRuntime.notes:bind(game, mod.storage)
     displayRuntime.resetAchievements()
     THEME.storedTheme = mod.options:get("theme_v3")
@@ -11988,6 +12007,8 @@ return function(mod)
   end)
 
   function displayRuntime.reloadSavedUi()
+    displayRuntime.levelUp = displayRuntime.LevelUp.new()
+    displayRuntime.levelUp:scan(game and game.save)
     displayRuntime.home.widgetCache = nil
     displayRuntime.notes:bind(game, mod.storage)
     displayRuntime.resetAchievements()
@@ -12225,6 +12246,8 @@ return function(mod)
   end
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
+    if stepGame == game and displayRuntime.levelUp:scan(game.save,
+        game.stack and game.stack:top()) then dirty = true end
     local top = game and game.stack and game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
     if stepGame == game and battle and compat.battleBagMenu(top)
@@ -12656,8 +12679,18 @@ return function(mod)
     mod.events:on(event, function() dirty = true end)
   end
 
+  mod.events:on("pokemon.level_up", function(payload)
+    local mon = payload and payload.mon
+    -- Gen 1 commits individual levels; Gen 2 emits several events after a
+    -- single final stat write. Unchanged snapshots keep that full jump intact.
+    if mon and displayRuntime.levelUp.snapshots[mon]
+        and displayRuntime.levelUp:observe(mon) then dirty = true end
+  end)
+
   -- Upstream owns the display seam; this mod only supplies its companion frame.
   mod.hooks:wrap("render.compose", function(next, renderer, context)
+    if game and displayRuntime.levelUp:scan(game.save,
+        game.stack and game.stack:top()) then dirty = true end
     local inline = inlineDisplay()
     companion = context and context.secondScreen
     if companion and companion.setEnabled then

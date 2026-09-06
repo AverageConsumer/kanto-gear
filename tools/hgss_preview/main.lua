@@ -1752,24 +1752,35 @@ function love.load()
     end
     theme:naming({ name = "GOLD", entries = entries })
   elseif legacyLevelUp then
-    theme:levelUp({ name = gen1 and "TAUROS" or "FERALIGATR",
-      level = "L36", type = gen1 and "NORMAL" or "WATER",
+    local levelModel = { name = gen1 and "TAUROS" or "FERALIGATR",
+      level = "LV35 → LV36", type = gen1 and "NORMAL" or "WATER",
       rows = gen1 and {
-        { label = "ATTACK", value = 84 },
-        { label = "DEFENSE", value = 78 },
-        { label = "SPEED", value = 91 },
-        { label = "SPECIAL", value = 58 },
+        { label = "MAX HP", value = 112, delta = 3 },
+        { label = "ATTACK", value = 84, delta = 2 },
+        { label = "DEFENSE", value = 78, delta = 2 },
+        { label = "SPEED", value = 91, delta = 2 },
+        { label = "SPECIAL", value = 58, delta = 0 },
       } or {
-        { label = "ATTACK", value = 92 },
-        { label = "DEFENSE", value = 83 },
-        { label = "SPCL.ATK", value = 70 },
-        { label = "SPCL.DEF", value = 75 },
-        { label = "SPEED", value = 66 },
+        { label = "MAX HP", value = 120, delta = 3 },
+        { label = "ATTACK", value = 92, delta = 2 },
+        { label = "DEFENSE", value = 83, delta = 2 },
+        { label = "SPCL.ATK", value = 70, delta = 2 },
+        { label = "SPCL.DEF", value = 75, delta = 2 },
+        { label = "SPEED", value = 66, delta = 2 },
       },
       drawPokemon = function(x, y, size)
         drawPortrait(gen1 and 6 or 1, x, y, size, false)
       end,
-    })
+    }
+    local sample = os.getenv("KANTO_GEAR_PREVIEW_LEVEL_CASE")
+    if sample == "jump" then
+      levelModel.level = "LV5 → LV100"
+      for _, row in ipairs(levelModel.rows) do row.value, row.delta = 999, 999 end
+    elseif sample == "unknown" then
+      levelModel.level = "LV36"
+      for _, row in ipairs(levelModel.rows) do row.delta = nil end
+    end
+    theme:levelUp(levelModel)
   elseif regionMap then
     theme:regionMap({ area = gen1 and "ROUTE 15" or "ROUTE 37",
       drawMap = function(x, y, w, h)

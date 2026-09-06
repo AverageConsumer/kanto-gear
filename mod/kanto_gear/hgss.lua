@@ -3655,8 +3655,8 @@ return function(ui)
     if model.drawPokemon then model.drawPokemon(14, 39, 34) end
     self:partyName(model.name or translate("POKEMON"), 57, 42, colors.ink, 124)
     self:partyType(translate("NEW LEVEL"), 57, 58, colors.green, 72)
-    self:partyInfo(model.level or "L--", 133, 55,
-      colors.ink, 48, "right")
+    self:partyInfo(model.level or "L--", 133, 58,
+      colors.ink, 86, "right")
 
     local rows = model.rows or {}
     self:panel(7, 83, 226, 76, false, nil, colors.blueLight)
@@ -3674,8 +3674,17 @@ return function(ui)
       end
       self:partyType(self:fitPartyType(translate(row.label), width - 8),
         x + 4, y + 5, colors.green, width - 8)
-      self:partyInfo(tostring(row.value or 0), x + 4, y + 19,
-        colors.ink, width - 8, "center")
+      local value = tostring(row.value or 0)
+      local delta = row.delta ~= nil and string.format("%+d", row.delta) or nil
+      local valueWidth = self:partyInfoWidth(value)
+      local deltaWidth = delta and self:partyInfoWidth(delta) or 0
+      local gap = delta and 7 or 0
+      local left = x + math.floor((width - valueWidth - gap - deltaWidth) / 2)
+      self:partyInfo(value, left, y + 19, colors.ink)
+      if delta then
+        self:partyInfo(delta, left + valueWidth + gap, y + 19,
+          row.delta > 0 and colors.green or colors.mutedInk)
+      end
     end
 
     local pressed = self:beginPress(42, 170, 156, 34)

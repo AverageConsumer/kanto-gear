@@ -15,3 +15,5 @@ tests/standard_battle_test.lua
 tests/team_widget_test.lua
 tests/translation_fonts_test.lua
 tests/translation_runtime_test.lua
+tests/level_up_test.lua
+tests/level_up_runtime_test.lua
