@@ -35,12 +35,18 @@ from apps, shortcuts and widgets.
 
 - **Explorer** combines the local map, current encounters, trainers, items and
   Itemfinder behavior without reducing the adventure to a spreadsheet.
+  Available encounters are ordered by access and method, with uncaught species
+  ahead of caught ones at the same availability. Gen 2 fishing entries require a bank.
+  **Options → Appearance → Map Motion** lets you choose Quality or Performance
+  for movement in both the local map and the Home Explorer widget.
 - **Party, Bag, Pokédex, Map, Trainer Card and Field Kit** are dedicated
   bottom-screen apps with contextual touch flows.
 - **Silph Store** explains and manages optional apps and widgets. Everything
   already ships inside Kanto Gear; the Store never downloads executable code.
 - **Achievements** tracks trainers, items, hidden finds, and local wild Pokémon. Bronze marks a visited area; silver completes its trainer and item goals; gold also completes its local species list. Pokémon already registered as caught count wherever they were obtained. Gym trainers follow the game's completion flags, including trainers automatically cleared by a Gym Leader victory. One-shot battles that allow a loss are optional; missed regular goals and unverified progress remain explicit.
-  Install it from Silph Store; it respects your research mode.
+  Install it from Silph Store; it respects your research mode. Its full-width
+  **Stamps widget** shows the current area, stamp tier and progress across all
+  four categories. Tap it to open that area's details.
 - **Notes** keeps personal notes and checklists for your playthrough, either
   general or attached to a route or area. Install it from the HGSS Silph Store.
   Create a note and choose **Tasks → + Task** to start a checklist.
@@ -79,9 +85,13 @@ text remains untouched.
 See [language support](translations/README.md).
 
 Game translation mods can supply their own font through `mod.content.font`.
-Kanto Gear uses that font for names and text containing characters missing
-from its pixel fonts, including Japanese and Korean. Measurement, truncation
-and centering use the same selected font. Gear's own menu language is selected
+Kanto Gear uses that font when it covers text missing from its pixel fonts.
+Bundled Japanese and Korean Fusion Pixel fonts also work without a game
+translation mod and cover gaps in a game's font, including the numero sign.
+They load only when needed; supported Latin text keeps the HGSS pixel fonts.
+Measurement, truncation and centering use the same selected font.
+Japanese and Korean Gear menu translations are not included yet.
+Gear's own menu language is selected
 separately; installing a game translation does not translate Gear's menus.
 For type labels, Gear also reads contextual `type|<name>` entries from the
 public `strings` registry. RBY packages need the generator's companion type
@@ -158,6 +168,19 @@ Kanto Gear is built on [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)
 and released under the [MIT License](LICENSE). Spanish was contributed by
 **Desierto La Espada** and French by **Blastheaven2**. Special thanks to
 [@Rocky5150](https://github.com/Rocky5150) for extensive device testing.
+
+Font credits:
+
+- **Fusion Pixel** and **Ark Pixel** by **TakWolf**.
+- **Misaki** by **Num Kadoma**, **Miseki Bitmap** by **Mark Li**,
+  **Boutique Bitmap 7x7/9x9** by **Cen-cyun Liu / Luke Liu**, and
+  **Galmuri** by **Lee Minseo (quiple)** contribute to the bundled Fusion fonts.
+- The HGSS image fonts use **BobsGame nD** by **Robert Matthew Pelloni** and
+  **scientifica** by **Akshay Oppiliappan**.
+
+See [font credits and license locations](mod/kanto_gear/FONT_CREDITS.txt).
+The downloadable ZIP includes these credits and the complete font license
+notices. Font assets retain their respective licenses.
 
 Pokémon and related names are trademarks of their respective owners. This fan
 project is not affiliated with Nintendo, Game Freak, The Pokémon Company or

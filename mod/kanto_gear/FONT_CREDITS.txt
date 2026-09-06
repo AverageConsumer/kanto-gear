@@ -1,0 +1,38 @@
+Kanto Gear font credits
+======================
+
+HGSS pixel fonts
+----------------
+BobsGame nD — Robert Matthew Pelloni
+https://github.com/twse/bobsgame-fonts
+License: WTFPL version 2.
+
+scientifica — Akshay Oppiliappan
+https://github.com/oppiliappan/scientifica
+License: SIL Open Font License 1.1.
+
+The atlas preparation notes and complete notices for both fonts are in
+HGSS_PIXEL_FONT_LICENSE.txt.
+
+Japanese and Korean fallback fonts
+----------------------------------
+Fusion Pixel Font — TakWolf
+https://github.com/TakWolf/fusion-pixel-font
+Unmodified proportional TTF files from the 2026.07.20 release:
+- Japanese: fusion-pixel-8px-proportional-ja.ttf
+- Korean: fusion-pixel-10px-proportional-ko.ttf
+License: SIL Open Font License 1.1.
+The complete Fusion Pixel notices are in fonts/ja/OFL.txt and fonts/ko/OFL.txt.
+
+The upstream font archives also credit these contributing fonts:
+- Ark Pixel Font — TakWolf
+- Misaki — Num Kadoma
+- Miseki Bitmap — Mark Li
+- Boutique Bitmap 7x7 and 9x9 — Cen-cyun Liu / Luke Liu
+- Galmuri — Lee Minseo (quiple)
+
+Their original copyright and license notices are included under
+fonts/ja/LICENSES/ and fonts/ko/LICENSES/, matching the respective source
+archives. Those notices govern the individual font contributions.
+
+Kanto Gear's MIT license does not replace any font asset's license.
