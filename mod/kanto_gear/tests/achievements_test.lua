@@ -80,6 +80,38 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   mod.world = mod.world or {}
   mod.world.getFlag = function(_, id) return flags[id] == true end
   local theme = assert(upvalue(display.drawContents, "THEME"))
+  local lookup = assert(upvalue(display.sectionName, "locationEntry"))
+  local entries = assert(upvalue(lookup, "locationEntries"))
+  for id, entry in pairs(entries()) do
+    T.eq(lookup(id), entry, version .. " individual lookup agrees with full area grouping " .. id)
+  end
+  T.eq(lookup(nil), nil, version .. " absent map remains unnamed")
+  T.eq(lookup("NOT_A_MAP"), nil, version .. " unknown map remains unnamed")
+  if gen2 then
+    local landmarks = data.gen2Landmarks
+    landmarks.order = {}
+    for key, entry in pairs(landmarks.landmarks) do landmarks.order[entry.index + 1] = key end
+    local key = landmarks.order[3]
+    local original = landmarks.landmarks[key]
+    T.eq(lookup("ROUTE_2"), original, version .. " generated order resolves live landmark")
+    local translated = { index = 2, name = "TRANSLATED", x = 2, y = 1 }
+    landmarks.landmarks[key] = translated
+    T.eq(lookup("ROUTE_2"), translated, version .. " replaced translation is visible without cache invalidation")
+    translated.index = 70
+    T.eq(lookup("ROUTE_2"), nil, version .. " stale order cannot return a moved landmark")
+    maps.ROUTE_2.landmark = 70
+    T.eq(lookup("ROUTE_2"), translated, version .. " registered index absent from order is found")
+    T.eq(entries().ROUTE_2, translated, version .. " full grouping agrees for registered index")
+    landmarks.landmarks[key], maps.ROUTE_2.landmark = original, 2
+    landmarks.landmarks.DUPLICATE = { index = 2, name = "SHADOW" }
+    T.eq(lookup("ROUTE_2"), original, version .. " canonical landmark wins a duplicate index like the host")
+    T.eq(entries().ROUTE_2, original, version .. " full grouping uses the same canonical landmark")
+    landmarks.landmarks.DUPLICATE = nil
+    maps.UNNAMED = {}
+    T.eq(lookup("UNNAMED"), nil, version .. " map without landmark is supported")
+    T.eq(entries().UNNAMED, nil, version .. " grouping omits maps without a landmark")
+    maps.UNNAMED = nil
+  end
   local home = display.home
   home.help, home.helpSeen = false, true
   local originalTiles = #home.layout.tiles

@@ -2336,7 +2336,7 @@ return function(mod)
     "@kanto_gear/performance.lua"))().new(
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, true)
-  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.3 units=ms timing=wall nested=true")
+  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.4 units=ms timing=wall nested=true")
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
   displayRuntime.levelUp = displayRuntime.LevelUp.new()
@@ -3561,7 +3561,10 @@ return function(mod)
         if entry.index ~= nil then byIndex[entry.index] = entry end
       end
       for id, def in pairs(game.data.gen2Maps or {}) do
-        if byIndex[def.landmark] then out[id] = byIndex[def.landmark] end
+        local key = def.landmark ~= nil and source and source.order
+          and source.order[def.landmark + 1]
+        local record = key and landmarks[key]
+        out[id] = record and record.index == def.landmark and record or byIndex[def.landmark]
       end
       return out
     end
@@ -3571,7 +3574,27 @@ return function(mod)
   end
 
   local function locationEntry(id)
-    return id and locationEntries()[id]
+    if not id then return nil end
+    if compat.isGen2() then
+      local data = game and game.data
+      local def = data and data.gen2Maps and data.gen2Maps[id]
+      local index = def and def.landmark
+      if index == nil then return nil end
+      local source = data.gen2Landmarks or {}
+      local records = source.landmarks or {}
+      -- The extractor already supplies the index -> landmark ID lookup.
+      -- Read the live record so translated/replaced names need no cache expiry.
+      local key = source.order and source.order[index + 1]
+      local record = key and records[key]
+      if record and record.index == index then return record end
+      -- Registered/moved landmarks and older datasets may have no order entry.
+      local found
+      for _, entry in pairs(records) do
+        if entry.index == index then found = entry end
+      end
+      return found
+    end
+    return locationEntries()[id]
   end
 
   local function areaName(id)

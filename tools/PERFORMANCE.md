@@ -1,6 +1,6 @@
 # Performance diagnostics
 
-`3.2.3-test.3` is an instrumented build, with the recorder enabled in
+`3.2.3-test.4` is an instrumented build, with the recorder enabled in
 `main.lua`. Disable the recorder before a public release. It sends `KGPROF`
 records to the existing host log; it does not upload data or write recordings
 into the save. Context contains generation, Gear page, native screen kind,
@@ -70,3 +70,23 @@ Compare the first album open after game load, then reopen without changing
 progress. Also walk across a map boundary or collect something while it builds:
 only the completed snapshot for the latest state should appear. A new on-device
 recording is required before claiming the observed pause is eliminated.
+
+## Gen 2 location lookup
+
+The test.3 Thor recording split the first album over 330 compose calls:
+`stamps_album` mean 2.2426 ms, maximum 6.8765 ms. The corresponding frame
+interval maximum was 20.0676 ms, versus 177.4841 ms on test.2. Reopening the
+unchanged album required no further build slices. Home drawing still had
+20–21 ms peaks. These observations apply to the recorded Route 31 workload.
+
+Test.4 removes repeated construction of the entire Gen 2 map-to-landmark table
+from individual location lookups. It uses the generated landmark order with
+index validation, reads current translation records directly, and falls back
+to searching records for newly registered/moved landmarks or older datasets.
+Full area grouping uses the same canonical record when indices overlap.
+
+A synthetic Windows LuaJIT benchmark (600 maps, 100 landmarks, seven-run median,
+6000 lookups) measured 93.855 ms before and 0.045 ms after; the fallback without
+an order list took 1.327 ms. With GC paused for 600 lookups, allocation fell
+from 15080.770 KiB to 1.484 KiB. These isolate the lookup and are not a prediction
+of total album speed or on-device frame times. Repeat the same device scenario.
