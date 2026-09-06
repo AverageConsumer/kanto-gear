@@ -2043,7 +2043,7 @@ return function(mod)
     { key = "language", label = "LANGUAGE", type = "choice",
       default = "en", choices = {
         { "ENGLISH", "en" }, { "DEUTSCH", "de" },
-        { "ESPANOL", "es" }, { "FRANCAIS", "fr" },
+        { "ESPANOL", "es" }, { "FRANCAIS", "fr" }, { "JAPANESE", "ja" },
       } },
     { key = "theme_v3", label = "THEME", type = "choice", default = "hgss",
       choices = {
@@ -2336,7 +2336,7 @@ return function(mod)
     "@kanto_gear/performance.lua"))().new(
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, true)
-  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.5 units=ms timing=wall nested=true")
+  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.6 units=ms timing=wall nested=true")
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
   displayRuntime.levelUp = displayRuntime.LevelUp.new()

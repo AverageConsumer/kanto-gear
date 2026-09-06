@@ -11,7 +11,7 @@ local function check(condition, label)
 end
 
 local catalogs = {}
-for _, language in ipairs({ "de", "es", "fr" }) do
+for _, language in ipairs({ "de", "es", "fr", "ja" }) do
   catalogs[language] = loadModule("lang/" .. language .. ".lua")
 end
 
@@ -29,6 +29,13 @@ check(i18n:format("SIGNALS %d", 3) == string.format(
   catalogs.fr["SIGNALS %d"], 3), "translated placeholders are formatted")
 selected = "es"
 check(i18n:language() == "es", "Spanish is supported")
+selected = "ja-JP"
+check(i18n:language() == "ja", "Japanese locale resolves to its catalog")
+check(i18n:text("START GAME") == catalogs.ja["START GAME"], "Japanese UI text comes from contributor catalog")
+check(i18n:format("SIGNALS %d", 3) == string.format(catalogs.ja["SIGNALS %d"], 3), "Japanese format arguments survive")
+check(i18n:text("NOTES") == "NOTES", "unfinished Japanese entries fall back to English")
+selected = "de"
+check(i18n:text("START GAME") == catalogs.de["START GAME"], "switching back from Japanese restores German")
 selected = "invalid"
 check(i18n:language() == "en", "invalid selection falls back to English")
 selected = "en"
@@ -59,7 +66,18 @@ for code, catalog in pairs(catalogs) do
 end
 
 local reference, referenceCount = catalogs.de, 0
+for key, value in pairs(catalogs.ja) do
+  check(reference[key] ~= nil, "ja has no unknown key: " .. key)
+  check(type(value) == "string" and value ~= "", "ja has a non-empty value: " .. key)
+end
 for key in pairs(reference) do referenceCount = referenceCount + 1 end
+local pendingPath = root .. "/../../translations/ja-missing.lua"
+local pending = assert(loadfile(pendingPath))()
+for key in pairs(reference) do
+  check((catalogs.ja[key] == nil) == (pending[key] == false), "Japanese completion file matches coverage: " .. key)
+end
+for key in pairs(pending) do check(reference[key] ~= nil, "Japanese completion key exists: " .. key) end
+
 for _, language in ipairs({ "es", "fr" }) do
   local count = 0
   for key, value in pairs(catalogs[language]) do
@@ -113,8 +131,12 @@ for code, catalog in pairs(catalogs) do
     end
   end
   for glyph in pairs(characters) do
-    check(glyph == " " or font[glyph:upper()] ~= nil,
-      code .. " bitmap font covers " .. glyph)
+    -- Japanese uses the bundled TrueType fallback; its complete catalog is
+    -- checked against the real font by the Japanese preview matrix.
+    if code ~= "ja" then
+      check(glyph == " " or font[glyph:upper()] ~= nil,
+        code .. " bitmap font covers " .. glyph)
+    end
   end
 end
 

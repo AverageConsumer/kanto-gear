@@ -170,6 +170,12 @@ function love.load()
   local translationFonts = assert(loadfile(root .. "/mod/kanto_gear/translation_fonts.lua"))().new(
     love.graphics, function(message) error(message) end,
     function(name) return fileData(root .. "/mod/kanto_gear/" .. name, name) end)
+  if i18n:language() == "ja" then
+    local font = assert(translationFonts:loadFont(translationFonts.bundled.ja, 1))
+    for key, value in pairs(i18n.catalogs.ja) do
+      assert(font:hasGlyphs((value:gsub("%c", ""))), "Japanese font lacks glyphs for " .. key)
+    end
+  end
   local theme = chunk()({
     graphics = love.graphics, box = box, text = text,
     fit = fit, glyphs = glyphs, color = color, font = font,
@@ -1887,7 +1893,7 @@ function love.load()
     theme:settings({ category = "appearance", accent = "blue", page = screen == "settings_appearance_page2" and 2 or 1,
       pages = 2, rows = {
         { label = "LANGUAGE", value = ({ en = "ENGLISH", de = "DEUTSCH",
-          es = "ESPANOL", fr = "FRANCAIS" })[languageCode] or "ENGLISH" },
+          es = "ESPANOL", fr = "FRANCAIS", ja = "JAPANESE" })[languageCode] or "ENGLISH" },
         { label = "THEME", value = "HGSS AUTO" },
         { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
         { label = "CLOCK FORMAT", value = "SYSTEM" },
@@ -2683,8 +2689,15 @@ function love.load()
   love.graphics.setCanvas()
   local data = preview:newImageData():encode("png")
   local missing = i18n:coverage(languageCode)
-  assert(#missing == 0, "missing " .. languageCode
-    .. " translations: " .. table.concat(missing, ", "))
+  if i18n:language() == "ja" then
+    local pending = assert(loadfile(root .. "/translations/ja-missing.lua"))()
+    for _, key in ipairs(missing) do
+      assert(pending[key] == false, "undocumented Japanese fallback: " .. key)
+    end
+  else
+    assert(#missing == 0, "missing " .. languageCode
+      .. " translations: " .. table.concat(missing, ", "))
+  end
   local file = assert(io.open(output, "wb"))
   file:write(data:getString())
   file:close()

@@ -1,4 +1,5 @@
 return {
+  ["JAPANESE"] = "日本語",
   -- Start, navigation and common controls.
   ["START GAME"] = "ゲームかいし",
   ["TAP TO CONTINUE"] = "タッチでつづく",

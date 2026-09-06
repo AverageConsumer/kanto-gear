@@ -1,7 +1,7 @@
 # Built-in Kanto Gear languages
 
-Kanto Gear 3.1 includes English, German, Spanish (Spain), and
-French. Select **Settings → Appearance → Language**, or **LANGUAGE** in the
+Kanto Gear includes English, German, Spanish (Spain), French, and partial
+Japanese (日本語). Select **Settings → Appearance → Language**, or **LANGUAGE** in the
 host's Kanto Gear mod options. English is the default. The selection is saved
 outside the game save and can be changed without restarting.
 
@@ -21,7 +21,10 @@ mods are independent and may remain enabled.
 
 Original Spanish translations: **Desierto La Espada**. Original French
 translations: **Blastheaven2**. Their contributions remain the basis of the
-built-in catalogs.
+built-in catalogs. Japanese was contributed by **Theeohn** in
+[PR #33](https://github.com/AverageConsumer/kanto-gear/pull/33). Its 337 entries
+are included unchanged under the standard `ja` language code. The remaining
+380 reference keys fall back to English; see [the Japanese completion file](ja-missing.lua).
 
 ## Maintaining translations
 

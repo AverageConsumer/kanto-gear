@@ -141,13 +141,22 @@ for _, language in ipairs({ "de", "es", "fr" }) do
   T.eq(#missing, 0, language .. " runtime metadata covered: " .. table.concat(missing, "; "))
 end
 
+T.check(display.cycleSetting(rowFor("language"), 1), "touch selects Japanese after French")
+T.eq(api.options:get("language"), "ja", "Japanese uses the standard locale code")
+T.eq(api.cache:read("options/language"), "sja", "Japanese selection persists")
+T.eq(theme:translate("JAPANESE"), "日本語", "Japanese language label renders immediately")
+T.eq(theme:translate("NOTES"), "NOTES", "untranslated Japanese entries fall back to English")
+
 run.release()
 local restarted = loadWithoutNativeSetter(persistedCache)
 restarted.loader.events:emit("game.ready", { game = gameFor(restarted) })
 local restartedTheme = upvalue(runtime(restarted).drawContents, "THEME")
 local restartedApi = upvalue(runtime(restarted).saveHome, "mod")
 T.eq(restartedApi.options:get("ui_haptics"), true, "haptics survive a new mod instance")
-T.eq(restartedTheme.i18n:language(), "fr", "language survives loading a new mod instance")
-T.eq(restartedTheme:translate("PARTY"), "ÉQUIPE", "new instance immediately renders the saved language")
+T.eq(restartedTheme.i18n:language(), "ja", "Japanese survives loading a new mod instance")
+T.eq(restartedTheme:translate("JAPANESE"), "日本語", "new instance immediately renders the saved language")
+T.eq(restartedTheme:translate("NOTES"), "NOTES", "English fallback survives restarting")
+T.check(restartedApi.options:set("language", "de"), "Japanese can be switched back to German")
+T.eq(restartedTheme:translate("JAPANESE"), "JAPANISCH", "language switch clears Japanese rendering")
 
 T.finish("Kanto Gear settings fallback")

@@ -1,6 +1,6 @@
 # Performance diagnostics
 
-`3.2.3-test.5` is an instrumented build, with the recorder enabled in
+`3.2.3-test.6` is an instrumented build, with the recorder enabled in
 `main.lua`. Disable the recorder before a public release. It sends `KGPROF`
 records to the existing host log; it does not upload data or write recordings
 into the save. Context contains generation, Gear page, native screen kind,

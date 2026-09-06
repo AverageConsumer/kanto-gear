@@ -346,7 +346,8 @@ T.eq(#options, 22, "Kanto Gear registers all settings including map motion")
 local optionsByKey = {}
 for _, row in ipairs(options) do optionsByKey[row.key] = row end
 T.eq(optionsByKey.language.default, "en", "language preserves English by default")
-T.eq(#optionsByKey.language.choices, 4, "language offers four built-in languages")
+T.eq(#optionsByKey.language.choices, 5, "language offers five built-in languages")
+T.eq(optionsByKey.language.choices[5][2], "ja", "Japanese is selectable using its standard locale code")
 T.eq(optionsByKey.theme_v3.label, "THEME", "theme setting is device-neutral")
 T.eq(#optionsByKey.theme_v3.choices, 12, "classic and modern themes share one setting")
 T.eq(optionsByKey.theme_v3.choices[3][2], "hgss", "HGSS theme is available")

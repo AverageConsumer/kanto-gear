@@ -1,4 +1,5 @@
 return {
+  ["JAPANESE"] = "JAPONAIS",
   ["MISSED GOALS"] = "OBJECTIFS MANQUÉS",
   ["GEAR HAPTICS"] = "VIBRATION GEAR",
   ["%d OPTIONAL"] = "%d FACULTATIFS",
