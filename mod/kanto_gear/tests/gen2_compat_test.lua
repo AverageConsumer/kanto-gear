@@ -193,6 +193,16 @@ do
     T.eq(sorted[3].species, "TREE", "species is ranked by its easiest usable method")
     T.eq(sorted[3].matches[1].method, "WALK", "detail opens with the same preferred method")
     T.eq(source.rows[1].appearances[1].method, "HEADBUTT", "sorting never mutates shared encounter data")
+    source.rows[3].caught = true
+    sorted = displayRuntime.explorerWildRows(source, "FIX_ROUTE", "HERE")
+    T.eq(sorted[1].species, "SPINARAK", "uncaught grass takes priority over common caught grass")
+    T.eq(sorted[#sorted].species, "COMMON_GRASS", "caught grass follows usable uncaught special methods")
+    T.eq(#sorted, 5, "caught species stay available in the gallery")
+    sorted = displayRuntime.explorerWildRows(source, "FIX_ROUTE", "ROUTE", locked)
+    T.eq(sorted[4].species, "COMMON_GRASS", "caught local encounters remain ahead of unavailable uncaught ones")
+    source.rows[3].caught = false
+    sorted = displayRuntime.explorerWildRows(source, "FIX_ROUTE", "HERE")
+    T.eq(sorted[1].species, "COMMON_GRASS", "false and missing caught flags share the same priority")
     local inventory, party, badges = game.save.inventory, game.save.party, game.save.player.badges
     game.save.inventory, game.save.party, game.save.player.badges = {}, {}, {}
     T.eq(displayRuntime.explorerMethods().HEADBUTT, false, "Headbutt needs a party member with the move")

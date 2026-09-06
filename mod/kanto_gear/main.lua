@@ -5337,6 +5337,8 @@ return function(mod)
       end
     end
     table.sort(out, function(a, b)
+      if a.best.rank ~= b.best.rank then return a.best.rank < b.best.rank end
+      if (a.caught == true) ~= (b.caught == true) then return b.caught == true end
       if easier(a.best, b.best) then return true end
       if easier(b.best, a.best) then return false end
       return tostring(a.species) < tostring(b.species)
