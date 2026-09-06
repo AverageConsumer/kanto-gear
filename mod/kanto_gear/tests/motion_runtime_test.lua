@@ -70,6 +70,18 @@ key = display.motionKey(); display.settings.page = 2; now = 16; draw()
 T.check(display.motionKey() ~= key, "settings pages are separate navigation states")
 display.settings.page = 1; now = 17; draw()
 T.eq(display.motion.direction, -1, "previous settings page travels back")
+page("HOME"); display.home.library = true; display.home.libraryPage = 2; now = 17.3; draw()
+display.home.libraryPage = 1; now = 17.6; draw()
+T.eq(display.motion.direction, -1, "previous library page travels back independently of Home page")
+display.home.library = false
+page("TRAINER"); now = 17.8; draw()
+up(display.navigationState, "trainerStepsOpen", true); now = 18; draw()
+T.eq(display.motion.direction, 1, "trainer step details open forward")
+up(display.navigationState, "trainerStepsOpen", false); now = 18.2; draw()
+T.eq(display.motion.direction, -1, "closing trainer step details travels back")
+page("TOOLS"); up(display.navigationState, "tools").page = 2; now = 18.4; draw()
+up(display.navigationState, "tools").page = 1; now = 18.6; draw()
+T.eq(display.motion.direction, -1, "previous tools page travels back")
 page("STORE"); display.home.storeView = "apps"; display.home.storePages = { apps = 1 }
 key = display.motionKey(); display.home.storePages.apps = 2
 T.check(display.motionKey() ~= key, "store pagination participates in navigation")

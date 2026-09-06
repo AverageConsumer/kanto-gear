@@ -4799,7 +4799,8 @@ return function(mod)
     if page == "HOME" then
       state.depth = displayRuntime.home.library and 2
         or displayRuntime.home.editing and 1 or 0
-      state.index = displayRuntime.home.page or 1
+      state.index = displayRuntime.home.library and displayRuntime.home.libraryPage
+        or displayRuntime.home.page or 1
     elseif page == "SETTINGS" then
       state.depth = displayRuntime.settings.confirm and 3
         or displayRuntime.settings.category and 2 or 1
@@ -4828,6 +4829,14 @@ return function(mod)
     elseif page == "STORE" then
       state.depth = displayRuntime.home.storeDetail and 2 or 1
       state.index = (displayRuntime.home.storePages or {})[displayRuntime.home.storeView or "today"] or 1
+    elseif page == "TRAINER" then
+      state.depth = trainerStepsOpen and 2 or 1
+    elseif page == "TOOLS" then
+      state.index = tools.page or 1
+    elseif page == "GUIDE" then
+      state.index = guidePage or 1
+    elseif page == "AREA" then
+      state.index = areaPage or 1
     end
     return state
   end
