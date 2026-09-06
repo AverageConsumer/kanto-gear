@@ -3766,6 +3766,11 @@ return function(ui)
   end
 
   function H:endPartyAction(now)
+    if self.motionEnabled == false then
+      self.partyActionStarted = now - 1
+      self.partyActionClosing = true
+      return
+    end
     self.partyActionCloseFrom = self:partyActionOffset(now)
     self.partyActionStarted = now
     self.partyActionClosing = true
@@ -5295,6 +5300,7 @@ return function(ui)
 
     G.push()
     G.translate(math.floor(-240 * (1 - pageProgress) + 0.5), 0)
+    box("fill", 0, 0, 240, 216, self.colors.partyBg)
     self:battleBackdrop()
     self:battleBag(bag, playerTeam, enemyTeam)
     G.pop()
@@ -5509,6 +5515,7 @@ return function(ui)
 
     G.push()
     G.translate(math.floor(240 * (1 - pageProgress) + 0.5), 0)
+    box("fill", 0, 0, 240, 216, self.colors.partyBg)
     self:partyBackdrop()
     self:headerBar(title or translate("PARTY"), true, false)
     self:headerClock(clock or "20:04", period, 139, 72, 6)
@@ -5780,28 +5787,25 @@ return function(ui)
 
   function H:partySwapCommitTransition(drawPartyCard, source, target,
       progress)
-    local G = ui.graphics
     progress = math.max(0, math.min(1, progress or 0))
-    local scale = math.abs(1 - progress * 2)
-    for position = 1, 6 do
-      local slot = position
-      if progress >= 0.5 then
-        if position == source then slot = target
-        elseif position == target then slot = source end
-      end
-      local x, y = self:partyPosition(position)
-      if position == source or position == target then
-        G.push()
-        G.translate(x + 56, 0)
-        G.scale(math.max(0.03, scale), 1)
-        G.translate(-(x + 56), 0)
-        drawPartyCard(slot, x, y, progress < 0.5 and position == target,
-          false)
-        G.pop()
-      else
+    local eased = progress * progress * (3 - 2 * progress)
+    for slot = 1, 6 do
+      if slot ~= source and slot ~= target then
+        local x, y = self:partyPosition(slot)
         drawPartyCard(slot, x, y, false, false)
       end
     end
+    local sx, sy = self:partyPosition(source)
+    local tx, ty = self:partyPosition(target)
+    local bend = math.sin(progress * math.pi) * 8
+    local function moving(slot, x, y, dx, dy, side)
+      drawPartyCard(slot, math.floor(x + (dx - x) * eased + 0.5),
+        math.floor(math.max(32, math.min(152,
+          y + (dy - y) * eased + side * bend)) + 0.5),
+        slot == source, false)
+    end
+    moving(target, tx, ty, sx, sy, 1)
+    moving(source, sx, sy, tx, ty, -1)
   end
 
   function H:summaryBall(cx, cy, radius)
@@ -6189,6 +6193,28 @@ return function(ui)
     end
   end
 
+  function H:summaryWrapTransition(mon, drawPortrait, progress, from, to)
+    local G = ui.graphics
+    progress = math.max(0, math.min(1, progress))
+    local eased = progress * progress * (3 - 2 * progress)
+    local direction = from == 3 and to == 1 and 1 or -1
+    local oldX, oldY, oldW, oldH = G.getScissor()
+    local x, y = G.transformPoint(0, 28)
+    local right, bottom = G.transformPoint(240, 216)
+    G.setScissor(x, y, right - x, bottom - y)
+    local function draw(which, offset)
+      G.push(); G.translate(offset, 0)
+      box("fill", 0, 28, 240, 188, self.colors.partyBg)
+      if which == 1 then self:summaryPage(mon, drawPortrait)
+      elseif which == 2 then self:summaryMoves(mon, drawPortrait)
+      else self:summaryMemo(mon, drawPortrait) end
+      G.pop()
+    end
+    local offset = math.floor(240 * eased + 0.5) * direction
+    draw(from, -offset); draw(to, 240 * direction - offset)
+    if oldX then G.setScissor(oldX, oldY, oldW, oldH) else G.setScissor() end
+  end
+
   function H:summaryTransition(mon, drawPortrait, progress, actionCount,
       statsLabel, swapLabel)
     local G = ui.graphics
@@ -6197,28 +6223,30 @@ return function(ui)
     local heroY = self:partyActionHeroY(actionCount)
     local actionOffset = math.floor(132 * eased + 0.5)
 
-    local anchorProgress = math.min(1, progress / 0.20)
+    local anchorProgress = math.min(1, progress / 0.12)
     local anchorX = 64 - 12 * anchorProgress
     local anchorY = heroY + (42 - heroY) * anchorProgress
-    if progress < 0.20 then
+    if progress < 0.12 then
       self:partyCard(mon, anchorX, anchorY, true, false, drawPortrait)
     else
-      local panelProgress = (progress - 0.20) / 0.80
+      local panelProgress = math.min(1, (progress - 0.12) / 0.50)
       panelProgress = 1 - (1 - panelProgress) ^ 3
       local x = 52 + (6 - 52) * panelProgress
       local y = 42 + (34 - 42) * panelProgress
       local width = 112 + (228 - 112) * panelProgress
       local height = 56 + (80 - 56) * panelProgress
-      local clipX, clipY = G.transformPoint(x, y)
-      local clipRight, clipBottom = G.transformPoint(x + width, y + height)
-      local oldX, oldY, oldWidth, oldHeight = G.getScissor()
-      G.setScissor(clipX, clipY, clipRight - clipX, clipBottom - clipY)
-      G.push()
-      G.translate(x - 6, y - 34)
-      self:summaryTop(mon, drawPortrait)
-      G.pop()
-      if oldX then G.setScissor(oldX, oldY, oldWidth, oldHeight)
-      else G.setScissor() end
+      if panelProgress >= 1 then
+        self:summaryTop(mon, drawPortrait)
+      else
+        x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+        self:panel(x, y, math.floor(width + 0.5), math.floor(height + 0.5), false)
+        -- Keep the portrait identifiable while the panel grows. Text appears
+        -- at its final position instead of being cut by a moving scissor.
+        self:summaryBall(x + 32, y + 35, math.floor(math.min(29, (height - 10) / 2)))
+        drawPortrait(mon, x + 8, y + 10, 48, false)
+        self:partyName(mon.name, x + 66, y + 8, self.colors.ink,
+          math.floor(width - 74))
+      end
     end
 
     local left, top, width, height = self:partyActionRow(1, actionCount)

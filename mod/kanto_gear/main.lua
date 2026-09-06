@@ -2337,7 +2337,7 @@ return function(mod)
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, false)
   if displayRuntime.perf.enabled then
-    mod.log:info("KGPROF v=1 kind=build version=3.2.4 units=ms timing=wall nested=true")
+    mod.log:info("KGPROF v=1 kind=build version=3.2.5-test.1 units=ms timing=wall nested=true")
   end
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
@@ -2755,7 +2755,7 @@ return function(mod)
     data = data or {}
     data.kind, data.queued = kind, love.timer.getTime()
     data.started = nil
-    data.duration = data.duration or 0.34
+    data.duration = data.duration or 0.24
     hgssRuntime.animation, dirty = data, true
   end
 
@@ -3233,6 +3233,10 @@ return function(mod)
     -- from a stalled readback without requiring an application force-close.
     canvas = G.newCanvas(width, height, { dpiscale = 1 })
     canvas:setFilter("nearest", "nearest")
+    if displayRuntime.motion then
+      displayRuntime.motion.key, displayRuntime.motion.started = nil, nil
+      displayRuntime.motion.navigation, displayRuntime.motion.cached = nil, nil
+    end
     readbackPending, displayReady = false, false
     usePalette(themePalette(theme), hgss and THEME.hgss.colors.partyBg)
     invalidateLocalMap()
@@ -4745,6 +4749,13 @@ return function(mod)
         .. "-" .. tostring(home.libraryPage)) or "",
       page == "HOME" and tostring(home.page) or "",
       page == "STORE" and tostring(home.storeDetail or home.storeView) or "",
+      page == "STORE" and tostring((home.storePages or {})[home.storeView or "today"]) or "",
+      page == "SETTINGS" and tostring(displayRuntime.settings.category) or "",
+      page == "SETTINGS" and tostring(displayRuntime.settings.page) or "",
+      page == "SETTINGS" and tostring(displayRuntime.settings.confirm) or "",
+      page == "NOTES" and tostring(displayRuntime.notes.view) or "",
+      page == "NOTES" and tostring(displayRuntime.notes.selected) or "",
+      page == "NOTES" and tostring(displayRuntime.notes.page) or "",
       page == "POKEDEX" and tostring(displayRuntime.pokedex.view) or "",
       page == "POKEDEX" and tostring(displayRuntime.pokedex.selected) or "",
       page == "POKEDEX" and tostring(displayRuntime.pokedex.page) or "",
@@ -4774,10 +4785,56 @@ return function(mod)
     }, "|")
   end
 
+  function displayRuntime.navigationState()
+    if screenState() ~= "active" or battle or moveInfo or fieldChoice
+        or partyActionSlot or partyMoveFrom or radarOpen or pendingAction
+        or pendingFly then return nil end
+    local state = { page = page, depth = page == "HOME" and 0 or 1, index = 1 }
+    if page == "HOME" then
+      state.depth = displayRuntime.home.library and 2
+        or displayRuntime.home.editing and 1 or 0
+      state.index = displayRuntime.home.page or 1
+    elseif page == "SETTINGS" then
+      state.depth = displayRuntime.settings.confirm and 3
+        or displayRuntime.settings.category and 2 or 1
+      state.index = displayRuntime.settings.page or 1
+    elseif page == "NOTES" then
+      local notes = displayRuntime.notes
+      if notes.down or notes.view == "draw" or notes.view == "edit" then return nil end
+      state.depth = notes.view == "list" and 1 or 2
+      state.index = notes.page or 1
+    elseif page == "BAG" then
+      state.depth = displayRuntime.bag.detail and 2 or 1
+      state.index = displayRuntime.bag.page or 1
+    elseif page == "POKEDEX" then
+      local dex = displayRuntime.pokedex
+      state.depth = dex.view == "index" and 1 or dex.view == "profile" and 2 or 3
+      state.index = dex.view == "habitat" and dex.habitatPage
+        or dex.view == "moves" and dex.movePage or dex.page or 1
+    elseif page == "ACHIEVEMENTS" then
+      state.depth = ({ detail = 2, finds = 3, location = 4 })[displayRuntime.achievements.view] or 1
+      state.index = displayRuntime.achievements.page or 1
+    elseif page == "LOCAL" then
+      state.depth = displayRuntime.explorer.mapFull and 3
+        or displayRuntime.explorer.selected and 2 or 1
+      state.index = displayRuntime.explorer.selected
+        and displayRuntime.explorer.detailPage or displayRuntime.explorer.page or 1
+    elseif page == "STORE" then
+      state.depth = displayRuntime.home.storeDetail and 2 or 1
+      state.index = (displayRuntime.home.storePages or {})[displayRuntime.home.storeView or "today"] or 1
+    end
+    return state
+  end
+
   function displayRuntime.prepareMotion()
     local motion, key = displayRuntime.motion, displayRuntime.motionKey()
-    if not key or mod.options:get("ui_motion") == false then
-      motion.key, motion.started = nil, nil
+    local navigation = displayRuntime.navigationState()
+    local previousNavigation = motion.navigation
+    motion.navigation = navigation
+    local direct = page == "NOTES" and (displayRuntime.notes.down
+      or displayRuntime.notes.view == "draw" or displayRuntime.notes.view == "edit")
+    if not key or mod.options:get("ui_motion") == false or direct then
+      motion.key, motion.started, motion.cached = nil, nil, nil
       return
     end
     local changed = motion.key and motion.key ~= key
@@ -4789,9 +4846,19 @@ return function(mod)
       motion.started = nil
       return
     end
+    motion.direction = navigation and previousNavigation and 1 or nil
+    if motion.direction and (navigation.depth < previousNavigation.depth
+        or navigation.page == previousNavigation.page
+          and navigation.depth == previousNavigation.depth
+          and (tonumber(navigation.index) or 1) < (tonumber(previousNavigation.index) or 1)) then
+      motion.direction = -1
+    end
+    motion.duration = motion.direction and 0.20 or 0.16
+    motion.cached = nil
     if not motion.canvas
         or motion.canvas:getWidth() ~= canvas:getWidth()
         or motion.canvas:getHeight() ~= canvas:getHeight() then
+      if motion.canvas and motion.canvas.release then motion.canvas:release() end
       motion.canvas = G.newCanvas(canvas:getWidth(), canvas:getHeight(),
         { dpiscale = 1 })
       motion.canvas:setFilter("nearest", "nearest")
@@ -4826,10 +4893,38 @@ return function(mod)
     G.setScissor()
     G.setShader()
     G.setBlendMode("alpha")
-    color({ 1, 1, 1, 1 - progress })
-    G.draw(motion.canvas)
+    if motion.direction then
+      local width, height = canvas:getWidth(), canvas:getHeight()
+      if not motion.target or motion.target:getWidth() ~= width
+          or motion.target:getHeight() ~= height then
+        if motion.target and motion.target.release then motion.target:release() end
+        motion.target = G.newCanvas(width, height, { dpiscale = 1 })
+        motion.target:setFilter("nearest", "nearest")
+      end
+      if not motion.cached then
+        motion.targetBackgroundDim = displayRuntime.backgroundDim or 0
+        G.setCanvas(motion.target)
+        G.clear(0, 0, 0, 0)
+        color({ 1, 1, 1, 1 }); G.draw(canvas)
+        G.setCanvas(canvas)
+        motion.cached = true
+      end
+      color({ 1, 1, 1, 1 })
+      G.draw(motion.target)
+      -- Only the content moves. Clock, battery and navigation stay anchored.
+      G.setScissor(0, 28 * height / 216, width, height * 188 / 216)
+      local offset = math.floor(width * progress + 0.5) * motion.direction
+      G.draw(motion.canvas, -offset, 0)
+      G.draw(motion.target, width * motion.direction - offset, 0)
+      G.setScissor()
+    else
+      color({ 1, 1, 1, 1 - progress })
+      G.draw(motion.canvas)
+    end
     G.setCanvas(previous)
-    displayRuntime.backgroundDim = (displayRuntime.backgroundDim or 0) * progress
+    local targetDim = motion.direction and motion.targetBackgroundDim
+      or displayRuntime.backgroundDim or 0
+    displayRuntime.backgroundDim = targetDim * progress
       + (motion.backgroundDim or 0) * (1 - progress)
   end
 
@@ -5782,6 +5877,8 @@ return function(mod)
       and not battle and not moveInfo and not fieldChoice and not radarOpen
   end
   function displayRuntime.notesPointer(action, x, y)
+    -- Interaction always replaces presentation, particularly ink and typing.
+    displayRuntime.motion.started, displayRuntime.motion.cached = nil, nil
     displayRuntime.notes:pointer(action, x, y)
     if displayRuntime.notes:takeChanged() then dirty = true end
   end
@@ -8583,6 +8680,9 @@ return function(mod)
           and hgssRuntime.animation.to == 2 then
         THEME.hgss:summaryMemoTransition(mon, hgssRuntime.summaryPortrait,
           1 - pageProgress)
+      elseif pageProgress then
+        THEME.hgss:summaryWrapTransition(mon, hgssRuntime.summaryPortrait,
+          pageProgress, hgssRuntime.animation.from, hgssRuntime.animation.to)
       elseif view.page == 1 then
         THEME.hgss:summaryPage(mon, hgssRuntime.summaryPortrait)
       elseif view.page == 2 then
@@ -9717,7 +9817,10 @@ return function(mod)
     G.push("all")
     local ok, err = pcall(function()
       displayRuntime.prepareMotion()
-      displayRuntime.drawContents()
+      local motion = displayRuntime.motion
+      local cached = motion.direction and motion.cached and motion.started
+        and love.timer.getTime() - motion.started < motion.duration
+      if not cached then displayRuntime.drawContents() end
       displayRuntime.applyMotion()
     end)
     -- A failed nested draw skips its own pops. Restore our entire scope before
@@ -9873,7 +9976,7 @@ return function(mod)
       elseif not oldParty and newParty then
         if not (hgssRuntime.animation
             and hgssRuntime.animation.kind == "battle_party") then
-          hgssRuntime.beginAnimation("battle_party", { duration = 0.42 })
+          hgssRuntime.beginAnimation("battle_party", { duration = 0.28 })
         end
       elseif oldParty and not newParty and nextBattle.prompt == "menu" then
         if not (hgssRuntime.animation
@@ -11716,7 +11819,7 @@ return function(mod)
         if THEME.style == "hgss" and from ~= slot then
           hgssRuntime.beginAnimation("party_swap_commit", {
             source = from, target = slot, party = partyData(),
-            duration = 0.30,
+            duration = 0.26,
           })
         end
         partyMoveFrom = nil
@@ -11970,6 +12073,7 @@ return function(mod)
     -- Pointer hooks can run between the regular 50ms snapshots. Never send
     -- an old "advance" action to a battle that has already reached its menu.
     if battleState() then displayRuntime.perf:call("battle_snapshot", refreshBattle) end
+    displayRuntime.motion.started, displayRuntime.motion.cached = nil, nil
     displayRuntime.touchDispatch = true
     fn(x, y)
     displayRuntime.touchDispatch = false
@@ -12467,7 +12571,7 @@ return function(mod)
     end
     if openingPanel then
       hgssRuntime.beginAnimation(openingPanel,
-        openingPanel == "battle_party" and { duration = 0.42 } or nil)
+        openingPanel == "battle_party" and { duration = 0.28 } or nil)
     end
     return result
   end, 1000)
