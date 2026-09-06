@@ -1,6 +1,6 @@
 # Performance diagnostics
 
-`3.2.3-test.4` is an instrumented build, with the recorder enabled in
+`3.2.3-test.5` is an instrumented build, with the recorder enabled in
 `main.lua`. Disable the recorder before a public release. It sends `KGPROF`
 records to the existing host log; it does not upload data or write recordings
 into the save. Context contains generation, Gear page, native screen kind,
@@ -95,3 +95,24 @@ Test.4 also separates Home map preparation (`home_map`), Explorer model work
 (`home_explorer`), and widget painting (`home_paint`). These are nested inside
 `gear_draw`; the same device pass can identify the remaining Home drawing
 peaks without changing its layout or refresh settings.
+
+## Screen transitions and terrain caching
+
+In test.4's Thor quality-mode walk, unmixed Home windows averaged 3.2852 ms
+per draw (maximum 7.8509 ms); the local map averaged 2.3356 ms (maximum
+10.5340 ms). Mixed dialogue/hatching/return windows still contained Gear draw
+peaks of 23–30 ms. Separate 141/219 ms frame-interval gaps were not explained
+by the measured Gear scopes and cannot be attributed to the mod from this log.
+
+Test.5 removes terrain-cache invalidation from `screen.pushed`. Native menus,
+text boxes and egg-hatching screens now refresh live models while preserving
+terrain overview/image and map selection/zoom. `map.entered`, current-map
+`world.block_replaced` and `map.reloaded` still invalidate terrain. Save loading
+and creation explicitly invalidate it as well, so replacing a save never relies
+on a later screen push to discard an old map. `map_overview` and `map_image`
+measure actual overview/image construction, with no samples for cache hits.
+
+Validate by opening and closing ordinary native game menus while Gear shows
+the local map; real terrain mutation and save-reset behavior are covered by
+runtime tests. A new device recording is needed to quantify the transition gain;
+the existing log alone does not prove every observed peak came from this cache.

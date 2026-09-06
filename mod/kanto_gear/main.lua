@@ -2336,7 +2336,7 @@ return function(mod)
     "@kanto_gear/performance.lua"))().new(
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, true)
-  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.4 units=ms timing=wall nested=true")
+  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.5 units=ms timing=wall nested=true")
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
   displayRuntime.levelUp = displayRuntime.LevelUp.new()
@@ -5369,7 +5369,7 @@ return function(mod)
       localMap = false
       return nil
     end
-    local overview = mod.world:mapOverview()
+    local overview = displayRuntime.perf:call("map_overview", mod.world.mapOverview, mod.world)
     localMap = overview and overview.rows and overview or false
     return localMap or nil
   end
@@ -5722,6 +5722,7 @@ return function(mod)
       localMapImage = false
       return nil
     end
+    local measured = displayRuntime.perf:start()
     local ok, image = pcall(function()
       local pixels = love.image.newImageData(width, height)
       for y, row in ipairs(rows) do
@@ -5739,6 +5740,7 @@ return function(mod)
       if pixels.release then pixels:release() end
       return result
     end)
+    displayRuntime.perf:finish("map_image", measured)
     localMapImage = ok and image or false
     return localMapImage or nil
   end
@@ -12059,6 +12061,8 @@ return function(mod)
   end)
 
   function displayRuntime.reloadSavedUi()
+    invalidateLocalMap()
+    dirty = true
     displayRuntime.levelUp = displayRuntime.LevelUp.new()
     displayRuntime.levelUp:scan(game and game.save)
     displayRuntime.home.widgetCache = nil
@@ -12639,7 +12643,7 @@ return function(mod)
     end
   end)
 
-  for _, event in ipairs({ "world.block_replaced", "map.reloaded", "screen.pushed" }) do
+  for _, event in ipairs({ "world.block_replaced", "map.reloaded" }) do
     mod.events:on(event, function(payload)
       if not payload or not payload.mapId or payload.mapId == mapId then
         invalidateLocalMap()
@@ -12647,6 +12651,14 @@ return function(mod)
       end
     end)
   end
+
+  mod.events:on("screen.pushed", function()
+    -- Menus, dialogue and hatching change the screen stack, not map terrain.
+    -- Refresh live rows without releasing the map image or resetting its view.
+    displayRuntime.explorer.data, displayRuntime.explorer.renderModel = nil, nil
+    displayRuntime.home.widgetCache = nil
+    dirty = true
+  end)
 
   mod.hooks:wrap("battle.bottom_ui_visible", function(next, state)
     if next(state) == false then return false end

@@ -169,6 +169,52 @@ T.eq(display.updateMapRefresh(201), true, "the real Home widget requests its nex
 widgets = display.home.widgetCache
 run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
 T.eq(display.home.widgetCache, nil, "step-driven HP and party changes invalidate the widget snapshot")
+-- Exercise the shipped draw path and host stack events: overlays must not
+-- allocate a new terrain image or unexpectedly close the user's map view.
+local loadMap = value(display.drawHome, "loadLocalMap")
+local imageBefore = display.explorer.renderModel.image
+local overviewBefore = loadMap()
+local overviewCalls = 0
+api.world.mapOverview = function() overviewCalls = overviewCalls + 1; return overview end
+local stack = setmetatable({}, { __index = require("src.core.StateStack") })
+stack:init()
+for _, screen in ipairs({ { screenId = "OptionsMenu" }, { isTextBox = true },
+    { screenId = "Gen2EggHatchAnim" } }) do
+  display.explorer.mapFull, display.explorer.mapZoom = true, 3
+  display.explorer.selected, display.explorer.page = "selected-row", 2
+  local snapshot = display.explorer.data
+  stack:push(screen)
+  T.eq(display.explorer.data, nil, "native screen push refreshes live encounter and progress rows")
+  T.eq(display.explorer.mapFull, true, "overlay preserves expanded map")
+  T.eq(display.explorer.mapZoom, 3, "overlay preserves map zoom")
+  T.eq(display.explorer.selected, "selected-row", "overlay does not reset selection")
+  T.eq(display.explorer.page, 2, "overlay does not reset pagination")
+  T.eq(loadMap(), overviewBefore, "overlay keeps the same terrain overview")
+  stack:pop()
+  display.drawHome()
+  T.eq(display.explorer.renderModel.image, imageBefore, "overlay reuses the same rendered terrain image")
+  T.check(display.explorer.data ~= snapshot, "live rows are refreshed while terrain is reused")
+end
+T.eq(overviewCalls, 0, "three native screen changes cause no map readback/rebuild")
+for _, event in ipairs({ "world.block_replaced", "map.reloaded" }) do
+  run.loader.events:emit(event, { mapId = "OTHER_MAP" })
+  T.eq(loadMap(), overviewBefore, "remote terrain changes preserve the current map")
+  local before = overviewCalls
+  run.loader.events:emit(event, { mapId = "FIX_ROUTE" })
+  loadMap()
+  T.eq(overviewCalls, before + 1, "current terrain change rebuilds the overview")
+  display.drawHome()
+  local rebuilt = display.explorer.renderModel.image
+  T.check(rebuilt ~= imageBefore, "current terrain change rebuilds the map image")
+  imageBefore = rebuilt
+end
+local before = overviewCalls
+run.loader.events:emit("map.entered", { mapId = "FIX_ROUTE" })
+loadMap()
+T.eq(overviewCalls, before + 1, "map entry still rebuilds terrain")
+run.loader.events:emit("save.loaded", {})
+loadMap()
+T.eq(overviewCalls, before + 2, "save load still rebuilds terrain")
 T.love.timer.getTime = time
 run.release()
 T.finish("Kanto Gear map motion")
