@@ -48,14 +48,17 @@ return function(H, G, translate)
       state.hits[#state.hits+1] = {x=x,y=y,w=w,h=h,action=action,value=value}
     end
     local function label(value,x,y,w,h,tint)
-      self:partyInfo(self:fitPartyInfo(value,w),x,y+math.floor((h-8)/2)-2,tint or c.ink,w,"center")
+      self:partyInfo(self:fitPartyInfo(value,w),x+1,y+math.floor((h-7)/2)-2,tint or c.ink,w,"center")
     end
     local function button(value,x,y,w,h,action,arg,selected,raw)
+      local pressed = self:beginPress(x,y,w,h,action ~= nil)
       self:panel(x,y,w,h,false,nil)
       if selected then
         G.setColor(c.green);G.rectangle("fill",x+2,y+1,w-4,h-2)
       end
-      label(raw and value or translate(value),x+3,y,w-6,h,selected and c.white or c.ink)
+      local ink = not action and c.disabledInk or selected and (self.dark and c.statusInk or c.white) or c.ink
+      label(raw and value or translate(value),x+3,y,w-6,h,ink)
+      self:endPress(pressed)
       if action then hit(x,y,w,h,action,arg) end
     end
     local function pager(count,y)
@@ -77,7 +80,7 @@ return function(H, G, translate)
           local y=59+(row-1)*31
           self:panel(7,y,226,26)
           self:partyInfo(self:fitPartyInfo(entry.note.title,210),15,y+3,c.ink)
-          self:partyInfo(self:fitPartyInfo(entry.note.area and entry.note.areaName or translate("GENERAL"),210),15,y+15,c.green)
+          self:partyInfo(self:fitPartyInfo(entry.note.area and entry.note.areaName or translate("GENERAL"),210),15,y+15,c.mutedInk)
           hit(7,y,226,26,"open",entry.index)
         end
       end
@@ -116,11 +119,16 @@ return function(H, G, translate)
       button("OK",187,184,46,27,"finish",nil,true)
     elseif state.view=="draw" then
       self:panel(7,33,226,142);self:notesInk(state,10,36,220,136)
-      local tools={{"PEN","pen","pen"},{"ERASER","pen","eraser"},{"COLOR","colors"},{state.penWidth==2 and "THIN" or "THICK","width"},{"REVERT","undo"}}
-      for i,t in ipairs(tools) do button(t[1],7+(i-1)*46,183,42,28,t[2],t[3],t[2]=="pen" and state.tool==t[3]) end
+      button("PEN",7,183,36,28,"pen","pen",state.tool=="pen")
+      button("ERASER",47,183,40,28,"pen","eraser",state.tool=="eraser")
+      button("COLOR",91,183,40,28,"colors")
+      G.setColor(state.colors[state.color].tint or c.ink);G.rectangle("fill",99,205,24,2)
+      button(state.penWidth==2 and "THIN" or "THICK",135,183,34,28,"width")
+      button("UNDO",173,183,60,28,#state.undo>0 and "undo" or nil)
       if state.colorOpen then
         -- Modal hit regions replace the controls beneath the palette.
-        state.hits={};self:panel(16,53,208,119);label(translate("PEN COLOR"),16,57,208,14,c.green)
+        state.hits={};self:systemOverlay(self.dark and 0.62 or 0.48,false)
+        self:panel(16,53,208,119);label(translate("PEN COLOR"),16,57,208,14,c.green)
         for i,color in ipairs(state.colors) do
           local x,y=24+((i-1)%3)*65,77+math.floor((i-1)/3)*43
           self:panel(x,y,62,38,state.color==i)
@@ -131,35 +139,37 @@ return function(H, G, translate)
     elseif n then
       self:panel(7,33,226,27)
       self:partyInfo(self:fitPartyInfo(n.title,210),15,35,c.ink)
-      self:partyInfo(self:fitPartyInfo(n.area and n.areaName or translate("GENERAL"),210),15,47,c.green)
+      self:partyInfo(self:fitPartyInfo(n.area and n.areaName or translate("GENERAL"),210),15,47,c.mutedInk)
       hit(7,33,226,14,"edit","title");hit(7,47,226,13,"area")
+      for i,t in ipairs({{"TEXT","text"},{"TASKS","tasks"},{"DRAWING","sketch"}}) do button(t[1],7+(i-1)*77,65,72,20,"view",t[2],state.view==t[2]) end
       if state.view=="text" then
-        local rows=state:wrapped(n.text,210);pager(math.ceil(#rows/6),153)
-        self:panel(7,66,226,82)
-        for i=1,6 do local row=rows[(state.page-1)*6+i];if row then self:partyInfo(row.text,15,70+(i-1)*12,c.ink) end end
-        if n.text=="" then label(translate("YOUR NOTE"),7,66,226,82,c.green) end
-        button("EDIT",7,174,110,17,"edit","text",true);button("DELETE",123,174,110,17,"delete")
+        local rows=state:wrapped(n.text,210);pager(math.ceil(#rows/6),174)
+        self:panel(7,91,226,78)
+        for i=1,6 do local row=rows[(state.page-1)*6+i];if row then self:partyInfo(row.text,15,95+(i-1)*12,c.ink) end end
+        if n.text=="" then label(translate("YOUR NOTE"),7,91,226,78,c.mutedInk) end
+        button("EDIT",7,194,110,17,"edit","text",true)
       elseif state.view=="tasks" then
-        pager(math.ceil(#n.tasks/3),153)
+        pager(math.ceil(#n.tasks/3),174)
         for row=1,3 do local index=(state.page-1)*3+row;local task=n.tasks[index]
           if task then
-            local y=66+(row-1)*28;self:panel(7,y,226,24)
+            local y=91+(row-1)*27;self:panel(7,y,226,24)
             self:panel(14,y+7,10,10)
             if task.done then G.setColor(c.green);G.rectangle("fill",17,y+10,4,4) end
-            self:partyInfo(self:fitPartyInfo(task.text,192),33,y+6,task.done and c.green or c.ink)
+            self:partyInfo(self:fitPartyInfo(task.text,192),33,y+6,task.done and c.mutedInk or c.ink)
             hit(7,y,25,24,"check",index);hit(33,y,200,24,"task",index)
           end
         end
-        if #n.tasks==0 then label(translate("NO TASKS YET"),7,72,226,62,c.green) end
-        button("+ TASK",7,174,226,17,"addTask",nil,true)
+        if #n.tasks==0 then label(translate("NO TASKS YET"),7,91,226,78,c.mutedInk) end
+        button("+ TASK",7,194,110,17,"addTask",nil,true)
       else
-        self:panel(7,66,226,102);self:notesInk(state,10,69,220,96)
-        button(#n.strokes>0 and "EDIT DRAWING" or "DRAW",7,174,226,17,"view","draw",true)
+        self:panel(7,91,226,96);self:notesInk(state,10,94,220,90)
+        button(#n.strokes>0 and "EDIT DRAWING" or "DRAW",7,194,110,17,"view","draw",true)
       end
-      for i,t in ipairs({{"TEXT","text"},{"TASKS","tasks"},{"DRAWING","sketch"}}) do button(t[1],7+(i-1)*77,194,72,17,"view",t[2],state.view==t[2]) end
+      button("DELETE",123,194,110,17,"delete")
     end
     if state.error then
       state.hits = {}
+      self:systemOverlay(self.dark and 0.62 or 0.48,false)
       self:panel(7,153,226,38);label(translate(state.error),10,155,220,14,c.red)
       button("OK",83,173,74,15,"dismiss")
     end
