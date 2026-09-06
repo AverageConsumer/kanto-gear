@@ -1,4 +1,5 @@
 return {
+  ["MISSED GOALS"] = "OBJETIVOS PERDIDOS",
   ["GEAR HAPTICS"] = "VIBRACIÓN GEAR",
   ["%d OPTIONAL"] = "%d OPCIONALES",
   ["%d ARCHIVED"] = "%d ARCHIVADOS",

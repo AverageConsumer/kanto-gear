@@ -52,6 +52,59 @@ return function(H, G, translate, format)
     end
   end
 
+  function H:homeAchievements(model, tile, selected)
+    local c, stamp = self.colors, model.stamps or {}
+    local area, mode = stamp.area, stamp.mode
+    local x, y, w, h = self:homeRect(tile)
+    local accent = self.dark and c.greenLight or c.green
+    self:homeTile(x, y, w, h, c.amber, selected)
+    self:homeWidgetHeader(x, y, w, area and area.name or "STAMPS",
+      c.green, c.greenLight, model.editing, area ~= nil)
+    self:achievementSeal(x + 31, y + 48, 20, area and area.kind, area and area.tier)
+    local left, width = x + 64, w - 70
+    local function small(value, top, tint)
+      self:partyType(self:fitPartyType(value, width), left, top, tint, width)
+    end
+    if not area then
+      small(translate("UNKNOWN AREA"), y + 34, c.ink)
+      small(translate("KEEP EXPLORING"), y + 49, c.mutedInk)
+      return
+    end
+    local status = translate(area.complete and "AREA COMPLETE" or "KEEP EXPLORING")
+    if not area.complete and mode == "spoiler"
+        and (area.total > 0 or (area.untracked or 0) > 0) then
+      status = area.remaining == 0 and (area.untracked or 0) > 0
+        and translate("NOT TRACKED")
+        or area.remaining > 0 and area.availableRemaining == 0 and translate("MISSED GOALS")
+        or format("%d LEFT", area.remaining)
+    end
+    small(status, y + 21, area.complete and accent or c.ink)
+    local cellWidth = math.floor((width - 4) / 2)
+    local gridLeft = left + math.floor((width - cellWidth * 2 - 4) / 2)
+    for category, title in ipairs({ "TRAINERS", "ITEMS", "HIDDEN", "POKEMON" }) do
+      local section = area.sections[category]
+      local known = mode ~= "vanilla" and (category ~= 3 or mode == "spoiler")
+      local complete = known and section.total > 0 and section.done == section.total
+        and (section.untracked or 0) == 0
+      local cx = gridLeft + (category - 1) % 2 * (cellWidth + 4)
+      local cy = y + 35 + math.floor((category - 1) / 2) * 22
+      rect(cx, cy, cellWidth, 21, c.surface)
+      local count = known and (section.total == 0 and "-"
+        or tostring(section.done) .. "/" .. tostring(section.total))
+        or format("%d RECORDED", section.done)
+      if known and (section.untracked or 0) > 0 then count = count .. " +?" end
+      self:partyType(self:fitPartyType(translate(title), cellWidth - 4),
+        cx + 2, cy - 1, c.mutedInk, cellWidth - 4)
+      self:partyType(self:fitPartyType(count, cellWidth - 4),
+        cx + 2, cy + 7, complete and accent or c.ink, cellWidth - 4)
+      rect(cx + 4, cy + 18, cellWidth - 8, 2, c.band)
+      if known and section.total > 0 then
+        rect(cx + 4, cy + 18, math.floor((cellWidth - 8) * section.done / section.total),
+          2, complete and accent or c.amber)
+      end
+    end
+  end
+
   -- All hit regions are emitted by the same layout that paints them.
   function H:achievementsHit(x, y)
     for _, hit in ipairs(self.achievementHits or {}) do

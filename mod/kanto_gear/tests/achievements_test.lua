@@ -204,7 +204,108 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.eq(gymSection.total, 2, version .. " gym leader and trainer both count towards the stamp")
   T.eq(gymSection.done, 2, version .. " automatic gym flags count as defeated without a battle history")
   T.eq(gymSection.optional, 0, version .. " gym completion is never an optional bonus")
+  -- The Home widget shares stamp rules but only evaluates the current group.
+  do
+    local home = display.home
+    home.help, home.helpSeen = false, true
+    local surface = display.homeCatalog.surfaces.achievements_widget
+    T.eq(surface.package, "achievements", version .. " widget follows the Stamps install")
+    T.eq(surface.columns, 12, version .. " widget uses one readable full-width row")
+    local build, builds, groupCount = display.Achievements.build, 0, 0
+    display.Achievements.build = function(groups, ...)
+      builds, groupCount = builds + 1, #groups
+      return build(groups, ...)
+    end
+    home.widgetCache = nil
+    display.homeWidgetData({})
+    T.eq(builds, 0, version .. " Home without Stamps does no progress work")
+    display.achievements.currentData = nil
+    local book = display.achievements.data
+    local stamp = display.currentAchievement()
+    T.eq(groupCount, 1, version .. " Home builds only the current area's progress")
+    T.eq(display.achievements.data, book, version .. " widget does not replace the album snapshot")
+    T.eq(stamp.area.id, "ROUTE_2", version .. " widget shows the current area")
+    T.eq(stamp.area.tier, book.byId.ROUTE_2.tier, version .. " widget and album use identical tiers")
+    for i = 1, 4 do
+      T.eq(stamp.area.sections[i].done, book.byId.ROUTE_2.sections[i].done,
+        version .. " widget category " .. i .. " matches album progress")
+      T.eq(stamp.area.sections[i].total, book.byId.ROUTE_2.sections[i].total,
+        version .. " widget category " .. i .. " matches album totals")
+    end
+    for i = 1, 120 do
+      run.loader.events:emit("world.stepped", { mapId = "ROUTE_2" })
+      display.homeWidgetData({ achievements = true })
+    end
+    T.eq(builds, 1, version .. " repeated walking and Home refreshes reuse current progress")
+    home.layout = { tiles = { { id = "achievements_widget", page = 1, row = 1, column = 1 } } }
+    home.page, home.editing, home.library = 1, false, false
+    local tile = display.Home.tiles(home.layout, display.homeCatalog, 1)[1]
+    display.openHomeApp("achievements")
+    display.tapAchievements(12, 12)
+    T.eq(upvalue(display.openHomeApp, "page"), "HOME", version .. " widget event fixture is on Home")
+    local x, y, w, h = theme.hgss:homeRect(tile)
+    local drawText = theme.hgss.partyType
+    for _, mode in ipairs({ "spoiler", "enhanced", "vanilla" }) do
+      run.loader.modOptions.kanto_gear.info_level = mode
+      local model = display.currentAchievement()
+      T.eq(model.mode, mode, version .. " widget follows " .. mode .. " setting")
+      local counts = {}
+      theme.hgss.partyType = function(self, text, tx, ty, ...)
+        if ty == y + 42 or ty == y + 64 then counts[tx .. ":" .. ty] = text end
+        return drawText(self, text, tx, ty, ...)
+      end
+      theme.hgss:homeAchievements({ stamps = model }, tile, false)
+      local hidden = counts[(x + 66) .. ":" .. (y + 64)]
+      local trainers = counts[(x + 66) .. ":" .. (y + 42)]
+      T.eq(hidden, mode == "spoiler" and "0/1" or "0 RECORDED",
+        version .. " " .. mode .. " does not leak hidden totals")
+      T.eq(trainers, mode == "vanilla" and "1 RECORDED" or "1/1",
+        version .. " " .. mode .. " preserves recorded-only progress")
+    end
+    theme.hgss.partyType = drawText
+    run.loader.modOptions.kanto_gear.info_level = "spoiler"
+    home.widgetCache = nil
+    display.homeWidgetData({ achievements = true })
+    for i = 1, debug.getinfo(display.openHomeApp, "u").nups do
+      if debug.getupvalue(display.openHomeApp, i) == "dirty" then
+        debug.setupvalue(display.openHomeApp, i, false)
+      end
+    end
+    run.loader.events:emit("flag.changed", {})
+    T.eq(upvalue(display.openHomeApp, "dirty"), true, version .. " progress event requests a fresh Home frame")
+    T.eq(home.widgetCache, nil, version .. " progress events invalidate the visible Home widget")
+    T.eq(display.achievements.currentData, nil, version .. " progress events invalidate current stamp")
+    display.tapHome(x + math.floor(w / 2), y + math.floor(h / 2))
+    T.eq(display.achievements.view, "detail", version .. " widget tap opens area detail")
+    T.eq(display.achievements.selected, "ROUTE_2", version .. " widget tap targets current area")
+    T.eq(game.stack:top(), world, version .. " widget tap leaves the game controls alone")
+    display.homeWidgetData({ achievements = true })
+    run.loader.events:emit("world.interacted", {})
+    T.eq(home.widgetCache, nil, version .. " offscreen stamp cache cannot outlive an interaction")
+    run.loader.events:emit("map.entered", { mapId = "ROUTE_3" })
+    T.eq(display.currentAchievement().area.id, "ROUTE_3", version .. " entering another area updates widget")
+    T.eq(groupCount, 1, version .. " changing routes still builds only one area")
+    run.loader.events:emit("map.entered", { mapId = "ROUTE_2" })
+    local uncaught = display.currentAchievement().area
+    game.save.pokedex.caught.FIXMON_A = true
+    run.loader.events:emit("pokemon.caught", { species = "FIXMON_A" })
+    T.eq(display.currentAchievement().area.sections[4].done, 1, version .. " a catch refreshes widget Dex count")
+    if gen2 then flags[302] = true; run.loader.events:emit("flag.changed", {})
+    else game.save.hiddenTaken.ROUTE_2_6_7 = true end
+    T.eq(display.currentAchievement().area.tier, "gold", version .. " pickup promotes the live widget to gold")
+    game.save.pokedex.caught.FIXMON_A = nil
+    T.eq(display.currentAchievement().area.tier, "silver", version .. " silent Dex change also refreshes widget")
+    flags[302], game.save.hiddenTaken.ROUTE_2_6_7 = false, nil
+    run.loader.events:emit("save.loaded", {})
+    T.eq(display.currentAchievement().area.tier, uncaught.tier, version .. " older save removes widget completion")
+    run.loader.events:emit("map.entered", { mapId = "UNKNOWN_MAP" })
+    T.eq(display.currentAchievement().area, nil, version .. " unknown area never reuses previous stamp")
+    display.Achievements.build = build
+  end
   T.check(display.setPackageInstalled("achievements", false), version .. " Store removal works")
+  T.eq(#display.Home.tiles({ tiles = {
+    { id = "achievements_widget", page = 1, row = 1, column = 1 },
+  } }, display.homeCatalog, 1), 0, version .. " removing Stamps also hides its widget")
   T.eq(#run.errors, 0, version .. " runtime stays error-free")
   run.release()
 end

@@ -596,10 +596,10 @@ return function(ui)
     if selected then self:roundedFocusFrame(x, y, w, h, 5) end
   end
 
-  function H:homeWidgetHeader(x, y, w, label, accent, accentLight, editing)
+  function H:homeWidgetHeader(x, y, w, label, accent, accentLight, editing, translated)
     box("fill", x + 2, y + 2, w - 4, 17, accent)
     box("fill", x + 2, y + 2, w - 4, 2, accentLight)
-    local shown = self:fitPartyInfo(translate(label), w - 28)
+    local shown = self:fitPartyInfo(translated and label or translate(label), w - 28)
     local width = self:partyInfoWidth(shown)
     self:partyInfo(shown, x + math.floor((w - width) / 2), y + 3,
       self.colors.white)
@@ -1994,6 +1994,8 @@ return function(ui)
         tile.widget == "team" and not model.editing and 20 or h)
       if tile.kind == "widget" and tile.widget == "explorer" then
         self:homeExplorer(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "achievements" then
+        self:homeAchievements(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "party" then
         self:homeParty(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "team" then

@@ -2343,12 +2343,6 @@ return function(mod)
     if image and image.release then image:release() end
     displayRuntime.achievements = { view = "goals", page = 1, stale = true }
   end
-  for _, event in ipairs({ "flag.changed", "world.interacted", "world.object_toggled", "battle.ended", "pokemon.caught" }) do
-    mod.events:on(event, function()
-      displayRuntime.achievements.stale = true
-      if page == "ACHIEVEMENTS" then dirty = true end
-    end)
-  end
   displayRuntime.homeCatalog = {
     packages = {
       explorer = { installed = true, fixed = true },
@@ -2401,6 +2395,8 @@ return function(mod)
         icon = "bag", accent = "amber", label = "BAG" },
       pokedex_app = { package = "pokedex", kind = "app", columns = 3,
         icon = "pokedex", accent = "red", label = "POKEDEX" },
+      achievements_widget = { package = "achievements", kind = "widget",
+        widget = "achievements", columns = 12, label = "STAMPS" },
       achievements_app = { package = "achievements", kind = "app", columns = 3,
         icon = "achievements", accent = "amber", label = "STAMPS" },
       notes_app = { package = "notes", kind = "app", columns = 3,
@@ -3965,26 +3961,46 @@ return function(mod)
       sections = sections, remaining = Area.remaining(sections) }
   end
 
-  function displayRuntime.achievementData()
+  function displayRuntime.achievementData(currentOnly)
     local state, Progress = displayRuntime.achievements, displayRuntime.Achievements
     -- Gen 1 pickups update these sets without a flag event. Compare only when
-    -- this app is drawn, not in the overworld step/update hot path.
+    -- the app or cached Home data is refreshed, never on each animation frame.
     local pickups = 0
     for _, field in ipairs({ "itemsTaken", "hiddenTaken" }) do
       for _, taken in pairs(game.save[field] or {}) do if taken then pickups = pickups + 1 end end
     end
-    if pickups ~= state.pickups then state.pickups, state.stale = pickups, true end
+    if pickups ~= state.pickups then
+      state.pickups, state.stale, state.currentData = pickups, true, nil
+    end
     local caught, caughtCount = compat.caughtDex(game.save), 0
     for _, owned in pairs(caught) do if owned then caughtCount = caughtCount + 1 end end
-    if caughtCount ~= state.caughtCount then state.caughtCount, state.stale = caughtCount, true end
-    if not state.data or state.stale then
+    if caughtCount ~= state.caughtCount then
+      state.caughtCount, state.stale, state.currentData = caughtCount, true, nil
+    end
+    local current = state.currentData
+    if currentOnly and current and current.mapId == mapId and current.save == game.save then
+      return current.data
+    end
+    if currentOnly or not state.data or state.stale then
       local gen2 = compat.isGen2()
       local visited = mod.save:get("achievement_visits", {})
       if type(visited) ~= "table" then visited = {} end
       state.groups = state.groups or Progress.groups(gen2 and game.data.gen2Maps
         or game.data.maps, locationEntries())
       state.species = state.species or {}
-      state.data = Progress.build(state.groups, function(maps)
+      -- Home needs one location only. Never rebuild the complete stamp book
+      -- in the map animation path; encounters are cached per location as well.
+      local groups = state.groups
+      if currentOnly then
+        groups = {}
+        for _, group in ipairs(state.groups) do
+          for _, id in ipairs(group.maps) do
+            if id == mapId then groups[1] = group; break end
+          end
+          if groups[1] then break end
+        end
+      end
+      local result = Progress.build(groups, function(maps)
         local result = areaData(maps, true)
         local species = state.species[maps[1]]
         if not species then
@@ -4006,9 +4022,19 @@ return function(mod)
         flag = function(id) return mod.world and mod.world.getFlag
           and mod.world:getFlag(id) == true or false end,
       })
-      state.stale = false
+      if currentOnly then
+        state.currentData = { mapId = mapId, save = game.save, data = result }
+        return result
+      end
+      state.data, state.stale = result, false
     end
     return state.data
+  end
+
+  function displayRuntime.currentAchievement()
+    local mode = THEME:researchMode(mod.options:get("info_level"))
+    if mode == "legacy" then mode = assist("spoilers") and "spoiler" or "vanilla" end
+    return { area = displayRuntime.achievementData(true).areas[1], mode = mode }
   end
 
   function displayRuntime.achievementModel()
@@ -6564,6 +6590,7 @@ return function(mod)
       dexCaught = dex.caught, dexSeen = dexSeen, dexTotal = dex.total,
       dexLatest = dexLatest,
       trainer = trainer,
+      stamps = needed.achievements and displayRuntime.currentAchievement() or nil,
       bag = needed.bag and displayRuntime.bagSummary() or nil,
       regionMap = needed.map and displayRuntime.homeRegionMap() or nil,
       storePromo = needed.store and displayRuntime.storeWidgetSummary() or nil,
@@ -10033,6 +10060,14 @@ return function(mod)
       if not displayRuntime.activateTool(surface.action, surface.rodId) then
         opened = displayRuntime.openHomeApp("tools")
       end
+    elseif surface and surface.widget == "achievements" then
+      local area = displayRuntime.currentAchievement().area
+      opened = displayRuntime.openHomeApp("achievements")
+      if opened and area then
+        local state = displayRuntime.achievements
+        state.view, state.selected, state.page, state.category = "detail", area.id, 1, nil
+        state.parent, state.parentPage = "album", 1
+      end
     elseif surface and surface.widget == "team" then
       local _, top = THEME.hgss:homeRect(tile)
       if y < top + 20 then
@@ -12498,6 +12533,19 @@ return function(mod)
           and bottomOnHandheld())) then return true end
     return next(pointerGame, event)
   end, 1000)
+
+  for _, event in ipairs({ "flag.changed", "world.interacted", "world.object_toggled", "battle.ended", "pokemon.caught" }) do
+    mod.events:on(event, function()
+      displayRuntime.achievements.stale = true
+      displayRuntime.achievements.currentData = nil
+      local home = displayRuntime.home
+      if home and home.widgetCache and home.widgetCache.model.stamps then
+        home.widgetCache = nil
+        if page == "HOME" then dirty = true end
+      end
+      if page == "ACHIEVEMENTS" then dirty = true end
+    end)
+  end
 
   mod.events:on("world.stepped", function(payload)
     displayRuntime.home.widgetCache = nil

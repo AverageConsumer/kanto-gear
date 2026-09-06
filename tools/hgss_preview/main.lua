@@ -1972,6 +1972,8 @@ function love.load()
           icon = "settings", accent = "blue", label = "OPTIONS" },
         notes_app = { package = "notes", kind = "app", columns = 3,
           icon = "notes", accent = "amber", label = language.homeNotes },
+        achievements_widget = { package = "achievements", kind = "widget",
+          widget = "achievements", columns = 12, label = "STAMPS" },
         achievements_app = { package = "achievements", kind = "app", columns = 3,
           icon = "achievements", accent = "amber", label = "STAMPS" },
       },
@@ -1986,6 +1988,12 @@ function love.load()
     } }
     if screen == "home-achievements" then
       layout.tiles[3].id = "achievements_app"
+    elseif screen:sub(1, 11) == "home-stamps" then
+      layout.tiles = {
+        { id = "achievements_widget", page = 1, column = 1, row = 1 },
+        { id = "explorer_widget", page = 1, column = 1, row = 2 },
+        { id = "party_widget", page = 1, column = 8, row = 2 },
+      }
     elseif screen:sub(1, 9) == "home-team" then
       layout.tiles = {
         { id = "party_team_widget", page = 1, column = 1, row = 1 },
@@ -2074,13 +2082,44 @@ function love.load()
       end
     end
     if screen == "home-team-small" then team[2].levelText = "L100" end
+    local stampCase = screen:match("^home%-stamps%-(.+)$")
+    local stampArea = { name = gen1 and "ROUTE 15" or "ROUTE 30", kind = "route",
+      tier = "bronze", done = 7, total = 15, remaining = 8, availableRemaining = 8,
+      sections = { { done = 2, total = 3 }, { done = 1, total = 2 },
+        { done = 0, total = 2 }, { done = 4, total = 8 } } }
+    if stampCase == "silver" or stampCase == "gold" or stampCase == "untracked" then
+      for i = 1, 3 do stampArea.sections[i].done = stampArea.sections[i].total end
+      stampArea.tier, stampArea.remaining = "silver", 4
+      if stampCase ~= "silver" then
+        stampArea.sections[4].done = 8
+        stampArea.remaining = 0
+        stampArea.complete, stampArea.tier = true, "gold"
+      end
+      if stampCase == "untracked" then
+        stampArea.complete, stampArea.tier, stampArea.untracked = false, "bronze", 2
+        stampArea.sections[1].untracked = 2
+      end
+    elseif stampCase == "long" then
+      stampArea.name, stampArea.kind = "SAFARI-ZONE EINGANGSGEBAEUDE", "forest"
+      stampArea.sections[4] = { done = 125, total = 151 }
+    elseif stampCase == "empty" then
+      stampArea.total, stampArea.remaining = 0, 0
+      for i = 1, 4 do stampArea.sections[i] = { done = 0, total = 0 } end
+    elseif stampCase == "missed" then
+      stampArea.remaining, stampArea.availableRemaining = 1, 0
+      for i = 1, 4 do stampArea.sections[i].done = stampArea.sections[i].total end
+      stampArea.sections[1].done, stampArea.sections[1].unavailable = 2, 1
+    end
     local model = {
+      stamps = { area = stampCase ~= "unknown" and stampArea or nil,
+        mode = stampCase == "vanilla" and "vanilla"
+          or stampCase == "enhanced" and "enhanced" or "spoiler" },
       page = homePage, pages = homePages,
       help = screen == "home-help" or screen == "home-help-bottom"
         or screen == "home-help-empty" or screen == "home-help-icon",
       tiles = Home.tiles(layout, catalog, homePage),
       editing = homeEdit,
-      route = gen1 and "ROUTE 15" or "ROUTE 37",
+      route = stampCase and stampArea.name or (gen1 and "ROUTE 15" or "ROUTE 37"),
       overview = overview,
       player = { x = tonumber(os.getenv("KANTO_GEAR_PREVIEW_MAP_X")) or 12,
         y = tonumber(os.getenv("KANTO_GEAR_PREVIEW_MAP_Y")) or 6,
