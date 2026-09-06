@@ -342,7 +342,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 21, "Kanto Gear registers all settings including clock format")
+T.eq(#options, 22, "Kanto Gear registers all settings including map motion")
 local optionsByKey = {}
 for _, row in ipairs(options) do optionsByKey[row.key] = row end
 T.eq(optionsByKey.language.default, "en", "language preserves English by default")

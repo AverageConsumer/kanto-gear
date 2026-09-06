@@ -2330,6 +2330,12 @@ return function(mod)
       and THEME.hgss:partySlot(82, 101, 5) == nil,
     "HGSS party hitboxes follow staggered cards")
 
+  -- Timings are enabled for this diagnostic test build only.
+  displayRuntime.perf = assert(load(mod:read("performance.lua"),
+    "@kanto_gear/performance.lua"))().new(
+      function() return love.timer.getTime() end,
+      function(line) mod.log:info("%s", line) end, true)
+  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.2 units=ms timing=wall nested=true")
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
   displayRuntime.levelUp = displayRuntime.LevelUp.new()
@@ -4040,14 +4046,14 @@ return function(mod)
   function displayRuntime.currentAchievement()
     local mode = THEME:researchMode(mod.options:get("info_level"))
     if mode == "legacy" then mode = assist("spoilers") and "spoiler" or "vanilla" end
-    return { area = displayRuntime.achievementData(true).areas[1], mode = mode }
+    return { area = displayRuntime.perf:call("stamps_current", displayRuntime.achievementData, true).areas[1], mode = mode }
   end
 
   function displayRuntime.achievementModel()
     local state, Progress = displayRuntime.achievements, displayRuntime.Achievements
     local mode = THEME:researchMode(mod.options:get("info_level"))
     if mode == "legacy" then mode = assist("spoilers") and "spoiler" or "vanilla" end
-    local data = displayRuntime.achievementData()
+    local data = displayRuntime.perf:call("stamps_album", displayRuntime.achievementData)
     local areas, goals, earned = Progress.visible(data, mode)
     local area = state.selected and data.byId[state.selected]
     if area and mode ~= "spoiler" and not area.evidence then area = nil end
@@ -6656,7 +6662,7 @@ return function(mod)
       player = explorer.player, markers = explorer.markers,
       drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
     }
-    for key, entry in pairs(displayRuntime.homeWidgetData(needed)) do model[key] = entry end
+    for key, entry in pairs(displayRuntime.perf:call("home_data", displayRuntime.homeWidgetData, needed)) do model[key] = entry end
     if home.library and home.addSlot then
       model.tiles, model.slots = nil, nil
       model.libraryKind = home.libraryKind
@@ -9644,6 +9650,7 @@ return function(mod)
   end
 
   local function draw()
+    local measured = displayRuntime.perf:start()
     G.push("all")
     local ok, err = pcall(function()
       displayRuntime.prepareMotion()
@@ -9651,6 +9658,7 @@ return function(mod)
       displayRuntime.applyMotion()
     end)
     G.pop()
+    displayRuntime.perf:finish("gear_draw", measured)
     if not ok then error(err, 0) end
   end
 
@@ -9662,9 +9670,10 @@ return function(mod)
         dirty = false
       end
       if not canvas.newImageData then return false end
-      local ok, image = pcall(canvas.newImageData, canvas)
+      local ok, image = pcall(displayRuntime.perf.call, displayRuntime.perf,
+        "readback_sync", canvas.newImageData, canvas)
       if not ok or not image then return false end
-      shown = companion.push(image, canvas:getWidth(), canvas:getHeight(),
+      shown = displayRuntime.perf:present(companion.push, image, canvas:getWidth(), canvas:getHeight(),
         displayRuntime.backgroundColor(),
         displayPreference())
       displayReady = shown
@@ -9675,7 +9684,7 @@ return function(mod)
       return shown
     end
     if bottomOnHandheld() then
-      if readbackPending and canvas:pollImageData() then
+      if readbackPending and displayRuntime.perf:call("readback_poll", canvas.pollImageData, canvas) then
         readbackPending = false
       end
       if dirty then
@@ -9685,9 +9694,9 @@ return function(mod)
       return false
     end
     if readbackPending then
-      local image = canvas:pollImageData()
+      local image = displayRuntime.perf:call("readback_poll", canvas.pollImageData, canvas)
       if image then
-        shown = companion.push(image, canvas:getWidth(), canvas:getHeight(),
+        shown = displayRuntime.perf:present(companion.push, image, canvas:getWidth(), canvas:getHeight(),
           displayRuntime.readbackBackground,
           displayPreference())
         readbackPending = false
@@ -9700,7 +9709,7 @@ return function(mod)
     end
     if not readbackPending and dirty then
       draw()
-      if canvas:requestImageData() then
+      if displayRuntime.perf:call("readback_request", canvas.requestImageData, canvas) then
         -- Keep the border paired with this captured frame during async readback.
         displayRuntime.readbackBackground = displayRuntime.backgroundColor()
         readbackPending = true
@@ -9840,7 +9849,7 @@ return function(mod)
     local ok, err = mod.battle:submit(fields)
     if not ok then mod.log:warn("battle intent %s rejected: %s", kind, err) end
     if ok and kind ~= "back" then displayRuntime.haptic("confirm") end
-    refreshBattle()
+    displayRuntime.perf:call("battle_snapshot", refreshBattle)
   end
 
   local function back()
@@ -9873,7 +9882,7 @@ return function(mod)
     local ok, err = mod.world:useFieldAction(action.id, opts)
     if not ok then mod.log:warn("field action %s rejected: %s",
       tostring(action.id), tostring(err)) end
-    refreshTools()
+    displayRuntime.perf:call("tools", refreshTools)
     dirty = true
   end
 
@@ -11069,7 +11078,7 @@ return function(mod)
       end
       return
     end
-    refreshTools()
+    displayRuntime.perf:call("tools", refreshTools)
     local current, count
     if page == "GUIDE" then
       current, count = guidePage, guideData().pages
@@ -11967,7 +11976,7 @@ return function(mod)
 
   local function resetSwapState()
     displayRuntime.notes:suspend()
-    displayRuntime.notes:flush(true)
+    displayRuntime.perf:call("notes_flush", displayRuntime.notes.flush, displayRuntime.notes, true)
     displayReady = false
     primaryBottomRect = nil
     nextGameCapture = 0
@@ -12402,9 +12411,9 @@ return function(mod)
     local now = love.timer.getTime()
     if gameReadbackPending and gameReadbackCanvas
         and now >= nextPresentAttempt then
-      local image = gameReadbackCanvas:pollImageData()
+      local image = displayRuntime.perf:call("readback_poll", gameReadbackCanvas.pollImageData, gameReadbackCanvas)
       if image then
-        local shown = companion.push(image, image:getWidth(), image:getHeight(),
+        local shown = displayRuntime.perf:present(companion.push, image, image:getWidth(), image:getHeight(),
           SECONDARY_BACKGROUND, "secondary:cover")
         gameReadbackPending = false
         gameReadbackCanvas = nil
@@ -12417,6 +12426,7 @@ return function(mod)
     end
 
     if not gameReadbackPending and now >= nextGameCapture then
+      local measured = displayRuntime.perf:start()
       local ww = math.max(1, context.width or G.getWidth())
       local wh = math.max(1, context.height or G.getHeight())
       local captureScale = math.min(960 / ww, 540 / wh)
@@ -12437,17 +12447,18 @@ return function(mod)
       G.setColor(1, 1, 1, 1)
       G.draw(context.canvas, 0, 0, 0, cw / ww, ch / wh)
       G.pop()
+      displayRuntime.perf:finish("game_capture", measured)
       if gameCaptureCanvas.requestImageData
           and gameCaptureCanvas.pollImageData
-          and gameCaptureCanvas:requestImageData() then
+          and displayRuntime.perf:call("readback_request", gameCaptureCanvas.requestImageData, gameCaptureCanvas) then
         gameReadbackPending = true
         gameReadbackCanvas = gameCaptureCanvas
         nextGameCapture = now + 1 / 60
       elseif gameCaptureCanvas.newImageData then
-        local ok, image = pcall(gameCaptureCanvas.newImageData,
-          gameCaptureCanvas)
+        local ok, image = pcall(displayRuntime.perf.call, displayRuntime.perf,
+          "readback_sync", gameCaptureCanvas.newImageData, gameCaptureCanvas)
         if ok and image then
-          local shown = companion.push(image, image:getWidth(), image:getHeight(),
+          local shown = displayRuntime.perf:present(companion.push, image, image:getWidth(), image:getHeight(),
             SECONDARY_BACKGROUND, "secondary:cover")
           displayReady = shown == true
           if not displayReady then nextPresentAttempt = now + 0.25 end
@@ -12689,6 +12700,8 @@ return function(mod)
 
   -- Upstream owns the display seam; this mod only supplies its companion frame.
   mod.hooks:wrap("render.compose", function(next, renderer, context)
+    local measured = displayRuntime.perf:start()
+    displayRuntime.perf:frame()
     if game and displayRuntime.levelUp:scan(game.save,
         game.stack and game.stack:top()) then dirty = true end
     local inline = inlineDisplay()
@@ -12703,7 +12716,9 @@ return function(mod)
         and hasDisplay() and renderer then
       renderer.uiAnchors = nil
     end
+    local downstream = displayRuntime.perf:start()
     local handled = next(renderer, context)
+    local excluded = displayRuntime.perf:elapsed(downstream)
     if textSpeedReleasePending then
       textSpeedReleasePending = false
       holdTextSpeed(false)
@@ -12714,9 +12729,9 @@ return function(mod)
         bridgeWarned = true
         mod.log:warn("host SecondScreen bridge has no companion touch support")
       end
-      return handled
+      displayRuntime.perf:finish("gear_compose", measured, excluded); return handled
     end
-    if not active then return handled end
+    if not active then displayRuntime.perf:finish("gear_compose", measured, excluded); return handled end
     if not loggedTick then
       loggedTick = true
       mod.log:info("display available=%s", tostring(hasDisplay()))
@@ -12737,7 +12752,7 @@ return function(mod)
     else
       displayRuntime.notes:suspend()
     end
-    displayRuntime.notes:flush()
+    displayRuntime.perf:call("notes_flush", displayRuntime.notes.flush, displayRuntime.notes)
     if displayRuntime.notes:takeChanged() then dirty = true end
     displayRuntime.updateHomeLongPress(now)
     if now >= nextPoll then
@@ -12752,9 +12767,15 @@ return function(mod)
           end
         end
       end
-      refreshBattle()
-      if page == "TOOLS" or page == "HOME" or pendingAction then refreshTools() end
+      displayRuntime.perf:call("battle_snapshot", refreshBattle)
+      if page == "TOOLS" or page == "HOME" or pendingAction then displayRuntime.perf:call("tools", refreshTools) end
       local mode, top = screenState()
+      displayRuntime.perf:setContext(string.format(
+        "gen%d/%s/%s/%s/%s/%s/%s", compat.isGen2() and 2 or 1,
+        page, top and (top.screenId or (top.isTextBox and "text")) or mode,
+        mod.options:get("theme_v3") or THEME.style,
+        inline and "inline" or bottomOnHandheld() and "game-transfer" or "gear-transfer",
+        mod.options:get("map_motion") or "quality", mapId or "unknown"))
       local currentSummary = compat.isScreen(top, "summary")
         and compat.summary.supports(top, game) and top or nil
       if THEME.style == "hgss" and currentSummary and not battle then
@@ -12881,14 +12902,14 @@ return function(mod)
     local displayAvailable = hasDisplay()
     if not displayAvailable then
       displayRuntime.notes:suspend()
-      displayRuntime.notes:flush(true)
+      displayRuntime.perf:call("notes_flush", displayRuntime.notes.flush, displayRuntime.notes, true)
       if not inline and displayRuntime.swapped ~= nil then
         displayRuntime.swapped = nil
         resetSwapState()
         mod.log:info("screen disconnected: restored saved layout")
       end
       if gameReadbackPending and gameReadbackCanvas
-          and gameReadbackCanvas:pollImageData() then
+          and displayRuntime.perf:call("readback_poll", gameReadbackCanvas.pollImageData, gameReadbackCanvas) then
         gameReadbackPending = false
         gameReadbackCanvas = nil
       end
@@ -12909,6 +12930,6 @@ return function(mod)
         mod.log:info("first frame submitted=true")
       end
     end
-    return handled
+    displayRuntime.perf:finish("gear_compose", measured, excluded); return handled
   end, -1000)
 end
