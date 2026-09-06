@@ -107,6 +107,17 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
     T.eq(lookup("ROUTE_2"), original, version .. " canonical landmark wins a duplicate index like the host")
     T.eq(entries().ROUTE_2, original, version .. " full grouping uses the same canonical landmark")
     landmarks.landmarks.DUPLICATE = nil
+    maps.MOD_LAB = { landmark = key }
+    T.eq(lookup("MOD_LAB"), original, version .. " mod landmark IDs resolve directly")
+    T.eq(entries().MOD_LAB, original, version .. " symbolic mod maps do not break all area grouping")
+    landmarks.landmarks[key] = translated
+    T.eq(lookup("MOD_LAB"), translated, version .. " symbolic landmark translations remain live")
+    T.eq(entries().MOD_LAB, translated, version .. " symbolic grouping follows replaced landmarks")
+    landmarks.landmarks[key] = original
+    maps.MOD_LAB.landmark = "MISSING_LANDMARK"
+    T.eq(lookup("MOD_LAB"), nil, version .. " unknown symbolic landmark has no record")
+    T.eq(entries().MOD_LAB, nil, version .. " unknown symbolic landmark does not break other areas")
+    maps.MOD_LAB = nil
     maps.UNNAMED = {}
     T.eq(lookup("UNNAMED"), nil, version .. " map without landmark is supported")
     T.eq(entries().UNNAMED, nil, version .. " grouping omits maps without a landmark")
