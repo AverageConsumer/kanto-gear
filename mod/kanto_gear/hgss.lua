@@ -2970,6 +2970,21 @@ return function(ui)
       scale = scale, left = left, top = top, tileSize = density * scale }
   end
 
+  function H:explorerMotionKey(model, player)
+    local layout = mapLayout(model.overview, 7, model.mapFull and 72 or 53,
+      226, model.mapFull and 138
+        or model.view == "wild" and model.selected and 42 or 84, {
+        player = player, focus = model.selectedMarker
+          and model.selectedMarker.kind == "trainer" and model.selectedMarker or player,
+        full = model.mapFull, zoom = model.mapZoom,
+      })
+    if not layout or not player or player.x == nil or player.y == nil then return nil end
+    return table.concat({ tostring(player.mapId), layout.left, layout.top,
+      math.floor(layout.left + player.x * layout.tileSize + 0.5),
+      math.floor(layout.top + player.y * layout.tileSize + 0.5),
+      player.facing or "down" }, ":")
+  end
+
   function H:mapOverview(overview, x, y, w, h, opts)
     opts = opts or {}
     local G, colors = ui.graphics, self.colors

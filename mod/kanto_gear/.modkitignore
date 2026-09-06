@@ -7,6 +7,7 @@ tests/haptics_test.lua
 tests/home_layout_test.lua
 tests/home_runtime_test.lua
 tests/i18n_test.lua
+tests/map_motion_test.lua
 tests/notes_runtime_test.lua
 tests/notes_test.lua
 tests/settings_fallback_test.lua

@@ -2679,6 +2679,7 @@ return function(mod)
   local hgssRuntime = {}
   displayRuntime.motion = { duration = 0.16 }
   displayRuntime.stepRefreshDelay = 0.4
+  displayRuntime.mapRefresh = { nextAt = 0 }
   assert(1.39 - 1 < displayRuntime.stepRefreshDelay
       and 1.41 - 1 >= displayRuntime.stepRefreshDelay,
     "step-driven companion updates wait for movement to settle")
@@ -3119,6 +3120,7 @@ return function(mod)
   local function invalidateLocalMap()
     if localMapImage and localMapImage.release then localMapImage:release() end
     localMap, localMapImage = nil, nil
+    displayRuntime.explorer.renderModel = nil
     displayRuntime.explorer.selected, displayRuntime.explorer.page,
       displayRuntime.explorer.data, displayRuntime.explorer.mapFull,
       displayRuntime.explorer.mapZoom = nil, 1, nil, false, 1
@@ -3225,7 +3227,7 @@ return function(mod)
           < displayRuntime.stepRefreshDelay then return false end
     displayRuntime.lastStepAt = nil
     if page == "TRAINER" or page == "STEPS" or page == "HOME"
-        or page == "LOCAL" then dirty = true; return true end
+        or page == "LOCAL" and THEME.style ~= "hgss" then dirty = true; return true end
     return false
   end
 
@@ -5367,6 +5369,41 @@ return function(mod)
       "Explorer gallery groups species and retains exact habitat details")
   end
 
+  function displayRuntime.localMapPosition(expectedMap)
+    local pos = mod.world and mod.world:current()
+    if pos and expectedMap and pos.mapId ~= expectedMap then return nil end
+    local world = game and (game.overworld or game.world)
+    local player = world and world.player
+    -- Public current() exposes cells. Use the engine's rendered position only
+    -- for the same live map; older hosts retain their cell-based fallback.
+    if pos and world and world.map and world.map.id == pos.mapId
+        and player and type(player.px) == "number" and type(player.py) == "number" then
+      pos.x, pos.y = player.px / 16, player.py / 16
+    end
+    return pos
+  end
+
+  function displayRuntime.updateMapRefresh(now)
+    local state = displayRuntime.mapRefresh
+    if page ~= "LOCAL" or THEME.style ~= "hgss"
+        or displayRuntime.overlayHidden then return false end
+    if now + 0.000001 < state.nextAt or readbackPending then return false end
+    -- Keep the 30 Hz phase instead of drifting to 20 Hz when a host frame
+    -- arrives just before the deadline. Missed ticks never cause catch-up work.
+    state.nextAt = state.nextAt
+      + (math.floor(math.max(0, now - state.nextAt) * 30) + 1) / 30
+    if screenState() ~= "active" or battle or moveInfo or fieldChoice or radarOpen then
+      return false
+    end
+    local model = displayRuntime.explorer.renderModel
+    local pos = displayRuntime.localMapPosition()
+    if not model or not pos or pos.mapId ~= model.overview.mapId then return false end
+    local key = THEME.hgss:explorerMotionKey(model, pos)
+    if key == state.key then return false end
+    dirty = true
+    return true
+  end
+
   function displayRuntime.explorerModel(overview)
     local explorer = displayRuntime.explorer
     local now, id = love.timer.getTime(), overview.mapId or mapId
@@ -5387,6 +5424,18 @@ return function(mod)
       explorer.data = cached
     end
     local guide, area = cached.guide, cached.area
+    -- Movement only changes the player/camera. Reuse list sorting, markers,
+    -- labels and progress until the snapshot or visible controls change.
+    local renderKey = table.concat({ tostring(explorer.view), tostring(explorer.selected),
+      tostring(explorer.page), tostring(explorer.detailPage or 1), tostring(explorer.mapFull),
+      tostring(explorer.mapZoom), tostring(explorer.filters.wildScope), tostring(explorer.scanFrame),
+      tostring(assist("spoilers")), tostring(assist("item_radar")), tostring(themeKey) }, ":")
+    if explorer.renderModel and explorer.renderData == cached
+        and explorer.renderOverview == overview and explorer.renderKey == renderKey
+        and not explorer.scanFrame then
+      explorer.renderModel.player = displayRuntime.localMapPosition(id)
+      return explorer.renderModel
+    end
     local sections = area.sections or { { rows = {} }, { rows = {} },
       { rows = {} } }
     local allTrainers, allItems, wild = sections[1].rows, {}, {}
@@ -5518,7 +5567,7 @@ return function(mod)
         detailRows[#detailRows + 1] = selected.matches[index]
       end
     end
-    return {
+    local model = {
       view = view, selected = selected, rows = rows,
       total = #source, page = explorer.page, pages = pages, perPage = perPage,
       route = areaName(overview.mapId or mapId),
@@ -5527,7 +5576,7 @@ return function(mod)
       region = (compat.currentRegion() or "kanto"):upper(),
       overview = overview,
       image = loadLocalMapImage(overview, rows_, width, height, density),
-      player = pos and pos.mapId == overview.mapId and pos,
+      player = displayRuntime.localMapPosition(id),
       markers = markers, selectedMarker = selectedMarker,
       mapFull = explorer.mapFull == true,
       mapZoom = explorer.mapZoom or 1,
@@ -5559,6 +5608,9 @@ return function(mod)
           uncaught and { 0.52, 0.52, 0.52, 1 } or nil)
       end,
     }
+    explorer.renderModel, explorer.renderData = model, cached
+    explorer.renderOverview, explorer.renderKey = overview, renderKey
+    return model
   end
 
   function loadLocalMapImage(overview, rows, width, height, density)
@@ -5693,7 +5745,9 @@ return function(mod)
         THEME.hgss:partyInfo(THEME:translate("HOST UPDATE REQUIRED"), 31, 112,
           THEME.hgss.colors.ink, 178, "center")
       else
-        THEME.hgss:explorer(displayRuntime.explorerModel(overview))
+        local model = displayRuntime.explorerModel(overview)
+        THEME.hgss:explorer(model)
+        displayRuntime.mapRefresh.key = THEME.hgss:explorerMotionKey(model, model.player)
       end
       G.pop()
       return
@@ -12700,6 +12754,7 @@ return function(mod)
     end
     if displayRuntime.motion.started then dirty = true end
     displayRuntime.updateStepRefresh(now)
+    displayRuntime.updateMapRefresh(now)
     if now >= nextClock then
       local title = screenState() == "title"
       nextClock = now + (title and 0.5
