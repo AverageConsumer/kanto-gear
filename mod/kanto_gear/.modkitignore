@@ -21,3 +21,4 @@ tests/level_up_runtime_test.lua
 tests/performance_test.lua
 tests/performance_runtime_test.lua
 tests/touch_guard_test.lua
+tests/render_stack_test.lua

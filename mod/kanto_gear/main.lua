@@ -2337,7 +2337,7 @@ return function(mod)
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, false)
   if displayRuntime.perf.enabled then
-    mod.log:info("KGPROF v=1 kind=build version=3.2.4-test.1 units=ms timing=wall nested=true")
+    mod.log:info("KGPROF v=1 kind=build version=3.2.4-test.2 units=ms timing=wall nested=true")
   end
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
@@ -9713,13 +9713,20 @@ return function(mod)
 
   local function draw()
     local measured = displayRuntime.perf:start()
+    local stackDepth = G.getStackDepth and G.getStackDepth()
     G.push("all")
     local ok, err = pcall(function()
       displayRuntime.prepareMotion()
       displayRuntime.drawContents()
       displayRuntime.applyMotion()
     end)
-    G.pop()
+    -- A failed nested draw skips its own pops. Restore our entire scope before
+    -- the host catches the error and continues rendering the next frame.
+    if stackDepth then
+      while G.getStackDepth() > stackDepth do G.pop() end
+    else
+      G.pop()
+    end
     displayRuntime.perf:finish("gear_draw", measured)
     if not ok then error(err, 0) end
   end
