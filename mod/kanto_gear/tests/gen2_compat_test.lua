@@ -158,6 +158,76 @@ do
   T.check(method(fish.FIXMON_B, "SUPER") ~= nil,
     "Gen 2 Guide includes all three rod tables")
 
+  -- An assigned fishing group is not proof of an actual fishing spot.
+  local terrain = run.data.gen2Maps.FIX_ROUTE
+  terrain.width, terrain.height, terrain.tileset = 1, 1, "FIX_TERRAIN"
+  terrain.blocks = { 1 }
+  terrain.connections = { east = { mapId = "OTHER" } }
+  run.data.gen2Tilesets = { FIX_TERRAIN = { collision = {
+    { 0, 0, 0, 0 }, -- block zero is the engine's impassable sentinel
+    { 0, 0, 0, 0 }, -- dry ground
+    { 0, 0x29, 0, 0x29 }, -- bank beside water, without Surf encounters
+    { 0x29, 0x29, 0x29, 0x29 }, -- water with no bank inside the map
+    { 7, 0x29, 7, 0x29 }, -- walls beside water
+  } } }
+  local function hasRod(rows)
+    for _, row in ipairs(rows) do
+      for _, appearance in ipairs(row.appearances) do
+        if appearance.method == "OLD" or appearance.method == "GOOD"
+            or appearance.method == "SUPER" then return true end
+      end
+    end
+    return false
+  end
+  T.check(not hasRod(guideData().rows),
+    "dry maps hide all rod encounters despite an assigned fishing group")
+  T.check(method(guideData().rows[1], "WALK") ~= nil,
+    "dry terrain filtering preserves walking encounters")
+  displayRuntime.pokedex.data = nil
+  local dryDex = displayRuntime.pokedexData()
+  T.check(not hasRod({ dryDex.bySpecies.FIXMON_A.habitat,
+      dryDex.bySpecies.FIXMON_B.habitat }),
+    "Pokedex habitats also exclude fishing on dry maps")
+  T.eq(terrain.connections.east.map, nil,
+    "terrain inspection does not normalize source connections")
+  local Map = require("src.world.gen2.Map")
+  local originalWater, reads = Map.isWaterCell, 0
+  Map.isWaterCell = function(self, ...)
+    reads = reads + 1
+    return originalWater(self, ...)
+  end
+  guideData()
+  T.eq(reads, 0, "repeated guide queries reuse the terrain result")
+  terrain.blocks = { 2 }
+  T.check(hasRod(guideData().rows),
+    "replacing dry terrain with a bank restores fishing without a Surf table")
+  T.check(reads > 0, "replacement terrain invalidates the cached result")
+  reads = 0
+  guideData()
+  T.eq(reads, 0, "positive terrain results are cached too")
+  Map.isWaterCell = originalWater
+  displayRuntime.pokedex.data = nil
+  T.check(hasRod({ displayRuntime.pokedexData().bySpecies.FIXMON_A.habitat }),
+    "Pokedex preserves genuine fishing habitats")
+  terrain.blocks = { 3 }
+  T.check(not hasRod(guideData().rows),
+    "water without an in-bounds bank does not count as a fishing spot")
+  terrain.blocks = { 4 }
+  T.check(not hasRod(guideData().rows),
+    "water surrounded by walls does not count as a fishing spot")
+  terrain.width, terrain.blocks = 2, { 0, 3 }
+  T.check(not hasRod(guideData().rows),
+    "block zero never provides a walkable bank")
+  terrain.blocks = { 1, 3 }
+  T.check(hasRod(guideData().rows),
+    "fishing shores can cross a horizontal block boundary")
+  terrain.width, terrain.height = 1, 2
+  T.check(hasRod(guideData().rows),
+    "fishing shores can cross a vertical block boundary")
+  terrain.blocks = nil
+  T.check(hasRod(guideData().rows),
+    "missing terrain data keeps legacy host encounters available")
+
   local encounters = run.data.gen2Encounters
   encounters.swarmGrass = { FIX_ROUTE = { slots = {
     MORN = {}, DAY = {}, NITE = {},

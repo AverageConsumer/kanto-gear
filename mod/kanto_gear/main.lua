@@ -3587,6 +3587,46 @@ return function(mod)
     return out
   end
 
+  function displayRuntime.gen2HasFishingShore(id)
+    local data = game.data
+    local def = data.gen2Maps and data.gen2Maps[id]
+    local tileset = def and data.gen2Tilesets and data.gen2Tilesets[def.tileset]
+    -- Older hosts/mods may not expose terrain. Keep their encounters rather
+    -- than interpreting unavailable data as a dry map.
+    if not (def and def.width and def.height and def.blocks
+        and tileset and tileset.collision) then return true end
+    local cache = displayRuntime.fishingTerrain or {}
+    displayRuntime.fishingTerrain = cache
+    local cached = cache[id]
+    if cached and cached.def == def and cached.blocks == def.blocks
+        and cached.collision == tileset.collision
+        and cached.width == def.width and cached.height == def.height then
+      return cached.hasShore
+    end
+    local Map = require("src.world.gen2.Map")
+    -- Detached map: inspecting a remote habitat must not load the live world
+    -- or let Map.new normalize the source map's connections in place.
+    local copy = {}
+    for key, value in pairs(def) do copy[key] = value end
+    copy.id, copy.connections = id, {}
+    local map, hasShore = Map.new(copy, tileset), false
+    for y = 0, map.heightCells - 1 do
+      for x = 0, map.widthCells - 1 do
+        if map:isWaterCell(x, y) and (map:isWalkableCell(x - 1, y)
+            or map:isWalkableCell(x + 1, y) or map:isWalkableCell(x, y - 1)
+            or map:isWalkableCell(x, y + 1)) then
+          hasShore = true
+          break
+        end
+      end
+      if hasShore then break end
+    end
+    cache[id] = { def = def, blocks = def.blocks,
+      collision = tileset.collision, width = def.width, height = def.height,
+      hasShore = hasShore }
+    return hasShore
+  end
+
   local function guideData(mapIds)
     local rows, bySpecies = {}, {}
     local data, field = game.data, game.data.field or {}
@@ -3656,6 +3696,9 @@ return function(mod)
         end
         local map = data.gen2Maps and data.gen2Maps[id]
         local groupId = map and map.fishGroup
+        if groupId and not displayRuntime.gen2HasFishingShore(id) then
+          groupId = nil
+        end
         if groupId and Gen2Encounter and Roamers and Roamers.Swarm then
           groupId = Gen2Encounter.fishGroupFor(encounters, groupId,
             Roamers.Swarm.fishing(game.save))
