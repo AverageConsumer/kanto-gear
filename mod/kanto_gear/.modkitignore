@@ -20,3 +20,4 @@ tests/level_up_test.lua
 tests/level_up_runtime_test.lua
 tests/performance_test.lua
 tests/performance_runtime_test.lua
+tests/touch_guard_test.lua

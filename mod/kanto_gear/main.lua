@@ -2337,13 +2337,15 @@ return function(mod)
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, false)
   if displayRuntime.perf.enabled then
-    mod.log:info("KGPROF v=1 kind=build version=3.2.3 units=ms timing=wall nested=true")
+    mod.log:info("KGPROF v=1 kind=build version=3.2.4-test.1 units=ms timing=wall nested=true")
   end
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
   displayRuntime.levelUp = displayRuntime.LevelUp.new()
   displayRuntime.fruitTrees = assert(load(mod:read("fruit_trees.lua"),
     "@kanto_gear/fruit_trees.lua"))()
+  displayRuntime.touchGuard = assert(load(mod:read("touch_guard.lua"),
+    "@kanto_gear/touch_guard.lua"))().new()
   displayRuntime.Home = assert(load(mod:read("home_layout.lua"),
     "@kanto_gear/home_layout.lua"))()
   displayRuntime.Achievements = assert(load(mod:read("achievements.lua"),
@@ -9903,6 +9905,7 @@ return function(mod)
 
   local function submit(kind, fields)
     if not (battle and mod.battle) then return end
+    if displayRuntime.touchDispatch then displayRuntime.touchGuard.pending = true end
     intentId = intentId + 1
     fields = fields or {}
     fields.id, fields.revision, fields.kind = intentId, battle.revision, kind
@@ -9929,6 +9932,7 @@ return function(mod)
   end
 
   local function press(key)
+    if displayRuntime.touchDispatch then displayRuntime.touchGuard.pending = true end
     mod.input:tap(game, key)
   end
 
@@ -11926,6 +11930,45 @@ return function(mod)
     return true
   end
 
+  function displayRuntime.syncTouchGuard()
+    local mode, top = screenState()
+    local raw = battleState()
+    local text = textTouch(top) ~= nil or raw and top == raw
+      and raw.phase ~= "menu" and raw.phase ~= "moves" and raw.phase ~= "moveSelect"
+      and raw.phase ~= "choose-forget" and raw.phase ~= "stats-box"
+      and raw.phase ~= "mimicSelect"
+      and (raw.phase == "messages" or raw.message ~= nil) or false
+    local key = table.concat({ tostring(top), text and "text" or tostring(top and top.phase),
+      tostring(top and top.submenu), tostring(top and top.page),
+      tostring(top and top.kind), tostring(top and top.mode),
+      tostring(top and top.picking), tostring(top and top.qtyState),
+      tostring(top and top.confirm), tostring(top and top.selecting),
+      tostring(not text and top and top.message ~= nil),
+      tostring(moveInfo), tostring(fieldChoice), tostring(battleInfoDetail),
+      tostring(partyActionSlot), tostring(page), tostring(mode) }, ":")
+    displayRuntime.touchGuard:sync(key, text, love.timer.getTime())
+    local animation = hgssRuntime.animation
+    if not text and animation then
+      displayRuntime.touchGuard.readyAt = math.max(displayRuntime.touchGuard.readyAt,
+        (animation.started or animation.queued or love.timer.getTime()) + animation.duration)
+    end
+    if not text and textSpeedToken then
+      textSpeedReleasePending = false
+      holdTextSpeed(false)
+    end
+    return displayRuntime.touchGuard
+  end
+
+  function displayRuntime.dispatchTouchTap(fn, x, y)
+    -- Pointer hooks can run between the regular 50ms snapshots. Never send
+    -- an old "advance" action to a battle that has already reached its menu.
+    if battleState() then displayRuntime.perf:call("battle_snapshot", refreshBattle) end
+    displayRuntime.touchDispatch = true
+    fn(x, y)
+    displayRuntime.touchDispatch = false
+    displayRuntime.syncTouchGuard()
+  end
+
   local function touchEvent(value, sourceWidth, sourceHeight)
     local action, sx, sy = value:match("^(%a+),(%d+),(%d+)$")
     local x, y = tonumber(sx), tonumber(sy)
@@ -11950,6 +11993,7 @@ return function(mod)
       y = math.max(0, math.min(HEIGHT - 1,
         math.floor(y * HEIGHT / sourceHeight)))
     end
+    local guard = displayRuntime.syncTouchGuard()
     if touchDown and touchDown.blockedUntilRelease then
       if action == "up" or action == "cancel" then
         touchDown = nil
@@ -11960,9 +12004,14 @@ return function(mod)
     if action == "down" and x then
       textSpeedReleasePending = false
       holdTextSpeed(false)
+      if not guard:allow(love.timer.getTime()) then
+        touchDown = { blockedUntilRelease = true }
+        return
+      end
       local mode, top = screenState()
       local speed = textTouch(top) == "speed"
       touchDown = { x = x, y = y,
+        epoch = guard.epoch,
         at = love.timer.getTime(),
         pageSwipe = pageSwipeAllowed(mode, battle)
           or THEME.style == "hgss" and not moveInfo
@@ -11996,18 +12045,25 @@ return function(mod)
       touchDown = nil
       dirty = true
     elseif action == "tap" and x then
+      -- Some hosts report down/tap/up for one gesture. Only its up may commit.
+      if touchDown or not guard:allow(love.timer.getTime()) then return end
       local mode, top = screenState()
       if textTouch(top) == "speed" then
         holdTextSpeed(true)
         textSpeedReleasePending = true
       else
-        tap(x, y)
+        displayRuntime.dispatchTouchTap(tap, x, y)
       end
     elseif action == "up" and x and touchDown then
       local down = touchDown
       local dx, dy = x - down.x, y - down.y
       touchDown = nil
       dirty = true
+      if not guard:allow(love.timer.getTime(), down.epoch) then
+        textSpeedReleasePending = false
+        holdTextSpeed(false)
+        return
+      end
       if down.homeHelp then
         if displayRuntime.homeHelpActive()
             and math.abs(dx) < 12 and math.abs(dy) < 12
@@ -12022,13 +12078,21 @@ return function(mod)
         return
       end
       if math.abs(dx) >= 24 and math.abs(dx) > math.abs(dy) * 1.25 then
-        if down.pageSwipe then swipe(dx, down) end
+        if down.pageSwipe then
+          displayRuntime.touchDispatch = true
+          swipe(dx, down)
+          displayRuntime.touchDispatch = false
+          displayRuntime.syncTouchGuard()
+        end
       elseif math.abs(dy) >= 24 and math.abs(dy) > math.abs(dx) * 1.25 then
+        displayRuntime.touchDispatch = true
         swipeVertical(dy)
+        displayRuntime.touchDispatch = false
+        displayRuntime.syncTouchGuard()
       elseif dialogueChoice() and (math.abs(dx) >= 12 or math.abs(dy) >= 12) then
         return
       elseif down.input then
-        tap(x, y)
+        displayRuntime.dispatchTouchTap(tap, x, y)
       end
       mod.log:info("touch up x=%d y=%d", x, y)
     end
@@ -12049,6 +12113,8 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     game = payload.game
+    displayRuntime.touchGuard.key, displayRuntime.touchGuard.pending = nil, false
+    displayRuntime.touchGuard.readyAt = 0
     displayRuntime.levelUp = displayRuntime.LevelUp.new()
     displayRuntime.levelUp:scan(game.save)
     displayRuntime.notes:bind(game, mod.storage)
@@ -12339,7 +12405,11 @@ return function(mod)
         end
       end
       if consumed then back() end
-      if modalMoveInfo then return next(stepGame, dt) end
+      if modalMoveInfo then
+        local result = next(stepGame, dt)
+        if stepGame == game then displayRuntime.touchGuard.pending = false end
+        return result
+      end
     end
     local openingPanel = hgssRuntime.openingBattlePanel(stepGame)
     local closingPanel = hgssRuntime.closingBattlePanel(stepGame)
@@ -12383,6 +12453,11 @@ return function(mod)
     end
     if closingPanel then hgssRuntime.beginAnimation(closingPanel) end
     local result = next(stepGame, dt)
+    if stepGame == game then
+      local pending = displayRuntime.touchGuard.pending
+      displayRuntime.touchGuard.pending = false
+      if pending or touchDown then displayRuntime.syncTouchGuard() end
+    end
     if openingPanel then
       hgssRuntime.beginAnimation(openingPanel,
         openingPanel == "battle_party" and { duration = 0.42 } or nil)
@@ -12835,6 +12910,8 @@ return function(mod)
     if now >= nextPoll then
       nextPoll = now + 0.05
       refreshTheme()
+      displayRuntime.perf:call("battle_snapshot", refreshBattle)
+      displayRuntime.syncTouchGuard()
       if not inline and not displayRuntime.notesShown() then
         for _ = 1, 32 do
           local event = companion.pollTouch()
@@ -12844,7 +12921,6 @@ return function(mod)
           end
         end
       end
-      displayRuntime.perf:call("battle_snapshot", refreshBattle)
       if page == "TOOLS" or page == "HOME" or pendingAction then displayRuntime.perf:call("tools", refreshTools) end
       local mode, top = screenState()
       if displayRuntime.perf.enabled then

@@ -609,8 +609,9 @@ fakeTime = fakeTime + display.Home.holdSeconds + 0.01
 T.check(display.updateHomeLongPress(fakeTime) and home.editing,
   "holding an empty Home still enters edit mode")
 touchEvent(("up,%d,%d"):format(emptyDownX, emptyDownY))
-love.timer.getTime = realTime
 display.openHomeApp("store")
+display.syncTouchGuard()
+fakeTime = fakeTime + 0.3
 
 touchEvent("down,20,30")
 T.check(pcall(display.drawContents),
@@ -619,6 +620,7 @@ T.eq(theme.hgss.touchX, 20, "touch-down reaches the HGSS renderer immediately")
 touchEvent("cancel,0,0")
 T.check(pcall(display.drawContents), "touch cancel redraws safely")
 T.eq(theme.hgss.touchX, nil, "touch cancel clears the pressed state")
+love.timer.getTime = realTime
 
 T.check(catalog.packages.settings.fixed
     and catalog.surfaces.settings_app.package == "settings",

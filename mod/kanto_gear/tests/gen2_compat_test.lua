@@ -479,6 +479,22 @@ T.love.joystick = { getJoysticks = function()
     end,
   } }
 end }
+-- Advance the simulated host between layout checks. Rapid bursts are
+-- exercised separately by touch_guard_test.lua with a controlled clock.
+local function settleInput()
+  local display
+  for _, entry in ipairs(run.loader.hooks.chains["input.step"]) do
+    if entry.owner == "kanto_gear" then
+      for i = 1, debug.getinfo(entry.callback, "u").nups do
+        local name, value = debug.getupvalue(entry.callback, i)
+        if name == "displayRuntime" then display = value end
+      end
+    end
+  end
+  display.syncTouchGuard()
+  now = math.max(now, display.touchGuard.readyAt) + 0.5
+  run.loader.hooks:call("input.step", function() end, game, 1/60)
+end
 local touchEvents = {}
 local companion = {
   detected = function() return true end,
@@ -901,11 +917,13 @@ do
   game.input.sourcePress = function(_, button) swiped = button end
   game.input.sourceRelease = function() end
   summaryState.page = 1
+  settleInput()
   touchEvent("down,130,100")
   touchEvent("up,70,100")
   T.eq(swiped, "right",
     "left swipe follows the visible next Summary arrow in battle")
   swiped = nil
+  settleInput()
   touchEvent("down,70,100")
   touchEvent("up,130,100")
   T.eq(swiped, "left",
@@ -951,6 +969,7 @@ infoDraws:stop()
 T.check(#infoDraws:fromPath(
     "tests/fixture_data/assets/fixmon_b_front.png") > 0,
   "Gold INFO draws the active enemy species on the companion screen")
+settleInput()
 touchEvents[1] = "tap,40,40"
 local profileDraws = T.record.draw()
 now = now + 1
@@ -974,6 +993,7 @@ profileBackDraws:stop()
 T.check(#profileBackDraws:fromPath(
     "tests/fixture_data/assets/fixmon_b_front.png") > 0,
   "B returns from Pokedex detail to the compact INFO card")
+settleInput()
 touchEvents[1] = "tap,20,110"
 local matchupDraws = T.record.draw()
 now = now + 1
@@ -1013,7 +1033,8 @@ do
   local pressed
   game.input.sourcePress = function(_, button) pressed = button end
   game.input.sourceRelease = function() end
-  touchEvents[1] = "tap,20,95"
+  settleInput()
+touchEvents[1] = "tap,20,95"
   now = now + 1
   run.loader.hooks:call("render.compose", function() return false end, {}, {
     secondScreen = companion,
@@ -1232,6 +1253,7 @@ T.check(cells["6:28"] and cells["82:28"]
   "Gold 2D choices mirror the native three-by-two grid")
 game.input.sourcePress = function() end
 game.input.sourceRelease = function() end
+settleInput()
 touchEvents[1] = "tap,120,115"
 now = now + 1
 run.loader.hooks:call("render.compose", function() return false end, {}, {
@@ -1261,6 +1283,7 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
 })
 now = now + 1
+settleInput()
 touchEvents[1] = "tap,80,70"
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
@@ -1271,6 +1294,7 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
 })
 now = now + 1
+settleInput()
 touchEvents[1] = "tap,80,70"
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = companion,
@@ -1340,6 +1364,7 @@ do
 
   displayRuntime.bag.pending = { itemId = "POTION" }
   fieldParty.index, pressed = 1, nil
+  settleInput()
   touchEvent("down,82,25")
   touchEvent("up,82,25")
   T.eq(fieldParty.index, 2,
@@ -1378,6 +1403,7 @@ do
       secondScreen = companion,
     })
   end), "Gold PC root mirrors its native entry contract")
+  settleInput()
   touchEvent("tap,120,25")
   T.eq(root.index, 1, "Gold PC root touch keeps the native vertical row")
   T.eq(pressed, "a", "Gold PC root touch confirms through native input")
@@ -1386,17 +1412,20 @@ do
     boxIndex = 1, index = 1 }
   game.stack.states = { root, box }
   pressed = nil
+  settleInput()
   touchEvent("tap,120,64")
   T.eq(box.index, 2, "Gold box touch follows the native up/down list")
   T.eq(pressed, "a", "Gold box touch confirms through native input")
 
   box.mode, box.boxIndex, box.index = "move", 0, 1
+  settleInput()
   touchEvent("tap,120,88")
   T.eq(box.index, 3,
     "Gold MOVE includes the native PARTY cancel row in cursor order")
 
   root.picking, root.pickIndex = true, 5
   game.stack.states = { root }
+  settleInput()
   touchEvent("tap,120,35")
   T.eq(root.pickIndex, 5,
     "Gold change-box touch stays on the first visible box row")
@@ -1408,6 +1437,7 @@ do
       { name = "ANTIDOTE", count = 1 } },
   }
   game.stack.states = { itemPc }
+  settleInput()
   touchEvent("tap,120,51")
   T.eq(itemPc.listIndex, 2,
     "Gold item PC touch follows the native vertical item list")
@@ -1415,6 +1445,7 @@ do
   itemPc.qtyState = { qty = 2, max = 5 }
   game.stack.states = { itemPc }
   pressed = nil
+  settleInput()
   touchEvent("tap,10,70")
   T.eq(pressed, "down",
     "Gold item PC quantity controls remain mirrored below")
@@ -1427,6 +1458,7 @@ do
   T.check(notice and #notice.lines == 4,
     "Gold item PC keeps four-line storage and mail notices visible below")
   pressed = nil
+  settleInput()
   touchEvent("tap,120,100")
   T.eq(pressed, "a", "Gold item PC notice advances from the bottom screen")
   itemPc.message = nil
@@ -1438,6 +1470,7 @@ do
   itemPc.phase, itemPc.pack = "deposit", pack
   game.stack.states = { itemPc }
   pressed = nil
+  settleInput()
   touchEvent("tap,120,50")
   T.eq(pack.index, 1,
     "Gold item PC deposit keeps the native Pack cursor")
@@ -1447,6 +1480,7 @@ do
   box.phase, box.index, box.submenuIndex = "submenu", 1, 1
   game.stack.states = { root, box }
   pressed = nil
+  settleInput()
   touchEvent("tap,120,70")
   T.eq(box.submenuIndex, 2,
     "Gold PC submenu touch follows the native action cursor")

@@ -854,6 +854,23 @@ do
   end
   T.check(type(touchEvent) == "function",
     "PC regression tests reach the companion touch path")
+  -- These are layout/contract checks: let each new screen settle and let
+  -- the host consume the previous confirmation before the next gesture.
+  local touchRuntime
+  for i = 1, debug.getinfo(touchEvent, "u").nups do
+    local name, value = debug.getupvalue(touchEvent, i)
+    if name == "displayRuntime" then touchRuntime = value end
+  end
+  local function settledTouch(event)
+    local clock = T.love.timer.getTime
+    local time = clock()
+    T.love.timer.getTime = function() return time end
+    touchRuntime.syncTouchGuard()
+    time = math.max(time, touchRuntime.touchGuard.readyAt) + 0.5
+    run.loader.hooks:call("input.step", function() end, game, 1/60)
+    touchEvent(event)
+    T.love.timer.getTime = clock
+  end
   local previousInput, previousBoxes, previousBox = game.input,
     game.save.boxes, game.save.currentBox
   local pressed
@@ -875,12 +892,12 @@ do
     { label = "PRINT BOX" }, { label = "SEE YA!" },
   } }
   game.stack.states = { world, pcRoot }
-  touchEvent("tap,120,25")
+  settledTouch("tap,120,25")
   T.eq(pcRoot.index, 1,
     "wide PC root rows keep right-side touch on the native first item")
   T.eq(pressed, "a", "PC root touch confirms through native input")
   pressed = nil
-  touchEvent("tap,120,128")
+  settledTouch("tap,120,128")
   T.eq(pcRoot.index, 6,
     "Yellow's sixth PC root row remains touchable")
   T.eq(pressed, "a", "sixth PC root row confirms through native input")
@@ -890,7 +907,7 @@ do
   } }
   game.stack.states = { world, pcRoot, deposit }
   pressed = nil
-  touchEvent("tap,120,40")
+  settledTouch("tap,120,40")
   T.eq(deposit.index, 1,
     "deposit mirrors the native vertical list instead of a party grid")
   T.eq(pressed, "a", "deposit touch confirms through native input")
@@ -899,7 +916,7 @@ do
     { value = 1 }, { value = 2 }, { value = 3 }, { value = 4 },
   } }
   game.stack.states = { world, pcRoot, withdraw }
-  touchEvent("tap,120,64")
+  settledTouch("tap,120,64")
   T.eq(withdraw.index, 2,
     "box Pokémon rows follow the native up/down cursor order")
 
@@ -908,7 +925,7 @@ do
     change.items[i] = { label = "BOX " .. i, right = "0/20", value = i }
   end
   game.stack.states = { world, pcRoot, change }
-  touchEvent("tap,120,35")
+  settledTouch("tap,120,35")
   T.eq(change.index, 5,
     "change-box touch stays on the first visible native list row")
 
@@ -924,12 +941,12 @@ do
     list = learnMon.moves, row = 1 }
   game.stack.states = { world, pack, picker }
   pressed = nil
-  touchEvent("tap,20,90")
+  settledTouch("tap,20,90")
   T.eq(picker.row, 3,
     "TM/HM replacement rows follow the native vertical move order")
   T.eq(pressed, "a", "TM/HM replacement confirms the native move slot")
   pressed = nil
-  touchEvent("tap,80,140")
+  settledTouch("tap,80,140")
   T.eq(pressed, nil,
     "TM/HM replacement has no invalid fifth cancel slot")
   local gen1Learn = { screenId = "MoveLearnMenu", mon = learnMon,
