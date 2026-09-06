@@ -24,6 +24,8 @@ Rendering uses the package's actual TTF and Gear's actual image fonts.
 - Every generated bag item through pocket pagination and every move name through
   the move detail model. Badges are checked in the registry and excluded from
   the Bag, matching the engine's inventory contract.
+- Every supplied type label through the contextual string registry and Party,
+  while preserving canonical type names and semantic IDs for other mods.
 - Pokédex kinds and descriptions, including the Gold/Silver/Crystal override
   layers and Game2's separate native Pokédex table; Gen 1 text-pointer lookup.
 - Gen 2 landmark names in the merged native map dataset.
@@ -35,7 +37,8 @@ Rendering uses the package's actual TTF and Gear's actual image fonts.
   original Latin font retention and translation-font reset when switching games.
 
 The standard generator 0.8.2 fixtures from revision
-`074728589ff50a0ff0bf2cc0784a22d20dd00930`, checked against official host
+`074728589ff50a0ff0bf2cc0784a22d20dd00930`, with the RBY type-string addition
+`bec10f5` (regenerate the five RBY packages), checked against official host
 0.2.56 (`babac97526c4e95445f8710f397da9f0dfd10e16`), contain 10,450 tested label
 entries. Their render pass performs 282,150 field/font width checks,
 43,945 description/field cases and 132 mixed-script Notes cases.
@@ -54,17 +57,18 @@ Known generator 0.8.2 issues must remain visible during release review:
 - Generated GSC menu wrappers call `table.unpack`, which is absent in the tested
   LuaJIT runtime. These native menu hooks are outside the Gear model/render pass.
 - The Japanese GSC `PACK` catalog value is `#`, from the wrong source segment.
-- RBY type translations only intercept the engine's `Font.draw`/`Font.split`;
-  the public type registry stays English. Gear's independent renderer therefore
-  does not receive those localized type names. Badge fitting checks exercise
-  supplied labels but do not imply that this integration gap is fixed.
+- Original 0.8.2 RBY packages only intercept `Font.draw`/`Font.split`. Regenerated
+  packages additionally publish `type|<canonical display name>` through
+  `mod.content.strings`. Gear reads that context and otherwise keeps the registry
+  name. Existing ZIPs need regenerating; the new type integration assertions
+  intentionally fail when that contract is missing.
 - Untranslated item descriptions and other absent catalog coverage cannot be
   supplied by a font fallback; Korean Crystal dialogue has corpus gaps.
 
-The broader Gear suite also has three assertions failing on the unchanged
-feature baseline `dcbc2e5`: two handheld draw assertions whose graphics stub
-lacks `push`, and a Gen 2 battle Pack submenu expectation. Keep these distinct
-from new regressions; they are not silently accepted by this runner.
+The three previously failing baseline assertions have been repaired: companion
+test doubles supply the host's `push` function, and the battle Pack check tests
+Gear's handling of the host's submenu contract rather than asserting that the
+host cannot have a submenu. The broader Gear suite passes separately.
 
 Device screenshots complement these checks. They do not replace them, and
 desktop offscreen rendering does not certify Android rendering or performance.

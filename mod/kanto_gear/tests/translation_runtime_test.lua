@@ -93,6 +93,21 @@ local function catalog(name)
   return chunk and chunk() or {}
 end
 local kinds = catalog("species_kinds")
+for id, expected in pairs(catalog("type_names")) do
+  T.eq(theme:typeName(id, up(display.saveHome, "mod").content), expected,
+    "localized type display " .. id)
+  game.save.party = { { species = "PIKACHU", hp = 5, stats = { hp = 12 } } }
+  local types = run.data.pokemon.PIKACHU.types
+  run.data.pokemon.PIKACHU.types = { id }
+  local view = display.partyView(partyData()[1])
+  T.eq(view.typeLabel, expected, "Party uses translated type " .. id)
+  T.eq(view.type, id, "Party preserves semantic type ID " .. id)
+  if generation == 1 then
+    T.eq(run.data.type_chart.types[id].name, id == "PSYCHIC_TYPE" and "PSYCHIC" or id,
+      "translation preserves canonical type registry " .. id)
+  end
+  run.data.pokemon.PIKACHU.types = types
+end
 if generation == 2 then
   -- Reproduce Game2's separate native Pokedex table and post-merge projection,
   -- rather than relying only on the SDK's pokemon registry fixture.

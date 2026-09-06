@@ -146,9 +146,13 @@ function love.load()
   end
   local names = catalogs.species_names
   local party = {}
+  local partyTypes = { {"GHOST", "POISON"}, {"FIRE"}, {"GRASS", "POISON"},
+    {"NORMAL", "FLYING"}, {"POISON", "FLYING"}, {"PSYCHIC_TYPE"} }
   for i, id in ipairs({ "GASTLY", "CHARMANDER", "BULBASAUR", "PIDGEY", "ZUBAT", "ABRA" }) do
+    local first, second = partyTypes[i][1], partyTypes[i][2] or partyTypes[i][1]
     party[i] = { name = i == 5 and "Lestat" or names[id] or id, hp = 21, maxHp = 30,
-      levelText = "L16", hpText = "21/30", type = "NORMAL", type2 = "NORMAL", expProgress = 0.4 }
+      levelText = "L16", hpText = "21/30", type = first, type2 = second,
+      typeLabel = catalogs.type_names[first], type2Label = catalogs.type_names[second], expProgress = 0.4 }
   end
   local entries = {}
   for i, id in ipairs({ "POTION", "ANTIDOTE", "FULL_HEAL", "SUPER_POTION", "PARLYZ_HEAL", "POKE_BALL" }) do

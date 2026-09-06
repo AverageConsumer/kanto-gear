@@ -162,6 +162,15 @@ T.eq(theme:typeName("POISON", { type_chart = {
 } }), "GIFT", "move details use the translated type registry")
 T.eq(theme:typeName("CUSTOM", {}), "CUSTOM",
   "unknown move types keep their stable id")
+local typeContent = {
+  type_chart = { get = function() return { name = "PSYCHIC" } end },
+  strings = { get = function(_, key) return key == "type|PSYCHIC" and "エスパー" or nil end },
+}
+T.eq(theme:typeName("PSYCHIC_TYPE", typeContent), "エスパー",
+  "contextual type translation uses the canonical display name")
+typeContent.strings.get = function() return "" end
+T.eq(theme:typeName("PSYCHIC_TYPE", typeContent), "PSYCHIC",
+  "empty type translations retain the registry name")
 T.eq(theme:statusName("PSN", { statuses = {
   get = function(_, id)
     return id == "PSN" and { label = "GIFT", hudLabel = "GIF" }
@@ -444,14 +453,16 @@ T.check(type(modernMenu[2].onSelect) == "function",
 local composed = run.loader.hooks:call("render.compose",
   function() return "upstream" end, {}, {
     secondScreen = { detected = function() return false end,
-                     pollTouch = function() return nil end },
+                     pollTouch = function() return nil end,
+                     push = function() return true end },
   })
 T.eq(composed, "upstream", "Kanto Gear preserves the upstream compositor result")
 
 local displayDetected = true
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { detected = function() return displayDetected end,
-                   pollTouch = function() return nil end },
+                   pollTouch = function() return nil end,
+                   push = function() return true end },
 })
 local swapPressed, infoPressed, overlayPressed, swapPolls = true, false, false, 0
 local trigger = { left = 0, right = 0 }
@@ -780,7 +791,8 @@ run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "display_target" })
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { detected = function() return true end,
-                   pollTouch = function() return nil end },
+                   pollTouch = function() return nil end,
+                   push = function() return true end },
 })
 T.eq(run.loader.hooks:call("render.output", function() return false end, {
   canvas = outputCanvas, width = 1280, height = 720,
@@ -1477,7 +1489,8 @@ for i = 1, 3 do
 end
 run.loader.hooks:call("render.compose", function() return false end, {}, {
   secondScreen = { detected = function() return displayDetected end,
-                   pollTouch = function() return nil end },
+                   pollTouch = function() return nil end,
+                   push = function() return true end },
 })
 T.eq(#run.errors, 0, "trigger polling is safe and edge-triggered")
 
@@ -1505,7 +1518,8 @@ do
     { mod = "kanto_gear", key = "battle_view" })
   run.loader.hooks:call("render.compose", function() return false end, {}, {
     secondScreen = { detected = function() return displayDetected end,
-                     pollTouch = function() return nil end },
+                     pollTouch = function() return nil end,
+                     push = function() return true end },
   })
   local beforeChoice = promptSprites
   fakeTime = 2
@@ -1514,7 +1528,8 @@ do
   } }
   run.loader.hooks:call("render.compose", function() return false end, {}, {
     secondScreen = { detected = function() return displayDetected end,
-                     pollTouch = function() return nil end },
+                     pollTouch = function() return nil end,
+                     push = function() return true end },
   })
   T.eq(promptSprites, beforeChoice,
     "Gen 1 and Gen 2 move-learning choices share the normal dialogue layout")
@@ -1599,7 +1614,8 @@ for _ = 1, 32 do
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   run.loader.hooks:call("render.compose", function() return false end, {}, {
     secondScreen = { detected = function() return displayDetected end,
-                     pollTouch = function() return nil end },
+                     pollTouch = function() return nil end,
+                     push = function() return true end },
   })
   if decodedFrames > 0 and genericSprites > 0 and ownedSprites > 0 then break end
 end
@@ -1632,7 +1648,8 @@ for _ = 1, 32 do
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   run.loader.hooks:call("render.compose", function() return false end, {}, {
     secondScreen = { detected = function() return displayDetected end,
-                     pollTouch = function() return nil end },
+                     pollTouch = function() return nil end,
+                     push = function() return true end },
   })
   if nativeMonPaletteUses > 0 then break end
 end
@@ -1651,7 +1668,8 @@ for _ = 1, 32 do
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   run.loader.hooks:call("render.compose", function() return false end, {}, {
     secondScreen = { detected = function() return displayDetected end,
-                     pollTouch = function() return nil end },
+                     pollTouch = function() return nil end,
+                     push = function() return true end },
   })
   if fallbackIcons > 0 then break end
 end
@@ -1719,7 +1737,8 @@ do
     run.loader.hooks:call("input.step", function() end, game, 1 / 60)
     run.loader.hooks:call("render.compose", function() return false end, {}, {
       secondScreen = { detected = function() return displayDetected end,
-                       pollTouch = function() return nil end },
+                       pollTouch = function() return nil end,
+                       push = function() return true end },
     })
     if #badgeAlphas >= 8 then break end
   end
@@ -1749,7 +1768,8 @@ local swappedRenderer = { uiAnchors = { { anchor = "topright" } } }
 run.loader.hooks:call("render.compose", function() return false end,
   swappedRenderer, {
     secondScreen = { detected = function() return displayDetected end,
-                     pollTouch = function() return nil end },
+                     pollTouch = function() return nil end,
+                     push = function() return true end },
   })
 T.eq(swappedRenderer.uiAnchors, nil,
   "screen swap keeps dynamic menus inside the uncropped game viewport")

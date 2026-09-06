@@ -160,7 +160,12 @@ end
 function THEME:typeName(id, content)
   local registry = content and content.type_chart
   local record = id and registry and registry:get(id)
-  return record and record.name or id or "STATUS"
+  local name = record and record.name or id or "STATUS"
+  -- Translation mods can publish contextual display strings while keeping
+  -- canonical type records intact for mechanics and other mods.
+  local strings = content and content.strings
+  local translated = strings and strings:get("type|" .. name)
+  return type(translated) == "string" and translated ~= "" and translated or name
 end
 
 function THEME:statusName(id, content)

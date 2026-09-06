@@ -80,6 +80,9 @@ Kanto Gear uses that font for names and text containing characters missing
 from its pixel fonts, including Japanese and Korean. Measurement, truncation
 and centering use the same selected font. Gear's own menu language is selected
 separately; installing a game translation does not translate Gear's menus.
+For type labels, Gear also reads contextual `type|<name>` entries from the
+public `strings` registry. RBY packages need the generator's companion type
+string addition; older packages retain their canonical type labels in Gear.
 
 Compatibility checks use packages from the
 [translation mod generator](https://github.com/thibautbus/gen1recomp-translation-mod-generator).

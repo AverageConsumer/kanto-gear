@@ -277,8 +277,24 @@ for row = 1, visible do
 end
 if generation == 2 then
   local NativePack = require("src.ui.gen2.PackMenu")
-  local native = setmetatable({ battle = true }, { __index = NativePack })
-  T.eq(native:hasSubmenu(), false, "current Gen 2 battle Pack has no hidden USE submenu")
+  local uses = 0
+  local native = setmetatable({ screenId = "Gen2PackMenu", battle = true,
+    index = 1, rows = { { id = "FIX_POTION" } }, pocket = bag.pocket,
+    items = { FIX_POTION = {} },
+    useSelected = function() uses = uses + 1 end,
+  }, { __index = NativePack })
+  local compat = upvalue(display.bagModel, "compat")
+  local queue = { "a" }
+  local hasSubmenu = native:hasSubmenu()
+  T.eq(compat.useBattleBagItemDirectly(native, queue), hasSubmenu,
+    "owned Pack uses the current host's native submenu contract")
+  T.eq(uses, hasSubmenu and 1 or 0, "direct Pack use occurs exactly once when needed")
+  T.eq(#queue, hasSubmenu and 0 or 1, "one-press hosts retain their native A press")
+  native.items.FIX_POTION.battleMenu = "ITEMMENU_NOUSE"
+  queue = { "a" }
+  T.check(not compat.useBattleBagItemDirectly(native, queue),
+    "unusable items retain the native refusal menu")
+  T.eq(#queue, 1, "native refusal still receives A")
 end
 local drawChoice = upvalue(display.drawContents, "drawDialogueChoice")
 local originalChoice = H.choiceScreen
