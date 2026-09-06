@@ -2335,8 +2335,10 @@ return function(mod)
   displayRuntime.perf = assert(load(mod:read("performance.lua"),
     "@kanto_gear/performance.lua"))().new(
       function() return love.timer.getTime() end,
-      function(line) mod.log:info("%s", line) end, true)
-  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.7 units=ms timing=wall nested=true")
+      function(line) mod.log:info("%s", line) end, false)
+  if displayRuntime.perf.enabled then
+    mod.log:info("KGPROF v=1 kind=build version=3.2.3 units=ms timing=wall nested=true")
+  end
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
   displayRuntime.levelUp = displayRuntime.LevelUp.new()
@@ -12845,12 +12847,14 @@ return function(mod)
       displayRuntime.perf:call("battle_snapshot", refreshBattle)
       if page == "TOOLS" or page == "HOME" or pendingAction then displayRuntime.perf:call("tools", refreshTools) end
       local mode, top = screenState()
-      displayRuntime.perf:setContext(string.format(
-        "gen%d/%s/%s/%s/%s/%s/%s", compat.isGen2() and 2 or 1,
-        page, top and (top.screenId or (top.isTextBox and "text")) or mode,
-        mod.options:get("theme_v3") or THEME.style,
-        inline and "inline" or bottomOnHandheld() and "game-transfer" or "gear-transfer",
-        mod.options:get("map_motion") or "quality", mapId or "unknown"))
+      if displayRuntime.perf.enabled then
+        displayRuntime.perf:setContext(string.format(
+          "gen%d/%s/%s/%s/%s/%s/%s", compat.isGen2() and 2 or 1,
+          page, top and (top.screenId or (top.isTextBox and "text")) or mode,
+          mod.options:get("theme_v3") or THEME.style,
+          inline and "inline" or bottomOnHandheld() and "game-transfer" or "gear-transfer",
+          mod.options:get("map_motion") or "quality", mapId or "unknown"))
+      end
       local currentSummary = compat.isScreen(top, "summary")
         and compat.summary.supports(top, game) and top or nil
       if THEME.style == "hgss" and currentSummary and not battle then

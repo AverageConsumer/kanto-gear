@@ -1,7 +1,8 @@
 # Performance diagnostics
 
-`3.2.3-test.7` is an instrumented build, with the recorder enabled in
-`main.lua`. Disable the recorder before a public release. It sends `KGPROF`
+The public `3.2.3` build disables the recorder. For a diagnostic test build,
+enable it at the `Performance.new` call in `main.lua` and update its build
+marker. Disable it again before a public release. It sends `KGPROF`
 records to the existing host log; it does not upload data or write recordings
 into the save. Context contains generation, Gear page, native screen kind,
 theme, output path, map motion setting, and map ID. No note text or player names

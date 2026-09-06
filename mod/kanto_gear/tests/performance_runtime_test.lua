@@ -30,6 +30,8 @@ run.loader.modOptions.kanto_gear = { theme_v3 = "hgss", display_mode = "separate
   display_target = "secondary", ui_motion = false }
 run.loader.events:emit("game.ready", { game = game })
 local display = up(hook("input.step"), "displayRuntime")
+T.eq(display.perf.enabled, false, "public releases disable diagnostic recording")
+display.perf.enabled = true -- Exercise the optional recorder explicitly.
 display.home.help = false
 local now = 1
 T.love.timer.getTime = function() return now end
