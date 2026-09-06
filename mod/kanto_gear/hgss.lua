@@ -12,6 +12,8 @@ return function(ui)
     band = { 0.66, 0.82, 0.72, 1 },
     bandLight = { 0.84, 0.91, 0.86, 1 },
     ink = { 0.08, 0.14, 0.12, 1 },
+    mutedInk = { 0.30, 0.39, 0.33, 1 },
+    disabledInk = { 0.38, 0.45, 0.40, 1 },
     outline = { 0.08, 0.14, 0.12, 1 },
     statusInk = { 0.08, 0.14, 0.12, 1 },
     shadow = { 0.08, 0.14, 0.12, 0.28 },
@@ -50,6 +52,8 @@ return function(ui)
     band = { 0.14, 0.27, 0.23, 1 },
     bandLight = { 0.09, 0.16, 0.15, 1 },
     ink = { 0.91, 0.96, 0.93, 1 },
+    mutedInk = { 0.68, 0.76, 0.72, 1 },
+    disabledInk = { 0.52, 0.61, 0.56, 1 },
     outline = { 0.02, 0.035, 0.03, 1 },
     statusInk = { 0.04, 0.07, 0.06, 1 },
     shadow = { 0.00, 0.01, 0.01, 0.50 },
@@ -732,7 +736,7 @@ return function(ui)
 
   function H:trainerStat(x, label, value, kind, accent, width)
     local colors = self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     width = width or 72
     self:homeTile(x, 151, width, 60, accent, false)
     box("fill", x + 5, 153, width - 10, 2, accent)
@@ -746,7 +750,7 @@ return function(ui)
 
   function H:trainer(model)
     local G, colors = ui.graphics, self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     local blue = self.dark and colors.blueLight or colors.blue
     local amber = self.dark and colors.amberLight or colors.amber
     self:homeTile(7, 33, 226, 55, colors.blue, false)
@@ -798,7 +802,7 @@ return function(ui)
 
   function H:steps(model)
     local G, colors = ui.graphics, self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     self:homeTile(12, 42, 216, 101, colors.green, false)
     box("fill", 14, 44, 212, 18, colors.green)
     box("fill", 19, 44, 202, 2, colors.greenLight)
@@ -840,7 +844,7 @@ return function(ui)
 
   function H:pokedexIndex(model)
     local G, colors = ui.graphics, self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     self:homeTile(7, 34, 226, 30, colors.red, false)
     self:partyType(translate(model.region or "NATIONAL DEX"),
       12, 39, quiet, 92)
@@ -880,7 +884,7 @@ return function(ui)
 
   function H:pokedexProfile(model)
     local G, colors = ui.graphics, self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     local mon = model.pokemon or {}
     self:homeTile(7, 34, 226, 70, colors.red, false)
     color(mixed(colors.surface, colors.redLight, self.dark and 0.22 or 0.12))
@@ -986,7 +990,7 @@ return function(ui)
 
   function H:pokedexHabitat(model)
     local colors = self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     local mon = model.pokemon or {}
     dexResearchHero(self, model, colors.green,
       translate(model.status or ""), model.summary or translate("NO WILD HABITAT"))
@@ -1696,7 +1700,7 @@ return function(ui)
 
   function H:homePokedex(model, tile, selected)
     local colors = self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     local x, y, w, h = self:homeRect(tile)
     self:homeTile(x, y, w, h, colors.redLight, selected)
     self:homeWidgetHeader(x, y, w, "POKEDEX", colors.red,
@@ -1864,7 +1868,7 @@ return function(ui)
 
   function H:homeSteps(model, tile, selected)
     local colors = self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     local x, y, w, h = self:homeRect(tile)
     self:homeTile(x, y, w, h, colors.greenLight, selected)
     self:homeWidgetHeader(x, y, w, "STEPS", colors.green,
@@ -1879,7 +1883,7 @@ return function(ui)
 
   function H:homeTool(model, tile, selected)
     local colors = self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     local x, y, w, h = self:homeRect(tile)
     local accent = self:toolAccent(tile.icon)
     local ready = tile.ready == true
@@ -2028,7 +2032,7 @@ return function(ui)
 
   function H:toolCard(action, x, y)
     local colors = self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     local accent = self:toolAccent(action.icon)
     local pressed = self:beginPress(x, y, 109, 76, action.ready)
     self:homeTile(x, y, 109, 76,
@@ -2271,7 +2275,7 @@ return function(ui)
 
   function H:storePreview(app, x, y, w, h)
     local G, colors = ui.graphics, self.colors
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     app = type(app) == "table" and app or { id = app }
     local id, preview = app.id, app.preview or {}
     local pressed = self:beginPress(x, y, w, h)
@@ -2764,7 +2768,7 @@ return function(ui)
 
   function H:storeDetail(model)
     local G, colors, icons = ui.graphics, self.colors, homeIcons(self)
-    local quiet = self.dark and colors.silver or colors.silverDark
+    local quiet = colors.mutedInk
     local app = model.app or {}
     color(colors.shadow); G.rectangle("fill", 8, 35, 226, 52, 5, 5)
     color(colors.surface); G.rectangle("fill", 7, 32, 226, 52, 5, 5)
@@ -4257,9 +4261,9 @@ return function(ui)
       if move and move.available ~= false then
         local x, y, w, h = self:battleStandardMoveRect(slot)
         local pressed = self:beginPress(x, y, w, h, not move.disabled)
-        self:panel(x, y, w, h, mon.moveIndex == slot,
+        self:panel(x, y, w, h, mon.moveIndex == slot and not move.disabled,
           self:typeColor(move.type))
-        local ink = move.disabled and colors.silverDark or colors.ink
+        local ink = move.disabled and colors.disabledInk or colors.ink
         self:partyName(move.name or "-", x + 8, y + 5, ink, 141)
         self:partyInfo((move.ppLabel or translate("PP")) .. " " .. (move.ppText or "--"),
           x + 153, y + 5, ink, 49, "right")
@@ -4395,7 +4399,7 @@ return function(ui)
     self:panel(151, 72, 73, 21, false, nil,
       mon.dvs and colors.blueLight or colors.silverDark)
     self:partyType(mon.dvs and translate("DVS >") or "DVS --",
-      155, 78, mon.dvs and colors.green or colors.silverDark, 65)
+      155, 78, mon.dvs and colors.green or colors.disabledInk, 65)
     self:endPress(dvsPressed)
 
     local profilePressed = self:beginPress(7, 105, 226, 39)
@@ -4465,7 +4469,7 @@ return function(ui)
     if #rows == 0 then
       self:panel(24, 82, 192, 90, false, nil, colors.silverDark)
       self:partyInfo(translate("NO DETAILS AVAILABLE"), 32, 121,
-        colors.silverDark, 176, "center")
+        colors.mutedInk, 176, "center")
     else
       for index, row in ipairs(rows) do
         local line = math.floor((index - 1) / 3)
@@ -4499,7 +4503,7 @@ return function(ui)
       colors.green, 74)
     if #rows == 0 then
       self:panel(24, 92, 192, 70, false, nil, colors.silverDark)
-      self:partyInfo("--", 32, 122, colors.silverDark, 176, "center")
+      self:partyInfo("--", 32, 122, colors.mutedInk, 176, "center")
       return
     end
     local columns = #rows > 7 and 2 or 1
@@ -4578,7 +4582,7 @@ return function(ui)
     if #entries == 0 then
       self:panel(24, 105, 192, 70, false, nil, colors.silverDark)
       self:partyInfo(translate("NOTHING HERE"), 32, 134,
-        colors.silverDark, 176, "center")
+        colors.mutedInk, 176, "center")
       return
     end
     local top, height = self:pcRootRows(#entries)
@@ -4609,7 +4613,7 @@ return function(ui)
     if #entries == 0 then
       self:panel(24, 91, 192, 70, false, nil, colors.silverDark)
       self:partyInfo(translate("NOTHING HERE"), 32, 120,
-        colors.silverDark, 176, "center")
+        colors.mutedInk, 176, "center")
       return
     end
     for index, entry in ipairs(entries) do
@@ -4804,7 +4808,7 @@ return function(ui)
     fontText(trainerNameFont, translate("SILPH LINK"), 28, 109,
       colors.ink, 184, "center")
     self:partyInfo(self:fitPartyInfo(model.systemId or "SLS-DEV", 102),
-      69, 128, self.dark and colors.silver or colors.silverDark,
+      69, 128, colors.mutedInk,
       102, "center")
 
     clipped(57, 141, 126, 15, colors.bandLight)
@@ -4963,13 +4967,15 @@ return function(ui)
     box("fill", x + 39, y + 5, 1, 33, colors.band)
     self:partyName(item.label or translate("ITEM"), x + 45, y + 7,
       colors.ink, 58)
-    local second = item.detail and self:fitPartyInfo(item.detail, 43)
-      or ("x%d"):format(tonumber(item.count) or 0)
-    self:partyInfo(second, x + 45, y + 24,
-      item.detail and colors.green or colors.silverDark, 44)
+    local count = ("x%d"):format(tonumber(item.count) or 0)
     if item.detail then
-      self:partyInfo(("x%d"):format(tonumber(item.count) or 0),
-        x + 88, y + 24, colors.silverDark, 15, "right")
+      local countWidth = self:partyInfoWidth(count)
+      local detailWidth = 58 - countWidth - 4
+      self:partyInfo(self:fitPartyInfo(item.detail, detailWidth),
+        x + 45, y + 24, colors.green, detailWidth)
+      self:partyInfo(count, x + 103 - countWidth, y + 24, colors.mutedInk)
+    else
+      self:partyInfo(count, x + 45, y + 24, colors.mutedInk)
     end
     self:detailChevron(x + 104, y + 19, colors.green, false)
     self:endPress(pressed)
@@ -4998,8 +5004,8 @@ return function(ui)
 
     if #(model.entries or {}) == 0 then
       self:panel(24, 91, 192, 70, false)
-      self:partyInfo(translate("THIS POCKET IS EMPTY."), 24, 116,
-        colors.silverDark, 192, "center")
+      self:partyInfo(translate("THIS POCKET IS EMPTY."), 25, 120,
+        colors.mutedInk, 192, "center")
       return
     end
     for index, item in ipairs(model.entries or {}) do
@@ -5023,7 +5029,7 @@ return function(ui)
     box("fill", 68, 42, 1, 51, colors.band)
     self:partyName(item.label or translate("ITEM"), 77, 47, colors.ink, 140)
     self:partyInfo(("x%d"):format(tonumber(item.count) or 0),
-      77, 67, colors.silverDark)
+      77, 67, colors.mutedInk)
     local lines = model.message or item.lines or {}
     box("fill", 16, 99, 208, 1, colors.band)
     for index = 1, math.min(3, #lines) do
@@ -5039,7 +5045,7 @@ return function(ui)
         or colors.bandLight)
     local label = translate(model.message and "USE AGAIN" or "USE")
     self:partyInfo(label, 54, 180,
-      enabled and colors.ink or colors.silverDark, 132, "center")
+      enabled and colors.ink or colors.disabledInk, 132, "center")
     self:endPress(pressed)
   end
 
@@ -5112,7 +5118,7 @@ return function(ui)
   function H:battleBagRow(item, index, y, selected, offsetX)
     local G, colors = ui.graphics, self.colors
     local disabled = item.disabled
-    local ink = disabled and colors.silverDark or colors.ink
+    local ink = disabled and colors.disabledInk or colors.ink
     local iconTint = disabled and colors.silverDark
       or item.icon == "ball" and colors.redLight
       or item.icon == "medicine" and colors.blueLight
@@ -5152,7 +5158,7 @@ return function(ui)
       self:partyType(chance, 86, y + 16, colors.white, 38)
     elseif disabled then
       self:partyInfo(item.disabledLabel or translate("UNUSABLE"), 46, y + 17,
-        colors.silverDark)
+        colors.disabledInk)
     end
     if selected and not disabled then self:focusFrame(7, y, 226, 31) end
     G.pop()
@@ -5234,7 +5240,7 @@ return function(ui)
     self:panel(x, y, 112, 80, selected and not disabled,
       self:typeColor(move.type), self:typeColor(move.type))
 
-    local ink = disabled and colors.silverDark or colors.ink
+    local ink = disabled and colors.disabledInk or colors.ink
     self:partyName(move.name or "-", x + 9, y + 7, ink, 88)
     self:detailChevron(x + 99, y + 11, ink)
     self:moveTypeBadge(move, x + 9, y + 26)
