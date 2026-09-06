@@ -2928,7 +2928,8 @@ return function(ui)
 
   local function explorerMapFocus(model)
     local marker = model.selectedMarker
-    return marker and marker.kind == "trainer" and marker or model.player
+    return marker and (marker.kind == "trainer" or marker.kind == "fruit")
+      and marker or model.player
   end
   do
     local player, trainer = { x = 1, y = 2 },
@@ -3059,6 +3060,10 @@ return function(ui)
           if opts.drawTrainer then
             opts.drawTrainer(marker, anchorX, my + tileSize, tileSize)
           end
+        elseif marker.kind == "fruit" then
+          local unit = math.max(1, math.floor(tileSize / 9))
+          self:fruitIcon(anchorX - math.floor(7 * unit / 2),
+            anchorY - math.floor(9 * unit / 2), unit, marker.picked)
         elseif marker.kind == "hidden" then
           local tint = marker.found and colors.silverDark or colors.blueLight
           local shine = marker.found and colors.silver or colors.white
@@ -3168,6 +3173,21 @@ return function(ui)
     box("fill", 86, 188, 1, 12, colors.band)
     self:partyInfo(self:fitPartyInfo(model.area or translate("UNKNOWN AREA"),
       132), 91, 187, colors.ink, 132, "center")
+  end
+
+  local fruitShape = { { 3, 1 }, { 3, 3 }, { 2, 3 }, { 1, 5 },
+    { 0, 7 }, { 0, 7 }, { 0, 7 }, { 1, 5 }, { 2, 3 } }
+  function H:fruitIcon(x, y, unit, picked)
+    local colors = self.colors
+    local tint = picked and (self.dark and colors.silver or colors.silverDark)
+      or colors.redLight
+    for row, span in ipairs(fruitShape) do
+      box("fill", x + span[1] * unit, y + (row - 1) * unit,
+        span[2] * unit, unit, row <= 3 and colors.green or tint)
+    end
+    local inset = picked and 3 * unit or unit
+    box("fill", x + 2 * unit, y + 4 * unit, inset, inset,
+      picked and colors.surface or colors.white)
   end
 
   function H:explorer(model)
@@ -3397,6 +3417,20 @@ return function(ui)
             colors.ink, 55, "center")
         end
       end
+      return
+    elseif selected and view == "fruit" then
+      local tint = selected.picked and colors.mutedInk or colors.green
+      self:panel(7, 140, 226, 70, false, nil, tint)
+      local name = self:fitPartyInfo(selected.label, 190)
+      local width = self:partyInfoWidth(name)
+      local left = 7 + math.floor((226 - 14 - 6 - width) / 2)
+      self:fruitIcon(left, 149, 2, selected.picked)
+      self:partyInfo(name, left + 20, 152, colors.ink)
+      self:partyInfo(self:fitPartyInfo(translate(selected.picked
+        and "PICKED TODAY" or "READY TO PICK"), 210),
+        15, 176, tint, 210, "center")
+      self:partyType(self:fitPartyType(translate("REGROWS DAILY"), 210),
+        15, 194, colors.green, 210)
       return
     elseif selected and view == "items" then
       self:panel(7, 140, 226, 70, false, nil, colors.amberLight)

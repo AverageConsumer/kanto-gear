@@ -2336,10 +2336,12 @@ return function(mod)
     "@kanto_gear/performance.lua"))().new(
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, true)
-  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.6 units=ms timing=wall nested=true")
+  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.7 units=ms timing=wall nested=true")
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
   displayRuntime.levelUp = displayRuntime.LevelUp.new()
+  displayRuntime.fruitTrees = assert(load(mod:read("fruit_trees.lua"),
+    "@kanto_gear/fruit_trees.lua"))()
   displayRuntime.Home = assert(load(mod:read("home_layout.lua"),
     "@kanto_gear/home_layout.lua"))()
   displayRuntime.Achievements = assert(load(mod:read("achievements.lua"),
@@ -5519,6 +5521,8 @@ return function(mod)
         or cached.areaEnabled ~= areaEnabled then
       cached = { mapId = id, at = now,
         guideEnabled = guideEnabled, areaEnabled = areaEnabled,
+        fruits = areaEnabled and compat.isGen2()
+          and displayRuntime.fruitTrees.rows(game.data, id) or {},
         guide = guideEnabled and guideData()
           or { rows = {}, caught = 0, time = "DAY", timed = false },
         area = areaEnabled and areaData({ id })
@@ -5532,7 +5536,8 @@ return function(mod)
     local renderKey = table.concat({ tostring(explorer.view), tostring(explorer.selected),
       tostring(explorer.page), tostring(explorer.detailPage or 1), tostring(explorer.mapFull),
       tostring(explorer.mapZoom), tostring(explorer.filters.wildScope), tostring(explorer.scanFrame),
-      tostring(assist("spoilers")), tostring(assist("item_radar")), tostring(themeKey) }, ":")
+      tostring(assist("spoilers")), tostring(assist("item_radar")), tostring(themeKey),
+      displayRuntime.fruitTrees.stateKey(game.save, cached.fruits) }, ":")
     if explorer.renderModel and explorer.renderData == cached
         and explorer.renderOverview == overview and explorer.renderKey == renderKey
         and not explorer.scanFrame then
@@ -5617,6 +5622,7 @@ return function(mod)
     local view = explorer.view or "wild"
     local source = view == "wild" and wild
       or view == "items" and allItems
+      or view == "fruit" and cached.fruits
       or view == "trainers" and allTrainers or {}
     local perPage = view == "wild" and 4 or math.max(1, #source)
     local pages = math.max(1, math.ceil(#source / perPage))
@@ -5634,6 +5640,13 @@ return function(mod)
     local markers, selectedMarker = {}, nil
     for _, marker in ipairs(overview.markers or {}) do
       if marker.kind == "warp" then markers[#markers + 1] = marker end
+    end
+    for _, row in ipairs(cached.fruits) do
+      row.picked = displayRuntime.fruitTrees.picked(game.save, row.tree)
+      local marker = { kind = "fruit", x = row.x, y = row.y,
+        picked = row.picked, source = row }
+      markers[#markers + 1] = marker
+      if row == selected then selectedMarker = marker end
     end
     for _, row in ipairs(mapItems) do
       if row.x ~= nil and row.y ~= nil then
@@ -11624,7 +11637,7 @@ return function(mod)
       elseif action == "marker" and model.markers[slot]
           and model.markers[slot].source then
         displayRuntime.explorer.view = model.markers[slot].kind == "trainer"
-          and "trainers" or "items"
+          and "trainers" or model.markers[slot].kind == "fruit" and "fruit" or "items"
         displayRuntime.explorer.selected = model.markers[slot].source.key
         displayRuntime.explorer.detailPage = 1
         displayRuntime.explorer.mapFull = false
@@ -12934,6 +12947,8 @@ return function(mod)
       if page == "LOCAL" and mod.world and mod.world.current then
         local pos = mod.world:current()
         screenKey = screenKey .. ":" .. tostring(pos and pos.facing)
+          .. ":" .. displayRuntime.fruitTrees.stateKey(game.save,
+            displayRuntime.explorer.data and displayRuntime.explorer.data.fruits)
       end
       if screenKey ~= lastScreenKey or mode == "transition" then
         lastScreenKey, dirty = screenKey, true

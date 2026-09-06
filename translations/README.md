@@ -24,7 +24,7 @@ translations: **Blastheaven2**. Their contributions remain the basis of the
 built-in catalogs. Japanese was contributed by **Theeohn** in
 [PR #33](https://github.com/AverageConsumer/kanto-gear/pull/33). Its 337 entries
 are included unchanged under the standard `ja` language code. The remaining
-380 reference keys fall back to English; see [the Japanese completion file](ja-missing.lua).
+383 reference keys fall back to English; see [the Japanese completion file](ja-missing.lua).
 
 ## Maintaining translations
 

@@ -3,6 +3,7 @@ tests/bag_runtime_test.lua
 tests/compat_test.lua
 tests/desktop_compat_test.lua
 tests/gen2_compat_test.lua
+tests/fruit_trees_test.lua
 tests/haptics_test.lua
 tests/home_layout_test.lua
 tests/home_runtime_test.lua

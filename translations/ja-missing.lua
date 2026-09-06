@@ -1,6 +1,10 @@
 -- Remaining Japanese translations; not loaded by Kanto Gear.
 -- Replace false with the translation, preserving every format placeholder.
 return {
+  ["READY TO PICK"] = false,
+  ["PICKED TODAY"] = false,
+  ["REGROWS DAILY"] = false,
+
   ["%d APPS READY"] = false,
   ["%d ARCHIVED"] = false,
   ["%d AREAS"] = false,

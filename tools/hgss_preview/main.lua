@@ -982,6 +982,17 @@ function love.load()
       end
       local selected = (explorerDetail or explorerItems or explorerItemDetail
         or explorerTrainers or explorerTrainerDetail) and sourceRows[1] or nil
+      local fruitCase = not gen1 and os.getenv("KANTO_GEAR_PREVIEW_FRUIT")
+      if fruitCase then
+        local fruit = { kind = "fruit", x = 22, y = 7,
+          label = fruitCase == "apricorn" and "ROTE APRIKOKO" or "GIFTBEERE",
+          picked = fruitCase == "picked", key = "fruit:5" }
+        markers[#markers + 1] = { kind = "fruit", x = fruit.x, y = fruit.y,
+          picked = fruit.picked, source = fruit }
+        markers[#markers + 1] = { kind = "fruit", x = 24, y = 9,
+          picked = not fruit.picked, source = { key = "fruit:6" } }
+        if fruitCase ~= "map" then view, selected = "fruit", fruit end
+      end
       if selected and view == "wild"
           and os.getenv("KANTO_GEAR_PREVIEW_SINGLE_HABITAT") == "1" then
         selected.matches = { selected.matches[1] }
@@ -1080,7 +1091,7 @@ function love.load()
         end
       end
       assert(#explorerModel.markers
-          == #(overview.markers or {}) + visibleItems + #trainerRows,
+          == #(overview.markers or {}) + visibleItems + #trainerRows + (fruitCase and 2 or 0),
         "Explorer only reveals hidden-item markers in spoiler mode")
       if explorerMap then
         assert(theme:explorerHit(20 * sx, 61 * sx,

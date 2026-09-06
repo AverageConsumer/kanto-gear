@@ -37,6 +37,9 @@ from apps, shortcuts and widgets.
   Itemfinder behavior without reducing the adventure to a spreadsheet.
   Available encounters are ordered by access and method, with uncaught species
   ahead of caught ones at the same availability. Gen 2 fishing entries require a bank.
+  In Gold, Silver and Crystal, fruit markers show berry and apricorn trees.
+  Tap a tree for its item name and whether it is ready or already picked today.
+  Daily harvests do not change permanent item totals or Stamps progress.
   **Options → Appearance → Map Motion** lets you choose Quality or Performance
   for movement in both the local map and the Home Explorer widget.
 - **Party, Bag, Pokédex, Map, Trainer Card and Field Kit** are dedicated
