@@ -1944,6 +1944,7 @@ return function(ui)
     local colors = self.colors
     local target, top = self:homeHelpLayout(tiles)
     local dim = { 0, 0, 0, 0.55 }
+    if ui.dimBackground then ui.dimBackground(dim[4]) end
     if target then
       local x, y, w, h = self:homeRect(target)
       box("fill", 0, 0, 240, y, dim)
@@ -2203,9 +2204,8 @@ return function(ui)
   end
 
   function H:toolPrompt(action)
-    local G, colors = ui.graphics, self.colors
-    color({ 0, 0, 0, self.dark and 0.62 or 0.48 })
-    G.rectangle("fill", 0, 0, 240, 216)
+    local colors = self.colors
+    self:systemOverlay(self.dark and 0.62 or 0.48, false)
     local accent = self:toolAccent(action.icon)
     self:homeTile(25, 52, 190, 112, accent, false)
     box("fill", 28, 55, 4, 106, accent)
@@ -4834,6 +4834,7 @@ return function(ui)
 
   function H:systemOverlay(alpha, prompt, now)
     local colors = self.colors
+    if ui.dimBackground then ui.dimBackground(alpha or 0.5) end
     color({ 0, 0, 0, alpha or 0.5 })
     ui.graphics.rectangle("fill", 0, 0, 240, 216)
     if not prompt then return end

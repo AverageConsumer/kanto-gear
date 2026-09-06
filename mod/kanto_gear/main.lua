@@ -2274,6 +2274,19 @@ return function(mod)
   end
   THEME.translationFonts = assert(load(mod:read("translation_fonts.lua"),
     "@kanto_gear/translation_fonts.lua"))().new(G, function(message) mod.log:warn(message) end)
+  function displayRuntime.dimBackground(alpha)
+    displayRuntime.backgroundDim = 1
+      - (1 - (displayRuntime.backgroundDim or 0)) * (1 - alpha)
+  end
+
+  function displayRuntime.backgroundColor()
+    local factor = 1 - (displayRuntime.backgroundDim or 0)
+    local packed = SECONDARY_BACKGROUND
+    return math.floor(math.floor(packed / 0x10000) * factor + 0.5) * 0x10000
+      + math.floor(math.floor(packed / 0x100) % 0x100 * factor + 0.5) * 0x100
+      + math.floor(packed % 0x100 * factor + 0.5)
+  end
+
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
@@ -2283,6 +2296,7 @@ return function(mod)
     bagIcon = THEME.hgssBagIcon,
     translate = function(value) return THEME:translate(value) end,
     format = function(value, ...) return THEME:format(value, ...) end,
+    dimBackground = displayRuntime.dimBackground,
   })
 
   assert(THEME.hgss:battleChoice(120, 80) == 1
@@ -4597,6 +4611,7 @@ return function(mod)
     color({ 1, 1, 1, 1 })
     G.draw(canvas)
     G.setCanvas(previous)
+    motion.backgroundDim = displayRuntime.backgroundDim or 0
     motion.started = now
   end
 
@@ -4619,6 +4634,8 @@ return function(mod)
     color({ 1, 1, 1, 1 - progress })
     G.draw(motion.canvas)
     G.setCanvas(previous)
+    displayRuntime.backgroundDim = (displayRuntime.backgroundDim or 0) * progress
+      + (motion.backgroundDim or 0) * (1 - progress)
   end
 
   local function trackChoice(top, now)
@@ -4710,6 +4727,7 @@ return function(mod)
       G.pop()
       return
     end
+    displayRuntime.dimBackground(alpha)
     color({ 0, 0, 0, alpha })
     G.rectangle("fill", 0, 0, WIDTH, HEIGHT)
     if prompt then displayRuntime.drawContinueArrow(75, 122) end
@@ -9224,6 +9242,7 @@ return function(mod)
     "modal text and loading overlays capture HGSS press animation")
 
   displayRuntime.drawContents = function()
+    displayRuntime.backgroundDim = 0
     G.setCanvas(canvas)
     G.origin()
     G.setScissor()
@@ -9380,7 +9399,7 @@ return function(mod)
       local ok, image = pcall(canvas.newImageData, canvas)
       if not ok or not image then return false end
       shown = companion.push(image, canvas:getWidth(), canvas:getHeight(),
-        SECONDARY_BACKGROUND,
+        displayRuntime.backgroundColor(),
         displayPreference())
       displayReady = shown
       if not shown then
@@ -9403,7 +9422,7 @@ return function(mod)
       local image = canvas:pollImageData()
       if image then
         shown = companion.push(image, canvas:getWidth(), canvas:getHeight(),
-          SECONDARY_BACKGROUND,
+          displayRuntime.readbackBackground,
           displayPreference())
         readbackPending = false
         displayReady = shown
@@ -9416,6 +9435,8 @@ return function(mod)
     if not readbackPending and dirty then
       draw()
       if canvas:requestImageData() then
+        -- Keep the border paired with this captured frame during async readback.
+        displayRuntime.readbackBackground = displayRuntime.backgroundColor()
         readbackPending = true
         dirty = false
       end
@@ -12163,7 +12184,9 @@ return function(mod)
     G.setScissor()
     G.setShader()
     G.setBlendMode("alpha")
-    G.clear(PAPER[1], PAPER[2], PAPER[3], 1)
+    local brightness = 1 - (displayRuntime.backgroundDim or 0)
+    G.clear(PAPER[1] * brightness, PAPER[2] * brightness,
+      PAPER[3] * brightness, 1)
     G.setColor(1, 1, 1, 1)
     G.draw(canvas, dx, dy, 0, scale, scale)
     G.pop()
