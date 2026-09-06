@@ -902,6 +902,12 @@ function love.load()
           minLevel = appearance.minLevel + 2,
           maxLevel = appearance.maxLevel + 2, current = false }
         local matches = { appearance, alternate }
+        if os.getenv("KANTO_GEAR_PREVIEW_METHODS") == "1" then
+          appearance.method = ({ "WALK", "SURF", "OLD", "HEADBUTT" })[index] or "ROCK SMASH"
+        end
+        if os.getenv("KANTO_GEAR_PREVIEW_BLOCKED") == "1" then
+          appearance.method, appearance.current, appearance.blocked = "HEADBUTT", false, true
+        end
         if index == 1 then
           matches[3] = { section = "SOUTH FIELD", time = not gen1 and "MORN"
               or nil, method = "SURF", chance = 10,
@@ -913,7 +919,7 @@ function love.load()
           type = encounter[4], type2 = encounter[4],
           typeLabel = encounter[5], type2Label = encounter[5],
           caught = encounter[6], method = "WALK", period = data.period,
-          matches = matches, detailPages = math.ceil(#matches / 2),
+          matches = matches, best = appearance, detailPages = math.ceil(#matches / 2),
           previewSlot = math.min(index, #sprites),
         }
       end

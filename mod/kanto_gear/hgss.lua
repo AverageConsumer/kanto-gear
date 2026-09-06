@@ -3266,11 +3266,11 @@ return function(ui)
     end
     if model.mapFull then return end
 
-    local function chip(x, y, width, label, active, arrow)
+    local function chip(x, y, width, label, active, arrow, translated)
       local pressed = self:beginPress(x, y, width, 16)
       self:panel(x, y, width, 16, false)
       if active then box("fill", x + 2, y + 2, width - 4, 12, colors.band) end
-      label = translate(label)
+      if not translated then label = translate(label) end
       local arrowWidth, gap = arrow and 4 or 0, arrow and 3 or 0
       local shown = self:fitPartyType(label, width - 6 - arrowWidth - gap)
       local textWidth = fontWidth(partyTypeFont, shown)
@@ -3314,15 +3314,16 @@ return function(ui)
       end
       if #detailRows == 1 then
         local appearance = detailRows[1]
+        local status = appearance.blocked and "NEEDS TOOL" or appearance.current and "HERE NOW"
         self:panel(12, 150, 216, 53, false, nil,
           appearance.current and colors.greenLight or wildAccent)
         if appearance.current then
           box("fill", 14, 152, 212, 49, colors.bandLight)
         end
         self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
-          appearance.current and 132 or 202), 19, 156, colors.ink)
-        if appearance.current then
-          self:partyType(translate("HERE NOW"), 154, 157,
+          status and 132 or 202), 19, 156, colors.ink)
+        if status then
+          self:partyType(self:fitPartyType(translate(status), 66), 154, 157,
             colors.green, 66)
         end
         local stats = {
@@ -3341,23 +3342,24 @@ return function(ui)
       else
         for index, appearance in ipairs(detailRows) do
           local y = 149 + (index - 1) * 27
+          local status = appearance.blocked and "NEEDS TOOL" or appearance.current and "HERE NOW"
           self:panel(12, y, 216, 24, false, nil,
             appearance.current and colors.greenLight or wildAccent)
           if appearance.current then
             box("fill", 14, y + 2, 212, 20, colors.bandLight)
           end
           self:partyInfo(self:fitPartyInfo(appearance.section or model.route,
-            appearance.current and 105 or 140), 17, y + 3, colors.ink)
-          if appearance.current then
-            self:partyType(translate("HERE NOW"), 125, y + 3,
-              colors.green, 68)
+            status and 105 or 140), 17, y + 3, colors.ink)
+          if status then
+            self:partyType(self:fitPartyType(translate(status), 96), 125, y + 3,
+              colors.green, 96)
           end
           local detail = translate(appearance.time or "ANY TIME") .. " "
             .. "· " .. translate(tostring(appearance.method or "--")) .. " · "
             .. tostring(appearance.chance or "--") .. "%"
           self:partyType(self:fitPartyType(detail, 116), 17, y + 13,
             colors.green, 116)
-          self:partyInfo(levels(appearance), 166, y + 10,
+          self:partyInfo(levels(appearance), 166, y + 13,
             colors.ink, 55, "center")
         end
       end
@@ -3412,7 +3414,8 @@ return function(ui)
       if model.pages > 1 then
         pager(168, 142, 58, model.page, model.pages)
       else
-        chip(168, 142, 58, tostring(model.total) .. " PKMN", false)
+        chip(168, 142, 58, tostring(model.total) .. " " .. translate("PKMN"),
+          false, false, true)
       end
       local baseY = 166
       for index, row in ipairs(model.rows) do
@@ -3424,6 +3427,13 @@ return function(ui)
         self:partyPortrait(x, baseY, false, uncaught)
         if model.drawPokemon then
           model.drawPokemon(row, x + 1, baseY + 4, 32, uncaught)
+        end
+        if row.best then
+          local odds = tostring(row.best.chance or 0) .. "%"
+          local method = self:fitPartyType(translate(row.best.method),
+            52 - fontWidth(partyTypeFont, odds) - 4)
+          self:partyType(method .. " " .. odds, x - 9, baseY + 36,
+            row.best.current and colors.ink or colors.mutedInk, 52)
         end
         self:endPress(pressed)
       end

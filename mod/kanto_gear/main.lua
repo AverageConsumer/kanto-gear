@@ -5276,33 +5276,71 @@ return function(mod)
 
   local loadLocalMapImage
 
-  function displayRuntime.explorerWildRows(guide, currentMapId, scope)
+  function displayRuntime.explorerMethods()
+    local methods = { WALK = true, CONTEST = true, ROAMING = true }
+    local names = { old_rod = "OLD", good_rod = "GOOD", super_rod = "SUPER",
+      surf = "SURF", headbutt = "HEADBUTT" }
+    for _, def in ipairs(THEME.fieldTools.widgets) do
+      if names[def.key] then
+        methods[names[def.key]] = THEME.fieldTools.unlocked(def, game.save, compat.isGen2())
+      end
+    end
+    methods["RARE TREE"] = methods.HEADBUTT
+    methods["ROCK SMASH"] = THEME.fieldTools.partyKnows(game.save, "ROCK_SMASH")
+    return methods
+  end
+
+  function displayRuntime.explorerWildRows(guide, currentMapId, scope, methods)
     local out, hereOnly = {}, scope ~= "ROUTE"
+    local effort = { WALK = 1, CONTEST = 1, SURF = 2, OLD = 3, GOOD = 3,
+      SUPER = 3, HEADBUTT = 4, ["RARE TREE"] = 5, ["ROCK SMASH"] = 5, ROAMING = 6 }
+    local function easier(a, b)
+      if a.rank ~= b.rank then return a.rank < b.rank end
+      local ae, be = effort[a.method] or 7, effort[b.method] or 7
+      if ae ~= be then return ae < be end
+      if a.chance ~= b.chance then return (a.chance or 0) > (b.chance or 0) end
+      return false
+    end
     for _, species in ipairs(guide.rows or {}) do
       local matches, availableHere = {}, false
       for _, appearance in ipairs(species.appearances or {}) do
         local sameArea = appearance.mapId == currentMapId
         local currentTime = not appearance.time
           or appearance.time == guide.time
-        local current = sameArea and currentTime
+        local blocked = methods and methods[appearance.method] == false or false
+        local current = sameArea and currentTime and not blocked
         availableHere = availableHere or current
         matches[#matches + 1] = {
           method = appearance.method, chance = appearance.chance,
           time = appearance.time, mapId = appearance.mapId,
           section = appearance.section, minLevel = appearance.minLevel,
           maxLevel = appearance.maxLevel, current = current,
+          blocked = blocked,
+          rank = blocked and 5 or current and 1 or currentTime and 2 or sameArea and 3 or 4,
         }
       end
+      table.sort(matches, function(a, b)
+        if easier(a, b) then return true end
+        if easier(b, a) then return false end
+        return table.concat({ tostring(a.mapId), a.time or "", a.method or "" }, ":")
+          < table.concat({ tostring(b.mapId), b.time or "", b.method or "" }, ":")
+      end)
       if #matches > 0 and (availableHere or not hereOnly) then
         out[#out + 1] = {
           species = species.species, name = species.name,
           caught = species.caught, types = species.types,
           matches = matches,
+          best = matches[1],
           detailPages = math.max(1, math.ceil(#matches / 2)),
           key = table.concat({ "wild", scope, tostring(species.species) }, ":"),
         }
       end
     end
+    table.sort(out, function(a, b)
+      if easier(a.best, b.best) then return true end
+      if easier(b.best, a.best) then return false end
+      return tostring(a.species) < tostring(b.species)
+    end)
     return out
   end
   do
@@ -5355,7 +5393,8 @@ return function(mod)
 
     local filters = explorer.filters
     filters.wildScope = filters.wildScope == "ROUTE" and "ROUTE" or "HERE"
-    wild = displayRuntime.explorerWildRows(guide, id, filters.wildScope)
+    wild = displayRuntime.explorerWildRows(guide, id, filters.wildScope,
+      displayRuntime.explorerMethods())
 
     local actors = mod.world and mod.world.mapActors
       and mod.world:mapActors() or {}

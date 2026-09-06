@@ -134,6 +134,78 @@ do
   local changePage = upvalue(upvalue(inputHook, "pollTriggerTabs"),
     "changePage")
   local displayRuntime = upvalue(changePage, "displayRuntime")
+  do
+    -- Crystal data/wild/johto_grass.asm: Route 30's seven night slots.
+    local encounters = run.data.gen2Encounters
+    encounters.grass.ROUTE_30 = { slots = { NITE = {
+      { species = "SPINARAK", level = 3 }, { species = "HOOTHOOT", level = 3 },
+      { species = "POLIWAG", level = 4 }, { species = "HOOTHOOT", level = 4 },
+      { species = "ZUBAT", level = 3 }, { species = "HOOTHOOT", level = 4 },
+      { species = "HOOTHOOT", level = 4 },
+    } } }
+    local Encounter = require("src.battle.gen2.Encounter")
+    local counts = {}
+    for roll = 0, 99 do
+      local mon = Encounter.grassSlot(encounters, "ROUTE_30", "NITE",
+        function() return roll end)
+      counts[mon.species] = (counts[mon.species] or 0) + 1
+    end
+    T.eq(counts.SPINARAK, 30, "Crystal Route 30 selects Spinarak for 30 of 100 night rolls")
+    local night = guideData({ "ROUTE_30" })
+    T.eq(#night.rows, 4, "Route 30 night slots group into four species")
+    for _, row in ipairs(night.rows) do
+      T.eq(row.appearances[1].chance, counts[row.species],
+        "Explorer odds match every engine roll for " .. row.species)
+    end
+    encounters.grass.ROUTE_30 = nil
+  end
+  do
+    local function species(id, method, chance, time, map)
+      return { species = id, name = id, appearances = { {
+        mapId = map or "FIX_ROUTE", method = method, chance = chance,
+        time = time, minLevel = 3, maxLevel = 3,
+      } } }
+    end
+    local source = { time = "NITE", rows = {
+      species("TREE", "HEADBUTT", 90), species("RARE_GRASS", "WALK", 5),
+      species("COMMON_GRASS", "WALK", 45), species("SPINARAK", "WALK", 30),
+      species("FISH", "OLD", 100), species("DAY_MON", "WALK", 100, "DAY"),
+      species("REMOTE_MON", "WALK", 100, "NITE", "OTHER"),
+    } }
+    local sorted = displayRuntime.explorerWildRows(source, "FIX_ROUTE", "HERE")
+    T.eq(sorted[1].species, "COMMON_GRASS", "common local grass appears first")
+    T.eq(sorted[2].species, "SPINARAK", "grass species sort by their current chance")
+    T.eq(sorted[3].species, "RARE_GRASS", "rare grass remains ahead of special methods")
+    T.eq(sorted[4].species, "FISH", "fishing follows walking encounters")
+    T.eq(sorted[5].species, "TREE", "high Headbutt odds do not outrank grass")
+    T.eq(#sorted, 5, "Here Now excludes other times and sections")
+    local locked = { OLD = false, HEADBUTT = false }
+    T.eq(#displayRuntime.explorerWildRows(source, "FIX_ROUTE", "HERE", locked), 3,
+      "Here Now excludes methods without the required equipment or move")
+    sorted = displayRuntime.explorerWildRows(source, "FIX_ROUTE", "ROUTE", locked)
+    T.eq(#sorted, 7, "Whole Route retains all future methods and locations")
+    T.eq(sorted[1].species, "COMMON_GRASS", "Whole Route prioritizes currently usable local encounters")
+    T.check(sorted[7].best.blocked and not sorted[7].best.current,
+      "locked method stays visible without claiming Here Now")
+    source.rows[1].appearances[2] = { mapId = "FIX_ROUTE", method = "WALK", chance = 10,
+      minLevel = 3, maxLevel = 3 }
+    sorted = displayRuntime.explorerWildRows(source, "FIX_ROUTE", "HERE", locked)
+    T.eq(sorted[3].species, "TREE", "species is ranked by its easiest usable method")
+    T.eq(sorted[3].matches[1].method, "WALK", "detail opens with the same preferred method")
+    T.eq(source.rows[1].appearances[1].method, "HEADBUTT", "sorting never mutates shared encounter data")
+    local inventory, party, badges = game.save.inventory, game.save.party, game.save.player.badges
+    game.save.inventory, game.save.party, game.save.player.badges = {}, {}, {}
+    T.eq(displayRuntime.explorerMethods().HEADBUTT, false, "Headbutt needs a party member with the move")
+    T.eq(displayRuntime.explorerMethods().OLD, false, "fishing requires the corresponding rod")
+    game.save.inventory.OLD_ROD = 1
+    game.save.party = { { moves = { { id = "SURF" }, { id = "HEADBUTT" } } } }
+    T.eq(displayRuntime.explorerMethods().OLD, true, "owning Old Rod enables its encounters")
+    T.eq(displayRuntime.explorerMethods().HEADBUTT, true, "known Headbutt enables tree encounters")
+    T.eq(displayRuntime.explorerMethods().SURF, false, "Surf also requires its badge")
+    game.save.player.badges.FOG = true
+    T.eq(displayRuntime.explorerMethods().SURF, true, "Surf unlocks with the required badge")
+    game.save.inventory, game.save.party, game.save.player.badges = inventory, party, badges
+  end
   local dex = displayRuntime.pokedexData()
   T.check(dex.bySpecies.FIXMON_A
       and dex.bySpecies.FIXMON_A.habitat
