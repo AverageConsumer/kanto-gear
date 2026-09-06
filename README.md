@@ -90,7 +90,7 @@ Bundled Japanese and Korean Fusion Pixel fonts also work without a game
 translation mod and cover gaps in a game's font, including the numero sign.
 They load only when needed; supported Latin text keeps the HGSS pixel fonts.
 Measurement, truncation and centering use the same selected font.
-Japanese and Korean Gear menu translations are not included yet.
+Korean Gear menu translations are not included yet.
 Gear's own menu language is selected
 separately; installing a game translation does not translate Gear's menus.
 For type labels, Gear also reads contextual `type|<name>` entries from the
@@ -166,7 +166,7 @@ mods. General startup and host problems belong to the
 
 Kanto Gear is built on [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)
 and released under the [MIT License](LICENSE). Spanish was contributed by
-**Desierto La Espada** and French by **Blastheaven2**. Special thanks to
+**Desierto La Espada**, French by **Blastheaven2** and Japanese by **Theeohn**. Special thanks to
 [@Rocky5150](https://github.com/Rocky5150) for extensive device testing.
 
 Font credits:
