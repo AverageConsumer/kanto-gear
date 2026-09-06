@@ -2755,7 +2755,7 @@ return function(mod)
     data = data or {}
     data.kind, data.queued = kind, love.timer.getTime()
     data.started = nil
-    data.duration = data.duration or 0.24
+    data.duration = data.duration or (kind:match("^battle_") and 0.28 or 0.24)
     hgssRuntime.animation, dirty = data, true
   end
 
@@ -8670,24 +8670,8 @@ return function(mod)
         THEME.hgss:summaryTransition(mon, hgssRuntime.summaryPortrait, open,
           hgssRuntime.animation.actionCount or 2,
           THEME:translate("STATS"), THEME:translate("SWAP"))
-      elseif pageProgress and hgssRuntime.animation.from == 1
-          and hgssRuntime.animation.to == 2 then
-        THEME.hgss:summaryMovesTransition(mon, hgssRuntime.summaryPortrait,
-          pageProgress)
-      elseif pageProgress and hgssRuntime.animation.from == 2
-          and hgssRuntime.animation.to == 1 then
-        THEME.hgss:summaryMovesTransition(mon, hgssRuntime.summaryPortrait,
-          1 - pageProgress)
-      elseif pageProgress and hgssRuntime.animation.from == 2
-          and hgssRuntime.animation.to == 3 then
-        THEME.hgss:summaryMemoTransition(mon, hgssRuntime.summaryPortrait,
-          pageProgress)
-      elseif pageProgress and hgssRuntime.animation.from == 3
-          and hgssRuntime.animation.to == 2 then
-        THEME.hgss:summaryMemoTransition(mon, hgssRuntime.summaryPortrait,
-          1 - pageProgress)
       elseif pageProgress then
-        THEME.hgss:summaryWrapTransition(mon, hgssRuntime.summaryPortrait,
+        THEME.hgss:summaryPageTransition(mon, hgssRuntime.summaryPortrait,
           pageProgress, hgssRuntime.animation.from, hgssRuntime.animation.to)
       elseif view.page == 1 then
         THEME.hgss:summaryPage(mon, hgssRuntime.summaryPortrait)

@@ -546,6 +546,9 @@ function love.load()
   local memoTransition = screen == "summary_memo_transition"
   local transition = screen == "summary_transition"
   local movesTransition = screen == "summary_moves_transition"
+    or screen == "summary_page_transition"
+  local summaryFrom = tonumber(os.getenv("KANTO_GEAR_PREVIEW_SUMMARY_FROM")) or 1
+  local summaryTo = tonumber(os.getenv("KANTO_GEAR_PREVIEW_SUMMARY_TO")) or 2
   local transitionProgress = math.max(0, math.min(1,
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = format("STATS %d/%d", 1, gen1 and 2 or 3)
@@ -609,6 +612,8 @@ function love.load()
       and (transitionProgress >= 0.5 and format("%s %d/%d", translate("TRAINER"), 3, 3) or movesTitle)
     or moves and movesTitle
     or summaryMoveInfo and "MOVES"
+    or screen == "summary_page_transition" and format("%s %d/%d",
+      translate(({ "STATS", "MOVES", "TRAINER" })[summaryTo]), summaryTo, gen1 and 2 or 3)
     or movesTransition
       and (transitionProgress >= 0.5 and movesTitle or statsTitle)
     or (summary or transition and transitionProgress >= 0.42) and statsTitle
@@ -2661,9 +2666,9 @@ function love.load()
       for _, move in ipairs(mon.moves) do move.available = true end
       if memoTransition then
         assert(not gen1, "Gen 1 summaries only have two pages")
-        theme:summaryMemoTransition(mon, summaryPortrait, transitionProgress)
+        theme:summaryPageTransition(mon, summaryPortrait, transitionProgress, 2, 3)
       elseif movesTransition then
-        theme:summaryMovesTransition(mon, summaryPortrait, transitionProgress)
+        theme:summaryPageTransition(mon, summaryPortrait, transitionProgress, summaryFrom, summaryTo)
       else
         theme:summaryMoves(mon, summaryPortrait)
       end

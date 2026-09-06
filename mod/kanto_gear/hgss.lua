@@ -5448,20 +5448,20 @@ return function(ui)
   function H:battleMoveInfoTransition(mon, playerTeam, enemyTeam, progress)
     local G = ui.graphics
     progress = math.max(0, math.min(1, progress or 0))
-    local cardsProgress = math.min(1, progress / 0.62)
+    local cardsProgress = math.min(1, progress / 0.85)
     cardsProgress = cardsProgress * cardsProgress * (3 - 2 * cardsProgress)
     for slot = 1, 4 do
       local column, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
       local direction = column == 0 and -1 or 1
-      local move = mon.moves[slot] or {}
+      local move = mon.moves[slot]
       local x = 6 + column * 116
         + math.floor(direction * 122 * cardsProgress + 0.5)
       self:battleMoveCard(move, x, 33 + row * 85,
         mon.moveIndex == slot, self:moveHasStab(mon, move))
     end
 
-    local infoProgress = math.max(0, math.min(1, (progress - 0.24) / 0.76))
-    infoProgress = 1 - (1 - infoProgress) ^ 3
+    local infoProgress = math.max(0, math.min(1, (progress - 0.10) / 0.90))
+    infoProgress = infoProgress * infoProgress * (3 - 2 * infoProgress)
     local move = mon.moves[mon.moveIndex or 1] or {}
     G.push()
     G.translate(math.floor(240 * (1 - infoProgress) + 0.5), 0)
@@ -5474,7 +5474,8 @@ return function(ui)
       progress)
     local G = ui.graphics
     progress = math.max(0, math.min(1, progress or 0))
-    local rootProgress = math.min(1, progress / 0.48)
+    -- Spread the exit over enough frames to avoid a fast, seven-frame fling.
+    local rootProgress = math.min(1, progress / 0.85)
     rootProgress = rootProgress * rootProgress * (3 - 2 * rootProgress)
 
     local oldX, oldY, oldW, oldH = G.getScissor()
@@ -5493,10 +5494,10 @@ return function(ui)
       math.floor(68 * rootProgress + 0.5))
 
     for slot = 1, 4 do
-      local start = slot <= 2 and 0.32 or 0.40
+      local start = slot <= 2 and 0.10 or 0.16
       local cardProgress = math.max(0, math.min(1,
         (progress - start) / (1 - start)))
-      cardProgress = 1 - (1 - cardProgress) ^ 3
+      cardProgress = cardProgress * cardProgress * (3 - 2 * cardProgress)
       local column, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
       local direction = column == 0 and -1 or 1
       local x = 6 + column * 116
@@ -6089,123 +6090,11 @@ return function(ui)
     self:summaryGrowthMemo(mon)
   end
 
-  function H:summaryMemoTransition(mon, drawPortrait, progress)
-    local G = ui.graphics
-    progress = math.max(0, math.min(1, progress or 0))
-    self:summaryIdentity(mon, drawPortrait)
-
-    for slot = 1, 4 do
-      local start = (slot - 1) * 0.025
-      local rowProgress = math.max(0, math.min(1,
-        (progress - start) / 0.58))
-      rowProgress = rowProgress * rowProgress * (3 - 2 * rowProgress)
-      G.push()
-      G.translate(math.floor(-240 * rowProgress + 0.5), 0)
-      local move = mon.moves[slot] or {}
-      local interactive = mon.moveDetails and move.available
-      self:summaryMoveRow(move, 6, 63 + (slot - 1) * 37,
-        interactive and mon.moveIndex == slot, interactive)
-      G.pop()
-    end
-
-    local function enter(start, draw)
-      local cardProgress = math.max(0, math.min(1,
-        (progress - start) / (1 - start)))
-      cardProgress = 1 - (1 - cardProgress) ^ 3
-      G.push()
-      G.translate(math.floor(240 * (1 - cardProgress) + 0.5), 0)
-      draw(self, mon)
-      G.pop()
-    end
-    enter(0.32, H.summaryTrainerMemo)
-    enter(0.38, H.summaryGrowthMemo)
-  end
-
-  function H:summaryIdentityTransition(mon, drawPortrait, progress)
-    local G, colors = ui.graphics, self.colors
-    progress = math.max(0, math.min(1, progress or 0))
-    progress = 1 - (1 - progress) ^ 3
-    local function mix(first, last)
-      return math.floor(first + (last - first) * progress + 0.5)
-    end
-    local height = mix(80, 25)
-    self:panel(6, 34, 228, height, false)
-    self:summaryBall(mix(38, 20), mix(69, 46), mix(29, 10))
-    drawPortrait(mon, mix(14, 10), mix(44, 36), mix(48, 20), false)
-
-    self:partyName(mon.name, mix(72, 36), mix(39, 37), colors.ink,
-      mix(139, 108))
-    if mon.gender == "male" then
-      self:genderIcon("male", mix(219, 145), mix(42, 40))
-    elseif mon.gender == "female" then
-      self:genderIcon("female", mix(219, 145), mix(42, 40))
-    end
-    self:partyInfo(mon.levelText, mix(132, 158), mix(53, 39), colors.ink)
-    if mon.statusId then
-      self:statusIcon(mon.statusId, mix(191, 194), mix(55, 40))
-    end
-    self:partyInfo(mon.hpLabel or translate("HP"), mix(72, 36), mix(79, 47),
-      colors.green)
-    self:partyInfo(mon.hpText, mix(72, 158), mix(79, 47), colors.ink,
-      mix(155, 69), "right")
-    self:hpBar(mix(72, 55), mix(90, 50), mix(155, 96), mon.hp, mon.maxHp)
-
-    local clipX, clipY = G.transformPoint(6, 34)
-    local clipRight, clipBottom = G.transformPoint(234, 34 + height)
-    local oldX, oldY, oldWidth, oldHeight = G.getScissor()
-    G.setScissor(clipX, clipY, clipRight - clipX, clipBottom - clipY)
-    G.push()
-    G.translate(math.floor(240 * progress + 0.5), 0)
-    self:partyInfo(mon.dexText, 72, 53, colors.green)
-    self:typeBadges(mon, 72, 66, false)
-    if mon.info2Label then
-      self:partyInfo(mon.infoLabel, 121, 66, colors.green)
-      self:partyInfo(mon.infoText, 139, 66, colors.ink, 27, "right")
-      self:partyInfo(mon.info2Label, 171, 66, colors.green)
-      self:partyInfo(mon.info2Text, 190, 66, colors.ink, 37, "right")
-    else
-      self:partyInfo(mon.infoLabel or translate("ITEM"), 121, 66, colors.green)
-      self:partyInfo(mon.infoText or "---", 151, 66, colors.ink,
-        76, "right")
-    end
-    self:summaryExperience(mon)
-    G.pop()
-    if oldX then G.setScissor(oldX, oldY, oldWidth, oldHeight)
-    else G.setScissor() end
-  end
-
-  function H:summaryMovesTransition(mon, drawPortrait, progress)
-    progress = math.max(0, math.min(1, progress or 0))
-    local topProgress = math.min(1, progress / 0.40)
-    self:summaryIdentityTransition(mon, drawPortrait, topProgress)
-
-    local exitProgress = math.min(1, progress / 0.55)
-    local slide = exitProgress * exitProgress * (3 - 2 * exitProgress)
-    ui.graphics.push()
-    ui.graphics.translate(math.floor(-240 * slide + 0.5), 0)
-    self:summaryStats(mon)
-    ui.graphics.pop()
-
-    for slot = 1, 4 do
-      local start = 0.28 + (slot - 1) * 0.04
-      local rowProgress = math.max(0, math.min(1,
-        (progress - start) / (1 - start)))
-      rowProgress = 1 - (1 - rowProgress) ^ 3
-      ui.graphics.push()
-      ui.graphics.translate(math.floor(240 * (1 - rowProgress) + 0.5), 0)
-      local move = mon.moves[slot] or {}
-      local interactive = mon.moveDetails and move.available
-      self:summaryMoveRow(move, 6, 63 + (slot - 1) * 37,
-        interactive and mon.moveIndex == slot, interactive)
-      ui.graphics.pop()
-    end
-  end
-
-  function H:summaryWrapTransition(mon, drawPortrait, progress, from, to)
+  function H:summaryPageTransition(mon, drawPortrait, progress, from, to)
     local G = ui.graphics
     progress = math.max(0, math.min(1, progress))
     local eased = progress * progress * (3 - 2 * progress)
-    local direction = from == 3 and to == 1 and 1 or -1
+    local direction = (to - from + 3) % 3 == 1 and 1 or -1
     local oldX, oldY, oldW, oldH = G.getScissor()
     local x, y = G.transformPoint(0, 28)
     local right, bottom = G.transformPoint(240, 216)

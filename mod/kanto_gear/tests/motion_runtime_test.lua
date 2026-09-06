@@ -121,11 +121,26 @@ G.scale = scale
 local pages = {}
 theme.summaryPage = function() pages[#pages + 1] = 1 end
 theme.summaryMemo = function() pages[#pages + 1] = 3 end
-theme:summaryWrapTransition({}, function() end, .5, 3, 1)
+theme:summaryPageTransition({}, function() end, .5, 3, 1)
 T.same(pages, {3, 1}, "summary wrap renders both adjacent states")
+local translate = G.translate
+local shifts = {}
+G.translate = function(x, y) shifts[#shifts + 1] = x end
+theme.summaryMoves = function() pages[#pages + 1] = 2 end
+for _, pair in ipairs({ {1,2,1}, {2,3,1}, {3,1,1}, {2,1,-1}, {3,2,-1}, {1,3,-1} }) do
+  pages, shifts = {}, {}
+  theme:summaryPageTransition({}, function() end, .5, pair[1], pair[2])
+  T.same(pages, {pair[1], pair[2]}, "summary renders the correct two pages " .. pair[1] .. " to " .. pair[2])
+  T.same(shifts, {-120 * pair[3], 120 * pair[3]}, "summary carousel direction " .. pair[1] .. " to " .. pair[2])
+end
+G.translate = translate
 run.loader.modOptions.kanto_gear.ui_motion = true
 runtime.beginAnimation("summary_open")
 T.eq(runtime.animation.duration, .24, "hero transitions share the shorter duration")
+run.loader.modOptions.kanto_gear.battle_view = "gear"
+runtime.beginAnimation("battle_moves")
+local battleDuration = runtime.animation.duration
+T.eq(battleDuration, .28, "battle movement gets enough frames within a short transition")
 local fightY, stripClip, clip = nil, nil, nil
 local getScissor = G.getScissor
 G.getScissor = function() if clip then return unpack(clip) end end
@@ -143,12 +158,21 @@ for i = 0, 100 do
   theme:battleMovesTransition({ moves = {} }, function() end, {}, {}, i / 100)
   assert(fightY <= last, "fight exit reversed direction")
   last = fightY
-  if i >= 48 then leavesCompletely = leavesCompletely and 32 + 122 + 3 + fightY < 0 end
+  if i >= 85 then leavesCompletely = leavesCompletely and 32 + 122 + 3 + fightY < 0 end
 end
 T.check(leavesCompletely, "fight card and shadow are fully offscreen before its exit finishes")
 T.eq(stripClip, nil, "the stationary team strip is drawn outside the content clip")
 theme:battleMovesTransition({ moves = {} }, function() end, {}, {}, 0)
 T.eq(fightY, 0, "the reverse transition returns the fight card to its exact resting position")
+local maxJump, visibleFrames = 0, 0
+last = 0
+for frame = 1, math.ceil(battleDuration * 60) do
+  theme:battleMovesTransition({ moves = {} }, function() end, {}, {}, frame / 60 / battleDuration)
+  maxJump = math.max(maxJump, math.abs(fightY - last)); last = fightY
+  if 32 + 122 + 3 + fightY > 28 then visibleFrames = visibleFrames + 1 end
+end
+T.check(maxJump <= 18, "fight movement has no large position jumps at 60 Hz")
+T.check(visibleFrames >= 9, "fight exit has enough visible intermediate frames")
 G.getScissor = getScissor
 G.newCanvas, G.draw, G.setScissor = newCanvas, drawImage, scissor
 run.release()
