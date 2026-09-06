@@ -2337,7 +2337,7 @@ return function(mod)
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, false)
   if displayRuntime.perf.enabled then
-    mod.log:info("KGPROF v=1 kind=build version=3.2.5-test.2 units=ms timing=wall nested=true")
+    mod.log:info("KGPROF v=1 kind=build version=3.2.5-test.3 units=ms timing=wall nested=true")
   end
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
@@ -3571,10 +3571,13 @@ return function(mod)
         if entry.index ~= nil then byIndex[entry.index] = entry end
       end
       for id, def in pairs(game.data.gen2Maps or {}) do
-        local key = def.landmark ~= nil and source and source.order
-          and source.order[def.landmark + 1]
+        local index = def.landmark
+        local key = type(index) == "string" and index
+          or type(index) == "number" and source and source.order
+            and source.order[index + 1]
         local record = key and landmarks[key]
-        out[id] = record and record.index == def.landmark and record or byIndex[def.landmark]
+        out[id] = record and (type(index) == "string" or record.index == index)
+          and record or byIndex[index]
       end
       return out
     end
@@ -3592,6 +3595,9 @@ return function(mod)
       if index == nil then return nil end
       local source = data.gen2Landmarks or {}
       local records = source.landmarks or {}
+      -- Content mods can register symbolic landmark IDs instead of ROM indices.
+      if type(index) == "string" then return records[index] end
+      if type(index) ~= "number" then return nil end
       -- The extractor already supplies the index -> landmark ID lookup.
       -- Read the live record so translated/replaced names need no cache expiry.
       local key = source.order and source.order[index + 1]
