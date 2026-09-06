@@ -70,4 +70,31 @@ T.eq(compose(function() now = now + 0.010; return sentinel end, {}, {}), sentine
 T.check(now - before >= 0.010, "downstream host work was executed")
 T.check(metrics.gear_compose.max < 0.0001, "downstream time is not blamed on Gear")
 T.eq(#run.errors, 0, "diagnostics produce no runtime errors")
+-- The compose hook, not redraws or touch calls, owns album scheduling.
+display.achievementData()
+local advances = 0
+display.achievements.job.step = function() advances = advances + 1 end
+local connected = true
+local context = { secondScreen = { detected = function() return connected end,
+  pollTouch = function() end, push = function() return true end } }
+up(compose, "nextPoll", math.huge)
+up(compose, "page", "ACHIEVEMENTS")
+compose(function() end, {}, context)
+T.eq(advances, 1, "visible album receives one work slice per compose")
+compose(function() end, {}, context)
+T.eq(advances, 2, "album advances independently of a redraw request")
+up(compose, "page", "HOME")
+compose(function() end, {}, context)
+T.eq(advances, 2, "leaving Stamps pauses album work")
+up(compose, "page", "ACHIEVEMENTS")
+connected = false
+compose(function() end, {}, context)
+T.eq(advances, 2, "disconnected display pauses album work")
+connected = true
+game.stack.states[2] = { isTextBox = true }
+compose(function() end, {}, context)
+T.eq(advances, 2, "game dialogue pauses hidden album work")
+game.stack.states[2] = nil
+compose(function() end, {}, context)
+T.eq(advances, 3, "returning to visible Stamps resumes the same job")
 T.finish("Kanto Gear performance runtime Gen " .. generation)

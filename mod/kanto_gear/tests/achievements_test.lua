@@ -89,7 +89,21 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.check(display.openHomeApp("achievements"), version .. " opens without changing the top screen")
   T.eq(#home.layout.tiles, originalTiles, version .. " preserves Home layout")
   T.eq(game.stack:top(), world, version .. " no game screen push")
-  local result = display.achievementData()
+  -- Runtime builds incrementally; completion assertions wait for publication.
+  local function album()
+    for _ = 1, 1000 do
+      local result = display.achievementData(false, true)
+      if result then return result end
+    end
+    error("album did not complete")
+  end
+  T.eq(display.achievementData(), nil, version .. " first open schedules, never builds synchronously")
+  T.eq(display.achievementModel().loading, true, version .. " incomplete totals are hidden")
+  local cancelled = display.achievements.job
+  run.loader.events:emit("flag.changed", {})
+  T.eq(display.achievements.job, nil, version .. " flag change cancels unfinished snapshot")
+  local result = album()
+  T.check(display.achievements.job ~= cancelled, version .. " cancelled snapshot is never published")
   local area = assert(result.byId.ROUTE_2)
   T.eq(area.sections[1].done, 1, version .. " reads trainer completion")
   T.eq(area.sections[2].done, 1, version .. " reads pickup completion")
@@ -97,9 +111,9 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.eq(area.remaining, 1, version .. " exactly one remaining find")
   T.eq(area.tier, "bronze", version .. " visited area earns bronze")
   T.eq(area.sections[2].rows[1].label, "POTION " .. version:upper(), version .. " retains game item names")
-  T.eq(display.achievementData(), result, version .. " idle redraw reuses progress snapshot")
+  T.eq(album(), result, version .. " idle redraw reuses progress snapshot")
   for i = 1, 20 do run.loader.events:emit("world.stepped", { mapId = "ROUTE_2" }) end
-  T.eq(display.achievementData(), result, version .. " walking does not rebuild all areas")
+  T.eq(album(), result, version .. " walking does not rebuild all areas")
   T.eq(display.achievementModel().goal.id, "ROUTE_2", version .. " recommends current almost-finished area")
   display.drawAchievements()
   local action, value = theme.hgss:achievementsHit(120, 100)
@@ -137,8 +151,8 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   run.loader.modOptions.kanto_gear.info_level = "spoiler"
   if gen2 then flags[302] = true; run.loader.events:emit("flag.changed", { name = 302, value = true })
   else game.save.hiddenTaken.ROUTE_2_6_7 = true end
-  T.eq(display.achievementData().byId.ROUTE_2.complete, true, version .. " awards stamp from real completion")
-  T.eq(display.achievementData().byId.ROUTE_2.tier, "gold", version .. " completed area without wild species earns gold")
+  T.eq(album().byId.ROUTE_2.complete, true, version .. " awards stamp from real completion")
+  T.eq(album().byId.ROUTE_2.tier, "gold", version .. " completed area without wild species earns gold")
   -- A species counts once across methods and times, and can be caught elsewhere.
   local slot = { species = "FIXMON_A", level = 3 }
   data.encounters = { ROUTE_2 = { grass = { slots = { slot, slot } } } }
@@ -146,7 +160,7 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
     MORN = { slot }, DAY = { slot }, NITE = { slot },
   } } } }
   display.achievements.species, display.achievements.stale = nil, true
-  area = display.achievementData().byId.ROUTE_2
+  area = album().byId.ROUTE_2
   T.eq(area.sections[4].total, 1, version .. " duplicate encounter slots produce one species goal")
   T.eq(area.tier, "silver", version .. " missing local species leaves silver")
   display.achievements.view, display.achievements.selected = "detail", "ROUTE_2"
@@ -160,11 +174,11 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.eq(display.explorer.filters.wildScope, "ROUTE", version .. " Explorer shows the whole area")
   game.save.pokedex.caught.FIXMON_A = true
   run.loader.events:emit("pokemon.caught", { species = "FIXMON_A" })
-  area = display.achievementData().byId.ROUTE_2
+  area = album().byId.ROUTE_2
   T.eq(area.tier, "gold", version .. " registered species promotes silver to gold")
   T.eq(area.sections[4].done, 1, version .. " uses the global caught Dex")
   game.save.pokedex.caught.FIXMON_A = nil
-  T.eq(display.achievementData().byId.ROUTE_2.tier, "silver", version .. " caught Dex change invalidates progress without a battle")
+  T.eq(album().byId.ROUTE_2.tier, "silver", version .. " caught Dex change invalidates progress without a battle")
   display.openHomeApp("achievements")
   display.achievements.view, display.achievements.selected = "album", nil
   display.drawAchievements()
@@ -179,7 +193,7 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.eq(display.achievements.page, before, version .. " D-pad never navigates achievements")
   flags[302], game.save.hiddenTaken.ROUTE_2_6_7 = false, nil
   run.loader.events:emit("save.loaded", {})
-  T.eq(display.achievementData().byId.ROUTE_2.complete, false, version .. " older save removes future stamp")
+  T.eq(album().byId.ROUTE_2.complete, false, version .. " older save removes future stamp")
   if gen2 then
     maps.ROUTE_3.objects[#maps.ROUTE_3.objects + 1] = {
       index = 3, x = 1, y = 1, scriptKey = {
@@ -200,7 +214,7 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
     game.save.flags.GYM_TRAINER, game.save.flags.GYM_LEADER = true, true
   end
   run.loader.events:emit("flag.changed", {})
-  local gymSection = display.achievementData().byId.ROUTE_3.sections[1]
+  local gymSection = album().byId.ROUTE_3.sections[1]
   T.eq(gymSection.total, 2, version .. " gym leader and trainer both count towards the stamp")
   T.eq(gymSection.done, 2, version .. " automatic gym flags count as defeated without a battle history")
   T.eq(gymSection.optional, 0, version .. " gym completion is never an optional bonus")
@@ -308,6 +322,26 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   } }, display.homeCatalog, 1), 0, version .. " removing Stamps also hides its widget")
   T.eq(#run.errors, 0, version .. " runtime stays error-free")
   run.release()
+  -- Force yields inside real runtime readers, then interrupt the partial build.
+  local clock, now = love.timer.getTime, 0
+  love.timer.getTime = function() now = now + 0.002; return now end
+  run.loader.events:emit("flag.changed", {})
+  T.eq(display.achievementData(false, true), nil, version .. " partial runtime build yields")
+  local partial = display.achievements.job
+  T.check(partial ~= nil, version .. " unfinished work remains resumable")
+  T.eq(display.achievementModel().loading, true, version .. " old totals stay hidden during refresh")
+  local oldView = display.achievements.view
+  display.tapAchievements(120, 100)
+  T.eq(display.achievements.view, oldView, version .. " old card hit regions cannot act during refresh")
+  run.loader.events:emit("map.entered", { mapId = "ROUTE_3" })
+  T.eq(display.achievements.job, nil, version .. " map transition discards partial results")
+  display.achievementData(false, true)
+  T.check(display.achievements.job ~= partial, version .. " next map receives a fresh job")
+  run.loader.events:emit("save.loaded", {})
+  T.eq(display.achievements.job, nil, version .. " save loading discards suspended job")
+  T.eq(display.achievements.data, nil, version .. " save loading cannot keep future progress")
+  love.timer.getTime = clock
+
 end
 
 local Progress = assert(loadfile(path .. "/achievements.lua"))()
@@ -342,4 +376,42 @@ T.eq(progressFor({ event = 55, optional = true, status = "LOST" }).byId.TEST.tie
   "gold", "optional one-shot losses do not block gold")
 T.eq(progressFor({ event = 2, done = true }).byId.TEST.tier,
   "bronze", "unreliable completion cannot falsely award gold")
+-- Deterministic workload: verify both bounded progress and exact parity with
+-- the existing synchronous rules, including goals ordering and every row.
+local groups = {}
+for i = 1, 100 do groups[i] = { id = tostring(i), name = tostring(i), maps = { tostring(i) } } end
+local elapsed, reads = 0, 0
+local function read(maps)
+  elapsed, reads = elapsed + 0.0004, reads + 1
+  return { sections = { { rows = { { mapId = maps[1], done = reads % 2 == 0 } } },
+    { rows = {} }, { rows = {} } }, pokemon = {} }
+end
+local ctx = { save = {}, mapId = "1" }
+local expected = Progress.build(groups, read, ctx)
+elapsed, reads = 0, 0
+local job = Progress.begin(groups, read, ctx, function() return elapsed end)
+T.eq(reads, 0, "scheduling does no area work")
+local actual, slices = nil, 0
+repeat
+  local before = elapsed
+  actual = job:step(0.001)
+  slices = slices + 1
+  T.check(elapsed - before <= 0.00120001, "slice stops at first checkpoint after its budget")
+  if not actual then T.check(reads < 101, "partial results remain private") end
+until actual
+local function same(a, b)
+  if type(a) ~= type(b) then return false end
+  if type(a) ~= "table" then return a == b end
+  for k, v in pairs(a) do if not same(v, b[k]) then return false end end
+  for k in pairs(b) do if a[k] == nil then return false end end
+  return true
+end
+T.check(same(expected, actual), "staged result exactly matches every synchronous field")
+T.check(slices > 30, "work is spread across frames")
+T.eq(job:step(0.001), actual, "finished job reuses its result")
+T.eq(reads, 100, "no area is skipped or repeated")
+local frozen = Progress.begin(groups, read, ctx, function() return 0 end)
+reads = 0
+T.eq(frozen:step(0.001), nil, "checkpoint cap prevents an unbounded slice with a coarse clock")
+T.eq(reads, 32, "coarse clock still yields after a fixed number of groups")
 T.finish("Kanto Gear achievements RBY/GSC")

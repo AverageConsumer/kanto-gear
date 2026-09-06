@@ -1,6 +1,6 @@
 # Performance diagnostics
 
-`3.2.3-test.2` is an instrumented build, with the recorder enabled in
+`3.2.3-test.3` is an instrumented build, with the recorder enabled in
 `main.lua`. Disable the recorder before a public release. It sends `KGPROF`
 records to the existing host log; it does not upload data or write recordings
 into the save. Context contains generation, Gear page, native screen kind,
@@ -53,3 +53,20 @@ A Gear-disabled baseline needs host/system tracing because disabling the mod
 also removes its recorder. Likewise, use Android frame timelines or GPU traces
 to confirm physical presentation misses and GPU stalls. Lua measurements alone
 cannot certify uninterrupted gameplay or a GPU performance improvement.
+
+## Staged Stamps album
+
+The first Thor recording on test.2 measured a 164.94 ms synchronous album
+build inside a 177.48 ms frame interval. Test.3 schedules the same calculation
+across visible, active Stamps frames with a 1 ms cooperative budget. Checkpoints
+sit between groups, between task and encounter reads, and between encounter maps.
+One operation can exceed the budget; this is not a hard frame-time guarantee.
+`stamps_album` now measures each update slice, including cheap cache checks.
+Partial or invalidated results are never shown. Flag/map/save changes abandon
+the old job; leaving the app pauses its work. Home's single-area widget keeps
+its independent cache and does not start a whole-album job.
+
+Compare the first album open after game load, then reopen without changing
+progress. Also walk across a map boundary or collect something while it builds:
+only the completed snapshot for the latest state should appear. A new on-device
+recording is required before claiming the observed pause is eliminated.

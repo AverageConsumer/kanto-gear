@@ -37,7 +37,7 @@ return function(theme, screen, gen1, translate)
   theme:headerBar(view == "detail" and areas[2].name or translate("ACHIEVEMENTS"), true, false)
   theme:headerClock("20:04", "NITE", 139, 72, 6)
   theme:battery(214, 8, 4, nil, true, theme.colors.ink, theme.colors.greenLight)
-  theme:achievements({ view = view, mode = "spoiler", goal = areas[2], area = areas[2],
+  theme:achievements({ loading = screen == "achievements_loading", view = view, mode = "spoiler", goal = areas[2], area = areas[2],
     entries = entries, earned = { areas[1], areas[4] }, page = 1,
     category = screen:find("pokemon", 1, true) and 4 or 1,
     canExplore = screen == "achievements_pokemon",

@@ -987,9 +987,10 @@ function Area.gen2ScriptTrainer(data, obj)
   return started and trainer or nil
 end
 
-function Area.gen2Rows(data, save, world, mapIds)
+function Area.gen2Rows(data, save, world, mapIds, checkpoint)
   local rows = { {}, {}, {} }
   for _, mapId in ipairs(mapIds) do
+    if checkpoint then checkpoint() end
     local map = data and data.gen2Maps and data.gen2Maps[mapId]
     for _, obj in ipairs(map and map.objects or {}) do
       local trainer = obj.trainer or Area.gen2ScriptTrainer(data, obj)
@@ -2335,7 +2336,7 @@ return function(mod)
     "@kanto_gear/performance.lua"))().new(
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, true)
-  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.2 units=ms timing=wall nested=true")
+  mod.log:info("KGPROF v=1 kind=build version=3.2.3-test.3 units=ms timing=wall nested=true")
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
   displayRuntime.levelUp = displayRuntime.LevelUp.new()
@@ -3651,7 +3652,7 @@ return function(mod)
     return hasShore
   end
 
-  local function guideData(mapIds, completion)
+  local function guideData(mapIds, completion, checkpoint)
     local rows, bySpecies = {}, {}
     local data, field = game.data, game.data.field or {}
     local fishing = field.fishing or {}
@@ -3685,6 +3686,7 @@ return function(mod)
       addEncounters(rows, bySpecies, selected, method, cumulative, context)
     end
     for _, id in ipairs(mapIds or areaMaps(mapId)) do
+      if checkpoint then checkpoint() end
       local encounter = data.encounters and data.encounters[id]
       local buckets = data.constants and data.constants.encounterBuckets
       if gen2 then
@@ -3879,7 +3881,7 @@ return function(mod)
       time = currentTime, section = displayRuntime.sectionName(mapId) }
   end
 
-  local function areaData(mapIds, completion)
+  local function areaData(mapIds, completion, checkpoint)
     local sections = { { name = "TRAINERS", rows = {} },
       { name = "ITEMS", rows = {} }, { name = "HIDDEN", rows = {},
         perPage = assist("item_radar") and 3 or 4 } }
@@ -3887,7 +3889,7 @@ return function(mod)
     local field = data.field or {}
     local maps = mapIds or areaMaps(mapId)
     if compat.isGen2() then
-      local rows = Area.gen2Rows(data, save, mod.world, maps)
+      local rows = Area.gen2Rows(data, save, mod.world, maps, checkpoint)
       for index = 1, 3 do sections[index].rows = rows[index] end
       local screens = checklistPages(sections)
       return { name = areaName(mapId), screens = screens, pages = #screens,
@@ -3895,6 +3897,7 @@ return function(mod)
     end
     local showFuture = completion or assist("spoilers")
     for _, id in ipairs(maps) do
+      if checkpoint then checkpoint() end
       local map = data.maps and data.maps[id]
       for _, obj in ipairs(map and map.objects or {}) do
         local key = id .. "_obj_" .. tostring(obj.index)
@@ -3973,27 +3976,30 @@ return function(mod)
       sections = sections, remaining = Area.remaining(sections) }
   end
 
-  function displayRuntime.achievementData(currentOnly)
+  function displayRuntime.achievementData(currentOnly, advance)
     local state, Progress = displayRuntime.achievements, displayRuntime.Achievements
     -- Gen 1 pickups update these sets without a flag event. Compare only when
-    -- the app or cached Home data is refreshed, never on each animation frame.
+    -- the app or cached Home data is refreshed, and between active album slices.
     local pickups = 0
     for _, field in ipairs({ "itemsTaken", "hiddenTaken" }) do
       for _, taken in pairs(game.save[field] or {}) do if taken then pickups = pickups + 1 end end
     end
     if pickups ~= state.pickups then
-      state.pickups, state.stale, state.currentData = pickups, true, nil
+      state.pickups, state.stale, state.currentData, state.job = pickups, true, nil, nil
     end
     local caught, caughtCount = compat.caughtDex(game.save), 0
     for _, owned in pairs(caught) do if owned then caughtCount = caughtCount + 1 end end
     if caughtCount ~= state.caughtCount then
-      state.caughtCount, state.stale, state.currentData = caughtCount, true, nil
+      state.caughtCount, state.stale, state.currentData, state.job = caughtCount, true, nil, nil
+    end
+    if state.job and (state.jobMap ~= mapId or state.jobSave ~= game.save) then
+      state.job, state.stale = nil, true
     end
     local current = state.currentData
     if currentOnly and current and current.mapId == mapId and current.save == game.save then
       return current.data
     end
-    if currentOnly or not state.data or state.stale then
+    if currentOnly or not state.job and (not state.data or state.stale) then
       local gen2 = compat.isGen2()
       local visited = mod.save:get("achievement_visits", {})
       if type(visited) ~= "table" then visited = {} end
@@ -4012,11 +4018,13 @@ return function(mod)
           if groups[1] then break end
         end
       end
-      local result = Progress.build(groups, function(maps)
-        local result = areaData(maps, true)
+      local build = currentOnly and Progress.build or Progress.begin
+      local result = build(groups, function(maps, checkpoint)
+        local result = areaData(maps, true, checkpoint)
+        if checkpoint then checkpoint() end
         local species = state.species[maps[1]]
         if not species then
-          species = guideData(maps, true).rows
+          species = guideData(maps, true, checkpoint).rows
           state.species[maps[1]] = species
         end
         result.pokemon = {}
@@ -4033,14 +4041,22 @@ return function(mod)
         visited = visited,
         flag = function(id) return mod.world and mod.world.getFlag
           and mod.world:getFlag(id) == true or false end,
-      })
+      }, not currentOnly and love.timer.getTime or nil)
       if currentOnly then
         state.currentData = { mapId = mapId, save = game.save, data = result }
         return result
       end
-      state.data, state.stale = result, false
+      state.job, state.jobMap, state.jobSave = result, mapId, game.save
     end
-    return state.data
+    if not currentOnly and advance and state.job then
+      local result = state.job:step(0.001)
+      if result then
+        state.data, state.stale, state.job = result, false, nil
+        dirty = true
+      end
+    end
+    -- Hide invalidated results until the replacement is complete.
+    return not state.stale and state.data or nil
   end
 
   function displayRuntime.currentAchievement()
@@ -4053,7 +4069,8 @@ return function(mod)
     local state, Progress = displayRuntime.achievements, displayRuntime.Achievements
     local mode = THEME:researchMode(mod.options:get("info_level"))
     if mode == "legacy" then mode = assist("spoilers") and "spoiler" or "vanilla" end
-    local data = displayRuntime.perf:call("stamps_album", displayRuntime.achievementData)
+    local data = displayRuntime.achievementData()
+    if not data then return { loading = true, view = state.view, mode = mode, pages = 1 } end
     local areas, goals, earned = Progress.visible(data, mode)
     local area = state.selected and data.byId[state.selected]
     if area and mode ~= "spoiler" and not area.evidence then area = nil end
@@ -4099,6 +4116,7 @@ return function(mod)
       dirty = true
       return
     end
+    if displayRuntime.achievements.stale then return end
     local action, value = THEME.hgss:achievementsHit(x, y)
     if action == "view" then state.view, state.page, state.selected = value, 1, nil
     elseif action == "area" then
@@ -9935,7 +9953,7 @@ return function(mod)
       displayRuntime.notes:open()
     elseif id == "achievements" then
       local state = displayRuntime.achievements
-      state.view, state.page, state.selected, state.stale = "goals", 1, nil, true
+      state.view, state.page, state.selected = "goals", 1, nil
     elseif id == "pokedex" then
       displayRuntime.pokedex.view, displayRuntime.pokedex.page = "index", 1
       displayRuntime.pokedex.habitatPage = 1
@@ -12036,7 +12054,7 @@ return function(mod)
     displayRuntime.pokedex.data = nil
     guidePage, displayRuntime.guideDetail, areaPage = 1, nil, 1
     radarOpen = false
-    displayRuntime.achievements.stale = true
+    displayRuntime.achievements.stale, displayRuntime.achievements.job = true, nil
     local visited = mod.save:get("achievement_visits", {})
     if type(visited) ~= "table" then visited = {} end
     if type(mapId) == "string" and not visited[mapId] then
@@ -12573,7 +12591,7 @@ return function(mod)
 
   for _, event in ipairs({ "flag.changed", "world.interacted", "world.object_toggled", "battle.ended", "pokemon.caught" }) do
     mod.events:on(event, function()
-      displayRuntime.achievements.stale = true
+      displayRuntime.achievements.stale, displayRuntime.achievements.job = true, nil
       displayRuntime.achievements.currentData = nil
       local home = displayRuntime.home
       if home and home.widgetCache and home.widgetCache.model.stamps then
@@ -12755,6 +12773,13 @@ return function(mod)
     displayRuntime.perf:call("notes_flush", displayRuntime.notes.flush, displayRuntime.notes)
     if displayRuntime.notes:takeChanged() then dirty = true end
     displayRuntime.updateHomeLongPress(now)
+    -- Album work gets a short slice only while visible, independently of redraws.
+    -- The budget is cooperative: an individual map/group operation can overrun it.
+    if page == "ACHIEVEMENTS" and THEME.style == "hgss" and not battle
+        and (displayRuntime.achievements.job or displayRuntime.achievements.stale)
+        and hasDisplay() and screenState() == "active" then
+      displayRuntime.perf:call("stamps_album", displayRuntime.achievementData, false, true)
+    end
     if now >= nextPoll then
       nextPoll = now + 0.05
       refreshTheme()

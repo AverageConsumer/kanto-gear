@@ -59,7 +59,7 @@ function M.rowState(row, category, context)
   return row.status == "LATER" and "later" or "open"
 end
 
-function M.build(groups, read, context)
+function M.build(groups, read, context, checkpoint)
   local result = { areas = {}, byId = {}, goals = {}, earned = {}, total = 0, done = 0 }
   for _, group in ipairs(groups) do
     local area = { id = group.id, name = group.name, kind = group.kind,
@@ -70,7 +70,7 @@ function M.build(groups, read, context)
         or (context.visited or {})[id] == true
         or (context.save.visited or {})[id] == true
     end
-    local sourceData = read(group.maps)
+    local sourceData = read(group.maps, checkpoint)
     local sections = sourceData.sections
     for category = 1, 3 do
       local section = { rows = {}, done = 0, total = 0, unavailable = 0,
@@ -131,6 +131,7 @@ function M.build(groups, read, context)
         result.goals[#result.goals + 1] = area
       end
     end
+    if checkpoint then checkpoint() end
   end
   table.sort(result.goals, function(a, b)
     if a.remaining ~= b.remaining then return a.remaining < b.remaining end
@@ -138,6 +139,28 @@ function M.build(groups, read, context)
     return a.id < b.id
   end)
   return result
+end
+
+-- Keep the same completion rules for synchronous callers and the staged album.
+-- Only a finished result escapes the coroutine; partial totals cannot earn stamps.
+function M.begin(groups, read, context, clock)
+  local deadline, checkpoints
+  local function checkpoint()
+    checkpoints = checkpoints + 1
+    if checkpoints >= 32 or clock() >= deadline then coroutine.yield() end
+  end
+  local worker = coroutine.create(function()
+    return M.build(groups, read, context, checkpoint)
+  end)
+  local result
+  return { step = function(_, budget)
+    if result then return result end
+    deadline, checkpoints = clock() + budget, 0
+    local ok, value = coroutine.resume(worker)
+    if not ok then error(value, 0) end
+    if coroutine.status(worker) == "dead" then result = value end
+    return result
+  end }
 end
 
 function M.visible(result, mode)

@@ -156,6 +156,12 @@ return function(H, G, translate, format)
         self:detailChevron(215, y + 2, accent, true)
       end
     end
+    if model.loading then
+      self:panel(6, 76, 228, 68, false)
+      label(translate("LOADING AREA"), 12, 90, 216, 18, quiet)
+      label("...", 12, 115, 216, 12, accent, true)
+      return
+    end
     local view, area = model.view, model.area
     if view == "goals" or view == "album" then
       for i, tab in ipairs({ { "GOALS", "goals" }, { "STAMP BOOK", "album" } }) do
