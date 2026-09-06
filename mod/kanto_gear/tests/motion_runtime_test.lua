@@ -126,6 +126,30 @@ T.same(pages, {3, 1}, "summary wrap renders both adjacent states")
 run.loader.modOptions.kanto_gear.ui_motion = true
 runtime.beginAnimation("summary_open")
 T.eq(runtime.animation.duration, .24, "hero transitions share the shorter duration")
+local fightY, stripClip, clip = nil, nil, nil
+local getScissor = G.getScissor
+G.getScissor = function() if clip then return unpack(clip) end end
+G.setScissor = function(...) clip = select("#", ...) > 0 and {...} or nil end
+theme.battleFightAction = function(_, _, _, _, _, offsetY)
+  fightY = offsetY
+  assert(clip and clip[2] == 28, "outgoing controls must pass behind the header")
+end
+theme.battleBagAction, theme.battlePartyAction, theme.battleRunAction =
+  function() end, function() end, function() end
+theme.battleMoveCard, theme.moveHasStab = function() end, function() return false end
+theme.battleTeamStrip = function() stripClip = clip end
+local last, leavesCompletely = 0, true
+for i = 0, 100 do
+  theme:battleMovesTransition({ moves = {} }, function() end, {}, {}, i / 100)
+  assert(fightY <= last, "fight exit reversed direction")
+  last = fightY
+  if i >= 48 then leavesCompletely = leavesCompletely and 32 + 122 + 3 + fightY < 0 end
+end
+T.check(leavesCompletely, "fight card and shadow are fully offscreen before its exit finishes")
+T.eq(stripClip, nil, "the stationary team strip is drawn outside the content clip")
+theme:battleMovesTransition({ moves = {} }, function() end, {}, {}, 0)
+T.eq(fightY, 0, "the reverse transition returns the fight card to its exact resting position")
+G.getScissor = getScissor
 G.newCanvas, G.draw, G.setScissor = newCanvas, drawImage, scissor
 run.release()
 T.finish("Kanto Gear motion Gen " .. gen)

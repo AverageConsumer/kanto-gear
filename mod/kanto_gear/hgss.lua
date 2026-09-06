@@ -5472,12 +5472,19 @@ return function(ui)
 
   function H:battleMovesTransition(mon, drawPortrait, playerTeam, enemyTeam,
       progress)
+    local G = ui.graphics
     progress = math.max(0, math.min(1, progress or 0))
     local rootProgress = math.min(1, progress / 0.48)
     rootProgress = rootProgress * rootProgress * (3 - 2 * rootProgress)
 
+    local oldX, oldY, oldW, oldH = G.getScissor()
+    local x, y = G.transformPoint(0, 28)
+    local right, bottom = G.transformPoint(240, 216)
+    G.setScissor(x, y, right - x, bottom - y)
+    -- The entire 122px card, its 32px starting Y and its shadow must leave.
+    -- The old 116px travel left the lower edge hanging below the team strip.
     self:battleFightAction(mon, drawPortrait, true, 0,
-      math.floor(-116 * rootProgress + 0.5))
+      math.floor(-(32 + 122 + 6) * rootProgress + 0.5))
     self:battleBagAction(mon, false,
       math.floor(-76 * rootProgress + 0.5), 0)
     self:battlePartyAction(mon, false,
@@ -5498,6 +5505,7 @@ return function(ui)
       self:battleMoveCard(move, x, 33 + row * 85,
         mon.moveIndex == slot, self:moveHasStab(mon, move))
     end
+    if oldX then G.setScissor(oldX, oldY, oldW, oldH) else G.setScissor() end
     self:battleTeamStrip(playerTeam, enemyTeam, true)
   end
 
