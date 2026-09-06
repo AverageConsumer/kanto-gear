@@ -3619,6 +3619,8 @@ return function(ui)
       colors.ink, 48, "right")
 
     local rows = model.rows or {}
+    self:panel(7, 83, 226, 76, false, nil, colors.blueLight)
+    if #rows > 3 then box("fill", 15, 121, 210, 1, colors.band) end
     for index, row in ipairs(rows) do
       local line = math.floor((index - 1) / 3)
       local columns = math.min(3, #rows - line * 3)
@@ -3626,8 +3628,10 @@ return function(ui)
       local group = columns * width + (columns - 1) * gap
       local column = (index - 1) % 3
       local x = math.floor((240 - group) / 2) + column * (width + gap)
-      local y = 83 + line * 40
-      self:panel(x, y, width, 34, false, nil, colors.blueLight)
+      local y = 85 + line * 38
+      if column < columns - 1 then
+        box("fill", x + width + 2, y + 6, 1, 24, colors.band)
+      end
       self:partyType(self:fitPartyType(translate(row.label), width - 8),
         x + 4, y + 5, colors.green, width - 8)
       self:partyInfo(tostring(row.value or 0), x + 4, y + 19,
@@ -4471,6 +4475,8 @@ return function(ui)
       self:partyInfo(translate("NO DETAILS AVAILABLE"), 32, 121,
         colors.mutedInk, 176, "center")
     else
+      self:panel(7, 78, 226, 86, false, nil, colors.blueLight)
+      if #rows > 3 then box("fill", 15, 122, 210, 1, colors.band) end
       for index, row in ipairs(rows) do
         local line = math.floor((index - 1) / 3)
         local columns = math.min(3, #rows - line * 3)
@@ -4478,17 +4484,18 @@ return function(ui)
         local group = columns * width + (columns - 1) * gap
         local column = (index - 1) % 3
         local x = math.floor((240 - group) / 2) + column * (width + gap)
-        local y = 78 + line * 47
-        self:panel(x, y, width, 42, false, nil, colors.blueLight)
+        local y = 80 + line * 42
+        if column < columns - 1 then
+          box("fill", x + width + 2, y + 6, 1, 30, colors.band)
+        end
         self:partyType(self:fitPartyType(translate(row.label), width - 8),
           x + 4, y + 7, colors.green, width - 8)
         self:partyInfo(tostring(row.value or 0), x + 4, y + 24,
           colors.ink, width - 8, "center")
       end
     end
-    self:panel(42, 172, 156, 38, false, nil, colors.blueLight)
     self:partyInfo(translate("RANGE 0-15"), 50, 185,
-      colors.green, 140, "center")
+      colors.mutedInk, 140, "center")
   end
 
   function H:enemyInfoMatchup(model)
@@ -5283,11 +5290,10 @@ return function(ui)
     end
   end
 
-  function H:battleMoveInfoStat(x, label, value, accent)
+  function H:battleMoveInfoStat(x, label, value)
     local colors = self.colors
-    self:panel(x, 70, 66, 41, false, nil, accent)
-    self:partyInfo(label, x, 76, colors.green, 66, "center")
-    self:partyInfo(value, x, 91, colors.ink, 66, "center")
+    self:partyInfo(label, x + 1, 76, colors.mutedInk, 66, "center")
+    self:partyInfo(value, x + 1, 91, colors.ink, 66, "center")
   end
 
   function H:battleMoveInfoBody(move, stab)
@@ -5302,35 +5308,36 @@ return function(ui)
     if accuracy ~= "--" and not accuracy:find("%%") then
       accuracy = accuracy .. "%"
     end
-    self:battleMoveInfoStat(14, move.powerLabel or translate("PWR"),
-      tostring(move.powerText or "--"), colors.redLight)
-    self:battleMoveInfoStat(87, move.accuracyLabel or translate("ACC"), accuracy,
-      colors.blueLight)
-    self:battleMoveInfoStat(160, move.ppLabel or translate("PP"),
-      tostring(move.ppText or "--"), colors.greenLight)
+    self:battleMoveInfoStat(16, move.powerLabel or translate("PWR"),
+      tostring(move.powerText or "--"))
+    self:battleMoveInfoStat(87, move.accuracyLabel or translate("ACC"), accuracy)
+    self:battleMoveInfoStat(158, move.ppLabel or translate("PP"),
+      tostring(move.ppText or "--"))
+    box("fill", 84, 74, 1, 30, colors.band)
+    box("fill", 155, 74, 1, 30, colors.band)
+    box("fill", 16, 112, 208, 1, colors.band)
 
-    self:panel(14, 117, 103, 36, false, nil, accent)
-    self:partyInfo(move.stabLabel or translate("STAB"), 14, 122,
-      colors.green, 103, "center")
+    self:partyInfo(move.stabLabel or translate("STAB"), 17, 122,
+      colors.mutedInk, 103, "center")
     local stabFill = stab and accent or colors.silverDark
-    clipped(48, 137, 35, 11, stabFill)
-    border(48, 137, 35, 11, colors.outline)
-    self:partyType(stab and "1.5X" or "--", 50, 136,
+    clipped(50, 137, 35, 11, stabFill)
+    border(50, 137, 35, 11, colors.outline)
+    self:partyType(stab and "1.5X" or "--", 52, 136,
       colors.white, 31)
 
-    self:panel(123, 117, 103, 36, false, nil, colors.greenLight)
-    self:partyInfo(move.matchupLabel or translate("MATCHUP"), 123, 122,
-      colors.green, 103, "center")
+    self:partyInfo(move.matchupLabel or translate("MATCHUP"), 122, 122,
+      colors.mutedInk, 103, "center")
     local effectLabel, effectiveness = self:battleEffectLabel(move)
     local effectFill = effectiveness == 0 and colors.red
       or effectiveness and effectiveness > 10 and colors.greenLight
       or effectiveness and effectiveness < 10 and colors.amber
       or colors.silverDark
-    clipped(161, 137, 27, 11, effectFill)
-    border(161, 137, 27, 11, colors.outline)
-    self:partyType(effectLabel, 163, 136, colors.white, 23)
+    clipped(159, 137, 27, 11, effectFill)
+    border(159, 137, 27, 11, colors.outline)
+    self:partyType(effectLabel, 161, 136, colors.white, 23)
 
-    self:panel(14, 158, 212, 36, false, nil, accent)
+    box("fill", 119, 122, 1, 27, colors.band)
+    box("fill", 16, 156, 208, 1, colors.band)
     local lines = move.descriptionLines or { move.description or "--" }
     if lines[2] then
       self:partyInfo(self:fitPartyInfo(lines[1], 196),
