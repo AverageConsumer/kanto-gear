@@ -1,6 +1,6 @@
 <div align="center">
 
-# Kanto Gear 3.1
+# Kanto Gear 3.2
 
 ### Silph Link OS — Your adventure. Reconnected.
 
@@ -41,6 +41,9 @@ from apps, shortcuts and widgets.
   already ships inside Kanto Gear; the Store never downloads executable code.
 - **Achievements** collects exploration stamps and helps track area progress.
   Install it from Silph Store; it respects your research mode.
+- **Notes** keeps personal notes and checklists for your playthrough, either
+  general or attached to a route or area. Install it from the HGSS Silph Store.
+  Create a note and choose **Tasks → + Task** to start a checklist.
 - **Team View** puts all six party members on Home, with a tap into their details.
 - **HGSS Light, Dark and Auto** provide the new high-resolution visual system.
   Auto follows Gen 2 night and uses the same 18:00 boundary in Gen 1.
@@ -83,6 +86,12 @@ separately; installing a game translation does not translate Gear's menus.
 For type labels, Gear also reads contextual `type|<name>` entries from the
 public `strings` registry. RBY packages need the generator's companion type
 string addition; older packages retain their canonical type labels in Gear.
+
+Notes also supports colored drawing, stroke erasing and undo on surfaces that
+provide continuous pointer input. Android secondary displays need a host that
+forwards pointer movement; without it, Gear shows **HOST MISSING LIVE DRAWING
+INPUT**. Text notes and checklists remain usable. Notes are saved separately
+for each playthrough.
 
 Compatibility checks use packages from the
 [translation mod generator](https://github.com/thibautbus/gen1recomp-translation-mod-generator).
