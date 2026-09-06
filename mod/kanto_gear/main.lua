@@ -2285,7 +2285,10 @@ return function(mod)
     THEME.hgssBagIcon:setFilter("nearest", "nearest")
   end
   THEME.translationFonts = assert(load(mod:read("translation_fonts.lua"),
-    "@kanto_gear/translation_fonts.lua"))().new(G, function(message) mod.log:warn(message) end)
+    "@kanto_gear/translation_fonts.lua"))().new(G, function(message) mod.log:warn(message) end,
+      function(name)
+        return rawget(_G, "love").filesystem.newFileData(mod:read(name), name)
+      end)
   function displayRuntime.dimBackground(alpha)
     displayRuntime.backgroundDim = 1
       - (1 - (displayRuntime.backgroundDim or 0)) * (1 - alpha)

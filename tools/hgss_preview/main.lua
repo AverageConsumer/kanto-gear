@@ -167,11 +167,15 @@ function love.load()
   local bagIcon = love.graphics.newImage(fileData(
     root .. "/mod/kanto_gear/kanto_bag.png", "kanto_bag.png"))
   bagIcon:setFilter("nearest", "nearest")
+  local translationFonts = assert(loadfile(root .. "/mod/kanto_gear/translation_fonts.lua"))().new(
+    love.graphics, function(message) error(message) end,
+    function(name) return fileData(root .. "/mod/kanto_gear/" .. name, name) end)
   local theme = chunk()({
     graphics = love.graphics, box = box, text = text,
     fit = fit, glyphs = glyphs, color = color, font = font,
     smallFont = smallFont, largeFont = largeFont,
     bagIcon = bagIcon, translate = translate, format = format,
+    translationFonts = translationFonts,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
   assert(loadfile(root .. "/mod/kanto_gear/achievements_ui.lua"))()(
@@ -413,6 +417,12 @@ function love.load()
   love.graphics.setCanvas(canvas)
   love.graphics.clear(theme.colors.bg)
   local gen1 = os.getenv("KANTO_GEAR_PREVIEW_GEN") == "1"
+  local fontScript = os.getenv("KANTO_GEAR_PREVIEW_FONT")
+  if fontScript then
+    local names = fontScript == "ko" and { "도감", "지도 설정", "저장 삭제", "한국어", "한글 이름", "ID№12345" }
+      or { "漢字 図鑑", "地図 設定", "保存 削除", "ひらがな", "カタカナ", "ID№12345" }
+    for i, mon in ipairs(party) do mon.name = names[i] end
+  end
   if gen1 and screen:sub(1, 9) == "home-team" then
     for slot, name in ipairs({ "venusaur", "charizard" }) do
       local data = love.image.newImageData("local/dex/" .. name .. ".png")
@@ -2109,6 +2119,9 @@ function love.load()
       stampArea.remaining, stampArea.availableRemaining = 1, 0
       for i = 1, 4 do stampArea.sections[i].done = stampArea.sections[i].total end
       stampArea.sections[1].done, stampArea.sections[1].unavailable = 2, 1
+    end
+    if fontScript then
+      stampArea.name = fontScript == "ko" and "한국어 지도 도감" or "日本語 地図 図鑑"
     end
     local model = {
       stamps = { area = stampCase ~= "unknown" and stampArea or nil,

@@ -34,7 +34,11 @@ local game = { data = run.data, world = world, overworld = world,
 local newFont = love.graphics.newFont
 love.graphics.newFont = function(file, ...)
   if type(file) == "string" then file = file:gsub("^mods/[^/]+/", pack .. "/") end
-  return newFont(file, ...)
+  local font = newFont(file, ...)
+  -- The SDK stub has no TTF glyph table. Real font coverage is checked by
+  -- the LÖVE previews; this suite checks content and measurement routing.
+  font.hasGlyphs = font.hasGlyphs or function() return true end
+  return font
 end
 run.loader.modOptions.kanto_gear = { theme_v3 = "hgss" }
 run.loader.events:emit("game.ready", { game = game })
@@ -46,7 +50,7 @@ if version == "crystal" then
   for id, name in pairs(extra and extra() or {}) do items[id] = name end
 end
 game.save.party = { { species = "PIKACHU", hp = 5, stats = { hp = 12 } } }
-local partyData = up(display.drawHome, "partyData")
+local partyData = up(display.homeWidgetData, "partyData")
 T.eq(display.partyView(partyData()[1]).name,
   names.PIKACHU, "Party reads translated species names")
 game.save.inventory.POTION = 2
