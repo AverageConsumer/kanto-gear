@@ -179,17 +179,26 @@ return function(ui)
   local trainerValueFont = partyInfoFont
   local trainerNumberFont = hgssFont(ui.largeFont, 20)
 
-  function H:label(value, x, y, tint, width, align)
+  local function fontWidth(font, value)
+    if ui.translationFonts then return ui.translationFonts:width(font, value) end
+    return font:getWidth(tostring(value or ""))
+  end
+  local function printFont(font, value, x, y, width, align)
+    if ui.translationFonts then return ui.translationFonts:print(font, value, x, y, width, align) end
     local G, previous = ui.graphics, ui.graphics.getFont()
-    ui.color(tint)
-    G.setFont(partyFont)
-    if width then G.printf(tostring(value), x, y, width, align or "left")
-    else G.print(tostring(value), x, y) end
+    G.setFont(font)
+    if width then G.printf(tostring(value or ""), x, y, width, align or "left")
+    else G.print(tostring(value or ""), x, y) end
     if previous then G.setFont(previous) end
   end
 
+  function H:label(value, x, y, tint, width, align)
+    ui.color(tint)
+    printFont(partyFont, value, x, y, width, align)
+  end
+
   function H:labelWidth(value)
-    return partyFont:getWidth(tostring(value))
+    return fontWidth(partyFont, tostring(value))
   end
 
   function H:periodIcon(period, x, y)
@@ -279,11 +288,11 @@ return function(ui)
 
   local function fitFont(value, width, font)
     local chars = glyphs(displayText(value))
-    if font:getWidth(table.concat(chars)) <= width then
+    if fontWidth(font, table.concat(chars)) <= width then
       return table.concat(chars)
     end
     repeat table.remove(chars) until #chars == 0
-      or font:getWidth(table.concat(chars) .. "…") <= width
+      or fontWidth(font, table.concat(chars) .. "…") <= width
     return table.concat(chars) .. "…"
   end
 
@@ -295,7 +304,7 @@ return function(ui)
         if cut > 0 and cut < #chars then
           local first = table.concat(chars, "", 1, cut):gsub("%s+$", "")
           local second = table.concat(chars, "", cut + 1):gsub("^%s+", "")
-          if font:getWidth(first) <= width and font:getWidth(second) <= width then
+          if fontWidth(font, first) <= width and fontWidth(font, second) <= width then
             return first, second
           end
         end
@@ -308,14 +317,13 @@ return function(ui)
   end
 
   function H:partyName(value, x, y, tint, width)
-    local G, previous = ui.graphics, ui.graphics.getFont()
     value = displayText(value)
     local chars = glyphs(value)
-    while partyNameFont:getWidth(table.concat(chars)) > width
+    while fontWidth(partyNameFont, table.concat(chars)) > width
         and #chars > 0 do table.remove(chars) end
     local shown = table.concat(chars)
     if shown ~= value then
-      while partyNameFont:getWidth(shown .. "…") > width
+      while fontWidth(partyNameFont, shown .. "…") > width
           and #chars > 0 do
         table.remove(chars)
         shown = table.concat(chars)
@@ -323,23 +331,17 @@ return function(ui)
       shown = shown .. "…"
     end
     color(tint)
-    G.setFont(partyNameFont)
-    G.print(shown, x, y)
-    if previous then G.setFont(previous) end
+    printFont(partyNameFont, shown, x, y)
   end
 
   function H:partyInfo(value, x, y, tint, width, align)
-    local G, previous = ui.graphics, ui.graphics.getFont()
     value = displayText(value)
     ui.color(tint)
-    G.setFont(partyInfoFont)
-    if width then G.printf(value, x, y, width, align or "left")
-    else G.print(value, x, y) end
-    if previous then G.setFont(previous) end
+    printFont(partyInfoFont, value, x, y, width, align)
   end
 
   function H:partyInfoWidth(value)
-    return partyInfoFont:getWidth(displayText(value))
+    return fontWidth(partyInfoFont, displayText(value))
   end
 
   function H:fitPartyInfo(value, width)
@@ -348,17 +350,17 @@ return function(ui)
 
   function H:splitPartyInfo(value, width)
     value = displayText(value)
-    if partyInfoFont:getWidth(value) <= width then return value end
+    if fontWidth(partyInfoFont, value) <= width then return value end
     local bestFirst, bestSecond, bestBalance
     for cut = 1, #value do
       if value:sub(cut, cut):match("%s") then
         local first = value:sub(1, cut - 1):gsub("%s+$", "")
         local second = value:sub(cut + 1):gsub("^%s+", "")
         if first ~= "" and second ~= ""
-            and partyInfoFont:getWidth(first) <= width
-            and partyInfoFont:getWidth(second) <= width then
-          local balance = math.abs(partyInfoFont:getWidth(first)
-            - partyInfoFont:getWidth(second))
+            and fontWidth(partyInfoFont, first) <= width
+            and fontWidth(partyInfoFont, second) <= width then
+          local balance = math.abs(fontWidth(partyInfoFont, first)
+            - fontWidth(partyInfoFont, second))
           if not bestBalance or balance < bestBalance then
             bestFirst, bestSecond, bestBalance = first, second, balance
           end
@@ -376,13 +378,10 @@ return function(ui)
   end
 
   function H:partyType(value, x, y, tint, width)
-    local G, previous = ui.graphics, ui.graphics.getFont()
     local shown = displayText(value)
     ui.color(tint)
-    G.setFont(partyTypeFont)
-    G.print(shown, x + math.floor((width - partyTypeFont:getWidth(shown))
+    printFont(partyTypeFont, shown, x + math.floor((width - fontWidth(partyTypeFont, shown))
       / 2 + 0.5), y)
-    if previous then G.setFont(previous) end
   end
 
   function H:genderIcon(gender, x, y)
@@ -661,17 +660,13 @@ return function(ui)
   end
 
   local function fontText(font, value, x, y, tint, width, align)
-    local G, previous = ui.graphics, ui.graphics.getFont()
     color(tint)
-    G.setFont(font)
-    if width then G.printf(tostring(value), x, y, width, align or "left")
-    else G.print(tostring(value), x, y) end
-    if previous then G.setFont(previous) end
+    printFont(font, value, x, y, width, align)
   end
 
   local function trainerFit(font, value, width)
     local chars = glyphs(tostring(value or ""))
-    while #chars > 1 and font:getWidth(table.concat(chars)) > width do
+    while #chars > 1 and fontWidth(font, table.concat(chars)) > width do
       table.remove(chars)
     end
     return table.concat(chars)
@@ -1608,7 +1603,7 @@ return function(ui)
       drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
     })
     local route = self:fitPartyType(model.route or translate("UNKNOWN AREA"), 76)
-    local routeWidth = math.max(48, partyTypeFont:getWidth(route) + 10)
+    local routeWidth = math.max(48, fontWidth(partyTypeFont, route) + 10)
     clipped(x + 7, y + h - 20, routeWidth, 12, colors.surface)
     border(x + 7, y + h - 20, routeWidth, 12, colors.outline)
     self:partyType(route, x + 7, y + h - 20, colors.ink, routeWidth)
@@ -1675,7 +1670,7 @@ return function(ui)
           self:partyType(translate("EGG"), left, top + 43, colors.green, width)
         else
           local label = displayText(mon.levelText or "--")
-          local labelWidth = partyTypeFont:getWidth(label)
+          local labelWidth = fontWidth(partyTypeFont, label)
           local statusWidth = mon.statusId and 11 or 0
           local labelLeft = left + math.floor((width - labelWidth - statusWidth) / 2)
           self:partyType(label, labelLeft, top + 39, colors.ink, labelWidth)
@@ -1783,7 +1778,7 @@ return function(ui)
     ui.graphics.setScissor()
     local area = self:fitPartyType(map.area or translate("UNKNOWN AREA"),
       w - 32)
-    local areaWidth = math.max(44, partyTypeFont:getWidth(area) + 8)
+    local areaWidth = math.max(44, fontWidth(partyTypeFont, area) + 8)
     clipped(x + 7, y + h - 19, areaWidth, 12, colors.surface)
     border(x + 7, y + h - 19, areaWidth, 12, colors.outline)
     self:partyType(area, x + 7, y + h - 19, colors.ink, areaWidth)
@@ -1909,7 +1904,7 @@ return function(ui)
     local G, colors = ui.graphics, self.colors
     if pages > 7 then
       local label = page .. "/" .. pages
-      local width = math.max(24, partyTypeFont:getWidth(label) + 8)
+      local width = math.max(24, fontWidth(partyTypeFont, label) + 8)
       local left = 120 - math.floor(width / 2)
       self:pageChevron(left - 10, 207, false, false)
       self:partyType(label, left, 202, colors.green, width)
@@ -2148,7 +2143,7 @@ return function(ui)
         if row.action then
           local value = translate(row.value)
           local firstLine, secondLine
-          if partyTypeFont:getWidth(value) > 63 then
+          if fontWidth(partyTypeFont, value) > 63 then
             firstLine, secondLine = splitFont(value, 63, partyTypeFont)
           end
           if secondLine then
@@ -2162,7 +2157,7 @@ return function(ui)
         else
           local value = translate(row.value)
           local firstLine, secondLine
-          if partyTypeFont:getWidth(value) > 84 then
+          if fontWidth(partyTypeFont, value) > 84 then
             firstLine, secondLine = splitFont(value, 84, partyTypeFont)
           end
           self:pageChevron(130, y + 24, false, false)
@@ -2541,7 +2536,7 @@ return function(ui)
       for row = 0, 2 do
         local rowTop = top + 18 + row * 11
         local label = self:fitPartyType(translate(noteLabels[row + 1]), w - 33)
-        local labelWidth = partyTypeFont:getWidth(label)
+        local labelWidth = fontWidth(partyTypeFont, label)
         local groupWidth = 6 + 7 + labelWidth
         local groupLeft = x + math.floor((w - groupWidth) / 2)
         clipped(groupLeft, rowTop, 6, 6,
@@ -2610,7 +2605,7 @@ return function(ui)
     end
     local badgeW, gap = 25, 4
     local shown = self:fitPartyType(label, w - badgeW - gap)
-    local textW = partyTypeFont:getWidth(shown)
+    local textW = fontWidth(partyTypeFont, shown)
     local groupW = textW + gap + badgeW
     local left = x + math.floor((w - groupW) / 2)
     self:partyType(shown, left, y, colors.ink, textW)
@@ -2699,7 +2694,7 @@ return function(ui)
     local title = translate("APP OF THE DAY")
     if featured.new then
       local badgeW, gap = 25, 5
-      local titleW = partyTypeFont:getWidth(title)
+      local titleW = fontWidth(partyTypeFont, title)
       local groupW = badgeW + gap + titleW
       local left = 9 + math.floor((222 - groupW) / 2)
       self:storeNewBadge(left, 36, badgeW)
@@ -3191,11 +3186,11 @@ return function(ui)
         box("fill", x + 4, y + 8, 1, 1, colors.outline)
       end
       box("fill", 85 + half, y + 2, 1, 12, colors.band)
-      local itemWidth = partyInfoFont:getWidth(model.itemsText)
+      local itemWidth = fontWidth(partyInfoFont, model.itemsText)
       local itemLeft = 85 + math.floor((half - 9 - 3 - itemWidth) / 2)
       itemGlyph(itemLeft)
       self:partyInfo(model.itemsText, itemLeft + 12, y + 2, colors.ink)
-      local trainerWidth = partyInfoFont:getWidth(model.trainersText)
+      local trainerWidth = fontWidth(partyInfoFont, model.trainersText)
       local hasTrainer = model.drawActor and model.trainerIcon
       local iconWidth, gap = hasTrainer and 8 or 0, hasTrainer and 3 or 0
       local trainerLeft = 86 + half
@@ -3252,7 +3247,7 @@ return function(ui)
               * model.scanProgress))
         elseif model.scanHint then
           local label = translate("SCAN")
-          local width = math.max(24, partyTypeFont:getWidth(label) + 8)
+          local width = math.max(24, fontWidth(partyTypeFont, label) + 8)
           local left = math.max(layout.innerX + 2,
             math.min(layout.innerX + layout.innerW - width - 2,
               math.floor(px - width / 2)))
@@ -3274,7 +3269,7 @@ return function(ui)
       label = translate(label)
       local arrowWidth, gap = arrow and 4 or 0, arrow and 3 or 0
       local shown = self:fitPartyType(label, width - 6 - arrowWidth - gap)
-      local textWidth = partyTypeFont:getWidth(shown)
+      local textWidth = fontWidth(partyTypeFont, shown)
       local groupWidth = textWidth + gap + arrowWidth
       local left = x + math.floor((width - groupWidth) / 2)
       local tint = active and colors.ink or colors.green
@@ -3590,7 +3585,7 @@ return function(ui)
     self:panel(28, 33, 184, 18, false, nil, colors.greenLight)
     local shown = fitFont(model.name or "-", 168, partyNameFont)
     self:partyName(shown,
-      36 + math.floor((168 - partyNameFont:getWidth(shown)) / 2 + 0.5),
+      36 + math.floor((168 - fontWidth(partyNameFont, shown)) / 2 + 0.5),
       38, colors.ink, 168)
     for _, entry in ipairs(model.entries or {}) do
       local x, y, w, h = legacyRect(entry)
@@ -4811,7 +4806,7 @@ return function(ui)
     clipped(57, 141, 126, 15, colors.bandLight)
     border(57, 141, 126, 15, colors.green)
     local status = self:fitPartyType(translate("LINK ONLINE"), 104)
-    local statusWidth = partyTypeFont:getWidth(status)
+    local statusWidth = fontWidth(partyTypeFont, status)
     local statusLeft = 120 - math.floor((statusWidth + 12) / 2 + 0.5)
     color(colors.greenLight)
     G.circle("fill", statusLeft + 3, 148, 3)

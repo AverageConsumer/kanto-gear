@@ -1675,7 +1675,7 @@ local function normalize(value)
     :gsub("_", " ")
   local out = {}
   for _, glyph in ipairs(glyphList(value)) do
-    if glyph == " " or FONT[glyph] then out[#out + 1] = glyph end
+    if glyph == " " or FONT[glyph] or #glyph > 1 then out[#out + 1] = glyph end
   end
   return table.concat(out)
 end
@@ -1698,14 +1698,33 @@ assert(normalize("ça coûte très cher à Noël, même au-delà du sûr")
        == "ÇA COÛTE TRÈS CHER À NOËL, MÊME AU-DELÀ DU SÛR",
        "French glyph normalization")
 
+THEME.bitmapFont = {
+  hasGlyphs = function(_, value)
+    for _, glyph in ipairs(glyphList(value)) do
+      if glyph ~= " " and not FONT[glyph] then return false end
+    end
+    return true
+  end,
+  getHeight = function() return 7 end,
+  getWidth = function(_, value) return #glyphList(value) * 6 end,
+}
+
+function THEME:textWidth(value)
+  if self.translationFonts then return self.translationFonts:width(self.bitmapFont, value) end
+  return self.bitmapFont:getWidth(value)
+end
+
 local function fit(value, chars, ellipsis)
-  local glyphs = glyphList(clean(value))
-  if #glyphs <= chars then return table.concat(glyphs) end
-  if ellipsis == false then return table.concat(glyphs, "", 1, chars) end
-  local out = {}
-  for index = 1, math.max(0, chars - 1) do out[index] = glyphs[index] end
-  out[#out + 1] = "."
-  return table.concat(out)
+  value = clean(value)
+  local width = math.max(0, chars) * 6
+  if THEME:textWidth(value) <= width then return value end
+  local glyphs, suffix = glyphList(value), ellipsis == false and "" or "."
+  while #glyphs > 0 do
+    table.remove(glyphs)
+    local shown = table.concat(glyphs) .. suffix
+    if THEME:textWidth(shown) <= width then return shown end
+  end
+  return ""
 end
 
 function THEME:messageLines(messages, chars, limit)
@@ -1713,15 +1732,16 @@ function THEME:messageLines(messages, chars, limit)
     local lines, current = {}, ""
     for word in clean(message):gmatch("%S+") do
       local joined = current == "" and word or current .. " " .. word
-      if #glyphList(joined) <= chars then current = joined
+      if THEME:textWidth(joined) <= chars * 6 then current = joined
       else
         if current ~= "" then lines[#lines + 1] = current end
-        local glyphs = glyphList(word)
-        while #glyphs > chars do
-          lines[#lines + 1] = table.concat(glyphs, "", 1, chars)
-          for _ = 1, chars do table.remove(glyphs, 1) end
+        current = ""
+        for _, glyph in ipairs(glyphList(word)) do
+          if current ~= "" and THEME:textWidth(current .. glyph) > chars * 6 then
+            lines[#lines + 1], current = current, ""
+          end
+          current = current .. glyph
         end
-        current = table.concat(glyphs)
       end
     end
     if current ~= "" then lines[#lines + 1] = current end
@@ -1794,6 +1814,16 @@ end
 local function text(value, x, y, c, scale)
   value, scale = clean(value), scale or 1
   color(c)
+  if THEME.translationFonts then
+    local font, offset = THEME.translationFonts:select(THEME.bitmapFont, value)
+    if font ~= THEME.bitmapFont then
+      local previous = G.getFont()
+      G.setFont(font)
+      G.print(value, x, y + offset * scale, 0, scale, scale)
+      if previous then G.setFont(previous) end
+      return
+    end
+  end
   local cursor = x
   for _, character in ipairs(glyphList(value)) do
     local glyph = FONT[character]
@@ -1813,7 +1843,7 @@ end
 
 local function centered(value, y, c, scale)
   value, scale = clean(value), scale or 1
-  text(value, math.floor((WIDTH - #glyphList(value) * 6 * scale) / 2),
+  text(value, math.floor((WIDTH - THEME:textWidth(value) * scale) / 2),
        y, c, scale)
 end
 
@@ -2218,11 +2248,14 @@ return function(mod)
       mod:read("kanto_bag.png"), "kanto_bag.png"))
     THEME.hgssBagIcon:setFilter("nearest", "nearest")
   end
+  THEME.translationFonts = assert(load(mod:read("translation_fonts.lua"),
+    "@kanto_gear/translation_fonts.lua"))().new(G, function(message) mod.log:warn(message) end)
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
     smallFont = THEME.hgssSmallFont,
     largeFont = THEME.hgssLargeFont,
+    translationFonts = THEME.translationFonts,
     bagIcon = THEME.hgssBagIcon,
     translate = function(value) return THEME:translate(value) end,
     format = function(value, ...) return THEME:format(value, ...) end,
@@ -3097,6 +3130,9 @@ return function(mod)
   end
 
   local function refreshTheme(force)
+    if THEME.translationFonts:bind(game and game.data and game.data.font and game.data.font.ttf) then
+      dirty = true
+    end
     local theme = mod.options:get("theme_v3") or "hgss"
     local autoDark = theme == "hgss_auto" and compat.autoThemeDark(game,
       mod.options:get("clock_source"), os.time())

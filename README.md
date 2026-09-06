@@ -75,6 +75,21 @@ they are no longer needed. Only Kanto Gear's interface changes language; game
 text remains untouched.
 See [language support](translations/README.md).
 
+Game translation mods can supply their own font through `mod.content.font`.
+Kanto Gear uses that font for names and text containing characters missing
+from its pixel fonts, including Japanese and Korean. Measurement, truncation
+and centering use the same selected font. Gear's own menu language is selected
+separately; installing a game translation does not translate Gear's menus.
+
+Compatibility checks use packages from the
+[translation mod generator](https://github.com/thibautbus/gen1recomp-translation-mod-generator).
+The eleven standard language/game packages have been checked with the mod
+loader across Red, Blue, Yellow, Gold, Silver and Crystal, and with offscreen
+HGSS rendering. Device validation remains a separate step: enable Gear and
+one matching translation package, then check Party, Bag and a long translated
+name in both light and dark themes. Korean Crystal-specific dialogue remains
+English where the generator has no translation corpus.
+
 ## Display modes
 
 | Mode | Best for |
