@@ -506,12 +506,14 @@ function love.load()
   local toolsRods = screen == "tools_rods"
   local tools = toolsScreen or toolsPrompt or toolsRods
   local settingsRoot, settingsDisplay = screen == "settings",
-    screen == "settings_display"
+    screen == "settings_display" or screen == "settings_display_page2"
   local settingsAppearance, settingsSystem = screen == "settings_appearance",
     screen == "settings_system"
+  settingsAppearance = settingsAppearance or screen == "settings_appearance_page2"
   local settingsControls = screen == "settings_controls"
+  local settingsBattle, settingsResearch = screen == "settings_battle", screen == "settings_research"
   local settings = settingsRoot or settingsDisplay
-    or settingsAppearance or settingsSystem or settingsControls
+    or settingsAppearance or settingsSystem or settingsControls or settingsBattle or settingsResearch
   local store = storeToday or storeApps or storeLibrary or storeDetail
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
@@ -576,6 +578,8 @@ function love.load()
     or settingsAppearance and "APPEARANCE"
     or settingsControls and "CONTROLS"
     or settingsSystem and "SYSTEM"
+    or settingsBattle and "BATTLE"
+    or settingsResearch and "RESEARCH"
     or settings and "SETTINGS"
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
@@ -623,7 +627,7 @@ function love.load()
         and not trainerScreen
         and not trainerSteps and not tools and not settings and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
-        or not context) or toolsScreen or settingsDisplay, headerOffset)
+        or not context) or toolsScreen, headerOffset)
     if context then
       local left, width = 26, 112
       assert(math.abs(titleX - left - (width - titleWidth - (titleX - left)))
@@ -1839,7 +1843,7 @@ function love.load()
       { label = "SYSTEM", detail = "HELP AND RESET", accent = "green" },
     } })
   elseif settingsDisplay then
-    theme:settings({ category = "display", accent = "green", page = 1,
+    theme:settings({ category = "display", accent = "green", page = screen == "settings_display_page2" and 2 or 1,
       pages = 2, rows = {
         { label = "DISPLAY MODE", value = "COMBINED SCREEN" },
         { label = "LAYOUT", value = "SIDE BY SIDE" },
@@ -1847,9 +1851,11 @@ function love.load()
         { label = "SECONDARY SIZE", value = "40%" },
         { label = "BOTTOM SAFE AREA", value = "30%" },
         { label = "OVERLAY CORNER", value = "BOTTOM RIGHT" },
+        { label = "OVERLAY BUTTON", value = "OFF" },
+        { label = "QUICK SWAP (Y)", value = "OFF" },
       } })
   elseif settingsAppearance then
-    theme:settings({ category = "appearance", accent = "blue", page = 1,
+    theme:settings({ category = "appearance", accent = "blue", page = screen == "settings_appearance_page2" and 2 or 1,
       pages = 2, rows = {
         { label = "LANGUAGE", value = ({ en = "ENGLISH", de = "DEUTSCH",
           es = "ESPANOL", fr = "FRANCAIS" })[languageCode] or "ENGLISH" },
@@ -1858,6 +1864,15 @@ function love.load()
         { label = "CLOCK FORMAT", value = "SYSTEM" },
         { label = "TRANSITIONS", value = "ON" },
       } })
+  elseif settingsBattle then
+    theme:settings({ category = "battle", accent = "red", page = 1, pages = 1, rows = {
+      { label = "BATTLE VIEW", value = "STANDARD" },
+      { label = "CAUGHT ICON", value = "ON" },
+    } })
+  elseif settingsResearch then
+    theme:settings({ category = "research", accent = "amber", page = 1, pages = 1, rows = {
+      { label = "INFO", value = "ENHANCED" },
+    } })
   elseif settingsControls then
     theme:settings({ category = "controls", accent = "blue", page = 1,
       pages = 1, rows = {

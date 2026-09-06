@@ -654,6 +654,29 @@ T.check(display.cycleSettingsPage(1) and display.settings.page == 1,
   "Settings category paging wraps consistently")
 display.settings.category, display.settings.page = 1, 1
 settings = display.settingsModel()
+local originalLanguage = run.loader.modOptions.kanto_gear.language or "en"
+display.tapSettings(220, 62)
+T.check(run.loader.modOptions.kanto_gear.language ~= originalLanguage,
+  "the visible right value arrow advances the option")
+display.tapSettings(20, 62)
+T.eq(run.loader.modOptions.kanto_gear.language, originalLanguage,
+  "the visible left value arrow reverses the option")
+display.tapSettings(152, 200)
+T.eq(display.settings.page, 2, "the bottom next arrow opens the second Settings page")
+display.tapSettings(88, 200)
+T.eq(display.settings.page, 1, "the bottom previous arrow returns to the first page")
+T.eq(theme.hgss:settingsHit(120, 200, settings), nil,
+  "the page counter does not change a setting or page")
+T.eq(theme.hgss:settingsHit(37, 15, settings), nil,
+  "the unmarked Settings header no longer hides a page action")
+local disabledSettings = { category = "test", page = 1, pages = 1,
+  rows = { { label = "LANGUAGE", value = "ENGLISH", enabled = false } } }
+T.eq(theme.hgss:settingsHit(20, 62, disabledSettings), nil,
+  "disabled Settings rows ignore the left value area")
+T.eq(theme.hgss:settingsHit(220, 62, disabledSettings), nil,
+  "disabled Settings rows ignore the right value area")
+T.eq(theme.hgss:settingsHit(152, 200, disabledSettings), nil,
+  "a single Settings page has no invisible pager")
 local motionRow
 for _, row in ipairs(settings.rows) do
   if row.key == "ui_motion" then motionRow = row end

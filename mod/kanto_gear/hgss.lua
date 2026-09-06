@@ -564,7 +564,7 @@ return function(ui)
     }
   end
 
-  function H:panel(x, y, w, h, selected, focusAccent, baseAccent)
+  function H:panel(x, y, w, h, selected, focusAccent, baseAccent, edge)
     local colors = self.colors
     if self:shadowVisible() then
       clipped(x + 1, y + 1, w, h, colors.shadow)
@@ -573,7 +573,7 @@ return function(ui)
       self.dark and 0.15 or 0.10) or colors.surface
     clipped(x, y, w, h,
       self:focusSurface(selected, base, focusAccent))
-    border(x, y, w, h, colors.ink)
+    border(x, y, w, h, edge or colors.ink)
     if baseAccent then
       box("fill", x + 5, y + 2, w - 10, 1,
         mixed(colors.highlight, baseAccent, 0.20))
@@ -2130,10 +2130,10 @@ return function(ui)
           colors[category.accent .. "Light"] or colors.greenLight, false)
         box("fill", 11, y + 5, 4, 16,
           colors[category.accent] or colors.green)
-        self:partyInfo(translate(category.label), 22, y + 3,
+        self:partyInfo(self:fitPartyInfo(translate(category.label), 188), 22, y + 3,
           colors.ink, 180)
-        self:partyType(translate(category.detail), 22, y + 13,
-          colors.green, 180)
+        self:partyType(self:fitPartyType(translate(category.detail), 188), 22, y + 14,
+          colors.mutedInk, 188)
         self:detailChevron(221, y + 10, colors.ink, true)
         self:endPress(pressed)
       end
@@ -2148,41 +2148,35 @@ return function(ui)
         local pressed = self:beginPress(7, y, 226, 35, row.enabled ~= false)
         self:homeTile(7, y, 226, 35,
           colors[model.accent .. "Light"] or colors.greenLight, false)
-        self:partyInfo(translate(row.label), 15, y + 5, colors.ink, 135)
-        if row.action then
-          local value = translate(row.value)
-          local firstLine, secondLine
-          if fontWidth(partyTypeFont, value) > 63 then
-            firstLine, secondLine = splitFont(value, 63, partyTypeFont)
-          end
-          if secondLine then
-            self:partyType(firstLine, 151, y + 8, colors.green, 63)
-            self:partyType(secondLine, 151, y + 18, colors.green, 63)
-          else
-            self:partyType(self:fitPartyType(value, 63),
-              151, y + 13, colors.green, 63)
-          end
-          self:detailChevron(222, y + 13, colors.ink, true)
+        local ink = row.enabled == false and colors.disabledInk or colors.ink
+        local valueInk = row.enabled == false and colors.disabledInk or colors.green
+        self:partyInfo(self:fitPartyInfo(translate(row.label), 208), 16, y + 4, ink)
+        local value = translate(row.value)
+        local firstLine, secondLine
+        if fontWidth(partyTypeFont, value) > 176 then
+          firstLine, secondLine = self:splitPartyInfo(value, 176)
+        end
+        if secondLine then
+          self:partyType(firstLine, 32, y + 16, valueInk, 176)
+          self:partyType(secondLine, 32, y + 24, valueInk, 176)
         else
-          local value = translate(row.value)
-          local firstLine, secondLine
-          if fontWidth(partyTypeFont, value) > 84 then
-            firstLine, secondLine = splitFont(value, 84, partyTypeFont)
-          end
-          self:pageChevron(130, y + 24, false, false)
-          if secondLine then
-            self:partyType(firstLine, 135, y + 13, colors.green, 84)
-            self:partyType(secondLine, 135, y + 21, colors.green, 84)
-          else
-            self:partyType(self:fitPartyType(value, 84),
-              135, y + 18, colors.green, 84)
-          end
-          self:pageChevron(224, y + 24, true, false)
+          self:partyType(self:fitPartyType(value, 176), 32, y + 21, valueInk, 176)
+        end
+        if row.action then
+          self:detailChevron(220, y + 22, ink)
+        elseif row.enabled ~= false then
+          self:pageChevron(20, y + 26, false, false)
+          self:pageChevron(220, y + 26, true, false)
         end
         self:endPress(pressed)
       end
     end
-    self:homePager(model.page, model.pages)
+    if (model.pages or 1) > 1 then
+      self:panel(72, 194, 96, 17, false, nil, colors.greenLight)
+      self:pageChevron(88, 202, false)
+      self:partyInfo(model.page .. "/" .. model.pages, 105, 197, colors.ink, 32, "center")
+      self:pageChevron(152, 202, true)
+    end
   end
 
   function H:settingsHit(x, y, model)
@@ -2195,12 +2189,14 @@ return function(ui)
           then return "category", index end
       return
     end
-    if y < 29 and x >= 27 and x < 50 then return "prev" end
-    if y < 29 and x >= 116 and x < 139 then return "next" end
+    if (model.pages or 1) > 1 and y >= 194 and y < 211 then
+      if x >= 72 and x < 104 then return "prev" end
+      if x >= 136 and x < 168 then return "next" end
+    end
     local visible = math.floor((y - 36) / 40)
     local index = (model.page - 1) * 4 + visible + 1
     local row = model.rows and model.rows[index]
-    if x >= 7 and x < 233 and visible >= 0 and visible < 4 and row then
+    if x >= 7 and x < 233 and visible >= 0 and visible < 4 and row and row.enabled ~= false then
       if y < 36 + visible * 40 or y >= 71 + visible * 40 then return end
       if row.action then return "row", index, 1 end
       return "row", index, x < 120 and -1 or 1
@@ -4571,8 +4567,9 @@ return function(ui)
 
   function H:pcRootRows(count)
     count = math.max(1, math.min(6, count or 0))
-    local height = math.floor((124 - (count - 1) * 3) / count)
-    return 86, height
+    local height = math.min(40, math.floor((124 - (count - 1) * 3) / count))
+    local totalHeight = count * height + (count - 1) * 3
+    return 86 + math.floor((124 - totalHeight) / 2), height
   end
 
   function H:pcRoot(model)
@@ -4588,7 +4585,7 @@ return function(ui)
       62, 61, colors.green, 160)
     if #entries == 0 then
       self:panel(24, 105, 192, 70, false, nil, colors.silverDark)
-      self:partyInfo(translate("NOTHING HERE"), 32, 134,
+      self:partyInfo(translate("NOTHING HERE"), 33, 134,
         colors.mutedInk, 176, "center")
       return
     end
@@ -4598,12 +4595,12 @@ return function(ui)
       local y = top + (index - 1) * (height + 3)
       local pressed = self:beginPress(7, y, 226, height)
       self:panel(7, y, 226, height, false, nil,
-        index % 2 == 0 and colors.blueLight or colors.greenLight)
+        colors.blueLight, self.dark and colors.band or colors.silverDark)
       if entry.selected then
         clipped(9, y + 2, 222, height - 4,
           self:focusSurface(true, colors.surface, colors.blueLight))
       end
-      self:partyName(self:fitPartyInfo(entry.label or tostring(index), 184),
+      self:partyName(entry.label or tostring(index),
         19, y + math.floor((height - 10) / 2), colors.ink, 184)
       self:detailChevron(216, y + math.floor(height / 2), colors.green)
       if entry.selected then self:focusFrame(7, y, 226, height) end
@@ -4619,7 +4616,7 @@ return function(ui)
       15, 41, colors.green, 210, "center")
     if #entries == 0 then
       self:panel(24, 91, 192, 70, false, nil, colors.silverDark)
-      self:partyInfo(translate("NOTHING HERE"), 32, 120,
+      self:partyInfo(translate("NOTHING HERE"), 33, 120,
         colors.mutedInk, 176, "center")
       return
     end
@@ -4629,7 +4626,8 @@ return function(ui)
         or entry.kind == "item" and colors.amberLight
         or entry.kind == "box" and colors.greenLight or colors.blueLight
       local pressed = self:beginPress(7, y, 226, PC_LIST_HEIGHT)
-      self:panel(7, y, 226, PC_LIST_HEIGHT, false, nil, accent)
+      self:panel(7, y, 226, PC_LIST_HEIGHT, false, nil, accent,
+        self.dark and colors.band or colors.silverDark)
       if entry.selected then
         clipped(9, y + 2, 222, PC_LIST_HEIGHT - 4,
           self:focusSurface(true, colors.surface, accent))
@@ -4647,12 +4645,11 @@ return function(ui)
       local right = entry.right and tostring(entry.right) or nil
       local rightWidth = right and math.max(26,
         math.min(72, self:partyInfoWidth(right))) or 0
-      self:partyName(self:fitPartyInfo(entry.label or tostring(index),
-        199 - left - rightWidth), left, y + 10, colors.ink,
-        199 - left - rightWidth)
+      self:partyName(entry.label or tostring(index), left, y + 10, colors.ink,
+        199 - left - rightWidth - (right and 6 or 0))
       if right then
-        self:partyInfo(right, 199 - rightWidth, y + 10,
-          colors.green, rightWidth, "right")
+        self:partyInfo(self:fitPartyInfo(right, rightWidth), 199 - rightWidth, y + 10,
+          entry.selected and colors.ink or colors.mutedInk, rightWidth, "right")
       end
       self:detailChevron(216, y + 14, colors.green)
       if entry.selected then self:focusFrame(7, y, 226, PC_LIST_HEIGHT) end
@@ -4673,6 +4670,7 @@ return function(ui)
     self:partyType(translate("QUANTITY"), 64, 64,
       colors.green, 161)
 
+    clipped(7, 91, 226, 48, colors.surface)
     local controls = {
       { x = 7, label = "-" }, { x = 83, value = tostring(model.qty or 1) },
       { x = 159, label = "+" },
@@ -4680,9 +4678,8 @@ return function(ui)
     for _, control in ipairs(controls) do
       local interactive = control.label ~= nil
       local pressed = interactive and self:beginPress(control.x, 91, 74, 48)
-      self:panel(control.x, 91, 74, 48, false, nil,
-        interactive and colors.blueLight or colors.greenLight)
-      self:partyInfo(control.label or control.value, control.x, 108,
+      if interactive then self:panel(control.x, 91, 74, 48, false, nil, colors.blueLight) end
+      self:partyInfo(control.label or control.value, control.x + 1, 110,
         colors.ink, 74, "center")
       if pressed then self:endPress(pressed) end
     end

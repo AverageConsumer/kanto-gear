@@ -6210,8 +6210,7 @@ return function(mod)
 
   function displayRuntime.drawSettings()
     local model = displayRuntime.settingsModel()
-    header(THEME:translate(model.label or "SETTINGS"), true,
-      model.pages and model.pages > 1)
+    header(THEME:translate(model.label or "SETTINGS"), true, false)
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
     THEME.hgss:settings(model)
     G.pop()
