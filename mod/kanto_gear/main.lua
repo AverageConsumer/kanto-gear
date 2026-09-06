@@ -810,6 +810,7 @@ local Area = {}
 local GEN1_SCRIPT_TRAINERS = {
   ROUTE_22 = {
     ROUTE22_RIVAL1 = { class = "OPP_RIVAL1",
+      optional = true,
       event = "EVENT_BEAT_ROUTE22_RIVAL_1ST_BATTLE",
       requires = { "EVENT_GOT_POKEDEX" }, missedAfter = "EVENT_BEAT_BROCK" },
     ROUTE22_RIVAL2 = { class = "OPP_RIVAL2",
@@ -969,12 +970,16 @@ function Area.gen2ScriptTrainer(data, obj)
   local commands = obj and obj.scriptKey
   commands = type(commands) == "table" and commands
     or scripts and scripts[commands]
-  local trainer, started
+  local trainer, started, canLose
   for _, command in ipairs(commands or {}) do
     if command.op == "loadtrainer" then
       trainer = { class = command.class, member = command.member }
+    elseif command.op == "loadvar" and command.args
+        and command.args[1] == 3 then
+      canLose = command.args[2] == 1 -- VAR_BATTLETYPE / BATTLETYPE_CANLOSE
     elseif command.op == "startbattle" and trainer then
       started = true
+      trainer.optional = canLose == true
     elseif command.op == "setevent" and started and trainer.event == nil then
       trainer.event = command.event
     end
@@ -997,6 +1002,7 @@ function Area.gen2Rows(data, save, world, mapIds)
           spriteId = obj.sprite, palette = obj.palette,
           event = trainer.event, hideEvent = obj.eventFlag,
           scripted = obj.trainer == nil,
+          optional = trainer.optional,
         }
       elseif obj.itemball and obj.itemball.item ~= 0 then
         rows[2][#rows[2] + 1] = {
@@ -2331,7 +2337,7 @@ return function(mod)
     if image and image.release then image:release() end
     displayRuntime.achievements = { view = "goals", page = 1, stale = true }
   end
-  for _, event in ipairs({ "flag.changed", "world.interacted", "world.object_toggled", "battle.ended" }) do
+  for _, event in ipairs({ "flag.changed", "world.interacted", "world.object_toggled", "battle.ended", "pokemon.caught" }) do
     mod.events:on(event, function()
       displayRuntime.achievements.stale = true
       if page == "ACHIEVEMENTS" then dirty = true end
@@ -3627,7 +3633,7 @@ return function(mod)
     return hasShore
   end
 
-  local function guideData(mapIds)
+  local function guideData(mapIds, completion)
     local rows, bySpecies = {}, {}
     local data, field = game.data, game.data.field or {}
     local fishing = field.fishing or {}
@@ -3666,7 +3672,7 @@ return function(mod)
       if gen2 then
         local encounters = data.gen2Encounters or {}
         local active = encounters
-        if Roamers and Roamers.Swarm then
+        if not completion and Roamers and Roamers.Swarm then
           active = Roamers.Swarm.tables(game.save, encounters, id)
         end
         local function addGold(entry, method, weights)
@@ -3682,7 +3688,7 @@ return function(mod)
               { mapId = id, section = displayRuntime.sectionName(id) })
           end
         end
-        local contest = id == mapId and game.save.bugContest
+        local contest = not completion and id == mapId and game.save.bugContest
           and game.save.bugContest.active == true
         if contest then
           addWeighted(encounters.bugContest or (BugContest and BugContest.MONS),
@@ -3699,36 +3705,55 @@ return function(mod)
         if groupId and not displayRuntime.gen2HasFishingShore(id) then
           groupId = nil
         end
-        if groupId and Gen2Encounter and Roamers and Roamers.Swarm then
+        if completion then
+          addGold(encounters.swarmGrass and encounters.swarmGrass[id], "WALK",
+            { 30, 60, 80, 90, 95, 99, 100 })
+          addGold(encounters.swarmWater and encounters.swarmWater[id], "SURF",
+            { 60, 90, 100 })
+          if id == "NATIONAL_PARK_BUG_CONTEST" then
+            addWeighted(encounters.bugContest or (BugContest and BugContest.MONS),
+              "CONTEST", { mapId = id, section = displayRuntime.sectionName(id) })
+          end
+        end
+        if not completion and groupId and Gen2Encounter and Roamers and Roamers.Swarm then
           groupId = Gen2Encounter.fishGroupFor(encounters, groupId,
             Roamers.Swarm.fishing(game.save))
         end
-        local group = groupId and encounters.fishGroups
-          and encounters.fishGroups[groupId]
-        for _, rod in ipairs({ { "old", "OLD" }, { "good", "GOOD" },
-                               { "super", "SUPER" } }) do
-          local source = group and group[rod[1]] or {}
-          local timed = false
-          for _, slot in ipairs(source) do
-            timed = timed or slot.day ~= nil or slot.nite ~= nil
-              or slot.timeGroup ~= nil
+        local groupIds = { groupId }
+        if completion and groupId and Gen2Encounter then
+          for swarm = 1, 2 do
+            local extra = Gen2Encounter.fishGroupFor(encounters, groupId, swarm)
+            if extra ~= groupId then groupIds[#groupIds + 1] = extra end
           end
-          local periods = timed and { "MORN", "DAY", "NITE" } or { false }
-          for _, time in ipairs(periods) do
-            local slots, weights = {}, {}
-            for _, row in ipairs(source) do
-              local slot = row
-              if time then
-                local key = time == "NITE" and "nite" or "day"
-                local timeGroup = encounters.timeFishGroups
-                  and encounters.timeFishGroups[row.timeGroup]
-                slot = row[key] or (timeGroup and timeGroup[key]) or row
-              end
-              slots[#slots + 1], weights[#weights + 1] = slot, row.chance
+        end
+        for _, fishingGroup in ipairs(groupIds) do
+          local group = fishingGroup and encounters.fishGroups
+            and encounters.fishGroups[fishingGroup]
+          for _, rod in ipairs({ { "old", "OLD" }, { "good", "GOOD" },
+                                 { "super", "SUPER" } }) do
+            local source = group and group[rod[1]] or {}
+            local timed = false
+            for _, slot in ipairs(source) do
+              timed = timed or slot.day ~= nil or slot.nite ~= nil
+                or slot.timeGroup ~= nil
             end
-            addEncounters(rows, bySpecies, slots, rod[2], weights,
-              { time = time or nil, mapId = id,
-                section = displayRuntime.sectionName(id) })
+            local periods = timed and { "MORN", "DAY", "NITE" } or { false }
+            for _, time in ipairs(periods) do
+              local slots, weights = {}, {}
+              for _, row in ipairs(source) do
+                local slot = row
+                if time then
+                  local key = time == "NITE" and "nite" or "day"
+                  local timeGroup = encounters.timeFishGroups
+                    and encounters.timeFishGroups[row.timeGroup]
+                  slot = row[key] or (timeGroup and timeGroup[key]) or row
+                end
+                slots[#slots + 1], weights[#weights + 1] = slot, row.chance
+              end
+              addEncounters(rows, bySpecies, slots, rod[2], weights,
+                { time = time or nil, mapId = id,
+                  section = displayRuntime.sectionName(id) })
+            end
           end
         end
         local treeSet = encounters.treeSets
@@ -3745,7 +3770,7 @@ return function(mod)
           addWeighted(rockSet.common, "ROCK SMASH",
             { mapId = id, section = displayRuntime.sectionName(id) })
         end
-        for _, roamer in ipairs(game.save.roamers or {}) do
+        for _, roamer in ipairs(not completion and game.save.roamers or {}) do
           if roamer.species and roamer.map == id then
             addEncounters(rows, bySpecies, {
               { species = roamer.species, level = roamer.level or 40 },
@@ -3894,6 +3919,8 @@ return function(mod)
               id = key, mapId = id, index = obj.index,
               x = obj.x, y = obj.y,
               spriteId = obj.sprite,
+              optional = scripted and scripted.optional or id == "OAKS_LAB"
+                and obj.index == 1 and obj.trainerClass == "OPP_RIVAL1",
             }
           end
         elseif obj.item and obj.item ~= "0" and obj.item ~= 0 then
@@ -3937,13 +3964,33 @@ return function(mod)
       for _, taken in pairs(game.save[field] or {}) do if taken then pickups = pickups + 1 end end
     end
     if pickups ~= state.pickups then state.pickups, state.stale = pickups, true end
+    local caught, caughtCount = compat.caughtDex(game.save), 0
+    for _, owned in pairs(caught) do if owned then caughtCount = caughtCount + 1 end end
+    if caughtCount ~= state.caughtCount then state.caughtCount, state.stale = caughtCount, true end
     if not state.data or state.stale then
       local gen2 = compat.isGen2()
       local visited = mod.save:get("achievement_visits", {})
       if type(visited) ~= "table" then visited = {} end
       state.groups = state.groups or Progress.groups(gen2 and game.data.gen2Maps
         or game.data.maps, locationEntries())
-      state.data = Progress.build(state.groups, function(maps) return areaData(maps, true) end, {
+      state.species = state.species or {}
+      state.data = Progress.build(state.groups, function(maps)
+        local result = areaData(maps, true)
+        local species = state.species[maps[1]]
+        if not species then
+          species = guideData(maps, true).rows
+          state.species[maps[1]] = species
+        end
+        result.pokemon = {}
+        for _, row in ipairs(species) do
+          result.pokemon[#result.pokemon + 1] = { species = row.species,
+            label = (game.data.pokemon[row.species] or {}).name or row.name,
+            order = row.order, done = caught[row.species] == true,
+            mapId = row.appearances[1] and row.appearances[1].mapId,
+          }
+        end
+        return result
+      end, {
         gen2 = gen2, save = game.save, mapId = mapId,
         visited = visited,
         flag = function(id) return mod.world and mod.world.getFlag
@@ -3969,7 +4016,7 @@ return function(mod)
     end
     local entries = state.view == "finds" and area
       and Progress.visibleRows(area, state.category, mode) or areas
-    local size = state.view == "finds" and 4 or 6
+    local size = state.view == "finds" and (state.category == 4 and 3 or 4) or 6
     local pages = math.max(1, math.ceil(#entries / size))
     state.page = math.max(1, math.min(state.page or 1, pages))
     local shown = {}
@@ -3978,6 +4025,7 @@ return function(mod)
     end
     return { view = state.view, page = state.page, pages = pages, area = area,
       goal = goals[1], earned = earned, entries = shown, mode = mode,
+      category = state.category, canExplore = area and area.current and assist("guide"),
       location = state.location,
       section = state.location and displayRuntime.sectionName(state.location.mapId) or "",
       drawLocation = state.location and state.locationImage
@@ -4009,6 +4057,15 @@ return function(mod)
       state.parent, state.parentPage = state.view, state.page
       state.selected, state.view, state.page = value, "detail", 1
     elseif action == "category" then state.category, state.view, state.page = value, "finds", 1
+    elseif action == "explore" then
+      local model = displayRuntime.achievementModel()
+      if model.area and model.area.current and assist("guide") then
+        displayRuntime.openHomeApp("explorer")
+        local explorer = displayRuntime.explorer
+        explorer.view, explorer.page, explorer.selected = "wild", 1, nil
+        explorer.filters.wildScope = "ROUTE"
+        explorer.data = nil
+      end
     elseif action == "page" then displayRuntime.cycleAchievements(value)
     elseif action == "locate" and displayRuntime.achievementModel().mode == "spoiler" then
       state.location, state.view = value, "location"

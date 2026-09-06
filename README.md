@@ -39,7 +39,7 @@ from apps, shortcuts and widgets.
   bottom-screen apps with contextual touch flows.
 - **Silph Store** explains and manages optional apps and widgets. Everything
   already ships inside Kanto Gear; the Store never downloads executable code.
-- **Achievements** collects exploration stamps and helps track area progress.
+- **Achievements** tracks trainers, items, hidden finds, and local wild Pokémon. Bronze marks a visited area; silver completes its trainer and item goals; gold also completes its local species list. Pokémon already registered as caught count wherever they were obtained. Gym trainers follow the game's completion flags, including trainers automatically cleared by a Gym Leader victory. One-shot battles that allow a loss are optional; missed regular goals and unverified progress remain explicit.
   Install it from Silph Store; it respects your research mode.
 - **Notes** keeps personal notes and checklists for your playthrough, either
   general or attached to a route or area. Install it from the HGSS Silph Store.

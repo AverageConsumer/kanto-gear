@@ -10,12 +10,17 @@ return function(H, G, translate, format)
       rect(x - half, y + dy, half * 2 + 1, 1, tint)
     end
   end
-  function H:achievementSeal(cx, cy, r, kind, complete)
+  function H:achievementSeal(cx, cy, r, kind, tier)
+    tier = tier == true and "gold" or tier or "none"
+    local complete = tier ~= "none" and tier ~= false
+    local metal, shine = gold, goldLight
+    if tier == "bronze" then metal, shine = { .66, .36, .19, 1 }, { .92, .66, .42, 1 }
+    elseif tier == "silver" then metal, shine = { .49, .61, .65, 1 }, { .83, .91, .93, 1 } end
     local c, quiet = self.colors, self.dark and self.colors.silver or self.colors.silverDark
     disc(cx + 1, cy + 2, r, c.shadow)
     disc(cx, cy, r, complete and ink or quiet)
-    disc(cx, cy, r - 1, complete and gold or c.band)
-    disc(cx, cy, r - 3, complete and goldLight or c.surface)
+    disc(cx, cy, r - 1, complete and metal or c.band)
+    disc(cx, cy, r - 3, complete and shine or c.surface)
     disc(cx, cy, r - 4, complete and ink or c.band)
     disc(cx, cy, r - 5, complete and paper or c.surface)
     G.push(); G.translate(cx, cy); G.scale(r / 24, r / 24)
@@ -41,8 +46,8 @@ return function(H, G, translate, format)
     G.pop()
     if complete and r >= 20 then
       rect(cx - 26, cy + 11, 53, 12, ink)
-      rect(cx - 25, cy + 12, 51, 1, goldLight)
-      self:partyType(self:fitPartyType(translate("EXPLORED"), 49),
+      rect(cx - 25, cy + 12, 51, 1, shine)
+      self:partyType(self:fitPartyType(translate(tier:upper()), 49),
         cx - 25, cy + 12, paper, 51)
     end
   end
@@ -59,7 +64,7 @@ return function(H, G, translate, format)
   function H:achievements(model)
     local c = self.colors
     local accent, quiet = self.dark and c.greenLight or c.green,
-      self.dark and c.silver or c.silverDark
+      c.mutedInk
     self.achievementHits = {}
     local function hit(x, y, w, h, action, value)
       self.achievementHits[#self.achievementHits + 1] = {
@@ -112,7 +117,7 @@ return function(H, G, translate, format)
     if view == "goals" then
       local goal = model.goal
       card(6, 61, 228, 91, goal and "area" or "view", goal and goal.id or "album", function()
-        self:achievementSeal(49, 102, 27, goal and goal.kind or "route", false)
+        self:achievementSeal(49, 102, 27, goal and goal.kind or "route", goal and goal.tier)
         label(translate(goal and "ALMOST THERE" or "YOUR JOURNEY"), 92, 67, 133, 11, accent, true)
         name(goal and goal.name or translate("COLLECT AREA STAMPS"), 92, 81, 133, 23)
         label(goal and (model.mode == "spoiler" and format("%d LEFT", goal.remaining)
@@ -130,7 +135,7 @@ return function(H, G, translate, format)
         local earned, x = (model.earned or {})[i], i == 1 and 6 or 123
         card(x, 177, 111, 33, earned and "area" or "view", earned and earned.id or "album", function()
           if earned then
-            self:achievementSeal(x + 18, 192, 12, earned.kind, true)
+            self:achievementSeal(x + 18, 192, 12, earned.kind, earned.tier or "gold")
             name(earned.name, x + 35, 181, 70, 23)
           else label(translate("NEXT STAMP"), x + 5, 181, 101, 25, quiet, true) end
         end)
@@ -142,7 +147,7 @@ return function(H, G, translate, format)
         local x, y = 8 + (i - 1) % 3 * 76, 78 + math.floor((i - 1) / 3) * 65
         hit(x, y, 72, 63, "area", entry.id)
         local pressed = self:beginPress(x, y, 72, 63, true)
-        self:achievementSeal(x + 35, y + 21, 21, entry.kind, entry.complete)
+        self:achievementSeal(x + 35, y + 21, 21, entry.kind, entry.tier or entry.complete)
         name(entry.name, x + 1, y + 46, 70, 19, entry.complete and c.ink or quiet)
         self:endPress(pressed)
       end
@@ -151,31 +156,41 @@ return function(H, G, translate, format)
       end
     elseif view == "detail" and area then
       self:panel(6, 34, 228, 55, false)
-      self:achievementSeal(37, 61, 22, area.kind, area.complete)
-      name(translate(area.complete and "EXPLORED" or "KEEP EXPLORING"), 70, 40, 150, 20, accent)
-      label(model.mode == "spoiler" and format("%d LEFT", area.remaining)
+      self:achievementSeal(37, 61, 22, area.kind, area.tier or area.complete)
+      local nextGoal = area.tier == "gold" and "AREA COMPLETE"
+        or area.tier == "silver" and "COMPLETE LOCAL POKEDEX"
+        or area.tier == "bronze" and "FINISH AREA TASKS" or "KEEP EXPLORING"
+      name(translate(nextGoal), 70, 40, 150, 20, accent)
+      label(model.mode == "spoiler" and (area.remaining == 0 and (area.untracked or 0) > 0
+          and translate("NOT TRACKED") or format("%d LEFT", area.remaining))
         or translate("YOUR JOURNEY"), 70, 65, 150, 12, quiet, true)
-      local titles = { "TRAINERS", "ITEMS", "HIDDEN FINDS" }
-      for category = 1, 3 do
-        local section, top = area.sections[category], 98 + (category - 1) * 39
-        card(6, top, 228, category == 3 and 34 or 31, "category", category, function()
-          if category == 1 then self:homeTrainerIcon(13, top + 2)
-          elseif category == 2 then self:battleTeamBall(26, top + 15, true)
+      local titles = { "TRAINERS", "ITEMS", "HIDDEN FINDS", "POKEMON" }
+      for category = 1, 4 do
+        local section, top = area.sections[category], 94 + (category - 1) * 30
+        card(6, top, 228, 27, "category", category, function()
+          if category == 1 then self:homeTrainerIcon(13, top - 1)
+          elseif category == 2 then
+            rect(18, top + 6, 17, 16, ink); rect(19, top + 7, 15, 14, paper)
+            rect(24, top + 9, 5, 10, c.green); rect(21, top + 12, 11, 4, c.green)
+          elseif category == 4 then
+            G.push(); G.translate(26, top + 13); G.scale(2, 2)
+            self:battleTeamBall(0, 0, true); G.pop()
           else
-            for i = 0, 5 do rect(29 + i, top + 18 + i, 4, 4, ink) end
-            disc(25, top + 13, 9, ink); disc(25, top + 13, 7, c.blueLight)
-            disc(25, top + 13, 5, paper)
+            for i = 0, 4 do rect(29 + i, top + 16 + i, 3, 3, ink) end
+            disc(25, top + 11, 8, ink); disc(25, top + 11, 6, c.blueLight)
+            disc(25, top + 11, 4, paper)
           end
-          label(translate(titles[category]), 49, top + 3, 155, 12, c.ink, false, "left")
+          label(translate(titles[category]), 49, top + 1, 155, 12, c.ink, false, "left")
           local counts = model.mode == "vanilla" or category == 3 and model.mode ~= "spoiler"
           counts = counts and format("%d RECORDED", section.done)
             or tostring(section.done) .. " / " .. tostring(section.total)
           if model.mode == "spoiler" then
-            if (section.optional or 0) > 0 then counts = counts .. "  +" .. format("%d OPTIONAL", section.optional)
-            elseif (section.unavailable or 0) > 0 then counts = counts .. "  +" .. format("%d ARCHIVED", section.unavailable) end
+            if (section.untracked or 0) > 0 then counts = counts .. "  +" .. format("%d UNTRACKED", section.untracked)
+            elseif (section.optional or 0) > 0 then counts = counts .. "  +" .. format("%d OPTIONAL", section.optional)
+            elseif (section.unavailable or 0) > 0 then counts = counts .. "  " .. tostring(section.unavailable) .. " " .. translate("MISSED") end
           end
-          label(counts, 49, top + 17, 153, 10, accent, false, "left")
-          self:detailChevron(214, top + 11, accent, true)
+          label(counts, 49, top + 14, 153, 10, accent, false, "left")
+          self:detailChevron(214, top + 9, accent, true)
         end)
       end
     elseif view == "finds" then
@@ -186,10 +201,18 @@ return function(H, G, translate, format)
           and row.state ~= "unavailable" and row.state ~= "later"
         card(6, top, 228, 32, canLocate and "locate" or nil, row, function()
           name(row.label, 13, top + 2, 171, 19)
-          label(translate(({ done = "RECORDED", open = "NOT YET", later = "LATER",
-            optional = "OPTIONAL", unavailable = "NO LONGER AVAILABLE" })[row.state]),
+          label(translate(row.species and (row.done and "CAUGHT" or "NOT CAUGHT")
+            or ({ done = "RECORDED", open = "NOT YET", later = "LATER",
+            optional = "OPTIONAL", unavailable = "NO LONGER AVAILABLE",
+            untracked = "NOT TRACKED", excluded = "ALTERNATIVE CHOICE" })[row.state]),
             13, top + 20, 195, 9, row.state == "done" and accent or quiet, true)
           if canLocate then self:detailChevron(214, top + 12, accent, true) end
+        end)
+      end
+      if model.category == 4 and #(model.entries or {}) > 0 then
+        card(6, 190, 228, 20, model.canExplore and "explore" or nil, nil, function()
+          label(translate(model.canExplore and "OPEN EXPLORER" or "VISIT AREA TO EXPLORE"),
+            12, 193, 216, 13, model.canExplore and accent or quiet, true)
         end)
       end
       if #(model.entries or {}) == 0 then

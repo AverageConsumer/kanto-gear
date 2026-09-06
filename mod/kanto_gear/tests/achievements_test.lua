@@ -62,6 +62,21 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   end
   local display = assert(upvalue(input, "displayRuntime"))
   local mod = assert(upvalue(display.achievementData, "mod"))
+  if gen2 then
+    local Area = assert(upvalue(upvalue(display.achievementData, "areaData"), "Area"))
+    local gym = Area.gen2ScriptTrainer(data, { scriptKey = {
+      { op = "loadtrainer", class = "FALKNER", member = 1 },
+      { op = "startbattle" }, { op = "setevent", event = 900 },
+      { op = "setevent", event = 901 },
+    } })
+    T.eq(gym.event, 900, version .. " leader uses the first post-battle completion flag")
+    T.eq(gym.optional, false, version .. " scripted gym battle is required")
+    local rival = Area.gen2ScriptTrainer(data, { scriptKey = {
+      { op = "loadtrainer", class = "RIVAL1", member = 1 },
+      { op = "loadvar", args = { 3, 1 } }, { op = "startbattle" },
+    } })
+    T.eq(rival.optional, true, version .. " CANLOSE battle is an optional bonus")
+  end
   mod.world = mod.world or {}
   mod.world.getFlag = function(_, id) return flags[id] == true end
   local theme = assert(upvalue(display.drawContents, "THEME"))
@@ -80,6 +95,7 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.eq(area.sections[2].done, 1, version .. " reads pickup completion")
   T.eq(area.sections[3].done, 0, version .. " does not invent hidden progress")
   T.eq(area.remaining, 1, version .. " exactly one remaining find")
+  T.eq(area.tier, "bronze", version .. " visited area earns bronze")
   T.eq(area.sections[2].rows[1].label, "POTION " .. version:upper(), version .. " retains game item names")
   T.eq(display.achievementData(), result, version .. " idle redraw reuses progress snapshot")
   for i = 1, 20 do run.loader.events:emit("world.stepped", { mapId = "ROUTE_2" }) end
@@ -92,7 +108,7 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   display.tapAchievements(120, 100)
   display.drawAchievements()
   T.eq(display.achievements.view, "detail", version .. " area detail opens")
-  display.tapAchievements(120, 190)
+  display.tapAchievements(120, 166)
   display.drawAchievements()
   T.eq(display.achievements.view, "finds", version .. " hidden list opens")
   T.eq(display.achievementModel().entries[1].x, 6, version .. " exact hidden cell retained")
@@ -122,6 +138,34 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   if gen2 then flags[302] = true; run.loader.events:emit("flag.changed", { name = 302, value = true })
   else game.save.hiddenTaken.ROUTE_2_6_7 = true end
   T.eq(display.achievementData().byId.ROUTE_2.complete, true, version .. " awards stamp from real completion")
+  T.eq(display.achievementData().byId.ROUTE_2.tier, "gold", version .. " completed area without wild species earns gold")
+  -- A species counts once across methods and times, and can be caught elsewhere.
+  local slot = { species = "FIXMON_A", level = 3 }
+  data.encounters = { ROUTE_2 = { grass = { slots = { slot, slot } } } }
+  data.gen2Encounters = { grass = { ROUTE_2 = { slots = {
+    MORN = { slot }, DAY = { slot }, NITE = { slot },
+  } } } }
+  display.achievements.species, display.achievements.stale = nil, true
+  area = display.achievementData().byId.ROUTE_2
+  T.eq(area.sections[4].total, 1, version .. " duplicate encounter slots produce one species goal")
+  T.eq(area.tier, "silver", version .. " missing local species leaves silver")
+  display.achievements.view, display.achievements.selected = "detail", "ROUTE_2"
+  display.drawAchievements()
+  display.tapAchievements(120, 195)
+  display.drawAchievements()
+  T.eq(display.achievements.category, 4, version .. " fourth category opens Pokemon progress")
+  T.eq(display.achievementModel().entries[1].state, "open", version .. " uncaught Pokemon is an open goal")
+  display.tapAchievements(120, 200)
+  T.eq(display.home.activeApp, "explorer", version .. " Pokemon progress opens Explorer without game navigation")
+  T.eq(display.explorer.filters.wildScope, "ROUTE", version .. " Explorer shows the whole area")
+  game.save.pokedex.caught.FIXMON_A = true
+  run.loader.events:emit("pokemon.caught", { species = "FIXMON_A" })
+  area = display.achievementData().byId.ROUTE_2
+  T.eq(area.tier, "gold", version .. " registered species promotes silver to gold")
+  T.eq(area.sections[4].done, 1, version .. " uses the global caught Dex")
+  game.save.pokedex.caught.FIXMON_A = nil
+  T.eq(display.achievementData().byId.ROUTE_2.tier, "silver", version .. " caught Dex change invalidates progress without a battle")
+  display.openHomeApp("achievements")
   display.achievements.view, display.achievements.selected = "album", nil
   display.drawAchievements()
   T.eq(display.achievementModel().pages, 2, version .. " all nine areas are paginated")
@@ -136,6 +180,30 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   flags[302], game.save.hiddenTaken.ROUTE_2_6_7 = false, nil
   run.loader.events:emit("save.loaded", {})
   T.eq(display.achievementData().byId.ROUTE_2.complete, false, version .. " older save removes future stamp")
+  if gen2 then
+    maps.ROUTE_3.objects[#maps.ROUTE_3.objects + 1] = {
+      index = 3, x = 1, y = 1, scriptKey = {
+        { op = "loadtrainer", class = 3, member = 1 },
+        { op = "startbattle" }, { op = "setevent", event = 900 },
+        { op = "setevent", event = 103 },
+      },
+    }
+    flags[103], flags[900] = true, true
+  else
+    maps.ROUTE_3.label = "Gym"
+    maps.ROUTE_3.objects[#maps.ROUTE_3.objects + 1] = {
+      index = 3, x = 1, y = 1, trainerClass = "OPP_BROCK",
+    }
+    data.trainerHeader = function(_, label, index)
+      if label == "Gym" then return { event = index == 1 and "GYM_TRAINER" or "GYM_LEADER" } end
+    end
+    game.save.flags.GYM_TRAINER, game.save.flags.GYM_LEADER = true, true
+  end
+  run.loader.events:emit("flag.changed", {})
+  local gymSection = display.achievementData().byId.ROUTE_3.sections[1]
+  T.eq(gymSection.total, 2, version .. " gym leader and trainer both count towards the stamp")
+  T.eq(gymSection.done, 2, version .. " automatic gym flags count as defeated without a battle history")
+  T.eq(gymSection.optional, 0, version .. " gym completion is never an optional bonus")
   T.check(display.setPackageInstalled("achievements", false), version .. " Store removal works")
   T.eq(#run.errors, 0, version .. " runtime stays error-free")
   run.release()
@@ -146,15 +214,31 @@ local context = { save = { flags = { EVENT_SS_ANNE_LEFT = true,
   EVENT_GOT_HELIX_FOSSIL = true } }, flag = function(id) return id == 99 end }
 T.eq(Progress.rowState({ mapId = "SS_ANNE_1F" }, 2, context), "unavailable", "departed ship items are not impossible goals")
 T.eq(Progress.rowState({ mapId = "SS_ANNE_1F" }, 3, context), "unavailable", "departed ship hidden finds are not goals")
-T.eq(Progress.rowState({ mapId = "MT_MOON_B2F", itemId = "DOME_FOSSIL" }, 2, context), "unavailable", "unchosen fossil is not falsely marked found")
+T.eq(Progress.rowState({ mapId = "MT_MOON_B2F", itemId = "DOME_FOSSIL" }, 2, context), "excluded", "mutually exclusive fossil does not block completion")
 T.eq(Progress.rowState({ mapId = "MT_MOON_B2F", itemId = "HELIX_FOSSIL" }, 2, context), "done", "chosen fossil accepts its canonical event flag")
 T.eq(Progress.rowState({ missed = true, done = true }, 1, context), "unavailable", "missed rival is not falsely marked beaten")
 T.eq(Progress.rowState({ status = "LOST", done = true }, 1, context), "unavailable", "lost one-shot rival is not marked beaten")
 T.eq(Progress.rowState({ status = "LATER" }, 1, context), "later", "future story encounters remain pending")
 context.gen2 = true
-T.eq(Progress.rowState({ event = 2 }, 1, context), "optional", "temporary battle flags cannot be required")
-T.eq(Progress.rowState({ event = 2, done = true }, 1, context), "optional", "set temporary flags cannot award durable progress")
-T.eq(Progress.rowState({ event = 55, hideEvent = 99 }, 1, context), "optional", "hidden story trainer never becomes an impossible requirement")
-T.eq(Progress.rowState({ event = 55, scripted = true }, 1, context), "optional", "unknown script conditions stay explicitly optional")
-T.eq(Progress.rowState({ event = 65535 }, 2, context), "optional", "untracked item cannot block a stamp")
+T.eq(Progress.rowState({ event = 2 }, 1, context), "untracked", "temporary flag is not called optional")
+T.eq(Progress.rowState({ event = 2, done = true }, 1, context), "untracked", "temporary flag cannot prove a win")
+T.eq(Progress.rowState({ event = 55, hideEvent = 99 }, 1, context), "unavailable", "disappeared regular trainer stays missed")
+T.eq(Progress.rowState({ event = 55, scripted = true }, 1, context), "open", "scripted gym leader counts normally")
+T.eq(Progress.rowState({ event = 55, done = true, scripted = true }, 1, context), "done", "gym leader's durable flag is authoritative")
+T.eq(Progress.rowState({ event = 55, done = true, hideEvent = 99 }, 1, context), "done", "automatic gym trainer completion remains valid")
+T.eq(Progress.rowState({ event = 65535 }, 2, context), "untracked", "unknown item state stays explicit")
+T.eq(Progress.rowState({ optional = true, status = "LOST" }, 1, context), "optional", "one-shot loss cannot block a stamp")
+local function progressFor(row)
+  return Progress.build({ { id = "TEST", name = "TEST", maps = { "TEST" } } }, function()
+    return { sections = { { rows = { row } }, { rows = {} }, { rows = {} } },
+      pokemon = { { species = "A", done = true, order = 1 } } }
+  end, { gen2 = true, mapId = "TEST", save = {}, flag = function() return false end })
+end
+local missed = progressFor({ event = 55, missed = true })
+T.eq(missed.byId.TEST.tier, "bronze", "missed required trainer cannot silently award gold")
+T.eq(#missed.goals, 0, "permanently missed goals do not send the player back")
+T.eq(progressFor({ event = 55, optional = true, status = "LOST" }).byId.TEST.tier,
+  "gold", "optional one-shot losses do not block gold")
+T.eq(progressFor({ event = 2, done = true }).byId.TEST.tier,
+  "bronze", "unreliable completion cannot falsely award gold")
 T.finish("Kanto Gear achievements RBY/GSC")

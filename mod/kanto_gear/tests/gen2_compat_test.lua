@@ -258,6 +258,12 @@ do
   T.check(method(fish.FIXMON_B, "OLD") ~= nil
       and method(fish.FIXMON_A, "OLD") == nil,
     "Guide uses the active fishing swarm group")
+  local fixed = {}
+  for _, row in ipairs(guideData({ "FIX_ROUTE" }, true).rows) do fixed[row.species] = row end
+  T.check(method(fixed.FIXMON_A, "WALK") and method(fixed.FIXMON_B, "WALK"),
+    "stamp goals include normal and swarm grass without replacing either")
+  T.check(method(fixed.FIXMON_A, "OLD") and method(fixed.FIXMON_B, "OLD"),
+    "stamp goals include normal and swarm fishing")
 
   game.save.dailyFlags, game.save.swarmMap = nil, nil
   run.data.gen2Maps.FIX_ROUTE.fishGroup = "FISHGROUP_POND"
@@ -293,6 +299,11 @@ do
     "Guide includes Rock Smash encounters")
   T.eq(method(fish.REMOTE, "ROAMING").min, 10,
     "Guide reports an active roamer on its current map")
+  local roamingGoal = false
+  for _, row in ipairs(guideData({ "FIX_ROUTE" }, true).rows) do
+    if row.species == "REMOTE" then roamingGoal = true end
+  end
+  T.eq(roamingGoal, false, "wandering Pokemon do not change permanent route goals")
 
   encounters.bugContest = {
     { chance = 60, species = "FIXMON_A", min = 7, max = 18 },
