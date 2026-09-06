@@ -654,6 +654,16 @@ T.check(display.cycleSettingsPage(1) and display.settings.page == 1,
   "Settings category paging wraps consistently")
 display.settings.category, display.settings.page = 1, 1
 settings = display.settingsModel()
+local mapMotionRow
+for _, row in ipairs(settings.rows) do
+  if row.key == "map_motion" then mapMotionRow = row end
+end
+T.check(mapMotionRow ~= nil, "Appearance exposes the shared map movement preference")
+T.eq(mapMotionRow.source.default, "quality", "existing smooth movement remains the default")
+T.check(display.cycleSetting(mapMotionRow, 1), "map movement mode can be changed through Settings")
+T.eq(run.loader.modOptions.kanto_gear.map_motion, "performance", "Settings saves the performance mode")
+display.cycleSetting(mapMotionRow, 1)
+T.eq(run.loader.modOptions.kanto_gear.map_motion, "quality", "Settings can restore quality mode")
 local originalLanguage = run.loader.modOptions.kanto_gear.language or "en"
 display.tapSettings(220, 62)
 T.check(run.loader.modOptions.kanto_gear.language ~= originalLanguage,

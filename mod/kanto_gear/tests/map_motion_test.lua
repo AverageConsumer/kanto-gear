@@ -104,6 +104,71 @@ world.map.id = "FIX_ROUTE"
 model.mapFull, model.mapZoom = true, 3
 T.check(theme.hgss:explorerMotionKey(model, display.localMapPosition()) ~= state.key,
   "motion sampling follows fullscreen zoom geometry")
+local homeModel = { page = 1, overview = overview,
+  tiles = { { widget = "explorer", column = 1, row = 1, columns = 7 } } }
+display.home.page, state.homeModel = 1, homeModel
+value(display.updateMapRefresh, "page", "HOME", true)
+for _, mode in ipairs({ "quality", "performance" }) do
+  run.loader.modOptions.kanto_gear = run.loader.modOptions.kanto_gear or {}
+  run.loader.modOptions.kanto_gear.map_motion = mode
+  display.optionsChanged({ mod = "kanto_gear", key = "map_motion", value = mode })
+  state.nextAt, state.key = 0, nil
+  local count = 0
+  for frame = 0, 599 do
+    world.player.px = 32 + frame
+    if display.updateMapRefresh(frame / 60) then
+      count = count + 1
+      state.key = theme.hgss:homeMotionKey(homeModel, display.localMapPosition())
+    end
+  end
+  T.eq(count, mode == "quality" and 300 or 50,
+    mode .. " mode applies the selected update budget to Home widgets")
+end
+world.player.px = 700
+display.home.editing = true
+T.eq(display.updateMapRefresh(11), false, "Home editing suspends map animation")
+display.home.editing, display.home.library = false, true
+T.eq(display.updateMapRefresh(12), false, "the widget picker suspends map animation")
+display.home.library, display.home.page = false, 2
+T.eq(display.updateMapRefresh(13), false, "an off-page widget cannot trigger Home redraws")
+display.home.page = 1
+homeModel.tiles = { { widget = "party" } }
+T.eq(display.updateMapRefresh(14), false, "Home without an Explorer widget stays idle")
+value(display.updateMapRefresh, "page", "LOCAL", true)
+state.nextAt, state.key = 0, nil
+local performanceFrames = 0
+for frame = 0, 599 do
+  world.player.px = 32 + frame
+  if display.updateMapRefresh(frame / 60) then
+    performanceFrames = performanceFrames + 1
+    state.key = theme.hgss:explorerMotionKey(model, display.localMapPosition())
+  end
+end
+T.eq(performanceFrames, 50, "Explorer shares the five-Hz performance mode")
+now = 200
+local widgets = display.homeWidgetData({ party = true })
+T.eq(display.homeWidgetData({ party = true }), widgets,
+  "Home movement reuses widget data instead of recalculating the party")
+T.check(display.homeWidgetData({ team = true }) ~= widgets,
+  "changing the visible widget set refreshes its data immediately")
+widgets = display.homeWidgetData({ party = true })
+now = 200.6
+T.check(display.homeWidgetData({ party = true }) ~= widgets,
+  "Home widget data refreshes on the slow snapshot cadence")
+api.world.mapOverview = function() return overview end
+display.home.layout = { tiles = { { id = "explorer_widget", page = 1, column = 1, row = 1 } } }
+display.home.page, display.home.editing, display.home.library = 1, false, false
+world.player.px, world.player.py = 36, 52
+value(display.updateMapRefresh, "page", "HOME", true)
+T.check(pcall(display.drawHome), "the real Home draw path renders the moving widget")
+T.eq(state.homeModel.player.x, 2.25, "Home renders intermediate positions from the shared Explorer model")
+T.eq(state.key, theme.hgss:homeMotionKey(state.homeModel, state.homeModel.player),
+  "Home records the actual widget geometry after drawing")
+world.player.px, state.nextAt = 48, 0
+T.eq(display.updateMapRefresh(201), true, "the real Home widget requests its next movement frame")
+widgets = display.home.widgetCache
+run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
+T.eq(display.home.widgetCache, nil, "step-driven HP and party changes invalidate the widget snapshot")
 T.love.timer.getTime = time
 run.release()
 T.finish("Kanto Gear map motion")

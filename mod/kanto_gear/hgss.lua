@@ -2970,6 +2970,14 @@ return function(ui)
       scale = scale, left = left, top = top, tileSize = density * scale }
   end
 
+  local function mapMotionKey(layout, player)
+    if not layout or not player or player.x == nil or player.y == nil then return nil end
+    return table.concat({ tostring(player.mapId), layout.left, layout.top,
+      math.floor(layout.left + player.x * layout.tileSize + 0.5),
+      math.floor(layout.top + player.y * layout.tileSize + 0.5),
+      player.facing or "down" }, ":")
+  end
+
   function H:explorerMotionKey(model, player)
     local layout = mapLayout(model.overview, 7, model.mapFull and 72 or 53,
       226, model.mapFull and 138
@@ -2978,11 +2986,20 @@ return function(ui)
           and model.selectedMarker.kind == "trainer" and model.selectedMarker or player,
         full = model.mapFull, zoom = model.mapZoom,
       })
-    if not layout or not player or player.x == nil or player.y == nil then return nil end
-    return table.concat({ tostring(player.mapId), layout.left, layout.top,
-      math.floor(layout.left + player.x * layout.tileSize + 0.5),
-      math.floor(layout.top + player.y * layout.tileSize + 0.5),
-      player.facing or "down" }, ":")
+    return mapMotionKey(layout, player)
+  end
+
+  function H:homeMotionKey(model, player)
+    local keys = {}
+    for _, tile in ipairs(model.tiles or {}) do
+      if tile.widget == "explorer" then
+        local x, y, w, h = self:homeRect(tile)
+        local key = mapMotionKey(mapLayout(model.overview,
+          x + 5, y + 22, w - 10, h - 27, { player = player }), player)
+        if key then keys[#keys + 1] = key end
+      end
+    end
+    return #keys > 0 and "HOME:" .. table.concat(keys, "/") or nil
   end
 
   function H:mapOverview(overview, x, y, w, h, opts)

@@ -2067,6 +2067,12 @@ return function(mod)
       type = "toggle", default = true, visible_if = {
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
       } },
+    { key = "map_motion", label = "MAP MOTION", type = "choice",
+      default = "quality", choices = {
+        { "QUALITY", "quality" }, { "PERFORMANCE", "performance" },
+      }, visible_if = {
+        key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
+      } },
     { key = "info_level", label = "INFO", type = "choice",
       default = infoDefault, reset_default = "enhanced", choices = infoChoices },
     { key = "local_map", label = "AREA MAP",
@@ -2468,7 +2474,7 @@ return function(mod)
     { id = "appearance", label = "APPEARANCE",
       detail = "THEME AND TRANSITIONS",
       accent = "blue", keys = {
-        "language", "theme_v3", "clock_source", "clock_format", "ui_motion" } },
+        "language", "theme_v3", "clock_source", "clock_format", "ui_motion", "map_motion" } },
     { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
       accent = "green", keys = { "display_mode", "fullscreen_start",
         "combined_layout", "combined_primary", "secondary_size",
@@ -3121,6 +3127,8 @@ return function(mod)
     if localMapImage and localMapImage.release then localMapImage:release() end
     localMap, localMapImage = nil, nil
     displayRuntime.explorer.renderModel = nil
+    displayRuntime.mapRefresh.homeModel = nil
+    displayRuntime.home.widgetCache = nil
     displayRuntime.explorer.selected, displayRuntime.explorer.page,
       displayRuntime.explorer.data, displayRuntime.explorer.mapFull,
       displayRuntime.explorer.mapZoom = nil, 1, nil, false, 1
@@ -5385,21 +5393,26 @@ return function(mod)
 
   function displayRuntime.updateMapRefresh(now)
     local state = displayRuntime.mapRefresh
-    if page ~= "LOCAL" or THEME.style ~= "hgss"
+    if (page ~= "LOCAL" and page ~= "HOME") or THEME.style ~= "hgss"
         or displayRuntime.overlayHidden then return false end
+    local home = page == "HOME"
+    if home and (displayRuntime.home.editing or displayRuntime.home.library) then return false end
     if now + 0.000001 < state.nextAt or readbackPending then return false end
-    -- Keep the 30 Hz phase instead of drifting to 20 Hz when a host frame
+    local rate = mod.options:get("map_motion") == "performance" and 5 or 30
+    -- Keep the update phase instead of drifting when a host frame
     -- arrives just before the deadline. Missed ticks never cause catch-up work.
     state.nextAt = state.nextAt
-      + (math.floor(math.max(0, now - state.nextAt) * 30) + 1) / 30
+      + (math.floor(math.max(0, now - state.nextAt) * rate) + 1) / rate
     if screenState() ~= "active" or battle or moveInfo or fieldChoice or radarOpen then
       return false
     end
-    local model = displayRuntime.explorer.renderModel
+    local model = home and state.homeModel or displayRuntime.explorer.renderModel
+    if home and (not state.homeModel or model.page ~= displayRuntime.home.page) then return false end
     local pos = displayRuntime.localMapPosition()
-    if not model or not pos or pos.mapId ~= model.overview.mapId then return false end
-    local key = THEME.hgss:explorerMotionKey(model, pos)
-    if key == state.key then return false end
+    if not model or not model.overview or not pos or pos.mapId ~= model.overview.mapId then return false end
+    local key = home and THEME.hgss:homeMotionKey(model, pos)
+      or not home and THEME.hgss:explorerMotionKey(model, pos)
+    if not key or key == state.key then return false end
     dirty = true
     return true
   end
@@ -6520,21 +6533,15 @@ return function(mod)
     return tiles, slots
   end
 
-  function displayRuntime.drawHome()
-    local home = displayRuntime.home
-    local layout = home.layout or { tiles = {} }
-    local pages = displayRuntime.Home.pageCount(layout)
-      + (home.editing and 1 or 0)
-    home.page = math.max(1, math.min(pages, home.page or 1))
-    header(THEME:translate(home.library and "ADD TO HOME"
-      or home.editing and "EDIT HOME" or "SILPH LINK"), home.library == true)
-    local tiles, slots = displayRuntime.homePageElements()
-    local needed = {}
-    for _, tile in ipairs(tiles or {}) do
-      if tile.widget then needed[tile.widget] = true end
-    end
-    local overview = needed.explorer and loadLocalMap() or nil
-    local explorer = overview and displayRuntime.explorerModel(overview) or {}
+  function displayRuntime.homeWidgetData(needed)
+    local home, now = displayRuntime.home, love.timer.getTime()
+    local keys = {}
+    for key in pairs(needed) do keys[#keys + 1] = key end
+    table.sort(keys)
+    local key = table.concat(keys, ":")
+    local cache = home.widgetCache
+    if cache and cache.key == key and cache.save == game.save
+        and now - cache.at < 0.5 then return cache.model end
     local party = (needed.party or needed.team) and partyData() or {}
     local lead = party[1]
     local leadView = lead and displayRuntime.partyView(lead) or nil
@@ -6553,24 +6560,13 @@ return function(mod)
     end
     local trainer = needed.trainer and displayRuntime.trainerSummary() or nil
     local model = {
-      page = home.page, pages = pages,
-      help = displayRuntime.homeHelpActive(),
-      tiles = tiles,
-      editing = home.editing,
-      slots = slots,
-      dragging = home.swapSource,
-      route = explorer.route or "UNKNOWN AREA",
-      overview = overview, image = explorer.image,
-      player = explorer.player, markers = explorer.markers,
       lead = leadView, team = team,
-      steps = compactSteps(steps),
       dexCaught = dex.caught, dexSeen = dexSeen, dexTotal = dex.total,
       dexLatest = dexLatest,
       trainer = trainer,
       bag = needed.bag and displayRuntime.bagSummary() or nil,
       regionMap = needed.map and displayRuntime.homeRegionMap() or nil,
       storePromo = needed.store and displayRuntime.storeWidgetSummary() or nil,
-      drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
       drawPokemon = function(view, x, y, size, fainted)
         local mon = party[view and view.slot or 1]
         if not mon then return end
@@ -6588,6 +6584,35 @@ return function(mod)
           nil, nil, true)
       end,
     }
+    home.widgetCache = { key = key, at = now, save = game.save, model = model }
+    return model
+  end
+
+  function displayRuntime.drawHome()
+    local home = displayRuntime.home
+    local layout = home.layout or { tiles = {} }
+    local pages = displayRuntime.Home.pageCount(layout)
+      + (home.editing and 1 or 0)
+    home.page = math.max(1, math.min(pages, home.page or 1))
+    header(THEME:translate(home.library and "ADD TO HOME"
+      or home.editing and "EDIT HOME" or "SILPH LINK"), home.library == true)
+    local tiles, slots = displayRuntime.homePageElements()
+    local needed = {}
+    for _, tile in ipairs(tiles or {}) do
+      if tile.widget then needed[tile.widget] = true end
+    end
+    local overview = needed.explorer and loadLocalMap() or nil
+    local explorer = overview and displayRuntime.explorerModel(overview) or {}
+    local model = {
+      page = home.page, pages = pages, tiles = tiles, slots = slots,
+      help = displayRuntime.homeHelpActive(), editing = home.editing,
+      dragging = home.swapSource, steps = compactSteps(steps),
+      route = explorer.route or "UNKNOWN AREA",
+      overview = overview, image = explorer.image,
+      player = explorer.player, markers = explorer.markers,
+      drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
+    }
+    for key, entry in pairs(displayRuntime.homeWidgetData(needed)) do model[key] = entry end
     if home.library and home.addSlot then
       model.tiles, model.slots = nil, nil
       model.libraryKind = home.libraryKind
@@ -6602,6 +6627,8 @@ return function(mod)
     THEME.hgss:home(model)
     if home.editing and not home.library then THEME.hgss:homeEditDone() end
     G.pop()
+    displayRuntime.mapRefresh.homeModel = model
+    displayRuntime.mapRefresh.key = THEME.hgss:homeMotionKey(model, model.player)
   end
 
   function displayRuntime.storeEntries(installedOnly)
@@ -11923,6 +11950,7 @@ return function(mod)
   end)
 
   function displayRuntime.reloadSavedUi()
+    displayRuntime.home.widgetCache = nil
     displayRuntime.notes:bind(game, mod.storage)
     displayRuntime.resetAchievements()
     displayRuntime.pokedex.data = nil
@@ -11950,6 +11978,7 @@ return function(mod)
   end)
 
   mod.events:on("pokemon.caught", function()
+    displayRuntime.home.widgetCache = nil
     displayRuntime.pokedex.data = nil
     dirty = true
   end)
@@ -11961,6 +11990,8 @@ return function(mod)
 
   function displayRuntime.optionsChanged(payload)
     if payload and payload.mod == "kanto_gear" then
+      displayRuntime.home.widgetCache = nil
+      if payload.key == "map_motion" then displayRuntime.mapRefresh.nextAt = 0 end
       if payload.key == "ui_haptics" and payload.value == true then
         displayRuntime.haptic()
       end
@@ -12469,6 +12500,7 @@ return function(mod)
   end, 1000)
 
   mod.events:on("world.stepped", function(payload)
+    displayRuntime.home.widgetCache = nil
     steps = steps + 1
     mod.save:set("steps", steps)
     mapId = payload.mapId or mapId
@@ -12550,6 +12582,7 @@ return function(mod)
   end)
 
   mod.events:on("screen.popped", function(payload)
+    displayRuntime.home.widgetCache = nil
     if compat.isBattleScreen(payload and payload.state) then
       battle = nil
       moveInfo = nil

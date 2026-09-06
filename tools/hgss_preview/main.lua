@@ -1871,6 +1871,8 @@ function love.load()
         { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
         { label = "CLOCK FORMAT", value = "SYSTEM" },
         { label = "TRANSITIONS", value = "ON" },
+        { label = "MAP MOTION", value = os.getenv("KANTO_GEAR_PREVIEW_MAP_MODE")
+            == "performance" and "PERFORMANCE" or "QUALITY" },
       } })
   elseif settingsBattle then
     theme:settings({ category = "battle", accent = "red", page = 1, pages = 1, rows = {
@@ -2080,7 +2082,9 @@ function love.load()
       editing = homeEdit,
       route = gen1 and "ROUTE 15" or "ROUTE 37",
       overview = overview,
-      player = { x = 12, y = 6, facing = "down" },
+      player = { x = tonumber(os.getenv("KANTO_GEAR_PREVIEW_MAP_X")) or 12,
+        y = tonumber(os.getenv("KANTO_GEAR_PREVIEW_MAP_Y")) or 6,
+        facing = "down" },
       markers = {
         { kind = "warp", x = 1, y = 6 },
         { kind = "item", x = 18, y = 6 },
