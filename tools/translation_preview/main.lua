@@ -42,7 +42,9 @@ function love.load()
     box = function(mode, x, y, w, h, c) G.setColor(c); G.rectangle(mode, x, y, w, h) end,
   })
   local catalogs = {}
-  for _, name in ipairs({ "species_names", "item_names", "move_names", "landmarks" }) do
+  for _, name in ipairs({ "species_names", "item_names", "move_names", "landmarks",
+      "species_kinds", "trainer_names", "trainer_class_names", "type_names", "status_labels",
+      "crystal_item_names", "crystal_landmarks", "crystal_trainer_class_names" }) do
     local chunk = loadfile(pack .. "/lang/" .. name .. ".lua")
     catalogs[name] = chunk and chunk() or {}
   end
@@ -55,33 +57,93 @@ function love.load()
   local legacy = assert(loadstring('local G, THEME, WIDTH = ...\n' .. helpers
     .. '\nreturn {text=text, centered=centered, fit=fit, clean=clean}'))(G, legacyTheme, 160)
   legacyTheme.translationFonts = fonts
+  legacyTheme.style, legacyTheme.hgss = "hgss", H
   local translatedName = assert(catalogs.species_names.PIKACHU)
   assert(legacy.clean(translatedName) ~= "", "bitmap normalization preserves translated names")
   local fitted = legacy.fit(string.rep(translatedName, 12), 22)
   assert(legacyTheme:textWidth(fitted) <= 132, "bitmap truncation uses translation font width")
   G.setCanvas(canvas)
-  local checked, fallback, maxWidth = 0, 0, 0
-  local originalPrint = G.print
+  local checked, fallback, maxWidth, geometry, descriptions = 0, 0, 0, 0, 0
+  local originalPrint, printLimit = G.print, 58
   G.print = function(value, ...)
     local font = G.getFont()
     assert(font:hasGlyphs(value), "missing glyph in " .. value)
-    assert(font:getWidth(value) <= 58, "name exceeds card width: " .. value)
+    assert(font:getWidth(value) <= printLimit, "text exceeds field width: " .. value)
     maxWidth = math.max(maxWidth, font:getWidth(value))
     return originalPrint(value, ...)
   end
   for _, catalog in pairs(catalogs) do for _, value in pairs(catalog) do
-    if value ~= "" then
+    if type(value) == "string" and value ~= "" then
       value = value:gsub("<PK><MN>", "PKMN")
       local font = fonts:select(base, value)
       assert(font:hasGlyphs(value), "package font does not cover " .. value)
       if font ~= base then fallback = fallback + 1 end
       H:partyName(value, 0, 0, H.colors.ink, 58)
-      local fitted = H:fitPartyInfo(value, 58)
-      assert(H:partyInfoWidth(fitted) <= 58, "fitted detail exceeds width")
+      for _, width in ipairs({ 23, 40, 58, 61, 67, 96, 140, 196, 210 }) do
+        for _, face in ipairs({
+          { font = base, fit = function(v) return H:fitLabel(v, width) end },
+          { font = small, fit = function(v) return H:fitPartyInfo(v, width) end },
+          { font = small, fit = function(v) return H:fitPartyType(v, width) end },
+        }) do
+          local fitted = face.fit(value)
+          local selected = fonts:select(face.font, fitted)
+          assert(selected:hasGlyphs(fitted), "fitting produces an unsupported glyph")
+          assert(selected:getWidth(fitted) <= width, "fitted text exceeds field width: " .. value)
+          geometry = geometry + 1
+        end
+      end
       checked = checked + 1
     end
   end end
+  printLimit = 20
+  local badges = next(catalogs.type_names or {}) and catalogs.type_names or { NORMAL = translatedName }
+  for id, label in pairs(badges) do
+    H:typeBadges({ type = id, type2 = id == "FIRE" and "NORMAL" or "FIRE", typeLabel = label, type2Label = label }, 0, 0, false)
+  end
   G.print = originalPrint
+  local function compact(value) return value:gsub("%s", ""):gsub("　", "") end
+  local longest = ""
+  for _, catalog in ipairs({ "species_dex_text", "species_dex_text2", "species_dex_text_silver",
+      "species_dex_text2_silver", "species_dex_text_crystal", "species_dex_text2_crystal",
+      "dialogue", "dialogue_yellow" }) do
+    local chunk = loadfile(pack .. "/lang/" .. catalog .. ".lua")
+    for key, source in pairs(chunk and chunk() or {}) do
+      if type(source) == "string" and source ~= ""
+          and (not catalog:find("dialogue") or key:find("DexEntry")) then
+        local normalized = legacy.clean(source:gsub("<PK><MN>", "PKMN"):gsub("<[^>]+>", " "):gsub("[\r\n@]+", " "))
+        if #glyphs(normalized) > #glyphs(longest) then longest = normalized end
+        for _, budget in ipairs({ {126,2}, {196,2}, {200,3}, {206,6}, {210,3} }) do
+          local measure = function(v) return H:partyInfoWidth(v) end
+          local lines = legacyTheme:wrapText(normalized, budget[1], nil, measure)
+          assert(compact(table.concat(lines)) == compact(normalized), "description loses text during wrapping")
+          for _, line in ipairs(lines) do
+            assert(measure(line) <= budget[1], "description exceeds field width")
+            assert(select(1, fonts:select(small, line)):hasGlyphs(line), "description has a missing glyph")
+          end
+          local bounded = legacyTheme:wrapText(normalized, budget[1], budget[2], measure)
+          assert(#bounded <= budget[2], "description exceeds its line count")
+          if #lines > budget[2] then assert(bounded[#bounded]:sub(-1) == ".", "overflow is not indicated") end
+          descriptions = descriptions + 1
+        end
+      end
+    end
+  end
+  local Notes = assert(loadfile(root .. "/mod/kanto_gear/notes.lua"))()
+  local notes = Notes.new({ measure = function(v) return H:partyInfoWidth(v) end })
+  for _, value in ipairs({ "Lestat / " .. translatedName, string.rep("W", 20) .. translatedName,
+      translatedName .. string.rep("i", 60), string.rep(translatedName, 15) }) do
+    for _, width in ipairs({ 40, 100, 210 }) do
+      local rows, joined = notes:wrapped(value, width), {}
+      for _, row in ipairs(rows) do
+        assert(H:partyInfoWidth(row.text) <= width, "mixed-script Notes row exceeds width")
+        joined[#joined + 1] = row.text
+        local font = fonts:select(small, row.text)
+        local prefix = table.concat(glyphs(row.text), "", 1, math.floor(#glyphs(row.text) / 2))
+        assert(H:partyInfoWidth(prefix, row.text) == font:getWidth(prefix), "caret measures a different font")
+      end
+      assert(table.concat(joined) == value, "Notes wrapping loses text")
+    end
+  end
   local names = catalogs.species_names
   local party = {}
   for i, id in ipairs({ "GASTLY", "CHARMANDER", "BULBASAUR", "PIDGEY", "ZUBAT", "ABRA" }) do
@@ -93,7 +155,7 @@ function love.load()
     entries[i] = { label = catalogs.item_names[id] or id, count = i, icon = "medicine" }
   end
   local enlarged = G.newCanvas(960, 864, { dpiscale = 1 })
-  for _, dark in ipairs({ false, true }) do for _, screen in ipairs({ "party", "bag", "text", "classic" }) do
+  for _, dark in ipairs({ false, true }) do for _, screen in ipairs({ "party", "bag", "text", "classic", "description" }) do
     H:setVariant(dark)
     G.setCanvas(canvas); G.origin(); G.clear(); G.scale(1.5); H:backdrop(); G.origin()
     H:headerBar(screen == "party" and "PARTY" or screen == "bag" and "BAG" or "TEXT", true, false)
@@ -107,6 +169,11 @@ function love.load()
         H:partyCard(mon, x, y, i == 1, false, function() end)
       end
     elseif screen == "bag" then H:bagOverview({ entries = entries, page = 1, pages = 3 })
+    elseif screen == "description" then
+      local measure = function(v) return H:partyInfoWidth(v) end
+      local mon = { name = translatedName, description = legacyTheme:wrapText(longest, 206, 6, measure),
+        weight = "WEIGHT 100 KG", height = "HEIGHT 1 M", type = "NORMAL", kind = "POKEMON" }
+      H:enemyInfoProfile({ pokemon = mon })
     else
       for i, value in ipairs({ names.PIKACHU or "PIKACHU", catalogs.item_names.POTION or "POTION",
           catalogs.move_names.THUNDERBOLT or "THUNDERBOLT", (names.PIKACHU or "PIKACHU") .. " / Lestat" }) do
@@ -120,7 +187,7 @@ function love.load()
     write(output .. "/" .. (dark and "dark" or "light") .. "-" .. screen .. ".png", pixels:encode("png"):getString())
     pixels:release()
   end end
-  write(output .. "/checks.txt", string.format("%d translated names checked; %d use translation font; max fitted width %d/58 px\nbase height %d; translation height %d\n",
-    checked, fallback, maxWidth, base:getHeight(), select(1, fonts:select(base, names.PIKACHU or "PIKACHU")):getHeight()))
+  write(output .. "/checks.txt", string.format("%d translated labels; %d use translation font; max fitted width %d/58 px\n%d field/font width checks; %d description/field cases; 12 mixed-script Notes cases\n",
+    checked, fallback, maxWidth, geometry, descriptions))
   love.event.quit(0)
 end

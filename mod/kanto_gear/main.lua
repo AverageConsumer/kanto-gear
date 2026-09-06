@@ -1727,30 +1727,49 @@ local function fit(value, chars, ellipsis)
   return ""
 end
 
-function THEME:messageLines(messages, chars, limit)
-  local function wrap(message)
-    local lines, current = {}, ""
-    for word in clean(message):gmatch("%S+") do
-      local joined = current == "" and word or current .. " " .. word
-      if THEME:textWidth(joined) <= chars * 6 then current = joined
-      else
-        if current ~= "" then lines[#lines + 1] = current end
-        current = ""
-        for _, glyph in ipairs(glyphList(word)) do
-          if current ~= "" and THEME:textWidth(current .. glyph) > chars * 6 then
-            lines[#lines + 1], current = current, ""
-          end
-          current = current .. glyph
+-- Width is in render pixels; callers use the same font as their destination.
+function THEME:wrapText(message, width, limit, measure)
+  measure = measure or function(value) return self:textWidth(value) end
+  local lines, current = {}, ""
+  local source = clean(tostring(message or ""):gsub("[\r\n\t]", " "))
+  for word in source:gmatch("%S+") do
+    local joined = current == "" and word or current .. " " .. word
+    if measure(joined) <= width then current = joined
+    else
+      if current ~= "" then lines[#lines + 1] = current end
+      current = ""
+      for _, glyph in ipairs(glyphList(word)) do
+        if current ~= "" and measure(current .. glyph) > width then
+          lines[#lines + 1], current = current, ""
         end
+        current = current .. glyph
       end
     end
-    if current ~= "" then lines[#lines + 1] = current end
-    return lines
   end
+  if current ~= "" then lines[#lines + 1] = current end
+  if limit and #lines > limit then
+    local chars = glyphList(lines[limit])
+    while #chars > 0 and measure(table.concat(chars) .. ".") > width do table.remove(chars) end
+    lines[limit] = table.concat(chars) .. "."
+    for i = #lines, limit + 1, -1 do lines[i] = nil end
+  end
+  return lines
+end
 
+function THEME:descriptionLines(source, chars, limit, hgssWidth)
+  source = tostring(source or ""):gsub("<PK><MN>", "PKMN")
+    :gsub("<[^>]+>", " "):gsub("[\r\n@]+", " ")
+  if self.style == "hgss" and hgssWidth then
+    return self:wrapText(source, hgssWidth, limit,
+      function(value) return self.hgss:partyInfoWidth(value) end)
+  end
+  return self:wrapText(source, chars * 6, limit)
+end
+
+function THEME:messageLines(messages, chars, limit)
   limit = limit or 2
   local count, out = #(messages or {}), {}
-  local latest = wrap(messages and messages[count])
+  local latest = self:wrapText(messages and messages[count], chars * 6)
   if #latest > 1 then
     for index = 1, math.min(#latest, limit) do out[index] = latest[index] end
     if latest[limit + 1] then
@@ -1759,7 +1778,7 @@ function THEME:messageLines(messages, chars, limit)
     return out
   end
   for index = math.max(1, count - limit + 1), count do
-    local lines = wrap(messages[index])
+    local lines = self:wrapText(messages[index], chars * 6)
     out[#out + 1] = fit(lines[#lines] or "", chars)
   end
   return out
@@ -7229,23 +7248,8 @@ return function(mod)
       local source = compat.isGen2()
         and table.concat({ entry.text or "", entry.text2 or "" }, " ")
         or (data.text and data.text[entry.text]) or entry.text or ""
-      source = tostring(source):gsub("<[^>]+>", " ")
-        :gsub("[\r\n@]+", " "):gsub("%s+", " ")
-      local current = ""
-      for word in fit(source, 10000):gmatch("%S+") do
-        local joined = current == "" and word or current .. " " .. word
-        if #glyphList(joined) <= 24 then
-          current = joined
-        elseif current == "" then
-          info.description[#info.description + 1] = fit(word, 24)
-        else
-          info.description[#info.description + 1] = fit(current, 24)
-          current = word
-        end
-      end
-      if current ~= "" then
-        info.description[#info.description + 1] = fit(current, 24)
-      end
+      info.descriptionText = source
+      info.description = THEME:descriptionLines(source, 24, nil, 206)
     end
     local attackers = {}
     for _, row in ipairs((data.type_chart or {}).matchups or {}) do
@@ -7404,6 +7408,9 @@ return function(mod)
     info.kind = info.kind or THEME:translate("UNKNOWN")
     info.height = info.heightValue or "--"
     info.weight = info.weightValue or "--"
+    if info.descriptionText then
+      info.description = THEME:descriptionLines(info.descriptionText, 24, 3, 210)
+    end
     if #info.description == 0 then
       info.description = { THEME:translate("NO RESEARCH DATA AVAILABLE.") }
     end
@@ -7528,24 +7535,7 @@ return function(mod)
   }
 
   function displayRuntime.bagWords(source, limit, maximum)
-    source = tostring(source or ""):gsub("<NEXT>", " ")
-      :gsub("<[^>]+>", " "):gsub("\n", " "):gsub("%s+", " ")
-      :gsub("^%s+", ""):gsub("%s+$", "")
-    local lines, current = {}, ""
-    for word in source:gmatch("%S+") do
-      local joined = current == "" and word or current .. " " .. word
-      if #joined <= limit then
-        current = joined
-      else
-        if current ~= "" then lines[#lines + 1] = fit(current, limit) end
-        current = word
-        if #lines >= maximum then break end
-      end
-    end
-    if #lines < maximum and current ~= "" then
-      lines[#lines + 1] = fit(current, limit)
-    end
-    return lines
+    return THEME:descriptionLines(source, limit, maximum, 200)
   end
 
   function displayRuntime.bagItemKind(id, def)
@@ -7791,25 +7781,7 @@ return function(mod)
   function compat.moveInfoLines(move, def, ruleset)
     if compat.isGen2() and type(def.description) == "string"
         and #def.description > 0 then
-      local source = def.description:gsub("<NEXT>", " "):gsub("\n", " ")
-        :gsub("%s+", " ")
-      local lines, current = {}, ""
-      for word in source:gmatch("%S+") do
-        local joined = current == "" and word or current .. " " .. word
-        if #joined <= 21 then
-          current = joined
-        elseif current == "" then
-          lines[#lines + 1] = fit(word, 21)
-          if #lines == 2 then break end
-        else
-          lines[#lines + 1] = fit(current, 21)
-          current = word
-          if #lines == 2 then break end
-        end
-      end
-      if #lines < 2 and current ~= "" then
-        lines[#lines + 1] = fit(current, 21)
-      end
+      local lines = THEME:descriptionLines(def.description, 21, 2, 196)
       if #lines > 0 then return lines end
     end
     return THEME:moveDescription(move, def, ruleset)
@@ -8824,7 +8796,7 @@ return function(mod)
     outline(4, y, 152, 40, DARK)
     local name = fit(mon.name or mon.species or "-", owned and 10 or 11)
     text(name, 9, y + 5, INK)
-    if owned then drawCaughtBall(11 + #name * 8, y + 5) end
+    if owned then drawCaughtBall(11 + THEME:textWidth(name), y + 5) end
     local status = (mon.hp or 0) <= 0 and "FNT"
       or THEME:statusName(mon.status, mod.content)
     if status then text(fit(status, 3), 100, y + 5, DARK) end
@@ -8935,6 +8907,9 @@ return function(mod)
         G.push()
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
         if battleInfoDetail == "profile" then
+          if info.descriptionText then
+            info.description = THEME:descriptionLines(info.descriptionText, 24, 6, 206)
+          end
           THEME.hgss:enemyInfoProfile(model)
         elseif battleInfoDetail == "dvs" then
           local dvs = info.dvs

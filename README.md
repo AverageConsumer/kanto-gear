@@ -89,6 +89,8 @@ HGSS rendering. Device validation remains a separate step: enable Gear and
 one matching translation package, then check Party, Bag and a long translated
 name in both light and dark themes. Korean Crystal-specific dialogue remains
 English where the generator has no translation corpus.
+See the [repeatable translation checks](tools/translation_preview/README.md)
+for exact coverage, commands and known integration gaps.
 
 ## Display modes
 

@@ -340,7 +340,11 @@ return function(ui)
     printFont(partyInfoFont, value, x, y, width, align)
   end
 
-  function H:partyInfoWidth(value)
+  function H:partyInfoWidth(value, context)
+    if context and ui.translationFonts then
+      local font = ui.translationFonts:select(partyInfoFont, displayText(context))
+      return font:getWidth(displayText(value))
+    end
     return fontWidth(partyInfoFont, displayText(value))
   end
 
@@ -4438,9 +4442,9 @@ return function(ui)
     box("fill", 15, 126, 210, 1, colors.band)
     local lines = mon.description or {}
     if #lines == 0 then lines = { translate("NO DETAILS AVAILABLE") } end
-    local visible = math.min(8, #lines)
+    local visible = math.min(6, #lines)
     local blockHeight = visible * 10 - 1
-    local top = 132 + math.floor((70 - blockHeight) / 2)
+    local top = 130 + math.floor((60 - blockHeight) / 2)
     for index = 1, visible do
       self:partyInfo(self:fitPartyInfo(lines[index], 206),
         17, top + (index - 1) * 10, colors.ink, 206, "center")
@@ -5555,21 +5559,23 @@ return function(ui)
     G.circle("line", x + 17, y + 20, 17)
   end
 
-  local function typeBadgeStyle(theme, typeId, label, fainted)
+  local function typeBadgeStyle(theme, typeId, label, fainted, width)
     local tint = theme:typeColor(typeId)
     local shade = fainted and 0.48 or 1
     local fill = { tint[1] * shade, tint[2] * shade, tint[3] * shade, 1 }
     local chars = glyphs(tostring(label or typeId or "---"))
-    while #chars > 3 do table.remove(chars) end
+    while #chars > 0 and (#chars > 3 or fontWidth(partyTypeFont, table.concat(chars)) > width) do
+      table.remove(chars)
+    end
     local labelColor = fainted and theme.colors.silver or theme.colors.white
     return fill, labelColor, table.concat(chars)
   end
 
   function H:typeBadges(mon, x, y, fainted)
-    local left, leftInk, leftText = typeBadgeStyle(
-      self, mon.type, mon.typeLabel, fainted)
-    local edge = fainted and self.colors.silverDark or self.colors.outline
     local dual = mon.type2 and mon.type2 ~= mon.type
+    local left, leftInk, leftText = typeBadgeStyle(
+      self, mon.type, mon.typeLabel, fainted, dual and 20 or 23)
+    local edge = fainted and self.colors.silverDark or self.colors.outline
     if not dual then
       clipped(x + 10, y, 23, 10, left)
       border(x + 10, y, 23, 10, edge)
@@ -5577,7 +5583,7 @@ return function(ui)
       return
     end
     local right, rightInk, rightText = typeBadgeStyle(
-      self, mon.type2, mon.type2Label, fainted)
+      self, mon.type2, mon.type2Label, fainted, 20)
     clipped(x, y, 43, 10, left)
     box("fill", x + 21, y, 20, 10, right)
     box("fill", x + 21, y + 1, 21, 8, right)

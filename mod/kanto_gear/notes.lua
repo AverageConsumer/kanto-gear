@@ -130,11 +130,10 @@ end
 function Notes:wrapped(value, width)
   local list, rows, first = chars(value), {}, 1
   while first <= #list do
-    local last, size, space = first, 0, nil
+    local last, space = first, nil
     while last <= #list and list[last] ~= "\n" do
-      local w = self.ctx.measure(list[last])
-      if size + w > width and last > first then break end
-      size = size + w
+      local w = self.ctx.measure(table.concat(list, "", first, last))
+      if w > width and last > first then break end
       if list[last] == " " then space = last end
       last = last + 1
     end

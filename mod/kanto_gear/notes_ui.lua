@@ -96,7 +96,7 @@ return function(H, G, translate)
       for i=first,math.min(#rows,first+1) do self:partyInfo(rows[i].text,15,36+(i-first)*12,c.ink) end
       local cursorText={};for char in rows[rowIndex].text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do cursorText[#cursorText+1]=char end
       local before=table.concat(cursorText,"",1,math.max(0,state.cursor-rows[rowIndex].first))
-      G.setColor(c.ink);G.rectangle("fill",math.min(224,15+self:partyInfoWidth(before)),38+(rowIndex-first)*12,1,9)
+      G.setColor(c.ink);G.rectangle("fill",math.min(224,15+self:partyInfoWidth(before,rows[rowIndex].text)),38+(rowIndex-first)*12,1,9)
       button("←",7,keyY-14,25,12,"cursor",-1,false,true)
       button("→",36,keyY-14,25,12,"cursor",1,false,true)
       label(rowIndex.."/"..#rows,67,keyY-14,60,12,c.green)
