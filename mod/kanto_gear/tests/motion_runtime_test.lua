@@ -92,25 +92,27 @@ T.eq(display.navigationState().depth, 4, "stamp locations are deeper than finds 
 page("LOCAL"); key = display.motionKey()
 display.explorer.filters.wildScope = "ROUTE"
 T.eq(display.motionKey(), key, "encounter filters do not become page transitions")
-display.explorer.view, display.explorer.page = "wild", 1
-now = 17.7; draw()
-T.eq(display.motion.top, 28, "opening Explorer still moves the app content")
-for _, scope in ipairs({ "HERE", "ROUTE" }) do
-  display.explorer.filters.wildScope = scope
-  now = now + 1; draw()
-  for _, nextPage in ipairs({ 2, 1 }) do
-    display.explorer.page = nextPage; now = now + 1; clips = {}; draw()
-    T.eq(display.motion.direction, nextPage == 2 and 1 or -1,
-      scope .. " gallery pages move in both directions")
-    local galleryClip = false
-    for _, rect in ipairs(clips) do
-      if rect[2] == 162 and rect[4] == 50 then galleryClip = true end
+for _, galleryView in ipairs({ false, "wild" }) do
+  display.explorer.view, display.explorer.page = galleryView or nil, 1
+  now = 17.7; draw()
+  T.eq(display.motion.top, 28, "opening Explorer still moves the app content")
+  for _, scope in ipairs({ "HERE", "ROUTE" }) do
+    display.explorer.filters.wildScope = scope
+    now = now + 1; draw()
+    for _, nextPage in ipairs({ 2, 1 }) do
+      display.explorer.page = nextPage; now = now + 1; clips = {}; draw()
+      T.eq(display.motion.direction, nextPage == 2 and 1 or -1,
+        scope .. " gallery pages move in both directions")
+      local galleryClip = false
+      for _, rect in ipairs(clips) do
+        if rect[2] == 162 and rect[4] == 50 then galleryClip = true end
+      end
+      T.check(galleryClip, scope .. " pagination leaves map, filters and footer stationary")
+      local galleryPaints, galleryAllocations = paints, allocations
+      for frame = 1, 10 do now = now + 1 / 60; draw() end
+      T.eq(paints, galleryPaints, "gallery movement reuses its destination")
+      T.eq(allocations, galleryAllocations, "gallery movement allocates no canvases")
     end
-    T.check(galleryClip, scope .. " pagination leaves map, filters and footer stationary")
-    local galleryPaints, galleryAllocations = paints, allocations
-    for frame = 1, 10 do now = now + 1 / 60; draw() end
-    T.eq(paints, galleryPaints, "gallery movement reuses its destination")
-    T.eq(allocations, galleryAllocations, "gallery movement allocates no canvases")
   end
 end
 display.explorer.selected = 1; now = now + 1; draw()

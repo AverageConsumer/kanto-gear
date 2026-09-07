@@ -4828,7 +4828,7 @@ return function(mod)
         or displayRuntime.explorer.selected and 2 or 1
       state.index = displayRuntime.explorer.selected
         and displayRuntime.explorer.detailPage or displayRuntime.explorer.page or 1
-      if state.depth == 1 and displayRuntime.explorer.view == "wild" then
+      if state.depth == 1 and (displayRuntime.explorer.view or "wild") == "wild" then
         state.gallery = displayRuntime.explorer.filters.wildScope or "HERE"
       end
     elseif page == "STORE" then
