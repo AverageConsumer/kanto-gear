@@ -745,5 +745,29 @@ T.check(display.Home.find(home.layout, "explorer_widget") ~= nil
     and display.Home.pageCount(home.layout) == 1,
   "the confirmed Home reset restores the complete default layout")
 
+local originalTime = love.timer.getTime
+local habitatNow = 10
+love.timer.getTime = function() return habitatNow end
+game.save.inventory.TM_TEST = 1
+game.data.items.TM_TEST = { teaches = "HEADBUTT" }
+local selected = { habitat = { appearances = {
+  { mapId = "PALLET_TOWN", method = "HEADBUTT", chance = 50 },
+  { mapId = "UNVISITED_BASEMENT", method = "WALK", chance = 90 },
+} } }
+local plan = display.pokedexHabitatPlan(selected)
+T.eq(plan.count, 1, "runtime planning uses available machines without teaching them")
+for _ = 1, 60 do
+  T.eq(display.pokedexHabitatPlan(selected), plan,
+    "rendering reuses the planning result instead of scanning storage each frame")
+end
+game.save.inventory.TM_TEST = nil
+habitatNow = 10.6
+local updated = display.pokedexHabitatPlan(selected)
+T.eq(updated.count, 0, "inventory changes refresh suitability without reopening the app")
+T.check(updated.signature ~= plan.signature, "changed suitability invalidates the visible result")
+local otherSave = { habitat = { appearances = selected.habitat.appearances } }
+T.check(display.pokedexHabitatPlan(otherSave) ~= updated,
+  "a rebuilt dex never reuses a previous save's cached plan")
+love.timer.getTime = originalTime
 run.release()
 T.finish("Kanto Gear Home runtime")

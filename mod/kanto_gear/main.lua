@@ -2337,7 +2337,7 @@ return function(mod)
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, false)
   if displayRuntime.perf.enabled then
-    mod.log:info("KGPROF v=1 kind=build version=3.2.6 units=ms timing=wall nested=true")
+    mod.log:info("KGPROF v=1 kind=build version=3.2.7-test.1 units=ms timing=wall nested=true")
   end
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
@@ -2350,6 +2350,8 @@ return function(mod)
     "@kanto_gear/home_layout.lua"))()
   displayRuntime.Achievements = assert(load(mod:read("achievements.lua"),
     "@kanto_gear/achievements.lua"))()
+  displayRuntime.Habitats = assert(load(mod:read("habitats.lua"),
+    "@kanto_gear/habitats.lua"))()
   assert(load(mod:read("achievements_ui.lua"), "@kanto_gear/achievements_ui.lua"))()(
     THEME.hgss, G, function(value) return THEME:translate(value) end,
     function(value, ...) return THEME:format(value, ...) end)
@@ -7843,6 +7845,26 @@ return function(mod)
     return rows
   end
 
+  function displayRuntime.pokedexHabitatPlan(selected)
+    local state, now = displayRuntime.pokedex, love.timer.getTime()
+    local period = compat.timePeriod(game.world) or "DAY"
+    local cached = state.habitatPlan
+    if cached and cached.source == selected and cached.map == mapId
+        and cached.period == period and now < cached.refreshAt then return cached end
+    local save = game.save or {}
+    local surfBadge = compat.isGen2() and THEME.fieldTools.gen2Badge(save, "FOG")
+      or not compat.isGen2() and (tonumber((save.inventory or {}).SOULBADGE) or 0) > 0
+    local visited = mod.save:get("achievement_visits", {})
+    if type(visited) ~= "table" then visited = {} end
+    local methods = displayRuntime.Habitats.methods(save, game.data.items or {}, surfBadge)
+    local plan = displayRuntime.Habitats.plan(
+      selected.habitat and selected.habitat.appearances or {}, mapId, period, visited, methods)
+    plan.source, plan.map, plan.period, plan.refreshAt = selected, mapId, period, now + 0.5
+    state.habitatPlan = plan
+    if not cached or cached.signature ~= plan.signature then dirty = true end
+    return plan
+  end
+
   function displayRuntime.pokedexModel()
     local state, dex = displayRuntime.pokedex, displayRuntime.pokedexData()
     local pages = math.max(1, math.ceil(dex.total / 9))
@@ -7939,21 +7961,21 @@ return function(mod)
       end
       return common
     end
-    local habitatPages = math.max(1, math.ceil(#habitat / 3))
+    local plan = displayRuntime.pokedexHabitatPlan(selected)
+    local habitatPages = math.max(1, math.ceil(#plan.rows / 3))
     state.habitatPage = math.max(1,
       math.min(state.habitatPage or 1, habitatPages))
     common.view, common.page, common.pages = "habitat",
       state.habitatPage, habitatPages
     common.summary = areaCount > 0
       and THEME:format("%d AREAS", areaCount) or THEME:translate("NO WILD AREA")
-    common.status, common.current = "NOT HERE", false
+    common.matchText = plan.count > 0 and THEME:format("%d MATCHING AREAS", plan.count)
+      or THEME:translate("NO MATCHING AREA KNOWN")
     common.rows = {}
-    local currentTime = compat.timePeriod(game.world) or "DAY"
     local first = (state.habitatPage - 1) * 3 + 1
-    for index = first, math.min(#habitat, first + 2) do
-      local appearance = habitat[index]
-      local current = appearance.mapId == mapId
-        and (not appearance.time or appearance.time == currentTime)
+    for index = first, math.min(#plan.rows, first + 2) do
+      local planned = plan.rows[index]
+      local appearance = planned.appearance
       local area = areaName(appearance.mapId)
       local section = appearance.section
       if section and section ~= "" and section ~= "OTHER AREA"
@@ -7961,7 +7983,10 @@ return function(mod)
         area = area .. " - " .. section
       end
       common.rows[#common.rows + 1] = {
-        area = area, current = current,
+        area = area, current = planned.current, matches = planned.matches,
+        status = planned.status == "ONLY %s"
+          and THEME:format("ONLY %s", THEME:translate(planned.period))
+          or planned.status and THEME:translate(planned.status),
         time = appearance.time or "ANY TIME", method = appearance.method,
         chance = math.floor((tonumber(appearance.chance) or 0) + 0.5),
         levels = appearance.minLevel == appearance.maxLevel
@@ -7969,7 +7994,6 @@ return function(mod)
           or THEME:format("L%d-%d", appearance.minLevel or 0,
             appearance.maxLevel or 0),
       }
-      if current then common.current, common.status = true, "HERE NOW" end
     end
     return common
   end
@@ -13048,6 +13072,11 @@ return function(mod)
       end
       if page == "TOOLS" or page == "HOME" or pendingAction then displayRuntime.perf:call("tools", refreshTools) end
       local mode, top = screenState()
+      if page == "POKEDEX" and displayRuntime.pokedex.view == "habitat"
+          and not battle and mode == "active" then
+        local selected = displayRuntime.pokedexData().bySpecies[displayRuntime.pokedex.selected]
+        if selected then displayRuntime.pokedexHabitatPlan(selected) end
+      end
       if displayRuntime.perf.enabled then
         displayRuntime.perf:setContext(string.format(
           "gen%d/%s/%s/%s/%s/%s/%s", compat.isGen2() and 2 or 1,

@@ -825,6 +825,13 @@ do
     pocket = function() return { label = "ITEMS" } end,
   }
   game.stack.states = { screen }
+  -- The fixture jumps directly from Party to the root between independent
+  -- checks. Synchronize it just as a real return input now does.
+  for i = 1, debug.getinfo(inputHook, "u").nups do
+    local name, value = debug.getupvalue(inputHook, i)
+    if name == "refreshBattle" then value() break end
+  end
+  runtime.animation = nil
   game.input.pressQueue = { "a" }
   run.loader.hooks:call("input.step", function()
     game.stack.states = { screen, bagMenu }

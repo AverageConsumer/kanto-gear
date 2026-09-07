@@ -992,26 +992,34 @@ return function(ui)
     local colors = self.colors
     local quiet = colors.mutedInk
     local mon = model.pokemon or {}
-    dexResearchHero(self, model, colors.green,
-      translate(model.status or ""), model.summary or translate("NO WILD HABITAT"))
+    self:homeTile(7, 34, 226, 49, colors.green, false)
+    if model.drawPokemon then model.drawPokemon(mon, 13, 37, 31, false) end
+    self:partyInfo(self:fitPartyInfo(mon.name or translate("POKEMON"), 108),
+      50, 39, colors.ink)
+    self:typeBadges(mon, 50, 55, false)
+    self:partyInfo(self:fitPartyInfo(model.summary or "", 69),
+      157, 39, colors.ink, 69, "center")
+    self:partyType(self:fitPartyType(model.matchText or "", 212),
+      14, 71, colors.green, 212)
 
     for index, row in ipairs(model.rows or {}) do
-      local top = 76 + (index - 1) * 39
-      self:panel(7, top, 226, 35, row.current, colors.greenLight,
-        colors.greenLight)
-      self:partyInfo(self:fitPartyInfo(row.area or translate("UNKNOWN AREA"), 136),
-        14, top + 4, colors.ink)
-      if row.current then
-        self:partyType(translate("HERE NOW"), 158, top + 4,
-          colors.green, 66)
+      local top = 88 + (index - 1) * 35
+      local ink = row.current and colors.statusInk or colors.ink
+      self:panel(7, top, 226, 34, row.current, colors.greenLight,
+        row.matches and colors.greenLight or colors.silverDark)
+      self:partyInfo(self:fitPartyInfo(row.area or translate("UNKNOWN AREA"), 210),
+        14, top + 2, ink)
+      if row.status then
+        self:partyType(self:fitPartyType(row.status, 150), 14, top + 22,
+          row.current and ink or row.matches and colors.green or quiet, 150)
       end
       local condition = table.concat({ translate(row.time or "ANY TIME"),
         translate(row.method or "WILD"), tostring(row.chance or "--") .. "%" },
         " · ")
       self:partyType(self:fitPartyType(condition, 150),
-        14, top + 20, colors.green, 150)
-      self:partyInfo(row.levels or "L--", 171, top + 17,
-        colors.ink, 48, "center")
+        14, top + (row.status and 11 or 19), row.current and ink or colors.green, 150)
+      self:partyInfo(row.levels or "L--", 171, top + 16,
+        ink, 48, "center")
     end
     if #(model.rows or {}) == 0 then
       self:partyInfo(translate("NO WILD ENCOUNTERS"),

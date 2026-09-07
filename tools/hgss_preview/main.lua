@@ -2391,6 +2391,27 @@ function love.load()
           levels = gen1 and "L15" or "L40" },
       },
     }
+    if pokedexHabitat then
+      local case = os.getenv("KANTO_GEAR_PREVIEW_HABITAT_CASE") or "ready"
+      model.matchText = case == "ready" and format("%d MATCHING AREAS", 2)
+        or translate("NO MATCHING AREA KNOWN")
+      model.rows[1].matches = case == "ready"
+      model.rows[1].status = case == "ready" and translate("HERE NOW") or translate("NEED BADGE")
+      model.rows[1].current = case == "ready"
+      model.rows[2].status = case == "ready" and not gen1 and format("ONLY %s", translate("NITE"))
+        or translate("NEED SUPER ROD")
+      model.rows[3].status = translate("NOT VISITED")
+      for _, row in ipairs(model.rows) do
+        assert(theme:fitPartyType(row.status, 150) == row.status,
+          "habitat reasons must fit without truncation: " .. row.status)
+      end
+      for _, key in ipairs({ "NEED OLD ROD", "NEED GOOD ROD", "NEED SUPER ROD",
+          "NEED SURF", "NEED HEADBUTT", "NEED ROCK SMASH", "NEED BADGE", "NOT VISITED" }) do
+        assert(theme:fitPartyType(translate(key), 150) == translate(key), "habitat reason too long: " .. key)
+      end
+      assert(theme:fitPartyType(model.matchText, 212) == model.matchText,
+        "habitat summary must fit without truncation")
+    end
     if pokedexStats then model.summary = model.statsText end
     if pokedexMoves then
       model.rows = {
