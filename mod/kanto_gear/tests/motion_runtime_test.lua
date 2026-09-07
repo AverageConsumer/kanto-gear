@@ -257,6 +257,59 @@ T.eq(runtime.animation.duration, .24, "hero transitions share the shorter durati
 run.loader.modOptions.kanto_gear.battle_view = "gear"
 runtime.animation = nil
 page("HOME"); now = 30; draw()
+-- A replaced native owner must not inherit a cached app page.
+page("BAG"); now = now + .01; draw()
+game.stack.states[1] = { map = world.map }
+now = now + .02; draw()
+T.eq(display.motion.started, nil, "replacing the native owner cancels cached motion even with the same screen key")
+game.stack.states[1] = world
+
+-- Opposite hero transitions start at the last rendered position.
+for _, kind in ipairs({ "battle_moves", "battle_move_info" }) do
+  runtime.animation = nil
+  runtime.beginAnimation(kind)
+  runtime.beginAnimation(kind .. "_close")
+  runtime.beginAnimation(kind)
+  T.check(runtime.progress(kind) < .000001, kind .. " handles multiple reversals before the first draw")
+  runtime.animation = nil
+  runtime.beginAnimation(kind); runtime.progress(kind)
+  now = now + .07
+  local opened = runtime.progress(kind)
+  runtime.beginAnimation(kind .. "_close")
+  local closed = runtime.progress(kind .. "_close")
+  T.check(math.abs(opened - (1 - closed)) < .000001, kind .. " reverses without jumping to its endpoint")
+  now = now + .02
+  closed = runtime.progress(kind .. "_close")
+  runtime.beginAnimation(kind)
+  T.check(math.abs(runtime.progress(kind) - (1 - closed)) < .000001, kind .. " can reverse again without jumping")
+end
+runtime.animation = nil
+local summary = { screenId = gen == 2 and "Gen2SummaryMenu" or "SummaryMenu", page = 1, mon = {} }
+game.stack.states[2] = summary
+settle()
+for _, pair in ipairs({ {1,2,1}, {2,1,-1}, {1,3,-1}, {3,2,-1}, {2,3,1}, {3,1,1} }) do
+  display.dispatchTouchTap(function()
+    summary.page = pair[2]
+    runtime.beginAnimation("summary_page", { from = pair[1], to = pair[2] })
+  end, 0, 0)
+  now = now + .03; draw()
+  T.eq(runtime.animation, nil, "summary changes capture the visible frame instead of reconstructing an endpoint")
+  T.eq(display.motion.direction, pair[3], "rapid summary page change keeps its direction")
+  T.eq(display.motion.top, 28, "interrupted summary keeps a still-moving identity inside its original region")
+end
+settle()
+summary.page = 2; settle()
+summary.page = 3
+runtime.beginAnimation("summary_page", { from = 2, to = 3 }); draw()
+T.eq(display.motion.top, 61, "settled compact summary keeps its identity stationary")
+summary.moveIndex = 2; now = now + .01; draw()
+T.eq(display.motion.started, nil, "controller selection cancels cached summary immediately")
+summary.page = 2
+runtime.beginAnimation("summary_page", { from = 3, to = 2 }); draw()
+summary.mon = {}; now = now + .01; draw()
+T.eq(display.motion.started, nil, "changing Pokemon cancels a cached summary immediately")
+game.stack.states[2] = nil; runtime.animation = nil
+settle()
 for _, transition in ipairs({
   { "battle_party", 1 }, { "battle_party_close", -1 },
   { "battle_bag", -1 }, { "battle_bag_close", 1 },

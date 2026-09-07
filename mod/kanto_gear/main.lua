@@ -2756,9 +2756,19 @@ return function(mod)
       return
     end
     data = data or {}
+    local previous = hgssRuntime.animation
     data.kind, data.queued = kind, love.timer.getTime()
     data.started = nil
+    data.lastProgress = 0
     data.duration = data.duration or (kind:match("^battle_") and 0.28 or 0.24)
+    if previous and (kind == "battle_moves" or kind == "battle_moves_close"
+        or kind == "battle_move_info" or kind == "battle_move_info_close")
+        and (previous.kind == kind .. "_close" or kind == previous.kind .. "_close") then
+      -- Both directions draw the same geometry with complementary progress.
+      -- Resume from the visible position, including a reversal before first draw.
+      data.lastProgress = 1 - (previous.lastProgress or 0)
+      data.started = data.queued - data.lastProgress * data.duration
+    end
     hgssRuntime.animation, dirty = data, true
   end
 
@@ -2767,10 +2777,12 @@ return function(mod)
     if not (animation and animation.kind == kind) then return nil end
     if not animation.started then
       animation.started = love.timer.getTime()
+      animation.lastProgress = 0
       return 0
     end
-    return math.max(0, math.min(1,
+    animation.lastProgress = math.max(0, math.min(1,
       (love.timer.getTime() - animation.started) / animation.duration))
+    return animation.lastProgress
   end
 
   function hgssRuntime.partySubmenuActions(menu)
@@ -4747,9 +4759,13 @@ return function(mod)
       learn and (learn.selecting and "learn-select" or "learn") or "",
       choice and "choice" or "", pcKind or "", listKind or "",
       summary and ("summary-" .. tostring(summary.page or 1)) or "",
+      summary and tostring(summary.mon) or "",
+      summary and tostring(summary.moveIndex) or "",
+      summary and tostring(summary.moveDetail) or "",
       battle and ("battle-" .. tostring(battle.prompt)) or "",
-      battle and battle.itemIndex ~= nil and "bag" or "",
-      battle and battle.partyIndex ~= nil and "battle-party" or "",
+      battle and battle.itemIndex ~= nil and ("bag-" .. tostring(battle.itemIndex)) or "",
+      battle and battle.partyIndex ~= nil and ("battle-party-" .. tostring(battle.partyIndex)) or "",
+      battle and tostring(battle.moveIndex) or "",
       top and top.submenu and "submenu" or "",
       top and tostring(top.pocketIndex
         or top.__gen3uiBagPocketIndex or "") or "",
@@ -4874,6 +4890,8 @@ return function(mod)
     local navigation = displayRuntime.navigationState()
     local previousNavigation = motion.navigation
     local pageDirection = motion.pageDirection
+    local interruptedTop = motion.interruptedTop
+    motion.interruptedTop = nil
     motion.pageDirection = nil
     motion.navigation = navigation
     local direct = page == "NOTES" and (displayRuntime.notes.view == "draw"
@@ -4893,9 +4911,10 @@ return function(mod)
     end
     local now = love.timer.getTime()
     local kind = hgssRuntime.animation and hgssRuntime.animation.kind
+    local summaryTurn = kind == "summary_page" and hgssRuntime.animation
     local battleSlide = (kind == "battle_party" or kind == "battle_bag_close") and 1
       or (kind == "battle_party_close" or kind == "battle_bag") and -1 or nil
-    if battleSlide then
+    if battleSlide or summaryTurn then
       -- Move the actual last frame, including selection and device status.
       -- Render the live destination once instead of reconstructing either end.
       hgssRuntime.animation = nil
@@ -4905,8 +4924,14 @@ return function(mod)
       motion.started = nil
       return
     end
+    local previousTop = interruptedTop or (motion.started
+      and now - motion.started < motion.duration and motion.top) or 216
     motion.direction, motion.top, motion.bottom = battleSlide, 28, 216
-    if not battleSlide and navigation and previousNavigation
+    if summaryTurn then
+      motion.direction = (summaryTurn.to - summaryTurn.from + 3) % 3 == 1 and 1 or -1
+      motion.top = math.min(previousTop,
+        summaryTurn.from ~= 1 and summaryTurn.to ~= 1 and 61 or 28)
+    elseif not battleSlide and navigation and previousNavigation
         and navigation.host == previousNavigation.host then
       if navigation.page ~= previousNavigation.page then
         motion.direction = navigation.page == "HOME" and -1 or 1
@@ -4925,7 +4950,7 @@ return function(mod)
       motion.started, motion.cached = nil, nil
       return
     end
-    motion.duration = battleSlide and 0.24 or 0.20
+    motion.duration = (battleSlide or summaryTurn) and 0.24 or 0.20
     motion.cached = nil
     if not motion.canvas
         or motion.canvas:getWidth() ~= canvas:getWidth()
@@ -12168,6 +12193,9 @@ return function(mod)
     -- Pointer hooks can run between the regular 50ms snapshots. Never send
     -- an old "advance" action to a battle that has already reached its menu.
     if battleState() then displayRuntime.perf:call("battle_snapshot", refreshBattle) end
+    local motion = displayRuntime.motion
+    motion.interruptedTop = motion.started
+      and love.timer.getTime() - motion.started < motion.duration and motion.top or nil
     displayRuntime.motion.started, displayRuntime.motion.cached = nil, nil
     displayRuntime.touchDispatch = true
     fn(x, y)
