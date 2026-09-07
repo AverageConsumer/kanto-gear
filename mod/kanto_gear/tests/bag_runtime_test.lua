@@ -114,4 +114,51 @@ if generation == 1 then
     "Gen 1 PP item rows include current and maximum PP")
 end
 
+-- ROM item definitions do not carry the BattleAPI's synthetic `ball` flag.
+local cases = {
+  { "POKE_BALL", 20, "BALL" }, { "GREAT_BALL", 11, "BALL" }, { "ULTRA_BALL", 5, "BALL" },
+  { "POTION", 3, "ITEM" }, { "FULL_RESTORE", 2, "ITEM" }, { "FRESH_WATER", 4, "ITEM" },
+  { "ETHER", 2, "ITEM" }, { "FULL_HEAL", 1, "ITEM" },
+  { "ESCAPE_ROPE", 5, "ITEM" }, { "RARE_CANDY", 2, "ITEM" }, { "PROTEIN", 1, "ITEM" },
+  { "PP_UP", 1, "ITEM" }, { "BICYCLE", 1, "KEY_ITEM" },
+  { "TM01", 3, "TM_HM" }, { "HM03", 1, "TM_HM" },
+}
+save.inventory, save.bagOrder = { FIX_BADGE_1 = 1, EMPTY = 0 }, { "FIX_BADGE_1", "POKE_BALL", "POKE_BALL", "STALE" }
+save.pcItems = { POKE_BALL = 99 }
+for _, row in ipairs(cases) do
+  save.inventory[row[1]] = row[2]
+  run.data.items[row[1]] = { name = "Translated item", pocket = generation == 2 and row[3] or nil }
+end
+T.same(display.bagSummary(), { item = 10, medicine = 12, ball = 36, machine = 4 },
+  "widget counts quantities by actual item type, excluding badges, stale rows and PC storage")
+T.eq(#save.bagOrder, 4, "reading widget totals never edits the save's acquisition order")
+for _, id in ipairs({ "RARE_CANDY", "PROTEIN", "PP_UP" }) do
+  run.data.items[id].needsTarget = true
+  T.eq(display.bagItemKind(id, run.data.items[id]), "item", "target selection does not make " .. id .. " a healing item")
+end
+if generation == 2 then
+  local balls = { "MASTER_BALL", "LURE_BALL", "FAST_BALL", "LEVEL_BALL", "HEAVY_BALL", "LOVE_BALL", "FRIEND_BALL", "MOON_BALL", "PARK_BALL" }
+  for _, id in ipairs(balls) do
+    run.data.items[id] = { name = "Translated ball", pocket = "BALL" }
+    save.inventory[id] = 2
+    T.eq(display.bagItemKind(id, run.data.items[id]), "ball", id .. " uses its native pocket")
+  end
+  T.eq(display.bagSummary().ball, 54, "all Gen 2 ball stacks count toward the same total")
+  local effects = require("src.core.gen2.ItemEffects")
+  for _, family in ipairs({ "HEAL_HP", "HEAL_STATUS", "REVIVE", "RESTORE_PP" }) do
+    for id in pairs(effects[family]) do
+      local kind = display.bagItemKind(id, { pocket = "ITEM" })
+      T.check(kind == "medicine" or kind == "status", id .. " follows its healing effect")
+    end
+  end
+  run.data.gen2ItemEffects = { CUSTOM_CURE = { action = "heal" } }
+  T.eq(display.bagItemKind("CUSTOM_CURE", { pocket = "ITEM" }), "medicine", "registered custom healing effects count too")
+end
+local previous = display.bagSummary().ball
+save.inventory.POKE_BALL = save.inventory.POKE_BALL - 1
+T.eq(display.bagSummary().ball, previous - 1, "using one ball updates the next widget snapshot")
+save.inventory.GREAT_BALL = nil
+T.eq(display.bagSummary().ball, previous - 12, "depositing or removing a stack removes its full quantity")
+T.eq(display.bagItemKind("CUSTOM_ORB", { ball = true }), "ball", "explicit mod ball metadata remains supported")
+T.eq(display.bagItemKind("LIGHT_BALL", { pocket = "ITEM" }), "item", "a held Light Ball is not a capture ball")
 T.finish("Kanto Gear HGSS Bag runtime")

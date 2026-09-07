@@ -3429,18 +3429,10 @@ return function(mod)
   function displayRuntime.bagSummary()
     local counts = { item = 0, medicine = 0, ball = 0, machine = 0 }
     local inventory = game.save and game.save.inventory or {}
-    local ok, Bag = pcall(require, "src.inventory.Bag")
-    local order = ok and Bag.order and Bag.order(game.save) or {}
-    if #order == 0 then
-      for id, value in pairs(inventory) do
-        if tonumber(value) and tonumber(value) > 0 then
-          order[#order + 1] = id
-        end
-      end
-    end
-    for _, id in ipairs(order) do
-      local amount = tonumber(inventory[id]) or 0
-      if amount > 0 then
+    -- Totals do not need acquisition order. Badges share inventory with items.
+    for id, value in pairs(inventory) do
+      local amount = tonumber(value) or 0
+      if amount > 0 and not tostring(id):find("BADGE", 1, true) then
         local def = game.data.items and game.data.items[id] or {}
         local kind = displayRuntime.bagItemKind(id, def)
         if kind == "status" then kind = "medicine" end
@@ -8117,13 +8109,28 @@ return function(mod)
 
   function displayRuntime.bagItemKind(id, def)
     local upper = tostring(id or ""):upper()
-    if def and def.ball then return "ball" end
+    if def and (def.ball or def.pocket == "BALL") then return "ball" end
     if upper:match("^TM_?%d") or upper:match("^HM_?%d")
-        or def and (def.machine or def.teaches) then return "machine" end
+        or def and (def.machine or def.teaches or def.pocket == "TM_HM") then return "machine" end
+    local gen2 = compat.isGen2()
+    local ok, Effects = pcall(require, gen2 and "src.core.gen2.ItemEffects"
+      or "src.inventory.ItemEffects")
+    local medicine = false
+    if ok then
+      if Effects.isBall and Effects.isBall(id) then return "ball" end
+      if gen2 and Effects.partyAction then
+        local action = Effects.partyAction(id, game.data)
+        if action == "status" then return "status" end
+        if action == "heal" or action == "revive"
+            or action == "pp" and upper ~= "PP_UP" then return "medicine" end
+        if action then return "item" end
+      elseif Effects.isBattleMedicine and Effects.isBattleMedicine(id) then
+        medicine = true
+      end
+    end
     if upper:find("HEAL", 1, true) or upper == "ANTIDOTE"
         or upper == "AWAKENING" then return "status" end
-    if def and def.needsTarget then return "medicine" end
-    if upper:find("POTION", 1, true) or upper:find("ETHER", 1, true)
+    if medicine or upper:find("POTION", 1, true) or upper:find("ETHER", 1, true)
         or upper:find("ELIX", 1, true) or upper == "REVIVE"
         or upper == "MAX_REVIVE" then return "medicine" end
     return "item"
@@ -8142,7 +8149,7 @@ return function(mod)
         "TEACHES %s TO A COMPATIBLE POKEMON.",
         move and move.name or tostring(moveId):gsub("_", " ")), 31, 3)
     end
-    if def and def.ball then
+    if displayRuntime.bagItemKind(id, def) == "ball" then
       return displayRuntime.bagWords(
         THEME:translate("A BALL USED TO CATCH WILD POKEMON."), 31, 3)
     end
