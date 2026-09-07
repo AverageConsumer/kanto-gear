@@ -4828,6 +4828,9 @@ return function(mod)
         or displayRuntime.explorer.selected and 2 or 1
       state.index = displayRuntime.explorer.selected
         and displayRuntime.explorer.detailPage or displayRuntime.explorer.page or 1
+      if state.depth == 1 and displayRuntime.explorer.view == "wild" then
+        state.gallery = displayRuntime.explorer.filters.wildScope or "HERE"
+      end
     elseif page == "STORE" then
       state.depth = displayRuntime.home.storeDetail and 2 or 1
       state.index = (displayRuntime.home.storePages or {})[displayRuntime.home.storeView or "today"] or 1
@@ -4878,7 +4881,12 @@ return function(mod)
           and (tonumber(navigation.index) or 1) < (tonumber(previousNavigation.index) or 1)) then
       motion.direction = -1
     end
-    motion.top = battleSlide and 0 or 28
+    local galleryPage = navigation and previousNavigation
+      and navigation.gallery and navigation.gallery == previousNavigation.gallery
+      and navigation.index ~= previousNavigation.index
+    -- Explorer pagination moves only the portraits below its map and filters.
+    motion.top = battleSlide and 0 or galleryPage and 162 or 28
+    motion.bottom = galleryPage and not battleSlide and 212 or 216
     motion.duration = battleSlide and 0.24 or motion.direction and 0.20 or 0.16
     motion.cached = nil
     if not motion.canvas
@@ -4937,9 +4945,10 @@ return function(mod)
       end
       color({ 1, 1, 1, 1 })
       G.draw(motion.target)
-      -- Ordinary pages share a header; battle panels replace the whole screen.
+      -- Keep the destination stationary outside the changing content region.
       local top = motion.top or 28
-      G.setScissor(0, top * height / 216, width, height * (216 - top) / 216)
+      G.setScissor(0, top * height / 216, width,
+        height * ((motion.bottom or 216) - top) / 216)
       local offset = math.floor(width * progress + 0.5) * motion.direction
       G.draw(motion.canvas, -offset, 0)
       G.draw(motion.target, width * motion.direction - offset, 0)
