@@ -510,16 +510,15 @@ display.prepareMotion()
 local storeMotionKey = display.motionKey()
 home.storeView = "apps"
 T.check(display.motionKey() ~= storeMotionKey,
-  "Store subviews receive distinct shallow-motion identities")
+  "Store subviews receive distinct redraw identities")
 display.prepareMotion()
-T.check(display.motion.started ~= nil,
-  "changing an app subview starts the shared shallow transition")
+T.eq(display.motion.started, nil,
+  "changing a Store tab preserves its stationary navigation")
 T.check(pcall(display.applyMotion),
-  "the shared transition composites its retained frame safely")
-display.motion.started = love.timer.getTime() - display.motion.duration
+  "an immediate tab change safely skips composition")
 display.applyMotion()
 T.eq(display.motion.started, nil,
-  "the shared transition stops redrawing after its short duration")
+  "an immediate tab change schedules no animation frames")
 home.storeView = "today"
 world.screenId, world.phase, world.index = "MotionFixture", "menu", 1
 local phaseKey = display.motionKey()
@@ -528,7 +527,7 @@ T.eq(display.motionKey(), phaseKey,
   "ordinary cursor movement does not animate the whole screen")
 world.phase = "quantity"
 T.check(display.motionKey() ~= phaseKey,
-  "an in-place context phase change receives shallow motion")
+  "an in-place context phase change receives a distinct redraw identity")
 world.screenId, world.phase, world.index = nil, nil, nil
 local oldRodSurface = catalog.surfaces.tool_widget_old_rod
 display.refreshToolSurfaces({})

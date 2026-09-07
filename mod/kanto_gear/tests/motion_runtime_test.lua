@@ -55,73 +55,146 @@ T.check(contentClip, "page movement is restricted below the fixed header")
 now = 11.25; draw()
 T.eq(display.motion.started, nil, "the animation stops at its duration")
 T.eq(paints, initialPaints + 1, "completion redraws fresh live data")
-display.bag.detail = 1; now = 12; draw()
-T.eq(display.motion.direction, 1, "opening item details travels forward")
-display.bag.detail = nil; now = 12.05; draw()
-T.eq(display.motion.direction, -1, "back replaces an in-flight transition")
-T.eq(display.motion.started, now, "interrupted navigation starts from the currently visible frame")
-page("HOME"); now = 13; draw()
-T.eq(display.motion.direction, -1, "returning home travels back")
-page("SETTINGS"); now = 14; draw()
-local key = display.motionKey()
-display.settings.category = "display"; now = 15; draw()
-T.check(display.motionKey() ~= key, "settings categories are separate navigation states")
-key = display.motionKey(); display.settings.page = 2; now = 16; draw()
-T.check(display.motionKey() ~= key, "settings pages are separate navigation states")
-display.settings.page = 1; now = 17; draw()
-T.eq(display.motion.direction, -1, "previous settings page travels back")
-page("HOME"); display.home.library = true; display.home.libraryPage = 2; now = 17.3; draw()
-display.home.libraryPage = 1; now = 17.6; draw()
-T.eq(display.motion.direction, -1, "previous library page travels back independently of Home page")
-display.home.library = false
-page("TRAINER"); now = 17.8; draw()
-up(display.navigationState, "trainerStepsOpen", true); now = 18; draw()
-T.eq(display.motion.direction, 1, "trainer step details open forward")
-up(display.navigationState, "trainerStepsOpen", false); now = 18.2; draw()
-T.eq(display.motion.direction, -1, "closing trainer step details travels back")
-page("TOOLS"); up(display.navigationState, "tools").page = 2; now = 18.4; draw()
-up(display.navigationState, "tools").page = 1; now = 18.6; draw()
-T.eq(display.motion.direction, -1, "previous tools page travels back")
-page("STORE"); display.home.storeView = "apps"; display.home.storePages = { apps = 1 }
-key = display.motionKey(); display.home.storePages.apps = 2
-T.check(display.motionKey() ~= key, "store pagination participates in navigation")
-page("POKEDEX"); display.pokedex.view, display.pokedex.selected = "index", 1
-T.eq(display.navigationState().depth, 1, "returning to the dex index ignores retained selection")
-page("ACHIEVEMENTS"); display.achievements.view = "location"
-T.eq(display.navigationState().depth, 4, "stamp locations are deeper than finds and details")
-page("LOCAL"); key = display.motionKey()
-display.explorer.filters.wildScope = "ROUTE"
-T.eq(display.motionKey(), key, "encounter filters do not become page transitions")
-for _, galleryView in ipairs({ false, "wild" }) do
-  display.explorer.view, display.explorer.page = galleryView or nil, 1
-  now = 17.7; draw()
-  T.eq(display.motion.top, 28, "opening Explorer still moves the app content")
-  for _, scope in ipairs({ "HERE", "ROUTE" }) do
-    display.explorer.filters.wildScope = scope
-    now = now + 1; draw()
-    for _, nextPage in ipairs({ 2, 1 }) do
-      display.explorer.page = nextPage; now = now + 1; clips = {}; draw()
-      T.eq(display.motion.direction, nextPage == 2 and 1 or -1,
-        scope .. " gallery pages move in both directions")
-      local galleryClip = false
-      for _, rect in ipairs(clips) do
-        if rect[2] == 162 and rect[4] == 50 then galleryClip = true end
-      end
-      T.check(galleryClip, scope .. " pagination leaves map, filters and footer stationary")
-      local galleryPaints, galleryAllocations = paints, allocations
-      for frame = 1, 10 do now = now + 1 / 60; draw() end
-      T.eq(paints, galleryPaints, "gallery movement reuses its destination")
-      T.eq(allocations, galleryAllocations, "gallery movement allocates no canvases")
-    end
-  end
+
+local function settle(setup)
+  if setup then setup() end
+  now = now + 1; draw(); now = now + .3; draw()
 end
-display.explorer.selected = 1; now = now + 1; draw()
-T.eq(display.motion.top, 28, "opening encounter details is not gallery pagination")
-T.eq(display.motion.bottom, 216, "gallery clipping does not leak into other navigation")
-display.explorer.selected = nil
-page("NOTES"); display.notes.view = "list"; now = 18; draw()
-key = display.motionKey(); display.notes.view = "tasks"; now = 19; draw()
-T.check(display.motionKey() ~= key, "Notes tabs have their own navigation state")
+local function still(label, action)
+  action(); now = now + .01; draw()
+  T.eq(display.motion.started, nil, label .. " updates in place")
+end
+local function flip(label, action, direction, top, bottom)
+  action(); now = now + .01; clips = {}; draw()
+  T.eq(display.motion.direction, direction, label .. " follows the pressed direction")
+  T.check(display.motion.started ~= nil, label .. " starts a content transition")
+  local found = false
+  for _, rect in ipairs(clips) do
+    if rect[2] == top and rect[4] == bottom - top then found = true end
+  end
+  T.check(found, label .. " keeps everything outside its content stationary")
+  local count, allocated = paints, allocations
+  for frame = 1, 8 do now = now + 1 / 60; draw() end
+  T.eq(paints, count, label .. " reuses rendered content")
+  T.eq(allocations, allocated, label .. " allocates no intermediate canvases")
+end
+
+-- Both directions, including wrapping from last to first and first to last.
+local cases = {
+  { "bag", "BAG", function() display.bag.detail = nil; display.bag.pocket = 1 end,
+    display.bag, "page", 70, 214 },
+  { "settings", "SETTINGS", function() display.settings.category = "display" end,
+    display.settings, "page", 34, 193 },
+  { "home", "HOME", function() display.home.library = false; display.home.editing = false end,
+    display.home, "page", 30, 199 },
+  { "catalog", "HOME", function() display.home.library = true; display.home.libraryKind = "app" end,
+    display.home, "libraryPage", 49, 195 },
+  { "dex index", "POKEDEX", function() display.pokedex.view = "index" end,
+    display.pokedex, "page", 66, 197 },
+  { "dex moves", "POKEDEX", function() display.pokedex.view = "moves"; display.pokedex.selected = 1 end,
+    display.pokedex, "movePage", 74, 197 },
+  { "dex habitats", "POKEDEX", function() display.pokedex.view = "habitat"; display.pokedex.selected = 1 end,
+    display.pokedex, "habitatPage", 86, 197 },
+  { "stamps", "ACHIEVEMENTS", function() display.achievements.view = "album" end,
+    display.achievements, "page", 77, 209 },
+  { "stamp finds", "ACHIEVEMENTS", function() display.achievements.view = "finds"; display.achievements.category = 1 end,
+    display.achievements, "page", 56, 211 },
+  { "stamp Pokemon", "ACHIEVEMENTS", function() display.achievements.view = "finds"; display.achievements.category = 4 end,
+    display.achievements, "page", 56, 189 },
+  { "explorer default", "LOCAL", function() display.explorer.view = nil; display.explorer.selected = nil end,
+    display.explorer, "page", 162, 212 },
+  { "explorer explicit", "LOCAL", function() display.explorer.view = "wild"; display.explorer.selected = nil end,
+    display.explorer, "page", 162, 212 },
+  { "explorer details", "LOCAL", function() display.explorer.selected = "mon" end,
+    display.explorer, "detailPage", 148, 205 },
+  { "store apps", "STORE", function() display.home.storeView = "apps"; display.home.storeDetail = nil end,
+    display.home.storePages or {}, "apps", 51, 191 },
+  { "store library", "STORE", function() display.home.storeView = "library"; display.home.storeDetail = nil end,
+    display.home.storePages or {}, "library", 55, 191 },
+  { "notes list", "NOTES", function() display.notes.view = "list" end,
+    display.notes, "page", 57, 149 },
+  { "notes text", "NOTES", function() display.notes.view = "text" end,
+    display.notes, "page", 89, 172 },
+  { "notes tasks", "NOTES", function() display.notes.view = "tasks" end,
+    display.notes, "page", 89, 172 },
+}
+for _, case in ipairs(cases) do
+  settle(function()
+    page(case[2]); case[3](); case[4][case[5]] = 1
+    if case[2] == "STORE" then display.home.storePages = case[4] end
+  end)
+  for _, pair in ipairs({ {2,1}, {1,-1}, {3,-1}, {1,1} }) do
+    flip(case[1], function()
+      display.requestPageMotion(pair[2]); case[4][case[5]] = pair[1]
+    end, pair[2], case[6], case[7])
+  end
+  still(case[1] .. " automatic page correction", function() case[4][case[5]] = 2 end)
+end
+
+-- Exercise the actual Explorer tap handler, including its page reset.
+local tap = up(up(hook("render.compose"), "touchEvent"), "tap")
+local loadMap = up(tap, "loadLocalMap")
+up(tap, "loadLocalMap", function() return { mapId = "PALLET_TOWN" } end)
+local model, hit = display.explorerModel, theme.explorerHit
+display.explorerModel = function()
+  return { filters = display.explorer.filters, pages = 3, detailPages = 2 }
+end
+local action
+theme.explorerHit = function() return action end
+for _, view in ipairs({ false, "wild" }) do
+  settle(function()
+    page("LOCAL"); display.explorer.view = view or nil
+    display.explorer.selected = nil; display.explorer.page = 2
+    display.explorer.filters.wildScope = "HERE"
+  end)
+  still("Here Now page 2 to Whole Route", function() action = "wild_route"; tap(80, 100) end)
+  T.eq(display.explorer.page, 1, "real filter handler resets page")
+  flip("real Explorer pager", function() action = "next"; tap(80, 100) end, 1, 162, 212)
+  still("in-flight Whole Route to Here Now", function() action = "wild_here"; tap(80, 100) end)
+  flip("real Explorer reverse wrap", function() action = "prev"; tap(80, 100) end, -1, 162, 212)
+  still("map expansion", function() action = "map_toggle"; tap(80, 100) end)
+  still("map collapse", function() action = "map_toggle"; tap(80, 100) end)
+end
+display.explorerModel, theme.explorerHit = model, hit
+up(tap, "loadLocalMap", loadMap)
+settle(function() page("BAG"); display.bag.detail = nil; display.bag.page = 2 end)
+still("bag pocket with page reset", function() display.bag.pocket = 2; display.bag.page = 1 end)
+still("item details", function() display.bag.detail = 1 end)
+still("item result message", function() display.bag.message = { "USED" } end)
+still("back from item", function() display.bag.detail = nil; display.bag.message = nil end)
+settle(function() page("SETTINGS"); display.settings.category = "display"; display.settings.page = 2 end)
+still("settings category and page reset", function() display.settings.category = "audio"; display.settings.page = 1 end)
+still("settings confirmation", function() display.settings.confirm = "reset" end)
+still("confirmation dismissed", function() display.settings.confirm = nil end)
+settle(function() page("HOME"); display.home.library = true; display.home.libraryKind = "app"; display.home.libraryPage = 2 end)
+still("Apps to Widgets", function() display.home.libraryKind = "widget"; display.home.libraryPage = 1 end)
+still("library closing", function() display.home.library = false end)
+still("Home edit controls", function() display.home.editing = true end)
+display.home.editing = false
+settle(function() page("STORE"); display.home.storeView = "library"; display.home.storePages.library = 2 end)
+still("Store tab", function() display.home.storeView = "today" end)
+still("Store detail", function() display.home.storeDetail = "notes" end)
+still("Store back", function() display.home.storeDetail = nil end)
+settle(function() page("POKEDEX"); display.pokedex.view = "habitat"; display.pokedex.habitatPage = 2 end)
+still("Dex tab resets pages", function() display.pokedex.view = "moves"; display.pokedex.movePage = 1 end)
+still("Dex species selection", function() display.pokedex.selected = 2 end)
+still("Dex back", function() display.pokedex.view = "profile" end)
+settle(function() page("NOTES"); display.notes.view = "list"; display.notes.page = 2; display.notes.filter = "here" end)
+still("Notes filter", function() display.notes:action("filter", "all") end)
+settle(function() display.notes.view = "text"; display.notes.page = 2 end)
+still("Notes tab", function() display.notes.view = "tasks"; display.notes.page = 1 end)
+-- No generic fade may reintroduce motion on native prompts/menus.
+settle(function() page("PARTY") end)
+still("native screen change", function() game.stack.states[2] = { screenId = "Quantity" } end)
+still("native screen closes", function() game.stack.states[2] = nil end)
+settle(function() page("HOME") end)
+page("BAG"); now = now + .1; draw()
+T.eq(display.motion.direction, 1, "whole-app opening still travels forward")
+page("HOME"); now = now + .05; draw()
+T.eq(display.motion.direction, -1, "whole-app back still travels back")
+
+
+page("NOTES");
 display.notes.view = "draw"; now = 19.01; draw()
 T.eq(display.motion.started, nil, "drawing interrupts navigation immediately")
 display.notes.view = "edit"; draw()
@@ -158,6 +231,8 @@ end
 T.check(true, "all swap pairs stay below the header and above the bottom edge")
 G.scale = scale
 local pages = {}
+local identities = 0
+theme.summaryIdentity = function() identities = identities + 1 end
 theme.summaryPage = function() pages[#pages + 1] = 1 end
 theme.summaryMemo = function() pages[#pages + 1] = 3 end
 theme:summaryPageTransition({}, function() end, .5, 3, 1)
@@ -167,10 +242,13 @@ local shifts = {}
 G.translate = function(x, y) shifts[#shifts + 1] = x end
 theme.summaryMoves = function() pages[#pages + 1] = 2 end
 for _, pair in ipairs({ {1,2,1}, {2,3,1}, {3,1,1}, {2,1,-1}, {3,2,-1}, {1,3,-1} }) do
-  pages, shifts = {}, {}
+  pages, shifts, clips, identities = {}, {}, {}, 0
   theme:summaryPageTransition({}, function() end, .5, pair[1], pair[2])
   T.same(pages, {pair[1], pair[2]}, "summary renders the correct two pages " .. pair[1] .. " to " .. pair[2])
   T.same(shifts, {-120 * pair[3], 120 * pair[3]}, "summary carousel direction " .. pair[1] .. " to " .. pair[2])
+  local compact = pair[1] ~= 1 and pair[2] ~= 1
+  T.eq(identities, compact and 1 or 0, "shared summary identity is drawn once outside movement")
+  T.eq(clips[1][2], compact and 61 or 28, "summary only moves below shared identity when layouts match")
 end
 G.translate = translate
 run.loader.modOptions.kanto_gear.ui_motion = true
@@ -189,7 +267,7 @@ for _, transition in ipairs({
   runtime.beginAnimation(transition[1]); draw()
   T.eq(runtime.animation, nil, transition[1] .. " uses the live screen compositor")
   T.eq(display.motion.direction, transition[2], transition[1] .. " travels in the expected direction")
-  T.eq(display.motion.top, 0, transition[1] .. " includes the real header in the captured screen")
+  T.eq(display.motion.top, 28, transition[1] .. " keeps the header area stationary")
   local startPaints, startAllocations = paints, allocations
   for frame = 1, 12 do now = now + 1 / 60; draw() end
   T.eq(paints, startPaints, transition[1] .. " never rebuilds cards during movement")

@@ -6104,12 +6104,14 @@ return function(ui)
     local eased = progress * progress * (3 - 2 * progress)
     local direction = (to - from + 3) % 3 == 1 and 1 or -1
     local oldX, oldY, oldW, oldH = G.getScissor()
-    local x, y = G.transformPoint(0, 28)
+    local contentTop = from ~= 1 and to ~= 1 and 61 or 28
+    if contentTop == 61 then self:summaryIdentity(mon, drawPortrait) end
+    local x, y = G.transformPoint(0, contentTop)
     local right, bottom = G.transformPoint(240, 216)
     G.setScissor(x, y, right - x, bottom - y)
     local function draw(which, offset)
       G.push(); G.translate(offset, 0)
-      box("fill", 0, 28, 240, 188, self.colors.partyBg)
+      box("fill", 0, contentTop, 240, 216 - contentTop, self.colors.partyBg)
       if which == 1 then self:summaryPage(mon, drawPortrait)
       elseif which == 2 then self:summaryMoves(mon, drawPortrait)
       else self:summaryMemo(mon, drawPortrait) end

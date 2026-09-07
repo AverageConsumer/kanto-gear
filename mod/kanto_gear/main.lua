@@ -2588,6 +2588,7 @@ return function(mod)
   end
 
   function displayRuntime.cycleSettingsPage(direction)
+    displayRuntime.requestPageMotion(direction)
     local state, model = displayRuntime.settings, displayRuntime.settingsModel()
     if not model.category or model.pages <= 1 then return false end
     state.page = ((state.page - 1 + direction) % model.pages) + 1
@@ -4139,6 +4140,7 @@ return function(mod)
   end
 
   function displayRuntime.cycleAchievements(direction)
+    displayRuntime.requestPageMotion(direction)
     local state, model = displayRuntime.achievements, displayRuntime.achievementModel()
     if state.view == "album" or state.view == "finds" then
       state.page = (state.page - 1 + direction) % model.pages + 1
@@ -4794,72 +4796,101 @@ return function(mod)
   end
 
   function displayRuntime.navigationState()
-    if screenState() ~= "active" or battle or moveInfo or fieldChoice
+    local mode, top = screenState()
+    if mode ~= "active" or battle or moveInfo or fieldChoice
         or partyActionSlot or partyMoveFrom or radarOpen or pendingAction
-        or pendingFly then return nil end
-    local state = { page = page, depth = page == "HOME" and 0 or 1, index = 1 }
+        or pendingFly or top and (top.confirm or top.qtyState) then return nil end
+    local state = { page = page, host = top, context = page, index = 1 }
+    local function region(context, index, first, last)
+      state.context, state.index = context, index or 1
+      state.top, state.bottom = first, last
+    end
     if page == "HOME" then
-      state.depth = displayRuntime.home.library and 2
-        or displayRuntime.home.editing and 1 or 0
-      state.index = displayRuntime.home.library and displayRuntime.home.libraryPage
-        or displayRuntime.home.page or 1
+      local home = displayRuntime.home
+      if home.library then
+        region("library:" .. tostring(home.libraryKind), home.libraryPage, 49, 195)
+      elseif not home.editing then region("home", home.page, 30, 199) end
     elseif page == "SETTINGS" then
-      state.depth = displayRuntime.settings.confirm and 3
-        or displayRuntime.settings.category and 2 or 1
-      state.index = displayRuntime.settings.page or 1
+      local settings = displayRuntime.settings
+      if settings.category and not settings.confirm then
+        region(tostring(settings.category), settings.page, 34, 193)
+      end
     elseif page == "NOTES" then
       local notes = displayRuntime.notes
-      if notes.down or notes.view == "draw" or notes.view == "edit" then return nil end
-      state.depth = notes.view == "list" and 1 or 2
-      state.index = notes.page or 1
+      if notes.view == "draw" or notes.view == "edit" then return nil end
+      local context = table.concat({ notes.view or "list", tostring(notes.selected),
+        tostring(notes.filter) }, ":")
+      if not notes.confirm and not notes.colorOpen then
+        if notes.view == "list" then region(context, notes.page, 57, 149)
+        elseif notes.view == "text" or notes.view == "tasks" then
+          region(context, notes.page, 89, 172)
+        end
+      end
     elseif page == "BAG" then
-      state.depth = displayRuntime.bag.detail and 2 or 1
-      state.index = displayRuntime.bag.page or 1
+      local bag = displayRuntime.bag
+      if not bag.detail then region(tostring(bag.pocket), bag.page, 70, 214) end
     elseif page == "POKEDEX" then
       local dex = displayRuntime.pokedex
-      state.depth = dex.view == "index" and 1 or dex.view == "profile" and 2 or 3
-      state.index = dex.view == "habitat" and dex.habitatPage
-        or dex.view == "moves" and dex.movePage or dex.page or 1
+      if dex.view == "index" then region("index", dex.page, 66, 197)
+      elseif dex.view == "moves" or dex.view == "habitat" then
+        region(dex.view .. ":" .. tostring(dex.selected),
+          dex.view == "moves" and dex.movePage or dex.habitatPage,
+          dex.view == "moves" and 74 or 86, 197)
+      end
     elseif page == "ACHIEVEMENTS" then
-      state.depth = ({ detail = 2, finds = 3, location = 4 })[displayRuntime.achievements.view] or 1
-      state.index = displayRuntime.achievements.page or 1
+      local stamps = displayRuntime.achievements
+      if stamps.view == "album" then region("album", stamps.page, 77, 209)
+      elseif stamps.view == "finds" then
+        region(tostring(stamps.selected) .. ":" .. tostring(stamps.category),
+          stamps.page, 56, stamps.category == 4 and 189 or 211)
+      end
     elseif page == "LOCAL" then
-      state.depth = displayRuntime.explorer.mapFull and 3
-        or displayRuntime.explorer.selected and 2 or 1
-      state.index = displayRuntime.explorer.selected
-        and displayRuntime.explorer.detailPage or displayRuntime.explorer.page or 1
-      if state.depth == 1 and (displayRuntime.explorer.view or "wild") == "wild" then
-        state.gallery = displayRuntime.explorer.filters.wildScope or "HERE"
+      local explorer = displayRuntime.explorer
+      local view = explorer.view or "wild"
+      local context = table.concat({ view, tostring(explorer.selected),
+        explorer.filters.wildScope or "HERE" }, ":")
+      if view == "wild" and not explorer.mapFull then
+        if explorer.selected then region(context, explorer.detailPage, 148, 205)
+        else region(context, explorer.page, 162, 212) end
       end
     elseif page == "STORE" then
-      state.depth = displayRuntime.home.storeDetail and 2 or 1
-      state.index = (displayRuntime.home.storePages or {})[displayRuntime.home.storeView or "today"] or 1
-    elseif page == "TRAINER" then
-      state.depth = trainerStepsOpen and 2 or 1
-    elseif page == "TOOLS" then
-      state.index = tools.page or 1
-    elseif page == "GUIDE" then
-      state.index = guidePage or 1
-    elseif page == "AREA" then
-      state.index = areaPage or 1
+      local home = displayRuntime.home
+      local view = home.storeView or "today"
+      if not home.storeDetail and (view == "apps" or view == "library") then
+        region(view, (home.storePages or {})[view], view == "apps" and 51 or 55, 191)
+      end
+    elseif page == "TOOLS" then region("tools", tools.page, 30, 199)
     end
     return state
+  end
+
+  -- Only a pager action requests motion. A reset/clamp is a data update.
+  function displayRuntime.requestPageMotion(direction)
+    displayRuntime.motion.pageDirection = direction
   end
 
   function displayRuntime.prepareMotion()
     local motion, key = displayRuntime.motion, displayRuntime.motionKey()
     local navigation = displayRuntime.navigationState()
     local previousNavigation = motion.navigation
+    local pageDirection = motion.pageDirection
+    motion.pageDirection = nil
     motion.navigation = navigation
-    local direct = page == "NOTES" and (displayRuntime.notes.down
-      or displayRuntime.notes.view == "draw" or displayRuntime.notes.view == "edit")
+    local direct = page == "NOTES" and (displayRuntime.notes.view == "draw"
+      or displayRuntime.notes.view == "edit")
     if not key or mod.options:get("ui_motion") == false or direct then
       motion.key, motion.started, motion.cached = nil, nil, nil
       return
     end
     local changed = motion.key and motion.key ~= key
     motion.key = key
-    if not changed then return end
+    if not changed then
+      if navigation and previousNavigation
+          and navigation.context ~= previousNavigation.context then
+        motion.started, motion.cached = nil, nil
+      end
+      return
+    end
     local now = love.timer.getTime()
     local kind = hgssRuntime.animation and hgssRuntime.animation.kind
     local battleSlide = (kind == "battle_party" or kind == "battle_bag_close") and 1
@@ -4874,20 +4905,27 @@ return function(mod)
       motion.started = nil
       return
     end
-    motion.direction = battleSlide or navigation and previousNavigation and 1 or nil
-    if not battleSlide and motion.direction and (navigation.depth < previousNavigation.depth
-        or navigation.page == previousNavigation.page
-          and navigation.depth == previousNavigation.depth
-          and (tonumber(navigation.index) or 1) < (tonumber(previousNavigation.index) or 1)) then
-      motion.direction = -1
+    motion.direction, motion.top, motion.bottom = battleSlide, 28, 216
+    if not battleSlide and navigation and previousNavigation
+        and navigation.host == previousNavigation.host then
+      if navigation.page ~= previousNavigation.page then
+        motion.direction = navigation.page == "HOME" and -1 or 1
+        motion.top = 28
+      elseif pageDirection and navigation.context == previousNavigation.context
+          and navigation.top and navigation.top == previousNavigation.top
+          and navigation.bottom == previousNavigation.bottom
+          and navigation.index ~= previousNavigation.index then
+        motion.direction, motion.top, motion.bottom = pageDirection,
+          navigation.top, navigation.bottom
+      end
     end
-    local galleryPage = navigation and previousNavigation
-      and navigation.gallery and navigation.gallery == previousNavigation.gallery
-      and navigation.index ~= previousNavigation.index
-    -- Explorer pagination moves only the portraits below its map and filters.
-    motion.top = battleSlide and 0 or galleryPage and 162 or 28
-    motion.bottom = galleryPage and not battleSlide and 212 or 216
-    motion.duration = battleSlide and 0.24 or motion.direction and 0.20 or 0.16
+    -- Filters, tabs, details, prompts and native screen changes redraw in place.
+    -- Never infer a whole-screen slide or fade from an unrelated state key.
+    if not motion.direction then
+      motion.started, motion.cached = nil, nil
+      return
+    end
+    motion.duration = battleSlide and 0.24 or 0.20
     motion.cached = nil
     if not motion.canvas
         or motion.canvas:getWidth() ~= canvas:getWidth()
@@ -5906,6 +5944,7 @@ return function(mod)
     measure = function(value) return THEME.hgss:partyInfoWidth(value) end,
     translate = function(value) return THEME:translate(value) end,
     area = function() return mapId, areaName(mapId) end,
+    pageMotion = displayRuntime.requestPageMotion,
     leave = function() page, displayRuntime.home.activeApp, dirty = "HOME", nil, true end,
   })
   function displayRuntime.notesShown()
@@ -6915,6 +6954,7 @@ return function(mod)
   end
 
   function displayRuntime.cycleStorePage(view, direction)
+    displayRuntime.requestPageMotion(direction)
     local entries = displayRuntime.storeEntries(view == "library")
     local _, page, pages = displayRuntime.storePage(view, entries)
     displayRuntime.home.storePages[view] =
@@ -8020,6 +8060,7 @@ return function(mod)
   end
 
   function displayRuntime.cyclePokedex(direction)
+    displayRuntime.requestPageMotion(direction)
     local state, model = displayRuntime.pokedex, displayRuntime.pokedexModel()
     if state.view == "index" then
       state.page = (state.page - 1 + direction) % model.pages + 1
@@ -8151,6 +8192,7 @@ return function(mod)
   end
 
   function displayRuntime.cycleBagPage(direction)
+    displayRuntime.requestPageMotion(direction)
     local model = displayRuntime.bagModel()
     displayRuntime.bag.page = (model.page - 1 + direction) % model.pages + 1
     displayRuntime.bag.message, dirty = nil, true
@@ -11227,10 +11269,12 @@ return function(mod)
         local count = math.max(1, math.ceil(#displayRuntime.Home.library(
           home.layout, displayRuntime.homeCatalog, home.page,
           home.addSlot.column, home.addSlot.row, home.libraryKind) / 6))
+        displayRuntime.requestPageMotion(direction)
         home.libraryPage = ((home.libraryPage or 1) - 1 + direction) % count + 1
       else
         local count = displayRuntime.Home.pageCount(home.layout)
           + (home.editing and 1 or 0)
+        displayRuntime.requestPageMotion(direction)
         home.page = ((home.page or 1) - 1 + direction) % count + 1
       end
       dirty = true
@@ -11261,6 +11305,7 @@ return function(mod)
     elseif THEME.style == "hgss" and page == "TOOLS" then
       local pages = math.max(1, math.ceil(#displayRuntime.toolModels() / 4))
       if pages > 1 then
+        displayRuntime.requestPageMotion(direction)
         tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
         dirty = true
       end
@@ -11748,6 +11793,7 @@ return function(mod)
           y * THEME.hgssScale, { actions = actions, page = tools.page })
         if action == "prev" or action == "next" then
           local direction = action == "next" and 1 or -1
+          displayRuntime.requestPageMotion(direction)
           tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
           dirty = true
         end
@@ -11777,11 +11823,13 @@ return function(mod)
         displayRuntime.adjustExplorerZoom(action == "zoom_in" and 1 or -1)
       elseif action == "next" or action == "prev" then
         local direction = action == "next" and 1 or -1
+        displayRuntime.requestPageMotion(direction)
         displayRuntime.explorer.page = ((displayRuntime.explorer.page - 1
           + direction) % model.pages) + 1
         displayRuntime.explorer.selected = nil
       elseif action == "detail_next" or action == "detail_prev" then
         local direction = action == "detail_next" and 1 or -1
+        displayRuntime.requestPageMotion(direction)
         displayRuntime.explorer.detailPage =
           ((displayRuntime.explorer.detailPage - 1 + direction)
             % model.detailPages) + 1
@@ -11884,6 +11932,7 @@ return function(mod)
           y * THEME.hgssScale, { actions = actions, page = tools.page })
         if action == "prev" or action == "next" then
           local direction = action == "next" and 1 or -1
+          displayRuntime.requestPageMotion(direction)
           tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
           dirty = true
         elseif action == "action" then
@@ -11931,6 +11980,7 @@ return function(mod)
       local pages = math.max(1, math.ceil(#displayRuntime.toolModels() / 4))
       if pages > 1 then
         local direction = dx < 0 and 1 or -1
+        displayRuntime.requestPageMotion(direction)
         tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
         dirty = true
       end
@@ -11993,11 +12043,13 @@ return function(mod)
         displayRuntime.explorer.page, displayRuntime.explorer.selected = 1, nil
         dirty = true
       elseif target == "page" and model.pages > 1 then
+        displayRuntime.requestPageMotion(direction)
         displayRuntime.explorer.page = ((displayRuntime.explorer.page - 1
           + direction) % model.pages) + 1
         displayRuntime.explorer.selected = nil
         dirty = true
       elseif target == "detail" and model.detailPages > 1 then
+        displayRuntime.requestPageMotion(direction)
         displayRuntime.explorer.detailPage =
           ((displayRuntime.explorer.detailPage - 1 + direction)
             % model.detailPages) + 1
@@ -12012,6 +12064,7 @@ return function(mod)
     if THEME.style ~= "hgss" and page == "TOOLS" and #tools > 6 then
       local pages = math.ceil(#tools / 6)
       local direction = dy < 0 and 1 or -1
+      displayRuntime.requestPageMotion(direction)
       tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
       dirty = true
       return

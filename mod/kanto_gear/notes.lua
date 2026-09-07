@@ -240,7 +240,10 @@ function Notes:action(action, value)
       end
     end
   end
-  if action == "page" then self.page = math.max(1, math.min(self.pages or 1, self.page + value)) end
+  if action == "page" then
+    if self.ctx.pageMotion then self.ctx.pageMotion(value) end
+    self.page = math.max(1, math.min(self.pages or 1, self.page + value))
+  end
   self:invalidate()
 end
 function Notes:hit(x, y)
