@@ -364,6 +364,42 @@ for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
   end
 end
 options.battle_view = "gear"
+options.ui_motion = true
+api.battle.snapshot = function()
+  local copy = {}
+  for key, value in pairs(battle) do copy[key] = value end
+  return copy
+end
+for _, panel in ipairs({ { menu, 2, "partyIndex" }, { bag, 3, "itemIndex" } }) do
+  raw.phase, raw.menuIndex = "menu", panel[2]
+  battle.prompt, battle.partyIndex, battle.itemIndex = "menu", nil, nil
+  panel[1].submenu, panel[1].index = nil, 2
+  stack.states = { world, raw }; snapshot()
+  game.input.pressQueue = { "a" }
+  input(function()
+    stack.states = { world, raw, panel[1] }
+    game.input.pressQueue = {}
+  end, game, 1 / 60)
+  T.eq(upvalue(input, "battle")[panel[3]], 2,
+    "opening commits the panel snapshot before the first render")
+  local openedKey = display.motionKey()
+  runtime.animation = nil -- The compositor consumes the transition request.
+  refreshBattle()
+  T.eq(display.motionKey(), openedKey, "the next poll keeps the opening screen key stable")
+  T.eq(runtime.animation, nil, "the next poll does not restart the opening animation")
+  game.input.pressQueue = { "b" }
+  input(function()
+    stack.states = { world, raw }
+    game.input.pressQueue = {}
+  end, game, 1 / 60)
+  T.eq(upvalue(input, "battle")[panel[3]], nil,
+    "returning commits the root snapshot before the first render")
+  local closedKey = display.motionKey()
+  runtime.animation = nil
+  refreshBattle()
+  T.eq(display.motionKey(), closedKey, "the next poll keeps the return screen key stable")
+  T.eq(runtime.animation, nil, "the next poll does not restart the return animation")
+end
 stack.states = { world, summary }
 T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, summary),
   true, "field summaries still render above")

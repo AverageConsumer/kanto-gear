@@ -2337,7 +2337,7 @@ return function(mod)
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, false)
   if displayRuntime.perf.enabled then
-    mod.log:info("KGPROF v=1 kind=build version=3.2.6-test.1 units=ms timing=wall nested=true")
+    mod.log:info("KGPROF v=1 kind=build version=3.2.6-test.2 units=ms timing=wall nested=true")
   end
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
@@ -4856,19 +4856,28 @@ return function(mod)
     motion.key = key
     if not changed then return end
     local now = love.timer.getTime()
+    local kind = hgssRuntime.animation and hgssRuntime.animation.kind
+    local battleSlide = (kind == "battle_party" or kind == "battle_bag_close") and 1
+      or (kind == "battle_party_close" or kind == "battle_bag") and -1 or nil
+    if battleSlide then
+      -- Move the actual last frame, including selection and device status.
+      -- Render the live destination once instead of reconstructing either end.
+      hgssRuntime.animation = nil
+    end
     if hgssRuntime.animation
         or THEME.hgss:partyActionAnimating(now) then
       motion.started = nil
       return
     end
-    motion.direction = navigation and previousNavigation and 1 or nil
-    if motion.direction and (navigation.depth < previousNavigation.depth
+    motion.direction = battleSlide or navigation and previousNavigation and 1 or nil
+    if not battleSlide and motion.direction and (navigation.depth < previousNavigation.depth
         or navigation.page == previousNavigation.page
           and navigation.depth == previousNavigation.depth
           and (tonumber(navigation.index) or 1) < (tonumber(previousNavigation.index) or 1)) then
       motion.direction = -1
     end
-    motion.duration = motion.direction and 0.20 or 0.16
+    motion.top = battleSlide and 0 or 28
+    motion.duration = battleSlide and 0.24 or motion.direction and 0.20 or 0.16
     motion.cached = nil
     if not motion.canvas
         or motion.canvas:getWidth() ~= canvas:getWidth()
@@ -4926,8 +4935,9 @@ return function(mod)
       end
       color({ 1, 1, 1, 1 })
       G.draw(motion.target)
-      -- Only the content moves. Clock, battery and navigation stay anchored.
-      G.setScissor(0, 28 * height / 216, width, height * 188 / 216)
+      -- Ordinary pages share a header; battle panels replace the whole screen.
+      local top = motion.top or 28
+      G.setScissor(0, top * height / 216, width, height * (216 - top) / 216)
       local offset = math.floor(width * progress + 0.5) * motion.direction
       G.draw(motion.canvas, -offset, 0)
       G.draw(motion.target, width * motion.direction - offset, 0)
@@ -12571,6 +12581,11 @@ return function(mod)
     if openingPanel then
       hgssRuntime.beginAnimation(openingPanel,
         openingPanel == "battle_party" and { duration = 0.28 } or nil)
+    end
+    if openingPanel or closingPanel then
+      -- Commit both the stack and snapshot before capturing the destination.
+      -- Otherwise the next 50ms poll can restart the same transition.
+      displayRuntime.perf:call("battle_snapshot", refreshBattle)
     end
     return result
   end, 1000)

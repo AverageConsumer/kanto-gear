@@ -150,6 +150,28 @@ run.loader.modOptions.kanto_gear.ui_motion = true
 runtime.beginAnimation("summary_open")
 T.eq(runtime.animation.duration, .24, "hero transitions share the shorter duration")
 run.loader.modOptions.kanto_gear.battle_view = "gear"
+runtime.animation = nil
+page("HOME"); now = 30; draw()
+for _, transition in ipairs({
+  { "battle_party", 1 }, { "battle_party_close", -1 },
+  { "battle_bag", -1 }, { "battle_bag_close", 1 },
+}) do
+  now = now + 1
+  -- A native panel changes the screen key independently of app navigation.
+  game.stack.states[2] = { screenId = transition[1] }
+  runtime.beginAnimation(transition[1]); draw()
+  T.eq(runtime.animation, nil, transition[1] .. " uses the live screen compositor")
+  T.eq(display.motion.direction, transition[2], transition[1] .. " travels in the expected direction")
+  T.eq(display.motion.top, 0, transition[1] .. " includes the real header in the captured screen")
+  local startPaints, startAllocations = paints, allocations
+  for frame = 1, 12 do now = now + 1 / 60; draw() end
+  T.eq(paints, startPaints, transition[1] .. " never rebuilds cards during movement")
+  T.eq(allocations, startAllocations, transition[1] .. " reuses its two canvases")
+  now = now + .1; draw()
+  T.eq(display.motion.started, nil, transition[1] .. " completes without restarting")
+  T.eq(paints, startPaints + 1, transition[1] .. " returns to fresh live rendering")
+end
+game.stack.states[2] = nil
 runtime.beginAnimation("battle_moves")
 local battleDuration = runtime.animation.duration
 T.eq(battleDuration, .28, "battle movement gets enough frames within a short transition")
