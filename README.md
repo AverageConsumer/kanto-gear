@@ -97,8 +97,9 @@ Bundled Japanese and Korean Fusion Pixel fonts also work without a game
 translation mod and cover gaps in a game's font, including the numero sign.
 They load only when needed; supported Latin text keeps the HGSS pixel fonts.
 Measurement, truncation and centering use the same selected font.
-Japanese currently covers the contributed core menu strings; missing entries
-fall back to English. Korean Gear menu translations are not included yet.
+Japanese covers 721 of the current 732 UI text keys, including Home, Notes,
+stamps, the bag, Store and settings. Remaining entries fall back to English.
+Korean Gear menu translations are not included yet.
 Gear's own menu language is selected
 separately; installing a game translation does not translate Gear's menus.
 For type labels, Gear also reads contextual `type|<name>` entries from the

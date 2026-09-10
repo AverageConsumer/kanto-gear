@@ -23,8 +23,10 @@ Original Spanish translations: **Desierto La Espada**. Original French
 translations: **Blastheaven2**. Their contributions remain the basis of the
 built-in catalogs. Japanese was contributed by **Theeohn** in
 [PR #33](https://github.com/AverageConsumer/kanto-gear/pull/33), with subsequent
-wording revisions from Theeohn. The built-in `ja` catalog currently contains
-338 entries, including the language selector label. Untranslated reference
+wording revisions and a completion contribution from Theeohn covering Home,
+Store, settings, Notes, stamps, the bag and other companion screens.
+The built-in `ja` catalog currently contains 721 of 732 reference entries,
+including the language selector label. Untranslated reference
 keys fall back to English; see [the Japanese completion file](ja-missing.lua).
 
 ## Maintaining translations
@@ -55,7 +57,7 @@ synchronization. Set `KANTO_GEAR_MOD_PATH` when using a separate host checkout.
 Render checks use the existing HGSS preview tool:
 
 ```powershell
-$env:KANTO_GEAR_PREVIEW_LANGUAGE = "de" # en, de, es, fr
+$env:KANTO_GEAR_PREVIEW_LANGUAGE = "de" # en, de, es, fr, ja
 $env:KANTO_GEAR_PREVIEW_GEN = "2"       # 1 or 2
 $env:KANTO_GEAR_PREVIEW_VARIANT = "dark" # light or dark
 $env:KANTO_GEAR_PREVIEW_SCREEN = "settings_appearance"

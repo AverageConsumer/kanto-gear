@@ -12,12 +12,16 @@ function love.load()
   local function font(name)local f=G.newImageFont(love.image.newImageData(file(name)),glyphs);f:setFilter("nearest","nearest");return f end
   local utf8=require("utf8")
   local function chars(value)local out={};for _,c in utf8.codes(value)do out[#out+1]=utf8.char(c)end;return out end
-  local catalog=assert(loadfile(root.."/mod/kanto_gear/lang/de.lua"))()
+  local language=os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "de"
+  local catalog=assert(loadfile(root.."/mod/kanto_gear/lang/"..language..".lua"))()
   local function tr(v)return catalog[v] or v end
+  local translationFonts=assert(loadfile(root.."/mod/kanto_gear/translation_fonts.lua"))().new(
+    G,function(message)error(message)end,file)
   local H=assert(loadfile(root.."/mod/kanto_gear/hgss.lua"))()({graphics=G,
     bagIcon=G.newImage(file("kanto_bag.png")),
     box=function(mode,x,y,w,h,c)G.setColor(c);G.rectangle(mode,x,y,w,h)end,
     color=function(c)G.setColor(c)end,glyphs=chars,translate=tr,format=string.format,
+    translationFonts=translationFonts,
     font=font("hgss_font.png"),smallFont=font("hgss_small_font.png"),largeFont=font("hgss_large_font.png")})
   local Notes=assert(loadfile(root.."/mod/kanto_gear/notes.lua"))()
   assert(loadfile(root.."/mod/kanto_gear/achievements_ui.lua"))()(H,G,tr,string.format)
