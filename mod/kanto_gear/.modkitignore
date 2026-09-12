@@ -25,3 +25,6 @@ tests/touch_guard_test.lua
 tests/render_stack_test.lua
 tests/motion_runtime_test.lua
 tests/habitats_test.lua
+tests/start_menu_test.lua
+tests/start_menu_runtime_test.lua
+tests/display_background_test.lua

@@ -465,6 +465,8 @@ function love.load()
   local explorerRadar = screen == "explorer_radar"
   local regionMapFly = screen == "region_map_fly"
   local regionMap = screen == "region_map" or regionMapFly
+  local startMenu = screen == "start_menu" or screen == "start_menu_more"
+    or screen == "start_menu_early"
   local legacyChoice = screen == "legacy_choice"
   local legacyChoiceGrid = screen == "legacy_choice_grid"
   local legacyNaming = screen == "legacy_naming"
@@ -495,10 +497,10 @@ function love.load()
   local legacyLoading = screen == "legacy_loading"
   local legacyOverlay = screen == "legacy_overlay"
   local legacyPpMoves = screen == "legacy_pp_moves"
-  local legacy = legacyChoice or legacyChoiceGrid or legacyNaming
+  local legacy = startMenu or legacyChoice or legacyChoiceGrid or legacyNaming
     or legacyLevelUp or legacyMoveNew or legacyMoveForget or legacyMoveInfo
     or legacyEnemy or legacyPc or legacyPpMoves
-  local legacyBack = legacyMoveForget or legacyMoveInfo
+  local legacyBack = startMenu or legacyMoveForget or legacyMoveInfo
     or legacyEnemy and not legacyEnemyInfo or legacyPc and not legacyPcRoot
     or legacyPpMoves
   local pokedexIndex = screen == "pokedex"
@@ -562,6 +564,7 @@ function love.load()
     or explorerRadar and "ITEM RADAR"
     or explorer and "EXPLORER"
     or regionMap and (gen1 and "KANTO MAP" or "JOHTO MAP")
+    or startMenu and "CHOOSE ACTION"
     or legacyNaming and "NAME INPUT"
     or legacyLevelUp and "LEVEL UP"
     or legacyMoveNew and "NEW MOVE"
@@ -1745,6 +1748,24 @@ function love.load()
       theme:battleMoveInfoBody(newMove,
         theme:moveHasStab(mon, newMove))
     end
+  elseif startMenu then
+    local menu = assert(loadfile(root .. "/mod/kanto_gear/start_menu.lua"))()
+    local labels = languageCode == "ja"
+      and { "ずかん", "ポケモン", "どうぐ", "ポケギア", "ヒビキ", "レポート", "せってい", "MODS", "QUIT" }
+      or languageCode == "de"
+      and { "POKéDEX", "POKéMON", "BEUTEL", "POKéCOM", "KRIS", "SICHERN", "OPTIONEN", "MODS", "BEENDEN" }
+      or { "POKéDEX", "POKéMON", "PACK", "POKéGEAR", "KRIS", "SAVE", "OPTION", "MODS", "QUIT" }
+    local kinds = { "pokedex", "pokemon", "pack", "pokegear", "status", "save", "option", "mods", "quit" }
+    if gen1 then table.remove(labels, 4); table.remove(kinds, 4) end
+    local native = { screenId = "StartMenu", startCloses = true, update = function() end,
+      index = screen == "start_menu_more" and 7 or 2, items = {} }
+    for i, label in ipairs(labels) do native.items[i] = { label = label, value = kinds[i] } end
+    if screen == "start_menu_more" then
+      for i = 1, 3 do native.items[#native.items + 1] = { label = "EXTRA MOD " .. i } end
+    elseif screen == "start_menu_early" then
+      native.items = { native.items[2], native.items[3], native.items[#native.items - 1] }
+    end
+    theme:startMenu(menu.model(native))
   elseif legacyChoice then
     theme:choiceScreen({
       prompt = { "WOULD YOU LIKE TO GIVE", "THIS POKEMON A NICKNAME?" },

@@ -2364,6 +2364,8 @@ return function(mod)
     "@kanto_gear/fruit_trees.lua"))()
   displayRuntime.touchGuard = assert(load(mod:read("touch_guard.lua"),
     "@kanto_gear/touch_guard.lua"))().new()
+  displayRuntime.StartMenu = assert(load(mod:read("start_menu.lua"),
+    "@kanto_gear/start_menu.lua"))()
   displayRuntime.Home = assert(load(mod:read("home_layout.lua"),
     "@kanto_gear/home_layout.lua"))()
   displayRuntime.Achievements = assert(load(mod:read("achievements.lua"),
@@ -3012,7 +3014,7 @@ return function(mod)
 
   compat.yesNoFields = {
     Gen2SaveMenu = { confirm = "choice", overwrite = "choice" },
-    Gen2StartMenu = { confirm = "confirmChoice" },
+    Gen2StartMenu = { confirm = "confirmChoice", confirmContest = "confirmChoice" },
     Gen2BattleState = { ["ask-nickname"] = "nicknameIndex",
       ["ask-shift"] = "shiftIndex", ["ask-forget"] = "forgetChoice",
       ["stop-learning"] = "forgetChoice" },
@@ -4701,6 +4703,34 @@ return function(mod)
     -- Never deliver an old confirmation after a pause or a stalled frame.
     if frame == RADAR_FRAMES and now - explorer.scanStarted <= 1.3 then
       displayRuntime.finishScanFeedback()
+    end
+  end
+
+  function displayRuntime.startMenu()
+    local top = game and game.stack and game.stack:top()
+    return displayRuntime.StartMenu.cursor(top) and top or nil
+  end
+
+  function displayRuntime.startMenuModel(top)
+    return displayRuntime.StartMenu.model(top)
+  end
+
+  function displayRuntime.drawStartMenu(top)
+    header(THEME:translate("CHOOSE ACTION"), true)
+    local model = displayRuntime.startMenuModel(top)
+    if THEME.style == "hgss" then
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:startMenu(model)
+      G.pop()
+    else
+      for _, entry in ipairs(model.entries) do
+        button(entry.x / 1.5, entry.y / 1.5, entry.w / 1.5, entry.h / 1.5,
+          entry.label, entry.selected, not entry.disabled)
+      end
+      if model.total <= 5 then return end
+      button(7 / 1.5, 190 / 1.5, 56 / 1.5, 23 / 1.5, "^", false, model.first > 1)
+      button(177 / 1.5, 190 / 1.5, 56 / 1.5, 23 / 1.5, "v", false, model.last < model.total)
+      centered(model.first .. "-" .. model.last .. "/" .. model.total, 131, DARK)
     end
   end
 
@@ -9840,6 +9870,7 @@ return function(mod)
     local fieldPp = displayRuntime.fieldPpMoveScreen()
     local pcKind, pcRoot = pcSession()
     local choice, labels, choiceField = dialogueChoice()
+    local startMenu = displayRuntime.startMenu()
     local namingKeys = screenContract(top, "naming")
     local naming = namingKeys and top or nil
     local unsupportedSpecial = (learnScreen and not learn and not fieldPp)
@@ -9848,14 +9879,16 @@ return function(mod)
       or displayRuntime.levelUp:fieldMon(top)
     if THEME.style == "hgss" then
       local owned = learn or naming or levelStats or battle or fieldPp
-        or fieldParty or hgssSummary or pcKind
+        or fieldParty or hgssSummary or pcKind or startMenu
       local pressTouch = displayRuntime.pressTouch(
         mode, choice, touchDown, owned)
       THEME.hgss:setTouch(pressTouch and pressTouch.x,
         pressTouch and pressTouch.y)
       THEME.hgss:backdrop()
     end
-    if moveInfo then
+    if startMenu then
+      displayRuntime.drawStartMenu(startMenu)
+    elseif moveInfo then
       drawMoveInfo(moveInfo)
     elseif learn and (not choice or learn.field) then
       drawLearnMove(learn, top, choice, choiceField)
@@ -9919,7 +9952,7 @@ return function(mod)
     else
       drawTools()
     end
-    if not learn and not naming and not battle and not choice and not levelStats
+    if not startMenu and not learn and not naming and not battle and not choice and not levelStats
         and not fieldPp and not fieldParty and not hgssSummary
         and not (pcKind and mode == "locked")
         and mode ~= "title" and mode ~= "active" then
@@ -11245,6 +11278,21 @@ return function(mod)
     dirty = true
   end
 
+  function displayRuntime.tapStartMenu(top, x, y)
+    local menu = displayRuntime.StartMenu
+    local action = menu.hit(top, x * 1.5, y * 1.5)
+    if action == "back" then
+      press("b")
+    elseif action == "previous" or action == "next" then
+      local first = menu.window(top)
+      local index = action == "next" and first + menu.visible or first - menu.visible
+      menu.select(top, index)
+    elseif type(action) == "number" and menu.select(top, action) then
+      press("a")
+    end
+    if action then dirty = true end
+  end
+
   function displayRuntime.commitDialogueChoice(top, field, selected)
     local now = love.timer.getTime()
     if trackChoice(top, now) then dirty = true end
@@ -11531,6 +11579,11 @@ return function(mod)
   end
 
   local function tap(x, y)
+    local startMenu = displayRuntime.startMenu()
+    if startMenu then
+      displayRuntime.tapStartMenu(startMenu, x, y)
+      return
+    end
     if displayRuntime.homeHelpActive() then
       displayRuntime.tapHomeHelp(x * THEME.hgssScale, y * THEME.hgssScale)
       return
@@ -12116,6 +12169,7 @@ return function(mod)
   end
 
   local function swipeVertical(dy)
+    if displayRuntime.startMenu() then return end
     if radarOpen then return end
     if page == "LOCAL" and THEME.style == "hgss" then return end
     if THEME.style ~= "hgss" and page == "TOOLS" and #tools > 6 then
@@ -12207,7 +12261,8 @@ return function(mod)
       tostring(top and top.confirm), tostring(top and top.selecting),
       tostring(not text and top and top.message ~= nil),
       tostring(moveInfo), tostring(fieldChoice), tostring(battleInfoDetail),
-      tostring(partyActionSlot), tostring(page), tostring(mode) }, ":")
+      tostring(partyActionSlot), tostring(page), tostring(mode),
+      tostring(displayRuntime.StartMenu.window(top)) }, ":")
     displayRuntime.touchGuard:sync(key, text, love.timer.getTime())
     local animation = hgssRuntime.animation
     if not text and animation then
@@ -12285,13 +12340,13 @@ return function(mod)
         textSpeed = speed,
         input = mode == "title" or mode == "active" or mode == "textbox" or battle
           or screenContract(top, "naming")
-          or dialogueChoice() or compat.isScreen(top, "summary")
+          or dialogueChoice() or displayRuntime.startMenu() or compat.isScreen(top, "summary")
           or displayRuntime.moveLearnScreen()
           or displayRuntime.fieldPpMoveScreen()
           or displayRuntime.fieldBagParty()
           or compat.levelUpMon(top) or displayRuntime.levelUp:fieldMon(top)
           or pcSession() }
-      if THEME.style == "hgss" and page == "HOME"
+      if mode == "active" and THEME.style == "hgss" and page == "HOME"
           and not displayRuntime.home.library
           and not displayRuntime.homeHelpActive() then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
@@ -12355,7 +12410,8 @@ return function(mod)
         swipeVertical(dy)
         displayRuntime.touchDispatch = false
         displayRuntime.syncTouchGuard()
-      elseif dialogueChoice() and (math.abs(dx) >= 12 or math.abs(dy) >= 12) then
+      elseif (dialogueChoice() or displayRuntime.startMenu())
+          and (math.abs(dx) >= 12 or math.abs(dy) >= 12) then
         return
       elseif down.input then
         displayRuntime.dispatchTouchTap(tap, x, y)
@@ -13254,6 +13310,8 @@ return function(mod)
         if frame ~= radarFrame then radarFrame, dirty = frame, true end
       end
       displayRuntime.advanceExplorerScan(now)
+      local startCursor = displayRuntime.StartMenu.cursor(top)
+      displayRuntime.startMenuIndex = startCursor and startCursor.index or nil
       local screenKey = table.concat({ mode, tostring(top),
         tostring(page), tostring(guidePage), tostring(areaPage),
          tostring(displayRuntime.explorer.view),
@@ -13272,6 +13330,7 @@ return function(mod)
         tostring(radarOpen),
          tostring(top and top.waiting), tostring(top and top.done),
          tostring(top and top.index), tostring(top and top.kind),
+         tostring(displayRuntime.startMenuIndex),
          tostring(currentChoice and compat.choiceIndex(
            currentChoice, currentChoiceField)),
          tostring(top and top.row), tostring(top and top.col), tostring(top and top.lower),

@@ -3645,6 +3645,74 @@ return function(ui)
       math.floor(entry.h * 1.5 + 0.5)
   end
 
+  function H:startMenuIcon(kind, x, y)
+    local c = self.colors
+    if kind == "pokemon" then
+      self:battleTeamBall(x + 8, y + 8, "ready")
+    elseif kind == "save" then
+      border(x + 1, y + 1, 14, 14, c.ink)
+      box("fill", x + 3, y + 2, 9, 4, c.blueLight)
+      box("fill", x + 4, y + 9, 8, 5, c.silver)
+      box("fill", x + 9, y + 2, 2, 4, c.ink)
+    elseif kind == "quit" or kind == "quitContest" then
+      border(x + 2, y + 1, 11, 14, c.ink)
+      box("fill", x + 4, y + 3, 7, 10, c.redLight)
+      box("fill", x + 9, y + 8, 1, 1, c.ink)
+    elseif kind == "pokedex" then
+      clipped(x + 2, y + 1, 12, 14, c.red)
+      border(x + 2, y + 1, 12, 14, c.ink)
+      box("fill", x + 5, y + 3, 6, 5, c.blueLight)
+      box("fill", x + 5, y + 10, 3, 2, c.white)
+    elseif kind == "pack" then
+      border(x + 5, y + 1, 6, 4, c.ink)
+      clipped(x + 2, y + 4, 12, 11, c.amber)
+      border(x + 2, y + 4, 12, 11, c.ink)
+      box("fill", x + 5, y + 9, 6, 4, c.amberLight)
+    elseif kind == "option" then
+      for i, knob in ipairs({ 4, 10, 7 }) do
+        local yy = y + 3 + (i - 1) * 5
+        box("fill", x + 1, yy, 14, 1, c.ink)
+        box("fill", x + knob, yy - 1, 3, 3, c.green)
+      end
+    else
+      border(x + 1, y + 2, 14, 12, c.ink)
+      for i = 0, 2 do box("fill", x + 4, y + 5 + i * 3, 8, 1, c.green) end
+    end
+  end
+
+  function H:startMenu(model)
+    local c = self.colors
+    for _, entry in ipairs(model.entries) do
+      local x, y, w, h = entry.x, entry.y, entry.w, entry.h
+      local pressed = self:beginPress(x, y, w, h)
+      self:homeTile(x, y, w, h, entry.selected and c.green or c.blue, entry.selected)
+      self:startMenuIcon(entry.kind, x + 9, y + 6)
+      box("fill", x + 33, y + 5, 1, h - 10, c.band)
+      self:partyInfo(self:fitPartyInfo(entry.label, w - 52), x + 40,
+        y + math.floor((h - 9) / 2), entry.disabled and c.mutedInk or c.ink, w - 52, "center")
+      self:endPress(pressed)
+    end
+    if model.total <= 5 then return end
+    local controls = {
+      { x = 7, up = true, enabled = model.first > 1 },
+      { x = 177, enabled = model.last < model.total },
+    }
+    for _, control in ipairs(controls) do
+      local pressed = control.enabled and self:beginPress(control.x, 190, 56, 23)
+      self:panel(control.x, 190, 56, 23, false, nil,
+        control.enabled and c.blueLight or c.band)
+      local tint = control.enabled and c.ink or c.mutedInk
+      for line = 0, 3 do
+        local width = 1 + line * 2
+        box("fill", control.x + 28 - math.floor(width / 2),
+          199 + (control.up and line or 3 - line), width, 1, tint)
+      end
+      self:endPress(pressed)
+    end
+    self:partyInfo(model.first .. "-" .. model.last .. " / " .. model.total,
+      68, 197, c.ink, 104, "center")
+  end
+
   function H:choiceScreen(model)
     local colors = self.colors
     if #(model.prompt or {}) > 0 then

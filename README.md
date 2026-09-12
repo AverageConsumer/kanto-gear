@@ -48,6 +48,10 @@ from apps, shortcuts and widgets.
   available methods, and show missing requirements or unvisited locations.
   This is catch planning: owned TMs/HMs and boxed partners can count toward a
   method. Explorer's **Here Now** still requires tools usable with your current party and bag.
+- **Contextual Start menu** mirrors the game's current entries as touch rows,
+  in the same order and with the same D-pad selection. It follows unlocks and
+  mod-added entries, preserves native confirmations, and returns to your
+  previous Gear view when the game menu closes.
 - **Silph Store** explains and manages optional apps and widgets. Everything
   already ships inside Kanto Gear; the Store never downloads executable code.
 - **Achievements** tracks trainers, items, hidden finds, and local wild Pokémon. Bronze marks a visited area; silver completes its trainer and item goals; gold also completes its local species list. Pokémon already registered as caught count wherever they were obtained. Gym trainers follow the game's completion flags, including trainers automatically cleared by a Gym Leader victory. One-shot battles that allow a loss are optional; missed regular goals and unverified progress remain explicit.
