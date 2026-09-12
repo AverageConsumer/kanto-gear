@@ -28,3 +28,4 @@ tests/habitats_test.lua
 tests/start_menu_test.lua
 tests/start_menu_runtime_test.lua
 tests/display_background_test.lua
+tests/auto_battle_screen_test.lua

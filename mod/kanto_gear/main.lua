@@ -1249,6 +1249,8 @@ local function supportedBattleUI(state)
   return kind ~= "link" and kind ~= "oldman"
 end
 
+THEME.supportedBattleUI = supportedBattleUI
+
 local function caughtWild(kind, owned)
   return (kind == "wild" or kind == "safari") and owned == true
 end
@@ -2112,6 +2114,10 @@ return function(mod)
       }, choices = {
         { "GAME", "game" }, { "GEAR", "gear" },
       } },
+    { key = "auto_battle_screen", label = "AUTO BATTLE SCREEN",
+      type = "toggle", default = false, visible_if = {
+        key = "display_mode", equals = "fullscreen",
+      } },
     { key = "combined_layout", label = "LAYOUT", type = "choice",
       default = THEME.combinedLayoutDefault, reset_default = "auto", visible_if = {
         key = "display_mode", equals = "combined",
@@ -2264,6 +2270,12 @@ return function(mod)
       and displayRuntime.explorer.mapZoom == 2,
     "Explorer fullscreen zoom clamps and advances")
   displayRuntime.explorer.mapZoom = 1
+  displayRuntime.autoBattle = {}
+  function displayRuntime.gearPrimary()
+    if displayRuntime.autoBattle.shown ~= nil then return displayRuntime.autoBattle.shown end
+    return THEME:gearPrimary(mod.options, displayRuntime.swapped)
+  end
+
   local function inlineDisplay()
     return THEME:displayMode(mod.options) ~= "separate"
   end
@@ -2521,7 +2533,7 @@ return function(mod)
         "bottom_safe_area", "overlay_corner", "overlay_button",
         "display_target", "screen_swap" } },
     { id = "battle", label = "BATTLE", detail = "HUD AND BATTLE INFO",
-      accent = "red", keys = { "battle_view", "caught_icon" } },
+      accent = "red", keys = { "battle_view", "auto_battle_screen", "caught_icon" } },
     { id = "research", label = "RESEARCH", detail = "VANILLA TO SPOILERS",
       accent = "amber", keys = { "info_level" } },
     { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS",
@@ -3190,7 +3202,7 @@ return function(mod)
   local function hasDisplay()
     if inlineDisplay() then
       return THEME:displayMode(mod.options) ~= "fullscreen"
-        or THEME:gearPrimary(mod.options, displayRuntime.swapped)
+        or displayRuntime.gearPrimary()
     end
     return (companion and companion.detected and companion.detected()) or false
   end
@@ -12262,7 +12274,8 @@ return function(mod)
       tostring(not text and top and top.message ~= nil),
       tostring(moveInfo), tostring(fieldChoice), tostring(battleInfoDetail),
       tostring(partyActionSlot), tostring(page), tostring(mode),
-      tostring(displayRuntime.StartMenu.window(top)) }, ":")
+      tostring(displayRuntime.StartMenu.window(top)),
+      tostring(displayRuntime.autoBattle.shown) }, ":")
     displayRuntime.touchGuard:sync(key, text, love.timer.getTime())
     local animation = hgssRuntime.animation
     if not text and animation then
@@ -12433,8 +12446,57 @@ return function(mod)
     dirty = true
   end
 
+  function displayRuntime.autoBattleSelection(raw, top)
+    if top == raw then
+      local phase = raw.phase
+      return phase == "menu" or phase == "moves" or phase == "moveSelect"
+        or phase == "mimicSelect" or phase == "choose-forget"
+        or dialogueChoice() ~= nil
+    end
+    -- Only switch to screens Gear can actually operate. Unknown mod screens,
+    -- battle messages and animations stay on the game view.
+    if dialogueChoice() then return true end
+    if top and (top.isTextBox or top.message and not top.qtyState) then return false end
+    return not not (screenContract(top, "party")
+      or screenContract(top, "bag")
+      or (compat.isScreen(top, "summary") and compat.summary.supports(top, game))
+      or screenContract(top, "naming")
+      or displayRuntime.moveLearnScreen()
+      or displayRuntime.fieldPpMoveScreen())
+  end
+
+  function displayRuntime.updateAutoBattleScreen()
+    local auto, raw, wanted = displayRuntime.autoBattle
+    if active and mod.options:get("auto_battle_screen") == true
+        and THEME:displayMode(mod.options) == "fullscreen"
+        and currentBattleUIMode() ~= "info" then
+      raw = battleState()
+      if raw and THEME.supportedBattleUI(raw) and not raw.tutorial and not raw.demo then
+        wanted = displayRuntime.autoBattleSelection(raw, game.stack:top()) == true
+      else raw = nil end
+    end
+    if auto.raw == raw and auto.wanted == wanted then return end
+    local previous = displayRuntime.gearPrimary()
+    auto.raw, auto.wanted, auto.shown = raw, wanted, wanted
+    if displayRuntime.gearPrimary() ~= previous then
+      resetSwapState()
+      -- Fetch the destination snapshot before showing its first frame.
+      -- This runs only at view changes, not on every input tick.
+      nextPoll = 0
+      if displayRuntime.gearPrimary() then
+        displayRuntime.perf:call("battle_snapshot", refreshBattle)
+        nextPoll = love.timer.getTime() + 0.05
+        hgssRuntime.animation = nil
+        displayRuntime.motion.started, displayRuntime.motion.cached = nil, nil
+      end
+      displayRuntime.syncTouchGuard()
+      displayRuntime.touchGuard.readyAt = love.timer.getTime() + displayRuntime.touchGuard.quiet
+    end
+  end
+
   mod.events:on("game.ready", function(payload)
     game = payload.game
+    displayRuntime.autoBattle = {}
     displayRuntime.touchGuard.key, displayRuntime.touchGuard.pending = nil, false
     displayRuntime.touchGuard.readyAt = 0
     displayRuntime.levelUp = displayRuntime.LevelUp.new()
@@ -12546,6 +12608,10 @@ return function(mod)
       if not assist("move_details")
           or (payload.key == "battle_view"
             and currentBattleUIMode() == "info") then moveInfo = nil end
+      if payload.key == "auto_battle_screen" or payload.key == "battle_view"
+          or payload.key == "display_mode" or payload.key == "fullscreen_start" then
+        displayRuntime.updateAutoBattleScreen()
+      end
       if payload.key == "battle_view" then
         battleInfoDetail, hgssRuntime.animation = nil, nil
         displayRuntime.motion.started = nil
@@ -12730,7 +12796,10 @@ return function(mod)
       if consumed then back() end
       if modalMoveInfo then
         local result = next(stepGame, dt)
-        if stepGame == game then displayRuntime.touchGuard.pending = false end
+        if stepGame == game then
+          displayRuntime.touchGuard.pending = false
+          displayRuntime.updateAutoBattleScreen()
+        end
         return result
       end
     end
@@ -12761,10 +12830,14 @@ return function(mod)
       dirty = moveInfo ~= nil or dirty
     end
     if active and (inlineDisplay() or hasDisplay()) and swapPressed then
-      displayRuntime.swapped = not displayRuntime.swapped
+      if displayRuntime.autoBattle.wanted ~= nil then
+        displayRuntime.autoBattle.shown = not displayRuntime.gearPrimary()
+      else
+        displayRuntime.swapped = not displayRuntime.swapped
+      end
       resetSwapState()
       mod.log:info("screen swap: gear=%s", inlineDisplay()
-        and (THEME:gearPrimary(mod.options, displayRuntime.swapped)
+        and (displayRuntime.gearPrimary()
             and "primary" or "secondary")
           or (bottomOnHandheld() and "handheld" or "external"))
     end
@@ -12777,6 +12850,7 @@ return function(mod)
     if closingPanel then hgssRuntime.beginAnimation(closingPanel) end
     local result = next(stepGame, dt)
     if stepGame == game then
+      displayRuntime.updateAutoBattleScreen()
       local pending = displayRuntime.touchGuard.pending
       displayRuntime.touchGuard.pending = false
       if pending or touchDown then displayRuntime.syncTouchGuard() end
@@ -12802,7 +12876,7 @@ return function(mod)
     }
     local layout = THEME:windowLayout(THEME:windowMode(mod.options),
       base.width, base.height,
-      THEME:gearPrimary(mod.options, displayRuntime.swapped),
+      displayRuntime.gearPrimary(),
       mod.options:get("overlay_corner"), displayRuntime.overlayHidden,
       mod.options:get("secondary_size"),
       mod.options:get("bottom_safe_area"))
@@ -12839,7 +12913,7 @@ return function(mod)
       local ww = math.max(1, context.width or fallbackWidth)
       local wh = math.max(1, context.height or fallbackHeight)
       local layout = THEME:windowLayout(THEME:windowMode(mod.options), ww, wh,
-        THEME:gearPrimary(mod.options, displayRuntime.swapped),
+        displayRuntime.gearPrimary(),
         mod.options:get("overlay_corner"), displayRuntime.overlayHidden,
         mod.options:get("secondary_size"),
         mod.options:get("bottom_safe_area"))

@@ -1948,6 +1948,7 @@ function love.load()
   elseif settingsBattle then
     theme:settings({ category = "battle", accent = "red", page = 1, pages = 1, rows = {
       { label = "BATTLE VIEW", value = "STANDARD" },
+      { label = "AUTO BATTLE SCREEN", value = "ON" },
       { label = "CAUGHT ICON", value = "ON" },
     } })
   elseif settingsResearch then

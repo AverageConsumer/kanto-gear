@@ -52,6 +52,11 @@ from apps, shortcuts and widgets.
   in the same order and with the same D-pad selection. It follows unlocks and
   mod-added entries, preserves native confirmations, and returns to your
   previous Gear view when the game menu closes.
+- **Auto Battle Screen** is an optional setting under **Options → Battle**
+  when using **Fullscreen Swap**. It shows Gear for supported battle selections
+  and the game for messages and animations, then restores the previous screen.
+  Y/F6 overrides the current selection flow. It defaults to off and does not
+  take over tutorials, unknown screens, or the information-only battle view.
 - **Silph Store** explains and manages optional apps and widgets. Everything
   already ships inside Kanto Gear; the Store never downloads executable code.
 - **Achievements** tracks trainers, items, hidden finds, and local wild Pokémon. Bronze marks a visited area; silver completes its trainer and item goals; gold also completes its local species list. Pokémon already registered as caught count wherever they were obtained. Gym trainers follow the game's completion flags, including trainers automatically cleared by a Gym Leader victory. One-shot battles that allow a loss are optional; missed regular goals and unverified progress remain explicit.

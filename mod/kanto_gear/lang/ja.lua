@@ -1,4 +1,5 @@
 return {
+  ["AUTO BATTLE SCREEN"] = "バトル画面自動切替",
   ["JAPANESE"] = "にほんご",
   -- Start, navigation and common controls.
   ["START GAME"] = "ゲームかいし",

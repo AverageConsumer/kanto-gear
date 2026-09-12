@@ -342,9 +342,12 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 22, "Kanto Gear registers all settings including map motion")
+T.eq(#options, 23, "Kanto Gear registers all settings including automatic battle display")
 local optionsByKey = {}
 for _, row in ipairs(options) do optionsByKey[row.key] = row end
+T.eq(optionsByKey.auto_battle_screen.default, false, "automatic battle switching is opt-in")
+T.eq(optionsByKey.auto_battle_screen.visible_if.key, "display_mode", "auto battle depends on display mode")
+T.eq(optionsByKey.auto_battle_screen.visible_if.equals, "fullscreen", "auto battle is offered only for fullscreen swap")
 T.eq(optionsByKey.language.default, "en", "language preserves English by default")
 T.eq(#optionsByKey.language.choices, 5, "language offers five built-in languages")
 T.eq(optionsByKey.language.choices[5][2], "ja", "Japanese is selectable using its standard locale code")
