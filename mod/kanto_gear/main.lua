@@ -949,15 +949,31 @@ local function gen2TrainerName(data, save, trainer)
     or class.name or classId
 end
 
+function Area.gen2PickupState(data, world, event)
+  if not Area.Pickups then
+    local done = gen2FlagSet(world, event)
+    return done, not done
+  end
+  if Area.pickupData ~= data or Area.pickupScripts ~= data.gen2Scripts
+      or Area.pickupInitial ~= data.gen2InitialEvents or Area.pickupMaps ~= data.gen2Maps then
+    Area.pickupPolicy = Area.Pickups.new(data)
+    Area.pickupData, Area.pickupScripts = data, data.gen2Scripts
+    Area.pickupInitial, Area.pickupMaps = data.gen2InitialEvents, data.gen2Maps
+  end
+  return Area.pickupPolicy:state(world, event)
+end
+
 function Area.gen2Hidden(data, world, mapId)
   local map = data and data.gen2Maps and data.gen2Maps[mapId]
   local out = {}
   for _, event in ipairs(map and map.bgEvents or {}) do
     local hidden = event.hiddenItem
     if hidden then
+      local done, available, status = Area.gen2PickupState(data, world, hidden.event)
       out[#out + 1] = {
         label = gen2ItemName(data, hidden.item),
-        done = gen2FlagSet(world, hidden.event),
+        done = done, available = available, status = status,
+        untracked = status == "NOT TRACKED",
         x = event.x, y = event.y, event = hidden.event,
       }
     end
@@ -1006,9 +1022,11 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
           optional = trainer.optional,
         }
       elseif obj.itemball and obj.itemball.item ~= 0 then
+        local done, available, status = Area.gen2PickupState(data, world, obj.eventFlag)
         rows[2][#rows[2] + 1] = {
           label = gen2ItemName(data, obj.itemball.item),
-          done = gen2FlagSet(world, obj.eventFlag),
+          done = done, available = available, status = status,
+          untracked = status == "NOT TRACKED",
           mapId = mapId, x = obj.x, y = obj.y, kind = "item", event = obj.eventFlag,
         }
       end
@@ -2350,6 +2368,9 @@ return function(mod)
     "@kanto_gear/home_layout.lua"))()
   displayRuntime.Achievements = assert(load(mod:read("achievements.lua"),
     "@kanto_gear/achievements.lua"))()
+  Area.Pickups = assert(load(mod:read("pickup_state.lua"),
+    "@kanto_gear/pickup_state.lua"))()
+  Area.pickupData = nil
   displayRuntime.Habitats = assert(load(mod:read("habitats.lua"),
     "@kanto_gear/habitats.lua"))()
   assert(load(mod:read("achievements_ui.lua"), "@kanto_gear/achievements_ui.lua"))()(
@@ -4198,7 +4219,7 @@ return function(mod)
     if compat.isGen2() then
       local out = {}
       for _, item in ipairs(Area.gen2Hidden(game.data, mod.world, mapId)) do
-        if not item.done and item.x and item.y
+        if item.available and item.x and item.y
             and Area.itemfinderNear(
               player.cellX, player.cellY, item.x, item.y) then
           out[#out + 1] = {
@@ -5777,21 +5798,25 @@ return function(mod)
       row.key = table.concat({ "item", tostring(row.kind), tostring(row.x),
         tostring(row.y), tostring(row.label) }, ":")
       if canScan and scanProgress and row.kind == "hidden" and not row.done
+          and row.available ~= false
           and row.x and row.y and pos and pos.mapId == id
           and Area.itemfinderScanReached(pos.x, pos.y, row.x, row.y,
             scanProgress) then
         explorer.scanRevealed[row.key] = true
       end
-      row.scanned = canScan and explorer.scanRevealed[row.key] == true
+      row.scanned = canScan and row.available ~= false
+        and explorer.scanRevealed[row.key] == true
       local upper = tostring(row.label or ""):upper()
       row.icon = (upper:match("^TM%d") or upper:match("^HM%d"))
         and "machine" or "item"
       row.displayLabel = row.kind == "hidden" and not enhanced and not row.done
           and not row.scanned
         and THEME:translate("HIDDEN SIGNAL") or row.label
-      row.location = row.kind == "hidden" and not enhanced and not row.done
+      row.location = row.status == "LATER" and "STORY EVENT"
+        or row.status == "NOT TRACKED" and "NOT TRACKED"
+        or (row.kind == "hidden" and not enhanced and not row.done
           and not row.scanned
-        and "USE ITEMFINDER" or "MARKED ON MAP"
+        and "USE ITEMFINDER" or "MARKED ON MAP")
     end
     local mapItems = {}
     for _, row in ipairs(allItems) do
@@ -12383,6 +12408,7 @@ return function(mod)
   end)
 
   function displayRuntime.reloadSavedUi()
+    Area.pickupData = nil
     invalidateLocalMap()
     dirty = true
     displayRuntime.levelUp = displayRuntime.LevelUp.new()
@@ -12956,6 +12982,7 @@ return function(mod)
 
   for _, event in ipairs({ "flag.changed", "world.interacted", "world.object_toggled", "battle.ended", "pokemon.caught" }) do
     mod.events:on(event, function()
+      displayRuntime.explorer.data = nil
       displayRuntime.achievements.stale, displayRuntime.achievements.job = true, nil
       displayRuntime.achievements.currentData = nil
       local home = displayRuntime.home

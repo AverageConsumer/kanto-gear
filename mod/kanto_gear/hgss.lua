@@ -3447,7 +3447,8 @@ return function(ui)
       self:partyInfo(self:fitPartyInfo(selected.displayLabel or selected.label,
         75), 38, 157, colors.ink)
       self:partyType(self:fitPartyType(translate(selected.done and "FOUND"
-        or "OPEN"), 72), 38, 181, colors.green, 72)
+        or selected.status == "NOT TRACKED" and "UNKNOWN"
+        or selected.status or "OPEN"), 72), 38, 181, colors.green, 72)
       box("fill", 120, 147, 1, 56, colors.band)
       self:partyType(self:fitPartyType(translate(selected.kind == "hidden"
         and "HIDDEN" or "VISIBLE"), 100), 126, 158, colors.green, 100)

@@ -987,6 +987,13 @@ function love.load()
       end
       local selected = (explorerDetail or explorerItems or explorerItemDetail
         or explorerTrainers or explorerTrainerDetail) and sourceRows[1] or nil
+      if selected and view == "items" then
+        local status = os.getenv("KANTO_GEAR_PREVIEW_PICKUP_STATUS")
+        if status then
+          selected.done, selected.status = false, status
+          selected.location = status == "LATER" and "STORY EVENT" or "NOT TRACKED"
+        end
+      end
       local fruitCase = not gen1 and os.getenv("KANTO_GEAR_PREVIEW_FRUIT")
       if fruitCase then
         local fruit = { kind = "fruit", x = 22, y = 7,

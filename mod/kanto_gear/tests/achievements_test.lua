@@ -385,6 +385,55 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.eq(display.achievements.data, nil, version .. " save loading cannot keep future progress")
   love.timer.getTime = clock
 
+  if gen2 then
+    -- Issue 35: exercise the real readers, album and Itemfinder on each GSC
+    -- adapter, using a different flag ID and item name than the retail Spule.
+    local Area = assert(upvalue(upvalue(display.achievementData, "areaData"), "Area"))
+    data.gen2InitialEvents = { flags = { 309 } }
+    data.gen2Scripts = { unlock = {
+      { op = "checkevent", event = 950 }, { op = "iftrue", script = "met" },
+      { op = "setevent", event = 950 }, { op = "clearevent", event = 951 },
+      { op = "clearevent", event = 309 }, { op = "end" },
+    } }
+    flags[309], flags[950] = true, false
+    run.loader.events:emit("save.loaded", {})
+    local locked = album().byId.ROUTE_9
+    T.eq(locked.tier, "none", version .. " initial lock never grants an unvisited stamp")
+    T.eq(locked.sections[3].done, 0, version .. " locked pickup is not collected")
+    T.eq(locked.sections[3].rows[1].state, "later", version .. " quest-locked pickup is later")
+    T.eq(#display.Achievements.visibleRows(locked, 3, "vanilla"), 0,
+      version .. " initial lock cannot leak hidden item names")
+    flags[950], flags[309] = true, false
+    run.loader.events:emit("flag.changed", {})
+    T.eq(album().byId.ROUTE_9.sections[3].done, 0, version .. " unlocking is not collecting")
+    flags[309] = true
+    run.loader.events:emit("flag.changed", {})
+    T.eq(album().byId.ROUTE_9.sections[3].done, 1, version .. " actual pickup counts")
+    T.eq(game.save.inventory.POTION, nil, version .. " pickup proof needs no item in bag after hand-in")
+    flags[950] = false
+    run.loader.events:emit("save.loaded", {})
+    T.eq(album().byId.ROUTE_9.tier, "none", version .. " older save removes phantom evidence")
+    run.loader.events:emit("map.entered", { mapId = "ROUTE_9" })
+    world.map.id, world.player.cellX, world.player.cellY = "ROUTE_9", 6, 7
+    local signals = assert(upvalue(display.finishScanFeedback, "radarSignals"))
+    T.eq(#signals(), 0, version .. " Itemfinder ignores locked pickup")
+    T.eq(album().byId.ROUTE_9.sections[3].done, 0, version .. " visiting locked area is not a pickup")
+    flags[950], flags[309] = true, false
+    run.loader.events:emit("flag.changed", {})
+    T.eq(#signals(), 1, version .. " Itemfinder sees unlocked pickup / full-bag retry")
+    flags[309] = true
+    T.eq(#signals(), 0, version .. " Itemfinder ignores collected pickup")
+    data.gen2Scripts = { callback = { { op = "setevent", event = 309 } } }
+    run.loader.events:emit("save.loaded", {})
+    T.eq(album().byId.ROUTE_9.sections[3].untracked, 1,
+      version .. " map reset flag is not permanent collection proof")
+    T.eq(#signals(), 0, version .. " reset Moon Stone is not currently available")
+    flags[309] = false
+    T.eq(#signals(), 1, version .. " spawned recurring item remains detectable")
+    local row = Area.gen2Hidden(data, mod.world, "ROUTE_9")[1]
+    T.eq(row.done, false, version .. " recurring item never receives a fabricated checkmark")
+  end
+
 end
 
 local Progress = assert(loadfile(path .. "/achievements.lua"))()

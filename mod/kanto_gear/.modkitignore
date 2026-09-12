@@ -1,4 +1,5 @@
 tests/achievements_test.lua
+tests/pickup_state_test.lua
 tests/bag_runtime_test.lua
 tests/compat_test.lua
 tests/desktop_compat_test.lua

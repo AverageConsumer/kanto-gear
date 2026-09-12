@@ -34,6 +34,7 @@ function M.groups(maps, locations)
 end
 
 function M.rowState(row, category, context)
+  if row.untracked then return "untracked" end
   if row.optional then return "optional" end
   if row.missed or row.status == "MISSED" then return "unavailable" end
   if row.status == "LOST" then return "unavailable" end

@@ -54,6 +54,8 @@ from apps, shortcuts and widgets.
   Install it from Silph Store; it respects your research mode. Its full-width
   **Stamps widget** shows the current area, stamp tier and progress across all
   four categories. Tap it to open that area's details.
+  Story-locked pickups do not count as collected or visited. Recurring pickups
+  whose flags cannot prove collection remain explicitly untracked.
 - **Notes** keeps personal notes and checklists for your playthrough, either
   general or attached to a route or area. Install it from the HGSS Silph Store.
   Create a note and choose **Tasks → + Task** to start a checklist.
