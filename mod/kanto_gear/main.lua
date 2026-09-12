@@ -2116,7 +2116,7 @@ return function(mod)
       } },
     { key = "auto_battle_screen", label = "AUTO BATTLE SCREEN",
       type = "toggle", default = false, visible_if = {
-        key = "display_mode", equals = "fullscreen",
+        key = "display_mode", one_of = { "fullscreen", "combined" },
       } },
     { key = "combined_layout", label = "LAYOUT", type = "choice",
       default = THEME.combinedLayoutDefault, reset_default = "auto", visible_if = {
@@ -2213,17 +2213,20 @@ return function(mod)
     end
     return THEME:researchMode(level) ~= "vanilla"
   end
+  local displayRuntime
   local function currentBattleUIMode()
     return mod.options:get("battle_view") or "standard"
   end
   local function fullBottomBattleUI()
+    if displayRuntime.autoBattle and displayRuntime.autoBattle.shown == false then return false end
     return currentBattleUIMode() == "full"
   end
   local function hideUpperBattleUI()
+    if displayRuntime.autoBattle and displayRuntime.autoBattle.shown == false then return false end
     local mode = currentBattleUIMode()
     return mode == "gear" or mode == "full"
   end
-  local displayRuntime = {
+  displayRuntime = {
     explorer = {
       page = 1, mapFull = false, mapZoom = 1,
       filters = { wildScope = "HERE" },
@@ -12467,8 +12470,9 @@ return function(mod)
 
   function displayRuntime.updateAutoBattleScreen()
     local auto, raw, wanted = displayRuntime.autoBattle
+    local mode = THEME:displayMode(mod.options)
     if active and mod.options:get("auto_battle_screen") == true
-        and THEME:displayMode(mod.options) == "fullscreen"
+        and (mode == "fullscreen" or mode == "combined")
         and currentBattleUIMode() ~= "info" then
       raw = battleState()
       if raw and THEME.supportedBattleUI(raw) and not raw.tutorial and not raw.demo then

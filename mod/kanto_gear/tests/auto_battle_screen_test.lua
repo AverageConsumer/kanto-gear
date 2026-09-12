@@ -156,7 +156,7 @@ phase("messages"); shown(false, "game-first action phase even with Gear-first pr
 stack.states = { world }; display.updateAutoBattleScreen(); shown(true, "battle end restores Gear-first preference")
 T.eq(options.fullscreen_start, "gear", "automatic switching never rewrites settings")
 set("display_mode", "combined"); phase("menu")
-T.eq(display.autoBattle.shown, nil, "combined layout is untouched")
+T.eq(display.autoBattle.shown, true, "combined layout gives selections to Gear")
 set("display_mode", "separate"); phase("menu")
 T.eq(display.autoBattle.shown, nil, "dual-screen layout is untouched")
 set("display_mode", "fullscreen"); set("fullscreen_start", "game")
@@ -177,4 +177,70 @@ now = now + 1
 local count = #keys + #intents
 touch("up,40,60")
 T.eq(#keys + #intents, count, "held touch cannot cross an automatic screen switch")
+-- Every combined arrangement retains its exact geometry and saved preferences.
+local hideUpper = upvalue(input, "hideUpperBattleUI")
+local fullBottom = upvalue(drawBattle, "fullBottomBattleUI")
+set("display_mode", "combined"); set("screen_swap", true)
+local function layout()
+  hook("render.viewport")(function() return nil end, { width = 960, height = 540 })
+  return theme.nativeWindowLayout
+end
+local function sameRect(a, b, label)
+  for _, key in ipairs({ "x", "y", "w", "h" }) do T.eq(a[key], b[key], label .. " " .. key) end
+end
+for _, arrangement in ipairs({ "side", "stacked", "auto", "overlay" }) do
+  for _, primary in ipairs({ "game", "gear" }) do
+    for _, view in ipairs({ "standard", "gear", "full" }) do
+      set("combined_layout", arrangement); set("combined_primary", primary)
+      set("battle_view", view); set("secondary_size", 31)
+      set("overlay_corner", "bottom_left"); set("bottom_safe_area", 7)
+      display.swapped = true
+      for _, hidden in ipairs({ false, true }) do
+        display.overlayHidden = hidden
+        stack.states = { world }; display.updateAutoBattleScreen()
+        local baseline = layout()
+        phase("menu")
+        local selection = layout()
+        T.eq(display.gearPrimary(), true, arrangement .. " selection puts Gear in primary slot")
+        local expected = theme:windowLayout(arrangement, 960, 540, true,
+          "bottom_left", hidden, 31, 7)
+        sameRect(selection.gear, expected.gear, "Gear uses primary rectangle")
+        T.eq(selection.showGear, true, "selection remains visible with hidden overlay")
+        phase("messages")
+        local playback = layout()
+        expected = theme:windowLayout(arrangement, 960, 540, false,
+          "bottom_left", hidden, 31, 7)
+        sameRect(playback.game, expected.game, "game uses primary rectangle")
+        T.eq(playback.showGame, true, "game playback is visible")
+        T.eq(hideUpper(), false, "primary game keeps its native menus and text")
+        T.eq(fullBottom(), false, "primary game keeps its battle visuals")
+        phase("animation"); T.eq(display.gearPrimary(), false, "animations remain on primary game")
+        stack.states = { world }; display.updateAutoBattleScreen()
+        local restored = layout()
+        sameRect(restored.game, baseline.game, "original game rectangle restored")
+        sameRect(restored.gear, baseline.gear, "original Gear rectangle restored")
+        T.eq(restored.showGame, baseline.showGame, "original game visibility restored")
+        T.eq(restored.showGear, baseline.showGear, "original Gear visibility restored")
+        T.eq(display.swapped, true, "manual swap preference unchanged")
+        T.eq(display.overlayHidden, hidden, "overlay visibility preference unchanged")
+        T.eq(options.secondary_size, 31, "secondary size unchanged")
+        T.eq(options.overlay_corner, "bottom_left", "overlay corner unchanged")
+      end
+    end
+  end
+end
+-- Manual swap still overrides the active selection in combined mode.
+set("combined_layout", "overlay"); set("battle_view", "standard")
+phase("menu")
+local keyboard = love.keyboard.isDown
+local down = true
+love.keyboard.isDown = function(key) return key == "f6" and down end
+step(); down = false; step()
+T.eq(display.gearPrimary(), false, "manual combined swap takes precedence")
+phase("moves"); T.eq(display.gearPrimary(), false, "manual override survives submenu navigation")
+phase("messages"); phase("menu")
+T.eq(display.gearPrimary(), true, "next turn resumes automatic combined swapping")
+love.keyboard.isDown = keyboard
+set("auto_battle_screen", false)
+T.eq(display.autoBattle.shown, nil, "disabling restores ordinary combined behavior")
 T.finish()

@@ -53,9 +53,12 @@ from apps, shortcuts and widgets.
   mod-added entries, preserves native confirmations, and returns to your
   previous Gear view when the game menu closes.
 - **Auto Battle Screen** is an optional setting under **Options → Battle**
-  when using **Fullscreen Swap**. It shows Gear for supported battle selections
-  and the game for messages and animations, then restores the previous screen.
-  Y/F6 overrides the current selection flow. It defaults to off and does not
+  for **Fullscreen Swap** and **Combined Screen** layouts. It puts Gear in the
+  primary position for supported battle selections and the game there for
+  messages and animations, then restores the previous arrangement. Overlay
+  corner, size, visibility and side-by-side/stacked geometry are preserved.
+  Y/F6 overrides the current selection flow (enable Quick Swap for combined
+  layouts). Auto Battle Screen defaults to off and does not
   take over tutorials, unknown screens, or the information-only battle view.
 - **Silph Store** explains and manages optional apps and widgets. Everything
   already ships inside Kanto Gear; the Store never downloads executable code.
