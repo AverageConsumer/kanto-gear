@@ -1428,7 +1428,7 @@ function love.load()
       description = { "CHECK YOUR TEAM AT A GLANCE.",
         "VIEW STATS, MOVES AND STATUS.", "KEEP EVERY PARTNER READY." } },
     { id = "pokedex", icon = "pokedex", label = "POKEDEX",
-      category = "RESEARCH", action = "GET", state = "get", new = true,
+      category = "RESEARCH", action = "GET", state = "get",
       description = { "RESEARCH EVERY SPECIES.",
         "CHECK STATS, MOVES AND HABITATS.", "YOUR FIELD ENCYCLOPEDIA." } },
     { id = "bag", icon = "bag", label = "BAG",
@@ -1448,12 +1448,12 @@ function love.load()
       description = { "USE FIELD MOVES AND GEAR.",
         "KEEP UNLOCKED TOOLS CLOSE.", "READY WHEN THE ROUTE NEEDS IT." } },
     { id = "notes", icon = "notes", label = "NOTES",
-      category = "TRAINER TOOL", action = "GET", state = "get",
+      category = "TRAINER TOOL", action = "GET", state = "get", new = true,
       description = { "PLAN ROUTES AND REMINDERS.",
         "KEEP CLUES CLOSE AT HAND.", "COMING SOON FROM SILPH LABS." } },
   }
   storeCatalog[#storeCatalog + 1] = { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
-    category = "ADVENTURE", action = "GET", state = "get", new = true,
+    category = "ADVENTURE", action = "GET", state = "get",
     description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
       "REVISIT AREAS AND FINISH EXPLORING.", "YOUR ADVENTURE, ONE STAMP AT A TIME." } }
   for _, app in ipairs(storeCatalog) do
