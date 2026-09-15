@@ -205,6 +205,9 @@ See [font credits and license locations](mod/kanto_gear/FONT_CREDITS.txt).
 The downloadable ZIP includes these credits and the complete font license
 notices. Font assets retain their respective licenses.
 
+The green-and-amber bag icon is an original design drawn directly by Kanto
+Gear's UI code. See [asset notes](mod/kanto_gear/ASSET_CREDITS.txt).
+
 Pokémon and related names are trademarks of their respective owners. This fan
 project is not affiliated with Nintendo, Game Freak, The Pokémon Company or
 Gen1Recomp.

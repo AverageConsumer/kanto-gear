@@ -164,9 +164,6 @@ function love.load()
   local font = imageFont("hgss_font.png")
   local smallFont = imageFont("hgss_small_font.png")
   local largeFont = imageFont("hgss_large_font.png")
-  local bagIcon = love.graphics.newImage(fileData(
-    root .. "/mod/kanto_gear/kanto_bag.png", "kanto_bag.png"))
-  bagIcon:setFilter("nearest", "nearest")
   local translationFonts = assert(loadfile(root .. "/mod/kanto_gear/translation_fonts.lua"))().new(
     love.graphics, function(message) error(message) end,
     function(name) return fileData(root .. "/mod/kanto_gear/" .. name, name) end)
@@ -180,7 +177,7 @@ function love.load()
     graphics = love.graphics, box = box, text = text,
     fit = fit, glyphs = glyphs, color = color, font = font,
     smallFont = smallFont, largeFont = largeFont,
-    bagIcon = bagIcon, translate = translate, format = format,
+    translate = translate, format = format,
     translationFonts = translationFonts,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
@@ -2058,7 +2055,10 @@ function love.load()
       { id = "store_app", page = 1, column = 7, row = 2 },
       { id = "settings_app", page = 1, column = 10, row = 2 },
     } }
-    if screen == "home-achievements" then
+    if screen == "home-bag" then
+      layout.tiles[3].id = "bag_app"
+      layout.tiles[2].id = "bag_widget"
+    elseif screen == "home-achievements" then
       layout.tiles[3].id = "achievements_app"
     elseif screen:sub(1, 11) == "home-stamps" then
       layout.tiles = {

@@ -18,7 +18,6 @@ function love.load()
   local translationFonts=assert(loadfile(root.."/mod/kanto_gear/translation_fonts.lua"))().new(
     G,function(message)error(message)end,file)
   local H=assert(loadfile(root.."/mod/kanto_gear/hgss.lua"))()({graphics=G,
-    bagIcon=G.newImage(file("kanto_bag.png")),
     box=function(mode,x,y,w,h,c)G.setColor(c);G.rectangle(mode,x,y,w,h)end,
     color=function(c)G.setColor(c)end,glyphs=chars,translate=tr,format=string.format,
     translationFonts=translationFonts,

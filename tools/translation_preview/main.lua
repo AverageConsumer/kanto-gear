@@ -36,7 +36,6 @@ function love.load()
   assert(fonts:select(base, "Lestat") == base, "Latin nickname keeps its original font")
   local H = assert(loadfile(root .. "/mod/kanto_gear/hgss.lua"))()({
     graphics = G, font = base, smallFont = small, largeFont = large,
-    bagIcon = G.newImage(love.filesystem.newFileData(read(root .. "/mod/kanto_gear/kanto_bag.png"), "bag.png")),
     translationFonts = fonts, glyphs = glyphs,
     color = function(c) G.setColor(c) end,
     box = function(mode, x, y, w, h, c) G.setColor(c); G.rectangle(mode, x, y, w, h) end,

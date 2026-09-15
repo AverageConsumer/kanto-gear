@@ -2314,9 +2314,6 @@ return function(mod)
       THEME.hgssSmallFont = imageFont("hgss_small_font.png")
       THEME.hgssLargeFont = imageFont("hgss_large_font.png")
     end
-    THEME.hgssBagIcon = G.newImage(rawget(_G, "love").filesystem.newFileData(
-      mod:read("kanto_bag.png"), "kanto_bag.png"))
-    THEME.hgssBagIcon:setFilter("nearest", "nearest")
   end
   THEME.translationFonts = assert(load(mod:read("translation_fonts.lua"),
     "@kanto_gear/translation_fonts.lua"))().new(G, function(message) mod.log:warn(message) end,
@@ -2342,7 +2339,6 @@ return function(mod)
     smallFont = THEME.hgssSmallFont,
     largeFont = THEME.hgssLargeFont,
     translationFonts = THEME.translationFonts,
-    bagIcon = THEME.hgssBagIcon,
     translate = function(value) return THEME:translate(value) end,
     format = function(value, ...) return THEME:format(value, ...) end,
     dimBackground = displayRuntime.dimBackground,

@@ -1,0 +1,15 @@
+Kanto Gear asset notes
+======================
+
+Bag icon
+--------
+The front-facing green-and-amber daypack is an original Kanto Gear design,
+drawn from rectangle primitives by battleBagIcon in hgss.lua. It is covered
+by Kanto Gear's MIT license. No external bag sprite is loaded or bundled.
+
+Fonts
+-----
+The three bundled PNG files are generated font atlases, not game sprites.
+Their sources and regeneration tool are in tools/hgss_font_atlas in the
+source repository. See FONT_CREDITS.txt, HGSS_PIXEL_FONT_LICENSE.txt and
+fonts/ for the applicable third-party font notices and licenses.

@@ -4153,8 +4153,31 @@ return function(ui)
   end
 
   function H:battleBagIcon(x, y)
-    color({ 1, 1, 1, 1 })
-    ui.graphics.draw(ui.bagIcon, x, y)
+    -- Original front-facing daypack. Visible bounds: x=1..24, y=1..25.
+    local c = homeIconColors
+    box("fill", x + 9, y + 1, 8, 5, c.ink)
+    box("fill", x + 10, y + 2, 6, 1, c.amberLight)
+    box("fill", x + 11, y + 3, 4, 2, c.deep)
+    box("fill", x + 1, y + 15, 24, 9, c.ink)
+    box("fill", x + 2, y + 16, 3, 6, c.green)
+    box("fill", x + 21, y + 16, 3, 6, c.green)
+    box("fill", x + 3, y + 7, 20, 17, c.ink)
+    box("fill", x + 5, y + 5, 16, 21, c.ink)
+    box("fill", x + 4, y + 9, 18, 14, c.amberDark)
+    box("fill", x + 6, y + 10, 14, 14, c.amber)
+    box("fill", x + 7, y + 23, 12, 1, c.amberLight)
+    box("fill", x + 4, y + 7, 18, 5, c.greenDark)
+    box("fill", x + 6, y + 6, 14, 7, c.greenDark)
+    box("fill", x + 5, y + 7, 16, 3, c.green)
+    box("fill", x + 7, y + 6, 12, 1, c.greenLight)
+    box("fill", x + 7, y + 10, 12, 1, c.green)
+    box("fill", x + 11, y + 7, 4, 8, c.ink)
+    box("fill", x + 12, y + 7, 2, 6, c.paper)
+    box("fill", x + 12, y + 11, 2, 2, c.amberLight)
+    box("fill", x + 7, y + 16, 12, 6, c.ink)
+    box("fill", x + 8, y + 17, 10, 4, c.amberDark)
+    box("fill", x + 8, y + 17, 10, 1, c.amberLight)
+    box("fill", x + 12, y + 18, 2, 2, c.paper)
   end
 
   local BATTLE_ACTION_CONTENT_RISE = 2
