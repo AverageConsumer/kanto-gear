@@ -1,4 +1,7 @@
 return {
+  ["KEYBOARD"] = "キーボード",
+  ["QWERTY"] = "QWERTY",
+  ["QWERTZ"] = "QWERTZ",
   ["AUTO BATTLE SCREEN"] = "バトル画面自動切替",
   ["JAPANESE"] = "にほんご",
   -- Start, navigation and common controls.

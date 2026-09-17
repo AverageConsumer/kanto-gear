@@ -25,7 +25,7 @@ built-in catalogs. Japanese was contributed by **Theeohn** in
 [PR #33](https://github.com/AverageConsumer/kanto-gear/pull/33), with subsequent
 wording revisions and a completion contribution from Theeohn covering Home,
 Store, settings, Notes, stamps, the bag and other companion screens.
-The built-in `ja` catalog currently contains 721 of 732 reference entries,
+The built-in `ja` catalog currently contains 725 of 736 reference entries,
 including the language selector label. Untranslated reference
 keys fall back to English; see [the Japanese completion file](ja-missing.lua).
 

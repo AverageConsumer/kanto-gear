@@ -1957,6 +1957,7 @@ function love.load()
       pages = 1, rows = {
         { label = "TRIGGER TABS", value = "OFF" },
         { label = "GEAR HAPTICS", value = "ON" },
+        { label = "KEYBOARD", value = os.getenv("KANTO_GEAR_PREVIEW_KEYBOARD") or "QWERTY" },
       } })
   elseif settingsSystem then
     theme:settings({ category = "system", accent = "green", page = 1,

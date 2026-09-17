@@ -629,6 +629,18 @@ T.eq(page(), "SETTINGS", "Settings owns a real Silph Link page")
 local settings = display.settingsModel()
 T.eq(#settings.categories, 6,
   "Settings groups the existing options into six readable sections")
+display.settings.category, display.settings.page = 5, 1
+settings = display.settingsModel()
+local keyboardRow
+for _, row in ipairs(settings.rows) do
+  if row.key == "keyboard_layout" then keyboardRow = row end
+end
+T.check(keyboardRow ~= nil, "Controls exposes the touch keyboard layout")
+T.eq(keyboardRow.value, "QWERTY", "Controls shows the QWERTY default")
+T.check(display.cycleSetting(keyboardRow, 1), "touch settings select QWERTZ")
+T.eq(run.loader.modOptions.kanto_gear.keyboard_layout, "qwertz", "layout uses the shared option store")
+T.check(display.cycleSetting(keyboardRow, 1), "touch settings cycle back to QWERTY")
+T.eq(run.loader.modOptions.kanto_gear.keyboard_layout, "qwerty", "both layout choices are reachable")
 display.settings.category, display.settings.page = 3, 1
 settings = display.settingsModel()
 local caughtRow

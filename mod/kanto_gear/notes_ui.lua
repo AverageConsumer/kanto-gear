@@ -1,4 +1,8 @@
 return function(H, G, translate)
+  local keyboardRows = {
+    qwerty = { "qwertyuiop", "asdfghjkl", "zxcvbnm" },
+    qwertz = { "qwertzuiop", "asdfghjkl", "yxcvbnm" },
+  }
   local cache
   function H:releaseNotesInk()
     if cache and cache.canvas and cache.canvas.release then cache.canvas:release() end
@@ -105,7 +109,8 @@ return function(H, G, translate)
       label(rowIndex.."/"..#rows,67,keyY-14,60,12,c.green)
       if state.editTarget=="task" then button("DELETE",128,keyY-14,105,12,"deleteTask")
       elseif state.editTarget=="text" then button("NEW LINE",128,keyY-14,105,12,"newline") end
-      local keys=state.symbols and {"1234567890",".,!?-:;()/","äöüß@+\""} or {"qwertzuiop","asdfghjkl","yxcvbnm"}
+      local layout=state.ctx.keyboardLayout and state.ctx.keyboardLayout() or "qwerty"
+      local keys=state.symbols and {"1234567890",".,!?-:;()/","äöüß@+\""} or keyboardRows[layout] or keyboardRows.qwerty
       for row,letters in ipairs(keys) do
         local cells={};for char in letters:gmatch("[%z\1-\127\194-\244][\128-\191]*") do cells[#cells+1]=state.shift and char:upper() or char end
         local cell=math.floor(((row==1 and 226 or row==2 and 210 or 186)-(#cells-1)*3)/#cells)

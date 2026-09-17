@@ -30,15 +30,18 @@ function love.load()
   for _,app in ipairs(store)do app.state="get";app.action="GET";app.reason=app.reason or app.category end
   assert(loadfile(root.."/mod/kanto_gear/notes_ui.lua"))()(H,G,tr)
   local S=Notes.new({time=function()return 0 end,measure=function(v)return H:partyInfoWidth(v)end,
+    keyboardLayout=function()return os.getenv("KANTO_GEAR_PREVIEW_KEYBOARD") or "qwerty" end,
     area=function()return "ROUTE_2","ROUTE 2"end,translate=tr,leave=function()end})
   S.records={{id=1,title="Später mit Zerschneider",text="Hier später mit Zerschneider zurückkommen. Den Weg hinter dem Baum prüfen.",area="ROUTE_2",areaName="ROUTE 2",tasks={{text="Weg hinter dem Baum prüfen",done=false},{text="Pokébälle kaufen",done=true}},strokes={{color=1,width=2,points={25,100,65,100,65,40,140,40}},{color=4,width=2,points={160,40,180,12,202,40,160,40}},{color=4,width=2,points={180,40,180,70}}},pointCount=12}}
   S.selected=1
   local c=G.newCanvas(240,216,{dpiscale=1});c:setFilter("nearest","nearest")
   local export=G.newCanvas(960,864,{dpiscale=1})
+  local onlyView=os.getenv("KANTO_NOTES_PREVIEW_SCREEN")
+  local views=onlyView and {onlyView} or {"text","tasks","sketch","edit","draw","colors","list","store_today","store_apps"}
   for _,gen in ipairs({1,2})do for _,variant in ipairs({"light","dark"})do
     H:setVariant(variant=="dark")
     S.records[1].areaName=gen==1 and "ROUTE 2" or "ROUTE 32"
-    for _,view in ipairs({"text","tasks","sketch","edit","draw","colors","list","store_today","store_apps"})do
+    for _,view in ipairs(views)do
       S.view=view=="colors" and "draw" or view;S.page=1;S.colorOpen=view=="colors"
       S.draft=S.records[1].text;S.cursor=#chars(S.draft);S.editTarget="text"
       G.push("all");G.setCanvas(c);G.origin();G.clear();G.scale(1.5);H:backdrop();G.origin()
@@ -54,6 +57,7 @@ function love.load()
       local data=export:newImageData();write(output.."/gen"..gen.."-"..variant.."-"..view..".png",data:encode("png"):getString());data:release()
     end
   end end
+  if onlyView then love.event.quit(0);return end
   -- Readback is included so the report does not mistake queued GPU work for
   -- completed rendering. This measures this desktop, not Thor frame latency.
   S.view="draw";S.colorOpen=false;S.records[1].strokes={};S.records[1].pointCount=0;S.inkRevision=S.inkRevision+1

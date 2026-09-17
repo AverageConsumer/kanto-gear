@@ -111,7 +111,7 @@ Bundled Japanese and Korean Fusion Pixel fonts also work without a game
 translation mod and cover gaps in a game's font, including the numero sign.
 They load only when needed; supported Latin text keeps the HGSS pixel fonts.
 Measurement, truncation and centering use the same selected font.
-Japanese covers 721 of the current 732 UI text keys, including Home, Notes,
+Japanese covers 725 of the current 736 UI text keys, including Home, Notes,
 stamps, the bag, Store and settings. Remaining entries fall back to English.
 Korean Gear menu translations are not included yet.
 Gear's own menu language is selected
@@ -119,6 +119,10 @@ separately; installing a game translation does not translate Gear's menus.
 For type labels, Gear also reads contextual `type|<name>` entries from the
 public `strings` registry. RBY packages need the generator's companion type
 string addition; older packages retain their canonical type labels in Gear.
+
+The Notes touch keyboard defaults to QWERTY. Choose QWERTZ under
+**Settings → Controls → Keyboard**; the selection also applies to note titles
+and checklist entries and persists between sessions.
 
 Notes also supports colored drawing, stroke erasing and undo on surfaces that
 provide continuous pointer input. Android secondary displays need a host that

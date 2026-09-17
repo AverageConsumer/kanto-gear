@@ -2183,6 +2183,10 @@ return function(mod)
       type = "toggle", default = true },
     { key = "trigger_tabs", label = "TRIGGER TABS",
       type = "toggle", default = false },
+    { key = "keyboard_layout", label = "KEYBOARD", type = "choice",
+      default = "qwerty", choices = {
+        { "QWERTY", "qwerty" }, { "QWERTZ", "qwertz" },
+      } },
     { key = "ui_haptics", label = "GEAR HAPTICS",
       type = "toggle", default = false, visible_if = {
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
@@ -2535,7 +2539,7 @@ return function(mod)
     { id = "research", label = "RESEARCH", detail = "VANILLA TO SPOILERS",
       accent = "amber", keys = { "info_level" } },
     { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS",
-      accent = "blue", keys = { "trigger_tabs", "ui_haptics" } },
+      accent = "blue", keys = { "trigger_tabs", "ui_haptics", "keyboard_layout" } },
     { id = "system", label = "SYSTEM", detail = "HELP AND RESET",
       accent = "green", actions = { "home_help", "reset_home", "reset_options" } },
   }
@@ -6025,6 +6029,7 @@ return function(mod)
 
   displayRuntime.notes = displayRuntime.Notes.new({
     time = function() return love.timer.getTime() end,
+    keyboardLayout = function() return mod.options:get("keyboard_layout") end,
     measure = function(value) return THEME.hgss:partyInfoWidth(value) end,
     translate = function(value) return THEME:translate(value) end,
     area = function() return mapId, areaName(mapId) end,
