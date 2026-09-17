@@ -31,6 +31,43 @@ local api = value(display.localMapPosition, "mod")
 api.world = require(generation == 2 and "src.world.gen2.WorldAPI"
   or "src.world.WorldAPI").new(game, "kanto_gear")
 local theme = value(display.drawContents, "THEME")
+-- Replacement sheets may use HD frame coordinates while the map still uses
+-- 16px logical markers. Exercise the real host SpriteRenderer and Gear draw.
+do
+  local compat = value(display.bagModel, "compat")
+  local registry = generation == 2 and "gen2Sprites" or "sprites"
+  local savedSprites = run.data[registry]
+  run.data[registry] = {}
+  for index, size in ipairs({
+    { 16, 16, 8, 8 }, { 32, 32, 8, 8 }, { 256, 256, 8, 8 },
+    { 32, 64, 4, 8 }, { 64, 32, 8, 4 }, { 8, 8, 4, 4 },
+  }) do
+    local id, image = "MARKER_" .. index, "marker-" .. index .. ".png"
+    local width, height, shownW, shownH = unpack(size)
+    run.data[registry][id] = { image = image, frameWidth = width,
+      frameHeight = height, frames = 6, walker = true, trueColor = true,
+      anchorX = width / 2, anchorY = height * 0.75 }
+    for _, facing in ipairs({ "down", "up", "left", "right" }) do
+      for _, feet in ipairs({ false, true }) do
+        local draws = T.record.draw()
+        T.check(compat.drawMapSprite(id, "marker-test", nil,
+          100, 80, 0.5, feet, facing), "replacement marker draws")
+        draws:stop()
+        local draw = assert(draws:fromPath(image)[1], "marker draw recorded").args
+        T.eq(math.abs(draw[5]) * width, shownW, "marker fits the logical width")
+        T.eq(draw[6] * height, shownH, "marker fits the logical height")
+        T.eq(draw[5] < 0, facing == "right", "right-facing marker is mirrored")
+        T.eq(draw[2] + width * draw[5] / 2, 100, "marker stays horizontally centered")
+        T.eq(draw[3] + shownH * (feet and 0.75 or 0.5), 80,
+          "marker preserves its foot or center anchor")
+      end
+    end
+    local cached = compat.mapSprite(id, "marker-test")
+    T.eq(compat.mapSprite(id, "marker-test"), cached, "fitting reuses the cached renderer")
+    T.eq(cached.frameWidth, width, "fitting does not resize the source frame")
+  end
+  run.data[registry] = savedSprites
+end
 value(display.updateMapRefresh, "page", "LOCAL", true)
 local time = T.love.timer.getTime
 local now = 0

@@ -3134,7 +3134,9 @@ return function(mod)
     if not renderer then return false end
     local ok = pcall(function()
       local pose = renderer:getPoseGeometry(facing or "down", 0, false)
-      scale = scale or 0.75
+      -- Sheet pixels are not map pixels: fit HD replacement frames into the
+      -- same 16px marker, preserving aspect ratio and the authored anchor.
+      scale = (scale or 0.75) * 16 / math.max(16, pose.width, pose.height)
       local drawX = x - pose.anchorX * scale
       if pose.mirror then drawX = drawX + pose.width * scale end
       color(tint or { 1, 1, 1, 1 })
