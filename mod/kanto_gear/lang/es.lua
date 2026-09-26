@@ -752,7 +752,7 @@ return {
   ["NO SPACE"] = "SIN ESPACIO",
 
   -- PSS: shared online lobby; browsing only, no invites or chat.
-  ["PSS"] = "PSS",
+  ["SILPH CONNECT"] = "SILPH CONNECT",
   ["ONLINE"] = "EN LÍNEA",
   ["OFFLINE"] = "SIN CONEXIÓN",
   ["PASSERSBY"] = "TRANSEÚNTES",
@@ -780,7 +780,6 @@ return {
   ["RECRUITING"] = "BUSCA COMPAÑEROS",
   ["NO PLAYERS VISIBLE"] = "SIN JUGADORES VISIBLES",
   ["CONNECT TO SEE PLAYERS"] = "CONÉCTATE PARA VER JUGADORES",
-  ["PLAYER SEARCH SYSTEM"] = "PLAYER SEARCH SYSTEM",
   ["UNKNOWN GAME"] = "EDICIÓN DESCONOCIDA",
   ["YELLOW"] = "AMARILLO",
   ["CRYSTAL"] = "CRISTAL",

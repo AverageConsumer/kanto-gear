@@ -64,7 +64,7 @@ return function(H, G, tr, fmt)
         or pending and "CONNECTING" or state.state=="unavailable" and "HOST UPDATE NEEDED"
         or "CONNECT TO SEE PLAYERS"
       label(tr(message),12,124,216,20,c.mutedInk)
-      label(tr("PLAYER SEARCH SYSTEM"),12,149,216,16,c.green)
+      label(tr("SILPH CONNECT"),12,149,216,16,c.green)
     end
     for i=1,6 do
       local row=state.rows[(state.page-1)*6+i]

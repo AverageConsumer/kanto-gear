@@ -88,7 +88,7 @@ local home, catalog, store = display.home, display.homeCatalog,
 local theme = upvalue(display.drawContents, "THEME")
 T.eq(display.storeEntries()[1].id, "pss", "PSS is visible on the first Apps page")
 T.eq(display.storeTodayEntries()[1].id, "pss", "PSS is featured when the Store opens")
-T.eq(display.storeWidgetSummary().label, "PSS", "Store widget promotes uninstalled PSS")
+T.eq(display.storeWidgetSummary().label, "SILPH CONNECT", "Store widget promotes uninstalled Silph Connect")
 do
   local renderer = theme.hgss
   local originalText, originalBar = renderer.partyInfo, renderer.expBar

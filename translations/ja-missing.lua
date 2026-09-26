@@ -12,7 +12,7 @@ return {
   ["REPEATABLE"] = false,
 
   -- PSS: shared online lobby; browsing only, no invites or chat.
-  ["PSS"] = false,
+  ["SILPH CONNECT"] = false,
   ["ONLINE"] = false,
   ["OFFLINE"] = false,
   ["PASSERSBY"] = false,
@@ -42,7 +42,6 @@ return {
   ["RECRUITING"] = false,
   ["NO PLAYERS VISIBLE"] = false,
   ["CONNECT TO SEE PLAYERS"] = false,
-  ["PLAYER SEARCH SYSTEM"] = false,
   ["UNKNOWN GAME"] = false,
   ["YELLOW"] = false,
   ["CRYSTAL"] = false,

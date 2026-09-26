@@ -553,8 +553,9 @@ function love.load()
   local statsTitle = format("STATS %d/%d", 1, gen1 and 2 or 3)
   local movesTitle = format("MOVES %d/%d", 2, gen1 and 2 or 3)
   local pssScreen = screen:sub(1, 3) == "pss"
-  local title = pssScreen and "PSS" or storeDetail and
-      (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "NOTES"):upper()
+  local title = pssScreen and "SILPH CONNECT" or storeDetail and
+      (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "pss" and "SILPH CONNECT"
+        or (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "NOTES"):upper())
     or store and "SILPH STORE"
     or homeAdd and "ADD TO HOME"
     or homeEdit and "EDIT HOME"
@@ -1454,10 +1455,10 @@ function love.load()
     category = "ADVENTURE", action = "GET", state = "get",
     description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
       "REVISIT AREAS AND FINISH EXPLORING.", "YOUR ADVENTURE, ONE STAMP AT A TIME." } }
-  storeCatalog[#storeCatalog + 1] = { id = "pss", icon = "pss", label = "PSS",
+  table.insert(storeCatalog, 1, { id = "pss", icon = "pss", label = "SILPH CONNECT",
     category = "ONLINE", action = "GET", state = "get", new = true,
     description = { "CONNECT WITH OTHER TRAINERS.",
-      "SEE WHO IS ONLINE AND PLAYING.", "YOUR WINDOW TO THE COMMUNITY." } }
+      "SEE WHO IS ONLINE AND PLAYING.", "YOUR WINDOW TO THE COMMUNITY." } })
   for _, app in ipairs(storeCatalog) do
     if app.id == "party" then
       app.preview = { party = {}, drawPokemon = function(row, x, y, size)
@@ -1566,7 +1567,13 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if pssScreen then
+  if screen == "pss-home" then
+    theme:home({page=1,pages=1,tiles={
+      {id="pss_app",kind="app",icon="pss",accent="blue",label="SILPH CONNECT",column=1,row=1,columns=3},
+      {id="notes_app",kind="app",icon="notes",accent="amber",label="NOTES",column=4,row=1,columns=3},
+      {id="store_app",kind="app",icon="store",accent="green",label="STORE",column=7,row=1,columns=3},
+    }})
+  elseif pssScreen then
     assert(loadfile(root .. "/mod/kanto_gear/pss_ui.lua"))()(theme, love.graphics, translate, format)
     local state = { name = "RED#123", state = "online", page = 1, pages = 2, rows = {} }
     local names = { "AverageConsumer", "Theeohn", "RED", "コトネ", "BLUE#018", "SILVER", "LEAF" }
@@ -2008,7 +2015,7 @@ function love.load()
         trainer = { installed = true }, tools = { installed = true },
         steps = { installed = true },
         store = { installed = true }, settings = { installed = true },
-        notes = { installed = true }, achievements = { installed = true },
+        notes = { installed = true }, achievements = { installed = true }, pss = { installed = true },
       },
       surfaces = {
         explorer_widget = { package = "explorer", kind = "widget",
@@ -2063,6 +2070,8 @@ function love.load()
           icon = "settings", accent = "blue", label = "OPTIONS" },
         notes_app = { package = "notes", kind = "app", columns = 3,
           icon = "notes", accent = "amber", label = language.homeNotes },
+        pss_app = { package = "pss", kind = "app", columns = 3,
+          icon = "pss", accent = "blue", label = "SILPH CONNECT" },
         achievements_widget = { package = "achievements", kind = "widget",
           widget = "achievements", columns = 12, label = "STAMPS" },
         achievements_app = { package = "achievements", kind = "app", columns = 3,
@@ -2077,7 +2086,9 @@ function love.load()
       { id = "store_app", page = 1, column = 7, row = 2 },
       { id = "settings_app", page = 1, column = 10, row = 2 },
     } }
-    if screen == "home-bag" then
+    if screen == "home-pss" then
+      layout.tiles[3].id = "pss_app"
+    elseif screen == "home-bag" then
       layout.tiles[3].id = "bag_app"
       layout.tiles[2].id = "bag_widget"
     elseif screen == "home-achievements" then

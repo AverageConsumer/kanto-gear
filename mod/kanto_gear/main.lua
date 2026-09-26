@@ -2471,7 +2471,7 @@ return function(mod)
       notes_app = { package = "notes", kind = "app", columns = 3,
         icon = "notes", accent = "amber", label = "NOTES" },
       pss_app = { package = "pss", kind = "app", columns = 3,
-        icon = "pss", accent = "blue", label = "PSS" },
+        icon = "pss", accent = "blue", label = "SILPH CONNECT" },
       settings_app = { package = "settings", kind = "app", columns = 3,
         icon = "settings", accent = "blue", label = "OPTIONS" },
     },
@@ -2485,7 +2485,7 @@ return function(mod)
     }
   end
   displayRuntime.storeCatalog = {
-    { id = "pss", icon = "pss", label = "PSS",
+    { id = "pss", icon = "pss", label = "SILPH CONNECT",
       category = "ONLINE", target = "PSS", featured = true, new = true,
       description = { "CONNECT WITH OTHER TRAINERS.",
         "SEE WHO IS ONLINE AND PLAYING.", "YOUR WINDOW TO THE COMMUNITY." } },
@@ -6322,7 +6322,7 @@ return function(mod)
     end })
   end
   function displayRuntime.drawPss()
-    header(THEME:translate("PSS"), true, false)
+    header(THEME:translate("SILPH CONNECT"), true, false)
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
     THEME.hgss:pss(displayRuntime.pss)
     G.pop()

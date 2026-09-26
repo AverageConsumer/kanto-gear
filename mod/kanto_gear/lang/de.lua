@@ -762,7 +762,7 @@ return {
   ["WALLPAPER"] = "HINTERGRUND",
 
   -- PSS: shared online lobby; browsing only, no invites or chat.
-  ["PSS"] = "PSS",
+  ["SILPH CONNECT"] = "SILPH CONNECT",
   ["ONLINE"] = "ONLINE",
   ["OFFLINE"] = "OFFLINE",
   ["PASSERSBY"] = "PASSANTEN",
@@ -790,7 +790,6 @@ return {
   ["RECRUITING"] = "SUCHT MITSTREITER",
   ["NO PLAYERS VISIBLE"] = "KEINE SPIELER SICHTBAR",
   ["CONNECT TO SEE PLAYERS"] = "VERBINDEN FÜR SPIELERLISTE",
-  ["PLAYER SEARCH SYSTEM"] = "PLAYER SEARCH SYSTEM",
   ["UNKNOWN GAME"] = "UNBEKANNTE EDITION",
   ["YELLOW"] = "GELB",
   ["CRYSTAL"] = "KRISTALL",

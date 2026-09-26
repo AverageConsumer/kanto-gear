@@ -1,6 +1,6 @@
-# PSS lobby browser
+# Silph Connect lobby browser
 
-Enable PSS in Silph Store, open it from Home, then choose Connect. It uses
+Enable Silph Connect in Silph Store, open it from Home, then choose Connect. It uses
 Recomp's stored online name (or the host's trainer-name fallback). Names shown
 on cards are server lobby entries; tap one for its full name, edition, location
 and reported status. The visible count excludes yourself and offline entries,
@@ -18,7 +18,7 @@ active host room, group, tournament, plaza or Direct Corner activity.
 The manifest declares network access for this online feature.
 An existing connection's profiles and presence are preserved. A new browser
 connection announces the current edition and `game/busy`, with no battle
-profile. Recomp's main loop handles transport updates and reconnects. PSS
+profile. Recomp's main loop handles transport updates and reconnects. Silph Connect
 subscribes to host events, caches its sorted list, and samples local state at
 most four times per second while open. It performs no list-poll requests or
 independent network updates. Session teardown removes its event listeners.
@@ -42,7 +42,7 @@ The HGSS preview tool supports `pss`, `pss-offline`, `pss-detail`, `pss-error`
 and `pss-unavailable`. Its sample player names are preview fixtures only;
 the shipped app never substitutes samples for an empty server list.
 
-Device acceptance: connect from PSS, check that it reaches Online, inspect a
-player if present, return Home and reopen PSS, then disconnect. An empty list
+Device acceptance: connect from Silph Connect, check that it reaches Online, inspect a
+player if present, return Home and reopen Silph Connect, then disconnect. An empty list
 while Online can be legitimate. Public-relay acceptance and on-device input
 still require this interactive check.

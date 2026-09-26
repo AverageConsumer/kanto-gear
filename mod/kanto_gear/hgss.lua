@@ -1402,8 +1402,16 @@ return function(ui)
     color(colors.outline)
     G.rectangle("line", wellX + 0.5, y + 8.5, 28, 28, 5, 5)
     drawHomeIcon(icon, wellX, y + 8, 29)
-    local shown = self:fitPartyType(translate(label), w - 6)
-    self:partyType(shown, x + 3, captionY + 5, colors.white, w - 6)
+    local caption = translate(label)
+    local shown = self:fitPartyType(caption, w - 6)
+    local first, second = caption:match("^(%S+)%s+(.+)$")
+    if shown ~= caption and first and self:fitPartyType(first, w - 6) == first
+        and self:fitPartyType(second, w - 6) == second then
+      self:partyType(first, x + 3, captionY + 2, colors.white, w - 6)
+      self:partyType(second, x + 3, captionY + 13, colors.white, w - 6)
+    else
+      self:partyType(shown, x + 3, captionY + 5, colors.white, w - 6)
+    end
     if selected then self:roundedFocusFrame(x, y, w, h, 5) end
   end
 
@@ -2663,9 +2671,15 @@ return function(ui)
     border(x + 4, y + 6, 29, 29, colors.outline)
     local icon = icons[app.icon or app.id]
     if icon then drawHomeIcon(icon, x + 4, y + 6, 29) end
-    self:storeTitle(app.label, x + 36, y + 4, w - 39, app.new)
-    self:partyType(self:fitPartyType(translate(app.category), w - 39),
-      x + 36, y + 16, colors.green, w - 39)
+    local separateBadge = app.new
+      and fontWidth(partyTypeFont, translate(app.label)) > w - 39 - 29
+    self:storeTitle(app.label, x + 36, y + 4, w - 39, app.new and not separateBadge)
+    if separateBadge then
+      self:storeNewBadge(x + 36 + math.floor((w - 39 - 25) / 2), y + 15, 25)
+    else
+      self:partyType(self:fitPartyType(translate(app.category), w - 39),
+        x + 36, y + 16, colors.green, w - 39)
+    end
     self:storeMiniAction(x + 36, y + 28, 43,
       app.action or (app.state == "open" and "OPEN" or "GET"), app.state)
     self:detailChevron(x + w - 9, y + 30, colors.green)
