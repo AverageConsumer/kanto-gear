@@ -241,8 +241,8 @@ T.check(choiceMenu and display.StartMenu.select(choiceMenu, 3), "native multicho
 Choice.confirm()
 T.eq(picked, 2, "native multichoice preserves zero-based script result")
 T.check(not display.StartMenu.select(choiceMenu, 1), "dismissed choice cannot change a later cursor")
-T.check(display.homeCatalog.packages.achievements.available == false,
-  "unported native completion cannot issue false gold stamps")
+T.check(display.homeCatalog.packages.achievements.available == true,
+  "native progress enables the stamp app and widget")
 local NativeSummary = require("src.ui.game3.summary_menu")
 T.check(display.openPartySummary(1), "Gear opens the actual native summary")
 for page = 0, 2 do
@@ -565,6 +565,64 @@ T.eq(display.gen3:battleSnapshot({ prompt = "locked" }), nil,
 Ui.reset({ headless = true }); Stack.clear(); display.gen3.syncScreens(); refreshBattle()
 T.check(not display.gen3:gameView().stack:top().nativeModal, "field has no modal handoff marker")
 display.gen3:refresh()
+-- Use the same event/coroutine/UI paths as the installed app and widget.
+do
+  local Flags = require("src.core.game3.scripting.flags")
+  local oldMap, oldFlag = session.map, Flags.getFlag(session, nil, 340)
+  session.map = "FR_ROUTE_2"
+  run.loader.events:emit("map.entered", { game = raw, mapId = session.map })
+  run.loader.modOptions.kanto_gear.info_level = "spoiler"
+  T.check(display.setPackageInstalled("achievements", true), "native stamps install through Store")
+  T.check(display.openHomeApp("achievements"), "native stamps app opens")
+  local function album()
+    for _ = 1, 2000 do
+      local result = display.achievementData(false, true)
+      if result then return result end
+    end
+    error("native stamp album never completed")
+  end
+  local function changed()
+    run.loader.events:emit("flag.changed", {})
+    T.eq(display.achievements.currentData, nil, "native flag clears widget snapshot")
+    T.eq(display.achievements.job, nil, "native flag cancels old album job")
+  end
+  Flags.setFlag(session, nil, 340, false); changed()
+  local current = display.currentAchievement().area
+  T.eq(current.sections[2].done, 0, "current widget reads fresh route pickup state")
+  T.check(display.achievementData() == nil, "album defers work until budgeted step")
+  T.check(display.achievementModel().loading, "unfinished native totals are hidden")
+  Flags.setFlag(session, nil, 340, true); changed()
+  current = display.currentAchievement().area
+  T.eq(current.sections[2].done, 1, "current widget updates immediately after pickup")
+  local result = album()
+  T.eq(result.byId[current.id].sections[2].done, 1, "album agrees with current widget")
+  local theme = upvalue(display.drawContents, "THEME")
+  for _, variant in ipairs({ "hgss", "hgss_dark" }) do
+    run.loader.modOptions.kanto_gear.theme_v3 = variant
+    run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3", value = variant })
+    for _, view in ipairs({ "album", "goals", "detail", "finds" }) do
+      display.achievements.view, display.achievements.selected = view, current.id
+      display.achievements.category, display.achievements.page = 2, 1
+      local ok, err = pcall(function() theme.hgss:achievements(display.achievementModel()) end)
+      T.check(ok, "native " .. variant .. " " .. view .. " renders: " .. tostring(err))
+    end
+  end
+  -- Change the real serialization snapshot, then deliver the host load event.
+  local saved = Schema.toSaveTable(session)
+  local reloaded = Schema.fromSaveTable(saved)
+  Flags.setFlag(reloaded, nil, 340, false)
+  raw.session, raw.save = reloaded, Schema.toSaveTable(reloaded)
+  require("src.core.game3.runtime").session = reloaded
+  run.loader.events:emit("save.loaded", { save = reloaded })
+  T.eq(display.currentAchievement().area.sections[2].done, 0, "older native save reverses widget pickup")
+  T.eq(album().byId[current.id].sections[2].done, 0, "older native save reverses album pickup")
+  raw.session, raw.save = session, saved
+  require("src.core.game3.runtime").session = session
+  Flags.setFlag(session, nil, 340, oldFlag)
+  session.map = oldMap
+  run.loader.events:emit("save.loaded", { save = session })
+  run.loader.events:emit("map.entered", { game = raw, mapId = session.map })
+end
 if type(_G.KANTO_GEAR_RENDER_CAPTURE) == "function" then
   _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, maps)
 end

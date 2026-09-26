@@ -84,7 +84,7 @@ function love.load()
             assert(display.gen3Map and display.gen3Map.under, "Explorer must render native terrain")
             assert(display.explorer.renderModel and display.explorer.renderModel.player, "Explorer must locate the native player")
             assert(#display.explorer.renderModel.rows > 0, "Route 1 must show wild encounters")
-            assert(not display.explorer.renderModel.areaEnabled, "Unported story progress must be unavailable")
+            assert(display.explorer.renderModel.areaEnabled, "Native progress enables the Explorer checklist")
           elseif app == "map" then
             assert(display.homeRegionMap().drawMap, "Region map must use the native map")
           end

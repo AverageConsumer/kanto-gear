@@ -301,6 +301,13 @@ function Gen3:locations()
     local info = sections.getInfo(def.regionMapSectionId, id, def.floorNum)
     out[id] = { name = info and info.resolved and info.rawName
       or id:gsub("^FR_", ""):gsub("_", " "), section = def.regionMapSectionId }
+    -- Localized names are labels, never progress identity. Keep gyms/dojo
+    -- separate from city houses; combine dungeon floors and route segments.
+    local facility = id:match("_GYM$") and "GYM" or id:match("_DOJO$") and "DOJO"
+    out[id].progressGroup = facility and id or "gen3:" .. tostring(def.regionMapSectionId or id)
+    out[id].progressKind = id:match("FOREST$") and "forest"
+      or def.mapType == 4 and "cave" or "route"
+    if facility then out[id].name = out[id].name .. " " .. facility end
   end
   self.locationCache = out
   return out
@@ -308,11 +315,11 @@ end
 
 function Gen3:areaMaps(id)
   local locations = self:locations()
-  local section = locations[id] and locations[id].section
-  if not section then return { id } end
+  local group = locations[id] and locations[id].progressGroup
+  if not group then return { id } end
   local out = {}
   for other, location in pairs(locations) do
-    if location.section == section then out[#out + 1] = other end
+    if location.progressGroup == group then out[#out + 1] = other end
   end
   table.sort(out)
   return out

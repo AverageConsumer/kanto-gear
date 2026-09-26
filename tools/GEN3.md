@@ -1,6 +1,6 @@
 # Native FireRed / LeafGreen integration
 
-Version **3.3.0-gen3.4** is an experimental test package for native FireRed
+Version **3.3.0-gen3.8** is an experimental test package for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
 support. This is not full Gen 3 feature parity or support for Ruby, Sapphire
 and Emerald. Interactive gameplay verification is still required.
@@ -53,9 +53,42 @@ PC interactions, naming, move learning, quantity entry and special confirmations
 Tutorial/demo/link battles also keep native ownership. Some native mechanics,
 including abilities and natures, are read but do not yet have dedicated Gear UI.
 
-Stamps, route trainer/item completion and item radar are disabled for Gen 3
-until the native progress flags are mapped. Empty legacy tables must never be
-presented as completed native routes. Gen 1/2 progress features are unchanged.
+Stamps, their Home widget and Explorer trainer/item checklists now share native
+progress data. Item radar remains disabled for Gen 3. Gen 1/2 progress rules
+are unchanged.
+
+## Native route completion
+
+`gen3_progress.lua` lazily indexes the imported event scripts for each map,
+then reads current flags and the native Pokédex. It never executes scripts or
+writes game progress. Album indexing yields between maps/script batches; warm
+reads reuse the catalogue. Missing or opaque scripts produce unknown objectives
+and prevent a false gold stamp.
+
+- Required trainers use native defeat flags. Gym trainers remain required;
+  one-shot, loseable rival battles are optional. Starter variants, doubles
+  partners and rematches do not multiply requirements. League completion
+  survives the host resetting its flags for another challenge. Trainer Tower
+  challenges are repeatable entries outside permanent completion.
+- Ground items and hidden items use durable pickup flags. Initially hidden
+  Rocket key items require actual ownership in the bag or PC. Choosing one
+  fossil excludes the other. Missed S.S. Anne objectives remain visible.
+- Renewable hidden items show their current availability but do not affect
+  permanent gold completion. NPC item gifts and shops are outside the ground
+  pickup checklist, matching the existing Gen 1/2 scope.
+- Pokémon goals combine this edition's wild encounters, static encounters,
+  gifts, casino rewards and NPC trades. Global caught evidence counts even
+  after releasing or trading a Pokémon. Starter, dojo and fossil alternatives
+  require only the obtainable choice. The uncatchable tower ghost is excluded.
+  Roamers are not assigned to permanent route goals because their location moves.
+- Map-section IDs group floors and route segments independently of translated
+  names. Gyms and the dojo have separate stamps. Detached item-location previews
+  reuse native tilesets without entering or modifying the live map.
+
+The catalogue audit covers all 425 maps of each local edition: 451 persistent
+trainer objectives, eight repeatable Tower floors, 172 ground items and 183
+hidden-item entries per edition. These counts describe mapped objectives, not
+proof that every gameplay script in the host behaves correctly.
 
 ## Read model
 
@@ -113,6 +146,7 @@ edition's imported `data/generated/gba` directory. From the host checkout run:
 luajit <mod-path>/tests/gen3_native_test.lua
 luajit <mod-path>/tests/gen3_map_test.lua
 luajit <mod-path>/tests/gen3_runtime_test.lua
+luajit <mod-path>/tests/gen3_progress_test.lua
 ```
 
 The native suite checks real imported species, moves, items, edition-specific
@@ -125,6 +159,14 @@ checks native menu ownership, cursor slots, bag handoff, summary rendering,
 battle choices, doubles targets, Safari actions, current script flags and
 playthrough storage. It does not replace an interactive gameplay test.
 
+The progress suite exhaustively checks imported objective IDs and durable pickup
+flags, the imported pickup script with a full/available bag, native battle
+win/loss results, exclusive choices, respawns, gifts/trades,
+new games and older-save reloads. The runtime suite also checks Store installation,
+App/widget agreement and invalidation on live flag changes and session replacement.
+For interactive verification, compare Explorer and stamp counters before/after a
+trainer victory or ground pickup, then save/reload and confirm the same progress.
+
 For GPU verification also set `KANTO_GEAR_HOST_PATH` to the host checkout and
 `KANTO_GEAR_PREVIEW_OUTPUT` to a PNG outside this repository. Run LÖVE 11.5 on
 `tools/gen3_preview`. It verifies every imported map's native geometry, compares
@@ -134,6 +176,8 @@ saves a contact sheet, and exits without starting gameplay.
 `tools/gen3_ui_preview` additionally renders Gear's Light/Dark party, Bag, Dex,
 trainer, menus, summaries, Explorer, region map, Notes and battle screens using
 the same native fixtures. Both preview tools use local extracted assets only.
+`tools/gen3_progress_preview` renders native Light/Dark album, detail, renewable
+finds, item-location and widget fixtures with the same environment.
 
 ## Remaining integration boundaries
 
@@ -145,7 +189,7 @@ Keep the original game UI visible for any state Gear cannot operate. Native
 Gen 3 menus use an ID-based module stack; they are not legacy `PartyMenu` or
 `BagMenu` instances. Recomp's Gen 3 battle API also lacks several legacy
 submission/visibility contracts. A successful read-model or rendering test
-does not verify every gameplay path. Finish PC/actions, progress flags and
+does not verify every gameplay path. Finish PC/actions and
 remaining native mechanics as separate compatibility slices after the initial
 interactive test. No host rendering patches are included in this package.
 

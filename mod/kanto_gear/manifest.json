@@ -1,7 +1,7 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "3.3.0-gen3.7",
+  "version": "3.3.0-gen3.8",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",
@@ -13,6 +13,6 @@
   "optional_dependencies": [],
   "conflicts": [],
   "permissions": ["engine_internals"],
-  "description": "Companion UI for Gen 1/2 with experimental native FireRed/LeafGreen support. Requires Recomp 0.3.20 or newer; Gen 3 route completion is not yet supported.",
+  "description": "Companion UI for Gen 1/2 with experimental native FireRed/LeafGreen support, including route progress and stamps. Requires Recomp 0.3.20 or newer.",
   "github": "AverageConsumer/kanto-gear"
 }

@@ -263,7 +263,8 @@ return function(H, G, translate, format)
           label(translate(row.species and (row.done and "CAUGHT" or "NOT CAUGHT")
             or ({ done = "RECORDED", open = "NOT YET", later = "LATER",
             optional = "OPTIONAL", unavailable = "NO LONGER AVAILABLE",
-            untracked = "NOT TRACKED", excluded = "ALTERNATIVE CHOICE" })[row.state]),
+            untracked = "NOT TRACKED", excluded = "ALTERNATIVE CHOICE",
+            repeatable = row.kind == "hidden" and "RENEWABLE" or "REPEATABLE" })[row.state]),
             13, top + 20, 195, 9, row.state == "done" and accent or quiet, true)
           if canLocate then self:detailChevron(214, top + 12, accent, true) end
         end)

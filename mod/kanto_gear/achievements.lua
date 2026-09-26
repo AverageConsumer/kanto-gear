@@ -8,8 +8,8 @@ function M.groups(maps, locations)
     local place = locations[id] or {}
     local name = tostring(place.name or place.label or id):gsub("<LF>", " "):gsub("\n", " ")
     local xy = place.coords or place
-    local key = name .. ":" .. tostring(xy.x or xy.col or id)
-      .. ":" .. tostring(xy.y or xy.row or id)
+    local key = place.progressGroup or (name .. ":" .. tostring(xy.x or xy.col or id)
+      .. ":" .. tostring(xy.y or xy.row or id))
     local group = byKey[key]
     if not group then
       group = { id = id, name = name, maps = {}, kind = "route" }
@@ -18,7 +18,9 @@ function M.groups(maps, locations)
     group.maps[#group.maps + 1] = id
     if id < group.id then group.id = id end
     local tileset = tostring(map.tileset or "")
-    if tileset:find("FOREST") or id:find("FOREST") then group.kind = "forest"
+    if place.progressKind then
+      if place.progressKind == "forest" or group.kind == "route" then group.kind = place.progressKind end
+    elseif tileset:find("FOREST") or id:find("FOREST") then group.kind = "forest"
     elseif tileset:find("CAVE") or tileset:find("CAVERN") then group.kind = "cave" end
   end
   for _, group in ipairs(out) do table.sort(group.maps) end
@@ -35,6 +37,8 @@ end
 
 function M.rowState(row, category, context)
   if row.untracked then return "untracked" end
+  if row.repeatable then return "repeatable" end
+  if row.excluded then return "excluded" end
   if row.optional then return "optional" end
   if row.missed or row.status == "MISSED" then return "unavailable" end
   if row.status == "LOST" then return "unavailable" end
@@ -43,7 +47,7 @@ function M.rowState(row, category, context)
       or type(row.event) == "number" and row.event < 8) then return "untracked" end
   if row.done then return "done" end
   local id, flags = row.mapId or "", context.save.flags or {}
-  if not context.gen2 then
+  if not context.gen2 and not context.gen3 then
     if id:match("^SS_ANNE_") and flags.EVENT_SS_ANNE_LEFT then return "unavailable" end
     -- Taking one fossil permanently removes the alternative, not a second find.
     if category == 2 and id == "MT_MOON_B2F"
@@ -52,7 +56,7 @@ function M.rowState(row, category, context)
       if flags["EVENT_GOT_" .. row.itemId] then return "done" end
       return "excluded"
     end
-  elseif category == 1 then
+  elseif context.gen2 and category == 1 then
     if row.hideEvent and row.hideEvent ~= 65535 and context.flag(row.hideEvent) then
       return "unavailable"
     end
@@ -75,13 +79,13 @@ function M.build(groups, read, context, checkpoint)
     local sections = sourceData.sections
     for category = 1, 3 do
       local section = { rows = {}, done = 0, total = 0, unavailable = 0,
-        optional = 0, untracked = 0, excluded = 0 }
+        optional = 0, untracked = 0, excluded = 0, repeatable = 0 }
       for _, source in ipairs(sections[category].rows) do
         local row = {}
         for key, value in pairs(source) do row[key] = value end
         row.state = M.rowState(row, category, context)
         area.evidence = area.evidence or row.state == "done"
-        if row.state == "excluded" or row.state == "optional" or row.state == "untracked" then
+        if row.state == "excluded" or row.state == "optional" or row.state == "untracked" or row.state == "repeatable" then
           section[row.state] = section[row.state] + 1
         else
           section.total = section.total + 1
@@ -188,7 +192,7 @@ function M.visibleRows(area, category, mode)
   end
   table.sort(rows, function(a, b)
     local order = { open = 1, later = 2, optional = 3, done = 4,
-      unavailable = 5, untracked = 6, excluded = 7 }
+      unavailable = 5, untracked = 6, excluded = 7, repeatable = 8 }
     if order[a.state] ~= order[b.state] then return order[a.state] < order[b.state] end
     if category == 4 then return a.order < b.order end
     return (a.mapId .. ":" .. tostring(a.y) .. ":" .. tostring(a.x))

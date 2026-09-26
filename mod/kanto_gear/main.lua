@@ -2212,7 +2212,7 @@ return function(mod)
 
   local displayRuntime
   local function assist(key)
-    if displayRuntime and displayRuntime.gen3 and (key == "area" or key == "item_radar") then
+    if displayRuntime and displayRuntime.gen3 and key == "item_radar" then
       return false
     end
     local level = mod.options:get("info_level")
@@ -2406,6 +2406,8 @@ return function(mod)
   function displayRuntime.resetAchievements()
     local image = displayRuntime.achievements.locationImage
     if image and image.release then image:release() end
+    local renderer = displayRuntime.achievements.locationRenderer
+    if renderer then renderer:release() end
     displayRuntime.achievements = { view = "goals", page = 1, stale = true }
   end
   displayRuntime.homeCatalog = {
@@ -4006,6 +4008,13 @@ return function(mod)
     local data, save = game.data, game.save
     local field = data.field or {}
     local maps = mapIds or areaMaps(mapId)
+    if displayRuntime.gen3 then
+      local rows = displayRuntime.gen3Progress:rows(maps, checkpoint)
+      for index = 1, 3 do sections[index].rows = rows[index] end
+      local screens = checklistPages(sections)
+      return { name = areaName(mapId), screens = screens, pages = #screens,
+        sections = sections, remaining = Area.remaining(sections) }
+    end
     if compat.isGen2() then
       local rows = Area.gen2Rows(data, save, mod.world, maps, checkpoint)
       for index = 1, 3 do sections[index].rows = rows[index] end
@@ -4096,6 +4105,16 @@ return function(mod)
 
   function displayRuntime.achievementData(currentOnly, advance)
     local state, Progress = displayRuntime.achievements, displayRuntime.Achievements
+    if displayRuntime.gen3Progress then
+      local source = displayRuntime.gen3Progress:bundle()
+      local keys = displayRuntime.gen3Progress:completionKey()
+      if state.source ~= source or state.dexRevision ~= displayRuntime.gen3.dexRevision
+          or state.progressKeys ~= keys then
+        state.source, state.dexRevision = source, displayRuntime.gen3.dexRevision
+        state.progressKeys = keys
+        state.stale, state.currentData, state.job = true, nil, nil
+      end
+    end
     -- Gen 1 pickups update these sets without a flag event. Compare only when
     -- the app or cached Home data is refreshed, and between active album slices.
     local pickups = 0
@@ -4140,6 +4159,10 @@ return function(mod)
       local result = build(groups, function(maps, checkpoint)
         local result = areaData(maps, true, checkpoint)
         if checkpoint then checkpoint() end
+        if displayRuntime.gen3Progress then
+          result.pokemon = displayRuntime.gen3Progress:pokemon(maps, checkpoint)
+          return result
+        end
         local species = state.species[maps[1]]
         if not species then
           species = guideData(maps, true, checkpoint).rows
@@ -4155,7 +4178,7 @@ return function(mod)
         end
         return result
       end, {
-        gen2 = gen2, save = game.save, mapId = mapId,
+        gen2 = gen2, gen3 = displayRuntime.gen3 ~= nil, save = game.save, mapId = mapId,
         visited = visited,
         flag = function(id) return mod.world and mod.world.getFlag
           and mod.world:getFlag(id) == true or false end,
@@ -4211,7 +4234,7 @@ return function(mod)
       category = state.category, canExplore = area and area.current and assist("guide"),
       location = state.location,
       section = state.location and displayRuntime.sectionName(state.location.mapId) or "",
-      drawLocation = state.location and state.locationImage
+      drawLocation = state.location and (state.locationImage or state.locationRenderer)
         and function(x, y, w, h) displayRuntime.drawAchievementLocation(x, y, w, h) end or nil }
   end
 
@@ -6014,7 +6037,7 @@ return function(mod)
       row.displayLabel = row.kind == "hidden" and not enhanced and not row.done
           and not row.scanned
         and THEME:translate("HIDDEN SIGNAL") or row.label
-      row.location = row.status == "LATER" and "STORY EVENT"
+      row.location = row.repeatable and "RENEWABLE" or row.status == "LATER" and "STORY EVENT"
         or row.status == "NOT TRACKED" and "NOT TRACKED"
         or (row.kind == "hidden" and not enhanced and not row.done
           and not row.scanned
@@ -6218,11 +6241,19 @@ return function(mod)
     local state = displayRuntime.achievements
     if state.locationMap == row.mapId and state.locationDark == THEME.hgss.dark then return end
     if state.locationImage and state.locationImage.release then state.locationImage:release() end
+    if state.locationRenderer then state.locationRenderer:release(); state.locationRenderer = nil end
     state.locationMap, state.locationImage = row.mapId, nil
     state.locationDark = THEME.hgss.dark
     -- Build a detached, read-only map. Never enter/warp the live world or touch
     -- its MapLoader cache just because the user browses a different area.
     local ok, result, density = pcall(function()
+      if displayRuntime.gen3 then
+        local renderer = assert(load(mod:read("gen3_map.lua"), "@kanto_gear/gen3_map.lua"))().new(
+          G, require("src.core.game3.tileset_native"))
+        if renderer:prepare(game.data.maps[row.mapId]) then state.locationRenderer = renderer
+        else renderer:release() end
+        return nil, 1
+      end
       local gen2 = compat.isGen2()
       local def = (gen2 and game.data.gen2Maps or game.data.maps)[row.mapId]
       local tilesets = gen2 and game.data.gen2Tilesets or game.data.tilesets
@@ -6251,9 +6282,10 @@ return function(mod)
 
   function displayRuntime.drawAchievementLocation(x, y, w, h)
     local state = displayRuntime.achievements
-    local image, row = state.locationImage, state.location
-    if not image or not row then return end
-    local iw, ih = image:getDimensions()
+    local image, row, renderer = state.locationImage, state.location, state.locationRenderer
+    if not (image or renderer) or not row then return end
+    local iw, ih
+    if renderer then iw, ih = renderer.width, renderer.height else iw, ih = image:getDimensions() end
     local scale = math.max(1, w / iw, h / ih)
     local px, py = (row.x + .5) * state.locationDensity, (row.y + .5) * state.locationDensity
     local left = math.floor(math.max(x + w - iw * scale, math.min(x, x + w / 2 - px * scale)))
@@ -6262,7 +6294,8 @@ return function(mod)
     local sx, sy = G.transformPoint(x, y)
     local right, bottom = G.transformPoint(x + w, y + h)
     G.setScissor(sx, sy, right - sx, bottom - sy)
-    G.setColor(1, 1, 1, 1); G.draw(image, left, top, 0, scale, scale)
+    G.setColor(1, 1, 1, 1)
+    if renderer then renderer:draw(left, top, scale) else G.draw(image, left, top, 0, scale, scale) end
     local mx, my = math.floor(left + px * scale), math.floor(top + py * scale)
     G.setColor(.08, .14, .12, 1); G.rectangle("fill", mx - 4, my - 4, 9, 9)
     G.setColor(1, .77, .21, 1); G.rectangle("fill", mx - 3, my - 3, 7, 7)
@@ -12759,11 +12792,13 @@ return function(mod)
     game = payload.game
     displayRuntime.sourceGame = game
     displayRuntime.gen3 = nil
+    displayRuntime.gen3Progress = nil
     displayRuntime.gen3Ui = nil
     displayRuntime.gen3PollAt = nil
     displayRuntime.gen3BoundSession = nil
     if game.generation == 3 then
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
+      displayRuntime.gen3Progress = assert(load(mod:read("gen3_progress.lua"), "@kanto_gear/gen3_progress.lua"))().new(displayRuntime.gen3)
       displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss)
       game = displayRuntime.gen3:gameView()
       displayRuntime.gen3Presentation = assert(load(mod:read("gen3_presentation.lua"),
@@ -12794,9 +12829,8 @@ return function(mod)
         return true
       end)
     end
-    -- Native story/pickup events must not be mistaken for empty completed routes.
-    displayRuntime.homeCatalog.packages.achievements.available = not displayRuntime.gen3
-    displayRuntime.storeById.achievements.available = not displayRuntime.gen3
+    displayRuntime.homeCatalog.packages.achievements.available = true
+    displayRuntime.storeById.achievements.available = true
     displayRuntime.autoBattle = {}
     displayRuntime.touchGuard.key, displayRuntime.touchGuard.pending = nil, false
     displayRuntime.touchGuard.readyAt = 0

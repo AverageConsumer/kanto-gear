@@ -25,8 +25,9 @@ built-in catalogs. Japanese was contributed by **Theeohn** in
 [PR #33](https://github.com/AverageConsumer/kanto-gear/pull/33), with subsequent
 wording revisions and a completion contribution from Theeohn covering Home,
 Store, settings, Notes, stamps, the bag and other companion screens.
-The built-in `ja` catalog currently contains all 737 reference entries,
-including habitat availability and Home capacity labels. Theeohn also supplied
+The built-in `ja` catalog contains 737 translated entries, including habitat
+availability and Home capacity labels. The two new native-progress labels
+`RENEWABLE` and `REPEATABLE` are pending in `ja-missing.lua`. Theeohn also supplied
 wording revisions for existing labels. Coverage describes catalog completeness,
 not independent linguistic validation. Future missing keys fall back to English;
 see [the Japanese completion file](ja-missing.lua).

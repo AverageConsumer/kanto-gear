@@ -1,4 +1,6 @@
 return {
+  ["RENEWABLE"] = "KOMMT WIEDER",
+  ["REPEATABLE"] = "WIEDERHOLBAR",
   ["KEYBOARD"] = "TASTATUR",
   ["QWERTY"] = "QWERTY",
   ["QWERTZ"] = "QWERTZ",
