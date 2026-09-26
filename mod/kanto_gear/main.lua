@@ -2212,9 +2212,6 @@ return function(mod)
 
   local displayRuntime
   local function assist(key)
-    if displayRuntime and displayRuntime.gen3 and key == "item_radar" then
-      return false
-    end
     local level = mod.options:get("info_level")
     if key == "spoilers" then
       return THEME:spoilerAssist(level, mod.options:get("local_map"))
@@ -4291,6 +4288,7 @@ return function(mod)
   end
 
   local function radarSignals()
+    if displayRuntime.gen3 then return displayRuntime.gen3:itemfinderSignals() end
     local world = game and (game.overworld or game.world)
     local player = world and world.player
     if not player then return {} end
@@ -6101,8 +6099,8 @@ return function(mod)
       if canScan and scanProgress and row.kind == "hidden" and not row.done
           and row.available ~= false
           and row.x and row.y and pos and pos.mapId == id
-          and Area.itemfinderScanReached(pos.x, pos.y, row.x, row.y,
-            scanProgress) then
+          and (displayRuntime.gen3 and displayRuntime.gen3:itemfinderReached(pos.x, pos.y, row, scanProgress)
+            or not displayRuntime.gen3 and Area.itemfinderScanReached(pos.x, pos.y, row.x, row.y, scanProgress)) then
         explorer.scanRevealed[row.key] = true
       end
       row.scanned = canScan and row.available ~= false
@@ -6941,12 +6939,14 @@ return function(mod)
         progress = math.min(1, radarFrame / RADAR_FRAMES),
         ready = radarFrame >= RADAR_FRAMES,
         signals = radarSignals(),
+        gen3 = displayRuntime.gen3 ~= nil,
       })
       G.pop()
       return
     end
     text(fit(areaName(mapId), 23), 5, 22, DARK)
     local gx, gy, cell, cols, rows = 25, 34, 10, 11, 9
+    if displayRuntime.gen3 then gx, gy, cell, cols, rows = 20, 34, 8, 15, 11 end
     box("fill", gx, gy, cols * cell, rows * cell, PAPER)
     for col = 0, cols do
       box("fill", gx + col * cell, gy, 1, rows * cell, DARK)
@@ -6955,9 +6955,10 @@ return function(mod)
       box("fill", gx, gy + row * cell, cols * cell, 1, DARK)
     end
 
-    local cx, cy = gx + 5 * cell + cell / 2, gy + 4 * cell + cell / 2
+    local reachX, reachY = math.floor(cols / 2), math.floor(rows / 2)
+    local cx, cy = gx + reachX * cell + cell / 2, gy + reachY * cell + cell / 2
     local progress = math.min(1, radarFrame / RADAR_FRAMES)
-    local radius = math.sqrt((5 * cell) ^ 2 + (4 * cell) ^ 2) * progress
+    local radius = math.sqrt((reachX * cell) ^ 2 + (reachY * cell) ^ 2) * progress
     if radius > 0 then
       G.setScissor(gx, gy, cols * cell, rows * cell)
       color(DARK)
@@ -6969,8 +6970,8 @@ return function(mod)
       local distance = math.sqrt((signal.dx * cell) ^ 2
         + (signal.dy * cell) ^ 2)
       if distance <= radius then
-        box("fill", gx + (signal.dx + 5) * cell + 3,
-          gy + (signal.dy + 4) * cell + 3, 5, 5, RADAR_RED)
+        box("fill", cx + signal.dx * cell - 2,
+          cy + signal.dy * cell - 2, 5, 5, RADAR_RED)
       end
     end
     box("fill", cx - 3, cy - 3, 6, 6, INK)

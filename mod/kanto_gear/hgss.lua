@@ -3605,14 +3605,15 @@ return function(ui)
     for x = 42, 198, 24 do box("fill", x, 61, 1, 110, colors.band) end
     for y = 82, 154, 24 do box("fill", 21, y, 198, 1, colors.band) end
     local cx, cy = 120, 116
-    local radius = math.floor(70 * math.max(0, math.min(1,
+    local radius = math.floor((model.gen3 and 78 or 70) * math.max(0, math.min(1,
       model.progress or 0)))
     G.setScissor(21, 61, 198, 110)
     color(colors.blueLight)
     if radius > 0 then G.circle("line", cx, cy, radius) end
     for _, signal in ipairs(model.signals or {}) do
-      local sx = cx + math.max(-7, math.min(7, signal.dx or 0)) * 11
-      local sy = cy + math.max(-4, math.min(4, signal.dy or 0)) * 11
+      local cell, reachY = model.gen3 and 9 or 11, model.gen3 and 5 or 4
+      local sx = cx + math.max(-7, math.min(7, signal.dx or 0)) * cell
+      local sy = cy + math.max(-reachY, math.min(reachY, signal.dy or 0)) * cell
       local distance = math.sqrt((sx - cx) ^ 2 + (sy - cy) ^ 2)
       if distance <= radius then
         box("fill", sx - 4, sy - 4, 9, 9, colors.outline)

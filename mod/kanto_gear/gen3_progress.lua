@@ -198,6 +198,7 @@ function M:catalog(mapId, checkpoint)
     if bg.type == "hidden_item" then
       local row = base(bg)
       row.kind, row.itemId, row.event = "hidden", bg.item, bg.flag
+      row.underfoot = bg.underfoot
       row.repeatable = self.renewable[bg.flag] == true
       row.untracked = not self.adapter.data.items[bg.item] or not bg.flag or bg.flag < 0x20
       out[3][#out[3] + 1] = row

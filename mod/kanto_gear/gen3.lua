@@ -197,6 +197,42 @@ function Gen3:mon(source)
   return out
 end
 
+function Gen3:itemfinderSignals()
+  if not self.session or (self.save.inventory.ITEMFINDER or 0) < 1 then return {} end
+  local Map = require("src.core.game3.map")
+  local Player = require("src.core.game3.player")
+  local id, store = self.session.map, self:flagStore()
+  local function events(map)
+    local def = self.data.maps[map]
+    local bundle = self.Space.bundle and self.Space.bundle.events and self.Space.bundle.events[map]
+    return def and def.bgEvents or bundle and bundle.bgEvents or {}
+  end
+  local current = Map.current == id
+  local layout = self.data.maps[id] and self.data.maps[id].midLayout
+  local result = require("src.core.game3.itemfinder").scan({
+    px = current and Player.cellX or self.session.x,
+    py = current and Player.cellY or self.session.y,
+    events = events(id), width = layout and layout.width, height = layout and layout.height,
+    neighborList = current and Map.neighborList or {},
+    neighbors = current and Map.neighbors or {}, eventsFor = events,
+    flagSet = function(ev)
+      local flag = ev.flag or ev.hiddenItemId and (0x3E8 + ev.hiddenItemId)
+      return not flag or self.Flags.getFlag(store, nil, flag)
+    end,
+  })
+  -- A read-only scan: no native animation, flag writes or underfoot pickup.
+  return result and { { dx = result.itemX, dy = result.itemY } } or {}
+end
+
+function Gen3:itemfinderReached(px, py, row, progress)
+  if row.done or row.available == false or row.untracked then return false end
+  local result = require("src.core.game3.itemfinder").scan({ px = px, py = py,
+    events = { { type = "hidden_item", x = row.x, y = row.y, underfoot = row.underfoot } },
+    flagSet = function() return false end })
+  if not result then return false end
+  return (row.x - px)^2 + (row.y - py)^2 <= 74 * math.max(0, math.min(1, progress or 0))^2
+end
+
 function Gen3:refresh()
   local session = self.game.session
   if session ~= self.session then

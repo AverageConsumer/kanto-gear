@@ -244,4 +244,39 @@ Space.bundle = nil
 check(stamp({ "FR_ROUTE_1" }).untracked > 0, "missing bundle cannot produce a gold stamp")
 Space.bundle = savedBundle
 check(not model:rows({ "FR_ROUTE_1" })[1][1], "late bundle arrival replaces unknown catalogue")
-print(string.format("Gen3 progress %s: %d checks passed", edition, checks))
+-- Detection range and underfoot items must agree for every imported hidden item.
+local radarChecks = 0
+for id in pairs(raw.data.maps) do
+  for _, row in ipairs(model:catalog(id)[3]) do
+    for dx = -8, 8 do for dy = -6, 6 do
+      local expected = row.underfoot and dx == 0 and dy == 0
+        or not row.underfoot and math.abs(dx) <= 7 and math.abs(dy) <= 5
+      check(adapter:itemfinderReached(row.x - dx, row.y - dy, row, 1) == expected,
+        "native hidden-item range in " .. id)
+      radarChecks = radarChecks + 1
+    end end
+  end
+end
+local Bag = require("src.core.game3.bag")
+local Map, Player = require("src.core.game3.map"), require("src.core.game3.player")
+local probe = { type="hidden_item", x=12, y=12, item=13, flag=0x3e8, underfoot=true }
+raw.data.maps.RADAR_FIXTURE = { bgEvents={probe} }
+session.map, session.x, session.y = "RADAR_FIXTURE", 12, 12
+Map.current, Player.cellX, Player.cellY = session.map, 12, 12
+Bag.set(session.bag, "ITEMFINDER", 1); flag(probe.flag, false); adapter:refresh()
+local readBefore = Json.encode(Schema.toSaveTable(session))
+local signals = adapter:itemfinderSignals()
+check(#signals == 1 and signals[1].dx == 0 and signals[1].dy == 0, "underfoot item responds only on its tile")
+check(Json.encode(Schema.toSaveTable(session)) == readBefore, "radar never picks up underfoot items or changes the save")
+Player.cellX = 11
+check(#adapter:itemfinderSignals() == 0, "underfoot item does not respond nearby")
+probe.underfoot = false
+check(#adapter:itemfinderSignals() == 1, "ordinary item responds nearby")
+flag(probe.flag)
+check(#adapter:itemfinderSignals() == 0, "taken item disappears immediately")
+flag(probe.flag,false); Bag.set(session.bag,"ITEMFINDER",0); adapter:refresh()
+session.storage.items = { {id=adapter.Items.toNumericId("ITEMFINDER"),qty=1} }
+check(#adapter:itemfinderSignals() == 0, "itemfinder in PC does not enable radar")
+check(not adapter:itemfinderReached(0,0,{x=1,y=1,done=true},1), "collected locations never reveal again")
+check(not adapter:itemfinderReached(0,0,{x=7,y=5},0.5), "sweep does not reveal a distant signal early")
+print(string.format("Gen3 progress %s: %d checks passed (%d radar positions)", edition, checks, radarChecks))

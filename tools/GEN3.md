@@ -12,6 +12,11 @@ move replacement, shop/Bag quantities and confirmations now mirror their real
 cursor order. Activation remains native input, including VM/HM protection and
 the default NO when releasing a Pokémon. FR/LG have separate title identifiers.
 
+The item radar uses the host's read-only detection routine, including its nearest
+signal across map connections, collected flags and underfoot-only finds. Explorer
+scans reveal hidden items inside FRLG's 7-by-5 tile reach; possession of the
+Itemfinder in the current bag is required. Scanning never collects an item.
+
 ## Gen 1/2 detailed minimaps
 
 `native_map.lua` shares the host's terrain resources across Explorer, map view
