@@ -1,7 +1,7 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "3.3.0-gen3.9",
+  "version": "3.3.0",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",
@@ -13,6 +13,6 @@
   "optional_dependencies": [],
   "conflicts": [],
   "permissions": ["engine_internals"],
-  "description": "Companion UI for Gen 1/2 with experimental native FireRed/LeafGreen support, including route progress and stamps. Requires Recomp 0.3.20 or newer.",
+  "description": "Companion UI for Red, Blue, Yellow, Gold, Silver, Crystal, FireRed and LeafGreen, with live maps, battle controls, route progress and notes. Requires Recomp 0.3.20 or newer.",
   "github": "AverageConsumer/kanto-gear"
 }

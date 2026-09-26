@@ -1,17 +1,17 @@
 <div align="center">
 
-# Kanto Gear 3.2
+# Kanto Gear 3.3
 
 ### Silph Link OS — Your adventure. Reconnected.
 
 A Nintendo DS-inspired companion OS for Pokémon Red, Blue, Yellow, Gold,
-Silver and Crystal in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
+Silver, Crystal, FireRed and LeafGreen in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
 
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest Kanto Gear release"></a>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases"><img src="https://img.shields.io/github/downloads/AverageConsumer/kanto-gear/total?label=downloads&color=2f81f7" alt="Total Kanto Gear downloads"></a>
   <a href="https://bryanthaboi.github.io/gen1recomp-mod-index/"><img src="https://img.shields.io/badge/official-Mod%20Index-6f42c1" alt="Available in the official Gen1Recomp Mod Index"></a>
-  <img src="https://img.shields.io/badge/games-Gen%201%20%2B%20Gen%202-e8b923" alt="Supports Pokémon Gen 1 and Gen 2">
+  <img src="https://img.shields.io/badge/games-Gen%201%20%2B%20Gen%202%20%2B%20FRLG-e8b923" alt="Supports Pokémon Gen 1, Gen 2, FireRed and LeafGreen">
 </p>
 
 <p>
@@ -28,6 +28,17 @@ Silver and Crystal in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
 </div>
 
 ## Silph Link OS
+
+**New in 3.3:** FireRed and LeafGreen support, detailed native terrain in Gen 1/2
+minimaps, and more Japanese translations from Theeohn. FR/LG includes live Party,
+Bag, Pokédex and map data, battle controls, PC storage, naming, move learning,
+route stamps and Itemfinder scans. Pokémon summaries show nature and ability;
+level-up pages show the actual stat gains.
+
+FR/LG support is new: eggs, move-detail reordering and specialized minigames
+still use the native game screen. Ruby, Sapphire and Emerald are not supported.
+See [FR/LG coverage](tools/GEN3.md) for details and report problems with the game,
+screen and display mode where they occur.
 
 Kanto Gear turns otherwise unused screen space into a live companion system.
 Version 3 replaces the old fixed tab bar with a customizable Home screen built
@@ -92,7 +103,7 @@ installation starts once in HGSS Light so Silph Link OS cannot be missed.
 ## Install
 
 1. Install the [latest official Gen1Recomp release](https://github.com/bryanthaboi/gen1recomp/releases/latest)
-   for your platform.
+   for your platform. Kanto Gear 3.3 requires **Recomp 0.3.20 or newer**.
 2. Install **Kanto Gear** from the official Mod Index, or import
    `kanto_gear-*.zip` from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
 3. Enable Kanto Gear, start a supported game and select your display mode in
@@ -111,9 +122,9 @@ Bundled Japanese and Korean Fusion Pixel fonts also work without a game
 translation mod and cover gaps in a game's font, including the numero sign.
 They load only when needed; supported Latin text keeps the HGSS pixel fonts.
 Measurement, truncation and centering use the same selected font.
-Japanese covers all 737 current reference UI text keys, including Home, Notes,
-stamps, the bag, Store, settings and habitat availability. Future missing entries
-fall back to English.
+Japanese includes 737 translated UI text keys, including Home, Notes, stamps,
+the bag, Store, settings and habitat availability. Six new FR/LG and progress
+labels are awaiting translation and fall back to English.
 Korean Gear menu translations are not included yet.
 Gear's own menu language is selected
 separately; installing a game translation does not translate Gear's menus.
@@ -161,10 +172,9 @@ complete game and companion layout stays above fixed Android controls.
 
 | Game | Minimum official host |
 | --- | --- |
-| Pokémon Red, Blue and Yellow | Gen1Recomp 0.1.99 |
-| Pokémon Gold | Gen1Recomp 0.1.99 |
-| Pokémon Silver | Gen1Recomp 0.2.10 |
-| Pokémon Crystal | Gen1Recomp 0.2.22 |
+| Pokémon Red, Blue and Yellow | Gen1Recomp 0.3.20 |
+| Pokémon Gold, Silver and Crystal | Gen1Recomp 0.3.20 |
+| Pokémon FireRed and LeafGreen | Gen1Recomp 0.3.20 |
 
 Android, Windows and Linux use the same Kanto Gear mod ZIP. The AYN Thor is the
 primary development device; combined layouts, independent displays and the
