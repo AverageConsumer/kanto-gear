@@ -162,6 +162,7 @@ luajit <mod-path>/tests/gen3_map_test.lua
 luajit <mod-path>/tests/gen3_runtime_test.lua
 luajit <mod-path>/tests/gen3_progress_test.lua
 luajit <mod-path>/tests/gen3_controls_test.lua
+luajit <mod-path>/tests/gen3_online_test.lua
 ```
 
 The native suite checks real imported species, moves, items, edition-specific
@@ -173,6 +174,23 @@ The runtime suite loads the actual manifest through the host mod sandbox and
 checks native menu ownership, cursor slots, bag handoff, summary rendering,
 battle choices, doubles targets, Safari actions, current script flags and
 playthrough storage. It does not replace an interactive gameplay test.
+
+The online suite extends that runtime check with the actual loaded Gear mod
+attached to the host's online admission check. It compares the uncached link
+surface and fingerprint with vanilla for all five built-in Gear languages and
+the link/singles/doubles/multi rulesets. Negative controls verify that the host
+still rejects declared link changes and writes to link-relevant registries.
+All four battle display modes retain native link-battle UI and D-pad order;
+Full Gear regains ownership when the same battle is offline.
+
+Run the host's `game3_link_adapter_test.lua`, `game3_link_relay_union_test.lua`,
+`game3_link_direct_corner_test.lua`, `game3_link_trade_test.lua` and
+`game3_link_battle_test.lua` separately for its simulated connection, room,
+trade and battle flows. Those host suites do not load Gear. Neither test layer
+connects to the public relay or proves compatibility with arbitrary additional
+mods, external game translation packs, GPU rendering or real network timing.
+For a live check, enter the Union Room with Gear enabled, confirm another
+player is visible, and complete one mutually agreed trade or battle.
 
 The progress suite exhaustively checks imported objective IDs and durable pickup
 flags, the imported pickup script with a full/available bag, native battle
