@@ -252,6 +252,37 @@ T.eq(overviewCalls, before + 1, "map entry still rebuilds terrain")
 run.loader.events:emit("save.loaded", {})
 loadMap()
 T.eq(overviewCalls, before + 2, "save load still rebuilds terrain")
+-- The native path must reach the actual widget, not only a standalone renderer.
+local G = love.graphics
+local originalBatch = G.newSpriteBatch
+G.newSpriteBatch = function()
+  return { __path = "native-batch", add = function() end,
+    flush = function() end, release = function() end }
+end
+world.map.widthCells, world.map.heightCells = 40, 36
+world.map.tileset = { blocks = { {} } }
+for i = 1, 16 do world.map.tileset.blocks[1][i] = 0 end
+world.map.blockAt = function() return 0 end
+world.map.renderer = { image = { __path = "native-atlas" }, quads = { [0] = {} }, trueColor = true }
+world.mapImage = { __path = "native-map-canvas" }
+display.home.layout = { tiles = { { id = "explorer_widget", page = 1, column = 1, row = 1 } } }
+display.home.page, display.home.editing, display.home.library = 1, false, false
+run.loader.events:emit("map.reloaded", { mapId = "FIX_ROUTE" })
+T.check(type(loadMap().drawTerrain) == "function", "real runtime attaches native terrain to the overview")
+display.drawHome()
+T.eq(display.explorer.renderModel.image, nil, "native widget skips the second CPU raster and GPU upload")
+local builds = display.nativeMap.builds
+display.drawHome()
+T.eq(display.nativeMap.builds, builds, "repeated Home draws share native terrain geometry")
+if generation == 2 then world.mapImage = { __path = "new-native-colors" }
+else world.map.renderer.quads = { [0] = {} } end
+state.nextAt = 0
+T.eq(display.updateMapRefresh(400), true, "native texture replacement refreshes a stationary widget")
+display.drawHome(); state.nextAt = 0
+T.eq(display.updateMapRefresh(401), false, "unchanged native terrain does not request endless redraws")
+if generation == 2 then world.mapImage = nil else world.map.renderer = nil end
+T.eq(loadMap().drawTerrain, nil, "missing host terrain keeps the established map fallback")
+G.newSpriteBatch = originalBatch
 T.love.timer.getTime = time
 run.release()
 T.finish("Kanto Gear map motion")

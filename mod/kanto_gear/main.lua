@@ -3201,6 +3201,7 @@ return function(mod)
   end
 
   local function invalidateLocalMap()
+    if displayRuntime.nativeMap then displayRuntime.nativeMap:release() end
     if localMapImage and localMapImage.release then localMapImage:release() end
     localMap, localMapImage = nil, nil
     displayRuntime.explorer.renderModel = nil
@@ -5704,6 +5705,19 @@ return function(mod)
       end
       return localMap
     end
+    if not displayRuntime.nativeMap then
+      displayRuntime.nativeMap = assert(load(mod:read("native_map.lua"),
+        "@kanto_gear/native_map.lua"))().new(G)
+    end
+    local native = displayRuntime.nativeMap
+    local detailed = native:prepare(game and (game.overworld or game.world),
+      game and game.data, compat.isGen2())
+    if type(localMap) == "table" then
+      if detailed then
+        localMap.drawTerrain = localMap.drawTerrain or function(x, y, size) native:draw(x, y, size) end
+      else localMap.drawTerrain = nil end
+      return localMap
+    end
     if localMap ~= nil then return localMap or nil end
     if not (mod.world and mod.world.mapOverview) then
       localMap = false
@@ -5711,6 +5725,9 @@ return function(mod)
     end
     local overview = displayRuntime.perf:call("map_overview", mod.world.mapOverview, mod.world)
     localMap = overview and overview.rows and overview or false
+    if localMap and detailed then
+      localMap.drawTerrain = function(x, y, size) native:draw(x, y, size) end
+    end
     return localMap or nil
   end
 
@@ -5843,7 +5860,9 @@ return function(mod)
     if not model or not model.overview or not pos or pos.mapId ~= model.overview.mapId then return false end
     local key = home and THEME.hgss:homeMotionKey(model, pos)
       or not home and THEME.hgss:explorerMotionKey(model, pos)
-    if not key or key == state.key then return false end
+    local terrain = model.overview.drawTerrain and displayRuntime.nativeMap
+    local revision = terrain and terrain:revision() or ""
+    if not key or (key == state.key and revision == (state.terrainRevision or "")) then return false end
     dirty = true
     return true
   end
@@ -6214,6 +6233,8 @@ return function(mod)
         local model = displayRuntime.explorerModel(overview)
         THEME.hgss:explorer(model)
         displayRuntime.mapRefresh.key = THEME.hgss:explorerMotionKey(model, model.player)
+        displayRuntime.mapRefresh.terrainRevision = model.overview.drawTerrain
+          and displayRuntime.nativeMap and displayRuntime.nativeMap:revision() or ""
       end
       G.pop()
       return
@@ -7096,6 +7117,8 @@ return function(mod)
     G.pop()
     displayRuntime.mapRefresh.homeModel = model
     displayRuntime.mapRefresh.key = THEME.hgss:homeMotionKey(model, model.player)
+    displayRuntime.mapRefresh.terrainRevision = model.overview and model.overview.drawTerrain
+      and displayRuntime.nativeMap and displayRuntime.nativeMap:revision() or ""
   end
 
   function displayRuntime.storeEntries(installedOnly)
@@ -12649,6 +12672,7 @@ return function(mod)
   end
 
   mod.events:on("game.ready", function(payload)
+    if displayRuntime.nativeMap then displayRuntime.nativeMap:release(); displayRuntime.nativeMap = nil end
     if displayRuntime.gen3Map then displayRuntime.gen3Map:release(); displayRuntime.gen3Map = nil end
     if displayRuntime.gen3Region then displayRuntime.gen3Region:release(); displayRuntime.gen3Region = nil end
     game = payload.game

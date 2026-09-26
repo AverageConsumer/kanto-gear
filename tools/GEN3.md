@@ -1,9 +1,39 @@
 # Native FireRed / LeafGreen integration
 
-Version **3.3.0-gen3.1** is an experimental PC test package for native FireRed
+Version **3.3.0-gen3.2** is an experimental test package for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
 support. This is not full Gen 3 feature parity or support for Ruby, Sapphire
 and Emerald. Interactive gameplay verification is still required.
+
+Normal field scripts and warps retain the current companion page with its
+input-lock dimming. The upper-screen handoff controls are reserved for actual
+unadapted native menus.
+
+## Gen 1/2 detailed minimaps
+
+`native_map.lua` shares the host's terrain resources across Explorer, map view
+and widgets. Gen 2 borrows the current colored map canvas, so Crystal tile
+attributes, roofs, time-of-day and block edits come from the host's bake.
+Gen 1 borrows the current atlas/quads and builds independent static geometry,
+including the host's tile aliases; it never changes the host camera window.
+Only Gear's own batch is released. Missing host resources keep the previous
+overview renderer as a fallback.
+
+The movement cadence is unchanged. Texture/palette replacement also refreshes
+a stationary map. Block/map reload events invalidate geometry; walking and UI
+overlays do not. The semantic overview still comes from WorldAPI, preserving
+item/hidden-item/warp markers. Its old pixel raster is not uploaded as a second
+texture when native terrain is available. Gen 1/2 animated tile overlays are
+not mirrored in this slice; the current base terrain is displayed.
+
+Run `tests/native_map_test.lua` and `tests/map_motion_test.lua` for resource
+lifetime, fallback and actual widget integration checks. For a local GPU
+comparison, run `tools/native_map_preview` with the common preview variables,
+`POKEPORT_VERSION=red` or `crystal`, and `KANTO_GEAR_LEGACY_CACHE` pointing to
+the user's imported edition directory (containing `data/generated` and assets).
+It checks pixel parity at three scales and renders previous/native Light/Dark
+views. Timing compares warmed terrain redraws in the same clipped viewport,
+including GPU completion. It is not an upper-screen FPS or low-end-device test.
 
 ## First test scope
 
