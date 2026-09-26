@@ -2397,6 +2397,10 @@ return function(mod)
     THEME.hgss, G, function(value) return THEME:translate(value) end,
     function(value, ...) return THEME:format(value, ...) end)
   displayRuntime.Notes = assert(load(mod:read("notes.lua"), "@kanto_gear/notes.lua"))()
+  displayRuntime.Pss = assert(load(mod:read("pss.lua"), "@kanto_gear/pss.lua"))()
+  assert(load(mod:read("pss_ui.lua"), "@kanto_gear/pss_ui.lua"))()(
+    THEME.hgss, G, function(value) return THEME:translate(value) end,
+    function(value, ...) return THEME:format(value, ...) end)
   assert(load(mod:read("notes_ui.lua"), "@kanto_gear/notes_ui.lua"))()(
     THEME.hgss, G, function(value) return THEME:translate(value) end)
   displayRuntime.achievements = { view = "goals", page = 1, stale = true }
@@ -2421,6 +2425,7 @@ return function(mod)
       pokedex = { installed = false },
       achievements = { installed = false },
       notes = { installed = false },
+      pss = { installed = false },
     },
     surfaces = {
       explorer_widget = { package = "explorer", kind = "widget",
@@ -2465,6 +2470,8 @@ return function(mod)
         icon = "achievements", accent = "amber", label = "STAMPS" },
       notes_app = { package = "notes", kind = "app", columns = 3,
         icon = "notes", accent = "amber", label = "NOTES" },
+      pss_app = { package = "pss", kind = "app", columns = 3,
+        icon = "pss", accent = "blue", label = "PSS" },
       settings_app = { package = "settings", kind = "app", columns = 3,
         icon = "settings", accent = "blue", label = "OPTIONS" },
     },
@@ -2478,6 +2485,10 @@ return function(mod)
     }
   end
   displayRuntime.storeCatalog = {
+    { id = "pss", icon = "pss", label = "PSS",
+      category = "ONLINE", target = "PSS", featured = true, new = true,
+      description = { "CONNECT WITH OTHER TRAINERS.",
+        "SEE WHO IS ONLINE AND PLAYING.", "YOUR WINDOW TO THE COMMUNITY." } },
     { id = "notes", icon = "notes", label = "NOTES",
       category = "TRAINER TOOL", target = "NOTES", featured = true, new = true,
       description = { "PLAN ROUTES AND REMINDERS.",
@@ -3288,7 +3299,7 @@ return function(mod)
       page, displayRuntime.home.activeApp = "HOME", nil
     elseif not hgss and (page == "HOME" or page == "STORE"
         or page == "STEPS" or page == "POKEDEX" or page == "BAG"
-        or page == "ACHIEVEMENTS" or page == "NOTES") then
+        or page == "ACHIEVEMENTS" or page == "NOTES" or page == "PSS") then
       page = "MAP"
     elseif hgss and (page == "GUIDE" or page == "AREA") then
       page = "LOCAL"
@@ -6290,6 +6301,32 @@ return function(mod)
     pageMotion = displayRuntime.requestPageMotion,
     leave = function() page, displayRuntime.home.activeApp, dirty = "HOME", nil, true end,
   })
+  displayRuntime.pss = displayRuntime.Pss.new({
+    resolve = function()
+      return require("src.online.Client"), require("src.online.Connect")
+    end,
+    identity = function()
+      local raw = displayRuntime.sourceGame or game
+      local player = raw and (raw.session or raw.save and raw.save.player) or {}
+      return { name = player.name or "TRAINER",
+        version = require("src.core.GameVersion").get(),
+        generation = raw and raw.generation or (compat.isGen2() and 2 or 1) }
+    end,
+  })
+  -- Host session teardown also drops subscriptions when returning to the launcher.
+  -- A weak reference keeps its process-wide release registry from retaining Gear.
+  do
+    local weak = setmetatable({ displayRuntime.pss }, { __mode = "v" })
+    require("src.render.Assets").register({ release = function()
+      if weak[1] then weak[1]:close() end
+    end })
+  end
+  function displayRuntime.drawPss()
+    header(THEME:translate("PSS"), true, false)
+    G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    THEME.hgss:pss(displayRuntime.pss)
+    G.pop()
+  end
   function displayRuntime.notesShown()
     return page == "NOTES" and THEME.style == "hgss" and screenState() == "active"
       and not battle and not moveInfo and not fieldChoice and not radarOpen
@@ -10286,6 +10323,8 @@ return function(mod)
       displayRuntime.drawAchievements()
     elseif THEME.style == "hgss" and page == "NOTES" then
       displayRuntime.drawNotes()
+    elseif THEME.style == "hgss" and page == "PSS" then
+      displayRuntime.drawPss()
     elseif THEME.style == "hgss" and page == "BAG" then
       displayRuntime.drawBag()
     elseif THEME.style == "hgss" and page == "SETTINGS" then
@@ -10643,7 +10682,10 @@ return function(mod)
     if not app or not app.target or not package or not package.installed then
       return false
     end
-    if id == "notes" then
+    if id == "pss" then
+      displayRuntime.pss.selected, displayRuntime.pss.page = nil, 1
+      displayRuntime.pss:open()
+    elseif id == "notes" then
       displayRuntime.notes:open()
     elseif id == "achievements" then
       local state = displayRuntime.achievements
@@ -11798,6 +11840,10 @@ return function(mod)
     elseif THEME.style == "hgss" and page == "ACHIEVEMENTS" then
       displayRuntime.cycleAchievements(direction)
       return
+    elseif THEME.style == "hgss" and page == "PSS" then
+      if not displayRuntime.pss.selected then displayRuntime.pss:action("page", direction) end
+      dirty = true
+      return
     elseif THEME.style == "hgss" and page == "BAG" then
       if displayRuntime.bag.detail then
         displayRuntime.bag.detail, displayRuntime.bag.message = nil, nil
@@ -12144,6 +12190,16 @@ return function(mod)
       return
     elseif THEME.style == "hgss" and page == "NOTES" then
       displayRuntime.notesPointer("tap", x * THEME.hgssScale, y * THEME.hgssScale)
+      return
+    elseif THEME.style == "hgss" and page == "PSS" then
+      if y * THEME.hgssScale < 30 and x * THEME.hgssScale < 27 then
+        if displayRuntime.pss.selected then displayRuntime.pss:action("back")
+        else
+          displayRuntime.pss:close()
+          page, displayRuntime.home.activeApp = "HOME", nil
+        end
+      else displayRuntime.pss:hit(x * THEME.hgssScale, y * THEME.hgssScale) end
+      dirty = true
       return
     elseif THEME.style == "hgss" and page == "BAG" then
       displayRuntime.tapBag(x, y)
@@ -12666,6 +12722,9 @@ return function(mod)
       tostring(not text and top and top.message ~= nil),
       tostring(moveInfo), tostring(fieldChoice), tostring(battleInfoDetail),
       tostring(partyActionSlot), tostring(page), tostring(mode),
+      tostring(page == "PSS" and (displayRuntime.pss.state .. ":"
+        .. tostring(displayRuntime.pss.inUse) .. ":" .. tostring(displayRuntime.pss.selected)
+        .. ":" .. displayRuntime.pss.page)),
       tostring(displayRuntime.StartMenu.window(nativeMenu or top)),
       tostring(displayRuntime.autoBattle.shown) }, ":")
     displayRuntime.touchGuard:sync(key, text, love.timer.getTime())
@@ -12888,6 +12947,7 @@ return function(mod)
   end
 
   mod.events:on("game.ready", function(payload)
+    displayRuntime.pss:close()
     if displayRuntime.gen3Presentation then
       displayRuntime.gen3Presentation:release(); displayRuntime.gen3Presentation = nil
     end
@@ -13762,6 +13822,13 @@ return function(mod)
     end
 
     local now = love.timer.getTime()
+    -- Host events invalidate the cached list; Recomp pumps networking itself.
+    if page == "PSS" and THEME.style == "hgss" then
+      if now >= (displayRuntime.pss.nextRefresh or 0) then
+        displayRuntime.pss.nextRefresh = now + 0.25
+        if displayRuntime.pss:refresh() then dirty = true end
+      end
+    else displayRuntime.pss:close() end
     -- Drain the native touch queue once per rendered frame while Notes owns
     -- the Gear surface; the expensive game snapshots stay on their 50ms tick.
     if displayRuntime.notesShown() then

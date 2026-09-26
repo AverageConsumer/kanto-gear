@@ -552,7 +552,8 @@ function love.load()
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PROGRESS")) or 0))
   local statsTitle = format("STATS %d/%d", 1, gen1 and 2 or 3)
   local movesTitle = format("MOVES %d/%d", 2, gen1 and 2 or 3)
-  local title = storeDetail and
+  local pssScreen = screen:sub(1, 3) == "pss"
+  local title = pssScreen and "PSS" or storeDetail and
       (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "NOTES"):upper()
     or store and "SILPH STORE"
     or homeAdd and "ADD TO HOME"
@@ -633,14 +634,14 @@ function love.load()
       title = translate(title)
     end
     local titleX, titleWidth = theme:headerBar(title,
-      homeAdd or store or explorer and not explorerOverview
+      pssScreen or homeAdd or store or explorer and not explorerOverview
         or pokedex or bag or regionMap or legacyBack
         or trainerScreen or trainerSteps
         or tools or settings or swapMode
         or context or summary
         or moves or memo or memoTransition or summaryMoveInfo
         or transition or movesTransition,
-      store and not storeDetail
+      not pssScreen and (store and not storeDetail
         or pokedexProfile or pokedexHabitat or pokedexStats or pokedexMoves
         or not home and not store and not explorer and not regionMap
         and not legacy and not summaryMoveInfo
@@ -648,7 +649,7 @@ function love.load()
         and not trainerScreen
         and not trainerSteps and not tools and not settings and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
-        or not context) or toolsScreen, headerOffset)
+        or not context) or toolsScreen), headerOffset)
     if context then
       local left, width = 26, 112
       assert(math.abs(titleX - left - (width - titleWidth - (titleX - left)))
@@ -1453,6 +1454,10 @@ function love.load()
     category = "ADVENTURE", action = "GET", state = "get",
     description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
       "REVISIT AREAS AND FINISH EXPLORING.", "YOUR ADVENTURE, ONE STAMP AT A TIME." } }
+  storeCatalog[#storeCatalog + 1] = { id = "pss", icon = "pss", label = "PSS",
+    category = "ONLINE", action = "GET", state = "get", new = true,
+    description = { "CONNECT WITH OTHER TRAINERS.",
+      "SEE WHO IS ONLINE AND PLAYING.", "YOUR WINDOW TO THE COMMUNITY." } }
   for _, app in ipairs(storeCatalog) do
     if app.id == "party" then
       app.preview = { party = {}, drawPokemon = function(row, x, y, size)
@@ -1561,7 +1566,23 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if achievements then
+  if pssScreen then
+    assert(loadfile(root .. "/mod/kanto_gear/pss_ui.lua"))()(theme, love.graphics, translate, format)
+    local state = { name = "RED#123", state = "online", page = 1, pages = 2, rows = {} }
+    local names = { "AverageConsumer", "Theeohn", "RED", "コトネ", "BLUE#018", "SILVER", "LEAF" }
+    local versions = { "firered", "crystal", "red", "gold", "blue", "silver", "leafgreen" }
+    for i, name in ipairs(names) do
+      state.rows[i] = { id = tostring(i), name = name, version = versions[i],
+        where = "game", status = i == 2 and "battling" or "busy" }
+    end
+    if screen == "pss-detail" then state.selected, state.selectedRow = "1", state.rows[1]
+    elseif screen ~= "pss" then
+      state.rows, state.pages = {}, 1
+      state.state = screen:sub(5)
+      if state.state == "error" then state.error = "offline" end
+    end
+    theme:pss(state)
+  elseif achievements then
     assert(loadfile(root .. "/tools/hgss_preview/achievements.lua"))()(
       theme, screen, gen1, translate)
   elseif legacyPpMoves then

@@ -627,6 +627,7 @@ do
   run.loader.events:emit("save.loaded", { save = session })
   run.loader.events:emit("map.entered", { game = raw, mapId = session.map })
 end
+assert(loadfile(path .. "/tests/pss_runtime_cases.lua"))()(T, display)
 if type(_G.KANTO_GEAR_RENDER_CAPTURE) == "function" then
   _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, maps)
 end

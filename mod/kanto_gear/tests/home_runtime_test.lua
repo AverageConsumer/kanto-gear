@@ -86,9 +86,9 @@ end
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
 local theme = upvalue(display.drawContents, "THEME")
-T.eq(display.storeEntries()[1].id, "notes", "Notes is visible on the first Apps page")
-T.eq(display.storeTodayEntries()[1].id, "notes", "Notes is featured when the Store opens")
-T.eq(display.storeWidgetSummary().label, "NOTES", "Store widget promotes uninstalled Notes")
+T.eq(display.storeEntries()[1].id, "pss", "PSS is visible on the first Apps page")
+T.eq(display.storeTodayEntries()[1].id, "pss", "PSS is featured when the Store opens")
+T.eq(display.storeWidgetSummary().label, "PSS", "Store widget promotes uninstalled PSS")
 do
   local renderer = theme.hgss
   local originalText, originalBar = renderer.partyInfo, renderer.expBar
@@ -780,5 +780,6 @@ local otherSave = { habitat = { appearances = selected.habitat.appearances } }
 T.check(display.pokedexHabitatPlan(otherSave) ~= updated,
   "a rebuilt dex never reuses a previous save's cached plan")
 love.timer.getTime = originalTime
+assert(loadfile(path .. "/tests/pss_runtime_cases.lua"))()(T, display, tap)
 run.release()
 T.finish("Kanto Gear Home runtime")

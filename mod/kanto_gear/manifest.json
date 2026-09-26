@@ -1,7 +1,7 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "3.3.0",
+  "version": "3.3.1-pss.1",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",
@@ -12,7 +12,7 @@
   "dependencies": [],
   "optional_dependencies": [],
   "conflicts": [],
-  "permissions": ["engine_internals"],
+  "permissions": ["engine_internals", "network"],
   "description": "Companion UI for Red, Blue, Yellow, Gold, Silver, Crystal, FireRed and LeafGreen, with live maps, battle controls, route progress and notes. Requires Recomp 0.3.20 or newer.",
   "github": "AverageConsumer/kanto-gear"
 }

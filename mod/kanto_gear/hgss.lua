@@ -1351,6 +1351,17 @@ return function(ui)
         left = 2, top = 1, right = 23, bottom = 26,
         draw = function(x, y) theme:homeNotesIcon(x, y) end,
       },
+      pss = {
+        left = 2, top = 2, right = 24, bottom = 24,
+        draw = function(x, y)
+          box("fill", x + 12, y + 7, 3, 14, theme.colors.blue)
+          box("fill", x + 5, y + 14, 17, 3, theme.colors.blue)
+          for _, p in ipairs({ { 10, 2 }, { 2, 18 }, { 18, 18 } }) do
+            box("fill", x + p[1], y + p[2], 7, 7, theme.colors.outline)
+            box("fill", x + p[1] + 1, y + p[2] + 1, 5, 5, theme.colors.blueLight)
+          end
+        end,
+      },
       settings = {
         left = 2, top = 1, right = 26, bottom = 26,
         draw = function(x, y) theme:homeSettingsIcon(x, y) end,
@@ -2309,7 +2320,19 @@ return function(ui)
         mixed(colors.surface, tint or colors.band, self.dark and 0.12 or 0.08))
       border(left, cardTop, width, cardHeight, colors.outline)
     end
-    if id == "explorer" then
+    if id == "pss" then
+      local gap, cardW = 4, math.floor((w - 16) / 3)
+      local left = x + math.floor((w - (cardW * 3 + gap * 2)) / 2)
+      for i = 0, 2 do
+        local cx = left + i * (cardW + gap)
+        local cy = top + math.floor((height - 34) / 2)
+        miniCard(cx, cy, cardW, 34, colors.blue)
+        local center = cx + math.floor(cardW / 2)
+        box("fill", center - 3, cy + 6, 6, 6, colors.blue)
+        box("fill", center - 5, cy + 14, 10, 6, colors.blue)
+        box("fill", cx + 5, cy + 26, cardW - 10, 2, quiet)
+      end
+    elseif id == "explorer" then
       local mapW = detailed and 128 or w - 10
       local left, mapTop = x + 5, top + 4
       if preview.overview then
