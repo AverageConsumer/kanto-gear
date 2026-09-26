@@ -10046,7 +10046,10 @@ return function(mod)
         fieldParty.index, false)
     elseif hgssSummary then
       drawBattleSummary(summary)
-    elseif displayRuntime.gen3 and mode == "locked" then
+    elseif displayRuntime.gen3 and mode == "locked"
+        and top and top.screenId ~= "Gen3:busy" then
+      -- Field scripts and warps only lock input; retain the companion page
+      -- beneath its dim overlay. Reserve handoff controls for real native UI.
       drawTopSummaryControls(nil, true)
     elseif pcKind then
       drawPc(pcKind, pcRoot, top)

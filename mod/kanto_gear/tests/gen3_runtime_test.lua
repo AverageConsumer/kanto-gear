@@ -114,6 +114,26 @@ Stack.push("test-native-modal", {})
 display.gen3.syncScreens()
 T.eq(display.gen3:gameView().stack:top().screenId, "Gen3:test-native-modal", "unknown native modal cannot masquerade as legacy input owner")
 Stack.clear()
+local Field = require("src.core.game3.field")
+local originalLocked, handoffs, fallbackIndex, fallback = Field.locked, 0
+for i = 1, debug.getinfo(display.drawContents, "u").nups do
+  local name, value = debug.getupvalue(display.drawContents, i)
+  if name == "drawTopSummaryControls" then fallbackIndex, fallback = i, value end
+end
+debug.setupvalue(display.drawContents, assert(fallbackIndex), function(...)
+  handoffs = handoffs + 1
+  return fallback(...)
+end)
+Field.locked = true
+display.gen3.syncScreens(); display.drawContents()
+T.eq(handoffs, 0, "field script/warp lock retains the companion page instead of flashing a handoff")
+T.check(display.backgroundDim > 0, "field script still dims and locks the companion controls")
+Stack.push("test-native-modal", {})
+display.gen3.syncScreens(); display.drawContents()
+T.eq(handoffs, 1, "unadapted native menus still show the handoff controls")
+Stack.clear(); Field.locked = originalLocked
+display.gen3.syncScreens()
+debug.setupvalue(display.drawContents, fallbackIndex, fallback)
 -- Exercise all independent read screens through the real Gear draw dispatcher.
 for _, id in ipairs({ "party", "trainer", "bag", "pokedex", "settings", "notes" }) do
   display.setPackageInstalled(id, true)
