@@ -743,4 +743,5 @@ return {
   ["MAP MOTION"] = "MOVIMIENTO MAPA",
   ["QUALITY"] = "CALIDAD",
   ["PERFORMANCE"] = "RENDIMIENTO",
+  ["NO SPACE"] = "SIN ESPACIO",
 }

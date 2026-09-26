@@ -1,6 +1,6 @@
 # Built-in Kanto Gear languages
 
-Kanto Gear includes English, German, Spanish (Spain), French, and partial
+Kanto Gear includes English, German, Spanish (Spain), French, and
 Japanese (日本語). Select **Settings → Appearance → Language**, or **LANGUAGE** in the
 host's Kanto Gear mod options. English is the default. The selection is saved
 outside the game save and can be changed without restarting.
@@ -25,9 +25,11 @@ built-in catalogs. Japanese was contributed by **Theeohn** in
 [PR #33](https://github.com/AverageConsumer/kanto-gear/pull/33), with subsequent
 wording revisions and a completion contribution from Theeohn covering Home,
 Store, settings, Notes, stamps, the bag and other companion screens.
-The built-in `ja` catalog currently contains 725 of 736 reference entries,
-including the language selector label. Untranslated reference
-keys fall back to English; see [the Japanese completion file](ja-missing.lua).
+The built-in `ja` catalog currently contains all 737 reference entries,
+including habitat availability and Home capacity labels. Theeohn also supplied
+wording revisions for existing labels. Coverage describes catalog completeness,
+not independent linguistic validation. Future missing keys fall back to English;
+see [the Japanese completion file](ja-missing.lua).
 
 ## Maintaining translations
 

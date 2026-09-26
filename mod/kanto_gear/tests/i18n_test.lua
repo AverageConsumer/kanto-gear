@@ -34,7 +34,7 @@ check(i18n:language() == "ja", "Japanese locale resolves to its catalog")
 check(i18n:text("START GAME") == catalogs.ja["START GAME"], "Japanese UI text comes from contributor catalog")
 check(i18n:format("SIGNALS %d", 3) == string.format(catalogs.ja["SIGNALS %d"], 3), "Japanese format arguments survive")
 check(i18n:text("NOTES") == "ノート", "Japanese Notes text comes from the completion contribution")
-check(i18n:text("NEED HEADBUTT") == "NEED HEADBUTT", "unfinished Japanese entries fall back to English")
+check(i18n:text("NEED HEADBUTT") == catalogs.ja["NEED HEADBUTT"], "Japanese habitat requirements use the completed catalog")
 selected = "de"
 check(i18n:text("START GAME") == catalogs.de["START GAME"], "switching back from Japanese restores German")
 selected = "invalid"
@@ -140,6 +140,9 @@ for code, catalog in pairs(catalogs) do
     end
   end
 end
+
+-- Conditional translation arguments are not visible to the literal-callsite scan.
+requested["NO SPACE"] = true
 
 -- Shared dynamic arrays are not visible to the literal-callsite scan.
 local entry = assert(loadfile(root .. "/main.lua"))()

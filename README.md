@@ -99,7 +99,7 @@ installation starts once in HGSS Light so Silph Link OS cannot be missed.
    the fixed **Options** app.
 
 You need your own supported ROM. Kanto Gear contains no ROM, ROM-derived game
-data or save file. English, German, Spanish (Spain), French and partial Japanese are built in under
+data or save file. English, German, Spanish (Spain), French and Japanese are built in under
 **Settings → Appearance → Language**. Disable the old companion language packs;
 they are no longer needed. Only Kanto Gear's interface changes language; game
 text remains untouched.
@@ -111,8 +111,9 @@ Bundled Japanese and Korean Fusion Pixel fonts also work without a game
 translation mod and cover gaps in a game's font, including the numero sign.
 They load only when needed; supported Latin text keeps the HGSS pixel fonts.
 Measurement, truncation and centering use the same selected font.
-Japanese covers 725 of the current 736 UI text keys, including Home, Notes,
-stamps, the bag, Store and settings. Remaining entries fall back to English.
+Japanese covers all 737 current reference UI text keys, including Home, Notes,
+stamps, the bag, Store, settings and habitat availability. Future missing entries
+fall back to English.
 Korean Gear menu translations are not included yet.
 Gear's own menu language is selected
 separately; installing a game translation does not translate Gear's menus.
