@@ -3691,8 +3691,13 @@ return function(ui)
       self:homeTile(x, y, w, h, entry.selected and c.green or c.blue, entry.selected)
       self:startMenuIcon(entry.kind, x + 9, y + 6)
       box("fill", x + 33, y + 5, 1, h - 10, c.band)
-      self:partyInfo(self:fitPartyInfo(entry.label, w - 52), x + 40,
-        y + math.floor((h - 9) / 2), entry.disabled and c.mutedInk or c.ink, w - 52, "center")
+      local reserved = entry.right and 78 or 0
+      self:partyInfo(self:fitPartyInfo(entry.label, w - 52 - reserved), x + 40,
+        y + math.floor((h - 9) / 2), entry.disabled and c.mutedInk or c.ink, w - 52 - reserved, "center")
+      if entry.right then
+        self:partyInfo(self:fitPartyInfo(entry.right, 72), x + w - 80,
+          y + math.floor((h - 9) / 2), c.ink, 72, "center")
+      end
       self:endPress(pressed)
     end
     if model.total <= 5 then return end

@@ -29,8 +29,14 @@ function Gen3.new(game)
   self.Flags = require("src.core.game3.scripting.flags")
   self.FieldMoves = require("src.core.game3.field_moves")
   self.Summary = require("src.core.game3.summary_data")
+  self.Types = require("src.core.game3.battle.types")
+  self.Battle = require("src.core.game3.battle")
+  self.BattleUI = require("src.core.game3.battle.ui")
+  self.Field = require("src.core.game3.field")
+  self.Warp = require("src.core.game3.warp")
+  self.Runtime = require("src.core.game3.runtime")
   self.typeNames = {}
-  for name, id in pairs(require("src.core.game3.battle.types").ID) do
+  for name, id in pairs(self.Types.ID) do
     self.typeNames[id] = name
   end
   self:refreshDefinitions()
@@ -51,6 +57,7 @@ function Gen3:refreshDefinitions()
   local Compat = require("src.mods.Gen3Compat")
   local source = Compat.dataView(self.game.data or {})
   local P, M, I = self.Pokemon, self.Moves, self.Items
+  local dexData = require("src.core.game3.pokedex_data")
   local data = { pokemon = {}, moves = {}, items = {}, maps = self.game.data and self.game.data.maps or {} }
   -- Iterate National IDs, not the native table length (which includes holes
   -- and special sprite IDs). Keep internal IDs as keys everywhere else.
@@ -59,6 +66,9 @@ function Gen3:refreshDefinitions()
     if id then
       local row = copy(source.pokemon[id])
       row.index, row.dex, row.national = id, dex, dex
+      local entry = dexData.getEntry(dex)
+      row.dexEntry = { kind = entry.category, heightM = entry.heightDm / 10,
+        weightKg = entry.weightHg / 10, text = entry.description }
       row.types = self:types(row.types)
       row.learnset = {}
       for _, learn in ipairs(P.learnset(id) or {}) do
@@ -80,6 +90,8 @@ function Gen3:refreshDefinitions()
     row.index, row.id = id, M.constName(id)
     row.type = self.typeNames[row.type] or row.type
     row.name = row.name or M.displayName(id)
+    row.nativeGen3 = true
+    row.description = self.Summary.moveDescription(id, row.name)
     data.moves[row.id] = row
   end
   setmetatable(data.moves, { __index = function(t, id)
@@ -100,6 +112,17 @@ function Gen3:refreshDefinitions()
     local num = I.toNumericId(id)
     return num and rawget(t, num)
   end })
+  data.type_chart = { matchups = {} }
+  for name, id in pairs(self.Types.ID) do
+    for other, target in pairs(self.Types.ID) do
+      local multiplier = self.Types.effectiveness(id, target) * 10
+      if multiplier ~= 10 then
+        data.type_chart.matchups[#data.type_chart.matchups + 1] = {
+          attacker = name, defender = other, multiplier = multiplier,
+        }
+      end
+    end
+  end
   self.data = data
   setmetatable(data.pokemon, { __index = function(t, id)
     if type(id) == "string" then
@@ -273,17 +296,29 @@ function Gen3:gameView()
       local maps = require("src.core.game3.map")
       world.map.id = maps.current or self.session.map
       stack.states[1] = world
+      local battle = self:battleState()
+      if battle then stack.states[#stack.states + 1] = battle end
       for _, layer in ipairs(require("src.ui.game3.stack")._layers) do
         local state = layers[layer]
         if not state then state = { screenId = "Gen3:" .. tostring(layer.id) }; layers[layer] = state end
+        if layer.id == "summary" and layer.mod then
+          local native = layer.mod
+          state.screenId, state.native = "Gen3SummaryMenu", native
+          state.mon = self:mon(native._party and native._party[native._cursor])
+          state.page = (native._page or 0) + 1
+          state.moveDetail = native._mode == "select_move" or state.page > 3
+            or native._slide and native._slide.active or false
+        end
+        state.phase = layer.mod and layer.mod.mode
+        state.index = layer.mod and (layer.mod.mode == "action" and layer.mod.actionCursor
+          or layer.mod.mode == "item_action" and layer.mod.itemActionCursor
+          or layer.mod.cursor or layer.mod._cursor)
+        state.pocketIndex = layer.mod and layer.mod.pocketIdx
         stack.states[#stack.states + 1] = state
       end
       -- Native scripts, transitions and battles need not push a UI layer.
       -- Walking alone is not a modal state and must not dim the live map.
-      local Field = package.loaded["src.core.game3.field"]
-      local Warp = package.loaded["src.core.game3.warp"]
-      local Runtime = package.loaded["src.core.game3.runtime"]
-      local Battle = package.loaded["src.core.game3.battle"] or package.loaded["src.core.game3.battle.init"]
+      local Field, Warp, Runtime, Battle = self.Field, self.Warp, self.Runtime, self.Battle
       if #stack.states == 1 and (Field and Field.locked
           or Warp and Warp.isBusy() or Runtime and Runtime.uiBusy()
           or Battle and Battle.isActive()) then
@@ -307,6 +342,73 @@ function Gen3:gameView()
   end })
   self.syncScreens()
   return self.view
+end
+
+-- A presentation state for native battles, which do not live on Game.stack.
+-- It deliberately cannot claim the legacy upper-screen visibility contract.
+function Gen3:battleState()
+  local B = self.Battle
+  if not B or not B.isActive() then return nil end
+  local st, U = B.getState(), self.BattleUI
+  if not st then return nil end
+  if not self.battleView or self.battleSource ~= st then
+    self.battleSource = st
+    self.battleView = { isBattleState = true, nativeGen3 = true }
+    local order = st.safari and { 1, 2, 3, 4 } or { 1, 3, 2, 4 }
+    setmetatable(self.battleView, {
+      __index = function(_, key)
+        if key == "menuIndex" then return U and order[U._menuIndex] end
+        if key == "moveIndex" then return U and U._moveIndex end
+      end,
+      __newindex = function(t, key, value)
+        if key == "menuIndex" then if U then U._menuIndex = order[value] end
+        elseif key == "moveIndex" then if U then U._moveIndex = value end
+        else rawset(t, key, value) end
+      end,
+    })
+  end
+  local view = self.battleView
+  view.phase = B._phase == "command" and U and U._mode or B._phase
+  view.kind, view.battle = st.kind or (st.wild and "wild" or "trainer"), st
+  view.player, view.enemy = st.player, st.enemy
+  view.tutorial, view.demo = st.oldManTutorial or B._auto, st.pokedude
+  view.activeBattler = U and U._active
+  return view
+end
+
+function Gen3:battleSnapshot(snapshot)
+  if not snapshot then return nil end
+  local state = self:battleState()
+  local st = state and state.battle
+  if not st then return snapshot end
+  snapshot.menuIndex, snapshot.moveIndex = state.menuIndex, state.moveIndex
+  snapshot.nativeUnsupported = state.tutorial or state.demo or st.link
+  if st.safari and snapshot.prompt == "menu" then
+    snapshot.prompt, snapshot.safariBalls = "safari", st.safariState and st.safariState.balls or 0
+  end
+  local function enrich(out, source)
+    if not out or not source then return end
+    local view = self:mon(source)
+    out.source, out.species, out.types = view, view.species, view.types
+    out.gender, out.shiny, out.isEgg = view.gender, view.shiny, view.isEgg
+  end
+  for i, mon in ipairs(st.playerParty or {}) do enrich(snapshot.party[i], mon) end
+  local owner = snapshot.active == 2 and st.battlers and st.battlers[2] or st.player
+  enrich(snapshot.player, owner and owner.mon)
+  enrich(snapshot.enemy, st.enemy and st.enemy.mon)
+  for _, move in ipairs(snapshot.moves or {}) do
+    move.id = self.Moves.constName(move.id)
+    move.type = self.typeNames[move.type] or move.type
+  end
+  return snapshot
+end
+
+function Gen3:toolUnlocked(def)
+  if def.item then return (self.save and self.save.inventory[def.item] or 0) > 0 end
+  if def.move == "HEADBUTT" or def.move == "WHIRLPOOL" then return false end
+  if not self.FieldMoves.MOVES[def.move] then return false end
+  return self.FieldMoves.partyMoveUser(self.session and self.session.party, def.move) ~= nil
+    and self.FieldMoves.hasBadge(self.session, def.move) == true
 end
 
 function Gen3:methods()

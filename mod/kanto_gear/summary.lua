@@ -12,7 +12,7 @@ local function definition(game, kind, id)
   return rows and id and rows[id] or nil
 end
 
-local function moveRows(game, mon, gen2)
+local function moveRows(game, mon, laterGen)
   local rows = {}
   for slot = 1, 4 do
     local move = mon.moves and mon.moves[slot]
@@ -20,7 +20,7 @@ local function moveRows(game, mon, gen2)
     local maxPp = 0
     if move then
       maxPp = move.maxPp or (def and def.pp) or move.pp or 0
-      if not gen2 and def and tonumber(def.pp) then
+      if not laterGen and def and tonumber(def.pp) then
         maxPp = maxPp + (move.ppUps or 0) * math.floor(def.pp / 5)
       end
     end
@@ -35,25 +35,25 @@ end
 
 function Summary.supports(state)
   local id = state and state.screenId
-  local gen2 = id == "Gen2SummaryMenu"
+  local gen2, gen3 = id == "Gen2SummaryMenu", id == "Gen3SummaryMenu"
   local mon = state and state.mon
-  if type(mon) ~= "table" or mon.isEgg or (gen2 and state.moveDetail) then
+  if type(mon) ~= "table" or mon.isEgg or ((gen2 or gen3) and state.moveDetail) then
     return false
   end
   if gen2 and (type(state.expToNext) ~= "function"
       or type(state.itemName) ~= "function"
       or type(state.otName) ~= "function"
       or type(state.otId) ~= "function") then return false end
-  local pages = gen2 and 3 or 2
+  local pages = (gen2 or gen3) and 3 or 2
   local page = tonumber(state.page) or 1
   return page >= 1 and page <= pages
 end
 
 function Summary.view(state, game)
   if not Summary.supports(state) then return nil end
-  local gen2 = state.screenId == "Gen2SummaryMenu"
+  local gen2, gen3 = state.screenId == "Gen2SummaryMenu", state.screenId == "Gen3SummaryMenu"
   local mon = state.mon
-  local pages = gen2 and 3 or 2
+  local pages = (gen2 or gen3) and 3 or 2
   local page = tonumber(state.page) or 1
 
   local def = definition(game, "pokemon", mon.species) or {}
@@ -65,8 +65,13 @@ function Summary.view(state, game)
   local ot = gen2 and invoke(state, "otName") or mon.ot
   local otId = gen2 and invoke(state, "otId") or mon.otId
 
+  if gen3 then
+    local Items = require("src.core.game3.items_data")
+    item = mon.item and mon.item ~= 0 and Items.displayName(mon.item) or "---"
+  end
   return {
-    gen2 = gen2,
+    gen2 = gen2 or gen3, gen3 = gen3,
+    layoutPage = gen3 and ({ 3, 1, 2 })[page] or page,
     page = page,
     pages = pages,
     mon = mon,
@@ -84,7 +89,7 @@ function Summary.view(state, game)
     ot = ot or player.name or (gen2 and "GOLD" or "RED"),
     otId = otId or player.id or 0,
     stats = stats,
-    moves = moveRows(game, mon, gen2),
+    moves = moveRows(game, mon, gen2 or gen3),
   }
 end
 

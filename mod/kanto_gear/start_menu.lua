@@ -5,7 +5,9 @@ function Menu.cursor(top)
   if type(top) ~= "table" or type(top.update) ~= "function"
       or type(top.items) ~= "table" or #top.items == 0 then return nil end
   local cursor
-  if top.screenId == "StartMenu" and top.startCloses and top.phase == nil then
+  if top.screenId == "Gen3Menu" and type(top.valid) == "function" and top.valid() then
+    cursor = top
+  elseif top.screenId == "StartMenu" and top.startCloses and top.phase == nil then
     cursor = top
   elseif top.screenId == "Gen2StartMenu" and top.phase == nil then
     cursor = top.list
@@ -66,7 +68,7 @@ function Menu.model(top)
   for row = 1, count do
     local index = first + row - 1
     local item = top.items[index]
-    entries[row] = { label = Menu.label(item), selected = index == selected,
+    entries[row] = { label = Menu.label(item), right = item.right, selected = index == selected,
       kind = item.value or item.id or kinds[item.label],
       disabled = top.screenId == "Gen2StartMenu" and item.disabled,
       x = Menu.x, y = Menu.y + (row - 1) * Menu.step, w = Menu.width, h = Menu.height }

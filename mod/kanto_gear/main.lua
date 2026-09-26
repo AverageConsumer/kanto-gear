@@ -1238,7 +1238,7 @@ local function prepareBattleSnapshot(a, b, state, data, ownsMoveFocus)
 end
 
 local function supportedBattleUI(state)
-  if not state then return false end
+  if not state or state.nativeGen3 then return false end
   local kind = state.kind
   if state.battleKind ~= nil then
     if type(state.battleKind) ~= "function" then return false end
@@ -2867,7 +2867,7 @@ return function(mod)
 
   local compat = { screens = {
     party = { PartyMenu = true, Gen2PartyMenu = true },
-    summary = { SummaryMenu = true, Gen2SummaryMenu = true },
+    summary = { SummaryMenu = true, Gen2SummaryMenu = true, Gen3SummaryMenu = true },
     bag = { BagMenu = true, Gen2PackMenu = true },
     naming = { NamingScreen = true, Gen2NamingScreen = true },
     pokemonPc = { BoxMenu = true, Gen2CenterPcMenu = true, Gen2PcMenu = true },
@@ -3529,7 +3529,8 @@ return function(mod)
     for _, def in ipairs(THEME.fieldTools.widgets) do
       local surface = displayRuntime.homeCatalog.surfaces[
         "tool_widget_" .. def.key]
-      local unlocked = THEME.fieldTools.unlocked(def, save, gen2)
+      local unlocked = displayRuntime.gen3 and displayRuntime.gen3:toolUnlocked(def)
+        or not displayRuntime.gen3 and THEME.fieldTools.unlocked(def, save, gen2)
       local action = unlocked and displayRuntime.availableTool(
         actions, def.action, def.rod)
       local label = displayRuntime.toolName(def)
@@ -3547,7 +3548,8 @@ return function(mod)
       = {}, nil
     local save, gen2 = game and game.save, compat.isGen2()
     for _, def in ipairs(THEME.fieldTools.widgets) do
-      if THEME.fieldTools.unlocked(def, save, gen2) then
+      if displayRuntime.gen3 and displayRuntime.gen3:toolUnlocked(def)
+          or not displayRuntime.gen3 and THEME.fieldTools.unlocked(def, save, gen2) then
         if def.action == "fish" then
           if not fishing then
             local action = displayRuntime.availableTool(nil, "fish")
@@ -4751,6 +4753,7 @@ return function(mod)
   end
 
   function displayRuntime.startMenu()
+    if displayRuntime.gen3Ui then return displayRuntime.gen3Ui:list(battle) end
     local top = game and game.stack and game.stack:top()
     return displayRuntime.StartMenu.cursor(top) and top or nil
   end
@@ -4760,7 +4763,7 @@ return function(mod)
   end
 
   function displayRuntime.drawStartMenu(top)
-    header(THEME:translate("CHOOSE ACTION"), true)
+    header(THEME:translate(top.title or "CHOOSE ACTION"), true, top.nativePocket)
     local model = displayRuntime.startMenuModel(top)
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
@@ -7549,6 +7552,11 @@ return function(mod)
       and growth.expForLevel(level) or view.experience
     local nextLevelExp = level < 100 and growth and growth.expForLevel
       and growth.expForLevel(level + 1) or currentLevelExp
+    if view.gen3 then
+      local nativeExp = displayRuntime.gen3.Summary.expProgress(mon,
+        displayRuntime.gen3.Pokemon.growthRate(mon.species))
+      currentLevelExp, nextLevelExp = nativeExp.curLevelExp, nativeExp.nextLevelExp
+    end
     local nextValue = level < 100 and (view.nextExp
       or math.max(0, nextLevelExp - view.experience)) or nil
     local out = {
@@ -8091,7 +8099,7 @@ return function(mod)
       for index = first, math.min(dex.total, first + 8) do
         entries[#entries + 1] = dex.entries[index]
       end
-      return { view = "index", region = compat.isGen2()
+      return { view = "index", region = (compat.isGen2() or displayRuntime.gen3 and dex.total > 151)
           and "NATIONAL DEX" or "KANTO DEX",
         caught = dex.caught, total = dex.total,
         page = state.page, pages = pages, entries = entries,
@@ -8118,7 +8126,7 @@ return function(mod)
       info.description = { THEME:translate("NO RESEARCH DATA AVAILABLE.") }
     end
     local base, stats, bst = def.baseStats or {}, {}, 0
-    local definitions = compat.isGen2() and {
+    local definitions = (compat.isGen2() or displayRuntime.gen3) and {
       { "HP", "hp" }, { "ATK", "attack" }, { "DEF", "defense" },
       { "SP.ATK", "specialAttack", "spAttack", "special" },
       { "SP.DEF", "specialDefense", "spDefense", "special" },
@@ -8513,11 +8521,12 @@ return function(mod)
   } }) == 40, "type effectiveness preview")
 
   function compat.moveInfoLines(move, def, ruleset)
-    if compat.isGen2() and type(def.description) == "string"
+    if (compat.isGen2() or def.nativeGen3) and type(def.description) == "string"
         and #def.description > 0 then
       local lines = THEME:descriptionLines(def.description, 21, 2, 196)
       if #lines > 0 then return lines end
     end
+    if def.nativeGen3 then return { THEME:translate("NO DETAILS AVAILABLE") }, false end
     return THEME:moveDescription(move, def, ruleset)
   end
 
@@ -8933,14 +8942,16 @@ return function(mod)
     if THEME.style == "hgss" then
       local mon, view = hgssRuntime.summaryView(summary)
       if not mon then return end
-      local pageLabels = { "STATS", "MOVES", "TRAINER" }
+      local pageLabels = view.gen3 and { "TRAINER", "STATS", "MOVES" }
+        or { "STATS", "MOVES", "TRAINER" }
+      local layoutPage = view.layoutPage or view.page
       header(THEME:format("%s %d/%d",
         THEME:translate(pageLabels[view.page] or "STATS"),
         view.page, view.pages), true, true, view.page == 1 and -1 or 0)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      local open = hgssRuntime.progress("summary_open")
-      local pageProgress = hgssRuntime.progress("summary_page")
+      local open = not view.gen3 and hgssRuntime.progress("summary_open")
+      local pageProgress = not view.gen3 and hgssRuntime.progress("summary_page")
       if open and view.page == 1 then
         THEME.hgss:summaryTransition(mon, hgssRuntime.summaryPortrait, open,
           hgssRuntime.animation.actionCount or 2,
@@ -8948,9 +8959,9 @@ return function(mod)
       elseif pageProgress then
         THEME.hgss:summaryPageTransition(mon, hgssRuntime.summaryPortrait,
           pageProgress, hgssRuntime.animation.from, hgssRuntime.animation.to)
-      elseif view.page == 1 then
+      elseif layoutPage == 1 then
         THEME.hgss:summaryPage(mon, hgssRuntime.summaryPortrait)
-      elseif view.page == 2 then
+      elseif layoutPage == 2 then
         THEME.hgss:summaryMoves(mon, hgssRuntime.summaryPortrait)
       else
         THEME.hgss:summaryMemo(mon, hgssRuntime.summaryPortrait)
@@ -9602,6 +9613,7 @@ return function(mod)
   end
 
   local function drawBattle()
+    if battle.nativeUnsupported then drawTopSummaryControls(nil, true); return end
     if currentBattleUIMode() == "info" then
       local info = displayRuntime.enemyInfo()
       if THEME.style == "hgss" then
@@ -10003,6 +10015,8 @@ return function(mod)
         fieldParty.index, false)
     elseif hgssSummary then
       drawBattleSummary(summary)
+    elseif displayRuntime.gen3 and mode == "locked" then
+      drawTopSummaryControls(nil, true)
     elseif pcKind then
       drawPc(pcKind, pcRoot, top)
     elseif fieldChoice then
@@ -10161,6 +10175,7 @@ return function(mod)
 
   local function refreshBattle()
     local nextBattle = mod.battle and mod.battle:snapshot() or nil
+    if displayRuntime.gen3 then nextBattle = displayRuntime.gen3:battleSnapshot(nextBattle) end
     if nextBattle then
       local raw = battleState()
       local top = game and game.stack and game.stack:top()
@@ -10286,6 +10301,10 @@ return function(mod)
     if displayRuntime.touchDispatch then displayRuntime.touchGuard.pending = true end
     intentId = intentId + 1
     fields = fields or {}
+    if displayRuntime.gen3 and kind == "safari" then
+      fields.choice = ({ ball = "fight", bait = "item", rock = "party", run = "run" })[fields.action]
+      kind = "menu"
+    end
     fields.id, fields.revision, fields.kind = intentId, battle.revision, kind
     local ok, err = mod.battle:submit(fields)
     if not ok then mod.log:warn("battle intent %s rejected: %s", kind, err) end
@@ -10311,12 +10330,12 @@ return function(mod)
 
   local function press(key)
     if displayRuntime.touchDispatch then displayRuntime.touchGuard.pending = true end
-    mod.input:tap(game, key)
+    mod.input:tap(displayRuntime.sourceGame or game, key)
   end
 
   local function holdTextSpeed(held)
     if held == (textSpeedToken ~= nil) then return end
-    if held then textSpeedToken = mod.input:press(game, "a")
+    if held then textSpeedToken = mod.input:press(displayRuntime.sourceGame or game, "a")
     else mod.input:release(textSpeedToken); textSpeedToken = nil end
   end
 
@@ -10402,7 +10421,11 @@ return function(mod)
     local mon = game.save.party and game.save.party[slot]
     if not mon then return false end
     partyActionSlot, partyMoveFrom = nil, nil
-    if compat.isGen2() then
+    if displayRuntime.gen3 then
+      require("src.ui.game3.summary_menu").openMenu(displayRuntime.gen3.session.party, slot,
+        { session = displayRuntime.gen3.session })
+      displayRuntime.gen3.syncScreens()
+    elseif compat.isGen2() then
       mod.ui.push(game, compat.screenName("summary", true), {
         mon = mon, party = game.save.party, index = slot,
         onClose = function() game.stack:pop() end,
@@ -10833,6 +10856,7 @@ return function(mod)
   end
 
   local function tapBattle(x, y)
+    if battle.nativeUnsupported then return end
     if currentBattleUIMode() == "info" then
       if THEME.style == "hgss" then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
@@ -11373,6 +11397,11 @@ return function(mod)
   end
 
   function displayRuntime.tapStartMenu(top, x, y)
+    if top.nativePocket and y < HEADER and x >= 27 / 1.5 and x < 139 / 1.5 then
+      press(x < 83 / 1.5 and "left" or "right")
+      dirty = true
+      return
+    end
     local menu = displayRuntime.StartMenu
     local action = menu.hit(top, x * 1.5, y * 1.5)
     if action == "back" then
@@ -11381,6 +11410,8 @@ return function(mod)
       local first = menu.window(top)
       local index = action == "next" and first + menu.visible or first - menu.visible
       menu.select(top, index)
+    elseif type(action) == "number" and top.battleTargets then
+      submit("target", { target = top.battleTargets[action] })
     elseif type(action) == "number" and menu.select(top, action) then
       press("a")
     end
@@ -11697,7 +11728,7 @@ return function(mod)
         elseif hy < 30 and hx < 139 then
           press("right")
         elseif assist("move_details")
-            and tonumber(summary.page) == 2 then
+            and tonumber(summary.page) == (displayRuntime.gen3 and 3 or 2) then
           for slot = 1, 4 do
             local rowY = 63 + (slot - 1) * 37
             if inside(hx, hy, 6, rowY, 228, 34) then
@@ -12348,15 +12379,17 @@ return function(mod)
       and raw.phase ~= "choose-forget" and raw.phase ~= "stats-box"
       and raw.phase ~= "mimicSelect"
       and (raw.phase == "messages" or raw.message ~= nil) or false
+    local nativeMenu = displayRuntime.gen3Ui and displayRuntime.startMenu()
     local key = table.concat({ tostring(top), text and "text" or tostring(top and top.phase),
       tostring(top and top.submenu), tostring(top and top.page),
       tostring(top and top.kind), tostring(top and top.mode),
+      tostring(top and top.activeBattler), tostring(nativeMenu and nativeMenu.nativeKey),
       tostring(top and top.picking), tostring(top and top.qtyState),
       tostring(top and top.confirm), tostring(top and top.selecting),
       tostring(not text and top and top.message ~= nil),
       tostring(moveInfo), tostring(fieldChoice), tostring(battleInfoDetail),
       tostring(partyActionSlot), tostring(page), tostring(mode),
-      tostring(displayRuntime.StartMenu.window(top)),
+      tostring(displayRuntime.StartMenu.window(nativeMenu or top)),
       tostring(displayRuntime.autoBattle.shown) }, ":")
     displayRuntime.touchGuard:sync(key, text, love.timer.getTime())
     local animation = hgssRuntime.animation
@@ -12582,9 +12615,11 @@ return function(mod)
     game = payload.game
     displayRuntime.sourceGame = game
     displayRuntime.gen3 = nil
+    displayRuntime.gen3Ui = nil
     displayRuntime.gen3PollAt = nil
     if game.generation == 3 then
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
+      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3)
       game = displayRuntime.gen3:gameView()
     end
     displayRuntime.autoBattle = {}
