@@ -9856,15 +9856,17 @@ return function(mod)
       if fullBottomBattleUI() and raw and (raw.draining or raw.hpAnim) then
         if THEME.style == "hgss" then
           local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+          local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, 192, 6,
+            function(value) return THEME.hgss:labelWidth(value) end)
           G.push()
           G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
           THEME.hgss:battleFullStatuses(
             hgssRuntime.battleStatus("player"),
             hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
-            playerTeam, enemyTeam)
+            playerTeam, enemyTeam, lines)
           G.pop()
         else
-          drawFullBattleStatuses()
+          if battle.nativeMessage then drawBattleLocked() else drawFullBattleStatuses() end
         end
       else
         drawBattleLocked()
@@ -10076,7 +10078,7 @@ return function(mod)
     elseif hgssSummary then
       drawBattleSummary(summary)
     elseif displayRuntime.gen3 and mode == "locked"
-        and top and top.screenId ~= "Gen3:busy" then
+        and top and top.nativeModal then
       -- Field scripts and warps only lock input; retain the companion page
       -- beneath its dim overlay. Reserve handoff controls for real native UI.
       drawTopSummaryControls(nil, true)

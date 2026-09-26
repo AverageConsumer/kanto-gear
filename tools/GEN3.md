@@ -1,6 +1,6 @@
 # Native FireRed / LeafGreen integration
 
-Version **3.3.0-gen3.3** is an experimental test package for native FireRed
+Version **3.3.0-gen3.4** is an experimental test package for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
 support. This is not full Gen 3 feature parity or support for Ruby, Sapphire
 and Emerald. Interactive gameplay verification is still required.
@@ -44,7 +44,7 @@ including GPU completion. It is not an upper-screen FPS or low-end-device test.
 - Native start, party, bag, TM case, berry pouch and script choices mirrored
   in the same order, keeping the native cursor and confirmation path.
 - Three native summary pages, battle commands/moves, doubles target selection
-  and Safari actions. The original game UI remains visible.
+  and Safari actions. Gear/Full Gear relocate supported battle UI below.
 - Notes and Home storage bound to the native playthrough, including new games,
   reloads and the quest-log-to-field transition.
 
@@ -164,6 +164,9 @@ battle phases or input, restores its printer scope after errors, and releases
 only its own wrappers. Unknown menus, stat-growth windows and tutorial-only
 battles retain native presentation; doubles retain all four native healthboxes.
 Animated HP and native status bitfields are converted by the read adapter.
+During damage animations Full Gear keeps the current text beneath its HP cards.
+The clean native ground bands continue into the removed textbox area using the
+host's existing texture. No asset copy, GPU readback or extra canvas is needed.
 
 Run `tests/gen3_presentation_test.lua` for scoped rendering and cleanup, and
 `tools/gen3_battle_preview` with the same preview environment for paired native

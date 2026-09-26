@@ -4318,10 +4318,19 @@ return function(ui)
   end
 
   function H:battleFullStatuses(player, enemy, drawPortrait,
-      playerTeam, enemyTeam)
+      playerTeam, enemyTeam, lines)
     self:battleTeamStrip(playerTeam, enemyTeam)
     self:battleStatusCard(player, 6, 33, 112, true, drawPortrait)
     self:battleStatusCard(enemy, 122, 33, 112, false, drawPortrait)
+    if lines and #lines > 0 then
+      self:panel(6, 118, 228, 91, false, nil, self.colors.greenLight)
+      local height = 11 + (#lines - 1) * 13
+      local y = 118 + math.floor((91 - height) / 2)
+      for _, line in ipairs(lines) do
+        self:label(line, 24, y, self.colors.ink, 192, "center")
+        y = y + 13
+      end
+    end
   end
 
   function H:battleFullRoot(mon, player, enemy, drawPortrait,

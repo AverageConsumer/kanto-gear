@@ -128,6 +128,11 @@ Field.locked = true
 display.gen3.syncScreens(); display.drawContents()
 T.eq(handoffs, 0, "field script/warp lock retains the companion page instead of flashing a handoff")
 T.check(display.backgroundDim > 0, "field script still dims and locks the companion controls")
+local fieldMessage = require("src.ui.game3.message")
+fieldMessage.show("A field conversation.", { speed = 0 })
+display.gen3.syncScreens(); display.drawContents()
+T.eq(handoffs, 0, "ordinary field dialogue retains the companion rather than a menu handoff")
+fieldMessage.reset()
 Stack.push("test-native-modal", {})
 display.gen3.syncScreens(); display.drawContents()
 T.eq(handoffs, 1, "unadapted native menus still show the handoff controls")
@@ -311,6 +316,20 @@ st.double = nil
 local Anim = require("src.core.game3.battle.anim")
 local present = Anim.present("player")
 local previousHp = present.displayHp
+local busy = Anim.busy
+Anim.busy = function() return true end
+Message.show("CHARMANDER used\nSCRATCH!", { frame = "battle", speed = 0, stay = true })
+display.gen3.syncScreens(); refreshBattle()
+local oldStatuses, displayed = theme.hgss.battleFullStatuses
+theme.hgss.battleFullStatuses = function(self, player, enemy, portrait, playerTeam, enemyTeam, lines)
+  displayed = lines
+  return oldStatuses(self, player, enemy, portrait, playerTeam, enemyTeam, lines)
+end
+display.drawContents()
+T.check(displayed and table.concat(displayed, " "):find("SCRATCH!", 1, true),
+  "Full Gear retains native move text alongside draining HP")
+theme.hgss.battleFullStatuses = oldStatuses
+Message.reset(); Anim.busy = busy
 present.displayHp = 7.9; refreshBattle()
 T.eq(upvalue(refreshBattle, "battle").player.hp, 7, "Gear follows animated HP rather than jumping to the result")
 present.displayHp = previousHp
@@ -366,7 +385,10 @@ for i, action in ipairs({ "ball", "bait", "rock", "run" }) do
     or command.kind == "safari" and command.action == action), "Gear Safari submits native " .. action)
 end
 Battle._active, Battle._st = false, nil
+T.eq(display.gen3:battleSnapshot({ prompt = "locked" }), nil,
+  "inactive battle cannot leak a stale snapshot into a field transition")
 Ui.reset({ headless = true }); Stack.clear(); display.gen3.syncScreens(); refreshBattle()
+T.check(not display.gen3:gameView().stack:top().nativeModal, "field has no modal handoff marker")
 display.gen3:refresh()
 if type(_G.KANTO_GEAR_RENDER_CAPTURE) == "function" then
   _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, maps)

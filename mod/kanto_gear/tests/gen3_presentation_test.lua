@@ -9,7 +9,7 @@ for _, name in ipairs({ "src.core.game3.battle.ui", "src.core.game3.battle.healt
     "src.ui.game3.summary_menu" }) do
   saved[name] = package.loaded[name]
   local m = {}; modules[name], package.loaded[name] = m, m
-  for _, method in ipairs({ "draw", "drawPanel", "cursorPx" }) do
+  for _, method in ipairs({ "draw", "drawPanel", "drawTerrain", "cursorPx" }) do
     local key = name .. ":" .. method
     m[method] = function() calls[key] = (calls[key] or 0) + 1; return "native" end
   end
@@ -19,7 +19,14 @@ local F = modules["src.ui.game3.frlg_font"]
 local H = modules["src.core.game3.battle.healthbox"]
 local C = modules["src.ui.game3.battle_chrome"]
 local W = modules["src.ui.game3.window"]
+local oldLove, bands, releases = love, {}, 0
+love = { graphics = {
+  newQuad = function(...) return { release = function() releases = releases + 1 end } end,
+  draw = function(_, _, x, y) bands[#bands + 1] = y end,
+} }
+C.terrain = function() return { bgImage = {} } end
 U.draw = function()
+  C.drawTerrain("grass")
   C.drawPanel("menu"); F.draw("FIGHT", 136, 122); W.cursorPx(128, 122)
   F.draw("HP", 10, 20); H.draw("player", {})
 end
@@ -30,8 +37,14 @@ local original = U.draw
 local p = Presentation.new(function(kind) return mode ~= "standard" and (kind ~= "hud" or mode == "full") end)
 local function count(name, method) return calls[name .. ":" .. method] or 0 end
 U.draw()
+T.eq(#bands, 0, "standard leaves the native background unchanged")
 T.eq(count("src.ui.game3.frlg_font", "draw"), 2, "standard preserves both command and HP printers")
 mode = "gear"; U.draw()
+T.eq(#bands, 6, "Gear continues six native ground bands under the removed panel")
+T.eq(bands[1], 112, "ground starts exactly at the native panel boundary")
+T.eq(bands[6], 152, "last eight-pixel band ends at the bottom edge")
+C.drawTerrain("grass")
+T.eq(#bands, 6, "terrain outside battle scope remains unchanged")
 T.eq(count("src.ui.game3.frlg_font", "draw"), 3, "Gear removes only the command printer")
 T.eq(count("src.ui.game3.window", "cursorPx"), 1, "Gear also removes its command cursor")
 T.eq(count("src.ui.game3.battle_chrome", "drawPanel"), 1, "Gear removes command chrome")
@@ -49,7 +62,9 @@ end
 local wrapped = F.draw
 F.draw = function(...) return wrapped(...) end
 p:release()
+T.eq(releases, 1, "owned quad is released without releasing the host texture")
 T.eq(U.draw, original, "release restores native entry point")
 T.eq(F.draw("CHAINED MOD", 10, 122), "native", "later mod wrapper survives release")
 for name in pairs(modules) do package.loaded[name] = saved[name] end
+love = oldLove
 T.finish("Native Gen3 presentation ownership")

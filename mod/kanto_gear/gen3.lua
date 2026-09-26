@@ -340,7 +340,10 @@ function Gen3:gameView()
       if battle then stack.states[#stack.states + 1] = battle end
       for _, layer in ipairs(require("src.ui.game3.stack")._layers) do
         local state = layers[layer]
-        if not state then state = { screenId = "Gen3:" .. tostring(layer.id) }; layers[layer] = state end
+        if not state then
+          state = { screenId = "Gen3:" .. tostring(layer.id), nativeModal = true }
+          layers[layer] = state
+        end
         if layer.id == "summary" and layer.mod then
           local native = layer.mod
           state.screenId, state.native = "Gen3SummaryMenu", native
@@ -449,7 +452,7 @@ function Gen3:battleSnapshot(snapshot)
   if not snapshot then return nil end
   local state = self:battleState()
   local st = state and state.battle
-  if not st then return snapshot end
+  if not st then return nil end
   snapshot.menuIndex, snapshot.moveIndex = state.menuIndex, state.moveIndex
   snapshot.nativeUnsupported = state.tutorial or state.demo or st.link
   snapshot.nativeMessage = self:messageText()

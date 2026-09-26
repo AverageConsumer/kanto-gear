@@ -31,10 +31,13 @@ function love.load()
       value(owns, "hasDisplay", function() return true end, true)
       local sheet, upper = G.newCanvas(960, 1080), G.newCanvas(240, 160)
       local cases = { "standard", "gear", "full", "oak", "damage" }
+      local Anim = require("src.core.game3.battle.anim")
+      local busy = Anim.busy
       for variant, style in ipairs({ "hgss", "hgss_dark" }) do
         run.loader.modOptions.kanto_gear.theme_v3 = style
         run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3", value = style })
         for row, mode in ipairs(cases) do
+          Anim.busy = mode == "damage" and function() return true end or busy
           M.reset(); require("src.ui.game3.stack").clear()
           local st = require("src.core.game3.battle.state").new({ playerParty = game.session.party,
             foeParty = { game.session.party[2] }, wild = true })
@@ -48,6 +51,7 @@ function love.load()
           elseif mode == "damage" then
             B._phase, U._mode = "turn", "text"
             require("src.core.game3.battle.anim").present("player").displayHp = 9
+            M.show("CHARMANDER used\nSCRATCH!", { frame = "battle", speed = 0, stay = true })
           end
           display.gen3.syncScreens(); refresh()
           value(owns, "displayReady", true, true)
@@ -63,6 +67,7 @@ function love.load()
           G.setCanvas()
         end
       end
+      Anim.busy = busy
       local pixels = sheet:newImageData(); local png = pixels:encode("png")
       local f = assert(io.open(output, "wb")); f:write(png:getString()); f:close()
       print("Native upper/Gear lower battle comparison: " .. output)
