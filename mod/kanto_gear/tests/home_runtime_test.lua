@@ -781,5 +781,69 @@ T.check(display.pokedexHabitatPlan(otherSave) ~= updated,
   "a rebuilt dex never reuses a previous save's cached plan")
 love.timer.getTime = originalTime
 assert(loadfile(path .. "/tests/pss_runtime_cases.lua"))()(T, display, tap)
+do
+  -- Actual compose hook, local relay, and hidden Gear: no public connection.
+  local Client, Connect = require("src.online.Client"), require("src.online.Connect")
+  local savedSync = package.loaded["src.sync.SyncState"]
+  local stored = {}
+  package.loaded["src.sync.SyncState"] = {
+    load=function() return stored end, update=function(fn) fn(stored) end,
+    linked=function() return false end,
+  }
+  Client.reset(); Connect.reset()
+  local relay = require("tests.support.fake_relay").new()
+  local seat = relay:seat("self", "ME")
+  Client.configure({relayAddress="local-test",connect=function() return seat.transport end})
+  display.setPackageInstalled("pss",true)
+  home.widgetCache=nil
+  local widget=display.homeWidgetData({pss=true})
+  display.pss:action("connect")
+  relay:pump(); Client.update(0)
+  local clock=20
+  love.timer.getTime=function() return clock end
+  local function setCompose(name,value)
+    for i=1,debug.getinfo(composeHook,"u").nups do
+      if debug.getupvalue(composeHook,i)==name then debug.setupvalue(composeHook,i,value); return end
+    end
+    error("missing compose upvalue "..name)
+  end
+  local function frame()
+    setCompose("dirty",false)
+    composeHook(function() end, {}, {})
+    clock=clock+0.3
+  end
+  display.openHomeApp("party")
+  frame()
+  T.eq(widget.pss.state,"online","hidden Gear compose retains online connection")
+  relay:to(seat,{type="lobby_list",entries={{id="a",name="ALICE",where="game",status="idle"}}})
+  Client.update(0); frame()
+  T.eq(#widget.pss.rows,1,"another app receives joins without reopening Silph Connect")
+  relay:to(seat,{type="lobby_delta",changed={{id="a",name="ALICE",where="game",status="trading"}}})
+  Client.update(0); frame()
+  T.eq(widget.pss.rows[1].status,"trading","background presence refreshes the shared widget snapshot")
+  T.eq(upvalue(composeHook,"dirty"),false,"presence changes do not redraw unrelated apps")
+  home.layout={tiles={{id="pss_widget",page=1,column=1,row=1}}}
+  home.page=1
+  setCompose("page","HOME")
+  relay:to(seat,{type="lobby_delta",changed={{id="a",name="ALICE",where="game",status="idle"}}})
+  Client.update(0); frame()
+  T.eq(upvalue(composeHook,"dirty"),true,"visible online widget redraws on a presence change")
+  local snapshot=widget.pss.rows
+  for _=1,5 do frame() end
+  T.eq(widget.pss.rows,snapshot,"idle background frames reuse the list")
+  T.eq(upvalue(composeHook,"dirty"),false,"unchanged online widget requests no redraw")
+  home.page=2
+  relay:to(seat,{type="lobby_delta",removed={"a"}})
+  Client.update(0); frame()
+  T.eq(#widget.pss.rows,0,"background departures clear the widget")
+  T.eq(upvalue(composeHook,"dirty"),false,"widget on another Home page requests no redraw")
+  display.pss:action("disconnect"); frame()
+  T.eq(widget.pss.state,"offline","explicit disconnect is reflected outside the app")
+  display.setPackageInstalled("pss",false)
+  T.check(not display.pss.listener,"uninstall stops background observation")
+  love.timer.getTime=originalTime
+  package.loaded["src.sync.SyncState"]=savedSync
+  Client.reset(); Connect.reset()
+end
 run.release()
 T.finish("Kanto Gear Home runtime")

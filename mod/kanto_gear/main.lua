@@ -2472,6 +2472,8 @@ return function(mod)
         icon = "notes", accent = "amber", label = "NOTES" },
       pss_app = { package = "pss", kind = "app", columns = 3,
         icon = "pss", accent = "blue", label = "SILPH CONNECT" },
+      pss_widget = { package = "pss", kind = "widget", columns = 12,
+        widget = "pss", label = "SILPH CONNECT" },
       settings_app = { package = "settings", kind = "app", columns = 3,
         icon = "settings", accent = "blue", label = "OPTIONS" },
     },
@@ -3427,6 +3429,7 @@ return function(mod)
         or package.fixed and not installed then return false end
     package.installed = installed == true
     if not package.installed then
+      if id == "pss" then displayRuntime.pss:close() end
       displayRuntime.Home.removePackage(displayRuntime.home.layout,
         displayRuntime.homeCatalog, id)
     end
@@ -7224,6 +7227,7 @@ return function(mod)
 
   function displayRuntime.homeWidgetData(needed)
     local home, now = displayRuntime.home, love.timer.getTime()
+    if needed.pss then displayRuntime.pss:open() end
     local keys = {}
     for key in pairs(needed) do keys[#keys + 1] = key end
     table.sort(keys)
@@ -7257,6 +7261,7 @@ return function(mod)
       bag = needed.bag and displayRuntime.bagSummary() or nil,
       regionMap = needed.map and displayRuntime.homeRegionMap() or nil,
       storePromo = needed.store and displayRuntime.storeWidgetSummary() or nil,
+      pss = needed.pss and displayRuntime.pss or nil,
       drawPokemon = function(view, x, y, size, fainted)
         local mon = party[view and view.slot or 1]
         if not mon then return end
@@ -12195,7 +12200,6 @@ return function(mod)
       if y * THEME.hgssScale < 30 and x * THEME.hgssScale < 27 then
         if displayRuntime.pss.selected then displayRuntime.pss:action("back")
         else
-          displayRuntime.pss:close()
           page, displayRuntime.home.activeApp = "HOME", nil
         end
       else displayRuntime.pss:hit(x * THEME.hgssScale, y * THEME.hgssScale) end
@@ -13807,6 +13811,16 @@ return function(mod)
       textSpeedReleasePending = false
       holdTextSpeed(false)
     end
+    if displayRuntime.pss:tick(love.timer.getTime()) and THEME.style == "hgss" then
+      if page == "PSS" then dirty = true
+      elseif page == "HOME" then
+        for _, tile in ipairs((displayRuntime.home.layout or {}).tiles or {}) do
+          if tile.id == "pss_widget" and tile.page == displayRuntime.home.page then
+            dirty = true; break
+          end
+        end
+      end
+    end
     if not inline and (not companion or not companion.detected
         or not companion.pollTouch) then
       if not bridgeWarned then
@@ -13822,13 +13836,6 @@ return function(mod)
     end
 
     local now = love.timer.getTime()
-    -- Host events invalidate the cached list; Recomp pumps networking itself.
-    if page == "PSS" and THEME.style == "hgss" then
-      if now >= (displayRuntime.pss.nextRefresh or 0) then
-        displayRuntime.pss.nextRefresh = now + 0.25
-        if displayRuntime.pss:refresh() then dirty = true end
-      end
-    else displayRuntime.pss:close() end
     -- Drain the native touch queue once per rendered frame while Notes owns
     -- the Gear surface; the expensive game snapshots stay on their 50ms tick.
     if displayRuntime.notesShown() then

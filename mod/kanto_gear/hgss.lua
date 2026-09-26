@@ -601,7 +601,7 @@ return function(ui)
     box("fill", x + 2, y + 2, w - 4, 2, accentLight)
     local shown = self:fitPartyInfo(translated and label or translate(label), w - 28)
     local width = self:partyInfoWidth(shown)
-    self:partyInfo(shown, x + math.floor((w - width) / 2), y + 3,
+    self:partyInfo(shown, x + math.floor((w - width) / 2), y + 5,
       self.colors.white)
     if not editing then
       self:detailChevron(x + w - 10, y + 7, self.colors.white)
@@ -1558,6 +1558,8 @@ return function(ui)
       ui.graphics.pop()
     elseif kind == "store" then
       self:homeStoreIcon(x + 1, y + 1)
+    elseif kind == "pss" then
+      drawHomeIcon(homeIcons(self).pss, x + 1, y + 1, 27)
     elseif kind == "tool" then
       self:toolIcon(item and item.icon or "tools", x + 1, y + 1)
     else
@@ -2037,6 +2039,8 @@ return function(ui)
         self:homeBag(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "store" then
         self:homeStore(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "pss" then
+        self:homePss(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "steps" then
         self:homeSteps(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "tool" then

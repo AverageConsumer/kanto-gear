@@ -58,6 +58,19 @@ for _, identity in ipairs({
   for _=1,100 do if model:refresh() then idleUnchanged=false end end
   check(idleUnchanged,"idle refresh reuses cached list")
   check(#seat.transport.outbox==outCount, "no polling network traffic")
+  local snapshot, listener = model.rows, model.listener
+  for _=1,100 do model:open() end
+  check(model.rows==snapshot and model.listener==listener, "widget draws reuse one observer and snapshot")
+  model:tick(1)
+  relay:to(seat,{type="lobby_delta",changed={{id="p1",name="TRAINER1",
+    version="firered",where="game",status="battling"}}})
+  Client.update(0)
+  check(not model:tick(1.1) and model.rows==snapshot,"background updates coalesce within one refresh interval")
+  check(model:tick(1.25) and model.rows[1].status=="battling", "background tick receives changed player status")
+  relay:to(seat,{type="lobby_delta",added={{id="new",name="AAA",where="launcher",status="busy"}},removed={"p2"}})
+  Client.update(0); model:tick(1.5)
+  check(#model.rows==8 and model.rows[1].id=="new", "background join and departure update count and names")
+  check(connections==1 and #seat.transport.outbox==outCount, "background observation adds no connection or network polling")
   model:action("page",1); check(model.page==2,"second page reachable")
   model:action("player","p8"); check(model.selectedRow.id=="p8","detail follows stable player id")
   relay:to(seat,{type="lobby_delta",removed={"p7","p8"}})
@@ -76,6 +89,7 @@ for _, identity in ipairs({
   model.stale=false
   relay:to(seat,{type="lobby_delta",removed={"p6"}}); Client.update(0)
   check(not model.stale,"closing removes listeners")
+  check(not model:tick(10),"released observer does not perform background work")
   check(Client.state()=="online","closing keeps host connection")
   model:open(); check(#model.rows==5,"reopening reads latest host snapshot")
   Client.setPresence({where="game",status="busy"})
@@ -97,7 +111,10 @@ recovery:pump(); Client.update(0); model:refresh()
 check(model.state=="online" and model.error==nil,"host recovery clears a previous app error")
 model:close()
 Connect.disconnect()
-local missing=Pss.new({resolve=function() error("older host") end,identity=function() return {} end})
+local probes=0
+local missing=Pss.new({resolve=function() probes=probes+1; error("older host") end,identity=function() return {} end})
 missing:open(); missing:action("connect")
 check(missing.state=="unavailable","missing host API fails safely")
+for _=1,100 do missing:open() end
+check(probes==1,"unsupported widget does not repeatedly resolve missing host APIs")
 print("PSS: "..passed.." checks passed")

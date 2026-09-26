@@ -15,6 +15,7 @@ function Pss.new(ctx)
   return setmetatable({ ctx = ctx, page = 1, rows = {}, state = "offline", stale = true }, Pss)
 end
 function Pss:open()
+  if self.listener or self.state == "unavailable" then return end
   if not self.client then
     local ok, client, connect = pcall(self.ctx.resolve)
     if not ok or type(client) ~= "table" or type(connect) ~= "table"
@@ -33,10 +34,18 @@ function Pss:open()
   self:refresh()
 end
 function Pss:close()
+  self.nextRefresh = nil
   if self.listener then
     for _, event in ipairs(events) do self.client.off(event, self.listener) end
     self.listener = nil
   end
+end
+-- Observe throughout gameplay, even with the app hidden. The host owns all
+-- transport work; this only samples local state and consumes event invalidation.
+function Pss:tick(now)
+  if not self.listener or now < (self.nextRefresh or 0) then return false end
+  self.nextRefresh = now + 0.25
+  return self:refresh()
 end
 function Pss:busy()
   local c = self.client

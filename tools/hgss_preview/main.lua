@@ -1582,6 +1582,18 @@ function love.load()
       state.rows[i] = { id = tostring(i), name = name, version = versions[i],
         where = i == 1 and "launcher" or "game", status = i == 2 and "battling" or "busy" }
     end
+    if screen:sub(1, 10) == "pss-widget" then
+      local mode = screen:sub(12)
+      if mode == "one" then state.rows = { state.rows[1] }
+      elseif mode == "empty" then state.rows = {}
+      elseif mode ~= "" then state.state, state.rows = mode, {} end
+      theme:home({page=1,pages=1,pss=state,tiles={
+        {id="pss_widget",kind="widget",widget="pss",column=1,row=1,columns=12},
+        {id="pss_app",kind="app",icon="pss",accent="blue",label="SILPH CONNECT",column=1,row=2,columns=3},
+        {id="notes_app",kind="app",icon="notes",accent="amber",label="NOTES",column=4,row=2,columns=3},
+        {id="store_app",kind="app",icon="store",accent="green",label="STORE",column=7,row=2,columns=3},
+      }})
+    else
     if screen == "pss-detail" then state.selected, state.selectedRow = "1", state.rows[1]
     elseif screen ~= "pss" then
       state.rows, state.pages = {}, 1
@@ -1589,6 +1601,7 @@ function love.load()
       if state.state == "error" then state.error = "offline" end
     end
     theme:pss(state)
+    end
   elseif achievements then
     assert(loadfile(root .. "/tools/hgss_preview/achievements.lua"))()(
       theme, screen, gen1, translate)

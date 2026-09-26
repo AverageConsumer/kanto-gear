@@ -9,6 +9,41 @@ return function(H, G, tr, fmt)
   local states = { offline = "OFFLINE", online = "ONLINE", connecting = "CONNECTING",
     reconnecting = "RECONNECTING", ticket = "CONNECTING", error = "CONNECTION FAILED",
     unavailable = "HOST UPDATE NEEDED" }
+  function H:homePss(model, tile, selected)
+    local c, state = self.colors, model.pss or { state = "offline", rows = {} }
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, c.blueLight, selected)
+    self:homeWidgetHeader(x, y, w, "SILPH CONNECT", c.blue, c.blueLight, model.editing)
+    local function centered(text, left, top, width, tint)
+      local shown = self:fitPartyInfo(text, width)
+      self:partyInfo(shown, left + math.floor((width - self:partyInfoWidth(shown)) / 2), top, tint)
+    end
+    local online = state.state == "online"
+    if not online or #state.rows == 0 then
+      centered(tr(states[state.state] or "OFFLINE"), x + 6, y + 32, w - 12,
+        online and c.green or c.mutedInk)
+      local message = online and "NO PLAYERS VISIBLE"
+        or (state.state == "offline" or state.state == "error") and "CONNECT TO SEE PLAYERS"
+        or "SILPH CONNECT"
+      centered(tr(message), x + 6, y + 54, w - 12, c.ink)
+      return
+    end
+    local count = tostring(#state.rows)
+    self:label(count, x + 6 + math.floor((48 - self:labelWidth(count)) / 2), y + 26, c.ink)
+    self:partyType(self:fitPartyType(tr("VISIBLE"), 48), x + 6, y + 44, c.mutedInk, 48)
+    self:partyType(self:fitPartyType(tr("ONLINE"), 48), x + 6, y + 62, c.green, 48)
+    G.setColor(c.outline); G.rectangle("fill", x + 60, y + 25, 1, 50)
+    local countShown = math.min(3, #state.rows)
+    local top = y + 25 + math.floor((50 - countShown * 16) / 2)
+    for i = 1, countShown do
+      local row = state.rows[i]
+      local rowY = top + (i - 1) * 16
+      centered(row.name, x + 67, rowY + 2, 74, c.ink)
+      local status = row.where == "launcher" and "IN MENU" or statuses[row.status] or "ONLINE"
+      self:partyType(self:fitPartyType(tr(status), w - 151), x + 145, rowY + 2,
+        row.status == "idle" and c.green or c.mutedInk, w - 151)
+    end
+  end
   function H:pss(state)
     local c = self.colors
     state.hits = {}
