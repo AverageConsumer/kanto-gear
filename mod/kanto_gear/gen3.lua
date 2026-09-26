@@ -349,8 +349,7 @@ function Gen3:gameView()
           state.screenId, state.native = "Gen3SummaryMenu", native
           state.mon = self:mon(native._party and native._party[native._cursor])
           state.page = (native._page or 0) + 1
-          state.moveDetail = native._mode == "select_move" or state.page > 3
-            or native._slide and native._slide.active or false
+          state.moveDetail = native._mode == "select_move" or state.page > 3 or false
         end
         state.phase = layer.mod and layer.mod.mode
         state.index = layer.mod and (layer.mod.mode == "action" and layer.mod.actionCursor
@@ -432,10 +431,14 @@ end
 -- Read the native printer's tokens so color/spacing codes never become text.
 function Gen3:messageText()
   if not self.Message.isOpen() then return nil end
+  return self:plainText(self.Message.currentPage())
+end
+
+function Gen3:plainText(text)
   local out = {}
   local glyphs = { [0x53] = "PK", [0x54] = "MN", [0x34] = "Lv",
     [0x2C] = "er", [0x84] = "e", [0xA0] = "re" }
-  for kind, value in self.Font.scanTokens(self.Message.currentPage()) do
+  for kind, value in self.Font.scanTokens(text) do
     if kind == "char" or kind == "nl" then out[#out + 1] = value
     elseif kind == "glyph" then
       out[#out + 1] = glyphs[value] or self.TextIR.CHARMAP[value]

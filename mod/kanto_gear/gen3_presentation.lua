@@ -67,6 +67,38 @@ function Presentation.new(owns)
   wrap(require("src.core.game3.battle.healthbox"), "draw", function(next, ...)
     if not hidden("hud") then return next(...) end
   end)
+  -- Party.show creates OBJ sprites before Party.draw. They are flushed again
+  -- by Display.present, so hiding the menu draw alone leaves floating icons.
+  -- Filter only this menu's IDs; keep animation/state and unrelated sprites intact.
+  local oam = require("src.core.game3.oam")
+  local party = require("src.ui.game3.party_menu")
+  wrap(party, "handleInput", function(next, input, ...)
+    if hidden("partyNavigation") then
+      -- Full Gear's uniform vertical list has no native left-column shortcut.
+      local source = input
+      input = setmetatable({ wasPressed = function(_, key)
+        return key ~= "left" and key ~= "right" and source:wasPressed(key)
+      end }, { __index = source })
+    end
+    return next(input, ...)
+  end)
+  wrap(oam, "buildOamBuffer", function(next, ...)
+    local buffer = next(...)
+    if not (party.open and hidden("menu")) then return buffer end
+    local owned = {}
+    for _, slot in pairs(party._oam or {}) do
+      for _, key in ipairs({ "mon", "ball", "status", "item" }) do
+        if slot[key] ~= nil then owned[slot[key]] = true end
+      end
+    end
+    if party._summaryIcon ~= nil then owned[party._summaryIcon] = true end
+    local filtered = {}
+    for _, sprite in ipairs(buffer) do
+      if not owned[sprite._id] then filtered[#filtered + 1] = sprite end
+    end
+    oam._buffer = filtered
+    return filtered
+  end)
   for _, name in ipairs({ "message", "choice", "party_menu", "bag_menu",
       "tm_case", "berry_pouch", "summary_menu" }) do
     wrap(require("src.ui.game3." .. name), "draw", function(next, ...)

@@ -80,7 +80,6 @@ function Menu.model(top)
     local item = top.items[index]
     local r = item.rect or { Menu.x, Menu.y + (row - 1) * Menu.step, Menu.width, Menu.height }
     entries[row] = { label = Menu.label(item), right = item.right, selected = index == selected,
-      mon = item.mon, compact = top.fixedLayout,
       kind = item.value or item.id or kinds[item.label],
       disabled = top.screenId == "Gen2StartMenu" and item.disabled,
       x = r[1], y = r[2], w = r[3], h = r[4] }

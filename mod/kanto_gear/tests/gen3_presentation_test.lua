@@ -6,7 +6,7 @@ for _, name in ipairs({ "src.core.game3.battle.ui", "src.core.game3.battle.healt
     "src.ui.game3.battle_chrome", "src.ui.game3.frlg_font", "src.ui.game3.window",
     "src.ui.game3.message", "src.ui.game3.choice", "src.ui.game3.party_menu",
     "src.ui.game3.bag_menu", "src.ui.game3.tm_case", "src.ui.game3.berry_pouch",
-    "src.ui.game3.summary_menu" }) do
+    "src.ui.game3.summary_menu", "src.core.game3.oam" }) do
   saved[name] = package.loaded[name]
   local m = {}; modules[name], package.loaded[name] = m, m
   for _, method in ipairs({ "draw", "drawPanel", "drawTerrain", "cursorPx" }) do
@@ -36,12 +36,27 @@ U.draw = function(...) nativeDraw(...); if errorNow then error("draw failure") e
 local original = U.draw
 local input = { wasPressed = function(_, key) return key == "right" or key == "a" end }
 U.handleInput = function(i) return i:wasPressed("down"), i:wasPressed("right"), i:wasPressed("a") end
+local O = modules["src.core.game3.oam"]
+local P = modules["src.ui.game3.party_menu"]
+local sprites = { { _id = 0 }, { _id = 1 }, { _id = 2 }, { _id = 3 } }
+O.buildOamBuffer = function() O._buffer = sprites; return sprites end
+local nativeBuffer = O.buildOamBuffer
+P.open, P._oam, P._summaryIcon = true, { { mon = 0, ball = 1 } }, 2
 local p = Presentation.new(function(kind) return mode ~= "standard" and ((kind ~= "hud" and kind ~= "navigation") or mode == "full") end)
 local function count(name, method) return calls[name .. ":" .. method] or 0 end
+T.eq(#O.buildOamBuffer(), 4, "Standard retains all native OBJ sprites")
 U.draw()
 T.eq(#bands, 0, "standard leaves the native background unchanged")
 T.eq(count("src.ui.game3.frlg_font", "draw"), 2, "standard preserves both command and HP printers")
 mode = "gear"; U.draw()
+local filtered = O.buildOamBuffer()
+T.eq(#filtered, 1, "Gear removes menu icons including sprite ID zero")
+T.eq(filtered[1], sprites[4], "unrelated sprite identity is retained")
+T.eq(O._buffer, filtered, "both flush and priority flush see the filtered buffer")
+T.eq(#sprites, 4, "native sprite records and original buffer are untouched")
+P.open = false
+T.eq(#O.buildOamBuffer(), 4, "closing the party releases the filter immediately")
+P.open = true
 T.eq(#bands, 6, "Gear continues six native ground bands under the removed panel")
 T.eq(bands[1], 112, "ground starts exactly at the native panel boundary")
 T.eq(bands[6], 152, "last eight-pixel band ends at the bottom edge")
@@ -70,6 +85,8 @@ F.draw = function(...) return wrapped(...) end
 local wrappedInput = U.handleInput
 U.handleInput = function(...) return wrappedInput(...) end
 p:release()
+T.eq(O.buildOamBuffer, nativeBuffer, "release restores the native OBJ builder")
+T.eq(#O.buildOamBuffer(), 4, "release restores menu sprites without a state reset")
 down, right, confirm = U.handleInput(input)
 T.check(not down and right and confirm, "release leaves chained input as native passthrough")
 T.eq(releases, 1, "owned quad is released without releasing the host texture")

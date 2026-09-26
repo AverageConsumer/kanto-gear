@@ -209,6 +209,11 @@ NativeBag.settle()
 menu = display.startMenu()
 T.eq(menu and menu.items[1].itemId, 4, "native ball pocket rows are mirrored without reordering")
 T.eq(menu and menu.items[1].right, "x35", "native quantity is shown")
+NativeBag.showMessage("It won't have any effect.")
+local fieldNotice = display.startMenu()
+T.check(fieldNotice and fieldNotice.notice, "field Bag notices are also projected")
+local noticeDrawn, noticeError = pcall(display.drawContents)
+T.check(noticeDrawn, "field notice renders without a battle: " .. tostring(noticeError))
 NativeBag.close()
 display.gen3.syncScreens()
 T.check(display.useBagItem(4), "Gear Bag hands the selected item to the native bag")
@@ -431,6 +436,79 @@ T.eq(upvalue(refreshBattle, "battle").player.status, nil, "healthy native bitfie
 session.party[1].status = 0x40; display.gen3:refresh(); refreshBattle()
 T.eq(upvalue(refreshBattle, "battle").player.status, "PAR", "native status bitfield becomes a readable condition")
 session.party[1].status = previousStatus
+-- Live transitions must not briefly give native menu rendering back to the host.
+for _, mode in ipairs({ "gear", "full" }) do
+  run.loader.modOptions.kanto_gear.battle_view = mode
+  for count = 1, 6 do
+    local party = {}
+    for i = 1, count do party[i] = session.party[(i - 1) % #session.party + 1] end
+    NativeParty.show(party, { session = session, mode = "battle_switch" })
+    T.check(owns("menu"), mode .. " owns the opening party before the next snapshot")
+    local projected = display.startMenu()
+    local model = display.startMenuModel(projected)
+    for slot = 1, count do
+      T.eq(model.entries[slot].h, model.entries[1].h, "all team cards have equal height")
+      T.eq(model.entries[slot].w, model.entries[1].w, "all team cards have equal width")
+      T.check(model.entries[slot].h <= 50, "small teams never get an oversized hero card")
+    end
+    NativeParty.cursor = count
+    NativeParty.handleInput({ wasPressed = function(_, key) return key == "left" end })
+    T.eq(NativeParty.cursor, mode == "full" and count or 1,
+      mode .. " applies only its own party navigation contract")
+    NativeParty.cursor = 1
+    NativeParty.handleInput({ wasPressed = function(_, key) return key == "up" end })
+    T.eq(NativeParty.cursor, 7, "Up from the first row reaches visible Cancel")
+    NativeParty.cursor = 1
+    local view = display.partyView(projected.items[1].mon)
+    T.eq(view.name, display.gen3.Pokemon.displayName(party[1]), "party cards retain the actual name")
+    T.check(type(view.expProgress) == "number", "party cards retain native experience progress")
+    NativeParty.mode, NativeParty.ACTIONS = "action", { "SHIFT", "SUMMARY", "CANCEL" }
+    local actions = display.startMenu()
+    T.check(actions.partyActions ~= nil and owns("menu"), "party actions use the Gear detail card")
+    for index, entry in ipairs(display.startMenuModel(actions).entries) do
+      T.eq(display.StartMenu.hit(actions, entry.x + entry.w / 2, entry.y + entry.h / 2), index,
+        "action touch matches its visible row")
+    end
+    NativeParty.mode = "battle_switch"
+    NativeParty.startHpAnim(1, 1, 10, 20, function() end)
+    T.check(owns("menu"), mode .. " keeps healing on Gear")
+    T.check(display.startMenuModel(display.startMenu()) ~= nil, "healing retains party rendering")
+    T.check(not display.StartMenu.cursor(display.startMenu()), "healing cannot select another Pokemon")
+    NativeParty._hpAnim = nil
+    NativeParty.showMessage("Already in battle!", function() NativeParty.mode = "battle_switch" end)
+    projected = display.startMenu()
+    T.eq(projected.notice, "Already in battle!", "native switch refusal is readable below")
+    T.check(owns("menu"), "party refusal never flashes the upper menu")
+    NativeParty.handleInput({ wasPressed = function(_, key) return key == "a" end })
+    T.check(owns("menu") and display.startMenu().party ~= nil, "dismissal returns straight to party")
+    T.check(not projected.valid(), "dismissed notice cannot accept a second tap")
+    local Summary = require("src.ui.game3.summary_menu")
+    Summary.openMenu(party, 1, { session = session })
+    Summary.handleInput({ wasPressed = function(_, key) return key == "right" end })
+    T.check(Summary._slide.active, "fixture enters the real native summary slide")
+    T.check(owns("menu"), "summary slides do not hand rendering back to the upper screen")
+    Summary.close(); NativeParty.close()
+  end
+  NativeParty.show(session.party, { session = session, mode = "battle_switch" })
+  NativeParty.mode, NativeParty._oakPage = "oak", 1
+  NativeParty._oakPages = { "OAK: These are your POKEMON.", "Check their HP before switching." }
+  NativeParty._oakFx = { phase = "darken", slot = 0, y = 0, counter = 0 }
+  T.check(owns("menu") and not display.StartMenu.cursor(display.startMenu()),
+    "Oak's opening party tutorial stays below while its native reveal is busy")
+  NativeParty._oakFx.phase = "text"
+  T.check(display.startMenu().canAdvance, "Oak tutorial advertises Continue only when native input accepts it")
+  NativeParty.handleInput({ wasPressed = function(_, key) return key == "a" end })
+  T.eq(display.startMenu().notice, NativeParty._oakPages[2], "Oak party tutorial advances to the actual next page")
+  T.check(owns("menu"), "Oak's next page does not expose the party menu")
+  NativeParty.close()
+  NativeBag.show(session.bag, { session = session }); NativeBag.settle()
+  NativeBag.showMessage("It won't have any effect.")
+  T.eq(display.startMenu().notice, "It won't have any effect.", "native Bag refusal is mirrored")
+  T.check(owns("menu"), "Bag notice never exposes the native menu")
+  NativeBag.handleInput({ wasPressed = function(_, key) return key == "a" end })
+  T.check(owns("menu") and not display.startMenu().notice, "Bag notice returns directly to its rows")
+  NativeBag.close()
+end
 for _, row in ipairs(restore) do debug.setupvalue(owns, row[1], row[2]) end
 run.loader.modOptions.kanto_gear.battle_view = "standard"
 display.gen3:refresh(); display.gen3.syncScreens(); refreshBattle()

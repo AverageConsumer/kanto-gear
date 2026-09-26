@@ -3,8 +3,8 @@
 local UI = {}
 UI.__index = UI
 
-function UI.new(adapter)
-  return setmetatable({ adapter = adapter, Stack = require("src.ui.game3.stack"),
+function UI.new(adapter, layout)
+  return setmetatable({ adapter = adapter, layout = layout, Stack = require("src.ui.game3.stack"),
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
 end
 
@@ -78,13 +78,40 @@ function UI:list(battle)
   end
   if not layer or not layer.mod or layer.mod.open ~= true then return nil end
   local native, items, field, title, slots = layer.mod
+  -- Party/Bag notices and Oak's party tutorial have their own printers.
+  local function noticeText()
+    if native.mode == "oak" and layer.id == "party" then
+      return native._oakPages and native._oakPages[native._oakPage]
+    end
+    if native.mode == "message" then
+      return layer.id == "party" and native._messageText or layer.id == "bag" and native.messageText
+    end
+  end
+  local notice = not native._pokedude and not native._statBoost and noticeText()
+  if notice then
+    local mode = native.mode
+    local function ready()
+      return not native._hpAnim and (mode ~= "oak" or native._oakFx and native._oakFx.phase == "text")
+    end
+    local key = tostring(layer) .. ":" .. mode .. ":" .. tostring(ready()) .. ":" .. notice
+    local view = self.noticeView
+    if not view or view.nativeKey ~= key then
+      view = { screenId = "Gen3Menu", nativeKey = key, notice = notice, canAdvance = ready(),
+        title = layer.id == "party" and "PARTY" or "BAG", index = 1,
+        items = { { label = "CONTINUE" } }, update = function() end,
+        valid = function(preview) return self.Stack.top() == layer and native.open
+          and native.mode == mode and (preview or ready()) and noticeText() == notice end }
+      self.noticeView = view
+    end
+    return view
+  end
   local pocket, partyLayout = false, false
   if layer.id == "start" and not native._confirmExit then
     items, field, title = labels(native.ENTRIES), "cursor", "CHOOSE ACTION"
-  elseif layer.id == "party" and not native._hpAnim and not native._pokedude then
+  elseif layer.id == "party" and not native._pokedude then
     title = "PARTY"
     if partyModes[native.mode] then
-      partyLayout = true
+      partyLayout = native.mode ~= "choose_multi"
       items, slots, field = {}, {}, "cursor"
       for i, mon in ipairs(native._party or {}) do
         local view = self.adapter:mon(mon)
@@ -100,14 +127,6 @@ function UI:list(battle)
         items[#items + 1], slots[#slots + 1] = { label = "CONFIRM" }, 7
       end
       items[#items + 1], slots[#slots + 1] = { label = "CANCEL" }, native.mode == "choose_multi" and 8 or 7
-      -- Match FRLG's lead slot on the left and remaining party on the right.
-      -- Keep all slots visible: native Left/Right jumps between these columns.
-      for i, slot in ipairs(slots) do
-        items[i].rect = slot == 1 and { 6, 50, 91, 109 }
-          or slot <= 6 and { 103, 33 + (slot - 2) * 29, 131, 27 }
-          or slot == 7 and native.mode == "choose_multi" and { 6, 183, 91, 27 }
-          or { 103, 183, 131, 27 }
-      end
       if native.mode == "use" then title = "USE ITEM ON" end
     elseif native.mode == "action" then
       items, field = labels(native.ACTIONS), "actionCursor"
@@ -155,7 +174,7 @@ function UI:list(battle)
     function view.valid(preview)
       return owner.Stack.top() == layer and native.open == true
         and native.mode == mode and native.pocketIdx == pocketIdx
-        and not native._hpAnim and not native._pokedude and not native._statBoost
+        and (preview or not native._hpAnim) and not native._pokedude and not native._statBoost
         and (preview or not native._switch and not native._exit and not native._open)
     end
     setmetatable(view, {
@@ -174,7 +193,20 @@ function UI:list(battle)
     self.view = view
   end
   view.items, view.nativeSlots, view.title, view.nativePocket = items, slots, title, pocket
-  view.fixedLayout = partyLayout
+  view.partyActions = layer.id == "party" and (native.mode == "action" or native.mode == "item_action")
+    and #items <= 3 and self.adapter:mon(native._party and native._party[native.cursor]) or nil
+  view.fixedLayout, view.party = partyLayout or view.partyActions ~= nil, partyLayout and native or nil
+  -- Every projection (including upper-screen ownership checks) retains the
+  -- exact same draw/hit geometry; never leave a cached view with fresh bare rows.
+  if partyLayout then
+    for slot, item in ipairs(items) do
+      item.rect = { self.layout:battleStandardPartyRect(slot, #items - 1, true) }
+    end
+  elseif view.partyActions then
+    for slot, item in ipairs(items) do
+      item.rect = { self.layout:partyActionRow(slot, #items) }
+    end
+  end
   return view
 end
 

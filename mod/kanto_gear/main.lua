@@ -4784,9 +4784,56 @@ return function(mod)
     local model = displayRuntime.startMenuModel(top)
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:startMenu(model, hgssRuntime.summaryPortrait)
+      if top.notice then
+        local lines = THEME:wrapText(displayRuntime.gen3:plainText(top.notice), 192, 6,
+          function(value) return THEME.hgss:labelWidth(value) end)
+        local playerTeam, enemyTeam = {}, {}
+        if battle then playerTeam, enemyTeam = hgssRuntime.battleTeams() end
+        THEME.hgss:battleMessage(lines, top.canAdvance, playerTeam, enemyTeam, nil, love.timer.getTime())
+        if not battle then
+          G.pop(); header(THEME:translate(top.title), true)
+          return
+        end
+      elseif top.partyActions then
+        local mon = displayRuntime.partyView(top.partyActions)
+        mon.species, mon.source = top.partyActions.species, top.partyActions
+        THEME.hgss:partyBackdrop()
+        THEME.hgss:partyCard(mon, 64, THEME.hgss:partyActionHeroY(#top.items), true, false,
+          hgssRuntime.summaryPortrait)
+        for slot, entry in ipairs(model.entries) do
+          local label = THEME:menuActionLabel(({ SHIFT = "SWITCH", SUMMARY = "STATS" })[entry.label]
+            or entry.label)
+          local kind = entry.label == "SUMMARY" and "stats"
+            or (entry.label == "CANCEL" or entry.label == "EXIT") and "cancel" or "switch"
+          THEME.hgss:actionRow(entry.x, entry.y, entry.w, entry.h, label, kind, 0, entry.selected)
+        end
+      elseif top.party then
+        local views = {}
+        for _, item in ipairs(top.items) do
+          if item.mon then
+            local view = displayRuntime.partyView(item.mon)
+            view.species, view.source = item.mon.species, item.mon
+            local anim = top.party._hpAnim
+            if anim and anim.slot == #views + 1 then
+              view.hp = math.floor(anim.current + 0.5)
+              view.hpText = view.hp .. "/" .. view.maxHp
+            end
+            views[#views + 1] = view
+          end
+        end
+        THEME.hgss:partyBackdrop()
+        THEME.hgss:battleStandardParty(views, top.index, true, hgssRuntime.summaryPortrait)
+      else
+        THEME.hgss:startMenu(model)
+      end
       G.pop()
     else
+      if top.notice then
+        local lines = THEME:wrapText(displayRuntime.gen3:plainText(top.notice), 138, 6)
+        for i, line in ipairs(lines) do centered(line, 45 + (i - 1) * 11, INK) end
+        button(20, 113, 120, 24, THEME:translate("CONTINUE"))
+        return
+      end
       for _, entry in ipairs(model.entries) do
         button(entry.x / 1.5, entry.y / 1.5, entry.w / 1.5, entry.h / 1.5,
           entry.label, entry.selected, not entry.disabled)
@@ -6926,9 +6973,11 @@ return function(mod)
     local type2 = mon.types and (mon.types[2] or mon.types[1])
       or def.types and (def.types[2] or def.types[1])
     return {
-      slot = mon.slot, name = mon.name, egg = compat.partyEgg(source),
+      slot = mon.slot, name = mon.name or source.nickname or def.name,
+      egg = compat.partyEgg(source),
       gender = mon.gender, hp = mon.hp, maxHp = maxHp,
-      expProgress = mon.expProgress,
+      expProgress = mon.expProgress or displayRuntime.gen3
+        and displayRuntime.gen3.Summary.expProgress(source, def.growthRate).progressPercent,
       statusId = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content),
       type = type1, type2 = type2,
@@ -11483,6 +11532,10 @@ return function(mod)
 
   function displayRuntime.tapStartMenu(top, x, y)
     if not displayRuntime.StartMenu.cursor(top) then return end
+    if top.notice then
+      if y >= HEADER then press("a"); dirty = true end
+      return
+    end
     if top.nativePocket and y < HEADER and x >= 27 / 1.5 and x < 139 / 1.5 then
       press(x < 83 / 1.5 and "left" or "right")
       dirty = true
@@ -12711,7 +12764,7 @@ return function(mod)
     displayRuntime.gen3BoundSession = nil
     if game.generation == 3 then
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
-      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3)
+      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss)
       game = displayRuntime.gen3:gameView()
       displayRuntime.gen3Presentation = assert(load(mod:read("gen3_presentation.lua"),
         "@kanto_gear/gen3_presentation.lua"))().new(function(kind)
@@ -12727,6 +12780,9 @@ return function(mod)
         local summary = compat.isScreen(top, "summary") and compat.summary.supports(top, game)
         if top ~= raw and not (top and top.isTextBox) and not menu and not summary then return false end
         if require("src.ui.game3.stat_growth").isOpen() then return false end
+        if kind == "partyNavigation" then
+          return fullBottomBattleUI() and menu and menu.party and menu.valid() or false
+        end
         if kind == "navigation" then
           return fullBottomBattleUI() and top == raw and battle.prompt == "menu"
             and not raw.battle.safari and not adapter.Message.isOpen()

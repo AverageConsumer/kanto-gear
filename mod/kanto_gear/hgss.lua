@@ -3683,32 +3683,20 @@ return function(ui)
     end
   end
 
-  function H:startMenu(model, drawPortrait)
+  function H:startMenu(model)
     local c = self.colors
     for _, entry in ipairs(model.entries) do
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h)
       self:homeTile(x, y, w, h, entry.selected and c.green or c.blue, entry.selected)
-      if entry.compact then
-        if h > 64 and entry.mon and drawPortrait then
-          drawPortrait(entry.mon, x + math.floor((w - 64) / 2), y + math.floor((h - 64) / 2), 64, false)
-        end
-        local labelY = entry.right and y + (h > 64 and 6 or 4) or y + math.floor((h - 9) / 2)
-        self:partyInfo(self:fitPartyInfo(entry.label, w - 12), x + 6, labelY, c.ink, w - 12, "center")
-        if entry.right then
-          self:partyInfo(self:fitPartyInfo(entry.right, w - 12), x + 6,
-            h > 64 and y + h - 15 or y + 15, c.ink, w - 12, "center")
-        end
-      else
-        self:startMenuIcon(entry.kind, x + 9, y + 6)
-        box("fill", x + 33, y + 5, 1, h - 10, c.band)
-        local reserved = entry.right and 78 or 0
-        self:partyInfo(self:fitPartyInfo(entry.label, w - 52 - reserved), x + 40,
-          y + math.floor((h - 9) / 2), entry.disabled and c.mutedInk or c.ink, w - 52 - reserved, "center")
-        if entry.right then
-          self:partyInfo(self:fitPartyInfo(entry.right, 72), x + w - 80,
-            y + math.floor((h - 9) / 2), c.ink, 72, "center")
-        end
+      self:startMenuIcon(entry.kind, x + 9, y + 6)
+      box("fill", x + 33, y + 5, 1, h - 10, c.band)
+      local reserved = entry.right and 78 or 0
+      self:partyInfo(self:fitPartyInfo(entry.label, w - 52 - reserved), x + 40,
+        y + math.floor((h - 9) / 2), entry.disabled and c.mutedInk or c.ink, w - 52 - reserved, "center")
+      if entry.right then
+        self:partyInfo(self:fitPartyInfo(entry.right, 72), x + w - 80,
+          y + math.floor((h - 9) / 2), c.ink, 72, "center")
       end
       self:endPress(pressed)
     end
