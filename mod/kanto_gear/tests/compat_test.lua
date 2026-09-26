@@ -342,7 +342,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 23, "Kanto Gear registers all settings including automatic battle display")
+T.eq(#options, 24, "Kanto Gear registers all settings including keyboard layout and automatic battle display")
 local optionsByKey = {}
 for _, row in ipairs(options) do optionsByKey[row.key] = row end
 T.eq(optionsByKey.auto_battle_screen.default, false, "automatic battle switching is opt-in")
