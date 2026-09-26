@@ -14,10 +14,27 @@ function love.load()
     love.filesystem.setSymlinksEnabled(true)
     _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game, maps)
       local theme = upvalue(display.drawContents, "THEME")
-      local outputCanvas = love.graphics.newCanvas(1440, 648)
+      local Map = require("src.core.game3.map")
+      local Player = require("src.core.game3.player")
+      local Field = require("src.core.game3.field")
+      require("src.core.game3.tileset_native").install(require("src.core.game3.dataset").cache())
+      require("src.core.game3.ow_sprites").install(require("src.core.game3.dataset").cache())
+      game.session.map, game.session.x, game.session.y = "FR_ROUTE_1", 10, 25
+      Map.current, Map._def = game.session.map, maps[game.session.map]
+      Player.cellX, Player.cellY, Player.px, Player.py = 10, 25, 160, 400
+      Field.running = true
+      display.gen3:refresh()
+      run.loader.events:emit("map.entered", { game = game, mapId = game.session.map })
+      local outputCanvas = love.graphics.newCanvas(1440, 1080)
       love.graphics.setCanvas(outputCanvas); love.graphics.clear(0.08, 0.08, 0.1, 1)
       love.graphics.setCanvas()
-      local labels = { "party", "bag", "pokedex", "trainer", "native-party", "native-bag", "summary", "summary-skills", "summary-moves" }
+      local labels = { "party", "bag", "pokedex", "trainer", "native-party", "native-bag", "summary", "summary-skills", "summary-moves", "explorer", "map", "notes", "battle", "battle-moves", "battle-targets" }
+      local Battle = require("src.core.game3.battle")
+      local Ui = require("src.core.game3.battle.ui")
+      local refreshBattle
+      for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
+        if entry.owner == "kanto_gear" then refreshBattle = upvalue(entry.callback, "refreshBattle") end
+      end
       run.loader.modOptions.kanto_gear = run.loader.modOptions.kanto_gear or {}
       for themeIndex, name in ipairs({ "hgss", "hgss_dark" }) do
         run.loader.modOptions.kanto_gear.theme_v3 = name
@@ -25,10 +42,20 @@ function love.load()
         for i, app in ipairs(labels) do
           local Stack = require("src.ui.game3.stack")
           Stack.clear()
+          Battle._active, Battle._st = false, nil
+          Ui.reset({ headless = true })
           local Party = require("src.ui.game3.party_menu")
           local Bag = require("src.ui.game3.bag_menu")
           local Summary = require("src.ui.game3.summary_menu")
-          if app == "native-party" then Party.show(game.session.party, { session = game.session })
+          if app:match("^battle") then
+            local st = require("src.core.game3.battle.state").new({
+              playerParty = game.session.party, foeParty = game.session.party,
+              wild = app ~= "battle-targets", double = app == "battle-targets" })
+            Battle._active, Battle._auto, Battle._phase, Battle._st = true, false, "command", st
+            Ui.bindState(st, game.session); Ui.openMenu(app == "battle-targets" and 2 or 0)
+            if app == "battle-moves" then Ui._mode = "moves"
+            elseif app == "battle-targets" then assert(Ui.chooseTarget(st, 2, 1)) end
+          elseif app == "native-party" then Party.show(game.session.party, { session = game.session })
           elseif app == "native-bag" then
             Bag.show(game.session.bag, { session = game.session, pocket = "POKE_BALLS" }); Bag.settle()
           elseif app:match("^summary") then
@@ -36,7 +63,31 @@ function love.load()
               page = app == "summary-skills" and 1 or app == "summary-moves" and 2 or 0 })
           else display.openHomeApp(app) end
           display.gen3.syncScreens()
+          refreshBattle()
+          if app == "battle-moves" then
+            local runtime = upvalue(refreshBattle, "hgssRuntime")
+            for _, move in ipairs(runtime.battleMon().moves) do
+              assert(move.type == display.gen3.data.moves[move.id].type, "native battle type mismatch")
+              assert(move.typeLabel == move.type, "native battle type label mismatch")
+            end
+          end
+          local badge = theme.hgss.moveTypeBadge
+          if app == "battle-moves" then
+            theme.hgss.moveTypeBadge = function(self, move, ...)
+              assert(move.type == display.gen3.data.moves[move.id].type, "drawn battle type mismatch")
+              return badge(self, move, ...)
+            end
+          end
           display.drawContents()
+          theme.hgss.moveTypeBadge = badge
+          if app == "explorer" then
+            assert(display.gen3Map and display.gen3Map.under, "Explorer must render native terrain")
+            assert(display.explorer.renderModel and display.explorer.renderModel.player, "Explorer must locate the native player")
+            assert(#display.explorer.renderModel.rows > 0, "Route 1 must show wild encounters")
+            assert(not display.explorer.renderModel.areaEnabled, "Unported story progress must be unavailable")
+          elseif app == "map" then
+            assert(display.homeRegionMap().drawMap, "Region map must use the native map")
+          end
           local frame = upvalue(display.drawContents, "canvas")
           love.graphics.setCanvas(outputCanvas); love.graphics.origin(); love.graphics.setScissor()
           love.graphics.setShader(); love.graphics.setColor(1, 1, 1, 1)
@@ -46,6 +97,8 @@ function love.load()
           Party.close(); Bag.close(); Summary.close()
         end
       end
+      Battle._active, Battle._st = false, nil
+      Ui.reset({ headless = true })
       love.graphics.setCanvas()
       local pixels = outputCanvas:newImageData()
       local encoded = pixels:encode("png")

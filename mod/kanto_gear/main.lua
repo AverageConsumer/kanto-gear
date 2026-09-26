@@ -2207,7 +2207,11 @@ return function(mod)
     })
   end)
 
+  local displayRuntime
   local function assist(key)
+    if displayRuntime and displayRuntime.gen3 and (key == "area" or key == "item_radar") then
+      return false
+    end
     local level = mod.options:get("info_level")
     if key == "spoilers" then
       return THEME:spoilerAssist(level, mod.options:get("local_map"))
@@ -2217,7 +2221,6 @@ return function(mod)
     end
     return THEME:researchMode(level) ~= "vanilla"
   end
-  local displayRuntime
   local function currentBattleUIMode()
     return mod.options:get("battle_view") or "standard"
   end
@@ -3152,6 +3155,11 @@ return function(mod)
   end
 
   function compat.drawMapMarker(x, y, scale, feetAnchored, facing)
+    if displayRuntime.gen3 then
+      if displayRuntime.gen3:drawPlayer(G, x, y, scale, feetAnchored, facing) then return end
+      THEME:drawMapMarker(x, y)
+      return
+    end
     local data = game and game.data or {}
     local playerSprites = data.field and data.field.playerSprites or {}
     local id = compat.isGen2() and "SPRITE_CHRIS"
@@ -3672,7 +3680,7 @@ return function(mod)
   end
 
   function displayRuntime.sectionName(id, fallback)
-    local section = tostring(id or "OTHER AREA"):gsub("_", " ")
+    local section = tostring(id or "OTHER AREA"):gsub("^FR_", ""):gsub("_", " ")
     local entry = locationEntry(id)
     local name = entry and tostring(entry.name or entry.label or "") or ""
     for word in name:upper():gmatch("[%w]+") do
@@ -4692,7 +4700,7 @@ return function(mod)
       return "title", top, 0
     end
     if not worldStarted then
-      if not compat.isGen2() and top ~= world then return "title", top, 0 end
+      if not compat.isGen2() and not displayRuntime.gen3 and top ~= world then return "title", top, 0 end
       worldStarted = true
     end
     if not compat.isGen2() and world.transitioning then
@@ -5458,6 +5466,13 @@ return function(mod)
   end
 
   function displayRuntime.homeRegionMap()
+    if displayRuntime.gen3 then
+      if not displayRuntime.gen3Region then
+        displayRuntime.gen3Region = assert(load(mod:read("gen3_region.lua"),
+          "@kanto_gear/gen3_region.lua"))().new(displayRuntime.gen3, G)
+      end
+      return displayRuntime.gen3Region:model(areaName(mapId), compat.drawMapMarker)
+    end
     local asset = loadMap()
     local region = compat.currentRegion() or "kanto"
     local cells = asset and (asset.gen2 and asset.maps[region] or asset.map)
@@ -5554,6 +5569,17 @@ return function(mod)
   end
 
   local function drawMap()
+    if displayRuntime.gen3 then
+      local model = displayRuntime.homeRegionMap()
+      header(THEME:translate("MAP"), THEME.style == "hgss", THEME.style ~= "hgss")
+      displayRuntime.regionMapTargets = {}
+      if THEME.style == "hgss" then
+        G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:regionMap(model)
+        G.pop()
+      elseif model.drawMap then model.drawMap(4, 24, 152, 116) end
+      return
+    end
     local region = compat.currentRegion()
     local mapTitle = region and (region:upper() .. (canFly() and " FLY" or " MAP"))
       or (canFly() and "MAP + FLY" or "MAP")
@@ -5667,8 +5693,12 @@ return function(mod)
           or localMap.width ~= renderer.width or localMap.height ~= renderer.height then
         local rows = {}
         for y = 1, renderer.height do rows[y] = string.rep(" ", renderer.width) end
+        local markers = {}
+        for _, warp in ipairs(def.warps or {}) do
+          markers[#markers + 1] = { kind = "warp", x = warp.x, y = warp.y }
+        end
         localMap = { mapId = mapId, width = renderer.width, height = renderer.height,
-          rows = rows, markers = {}, drawTerrain = function(x, y, cellSize)
+          rows = rows, markers = markers, drawTerrain = function(x, y, cellSize)
             renderer:draw(x, y, cellSize)
           end }
       end
@@ -6435,7 +6465,8 @@ return function(mod)
           math.floor(elapsed / 60) % 60),
         pokedex = THEME:format("%d/%d", owned, dexSize),
         drawPlayer = function(x, y, scale)
-          compat.drawMapMarker(x, y, scale, false, "down")
+          compat.drawMapMarker(x, displayRuntime.gen3 and y - 3 or y,
+            displayRuntime.gen3 and 1 or scale, false, "down")
         end,
       }
       model.drawBadge = function(index, cx, cy, badgeOwned_)
@@ -8374,7 +8405,7 @@ return function(mod)
       pocket = THEME:translate(pocket.label), pocketIndex = state.pocket,
       pockets = #pockets, page = state.page, pages = pages,
       entries = visible, total = #entries, detail = detail,
-      message = state.message, canUse = screenState() == "active" and not battle and not displayRuntime.gen3,
+      message = state.message, canUse = screenState() == "active" and not battle,
       money = tonumber(save.money) or 0,
     }
   end
@@ -8405,8 +8436,8 @@ return function(mod)
   end
 
   function displayRuntime.useBagItem(itemId)
-    if displayRuntime.gen3 then return false end
     if screenState() ~= "active" or battle or not itemId then return false end
+    if displayRuntime.gen3 then return displayRuntime.gen3Ui:openBagItem(itemId) end
     local state = displayRuntime.bag
     state.message = nil
     local def = game.data and game.data.items and game.data.items[itemId]
@@ -11183,6 +11214,10 @@ return function(mod)
       choice = row * 2 + col + 1
     end
     if not choice then return end
+    if displayRuntime.gen3 then
+      submit("menu", { choice = ({ "fight", "party", "item", "run" })[choice] })
+      return
+    end
     local raw = battleState()
     if raw and game.stack:top() == raw then
       raw.menuIndex = choice
@@ -12612,23 +12647,31 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     if displayRuntime.gen3Map then displayRuntime.gen3Map:release(); displayRuntime.gen3Map = nil end
+    if displayRuntime.gen3Region then displayRuntime.gen3Region:release(); displayRuntime.gen3Region = nil end
     game = payload.game
     displayRuntime.sourceGame = game
     displayRuntime.gen3 = nil
     displayRuntime.gen3Ui = nil
     displayRuntime.gen3PollAt = nil
+    displayRuntime.gen3BoundSession = nil
     if game.generation == 3 then
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
       displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3)
       game = displayRuntime.gen3:gameView()
     end
+    -- Native story/pickup events must not be mistaken for empty completed routes.
+    displayRuntime.homeCatalog.packages.achievements.available = not displayRuntime.gen3
+    displayRuntime.storeById.achievements.available = not displayRuntime.gen3
     displayRuntime.autoBattle = {}
     displayRuntime.touchGuard.key, displayRuntime.touchGuard.pending = nil, false
     displayRuntime.touchGuard.readyAt = 0
     displayRuntime.levelUp = displayRuntime.LevelUp.new()
     displayRuntime.levelUp:scan(game.save)
     displayRuntime.notes:bind(displayRuntime.sourceGame or game, mod.storage)
-    if displayRuntime.gen3 then displayRuntime.gen3:syncStorageIdentity() end
+    if displayRuntime.gen3 then
+      displayRuntime.gen3:syncStorageIdentity()
+      displayRuntime.gen3BoundSession = displayRuntime.gen3.session
+    end
     displayRuntime.resetAchievements()
     THEME.storedTheme = mod.options:get("theme_v3")
     spriteCache.__badges = nil
@@ -12653,6 +12696,9 @@ return function(mod)
   end)
 
   function displayRuntime.reloadSavedUi()
+    -- Gen 3's created event precedes _enterField; Continue can first replay
+    -- the quest log. Bind tool storage only once the new field/save is live.
+    if displayRuntime.gen3 and displayRuntime.sourceGame.phase ~= "field" then return end
     if displayRuntime.gen3 then
       displayRuntime.gen3:refresh()
       displayRuntime.gen3.syncScreens()
@@ -12664,16 +12710,28 @@ return function(mod)
     displayRuntime.levelUp:scan(game and game.save)
     displayRuntime.home.widgetCache = nil
     displayRuntime.notes:bind(displayRuntime.sourceGame or game, mod.storage)
-    if displayRuntime.gen3 then displayRuntime.gen3:syncStorageIdentity() end
+    if displayRuntime.gen3 then
+      displayRuntime.gen3:syncStorageIdentity()
+      displayRuntime.gen3BoundSession = displayRuntime.gen3.session
+    end
     displayRuntime.resetAchievements()
     displayRuntime.pokedex.data = nil
     reloadSteps()
     displayRuntime.loadHome()
   end
-  mod.events:on("save.created", displayRuntime.reloadSavedUi)
+  mod.events:on("save.created", function(payload)
+    if displayRuntime.gen3 and payload and payload.save then
+      displayRuntime.gen3:newPlaythrough(payload.save)
+      if payload.save ~= displayRuntime.sourceGame.session then return end
+    end
+    displayRuntime.reloadSavedUi()
+  end)
   mod.events:on("save.loaded", displayRuntime.reloadSavedUi)
 
   mod.events:on("map.entered", function(payload)
+    if displayRuntime.gen3 and displayRuntime.gen3BoundSession ~= displayRuntime.sourceGame.session then
+      displayRuntime.reloadSavedUi()
+    end
     mapId, pendingFly, pendingAction, fieldChoice, dirty =
       payload.mapId, nil, nil, nil, true
     displayRuntime.lastStepAt = nil
@@ -13382,6 +13440,10 @@ return function(mod)
   mod.hooks:wrap("render.compose", function(next, renderer, context)
     local measured = displayRuntime.perf:start()
     displayRuntime.perf:frame()
+    if displayRuntime.gen3 and displayRuntime.sourceGame.phase == "field"
+        and displayRuntime.gen3BoundSession ~= displayRuntime.sourceGame.session then
+      displayRuntime.reloadSavedUi()
+    end
     if displayRuntime.gen3 then
       local now = love.timer.getTime()
       if now >= (displayRuntime.gen3PollAt or 0) then

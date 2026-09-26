@@ -64,9 +64,11 @@ local session = Schema.newGame({ version = os.getenv("POKEPORT_VERSION"), name =
 require("src.core.game3.party").giveMon(session, 1, 15)
 local Bag = require("src.core.game3.bag")
 Bag.add(session.bag, 4, 35)
+run.loader.events:emit("save.created", { save = session })
+T.eq(display.gen3.session, nil, "created event does not adopt the old host session")
 raw.session, raw.save, raw.phase = session, Schema.toSaveTable(session), "field"
 require("src.core.game3.runtime").session = session
-run.loader.events:emit("save.created", { game = raw })
+run.loader.events:emit("map.entered", { mapId = session.map, game = raw })
 T.eq(display.gen3.save.player.name, "RUNTIME", "new-game event refreshes live projection")
 T.eq(display.bagSummary().ball, 35, "existing Bag widget reads native ball quantity")
 T.eq(display.pokedexData().total, 151, "Dex respects the Kanto unlock limit")
@@ -82,6 +84,35 @@ require("src.core.game3.scripting.flags").setFlag(session, nil, 0x820, true)
 display.gen3:refresh()
 T.eq(display.trainerSummary().badgeCount, 1, "trainer uses native badge flags")
 T.eq(display.trainerSummary().badgeTotal, 8, "FRLG has eight badges")
+local Space = require("src.core.game3.scripting.space")
+local oldActive, oldStore = Space.active, Space.store
+Space.active, Space.store = true, { flags = { [0x824] = true }, vars = {} }
+T.check(display.gen3:badge(5) and not session.flags[0x824], "fresh unsaved badge comes from the running script store")
+Space.active, Space.store = oldActive, oldStore
+local Notes = display.notes
+Notes:action("new"); Notes:type("FRLG persistence"); Notes:action("finish"); Notes:flush(true)
+T.check(not Notes.error and raw.save.meta == session.meta, "Notes storage identity is attached to the live session")
+local reloaded = { generation = 3, save = Schema.toSaveTable(Schema.fromSaveTable(Schema.toSaveTable(session))) }
+Notes:bind(reloaded, upvalue(display.saveHome, "mod").storage)
+T.eq(Notes.records[1] and Notes.records[1].title, "FRLG persistence", "Notes survive native save serialization and reload")
+local another = Schema.newGame({ version = session.version, name = "OTHER", rngSeed = 9000 })
+run.loader.events:emit("save.created", { save = another })
+T.eq(Notes.records[1] and Notes.records[1].title, "FRLG persistence", "pre-field event cannot rebind the old playthrough")
+T.check(another.meta.playthroughId ~= session.meta.playthroughId, "new game receives its own tool identity")
+local fresh = { save = Schema.toSaveTable(another) }
+raw.session, raw.save = another, fresh.save
+require("src.core.game3.runtime").session = another
+run.loader.events:emit("map.entered", { mapId = another.map, game = raw })
+T.eq(#Notes.records, 0, "another native playthrough cannot inherit Notes")
+T.eq(display.gen3BoundSession, another, "new field binds storage to the new session")
+raw.session, raw.phase = session, "quest_log"
+run.loader.events:emit("save.loaded", { save = session })
+display.gen3:refresh()
+T.eq(display.gen3BoundSession, another, "quest log reads cannot prematurely rebind tool storage")
+raw.save, raw.phase = Schema.toSaveTable(session), "field"
+require("src.core.game3.runtime").session = session
+run.loader.events:emit("map.entered", { mapId = session.map, game = raw })
+T.eq(Notes.records[1] and Notes.records[1].title, "FRLG persistence", "field entry restores the continued playthrough's Notes")
 local Stack = require("src.ui.game3.stack")
 Stack.push("test-native-modal", {})
 display.gen3.syncScreens()
@@ -108,6 +139,12 @@ menu = display.startMenu()
 T.check(menu and #menu.items == #session.party + 1, "native party plus cancel is mirrored")
 display.StartMenu.select(menu, #menu.items)
 T.eq(NativeParty.cursor, 7, "party cancel retains reserved native slot seven")
+NativeParty.mode = "choose_multi"
+menu = display.startMenu()
+display.StartMenu.select(menu, #menu.items - 1)
+T.eq(NativeParty.cursor, 7, "multi-party confirmation retains native slot seven")
+display.StartMenu.select(menu, #menu.items)
+T.eq(NativeParty.cursor, 8, "multi-party cancellation retains native slot eight")
 NativeParty.mode = "message"
 T.check(display.startMenu() == nil, "party message cannot accept stale party selection")
 NativeParty.close()
@@ -119,6 +156,34 @@ menu = display.startMenu()
 T.eq(menu and menu.items[1].itemId, 4, "native ball pocket rows are mirrored without reordering")
 T.eq(menu and menu.items[1].right, "x35", "native quantity is shown")
 NativeBag.close()
+display.gen3.syncScreens()
+T.check(display.useBagItem(4), "Gear Bag hands the selected item to the native bag")
+T.eq(NativeBag.currentPocket(), "POKE_BALLS", "handoff uses the actual pocket")
+T.eq(NativeBag.list()[NativeBag.cursor].id, 4, "handoff retains the chosen item")
+NativeBag.close()
+for _, container in ipairs({ { 341, "tm_case" }, { 139, "berry_pouch" } }) do
+  Bag.add(session.bag, container[1], 1); display.gen3:refresh()
+  display.gen3.syncScreens()
+  T.check(display.useBagItem(container[1]), "Gear opens native " .. container[2])
+  local menu = display.startMenu()
+  T.check(menu and #menu.items == 2, "subcontainer mirrors item and cancel")
+  local native = require("src.ui.game3." .. container[2])
+  native.mode = "action"
+  T.check(display.startMenu() ~= nil, "subcontainer action menu is mirrored")
+  native.mode = "message"
+  T.check(display.startMenu() == nil, "subcontainer message retains native ownership")
+  native.close()
+end
+local Choice = require("src.ui.game3.choice")
+local picked
+Choice.multi({ "FIRST", "SECOND", "THIRD" }, 0, function(value) picked = value end)
+local choiceMenu = display.startMenu()
+T.check(choiceMenu and display.StartMenu.select(choiceMenu, 3), "native multichoice accepts the mirrored cursor")
+Choice.confirm()
+T.eq(picked, 2, "native multichoice preserves zero-based script result")
+T.check(not display.StartMenu.select(choiceMenu, 1), "dismissed choice cannot change a later cursor")
+T.check(display.homeCatalog.packages.achievements.available == false,
+  "unported native completion cannot issue false gold stamps")
 local NativeSummary = require("src.ui.game3.summary_menu")
 T.check(display.openPartySummary(1), "Gear opens the actual native summary")
 for page = 0, 2 do
@@ -146,6 +211,8 @@ for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
   if entry.owner == "kanto_gear" then compose = entry.callback end
 end
 local refreshBattle = assert(upvalue(compose, "refreshBattle"))
+local tap = upvalue(upvalue(compose, "touchEvent"), "tap")
+local tapBattle = upvalue(tap, "tapBattle")
 local intentId = 0
 local function submit(kind, fields)
   fields = fields or {}
@@ -163,16 +230,23 @@ local function paintBattle(label)
   local ok, err = pcall(display.drawContents)
   T.check(ok, label .. " renders: " .. tostring(err))
 end
+run.loader.modOptions.kanto_gear = run.loader.modOptions.kanto_gear or {}
+run.loader.modOptions.kanto_gear.battle_view = "standard"
+run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
+run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
 paintBattle("native battle commands")
-submit("menu", { choice = "fight" })
+tapBattle(62 / 1.5, 76 / 1.5)
 T.eq(Ui._mode, "moves", "FIGHT opens the actual native move menu")
 paintBattle("native move selection")
-submit("back")
-submit("menu", { choice = "party" })
+for _, move in ipairs(upvalue(refreshBattle, "battle").moves) do
+  T.eq(move.type, display.gen3.data.moves[move.id].type, "battle move retains its native type: " .. move.id)
+end
+submit("back"); refreshBattle()
+tapBattle(178 / 1.5, 76 / 1.5)
 paintBattle("native battle party")
 T.check(display.startMenu() ~= nil, "battle party uses its actual display order")
-NativeParty.close(); Ui.openMenu(0)
-submit("menu", { choice = "item" })
+NativeParty.close(); Ui.openMenu(0); display.gen3.syncScreens(); refreshBattle()
+tapBattle(62 / 1.5, 167 / 1.5)
 NativeBag.settle(); paintBattle("native battle bag")
 T.check(display.startMenu() ~= nil, "battle Bag uses native pocket data")
 NativeBag.close()
@@ -188,6 +262,21 @@ T.check(targets and #targets.items == 3, "target list excludes the user for an o
 T.eq(targets and targets.battleTargets[1], 0, "ally retains native battler ID zero")
 submit("target", { target = 3 })
 T.eq(Ui._pendingCommand and Ui._pendingCommand.target, 3, "target command reaches right-hand opponent")
+st = State.new({ playerParty = session.party, foeParty = foes.party, wild = true })
+st.safari, st.safariState = true, { balls = 23 }
+Battle._st = st
+for i, action in ipairs({ "ball", "bait", "rock", "run" }) do
+  Ui.reset({ headless = true }); Ui.bindState(st, session); Ui.openMenu(0)
+  paintBattle("native safari " .. action)
+  local snapshot = upvalue(refreshBattle, "battle")
+  T.eq(snapshot.prompt, "safari", "native Safari uses four Safari actions")
+  T.eq(snapshot.safariBalls, 23, "Safari ball count comes from the native battle")
+  local submitGear = upvalue(tapBattle, "submit")
+  submitGear("safari", { action = action })
+  local command = Ui._pendingCommand
+  T.check(command and (action == "run" and command.safariRun
+    or command.kind == "safari" and command.action == action), "Gear Safari submits native " .. action)
+end
 Battle._active, Battle._st = false, nil
 Ui.reset({ headless = true }); Stack.clear(); display.gen3.syncScreens(); refreshBattle()
 display.gen3:refresh()

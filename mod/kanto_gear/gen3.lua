@@ -27,6 +27,7 @@ function Gen3.new(game)
   self.Items = require("src.core.game3.items_data")
   self.Dex = require("src.core.game3.dex")
   self.Flags = require("src.core.game3.scripting.flags")
+  self.Space = require("src.core.game3.scripting.space")
   self.FieldMoves = require("src.core.game3.field_moves")
   self.Summary = require("src.core.game3.summary_data")
   self.Types = require("src.core.game3.battle.types")
@@ -35,6 +36,8 @@ function Gen3.new(game)
   self.Field = require("src.core.game3.field")
   self.Warp = require("src.core.game3.warp")
   self.Runtime = require("src.core.game3.runtime")
+  self.Message = require("src.ui.game3.message")
+  self.Choice = require("src.ui.game3.choice")
   self.typeNames = {}
   for name, id in pairs(self.Types.ID) do
     self.typeNames[id] = name
@@ -42,6 +45,21 @@ function Gen3.new(game)
   self:refreshDefinitions()
   self:refresh()
   return self
+end
+
+function Gen3:drawPlayer(g, x, y, scale, feet, facing)
+  local sprites = require("src.core.game3.ow_sprites")
+  local spr = sprites.getDraw(sprites.playerGraphicsId(self.game))
+  if not spr then return false end
+  local frame, flip = sprites.pose(spr, facing or "down", false, false)
+  local quad = spr.quads[frame]
+  if not quad then return false end
+  scale = scale or 1
+  g.setColor(1, 1, 1, 1)
+  g.draw(spr.image, quad, x + (flip and 0.5 or -0.5) * spr.width * scale,
+    y - (feet and spr.height or spr.height / 2) * scale,
+    0, flip and -scale or scale, scale)
+  return true
 end
 
 function Gen3:types(source)
@@ -227,6 +245,16 @@ end
 
 -- Storage allocates an opaque identity on the serialized save. Call this
 -- after binding mod.storage so a subsequent native save retains that identity.
+function Gen3:newPlaythrough(session)
+  if not session then return end
+  session.meta = session.meta or {}
+  if not session.meta.playthroughId then
+    -- Schema.newGame does not pass through SaveData's legacy fresh-save marker.
+    -- A new native run must not adopt the previous slot's tool-storage identity.
+    session.meta.playthroughId = require("src.core.SaveData").newPlaythroughId()
+  end
+end
+
 function Gen3:syncStorageIdentity()
   local session, snapshot = self.game.session, self.game.save
   if session and snapshot and snapshot.meta and not session.meta then
@@ -249,9 +277,16 @@ function Gen3:boxes()
   return result
 end
 
+function Gen3:flagStore()
+  if self.Space.active and self.Runtime.getSession() == self.session then
+    return self.Space.getStore() or self.session
+  end
+  return self.session
+end
+
 function Gen3:badge(index)
   return self.session ~= nil and index >= 1 and index <= 8
-    and self.Flags.getFlag(self.session, nil, 0x81f + index) == true
+    and self.Flags.getFlag(self:flagStore(), nil, 0x81f + index) == true
 end
 
 function Gen3:locations()
@@ -289,6 +324,7 @@ function Gen3:gameView()
   local stack = { states = {} }
   local layers = setmetatable({}, { __mode = "k" })
   local locked = { screenId = "Gen3:busy" }
+  local text = { screenId = "Gen3:message", isTextBox = true }
   function stack:top() return self.states[#self.states] end
   self.syncScreens = function()
     clear(stack.states)
@@ -315,6 +351,13 @@ function Gen3:gameView()
           or layer.mod.cursor or layer.mod._cursor)
         state.pocketIndex = layer.mod and layer.mod.pocketIdx
         stack.states[#stack.states + 1] = state
+      end
+      if self.Message.isOpen() and not self.Choice.active then
+        text.page = self.Message._page
+        text.choice = self.Message._stay or self.Message._choice or self.Message._held
+        text.waiting = self.Message.isWaiting() and not text.choice
+        text.done = not self.Message.isTyping()
+        stack.states[#stack.states + 1] = text
       end
       -- Native scripts, transitions and battles need not push a UI layer.
       -- Walking alone is not a modal state and must not dim the live map.
@@ -408,7 +451,7 @@ function Gen3:toolUnlocked(def)
   if def.move == "HEADBUTT" or def.move == "WHIRLPOOL" then return false end
   if not self.FieldMoves.MOVES[def.move] then return false end
   return self.FieldMoves.partyMoveUser(self.session and self.session.party, def.move) ~= nil
-    and self.FieldMoves.hasBadge(self.session, def.move) == true
+    and self.FieldMoves.hasBadge(self:flagStore(), def.move) == true
 end
 
 function Gen3:methods()
@@ -419,7 +462,7 @@ function Gen3:methods()
   end
   for method, move in pairs({ SURF = "SURF", ["ROCK SMASH"] = "ROCK_SMASH" }) do
     local mon = self.FieldMoves.partyMoveUser(session and session.party or {}, move)
-    out[method] = mon ~= nil and self.FieldMoves.hasBadge(session, move) == true
+    out[method] = mon ~= nil and self.FieldMoves.hasBadge(self:flagStore(), move) == true
   end
   return out
 end
@@ -446,7 +489,7 @@ function Gen3:habitatMethods()
   for method, move in pairs({ SURF = "SURF", ["ROCK SMASH"] = "ROCK_SMASH" }) do
     if not available[self.FieldMoves.MOVES[move]] then
       reasons[method] = "NEED " .. method
-    elseif not self.FieldMoves.hasBadge(self.session, move) then
+    elseif not self.FieldMoves.hasBadge(self:flagStore(), move) then
       reasons[method] = "NEED BADGE"
     end
   end

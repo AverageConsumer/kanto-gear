@@ -22,7 +22,26 @@ end
 
 function UI:list(battle)
   local Message, Choice = self.Message, self.Choice
-  if Message and Message.isOpen() or Choice and Choice.active then return nil end
+  if Choice.active and Choice.options then
+    local key = Choice.options
+    local view = self.choiceView
+    if not view or view.options ~= key then
+      view = { screenId = "Gen3Menu", title = "CHOOSE ACTION", options = key,
+        nativeKey = tostring(key), update = function() end,
+        valid = function() return Choice.active and Choice.options == key end }
+      setmetatable(view, {
+        __index = function(_, k) if k == "index" then return Choice.cursor end end,
+        __newindex = function(t, k, v)
+          if k == "index" then if t.valid() then Choice.cursor = v end
+          else rawset(t, k, v) end
+        end,
+      })
+      self.choiceView = view
+    end
+    view.items = labels(key)
+    return view
+  end
+  if Message.isOpen() then return nil end
   local layer = self.Stack.top()
   if not layer and battle and battle.prompt == "target" then
     local U = self.adapter.BattleUI
@@ -73,12 +92,31 @@ function UI:list(battle)
       end
       -- Native single/double layouts reserve slot 7 for CANCEL, even with
       -- fewer than six party members. Display order may also be battle-local.
-      items[#items + 1], slots[#slots + 1] = { label = "CANCEL" }, 7
+      if native.mode == "choose_multi" then
+        items[#items + 1], slots[#slots + 1] = { label = "CONFIRM" }, 7
+      end
+      items[#items + 1], slots[#slots + 1] = { label = "CANCEL" }, native.mode == "choose_multi" and 8 or 7
       if native.mode == "use" then title = "USE ITEM ON" end
     elseif native.mode == "action" then
       items, field = labels(native.ACTIONS), "actionCursor"
     elseif native.mode == "item_action" then
       items, field = labels(native.ITEM_ACTIONS), "itemActionCursor"
+    end
+  elseif (layer.id == "tm_case" or layer.id == "berry_pouch")
+      and not native._fromBerryCrush then
+    title = layer.id == "tm_case" and "TM/HM" or "BERRIES"
+    if native.mode == "list" then
+      items, field = {}, "cursor"
+      for _, row in ipairs(native.list()) do
+        items[#items + 1] = { label = row.name or self.adapter.Items.displayName(row.id),
+          right = "x" .. tostring(row.qty or 0) }
+      end
+      items[#items + 1] = { label = "CANCEL" }
+    elseif native.mode == "action" and not native._sellMode then
+      -- Native subcontainers use these fixed action orders (not Bag ACTIONS).
+      items = labels(layer.id == "tm_case" and { "USE", "GIVE", "EXIT" }
+        or { "USE", "GIVE", "TOSS", "EXIT" })
+      field = "actionCursor"
     end
   elseif layer.id == "bag" and not native._switch and not native._exit and not native._open and not native._pokedude and not native._statBoost then
     title = "BAG"
@@ -124,6 +162,33 @@ function UI:list(battle)
   end
   view.items, view.nativeSlots, view.title, view.nativePocket = items, slots, title, pocket
   return view
+end
+
+function UI:openBagItem(id)
+  local a, session = self.adapter, self.adapter.session
+  if not session or not a.save or (a.save.inventory[id] or 0) <= 0
+      or self.Stack.top() or self.Message.isOpen() or self.Choice.active then return false end
+  local def = a.data.items[id]
+  local pocket = def and def.nativePocket
+  local menu
+  if pocket == "TM_CASE" then
+    menu = require("src.ui.game3.tm_case")
+    menu.show(session, session.bag)
+  elseif pocket == "BERRY_POUCH" then
+    menu = require("src.ui.game3.berry_pouch")
+    menu.show(session, session.bag)
+  else
+    menu = require("src.ui.game3.bag_menu")
+    menu.show(session.bag, { session = session, pocket = pocket })
+  end
+  for i, row in ipairs(menu.list()) do
+    if row.id == id then
+      menu.cursor, menu.scroll = i, math.max(0, i - 1)
+      return true
+    end
+  end
+  menu.close()
+  return false
 end
 
 return UI
