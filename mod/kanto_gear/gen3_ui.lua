@@ -118,7 +118,7 @@ function UI:list(battle)
         or { "USE", "GIVE", "TOSS", "EXIT" })
       field = "actionCursor"
     end
-  elseif layer.id == "bag" and not native._switch and not native._exit and not native._open and not native._pokedude and not native._statBoost then
+  elseif layer.id == "bag" and not native._pokedude and not native._statBoost then
     title = "BAG"
     if native.mode == "list" then
       items, field, pocket = {}, "cursor", true
@@ -140,10 +140,11 @@ function UI:list(battle)
     local owner = self
     view = { screenId = "Gen3Menu", nativeKey = key, update = function() end }
     local mode, pocketIdx = native.mode, native.pocketIdx
-    function view.valid()
+    function view.valid(preview)
       return owner.Stack.top() == layer and native.open == true
         and native.mode == mode and native.pocketIdx == pocketIdx
-        and not native._hpAnim and not native._switch and not native._exit and not native._open and not native._pokedude and not native._statBoost
+        and not native._hpAnim and not native._pokedude and not native._statBoost
+        and (preview or not native._switch and not native._exit and not native._open)
     end
     setmetatable(view, {
       __index = function(t, k)

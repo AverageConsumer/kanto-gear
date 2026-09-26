@@ -171,7 +171,19 @@ T.check(display.startMenu() == nil, "party message cannot accept stale party sel
 NativeParty.close()
 local NativeBag = require("src.ui.game3.bag_menu")
 NativeBag.show(session.bag, { session = session, pocket = "POKE_BALLS" })
-T.check(display.startMenu() == nil, "opening bag cannot accept touch before native transition")
+menu = display.startMenu()
+T.check(menu and display.startMenuModel(menu), "opening bag previews its list instead of a handoff")
+T.check(not display.StartMenu.cursor(menu), "opening bag cannot accept touch before native transition")
+local openingBag = NativeBag._open
+for _, phase in ipairs({ "_open", "_switch", "_exit" }) do
+  NativeBag._open, NativeBag._switch, NativeBag._exit = nil, nil, nil
+  NativeBag[phase] = {}
+  local preview = display.startMenu()
+  T.check(preview and display.startMenuModel(preview), phase .. " retains the native bag rows")
+  T.check(not display.StartMenu.select(preview, 2), phase .. " cannot change native focus")
+  T.eq(display.StartMenu.hit(preview, 10, 10), nil, phase .. " blocks back navigation")
+end
+NativeBag._open, NativeBag._switch, NativeBag._exit = openingBag, nil, nil
 NativeBag.settle()
 menu = display.startMenu()
 T.eq(menu and menu.items[1].itemId, 4, "native ball pocket rows are mirrored without reordering")

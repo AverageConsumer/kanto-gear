@@ -1,11 +1,11 @@
 -- The live native menu owns order, availability, focus and activation.
 local Menu = { visible = 5, x = 7, y = 33, width = 226, height = 28, step = 31 }
 
-function Menu.cursor(top)
+function Menu.cursor(top, preview)
   if type(top) ~= "table" or type(top.update) ~= "function"
       or type(top.items) ~= "table" or #top.items == 0 then return nil end
   local cursor
-  if top.screenId == "Gen3Menu" and type(top.valid) == "function" and top.valid() then
+  if top.screenId == "Gen3Menu" and type(top.valid) == "function" and top.valid(preview) then
     cursor = top
   elseif top.screenId == "StartMenu" and top.startCloses and top.phase == nil then
     cursor = top
@@ -21,8 +21,8 @@ function Menu.cursor(top)
   return cursor
 end
 
-function Menu.window(top)
-  local cursor = Menu.cursor(top)
+function Menu.window(top, preview)
+  local cursor = Menu.cursor(top, preview)
   if not cursor then return nil end
   local first = math.floor((cursor.index - 1) / Menu.visible) * Menu.visible + 1
   return first, math.min(Menu.visible, #top.items - first + 1), cursor.index
@@ -62,7 +62,9 @@ local kinds = { ["POKéDEX"] = "pokedex", POKEDEX = "pokedex",
   SAVE = "save", OPTION = "option", QUIT = "quit" }
 
 function Menu.model(top)
-  local first, count, selected = Menu.window(top)
+  -- Native opening/closing animations may already have displayable rows,
+  -- while hit testing and selection must wait for the host to accept input.
+  local first, count, selected = Menu.window(top, true)
   if not first then return nil end
   local entries = {}
   for row = 1, count do

@@ -11467,6 +11467,7 @@ return function(mod)
   end
 
   function displayRuntime.tapStartMenu(top, x, y)
+    if not displayRuntime.StartMenu.cursor(top) then return end
     if top.nativePocket and y < HEADER and x >= 27 / 1.5 and x < 139 / 1.5 then
       press(x < 83 / 1.5 and "left" or "right")
       dirty = true
