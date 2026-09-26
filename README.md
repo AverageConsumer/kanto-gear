@@ -29,6 +29,19 @@ Silver, Crystal, FireRed and LeafGreen in [Gen1Recomp](https://github.com/bryant
 
 ## Silph Link OS
 
+**New in 3.3.1: Silph Connect**, an optional online display app and Home widget.
+See players visible through Recomp's online service, their reported edition and
+status, and up to three names at a glance on Home. The connection and player
+list stay active when you switch to another Gear app during gameplay.
+
+Silph Connect is a **proof of concept for displaying online presence**. It does
+not offer friends, invitations, trading, battles or chat. Those interactions
+need supported integration from Gen1Recomp before they can be added to Gear;
+there is no promised timetable. Install it through **Silph Store**, open it and
+choose **Connect**. Add its widget through Home editing. The visible count
+excludes yourself and is not a total of everyone connected to the server.
+See [Silph Connect](tools/PSS.md) for details.
+
 **New in 3.3:** FireRed and LeafGreen support, detailed native terrain in Gen 1/2
 minimaps, and more Japanese translations from Theeohn. FR/LG includes live Party,
 Bag, Pokédex and map data, battle controls, PC storage, naming, move learning,
@@ -123,8 +136,8 @@ translation mod and cover gaps in a game's font, including the numero sign.
 They load only when needed; supported Latin text keeps the HGSS pixel fonts.
 Measurement, truncation and centering use the same selected font.
 Japanese includes 737 translated UI text keys, including Home, Notes, stamps,
-the bag, Store, settings and habitat availability. Six new FR/LG and progress
-labels are awaiting translation and fall back to English.
+the bag, Store, settings and habitat availability. New Silph Connect labels
+and six FR/LG/progress labels await translation and fall back to English.
 Korean Gear menu translations are not included yet.
 Gear's own menu language is selected
 separately; installing a game translation does not translate Gear's menus.

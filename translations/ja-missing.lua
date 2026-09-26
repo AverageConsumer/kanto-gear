@@ -47,9 +47,9 @@ return {
   ["CRYSTAL"] = false,
   ["FIRERED"] = false,
   ["LEAFGREEN"] = false,
-  ["CONNECT WITH OTHER TRAINERS."] = false,
+  ["ONLINE PLAYER DISPLAY."] = false,
   ["SEE WHO IS ONLINE AND PLAYING."] = false,
-  ["YOUR WINDOW TO THE COMMUNITY."] = false,
+  ["PREVIEW: VIEWING ONLY."] = false,
 
   -- PSS: shared online lobby; browsing only, no invites or chat.
   ["PREV"] = false,

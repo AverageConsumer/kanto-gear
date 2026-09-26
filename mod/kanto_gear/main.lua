@@ -2489,8 +2489,8 @@ return function(mod)
   displayRuntime.storeCatalog = {
     { id = "pss", icon = "pss", label = "SILPH CONNECT",
       category = "ONLINE", target = "PSS", featured = true, new = true,
-      description = { "CONNECT WITH OTHER TRAINERS.",
-        "SEE WHO IS ONLINE AND PLAYING.", "YOUR WINDOW TO THE COMMUNITY." } },
+      description = { "ONLINE PLAYER DISPLAY.",
+        "SEE WHO IS ONLINE AND PLAYING.", "PREVIEW: VIEWING ONLY." } },
     { id = "notes", icon = "notes", label = "NOTES",
       category = "TRAINER TOOL", target = "NOTES", featured = true,
       description = { "PLAN ROUTES AND REMINDERS.",

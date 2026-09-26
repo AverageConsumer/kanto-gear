@@ -1,5 +1,10 @@
 # Silph Connect lobby browser
 
+Silph Connect is a proof of concept for an online presence display. Friends,
+invitations, trading, battles and chat are not available through this app.
+Adding interactions requires supported integration from Gen1Recomp first;
+this preview does not promise their availability or a release date.
+
 Enable Silph Connect in Silph Store, open it from Home, then choose Connect. It uses
 Recomp's stored online name (or the host's trainer-name fallback). Names shown
 on cards are server lobby entries; tap one for its full name, edition, location

@@ -1457,8 +1457,8 @@ function love.load()
       "REVISIT AREAS AND FINISH EXPLORING.", "YOUR ADVENTURE, ONE STAMP AT A TIME." } }
   table.insert(storeCatalog, 1, { id = "pss", icon = "pss", label = "SILPH CONNECT",
     category = "ONLINE", action = "GET", state = "get", new = true,
-    description = { "CONNECT WITH OTHER TRAINERS.",
-      "SEE WHO IS ONLINE AND PLAYING.", "YOUR WINDOW TO THE COMMUNITY." } })
+    description = { "ONLINE PLAYER DISPLAY.",
+      "SEE WHO IS ONLINE AND PLAYING.", "PREVIEW: VIEWING ONLY." } })
   for _, app in ipairs(storeCatalog) do
     if app.id == "party" then
       app.preview = { party = {}, drawPokemon = function(row, x, y, size)
