@@ -1,10 +1,10 @@
 return function(H, G, tr, fmt)
   local versions = { red = "RED", blue = "BLUE", yellow = "YELLOW", gold = "GOLD",
     silver = "SILVER", crystal = "CRYSTAL", firered = "FIRERED", leafgreen = "LEAFGREEN" }
-  local places = { launcher = "LOBBY", game = "IN GAME", union = "UNION ROOM", direct = "DIRECT CORNER" }
+  local places = { launcher = "RECOMP MENU", game = "IN GAME", union = "UNION ROOM", direct = "DIRECT CORNER" }
   local shortVersions = { red = "R", blue = "B", yellow = "Y", gold = "G",
     silver = "S", crystal = "C", firered = "FR", leafgreen = "LG" }
-  local statuses = { idle = "AVAILABLE", busy = "BUSY", trading = "TRADING",
+  local statuses = { idle = "AVAILABLE", busy = "NOT AVAILABLE", trading = "TRADING",
     battling = "BATTLING", chatting = "CHATTING", recruiting = "RECRUITING", waiting = "WAITING" }
   local states = { offline = "OFFLINE", online = "ONLINE", connecting = "CONNECTING",
     reconnecting = "RECONNECTING", ticket = "CONNECTING", error = "CONNECTION FAILED",
@@ -73,7 +73,7 @@ return function(H, G, tr, fmt)
         self:panel(x,y,72,44)
         person(x+12,y+6,c.blue)
         label(shortVersions[row.version] or "?",x+23,y+3,45,13,c.green)
-        label(tr(places[row.where] or "ONLINE"),x+23,y+16,45,10,c.mutedInk)
+        label(tr(row.where == "launcher" and "IN MENU" or places[row.where] or "ONLINE"),x+23,y+16,45,10,c.mutedInk)
         label(row.name,x+3,y+29,66,12)
         hit(x,y,72,44,"player",row.id)
       end

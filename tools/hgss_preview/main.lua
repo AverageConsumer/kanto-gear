@@ -1446,7 +1446,7 @@ function love.load()
       description = { "USE FIELD MOVES AND GEAR.",
         "KEEP UNLOCKED TOOLS CLOSE.", "READY WHEN THE ROUTE NEEDS IT." } },
     { id = "notes", icon = "notes", label = "NOTES",
-      category = "TRAINER TOOL", action = "GET", state = "get", new = true,
+      category = "TRAINER TOOL", action = "GET", state = "get",
       description = { "PLAN ROUTES AND REMINDERS.",
         "KEEP CLUES CLOSE AT HAND.", "COMING SOON FROM SILPH LABS." } },
   }
@@ -1573,7 +1573,7 @@ function love.load()
     local versions = { "firered", "crystal", "red", "gold", "blue", "silver", "leafgreen" }
     for i, name in ipairs(names) do
       state.rows[i] = { id = tostring(i), name = name, version = versions[i],
-        where = "game", status = i == 2 and "battling" or "busy" }
+        where = i == 1 and "launcher" or "game", status = i == 2 and "battling" or "busy" }
     end
     if screen == "pss-detail" then state.selected, state.selectedRow = "1", state.rows[1]
     elseif screen ~= "pss" then

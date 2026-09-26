@@ -2490,7 +2490,7 @@ return function(mod)
       description = { "CONNECT WITH OTHER TRAINERS.",
         "SEE WHO IS ONLINE AND PLAYING.", "YOUR WINDOW TO THE COMMUNITY." } },
     { id = "notes", icon = "notes", label = "NOTES",
-      category = "TRAINER TOOL", target = "NOTES", featured = true, new = true,
+      category = "TRAINER TOOL", target = "NOTES", featured = true,
       description = { "PLAN ROUTES AND REMINDERS.",
         "WRITE, CHECK TASKS AND DRAW.", "KEEP CLUES CLOSE AT HAND." } },
     { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",

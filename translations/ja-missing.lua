@@ -27,12 +27,15 @@ return {
   ["DISCONNECT"] = false,
   ["CONNECT"] = false,
   ["WAITING"] = false,
-  ["LOBBY"] = false,
+  -- Recomp's launcher/main menu, not an in-game room.
+  ["RECOMP MENU"] = false,
+  ["IN MENU"] = false,
   ["IN GAME"] = false,
   ["UNION ROOM"] = false,
   ["DIRECT CORNER"] = false,
   ["AVAILABLE"] = false,
-  ["BUSY"] = false,
+  -- Server reports busy: unavailable for invitations; no specific activity known.
+  ["NOT AVAILABLE"] = false,
   ["TRADING"] = false,
   ["BATTLING"] = false,
   ["CHATTING"] = false,
