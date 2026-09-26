@@ -81,7 +81,7 @@ function Menu.model(top)
     local r = item.rect or { Menu.x, Menu.y + (row - 1) * Menu.step, Menu.width, Menu.height }
     entries[row] = { label = Menu.label(item), right = item.right, selected = index == selected,
       kind = item.value or item.id or kinds[item.label],
-      disabled = top.screenId == "Gen2StartMenu" and item.disabled,
+      rawMon = item.rawMon, disabled = top.screenId == "Gen2StartMenu" and item.disabled,
       x = r[1], y = r[2], w = r[3], h = r[4] }
   end
   return { entries = entries, first = first, last = first + count - 1, total = #top.items,

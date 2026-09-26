@@ -3747,6 +3747,35 @@ return function(ui)
     end
   end
 
+  function H:nativeGrid(model, drawIcon)
+    local c = self.colors
+    if model.name then
+      self:panel(7, 34, 226, 29, false, nil, c.greenLight)
+      self:partyInfo(self:fitPartyInfo(model.name, 210), 15, 44, c.ink, 210, "center")
+    end
+    for _, e in ipairs(model.entries) do
+      local x, y, w, h = e.x, e.y, e.w, e.h
+      local pressed = self:beginPress(x, y, w, h)
+      self:panel(x, y, w, h, e.selected, c.greenLight, c.blueLight)
+      if e.rawMon and drawIcon then
+        local size = math.min(h - 2, 32)
+        local labelled = e.label ~= ""
+        if labelled and h > 60 then
+          drawIcon(e.rawMon, x + math.floor((w - size) / 2), y + math.floor((h - size - 18) / 2), size)
+          self:partyInfo(self:fitPartyInfo(e.label, w - 8), x + 4, y + math.floor((h + size) / 2), c.ink, w - 8, "center")
+        elseif labelled then
+          drawIcon(e.rawMon, x + 2, y + math.floor((h - size) / 2), size)
+          self:partyInfo(self:fitPartyInfo(e.label, w - size - 8), x + size + 4,
+            y + math.floor((h - 9) / 2), c.ink, w - size - 8, "center")
+        else drawIcon(e.rawMon, x + math.floor((w - size) / 2), y + math.floor((h - size) / 2), size) end
+      else
+        self:partyInfo(self:fitPartyInfo(e.label, w - 4), x + 2,
+          y + math.floor((h - 9) / 2), c.ink, w - 4, "center")
+      end
+      self:endPress(pressed)
+    end
+  end
+
   function H:naming(model)
     local colors = self.colors
     self:panel(28, 33, 184, 18, false, nil, colors.greenLight)

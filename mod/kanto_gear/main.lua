@@ -3008,13 +3008,14 @@ return function(mod)
 
   compat.romCodes = {
     red = "RD", blue = "BL", yellow = "YL", gold = "GD", silver = "SV",
-    crystal = "CR",
+    crystal = "CR", firered = "FR", leafgreen = "LG",
   }
 
   function compat.systemId(version, release)
     version = version or (game and game.save and game.save.version)
+      or (displayRuntime.gen3 and require("src.core.GameVersion").get())
     local code = compat.romCodes[version]
-      or (compat.isGen2() and "G2" or "G1")
+      or (displayRuntime.gen3 and "G3" or compat.isGen2() and "G2" or "G1")
     release = tostring(release or mod.version or "DEV")
       :gsub("%-rc%.", "-RC")
     return ("SLS-%s-%s"):format(code, release:upper())
@@ -3025,6 +3026,9 @@ return function(mod)
     "Silver Silph Link system identifier")
   assert(compat.systemId("crystal", "2.5.0") == "SLS-CR-2.5.0",
     "Crystal Silph Link system identifier")
+  assert(compat.systemId("firered", "3.3.0") == "SLS-FR-3.3.0"
+    and compat.systemId("leafgreen", "3.3.0") == "SLS-LG-3.3.0",
+    "FRLG Silph Link system identifiers")
 
   function compat.titleChoice(top)
     return top and top.screenId == "Gen2MainMenu" and top.phase == "menu"
@@ -4807,7 +4811,21 @@ return function(mod)
     local model = displayRuntime.startMenuModel(top)
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if top.notice then
+      if top.nativeStats then
+        local native, rows = top.nativeStats, {}
+        local mon = displayRuntime.gen3:mon(native._mon)
+        local fields = { { "MAX HP", "maxHp" }, { "ATTACK", "atk" }, { "DEFENSE", "def" },
+          { "SP. ATK", "spa" }, { "SP. DEF", "spd" }, { "SPEED", "spe" } }
+        for _, field in ipairs(fields) do
+          local value, old = native._newStats[field[2]], native._oldStats[field[2]]
+          rows[#rows + 1] = { label = field[1], value = value, delta = native._page == 1 and value and old and value - old or nil }
+        end
+        THEME.hgss:levelUp({ name = displayRuntime.gen3.Pokemon.displayMonName(native._mon),
+          level = THEME:format("L%d", mon.level), type = mon.types[1], rows = rows,
+          drawPokemon = function(x, y, size) hgssRuntime.summaryPortrait({ source = mon, species = mon.species }, x, y, size) end })
+      elseif top.quantity then
+        THEME.hgss:pcQuantity(top.quantity)
+      elseif top.notice then
         local lines = THEME:wrapText(displayRuntime.gen3:plainText(top.notice), 192, 6,
           function(value) return THEME.hgss:labelWidth(value) end)
         local playerTeam, enemyTeam = {}, {}
@@ -4817,6 +4835,20 @@ return function(mod)
           G.pop(); header(THEME:translate(top.title), true)
           return
         end
+      elseif top.nativeGrid then
+        model.name = top.name
+        for _, e in ipairs(model.entries) do
+          if not top.name then e.label = THEME:menuActionLabel(e.label) end
+        end
+        THEME.hgss:nativeGrid(model, function(mon, x, y, size)
+          local icon = displayRuntime.gen3.Pokemon.monIcon(mon)
+          if icon and icon.image then
+            local quad = icon.quads and icon.quads[0]
+            G.setColor(1, 1, 1, 1)
+            if quad then G.draw(icon.image, quad, x, y, 0, size / 32, size / 32)
+            else G.draw(icon.image, x, y, 0, size / 32, size / 32) end
+          end
+        end)
       elseif top.partyActions then
         local mon = displayRuntime.partyView(top.partyActions)
         mon.species, mon.source = top.partyActions.species, top.partyActions
@@ -4848,18 +4880,62 @@ return function(mod)
         THEME.hgss:battleStandardParty(views, top.index, true, hgssRuntime.summaryPortrait)
       else
         THEME.hgss:startMenu(model)
+        if top.prompt then
+          local tall = #top.items <= 2
+          local lines = THEME:wrapText(displayRuntime.gen3:plainText(top.prompt), 204, tall and 5 or 3,
+            function(value) return THEME.hgss:labelWidth(value) end)
+          THEME.hgss:panel(7, 34, 226, tall and 76 or 46, false)
+          for i, line in ipairs(lines) do
+            THEME.hgss:partyInfo(line, 18, (tall and 72 or 57) - math.floor((#lines * 12 - 3) / 2) + (i - 1) * 12,
+              THEME.hgss.colors.ink, 204, "center")
+          end
+        end
       end
       G.pop()
     else
+      if top.nativeStats then
+        local native = top.nativeStats
+        local fields = { { "MAX HP", "maxHp" }, { "ATTACK", "atk" }, { "DEFENSE", "def" },
+          { "SP. ATK", "spa" }, { "SP. DEF", "spd" }, { "SPEED", "spe" } }
+        for i, f in ipairs(fields) do
+          local value, old = native._newStats[f[2]] or 0, native._oldStats[f[2]] or 0
+          centered(THEME:translate(f[1]) .. " " .. value
+            .. (native._page == 1 and string.format(" (%+d)", value - old) or ""), 30 + (i - 1) * 13, INK)
+        end
+        button(20, 113, 120, 24, THEME:translate("CONTINUE"))
+        return
+      end
+      if top.quantity then
+        centered(top.quantity.label, 35, INK)
+        centered(tostring(top.quantity.qty), 68, INK)
+        button(7, 61, 42, 28, "-"); button(111, 61, 42, 28, "+")
+        button(7, 99, 70, 37, THEME:translate("CONFIRM"))
+        button(83, 99, 70, 37, THEME:translate("CANCEL"))
+        return
+      end
       if top.notice then
         local lines = THEME:wrapText(displayRuntime.gen3:plainText(top.notice), 138, 6)
         for i, line in ipairs(lines) do centered(line, 45 + (i - 1) * 11, INK) end
         button(20, 113, 120, 24, THEME:translate("CONTINUE"))
         return
       end
+      if top.name then centered(top.name, 29, INK) end
+      if top.prompt then
+        local lines = THEME:wrapText(displayRuntime.gen3:plainText(top.prompt), 138, #top.items <= 2 and 4 or 2)
+        for i, line in ipairs(lines) do centered(line, 25 + (i - 1) * 10, INK) end
+      end
       for _, entry in ipairs(model.entries) do
         button(entry.x / 1.5, entry.y / 1.5, entry.w / 1.5, entry.h / 1.5,
           entry.label, entry.selected, not entry.disabled)
+        if entry.rawMon and entry.label == "" then
+          local icon = displayRuntime.gen3.Pokemon.monIcon(entry.rawMon)
+          if icon and icon.image and icon.quads and icon.quads[0] then
+            local size = math.min(entry.h - 2, 32)
+            G.setColor(1, 1, 1, 1)
+            G.draw(icon.image, icon.quads[0], (entry.x + math.floor((entry.w - size) / 2)) / 1.5,
+              (entry.y + math.floor((entry.h - size) / 2)) / 1.5, 0, size / 48, size / 48)
+          end
+        end
       end
       if model.fixedLayout or model.total <= 5 then return end
       button(7 / 1.5, 190 / 1.5, 56 / 1.5, 23 / 1.5, "^", false, model.first > 1)
@@ -11565,6 +11641,20 @@ return function(mod)
 
   function displayRuntime.tapStartMenu(top, x, y)
     if not displayRuntime.StartMenu.cursor(top) then return end
+    if top.nativeStats then
+      if y >= HEADER then press("a"); dirty = true end
+      return
+    end
+    if top.quantity then
+      local action
+      if THEME.style == "hgss" then action = THEME.hgss:pcQuantityHit(x * 1.5, y * 1.5)
+      else action = inside(x, y, 7, 61, 42, 28) and "minus" or inside(x, y, 111, 61, 42, 28) and "plus"
+        or inside(x, y, 7, 99, 70, 37) and "confirm" or inside(x, y, 83, 99, 70, 37) and "cancel" end
+      if y < HEADER and x < 24 then action = "cancel" end
+      local key = ({ minus = "down", plus = "up", confirm = "a", cancel = "b" })[action]
+      if key then press(key); dirty = true end
+      return
+    end
     if top.notice then
       if y >= HEADER then press("a"); dirty = true end
       return
@@ -12814,7 +12904,7 @@ return function(mod)
         local menu = displayRuntime.gen3Ui:list(battle)
         local summary = compat.isScreen(top, "summary") and compat.summary.supports(top, game)
         if top ~= raw and not (top and top.isTextBox) and not menu and not summary then return false end
-        if require("src.ui.game3.stat_growth").isOpen() then return false end
+        if require("src.ui.game3.stat_growth").isOpen() and not (menu and menu.nativeStats) then return false end
         if kind == "partyNavigation" then
           return fullBottomBattleUI() and menu and menu.party and menu.valid() or false
         end

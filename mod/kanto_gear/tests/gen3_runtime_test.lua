@@ -405,7 +405,7 @@ T.check(not owns("panel") and not owns("hud"), "unadapted windows keep native pr
 Stack.clear()
 local Growth = require("src.ui.game3.stat_growth")
 Growth.open(session.party[1], {}, {})
-T.check(not owns("panel"), "unadapted native stat window is not hidden")
+T.check(owns("panel") and display.startMenu().nativeStats == Growth, "native stat window is mirrored before hiding it")
 Growth.close({ silent = true })
 st.double = true
 T.check(not owns("hud"), "doubles retain all four native healthboxes")

@@ -7,7 +7,10 @@ and Emerald. Interactive gameplay verification is still required.
 
 Normal field scripts and warps retain the current companion page with its
 input-lock dimming. The upper-screen handoff controls are reserved for actual
-unadapted native menus.
+unadapted native menus. Native PC lists, item storage, box grids, naming,
+move replacement, shop/Bag quantities and confirmations now mirror their real
+cursor order. Activation remains native input, including VM/HM protection and
+the default NO when releasing a Pokémon. FR/LG have separate title identifiers.
 
 ## Gen 1/2 detailed minimaps
 
@@ -147,6 +150,7 @@ luajit <mod-path>/tests/gen3_native_test.lua
 luajit <mod-path>/tests/gen3_map_test.lua
 luajit <mod-path>/tests/gen3_runtime_test.lua
 luajit <mod-path>/tests/gen3_progress_test.lua
+luajit <mod-path>/tests/gen3_controls_test.lua
 ```
 
 The native suite checks real imported species, moves, items, edition-specific
@@ -189,9 +193,9 @@ Keep the original game UI visible for any state Gear cannot operate. Native
 Gen 3 menus use an ID-based module stack; they are not legacy `PartyMenu` or
 `BagMenu` instances. Recomp's Gen 3 battle API also lacks several legacy
 submission/visibility contracts. A successful read-model or rendering test
-does not verify every gameplay path. Finish PC/actions and
-remaining native mechanics as separate compatibility slices after the initial
-interactive test. No host rendering patches are included in this package.
+does not verify every gameplay path. Move-detail reordering, eggs and specialized
+minigames still retain the native UI. No host rendering patches are included in
+this package.
 
 ## Native battle presentation
 
@@ -205,7 +209,8 @@ not call the legacy battle visibility hooks. Gear suppresses the native command
 panel, printers and mirrored menus only while the secondary display is ready.
 Full Gear additionally relocates singles healthboxes. The bridge never changes
 battle phases or input, restores its printer scope after errors, and releases
-only its own wrappers. Unknown menus, stat-growth windows and tutorial-only
+only its own wrappers. Stat-growth pages show native deltas/totals and acknowledge
+through native input. Unknown menus and tutorial-only
 battles retain native presentation; doubles retain all four native healthboxes.
 Animated HP and native status bitfields are converted by the read adapter.
 During damage animations Full Gear keeps the current text beneath its HP cards.

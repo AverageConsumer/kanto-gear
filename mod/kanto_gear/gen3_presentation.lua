@@ -100,7 +100,7 @@ function Presentation.new(owns)
     return filtered
   end)
   for _, name in ipairs({ "message", "choice", "party_menu", "bag_menu",
-      "tm_case", "berry_pouch", "summary_menu" }) do
+      "tm_case", "berry_pouch", "summary_menu", "stat_growth" }) do
     wrap(require("src.ui.game3." .. name), "draw", function(next, ...)
       if not hidden("menu") then return next(...) end
     end)
