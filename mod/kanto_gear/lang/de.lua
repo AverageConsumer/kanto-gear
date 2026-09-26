@@ -756,4 +756,8 @@ return {
   ["QUALITY"] = "QUALITÄT",
   ["PERFORMANCE"] = "LEISTUNG",
   ["NO SPACE"] = "KEIN PLATZ",
+  ["NATURE"] = "WESEN",
+  ["ABILITY"] = "FÄHIGKEIT",
+  ["SWITCH BOX"] = "BOX WECHSELN",
+  ["WALLPAPER"] = "HINTERGRUND",
 }

@@ -7816,6 +7816,12 @@ return function(mod)
       nextExpLabel = THEME:translate("TO NEXT"),
       moveDetails = assist("move_details"),
     }
+    if view.gen3 then
+      out.natureLabel, out.natureText = THEME:translate("NATURE"), displayRuntime.gen3:plainText(view.nature)
+      out.abilityLabel, out.abilityText = THEME:translate("ABILITY"), displayRuntime.gen3:plainText(view.ability)
+      out.abilityLines = THEME:wrapText(displayRuntime.gen3:plainText(view.abilityDescription), 204, 3,
+        function(value) return THEME.hgss:partyInfoWidth(value) end)
+    end
     local stats = view.stats or {}
     local rows = view.gen2 and {
       { "ATTACK", stats.attack }, { "DEFENSE", stats.defense },
@@ -9202,7 +9208,15 @@ return function(mod)
     local mon, def = view.mon, view.def
     local page, level = view.page, view.level
     header(THEME:format("STATS %d/%d", page, view.pages), true)
-    if not view.gen2 and page == 1 then
+    if view.gen3 and page == 1 then
+      centered(view.name, 25, INK)
+      centered(THEME:translate("NATURE") .. ": " .. displayRuntime.gen3:plainText(view.nature), 41, INK)
+      centered(THEME:translate("ABILITY") .. ": " .. displayRuntime.gen3:plainText(view.ability), 55, INK)
+      local lines = THEME:wrapText(displayRuntime.gen3:plainText(view.abilityDescription), 146, 3)
+      for i, line in ipairs(lines) do centered(line, 70 + (i - 1) * 11, DARK) end
+      text(THEME:format("OT %s", fit(view.ot, 12)), 7, 112, DARK)
+      text(THEME:format("EXP %d", view.experience), 7, 126, DARK)
+    elseif not view.gen2 and page == 1 then
       local stats = view.stats
       local function typeName(index)
         local id = view.types[index]
@@ -9276,7 +9290,7 @@ return function(mod)
       else
         text(THEME:translate("NEXT MAX"), 77, 94, DARK)
       end
-    elseif page == 2 then
+    elseif view.gen3 and page == 3 or not view.gen3 and page == 2 then
       text(fit(view.name, 17), 5, 25, INK)
       text(THEME:format("LV.%d", level), 116, 25, DARK)
       text(THEME:format("ITEM %s", fit(view.item or "---", 18)), 5, 39, DARK)

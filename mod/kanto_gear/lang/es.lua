@@ -1,4 +1,8 @@
 return {
+  ["NATURE"] = "NATURALEZA",
+  ["ABILITY"] = "HABILIDAD",
+  ["SWITCH BOX"] = "CAMBIAR CAJA",
+  ["WALLPAPER"] = "FONDO",
   ["RENEWABLE"] = "REAPARECE",
   ["REPEATABLE"] = "REPETIBLE",
   ["KEYBOARD"] = "TECLADO",

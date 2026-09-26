@@ -17,6 +17,10 @@ signal across map connections, collected flags and underfoot-only finds. Explore
 scans reveal hidden items inside FRLG's 7-by-5 tile reach; possession of the
 Itemfinder in the current bag is required. Scanning never collects an item.
 
+The first Pokémon summary page displays nature, ability and its description from
+the native naming/description APIs, plus OT, ID and total experience. Translation
+mods can rename abilities without breaking the identity of their descriptions.
+
 ## Gen 1/2 detailed minimaps
 
 `native_map.lua` shares the host's terrain resources across Explorer, map view

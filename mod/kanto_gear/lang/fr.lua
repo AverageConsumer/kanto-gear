@@ -1,4 +1,8 @@
 return {
+  ["NATURE"] = "NATURE",
+  ["ABILITY"] = "TALENT",
+  ["SWITCH BOX"] = "CHANGER DE BOÎTE",
+  ["WALLPAPER"] = "FOND",
   ["RENEWABLE"] = "RÉAPPARAÎT",
   ["REPEATABLE"] = "RÉPÉTABLE",
   ["KEYBOARD"] = "CLAVIER",

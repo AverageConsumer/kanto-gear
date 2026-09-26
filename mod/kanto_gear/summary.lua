@@ -65,9 +65,16 @@ function Summary.view(state, game)
   local ot = gen2 and invoke(state, "otName") or mon.ot
   local otId = gen2 and invoke(state, "otId") or mon.otId
 
+  local nature, ability, abilityDescription
   if gen3 then
     local Items = require("src.core.game3.items_data")
     item = mon.item and mon.item ~= 0 and Items.displayName(mon.item) or "---"
+    local Native = require("src.core.game3.summary_data")
+    local Pokemon = require("src.core.game3.pokemon")
+    local abilityId = mon.ability or Pokemon.abilityId(mon.species, mon.personality)
+    nature = select(2, Native.nature(mon))
+    ability = Pokemon.abilityName(abilityId)
+    abilityDescription = Native.abilityDescription(abilityId, ability)
   end
   return {
     gen2 = gen2 or gen3, gen3 = gen3,
@@ -86,6 +93,7 @@ function Summary.view(state, game)
     experience = gen2 and (mon.experience or 0) or (mon.exp or 0),
     nextExp = nextExp,
     item = item,
+    nature = nature, ability = ability, abilityDescription = abilityDescription,
     ot = ot or player.name or (gen2 and "GOLD" or "RED"),
     otId = otId or player.id or 0,
     stats = stats,

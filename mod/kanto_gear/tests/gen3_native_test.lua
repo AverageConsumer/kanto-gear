@@ -51,6 +51,25 @@ local function equal(a, b)
   return true
 end
 local adapter = Gen3.new(raw)
+local Summary = dofile(root .. "/summary.lua")
+local natureFixture = Schema.newGame({ version=edition, name="NATURE", rngSeed=2 })
+Party.giveMon(natureFixture, 1, 15)
+local natureMon = natureFixture.party[1]
+for personality = 0, 24 do
+  natureMon.personality = personality
+  local projected = adapter:mon(natureMon)
+  local view = Summary.view({ screenId="Gen3SummaryMenu", mon=projected, page=1 }, adapter:gameView())
+  check(view.nature == select(2, adapter.Summary.nature(natureMon)), "nature matches native personality")
+  check(view.ability == P.abilityName(P.abilityId(1,personality)), "ability matches native species/personality")
+end
+local abilityId = adapter:mon(natureMon).ability
+local originalName = P._abilityNames[abilityId]
+P._abilityNames[abilityId] = "Translated ability"
+local translated = Summary.view({ screenId="Gen3SummaryMenu", mon=adapter:mon(natureMon), page=1 }, adapter:gameView())
+check(translated.ability == "Translated ability", "summary respects live ability name translations")
+check(translated.abilityDescription == adapter.Summary.abilityDescription(abilityId,originalName),
+  "translated ability name does not change description identity")
+P._abilityNames[abilityId] = originalName
 check(count(adapter.data.pokemon) == 386, "386 unique National Dex entries, no internal holes")
 check(adapter.data.pokemon[410].dex == 386, "Deoxys internal ID retained")
 check(adapter.data.pokemon[410].baseStats.attack == (edition == "firered" and 180 or 70), "edition-specific Deoxys")

@@ -6235,6 +6235,26 @@ return function(ui)
 
   function H:summaryMemo(mon, drawPortrait)
     self:summaryIdentity(mon, drawPortrait)
+    if mon.abilityText then
+      local c = self.colors
+      self:panel(6, 63, 228, 68, false, nil, c.blueLight)
+      self:partyInfo(mon.otLabel, 17, 69, c.green)
+      self:partyName(mon.otText or "---", 17, 82, c.ink, 109)
+      box("fill", 136, 68, 1, 27, c.bandLight)
+      self:partyInfo(mon.idLabel, 146, 69, c.green)
+      self:partyName(mon.idText, 146, 82, c.ink, 77)
+      box("fill", 16, 101, 208, 1, c.band)
+      self:partyInfo(mon.natureLabel, 17, 112, c.green, 76)
+      self:partyInfo(self:fitPartyInfo(mon.natureText, 125), 98, 112, c.ink, 125, "right")
+      self:panel(6, 136, 228, 74, false, nil, c.exp)
+      self:partyInfo(mon.abilityLabel, 17, 142, c.green, 76)
+      self:partyInfo(self:fitPartyInfo(mon.abilityText, 125), 98, 142, c.ink, 125, "right")
+      box("fill", 16, 156, 208, 1, c.band)
+      for i, line in ipairs(mon.abilityLines or {}) do self:partyInfo(line, 18, 162+(i-1)*11, c.ink, 204) end
+      self:partyType(mon.totalExpLabel, 17, 199, c.green, 98)
+      self:partyType(mon.experienceText, 126, 199, c.ink, 97)
+      return
+    end
     self:summaryTrainerMemo(mon)
     self:summaryGrowthMemo(mon)
   end
