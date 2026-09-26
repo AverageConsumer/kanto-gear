@@ -24,6 +24,7 @@ end
 function Menu.window(top, preview)
   local cursor = Menu.cursor(top, preview)
   if not cursor then return nil end
+  if top.fixedLayout then return 1, #top.items, cursor.index end
   local first = math.floor((cursor.index - 1) / Menu.visible) * Menu.visible + 1
   return first, math.min(Menu.visible, #top.items - first + 1), cursor.index
 end
@@ -42,6 +43,13 @@ function Menu.hit(top, x, y)
   local first, count = Menu.window(top)
   if not first then return nil end
   if x >= 0 and x < 27 and y >= 0 and y < 28 then return "back" end
+  if top.fixedLayout then
+    for index, item in ipairs(top.items) do
+      local r = item.rect
+      if r and x >= r[1] and x < r[1] + r[3] and y >= r[2] and y < r[2] + r[4] then return index end
+    end
+    return nil
+  end
   if y >= 190 and y < 213 then
     if x >= 7 and x < 63 and first > 1 then return "previous" end
     if x >= 177 and x < 233 and first + count <= #top.items then return "next" end
@@ -70,12 +78,15 @@ function Menu.model(top)
   for row = 1, count do
     local index = first + row - 1
     local item = top.items[index]
+    local r = item.rect or { Menu.x, Menu.y + (row - 1) * Menu.step, Menu.width, Menu.height }
     entries[row] = { label = Menu.label(item), right = item.right, selected = index == selected,
+      mon = item.mon, compact = top.fixedLayout,
       kind = item.value or item.id or kinds[item.label],
       disabled = top.screenId == "Gen2StartMenu" and item.disabled,
-      x = Menu.x, y = Menu.y + (row - 1) * Menu.step, w = Menu.width, h = Menu.height }
+      x = r[1], y = r[2], w = r[3], h = r[4] }
   end
-  return { entries = entries, first = first, last = first + count - 1, total = #top.items }
+  return { entries = entries, first = first, last = first + count - 1, total = #top.items,
+    fixedLayout = top.fixedLayout }
 end
 
 return Menu

@@ -3683,24 +3683,36 @@ return function(ui)
     end
   end
 
-  function H:startMenu(model)
+  function H:startMenu(model, drawPortrait)
     local c = self.colors
     for _, entry in ipairs(model.entries) do
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h)
       self:homeTile(x, y, w, h, entry.selected and c.green or c.blue, entry.selected)
-      self:startMenuIcon(entry.kind, x + 9, y + 6)
-      box("fill", x + 33, y + 5, 1, h - 10, c.band)
-      local reserved = entry.right and 78 or 0
-      self:partyInfo(self:fitPartyInfo(entry.label, w - 52 - reserved), x + 40,
-        y + math.floor((h - 9) / 2), entry.disabled and c.mutedInk or c.ink, w - 52 - reserved, "center")
-      if entry.right then
-        self:partyInfo(self:fitPartyInfo(entry.right, 72), x + w - 80,
-          y + math.floor((h - 9) / 2), c.ink, 72, "center")
+      if entry.compact then
+        if h > 64 and entry.mon and drawPortrait then
+          drawPortrait(entry.mon, x + math.floor((w - 64) / 2), y + math.floor((h - 64) / 2), 64, false)
+        end
+        local labelY = entry.right and y + (h > 64 and 6 or 4) or y + math.floor((h - 9) / 2)
+        self:partyInfo(self:fitPartyInfo(entry.label, w - 12), x + 6, labelY, c.ink, w - 12, "center")
+        if entry.right then
+          self:partyInfo(self:fitPartyInfo(entry.right, w - 12), x + 6,
+            h > 64 and y + h - 15 or y + 15, c.ink, w - 12, "center")
+        end
+      else
+        self:startMenuIcon(entry.kind, x + 9, y + 6)
+        box("fill", x + 33, y + 5, 1, h - 10, c.band)
+        local reserved = entry.right and 78 or 0
+        self:partyInfo(self:fitPartyInfo(entry.label, w - 52 - reserved), x + 40,
+          y + math.floor((h - 9) / 2), entry.disabled and c.mutedInk or c.ink, w - 52 - reserved, "center")
+        if entry.right then
+          self:partyInfo(self:fitPartyInfo(entry.right, 72), x + w - 80,
+            y + math.floor((h - 9) / 2), c.ink, 72, "center")
+        end
       end
       self:endPress(pressed)
     end
-    if model.total <= 5 then return end
+    if model.fixedLayout or model.total <= 5 then return end
     local controls = {
       { x = 7, up = true, enabled = model.first > 1 },
       { x = 177, enabled = model.last < model.total },
@@ -4418,14 +4430,16 @@ return function(ui)
     return row * 2 + column + 1
   end
 
-  -- Standard retains the native cursor order. Reuse the Safari 2x2 bounds
-  -- for both drawing and hit testing; Gear's asymmetric menu is independent.
-  function H:battleStandardRoot(mon, drawPortrait, playerTeam, enemyTeam, selected)
+  -- Standard and Gear retain native cursor order. Reuse the Safari 2x2
+  -- bounds for both drawing and hit testing; Full Gear owns its layout.
+  function H:battleStandardRoot(mon, drawPortrait, playerTeam, enemyTeam, selected, order)
     local G, colors = ui.graphics, self.colors
     self:battleTeamStrip(playerTeam, enemyTeam)
     local labels = { mon.fightLabel, mon.partyLabel, mon.bagLabel, mon.runLabel }
-    for slot, tint in ipairs({ "red", "green", "amber", "blue" }) do
-      local x, y = 6 + (slot - 1) % 2 * 116, 33 + math.floor((slot - 1) / 2) * 91
+    for position = 1, 4 do
+      local slot = order and order[position] or position
+      local tint = ({ "red", "green", "amber", "blue" })[slot]
+      local x, y = 6 + (position - 1) % 2 * 116, 33 + math.floor((position - 1) / 2) * 91
       local pressed = self:beginPress(x, y, 112, 86)
       self:battleActionPanel(x, y, 112, 86, tint, selected == slot)
       local cx, cy = x + 56, y + 32

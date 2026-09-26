@@ -264,6 +264,13 @@ now = now + .02; draw()
 T.eq(display.motion.started, nil, "replacing the native owner cancels cached motion even with the same screen key")
 game.stack.states[1] = world
 
+-- Native layouts must never flash the custom hero geometry.
+for _, mode in ipairs({ "standard", "gear" }) do
+  run.loader.modOptions.kanto_gear.battle_view = mode
+  runtime.beginAnimation("battle_moves")
+  T.eq(runtime.animation, nil, mode .. " keeps the native layout during transitions")
+end
+run.loader.modOptions.kanto_gear.battle_view = "full"
 -- Opposite hero transitions start at the last rendered position.
 for _, kind in ipairs({ "battle_moves", "battle_move_info" }) do
   runtime.animation = nil

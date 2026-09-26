@@ -169,6 +169,27 @@ T.eq(NativeParty.cursor, 8, "multi-party cancellation retains native slot eight"
 NativeParty.mode = "message"
 T.check(display.startMenu() == nil, "party message cannot accept stale party selection")
 NativeParty.close()
+local six = {}
+for i = 1, 6 do six[i] = session.party[1] end
+NativeParty.show(six, { session = session })
+for slot = 1, 7 do
+  NativeParty.cursor = slot
+  local projected = display.startMenu()
+  local model = display.startMenuModel(projected)
+  T.eq(#model.entries, 7, "all native party slots and cancel remain visible")
+  local row = model.entries[slot]
+  T.check(row.selected, "party highlight follows native slot " .. slot)
+  T.eq(display.StartMenu.hit(projected, row.x + row.w / 2, row.y + row.h / 2), slot,
+    "party touch geometry selects native slot " .. slot)
+end
+NativeParty.cursor = 5
+NativeParty.handleInput({ wasPressed = function(_, key) return key == "left" end,
+  isDown = function() return false end })
+T.eq(NativeParty.cursor, 1, "native Left reaches the separately displayed lead")
+NativeParty.handleInput({ wasPressed = function(_, key) return key == "right" end,
+  isDown = function() return false end })
+T.eq(NativeParty.cursor, 5, "native Right returns to the last selected right-column member")
+NativeParty.close()
 local NativeBag = require("src.ui.game3.bag_menu")
 NativeBag.show(session.bag, { session = session, pocket = "POKE_BALLS" })
 menu = display.startMenu()
@@ -314,7 +335,66 @@ for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
   run.loader.modOptions.kanto_gear.battle_view = mode
   T.eq(owns("panel"), mode == "gear" or mode == "full", mode .. " native panel ownership")
   T.eq(owns("hud"), mode == "full", mode .. " native healthbox ownership")
+  T.eq(owns("navigation"), mode == "full", mode .. " command navigation authority")
+  for index = 1, 4 do
+    for _, direction in ipairs({ "up", "down", "left", "right" }) do
+      Ui._menuIndex = index
+      local semantic = ({ 1, 3, 2, 4 })[index]
+      local columnChange = direction == "left" or direction == "right"
+      local expected = columnChange and (index % 2 == 1 and index + 1 or index - 1)
+        or (index <= 2 and index + 2 or index - 2)
+      if mode == "full" then
+        local nextSemantic = columnChange and (semantic % 2 == 1 and semantic + 1 or semantic - 1)
+          or (semantic <= 2 and semantic + 2 or semantic - 2)
+        expected = ({ 1, 3, 2, 4 })[nextSemantic]
+      end
+      Ui.handleInput({ wasPressed = function(_, key) return key == direction end })
+      T.eq(Ui._menuIndex, expected, mode .. " native command " .. index .. " " .. direction)
+    end
+  end
 end
+Ui._menuIndex = 1; refreshBattle()
+local runtime = assert(upvalue(hook, "hgssRuntime"))
+local P = display.gen3.Pokemon
+local nativeFront, captured = P.frontPic
+P.frontPic = function(id, form, shiny, personality)
+  captured = { id = id, shiny = shiny, personality = personality }
+  return nil
+end
+runtime.battlePortrait(runtime.battleMon(), 0, 0, 64, false)
+T.eq(captured.shiny, P.isShiny(session.party[1]), "battle portrait retains the real shiny flag")
+T.eq(captured.personality, session.party[1].personality, "battle portrait retains the real personality")
+local normalPersonality = session.party[1].personality
+session.party[1].personality = require("bit").bxor(session.party[1].otId or 0, session.party[1].otSecretId or 0)
+refreshBattle()
+runtime.battlePortrait(runtime.battleMon(), 0, 0, 64, false)
+T.eq(captured.shiny, true, "a real shiny keeps its shiny portrait")
+session.party[1].personality = normalPersonality
+refreshBattle()
+P.frontPic = nativeFront
+local originalMoves = session.party[1].moves
+for _, mode in ipairs({ "standard", "gear", "full" }) do
+  run.loader.modOptions.kanto_gear.battle_view = mode
+  for count = 1, 4 do
+    session.party[1].moves = {}
+    for i = 1, count do session.party[1].moves[i] = 33 end
+    Ui._mode = "moves"; refreshBattle()
+    for slot = 1, count do
+      for _, direction in ipairs({ "up", "down", "left", "right" }) do
+        Ui._moveIndex = slot
+        local horizontal = direction == "left" or direction == "right"
+        local expected = horizontal and (slot % 2 == 1 and slot + 1 or slot - 1)
+          or (slot <= 2 and slot + 2 or slot - 2)
+        if expected > count then expected = slot end
+        Ui.handleInput({ wasPressed = function(_, key) return key == direction end })
+        T.eq(Ui._moveIndex, expected, mode .. " " .. count .. " moves: " .. slot .. " " .. direction)
+      end
+    end
+  end
+end
+session.party[1].moves = originalMoves
+run.loader.modOptions.kanto_gear.battle_view = "full"
+Ui._mode, Ui._menuIndex = "menu", 1; refreshBattle()
 Stack.push("unknown-battle-modal", {})
 T.check(not owns("panel") and not owns("hud"), "unadapted windows keep native presentation")
 Stack.clear()
@@ -361,11 +441,11 @@ for _, move in ipairs(upvalue(refreshBattle, "battle").moves) do
   T.eq(move.type, display.gen3.data.moves[move.id].type, "battle move retains its native type: " .. move.id)
 end
 submit("back"); refreshBattle()
-tapBattle(178 / 1.5, 76 / 1.5)
+tapBattle(62 / 1.5, 167 / 1.5)
 paintBattle("native battle party")
 T.check(display.startMenu() ~= nil, "battle party uses its actual display order")
 NativeParty.close(); Ui.openMenu(0); display.gen3.syncScreens(); refreshBattle()
-tapBattle(62 / 1.5, 167 / 1.5)
+tapBattle(178 / 1.5, 76 / 1.5)
 NativeBag.settle(); paintBattle("native battle bag")
 T.check(display.startMenu() ~= nil, "battle Bag uses native pocket data")
 NativeBag.close()
@@ -379,6 +459,11 @@ local targets = display.startMenu()
 
 T.check(targets and #targets.items == 3, "target list excludes the user for an opponent-selected move")
 T.eq(targets and targets.battleTargets[1], 0, "ally retains native battler ID zero")
+T.eq(targets.battleTargets[2], 3, "target rows follow the native target cycle")
+Ui.handleInput({ wasPressed = function(_, key) return key == "down" end })
+local afterTarget = display.startMenu()
+local nativeTarget = Ui._target.cursor
+T.eq(afterTarget.battleTargets[afterTarget.index], nativeTarget, "native target highlight matches the displayed row")
 submit("target", { target = 3 })
 T.eq(Ui._pendingCommand and Ui._pendingCommand.target, 3, "target command reaches right-hand opponent")
 st = State.new({ playerParty = session.party, foeParty = foes.party, wild = true })

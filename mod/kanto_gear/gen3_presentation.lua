@@ -1,5 +1,5 @@
 -- Native FRLG does not call the legacy battle visibility hooks yet. Bridge
--- only its presentation functions; never alter the battle phase or input.
+-- its presentation functions and Full Gear's owned command-grid navigation.
 local Presentation = {}
 Presentation.__index = Presentation
 
@@ -15,6 +15,19 @@ function Presentation.new(owns)
   local function hidden(kind)
     return self.owns and self.owns(kind) or false
   end
+  wrap(require("src.core.game3.battle.ui"), "handleInput", function(next, input, ...)
+    if hidden("navigation") then
+      -- FRLG: FIGHT/BAG above PARTY/RUN. Full Gear: FIGHT/PARTY above
+      -- BAG/RUN. Transpose directions at the native handler, after Input.step,
+      -- so keyboard, held controls and gamepads all keep the same authority.
+      local directions = { left = "up", right = "down", up = "left", down = "right" }
+      local source = input
+      input = setmetatable({ wasPressed = function(_, key)
+        return source:wasPressed(directions[key] or key)
+      end }, { __index = source })
+    end
+    return next(input, ...)
+  end)
   wrap(require("src.core.game3.battle.ui"), "draw", function(next, ...)
     local previous = self.drawing
     self.drawing = hidden("panel")

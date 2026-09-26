@@ -29,8 +29,8 @@ function love.load()
       local owns = display.gen3Presentation.owns
       value(owns, "active", true, true); value(owns, "displayReady", true, true)
       value(owns, "hasDisplay", function() return true end, true)
-      local sheet, upper = G.newCanvas(960, 1080), G.newCanvas(240, 160)
-      local cases = { "standard", "gear", "full", "oak", "damage" }
+      local sheet, upper = G.newCanvas(960, 1512), G.newCanvas(240, 160)
+      local cases = { "standard", "gear", "full", "oak", "damage", "moves", "party" }
       local Anim = require("src.core.game3.battle.anim")
       local busy = Anim.busy
       for variant, style in ipairs({ "hgss", "hgss_dark" }) do
@@ -44,7 +44,7 @@ function love.load()
           B._active, B._auto, B._phase, B._st = true, false, "command", st
           U.reset({ headless = true }); U.bindState(st, game.session); U.openMenu(0)
           run.loader.modOptions.kanto_gear.battle_view = mode == "oak" and "gear"
-            or mode == "damage" and "full" or mode
+            or (mode == "damage" or mode == "moves" or mode == "party") and "full" or mode
           if mode == "oak" then
             local pages = require("src.core.game3.battle.oak_advice").pages({ playerName = "RED" }, "forPetesSake")
             M.show(pages[2], { frame = "voiceover", speed = 0 })
@@ -52,6 +52,12 @@ function love.load()
             B._phase, U._mode = "turn", "text"
             require("src.core.game3.battle.anim").present("player").displayHp = 9
             M.show("CHARMANDER used\nSCRATCH!", { frame = "battle", speed = 0, stay = true })
+          end
+          if mode == "moves" then U._mode = "moves"
+          elseif mode == "party" then
+            local party = {}
+            for i = 1, 6 do party[i] = game.session.party[(i - 1) % #game.session.party + 1] end
+            require("src.ui.game3.party_menu").show(party, { session = game.session })
           end
           display.gen3.syncScreens(); refresh()
           value(owns, "displayReady", true, true)
@@ -65,6 +71,7 @@ function love.load()
           G.draw(lower, (variant - 1) * 480 + 240, (row - 1) * 216, 0,
             240 / lower:getWidth(), 216 / lower:getHeight())
           G.setCanvas()
+          require("src.ui.game3.party_menu").close()
         end
       end
       Anim.busy = busy

@@ -2786,15 +2786,16 @@ return function(mod)
     return ok and result ~= false
   end
 
-  function hgssRuntime.standardBattle()
-    return THEME.style == "hgss" and currentBattleUIMode() == "standard"
+  function hgssRuntime.nativeBattleLayout()
+    local mode = currentBattleUIMode()
+    return THEME.style == "hgss" and (mode == "standard" or mode == "gear")
   end
 
   function hgssRuntime.beginAnimation(kind, data)
     if THEME.style ~= "hgss" or mod.options:get("ui_motion") == false
-        or hgssRuntime.standardBattle() and kind:match("^battle_") then
-      -- The existing hero transitions use Gear's grid geometry. Standard
-      -- uses the shared page transition instead, without a one-frame grid.
+        or (hgssRuntime.nativeBattleLayout() or displayRuntime.gen3) and kind:match("^battle_") then
+      -- Hero transitions assume the custom Full Gear geometry. Native
+      -- layouts use the shared compositor without a one-frame wrong layout.
       hgssRuntime.animation = nil
       return
     end
@@ -2833,7 +2834,7 @@ return function(mod)
       or nil
     local items = menu and (menu.subItems or (submenu and submenu.items)) or {}
     local actions = {}
-    for index = 1, hgssRuntime.standardBattle() and #items or math.min(2, #items) do
+    for index = 1, hgssRuntime.nativeBattleLayout() and #items or math.min(2, #items) do
       actions[#actions + 1] = { index = index, item = items[index] }
     end
     return actions, submenu
@@ -3224,8 +3225,8 @@ return function(mod)
   end
 
   local function companionMoveGrid(state)
-    return moveGridLayout(state, bottomOwnsBattleUI(
-      hideUpperBattleUI(), active, hasDisplay(), displayReady, state, battle))
+    return displayRuntime.gen3 ~= nil or moveGridLayout(state, bottomOwnsBattleUI(
+      fullBottomBattleUI(), active, hasDisplay(), displayReady, state, battle))
   end
 
   local function romThemePalette(name)
@@ -4351,9 +4352,13 @@ return function(mod)
       local def = game.data.pokemon[species]
       local id = def and def.index
       if not id then return nil end
-      local pic
-      if mon then pic = side == "back" and P.monBackPic(mon) or P.monFrontPic(mon)
-      else pic = side == "back" and P.backPic(id) or P.frontPic(id) end
+      -- Battle snapshots wrap the projected Pokemon. Never derive shininess
+      -- from a display-only record whose trainer/personality fields are absent.
+      mon = mon and (mon.source or mon)
+      local picId = mon and P.monPicSpecies(mon) or id
+      local shiny = mon and mon.shiny == true or false
+      local pic = side == "back" and P.backPic(picId, nil, shiny)
+        or P.frontPic(picId, nil, shiny, mon and mon.personality)
       return pic and pic.image, true
     end
     local path, trueColor = PokemonSprites.path(
@@ -4779,14 +4784,14 @@ return function(mod)
     local model = displayRuntime.startMenuModel(top)
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:startMenu(model)
+      THEME.hgss:startMenu(model, hgssRuntime.summaryPortrait)
       G.pop()
     else
       for _, entry in ipairs(model.entries) do
         button(entry.x / 1.5, entry.y / 1.5, entry.w / 1.5, entry.h / 1.5,
           entry.label, entry.selected, not entry.disabled)
       end
-      if model.total <= 5 then return end
+      if model.fixedLayout or model.total <= 5 then return end
       button(7 / 1.5, 190 / 1.5, 56 / 1.5, 23 / 1.5, "^", false, model.first > 1)
       button(177 / 1.5, 190 / 1.5, 56 / 1.5, 23 / 1.5, "v", false, model.last < model.total)
       centered(model.first .. "-" .. model.last .. "/" .. model.total, 131, DARK)
@@ -7682,7 +7687,7 @@ return function(mod)
         accuracyText = move.accuracy and tostring(move.accuracy) or "--",
       }
     end
-    out.moveIndex = battle and hideUpperBattleUI() and (summary.moveIndex or 1) or nil
+    out.moveIndex = battle and fullBottomBattleUI() and (summary.moveIndex or 1) or nil
     return out, view
   end
 
@@ -7700,9 +7705,10 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if hgssRuntime.standardBattle() then
+      if hgssRuntime.nativeBattleLayout() then
         THEME.hgss:battleStandardRoot(mon, hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, battle.menuIndex)
+          playerTeam, enemyTeam, battle.menuIndex,
+          displayRuntime.gen3 and { 1, 3, 2, 4 } or nil)
         G.pop()
         return
       end
@@ -7740,8 +7746,10 @@ return function(mod)
     header(THEME:translate(battle.kind == "wild" and "Wild battle"
       or battle.kind == "trainer" and "Trainer battle" or "BATTLE"))
     button(3, 24, 76, 54, THEME:translate("FIGHT"), battle.menuIndex == 1)
-    button(81, 24, 76, 54, THEME:translate("PKMN"), battle.menuIndex == 2)
-    button(3, 81, 76, 56, THEME:translate("ITEM"), battle.menuIndex == 3)
+    button(81, 24, 76, 54, THEME:translate(displayRuntime.gen3 and "ITEM" or "PKMN"),
+      battle.menuIndex == (displayRuntime.gen3 and 3 or 2))
+    button(3, 81, 76, 56, THEME:translate(displayRuntime.gen3 and "PKMN" or "ITEM"),
+      battle.menuIndex == (displayRuntime.gen3 and 2 or 3))
     button(81, 81, 76, 56, THEME:translate("RUN"), battle.menuIndex == 4)
   end
 
@@ -7864,7 +7872,12 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if hgssRuntime.standardBattle() then
+      if displayRuntime.gen3 then
+        THEME.hgss:battleMoves(mon, playerTeam, enemyTeam)
+        G.pop()
+        return
+      end
+      if hgssRuntime.nativeBattleLayout() then
         THEME.hgss:battleStandardMoves(mon, playerTeam, enemyTeam)
         G.pop()
         return
@@ -8775,7 +8788,7 @@ return function(mod)
     local title = compat.battlePartyTitle(menu, cancel)
     if THEME.style == "hgss" then
       local list = battle.party or {}
-      if hgssRuntime.standardBattle() then
+      if hgssRuntime.nativeBattleLayout() then
         header(compat.battlePartyTitle(menu), true, false, -1)
         local views = {}
         for slot, mon in ipairs(list) do
@@ -11018,7 +11031,7 @@ return function(mod)
       elseif y >= 23 then
         local slot
         if THEME.style == "hgss" then
-          if hgssRuntime.standardBattle() then
+          if hgssRuntime.nativeBattleLayout() then
             local count = #(battle.party or {})
             local cancel = hgssRuntime.partyHasCancel(party, count)
             slot = THEME.hgss:battleStandardPartyHit(
@@ -11185,7 +11198,7 @@ return function(mod)
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
         if hy < 30 and hx < 28 then back(); return end
         local slot, info
-        if hgssRuntime.standardBattle() then
+        if hgssRuntime.nativeBattleLayout() and not displayRuntime.gen3 then
           slot, info = THEME.hgss:battleStandardMoveHit(hx, hy)
         else
           if hy < 33 or hy >= 198 then return end
@@ -11233,8 +11246,9 @@ return function(mod)
     if battle.prompt ~= "menu" then return end
     local choice
     if THEME.style == "hgss" then
-      if hgssRuntime.standardBattle() then
+      if hgssRuntime.nativeBattleLayout() then
         choice = THEME.hgss:safariHit(x * THEME.hgssScale, y * THEME.hgssScale)
+        if displayRuntime.gen3 and choice then choice = ({ 1, 3, 2, 4 })[choice] end
       elseif fullBottomBattleUI() then
         choice = THEME.hgss:fullBattleChoice(
           x * THEME.hgssScale, y * THEME.hgssScale)
@@ -11247,6 +11261,7 @@ return function(mod)
     elseif y >= 24 then
       local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
       choice = row * 2 + col + 1
+      if displayRuntime.gen3 then choice = ({ 1, 3, 2, 4 })[choice] end
     end
     if not choice then return end
     if displayRuntime.gen3 then
@@ -12712,6 +12727,10 @@ return function(mod)
         local summary = compat.isScreen(top, "summary") and compat.summary.supports(top, game)
         if top ~= raw and not (top and top.isTextBox) and not menu and not summary then return false end
         if require("src.ui.game3.stat_growth").isOpen() then return false end
+        if kind == "navigation" then
+          return fullBottomBattleUI() and top == raw and battle.prompt == "menu"
+            and not raw.battle.safari and not adapter.Message.isOpen()
+        end
         if kind == "hud" then
           return fullBottomBattleUI() and not raw.battle.double
             and not adapter.BattleUI.litHealthboxShown()
@@ -12898,7 +12917,7 @@ return function(mod)
 
   function hgssRuntime.remapBattleRootInput(stepGame)
     if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss"
-        or not battle then return end
+        or not fullBottomBattleUI() or not battle then return end
     local raw = battleState()
     local top = game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
@@ -12944,7 +12963,7 @@ return function(mod)
 
   function hgssRuntime.remapSummaryMovesInput(stepGame)
     if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss" or not battle
-        or not hideUpperBattleUI() or not assist("move_details") then return end
+        or displayRuntime.gen3 or not fullBottomBattleUI() or not assist("move_details") then return end
     local summary = screenById("summary")
     local raw, top = battleState(), game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
@@ -13422,7 +13441,7 @@ return function(mod)
   mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
     if next(state) == true then return true end
     return screenContract(state, "party") ~= nil and bottomOwnsBattleUI(
-      hideUpperBattleUI(), active,
+      fullBottomBattleUI(), active,
       hasDisplay(), displayReady, battleState(), battle)
   end)
 

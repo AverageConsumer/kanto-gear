@@ -54,9 +54,12 @@ function UI:list(battle)
     local move = active and active.mon.moves and active.mon.moves[target.slot]
     local def = move and self.adapter.Moves.get(move)
     local selfTarget = math.floor((tonumber(def and def.target) or 0) / 2) % 2 == 1
-    for _, id in ipairs(battle.targets or {}) do
+    local allowed = {}
+    for _, id in ipairs(battle.targets or {}) do allowed[id] = true end
+    -- The native target cursor cycles by battlefield identity, not API order.
+    for _, id in ipairs({ 0, 2, 3, 1 }) do
       for _, mon in ipairs(battle.battlers or {}) do
-        if mon.id == id and (id ~= target.battler or selfTarget) then
+        if allowed[id] and mon.id == id and (id ~= target.battler or selfTarget) then
           items[#items + 1], ids[#ids + 1] = { label = mon.name or "POKEMON",
             right = (mon.side == "player" and "ALLY" or "FOE") }, id
           if target.cursor == id then selected = #items end
@@ -75,12 +78,13 @@ function UI:list(battle)
   end
   if not layer or not layer.mod or layer.mod.open ~= true then return nil end
   local native, items, field, title, slots = layer.mod
-  local pocket = false
+  local pocket, partyLayout = false, false
   if layer.id == "start" and not native._confirmExit then
     items, field, title = labels(native.ENTRIES), "cursor", "CHOOSE ACTION"
   elseif layer.id == "party" and not native._hpAnim and not native._pokedude then
     title = "PARTY"
     if partyModes[native.mode] then
+      partyLayout = true
       items, slots, field = {}, {}, "cursor"
       for i, mon in ipairs(native._party or {}) do
         local view = self.adapter:mon(mon)
@@ -96,6 +100,14 @@ function UI:list(battle)
         items[#items + 1], slots[#slots + 1] = { label = "CONFIRM" }, 7
       end
       items[#items + 1], slots[#slots + 1] = { label = "CANCEL" }, native.mode == "choose_multi" and 8 or 7
+      -- Match FRLG's lead slot on the left and remaining party on the right.
+      -- Keep all slots visible: native Left/Right jumps between these columns.
+      for i, slot in ipairs(slots) do
+        items[i].rect = slot == 1 and { 6, 50, 91, 109 }
+          or slot <= 6 and { 103, 33 + (slot - 2) * 29, 131, 27 }
+          or slot == 7 and native.mode == "choose_multi" and { 6, 183, 91, 27 }
+          or { 103, 183, 131, 27 }
+      end
       if native.mode == "use" then title = "USE ITEM ON" end
     elseif native.mode == "action" then
       items, field = labels(native.ACTIONS), "actionCursor"
@@ -162,6 +174,7 @@ function UI:list(battle)
     self.view = view
   end
   view.items, view.nativeSlots, view.title, view.nativePocket = items, slots, title, pocket
+  view.fixedLayout = partyLayout
   return view
 end
 

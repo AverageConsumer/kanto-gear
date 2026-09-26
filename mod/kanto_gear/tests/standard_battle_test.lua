@@ -128,14 +128,14 @@ for _, mode in ipairs({ "standard", "gear", "full" }) do
   battle.prompt = "menu"
   snapshot()
   drawBattle()
-  T.check(rendered[mode == "standard" and "battleStandardRoot"
-    or mode == "gear" and "battleRoot" or "battleFullRoot"], mode .. " chooses its own root")
+  T.check(rendered[mode ~= "full" and "battleStandardRoot"
+    or "battleFullRoot"], mode .. " chooses its own root")
   battle.prompt = "moves"
   drawBattle()
-  T.check(rendered[mode == "standard" and "battleStandardMoves" or "battleMoves"],
+  T.check(rendered[mode ~= "full" and "battleStandardMoves" or "battleMoves"],
     mode .. " chooses its own move layout")
   runtime.beginAnimation("battle_moves")
-  T.eq(runtime.animation ~= nil, mode ~= "standard", "only Gear uses the grid hero animation")
+  T.eq(runtime.animation ~= nil, mode == "full", "native layouts do not animate through a different grid")
   runtime.animation = nil
 end
 options.battle_view = "standard"
@@ -239,7 +239,14 @@ if generation == 2 then
   drawBattle()
 end
 options.battle_view = "gear"
-T.eq(#runtime.partySubmenuActions(menu), 2, "Gear keeps its existing two-action context menu")
+T.eq(#runtime.partySubmenuActions(menu), 3, "Gear keeps every native action including cancel")
+game.input.pressQueue = { "down", "right", "a", "b" }
+runtime.remapBattleRootInput(game)
+T.eq(table.concat(game.input.pressQueue, ","), "down,right,a,b", "Gear never remaps native input")
+T.eq(run.loader.hooks:call("battle.move_grid_navigation", function() return false end, raw),
+  false, "Gear retains the native vertical move cursor")
+T.eq(run.loader.hooks:call("ui.party.grid_navigation", function() return false end,
+  { screenId = "PartyMenu", index = 1 }), false, "Gear retains native vertical party input")
 options.battle_view = "standard"
 stack.states[3] = nil
 for _, prompt in ipairs({ "safari", "mimic" }) do
@@ -343,9 +350,9 @@ for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
   summary.page, summary.moveIndex = 2, 1
   game.input.pressQueue = { "down" }
   runtime.remapSummaryMovesInput(game)
-  T.eq(#game.input.pressQueue, mirrored and 1 or 0,
-    mode .. " only intercepts summary navigation when it owns the screen")
-  T.eq(runtime.summaryView(summary).moveIndex ~= nil, not mirrored,
+  T.eq(#game.input.pressQueue, mode == "full" and 0 or 1,
+    mode .. " only intercepts summary navigation in Full Gear")
+  T.eq(runtime.summaryView(summary).moveIndex ~= nil, mode == "full",
     mode .. " shows move focus only when D-pad actually controls it")
   if mirrored then
     game.input.pressQueue = { "a", "b", "up", "down", "left", "right" }

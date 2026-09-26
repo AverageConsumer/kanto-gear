@@ -34,7 +34,9 @@ local mode, errorNow = "standard", false
 local nativeDraw = U.draw
 U.draw = function(...) nativeDraw(...); if errorNow then error("draw failure") end end
 local original = U.draw
-local p = Presentation.new(function(kind) return mode ~= "standard" and (kind ~= "hud" or mode == "full") end)
+local input = { wasPressed = function(_, key) return key == "right" or key == "a" end }
+U.handleInput = function(i) return i:wasPressed("down"), i:wasPressed("right"), i:wasPressed("a") end
+local p = Presentation.new(function(kind) return mode ~= "standard" and ((kind ~= "hud" and kind ~= "navigation") or mode == "full") end)
 local function count(name, method) return calls[name .. ":" .. method] or 0 end
 U.draw()
 T.eq(#bands, 0, "standard leaves the native background unchanged")
@@ -49,7 +51,11 @@ T.eq(count("src.ui.game3.frlg_font", "draw"), 3, "Gear removes only the command 
 T.eq(count("src.ui.game3.window", "cursorPx"), 1, "Gear also removes its command cursor")
 T.eq(count("src.ui.game3.battle_chrome", "drawPanel"), 1, "Gear removes command chrome")
 T.eq(count("src.core.game3.battle.healthbox", "draw"), 2, "Gear retains native healthboxes")
+local down, right, confirm = U.handleInput(input)
+T.check(not down and right and confirm, "Gear retains native navigation and confirmation")
 mode = "full"; U.draw()
+down, right, confirm = U.handleInput(input)
+T.check(down and not right and confirm, "Full Gear transposes only directions")
 T.eq(count("src.core.game3.battle.healthbox", "draw"), 2, "Full Gear relocates healthboxes")
 T.eq(F.draw("FIELD TEXT", 10, 122), "native", "same coordinates outside battle rendering are untouched")
 errorNow = true
@@ -61,7 +67,11 @@ for _, name in ipairs({ "message", "choice", "bag_menu", "party_menu", "summary_
 end
 local wrapped = F.draw
 F.draw = function(...) return wrapped(...) end
+local wrappedInput = U.handleInput
+U.handleInput = function(...) return wrappedInput(...) end
 p:release()
+down, right, confirm = U.handleInput(input)
+T.check(not down and right and confirm, "release leaves chained input as native passthrough")
 T.eq(releases, 1, "owned quad is released without releasing the host texture")
 T.eq(U.draw, original, "release restores native entry point")
 T.eq(F.draw("CHAINED MOD", 10, 122), "native", "later mod wrapper survives release")
