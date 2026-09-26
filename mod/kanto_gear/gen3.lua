@@ -33,6 +33,7 @@ function Gen3.new(game)
   self.Types = require("src.core.game3.battle.types")
   self.Battle = require("src.core.game3.battle")
   self.BattleUI = require("src.core.game3.battle.ui")
+  self.Anim = require("src.core.game3.battle.anim")
   self.Field = require("src.core.game3.field")
   self.Warp = require("src.core.game3.warp")
   self.Runtime = require("src.core.game3.runtime")
@@ -165,7 +166,8 @@ function Gen3:mon(source)
   out.speciesNumbering = P.NUMBERING_INTERNAL
   out.nickname = source.nickname ~= "" and source.nickname or nil
   out.hp, out.maxHp = source.hp, source.maxHp
-  out.status = source.status
+  out.status = ({ "PSN", "PAR", "SLP", "FRZ", "BRN", "PKRS", "FNT" })[
+    self.Summary.statusAilment(source)]
   out.isEgg = P.isEgg(source)
   out.personality = source.personality
   out.gender = self.Summary.gender(source)
@@ -418,6 +420,8 @@ function Gen3:battleState()
   view.player, view.enemy = st.player, st.enemy
   view.tutorial, view.demo = st.oldManTutorial or B._auto, st.pokedude
   view.activeBattler = U and U._active
+  view.draining = self.Anim.busy() and (not self.Message.isOpen()
+    or self.Message._held or self.Message._stay) or false
   return view
 end
 
@@ -466,11 +470,24 @@ function Gen3:battleSnapshot(snapshot)
     local view = self:mon(source)
     out.source, out.species, out.types = view, view.species, view.types
     out.gender, out.shiny, out.isEgg = view.gender, view.shiny, view.isEgg
+    out.name = view.nickname or self.Pokemon.name(view.species)
+    out.level, out.status = view.level, view.status
   end
   for i, mon in ipairs(st.playerParty or {}) do enrich(snapshot.party[i], mon) end
   local owner = snapshot.active == 2 and st.battlers and st.battlers[2] or st.player
   enrich(snapshot.player, owner and owner.mon)
   enrich(snapshot.enemy, st.enemy and st.enemy.mon)
+  for _, side in ipairs({ "player", "enemy" }) do
+    local out, source = snapshot[side], side == "player" and owner or st.enemy
+    if out and source then
+      local key = st.double and (side == "player" and snapshot.active or 1) or side
+      local shown = self.Anim.shownBattler(key, source)
+      enrich(out, shown and shown.mon)
+      local _, hp, maxHp = self.Anim.displayHpRatio(key, shown)
+      out.hp, out.maxHp = math.floor(hp), maxHp
+      out.nativeShownHp = out.hp
+    end
+  end
   for _, move in ipairs(snapshot.moves or {}) do
     move.id = self.Moves.constName(move.id)
     move.type = self.typeNames[move.type] or move.type

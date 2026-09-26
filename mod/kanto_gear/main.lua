@@ -10278,7 +10278,7 @@ return function(mod)
         if source and copy then
           local mon = source.mon or source
           local shown = raw.shownHp and raw.shownHp[side]
-          copy.hp = math.max(0, math.floor(source.shownHP or shown
+          copy.hp = math.max(0, math.floor(copy.nativeShownHp or source.shownHP or shown
             or mon.hp or copy.hp or 0))
           copy.status = source.shownStatus or copy.status
         end
@@ -12679,6 +12679,9 @@ return function(mod)
   end
 
   mod.events:on("game.ready", function(payload)
+    if displayRuntime.gen3Presentation then
+      displayRuntime.gen3Presentation:release(); displayRuntime.gen3Presentation = nil
+    end
     if displayRuntime.nativeMap then displayRuntime.nativeMap:release(); displayRuntime.nativeMap = nil end
     if displayRuntime.gen3Map then displayRuntime.gen3Map:release(); displayRuntime.gen3Map = nil end
     if displayRuntime.gen3Region then displayRuntime.gen3Region:release(); displayRuntime.gen3Region = nil end
@@ -12692,6 +12695,26 @@ return function(mod)
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
       displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3)
       game = displayRuntime.gen3:gameView()
+      displayRuntime.gen3Presentation = assert(load(mod:read("gen3_presentation.lua"),
+        "@kanto_gear/gen3_presentation.lua"))().new(function(kind)
+        local adapter = displayRuntime.gen3
+        local raw = adapter and adapter:battleState()
+        if not (active and hasDisplay() and displayReady and hideUpperBattleUI()
+            and raw and battle and not battle.nativeUnsupported) then return false end
+        adapter.syncScreens()
+        -- Unsupported windows retain every original control. Native doubles
+        -- keep all four healthboxes until Gear has a four-battler status view.
+        local top = game.stack:top()
+        local menu = displayRuntime.gen3Ui:list(battle)
+        local summary = compat.isScreen(top, "summary") and compat.summary.supports(top, game)
+        if top ~= raw and not (top and top.isTextBox) and not menu and not summary then return false end
+        if require("src.ui.game3.stat_growth").isOpen() then return false end
+        if kind == "hud" then
+          return fullBottomBattleUI() and not raw.battle.double
+            and not adapter.BattleUI.litHealthboxShown()
+        end
+        return true
+      end)
     end
     -- Native story/pickup events must not be mistaken for empty completed routes.
     displayRuntime.homeCatalog.packages.achievements.available = not displayRuntime.gen3

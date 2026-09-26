@@ -284,6 +284,45 @@ refreshBattle()
 T.eq(display.gen3:messageText(), "POKEMON PKMN", "printer controls are removed and ligatures retained")
 T.eq(upvalue(refreshBattle, "battle").prompt, "locked", "timed stay pages do not promise a continue action")
 Message.reset(); display.gen3.syncScreens(); refreshBattle()
+local owns = display.gen3Presentation.owns
+local restore = {}
+for i = 1, debug.getinfo(owns, "u").nups do
+  local name, value = debug.getupvalue(owns, i)
+  if name == "active" or name == "displayReady" or name == "hasDisplay" then
+    restore[#restore + 1] = { i, value }
+    debug.setupvalue(owns, i, name == "hasDisplay" and function() return true end or true)
+  end
+end
+for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
+  run.loader.modOptions.kanto_gear.battle_view = mode
+  T.eq(owns("panel"), mode == "gear" or mode == "full", mode .. " native panel ownership")
+  T.eq(owns("hud"), mode == "full", mode .. " native healthbox ownership")
+end
+Stack.push("unknown-battle-modal", {})
+T.check(not owns("panel") and not owns("hud"), "unadapted windows keep native presentation")
+Stack.clear()
+local Growth = require("src.ui.game3.stat_growth")
+Growth.open(session.party[1], {}, {})
+T.check(not owns("panel"), "unadapted native stat window is not hidden")
+Growth.close({ silent = true })
+st.double = true
+T.check(not owns("hud"), "doubles retain all four native healthboxes")
+st.double = nil
+local Anim = require("src.core.game3.battle.anim")
+local present = Anim.present("player")
+local previousHp = present.displayHp
+present.displayHp = 7.9; refreshBattle()
+T.eq(upvalue(refreshBattle, "battle").player.hp, 7, "Gear follows animated HP rather than jumping to the result")
+present.displayHp = previousHp
+local previousStatus = session.party[1].status
+session.party[1].status = 0; display.gen3:refresh(); refreshBattle()
+T.eq(upvalue(refreshBattle, "battle").player.status, nil, "healthy native bitfield is not printed as zero")
+session.party[1].status = 0x40; display.gen3:refresh(); refreshBattle()
+T.eq(upvalue(refreshBattle, "battle").player.status, "PAR", "native status bitfield becomes a readable condition")
+session.party[1].status = previousStatus
+for _, row in ipairs(restore) do debug.setupvalue(owns, row[1], row[2]) end
+run.loader.modOptions.kanto_gear.battle_view = "standard"
+display.gen3:refresh(); display.gen3.syncScreens(); refreshBattle()
 tapBattle(62 / 1.5, 76 / 1.5)
 T.eq(Ui._mode, "moves", "FIGHT opens the actual native move menu")
 paintBattle("native move selection")

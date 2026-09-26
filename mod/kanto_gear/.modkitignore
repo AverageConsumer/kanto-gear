@@ -8,6 +8,7 @@ tests/gen3_native_test.lua
 tests/gen3_map_test.lua
 tests/gen3_runtime_test.lua
 tests/native_map_test.lua
+tests/gen3_presentation_test.lua
 tests/fruit_trees_test.lua
 tests/haptics_test.lua
 tests/home_layout_test.lua

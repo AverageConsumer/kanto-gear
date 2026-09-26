@@ -1,6 +1,6 @@
 # Native FireRed / LeafGreen integration
 
-Version **3.3.0-gen3.2** is an experimental test package for native FireRed
+Version **3.3.0-gen3.3** is an experimental test package for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
 support. This is not full Gen 3 feature parity or support for Ruby, Sapphire
 and Emerald. Interactive gameplay verification is still required.
@@ -148,3 +148,23 @@ submission/visibility contracts. A successful read-model or rendering test
 does not verify every gameplay path. Finish PC/actions, progress flags and
 remaining native mechanics as separate compatibility slices after the initial
 interactive test. No host rendering patches are included in this package.
+
+## Native battle presentation
+
+Current-page text is decoded with the native font tokenizer and wrapped as one
+page; source newlines are not message-history boundaries. Oak voiceovers take
+precedence over a covered command menu. Typing taps and page acknowledgement
+remain native input actions. Timed/held messages do not show a false continue.
+
+`gen3_presentation.lua` bridges the native draw functions because v0.3.20 does
+not call the legacy battle visibility hooks. Gear suppresses the native command
+panel, printers and mirrored menus only while the secondary display is ready.
+Full Gear additionally relocates singles healthboxes. The bridge never changes
+battle phases or input, restores its printer scope after errors, and releases
+only its own wrappers. Unknown menus, stat-growth windows and tutorial-only
+battles retain native presentation; doubles retain all four native healthboxes.
+Animated HP and native status bitfields are converted by the read adapter.
+
+Run `tests/gen3_presentation_test.lua` for scoped rendering and cleanup, and
+`tools/gen3_battle_preview` with the same preview environment for paired native
+upper/Gear lower Light/Dark battle renders. No host patch is required.
