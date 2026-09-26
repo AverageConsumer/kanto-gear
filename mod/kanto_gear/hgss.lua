@@ -3029,7 +3029,10 @@ return function(ui)
     G.setScissor(innerX, innerY, innerW, innerH)
     box("fill", innerX, innerY, innerW, innerH,
       self:mapColor(overview, 1, 1, density, 1))
-    if opts.image then
+    if overview.drawTerrain then
+      color({ 1, 1, 1, 1 })
+      overview.drawTerrain(left, top, layout.tileSize)
+    elseif opts.image then
       color({ 1, 1, 1, 1 })
       G.draw(opts.image, left, top, 0, scale, scale)
     else

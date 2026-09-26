@@ -3337,7 +3337,7 @@ return function(mod)
     -- Home customization is UI state: commit it immediately instead of
     -- requiring another in-game SAVE before the app may be restarted.
     if game and mod.storage and mod.storage.write then
-      mod.storage:write(game, "home/state", state)
+      mod.storage:write(displayRuntime.sourceGame or game, "home/state", state)
     end
   end
 
@@ -3356,7 +3356,7 @@ return function(mod)
   function displayRuntime.loadHome()
     local durable
     if game and mod.storage and mod.storage.read then
-      durable = mod.storage:read(game, "home/state")
+      durable = mod.storage:read(displayRuntime.sourceGame or game, "home/state")
       if type(durable) ~= "table" then durable = nil end
     end
     local installed = durable and durable.packages
@@ -3389,7 +3389,7 @@ return function(mod)
     displayRuntime.home.help = not displayRuntime.home.helpSeen
     if not durable and hasSaved and game and mod.storage
         and mod.storage.write then
-      mod.storage:write(game, "home/state", displayRuntime.homeSnapshot())
+      mod.storage:write(displayRuntime.sourceGame or game, "home/state", displayRuntime.homeSnapshot())
     end
     dirty = true
   end
@@ -3431,7 +3431,9 @@ return function(mod)
     local dex = displayRuntime.pokedexData()
     local region = (compat.currentRegion() or "kanto"):upper()
     local held, badges = player.badges or {}, {}
-    if compat.isGen2() then
+    if displayRuntime.gen3 then
+      for index = 1, 8 do badges[index] = displayRuntime.gen3:badge(index) end
+    elseif compat.isGen2() then
       if region == "KANTO" then held = player.kantoBadges or {} end
       for index, id in ipairs(THEME.gen2Badges[region:lower()] or {}) do
         badges[index] = not not (held[id] or held[index])
@@ -3609,6 +3611,7 @@ return function(mod)
   end
 
   local function locationEntries()
+    if displayRuntime.gen3 then return displayRuntime.gen3:locations() end
     if compat.isGen2() then
       local source = game and game.data and game.data.gen2Landmarks
       local landmarks = source and source.landmarks or {}
@@ -3678,6 +3681,7 @@ return function(mod)
   end
 
   local function areaMaps(id)
+    if displayRuntime.gen3 then return displayRuntime.gen3:areaMaps(id) end
     local entry = locationEntry(id)
     if not entry then return { id } end
     local c = entry.coords or entry
@@ -3774,7 +3778,21 @@ return function(mod)
       if checkpoint then checkpoint() end
       local encounter = data.encounters and data.encounters[id]
       local buckets = data.constants and data.constants.encounterBuckets
-      if gen2 then
+      if displayRuntime.gen3 then
+        local pools = {}
+        for _, row in ipairs(displayRuntime.gen3:encounters(id)) do
+          local pool = pools[row.method]
+          if not pool then pool = { slots = {}, weights = {}, total = 0 }; pools[row.method] = pool end
+          pool.slots[#pool.slots + 1] = { species = row.species, min = row.minLevel, max = row.maxLevel }
+          pool.total = pool.total + row.chance
+          pool.weights[#pool.weights + 1] = pool.total
+        end
+        for _, method in ipairs({ "WALK", "SURF", "OLD", "GOOD", "SUPER", "ROCK SMASH" }) do
+          local pool = pools[method]
+          if pool then addEncounters(rows, bySpecies, pool.slots, method, pool.weights,
+            { mapId = id, section = displayRuntime.sectionName(id) }) end
+        end
+      elseif gen2 then
         local encounters = data.gen2Encounters or {}
         local active = encounters
         if not completion and Roamers and Roamers.Swarm then
@@ -3895,7 +3913,7 @@ return function(mod)
           { mapId = id, section = displayRuntime.sectionName(id) })
       end
       local super = field.superRod and field.superRod[id]
-      if not gen2 and ((encounter and encounter.water) or super) then
+      if not gen2 and not displayRuntime.gen3 and ((encounter and encounter.water) or super) then
         for _, rod in ipairs({ "OLD_ROD", "GOOD_ROD", "SUPER_ROD" }) do
           local def = fishing[rod] or {}
           local slots = def.always and { def.always } or def.pool
@@ -4314,6 +4332,16 @@ return function(mod)
   end
 
   local function sprite(species, side, mon)
+    if displayRuntime.gen3 then
+      local P = displayRuntime.gen3.Pokemon
+      local def = game.data.pokemon[species]
+      local id = def and def.index
+      if not id then return nil end
+      local pic
+      if mon then pic = side == "back" and P.monBackPic(mon) or P.monFrontPic(mon)
+      else pic = side == "back" and P.backPic(id) or P.frontPic(id) end
+      return pic and pic.image, true
+    end
     local path, trueColor = PokemonSprites.path(
       game and game.data, species, side,
       { kind = "summary", mon = mon })
@@ -5623,6 +5651,26 @@ return function(mod)
   end
 
   local function loadLocalMap()
+    if displayRuntime.gen3 then
+      if not displayRuntime.gen3Map then
+        displayRuntime.gen3Map = assert(load(mod:read("gen3_map.lua"),
+          "@kanto_gear/gen3_map.lua"))().new(G, require("src.core.game3.tileset_native"))
+      end
+      local renderer = displayRuntime.gen3Map
+      local def = game.data.maps[mapId]
+      local ready = renderer:prepare(def)
+      if not ready then return nil end
+      if type(localMap) ~= "table" or localMap.mapId ~= mapId
+          or localMap.width ~= renderer.width or localMap.height ~= renderer.height then
+        local rows = {}
+        for y = 1, renderer.height do rows[y] = string.rep(" ", renderer.width) end
+        localMap = { mapId = mapId, width = renderer.width, height = renderer.height,
+          rows = rows, markers = {}, drawTerrain = function(x, y, cellSize)
+            renderer:draw(x, y, cellSize)
+          end }
+      end
+      return localMap
+    end
     if localMap ~= nil then return localMap or nil end
     if not (mod.world and mod.world.mapOverview) then
       localMap = false
@@ -5636,6 +5684,7 @@ return function(mod)
   local loadLocalMapImage
 
   function displayRuntime.explorerMethods()
+    if displayRuntime.gen3 then return displayRuntime.gen3:methods() end
     local methods = { WALK = true, CONTEST = true, ROAMING = true }
     local names = { old_rod = "OLD", good_rod = "GOOD", super_rod = "SUPER",
       surf = "SURF", headbutt = "HEADBUTT" }
@@ -5991,6 +6040,7 @@ return function(mod)
   end
 
   function loadLocalMapImage(overview, rows, width, height, density)
+    if overview.drawTerrain then return nil end
     if localMapImage ~= nil then return localMapImage or nil end
     if not (love.image and love.image.newImageData) then
       localMapImage = false
@@ -6152,7 +6202,10 @@ return function(mod)
           height * scale + 4, THEME.localMap.border)
       local image = density > 1
         and loadLocalMapImage(overview, rows, width, height, density)
-      if image then
+      if overview.drawTerrain then
+        G.setColor(1, 1, 1, 1)
+        overview.drawTerrain(left, top, density * scale)
+      elseif image then
         G.setColor(1, 1, 1, 1)
         G.draw(image, left, top, 0, scale, scale)
       else
@@ -6291,12 +6344,16 @@ return function(mod)
     local owned = 0
     local dexTotal = 0
     for species, def in pairs(game.data.pokemon or {}) do
-      if def.dex then
+      if def.dex and (not displayRuntime.gen3 or def.dex <= save.pokedex.limit) then
         dexTotal = dexTotal + 1
         if ownedDex[species] then owned = owned + 1 end
       end
     end
     local badges = game.data.constants and game.data.constants.badges or {}
+    if displayRuntime.gen3 then
+      badges = {}
+      for _, id in ipairs(THEME.gen2Badges.kanto) do badges[#badges + 1] = { id = id } end
+    end
     local shownBadges = badges
     if compat.isGen2() then
       badges = {}
@@ -6315,6 +6372,7 @@ return function(mod)
     local inventory = save.inventory or {}
     local playerBadges = player.badges or {}
     local function ownsBadge(badge, index)
+      if displayRuntime.gen3 then return displayRuntime.gen3:badge(index) end
       if compat.isGen2() then
         local held = badge.region == "kanto" and (player.kantoBadges or {})
           or playerBadges
@@ -6340,7 +6398,7 @@ return function(mod)
 
     if spriteCache.__badges == nil then
       local ok, card = false, nil
-      if not compat.isGen2() then
+      if not compat.isGen2() and not displayRuntime.gen3 then
         local screens = require("src.ui.Screens")
         ok, card = pcall(screens.build, game,
           compat.screenName("trainerCard", false))
@@ -6773,14 +6831,16 @@ return function(mod)
       local nextExp = level < 100
         and growth and growth.expForLevel
         and math.max(0, growth.expForLevel(level + 1)) or currentExp
+      local nativeExp = displayRuntime.gen3 and displayRuntime.gen3.Summary.expProgress(mon,
+        displayRuntime.gen3.Pokemon.growthRate(mon.species))
       out[i] = {
         slot = i, species = mon.species, source = mon,
         name = mon.nickname or (def and def.name) or mon.species,
         level = level, hp = mon.hp,
         maxHp = mon.stats and mon.stats.hp or mon.hp,
         status = mon.status, gender = mon.gender,
-        expProgress = level >= 100 and 1
-          or progressRatio(mon.exp, currentExp, nextExp),
+        expProgress = nativeExp and nativeExp.progressPercent or (level >= 100 and 1
+          or progressRatio(mon.exp, currentExp, nextExp)),
       }
     end
     return out
@@ -7919,6 +7979,9 @@ return function(mod)
 
   function displayRuntime.pokedexData()
     local state = displayRuntime.pokedex
+    if displayRuntime.gen3 and state.nativeRevision ~= displayRuntime.gen3.dexRevision then
+      state.data, state.nativeRevision = nil, displayRuntime.gen3.dexRevision
+    end
     if state.data then return state.data end
     local save, data = game.save or {}, game.data or {}
     local seen = save.pokedex and save.pokedex.seen or {}
@@ -7929,7 +7992,8 @@ return function(mod)
     end
     local entries, caughtCount = {}, 0
     for species, def in pairs(data.pokemon or {}) do
-      if tonumber(def.dex) then
+      if tonumber(def.dex) and (not displayRuntime.gen3
+          or def.dex <= (save.pokedex and save.pokedex.limit or 151)) then
         local owned = caught[species] == true
         entries[#entries + 1] = {
           species = species, dex = tonumber(def.dex),
@@ -7994,7 +8058,8 @@ return function(mod)
       or not compat.isGen2() and (tonumber((save.inventory or {}).SOULBADGE) or 0) > 0
     local visited = mod.save:get("achievement_visits", {})
     if type(visited) ~= "table" then visited = {} end
-    local methods = displayRuntime.Habitats.methods(save, game.data.items or {}, surfBadge)
+    local methods = displayRuntime.gen3 and displayRuntime.gen3:habitatMethods()
+      or displayRuntime.Habitats.methods(save, game.data.items or {}, surfBadge)
     local plan = displayRuntime.Habitats.plan(
       selected.habitat and selected.habitat.appearances or {}, mapId, period, visited, methods)
     plan.source, plan.map, plan.period, plan.refreshAt = selected, mapId, period, now + 0.5
@@ -8184,6 +8249,12 @@ return function(mod)
     if def and (def.ball or def.pocket == "BALL") then return "ball" end
     if upper:match("^TM_?%d") or upper:match("^HM_?%d")
         or def and (def.machine or def.teaches or def.pocket == "TM_HM") then return "machine" end
+    if displayRuntime.gen3 then
+      local kind = def and def.kind
+      return kind == "status" and "status"
+        or (kind == "heal" or kind == "full_restore" or kind == "revive" or kind == "pp") and "medicine"
+        or "item"
+    end
     local gen2 = compat.isGen2()
     local ok, Effects = pcall(require, gen2 and "src.core.gen2.ItemEffects"
       or "src.inventory.ItemEffects")
@@ -8242,16 +8313,21 @@ return function(mod)
     local gen2 = compat.isGen2()
     local pockets = gen2 and displayRuntime.bagPockets
       or { displayRuntime.bagPockets[1] }
+    if displayRuntime.gen3 then
+      pockets = { displayRuntime.bagPockets[1], displayRuntime.bagPockets[2],
+        displayRuntime.bagPockets[3], displayRuntime.bagPockets[4], { id = "BERRY", label = "BERRIES" } }
+    end
     state.pocket = math.max(1, math.min(state.pocket or 1, #pockets))
     local pocket = pockets[state.pocket]
     local ok, Bag = pcall(require, "src.inventory.Bag")
-    local order = ok and Bag.order and Bag.order(save) or {}
+    local order = displayRuntime.gen3 and (save.bagOrder or {})
+      or ok and Bag.order and Bag.order(save) or {}
     local entries = {}
     for _, id in ipairs(order) do
       local count = tonumber((save.inventory or {})[id]) or 0
       local def = data.items and data.items[id] or {}
       local itemPocket = def.pocket or "ITEM"
-      if count > 0 and (not gen2 or itemPocket == pocket.id) then
+      if count > 0 and (not gen2 and not displayRuntime.gen3 or itemPocket == pocket.id) then
         local moveId = def.teaches or def.machine and def.machine.move
         local move = moveId and data.moves and data.moves[moveId]
         entries[#entries + 1] = {
@@ -8290,7 +8366,7 @@ return function(mod)
       pocket = THEME:translate(pocket.label), pocketIndex = state.pocket,
       pockets = #pockets, page = state.page, pages = pages,
       entries = visible, total = #entries, detail = detail,
-      message = state.message, canUse = screenState() == "active" and not battle,
+      message = state.message, canUse = screenState() == "active" and not battle and not displayRuntime.gen3,
       money = tonumber(save.money) or 0,
     }
   end
@@ -8321,6 +8397,7 @@ return function(mod)
   end
 
   function displayRuntime.useBagItem(itemId)
+    if displayRuntime.gen3 then return false end
     if screenState() ~= "active" or battle or not itemId then return false end
     local state = displayRuntime.bag
     state.message = nil
@@ -12501,13 +12578,22 @@ return function(mod)
   end
 
   mod.events:on("game.ready", function(payload)
+    if displayRuntime.gen3Map then displayRuntime.gen3Map:release(); displayRuntime.gen3Map = nil end
     game = payload.game
+    displayRuntime.sourceGame = game
+    displayRuntime.gen3 = nil
+    displayRuntime.gen3PollAt = nil
+    if game.generation == 3 then
+      displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
+      game = displayRuntime.gen3:gameView()
+    end
     displayRuntime.autoBattle = {}
     displayRuntime.touchGuard.key, displayRuntime.touchGuard.pending = nil, false
     displayRuntime.touchGuard.readyAt = 0
     displayRuntime.levelUp = displayRuntime.LevelUp.new()
     displayRuntime.levelUp:scan(game.save)
-    displayRuntime.notes:bind(game, mod.storage)
+    displayRuntime.notes:bind(displayRuntime.sourceGame or game, mod.storage)
+    if displayRuntime.gen3 then displayRuntime.gen3:syncStorageIdentity() end
     displayRuntime.resetAchievements()
     THEME.storedTheme = mod.options:get("theme_v3")
     spriteCache.__badges = nil
@@ -12532,13 +12618,18 @@ return function(mod)
   end)
 
   function displayRuntime.reloadSavedUi()
+    if displayRuntime.gen3 then
+      displayRuntime.gen3:refresh()
+      displayRuntime.gen3.syncScreens()
+    end
     Area.pickupData = nil
     invalidateLocalMap()
     dirty = true
     displayRuntime.levelUp = displayRuntime.LevelUp.new()
     displayRuntime.levelUp:scan(game and game.save)
     displayRuntime.home.widgetCache = nil
-    displayRuntime.notes:bind(game, mod.storage)
+    displayRuntime.notes:bind(displayRuntime.sourceGame or game, mod.storage)
+    if displayRuntime.gen3 then displayRuntime.gen3:syncStorageIdentity() end
     displayRuntime.resetAchievements()
     displayRuntime.pokedex.data = nil
     reloadSteps()
@@ -12653,7 +12744,7 @@ return function(mod)
   mod.events:on("mod.kanto_gear.options_changed", displayRuntime.optionsChanged)
 
   function hgssRuntime.remapBattleRootInput(stepGame)
-    if stepGame ~= game or THEME.style ~= "hgss"
+    if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss"
         or not battle then return end
     local raw = battleState()
     local top = game.stack:top()
@@ -12699,7 +12790,7 @@ return function(mod)
   end
 
   function hgssRuntime.remapSummaryMovesInput(stepGame)
-    if stepGame ~= game or THEME.style ~= "hgss" or not battle
+    if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss" or not battle
         or not hideUpperBattleUI() or not assist("move_details") then return end
     local summary = screenById("summary")
     local raw, top = battleState(), game.stack:top()
@@ -12737,7 +12828,7 @@ return function(mod)
   end
 
   function hgssRuntime.openingBattlePanel(stepGame)
-    if stepGame ~= game or THEME.style ~= "hgss"
+    if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss"
         or not battle or battle.prompt ~= "menu" then return false end
     local raw = battleState()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
@@ -12756,7 +12847,7 @@ return function(mod)
   end
 
   function hgssRuntime.closingBattlePanel(stepGame)
-    if stepGame ~= game or THEME.style ~= "hgss" or not battle then return end
+    if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss" or not battle then return end
     local raw, top = battleState(), game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
     if not raw or type(queue) ~= "table"
@@ -12778,11 +12869,11 @@ return function(mod)
   end
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
-    if stepGame == game and displayRuntime.levelUp:scan(game.save,
+    if stepGame == displayRuntime.sourceGame and displayRuntime.levelUp:scan(game.save,
         game.stack and game.stack:top()) then dirty = true end
     local top = game and game.stack and game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
-    if stepGame == game and battle and compat.battleBagMenu(top)
+    if stepGame == displayRuntime.sourceGame and battle and compat.battleBagMenu(top)
         and bottomOwnsBattleUI(hideUpperBattleUI(), active,
           hasDisplay(), displayReady, battleState(), battle)
         and compat.useBattleBagItemDirectly(top, queue) then dirty = true end
@@ -12802,7 +12893,7 @@ return function(mod)
       if consumed then back() end
       if modalMoveInfo then
         local result = next(stepGame, dt)
-        if stepGame == game then
+        if stepGame == displayRuntime.sourceGame then
           displayRuntime.touchGuard.pending = false
           displayRuntime.updateAutoBattleScreen()
         end
@@ -12855,7 +12946,7 @@ return function(mod)
     end
     if closingPanel then hgssRuntime.beginAnimation(closingPanel) end
     local result = next(stepGame, dt)
-    if stepGame == game then
+    if stepGame == displayRuntime.sourceGame then
       displayRuntime.updateAutoBattleScreen()
       local pending = displayRuntime.touchGuard.pending
       displayRuntime.touchGuard.pending = false
@@ -13256,6 +13347,14 @@ return function(mod)
   mod.hooks:wrap("render.compose", function(next, renderer, context)
     local measured = displayRuntime.perf:start()
     displayRuntime.perf:frame()
+    if displayRuntime.gen3 then
+      local now = love.timer.getTime()
+      if now >= (displayRuntime.gen3PollAt or 0) then
+        displayRuntime.gen3:refresh()
+        displayRuntime.gen3PollAt = now + 0.05
+      end
+      displayRuntime.gen3.syncScreens()
+    end
     if game and displayRuntime.levelUp:scan(game.save,
         game.stack and game.stack:top()) then dirty = true end
     local inline = inlineDisplay()

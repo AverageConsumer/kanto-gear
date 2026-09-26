@@ -101,6 +101,13 @@ function Gen3:refreshDefinitions()
     return num and rawget(t, num)
   end })
   self.data = data
+  setmetatable(data.pokemon, { __index = function(t, id)
+    if type(id) == "string" then
+      local numeric = P.speciesFromName(id)
+      return numeric and rawget(t, numeric)
+    end
+  end })
+  setmetatable(data, { __index = self.game.data })
 end
 
 function Gen3:mon(source)
@@ -183,15 +190,25 @@ function Gen3:refresh()
     end
   end
   local dex = session.dex or {}
-  clear(save.pokedex.seen)
-  clear(save.pokedex.caught)
+  local dexChanged = save.pokedex.national ~= (dex.national == true)
   for id in pairs(self.data.pokemon) do
-    save.pokedex.seen[id] = self.Dex.isSeen(dex, id) or nil
-    save.pokedex.caught[id] = self.Dex.isCaught(dex, id) or nil
+    local seen, caught = self.Dex.isSeen(dex, id) or nil, self.Dex.isCaught(dex, id) or nil
+    dexChanged = dexChanged or seen ~= save.pokedex.seen[id] or caught ~= save.pokedex.caught[id]
+    save.pokedex.seen[id], save.pokedex.caught[id] = seen, caught
   end
+  if dexChanged then self.dexRevision = (self.dexRevision or 0) + 1 end
   save.pokedex.national = dex.national == true
   save.pokedex.limit = save.pokedex.national and self.Dex.NATIONAL_MAX or self.Dex.KANTO_MAX
   return save
+end
+
+-- Storage allocates an opaque identity on the serialized save. Call this
+-- after binding mod.storage so a subsequent native save retains that identity.
+function Gen3:syncStorageIdentity()
+  local session, snapshot = self.game.session, self.game.save
+  if session and snapshot and snapshot.meta and not session.meta then
+    session.meta = snapshot.meta
+  end
 end
 
 -- Storage is sparse. Return explicit native slot numbers with each occupied
@@ -212,6 +229,84 @@ end
 function Gen3:badge(index)
   return self.session ~= nil and index >= 1 and index <= 8
     and self.Flags.getFlag(self.session, nil, 0x81f + index) == true
+end
+
+function Gen3:locations()
+  if self.locationCache then return self.locationCache end
+  local sections = require("src.import.gba.map_sections_extract")
+  local out = {}
+  for id, def in pairs(self.data.maps) do
+    local info = sections.getInfo(def.regionMapSectionId, id, def.floorNum)
+    out[id] = { name = info and info.resolved and info.rawName
+      or id:gsub("^FR_", ""):gsub("_", " "), section = def.regionMapSectionId }
+  end
+  self.locationCache = out
+  return out
+end
+
+function Gen3:areaMaps(id)
+  local locations = self:locations()
+  local section = locations[id] and locations[id].section
+  if not section then return { id } end
+  local out = {}
+  for other, location in pairs(locations) do
+    if location.section == section then out[#out + 1] = other end
+  end
+  table.sort(out)
+  return out
+end
+
+-- Legacy renderers receive a projection, while input hooks, storage and all
+-- commands retain self.game. Unknown native modal screens deliberately do not
+-- claim a legacy screenId: only explicitly adapted screens may own input.
+function Gen3:gameView()
+  if self.view then return self.view end
+  local world = { player = require("src.core.game3.player"), map = {} }
+  local methods = {}
+  local stack = { states = {} }
+  local layers = setmetatable({}, { __mode = "k" })
+  local locked = { screenId = "Gen3:busy" }
+  function stack:top() return self.states[#self.states] end
+  self.syncScreens = function()
+    clear(stack.states)
+    if self.session and self.game.phase == "field" then
+      local maps = require("src.core.game3.map")
+      world.map.id = maps.current or self.session.map
+      stack.states[1] = world
+      for _, layer in ipairs(require("src.ui.game3.stack")._layers) do
+        local state = layers[layer]
+        if not state then state = { screenId = "Gen3:" .. tostring(layer.id) }; layers[layer] = state end
+        stack.states[#stack.states + 1] = state
+      end
+      -- Native scripts, transitions and battles need not push a UI layer.
+      -- Walking alone is not a modal state and must not dim the live map.
+      local Field = package.loaded["src.core.game3.field"]
+      local Warp = package.loaded["src.core.game3.warp"]
+      local Runtime = package.loaded["src.core.game3.runtime"]
+      local Battle = package.loaded["src.core.game3.battle"] or package.loaded["src.core.game3.battle.init"]
+      if #stack.states == 1 and (Field and Field.locked
+          or Warp and Warp.isBusy() or Runtime and Runtime.uiBusy()
+          or Battle and Battle.isActive()) then
+        stack.states[2] = locked
+      end
+    end
+  end
+  self.view = setmetatable({}, { __index = function(_, key)
+    if key == "save" then return self.save end
+    if key == "data" then return self.data end
+    if key == "stack" then return stack end
+    if key == "world" or key == "overworld" then
+      return self.session and self.game.phase == "field" and world or nil
+    end
+    local value = self.game[key]
+    if type(value) == "function" then
+      if not methods[key] then methods[key] = function(_, ...) return value(self.game, ...) end end
+      return methods[key]
+    end
+    return value
+  end })
+  self.syncScreens()
+  return self.view
 end
 
 function Gen3:methods()

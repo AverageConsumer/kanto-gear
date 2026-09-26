@@ -74,8 +74,11 @@ saves a contact sheet, and exits without starting gameplay.
 
 ## Remaining integration boundaries
 
-Before enabling Gen 3 in the release manifest, wire these components into the
-runtime with native screen/input handling, battle choices (including doubles),
+The runtime now reads live party, bag, trainer, Dex and encounter data and uses
+the cached native minimap geometry. It retains the raw host identity for input
+and persistence; unrecognized native menus are locked presentation states.
+
+Before enabling Gen 3 in the release manifest, finish native screen/input handling, battle choices (including doubles),
 summary pages, PC actions, map markers, progress flags and persistent Notes.
 Keep the original game UI visible for any state Gear cannot operate. Native
 Gen 3 menus use an ID-based module stack; they are not legacy `PartyMenu` or
