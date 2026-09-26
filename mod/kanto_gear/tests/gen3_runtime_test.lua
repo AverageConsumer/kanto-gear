@@ -10,8 +10,7 @@ local maps = Dataset.buildMaps()
 Dataset.attachMidLayouts(maps, Dataset.cache())
 local data = { maps = maps,
   gen3Encounters = assert(loadfile(os.getenv("POKEPORT_GBA_CACHE") .. "/encounters.lua"))() }
--- Enable Gen 3 only for this test. The release manifest remains conservative
--- while native screen/input ownership is still being ported.
+-- Isolate tool storage while loading the actual packaged manifest.
 local Fs = require("tests.fs_io").new(path)
 local fs, writes = {}, {}
 local function resolve(file)
@@ -19,9 +18,6 @@ local function resolve(file)
 end
 function fs.read(file)
   local bytes = writes[file] or Fs.read(resolve(file))
-  if file == "mods/kanto_gear/manifest.json" then
-    bytes = bytes:gsub('"gen1", "gen2"', '"gen1", "gen2", "gen3"')
-  end
   return bytes
 end
 function fs.load(file)

@@ -1,18 +1,18 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "3.2.10",
+  "version": "3.3.0-gen3.1",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",
   "profile": "content",
-  "games": ["gen1", "gen2"],
-  "game_version": "0.0.0-dev || 0.1.94-kanto.22 || >=0.1.99 <2.0.0",
+  "games": ["gen1", "gen2", "gen3"],
+  "game_version": "0.0.0-dev || >=0.3.20 <2.0.0",
   "affects_link": false,
   "dependencies": [],
   "optional_dependencies": [],
   "conflicts": [],
   "permissions": ["engine_internals"],
-  "description": "Flexible companion UI for Pokemon Gen 1 and Gen 2 on single- and dual-screen Gen1Recomp hosts.",
+  "description": "Companion UI for Gen 1/2 with experimental native FireRed/LeafGreen support. Requires Recomp 0.3.20 or newer; Gen 3 route completion is not yet supported.",
   "github": "AverageConsumer/kanto-gear"
 }
