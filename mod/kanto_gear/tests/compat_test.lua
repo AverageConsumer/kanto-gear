@@ -1076,8 +1076,12 @@ do
     function() return false end, invalidParty), false,
     "replacement battle party menus retain native navigation")
   T.eq(run.loader.hooks:call("ui.party.grid_navigation",
+    function() return false end, validParty), false,
+    "GEAR retains native party navigation")
+  run.loader.modOptions.kanto_gear.battle_view = "full"
+  T.eq(run.loader.hooks:call("ui.party.grid_navigation",
     function() return false end, validParty), true,
-    "native-contract battle party menus opt into companion navigation")
+    "FULL GEAR native-contract party menus opt into companion navigation")
   run.loader.modOptions.kanto_gear.battle_view = previousBattleView
   debug.setupvalue(summaryHook, battleUpvalue, previousBattle)
   debug.setupvalue(summaryHook, readyUpvalue, previousReady)
@@ -1221,6 +1225,10 @@ do
     summaryReadyUpvalue, true)
   game.stack.states = { world, rawSummaryBattle, summaryState }
   game.input = { pressQueue = { "down" } }
+  hgssRuntime.remapSummaryMovesInput(game)
+  T.eq(summaryState.moveIndex, 1, "GEAR leaves native summary focus unchanged")
+  T.eq(game.input.pressQueue[1], "down", "GEAR preserves native summary directional input")
+  run.loader.modOptions.kanto_gear.battle_view = "full"
   hgssRuntime.remapSummaryMovesInput(game)
   T.eq(summaryState.moveIndex, 2,
     "owned HGSS Gen 1 battle summary moves focus with the D-pad")

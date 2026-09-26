@@ -1,6 +1,6 @@
 # Native FireRed / LeafGreen integration
 
-Version **3.3.0-gen3.8** is an experimental test package for native FireRed
+Version **3.3.0-gen3.9** is an experimental test package for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
 support. This is not full Gen 3 feature parity or support for Ruby, Sapphire
 and Emerald. Interactive gameplay verification is still required.

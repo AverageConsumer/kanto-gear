@@ -779,12 +779,14 @@ do
   screen.menuIndex = 1
   game.input = { pressQueue = { "down" } }
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  T.eq(screen.menuIndex, 4,
-    "owned HGSS battle root maps DOWN from FIGHT to RUN")
+  T.eq(screen.menuIndex, 1,
+    "GEAR leaves the native battle cursor unchanged on DOWN")
+  T.eq(game.input.pressQueue[1], "down", "GEAR passes DOWN to the native handler")
   game.input.pressQueue = { "right" }
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  T.eq(screen.menuIndex, 2,
-    "owned HGSS battle root maps RIGHT from RUN to POKEMON")
+  T.eq(screen.menuIndex, 1,
+    "GEAR leaves the native battle cursor unchanged on RIGHT")
+  T.eq(game.input.pressQueue[1], "right", "GEAR passes RIGHT to the native handler")
   run.loader.modOptions.kanto_gear.battle_view = "standard"
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "battle_view" })

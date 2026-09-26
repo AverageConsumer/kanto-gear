@@ -79,6 +79,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw, maps)
     m = menu()
     for i, entry in ipairs(m.items) do
       if entry.row then
+        local r = entry.rect
+        T.eq(display.StartMenu.hit(m,r[1]+r[3]/2,r[2]+r[4]/2),i,"keyboard touch geometry matches native cell")
         Naming._state.name = ""
         T.check(display.StartMenu.select(m, i), "keyboard cell selectable")
         T.eq(m.index, i, "keyboard focus maps back to selected cell")
@@ -99,6 +101,10 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw, maps)
   session.storage.boxes[1].mons, session.storage.currentBox = { [8] = mon }, 1
   Box.show({ session = session, subMode = "move" })
   m = menu(); T.eq(#m.items, 33, "box keeps all thirty slots, party, close and title")
+  for i,entry in ipairs(m.items) do
+    local r=entry.rect
+    T.eq(display.StartMenu.hit(m,r[1]+r[3]/2,r[2]+r[4]/2),i,"box touch targets retain exact empty and occupied slots")
+  end
   display.StartMenu.select(m, 11); T.eq(Box.cursorSlot, 8, "sparse box slot is not compacted")
   Box.handleInput(input("a")); m = menu()
   display.StartMenu.select(m, 1); Box.handleInput(input("a"))
@@ -142,6 +148,31 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw, maps)
   Shop.handleInput(input("a")); session.money = 0
   Shop.handleInput(input("a")); T.check(menu().notice ~= nil, "insufficient money notice mirrored")
   Shop.close(); session.money, session.bag = savedMoney, savedBag
+
+  local NativeBag = require("src.ui.game3.bag_menu")
+  savedItems, savedBag, savedMoney = session.storage.items, session.bag, session.money
+  session.storage.items, session.bag, session.money = {}, Bag.new(), 0
+  Bag.add(session.bag,13,5)
+  NativeBag.show(session.bag,{session=session,pocket="ITEMS",location="itempc"}); NativeBag.settle()
+  m=menu(); display.StartMenu.select(m,1); NativeBag.handleInput(input("a"))
+  T.eq(menu().quantity.qty,1,"PC deposit begins at native quantity")
+  NativeBag.handleInput(input("up")); NativeBag.handleInput(input("a"))
+  T.check(menu().notice ~= nil,"PC deposit result is mirrored")
+  T.eq(session.storage.items[1].qty,2,"native PC receives selected amount")
+  NativeBag.handleInput(input("a"))
+  T.eq(Bag.get(session.bag,13),3,"PC deposit acknowledgement debits bag exactly once")
+  NativeBag.close(); Stack.clear()
+  NativeBag.show(session.bag,{session=session,pocket="ITEMS",location="shop"}); NativeBag.settle()
+  m=menu(); display.StartMenu.select(m,1); NativeBag.handleInput(input("a"))
+  T.eq(menu().quantity.qty,1,"sale uses native sell-flow quantity")
+  NativeBag.handleInput(input("up")); NativeBag.handleInput(input("a"))
+  m=menu(); T.check(m.prompt ~= nil,"sale confirmation shows native price")
+  display.StartMenu.select(m,1); NativeBag.handleInput(input("a"))
+  T.check(menu().notice ~= nil,"sale result remains visible")
+  T.eq(Bag.get(session.bag,13),1,"native sale removes selected amount once")
+  T.eq(session.money,math.floor(display.gen3.Items.info(13).price/2)*2,"native sale credits half price")
+  NativeBag.close(); Stack.clear()
+  session.storage.items,session.bag,session.money=savedItems,savedBag,savedMoney
 
   local Growth = require("src.ui.game3.stat_growth")
   local completed = 0

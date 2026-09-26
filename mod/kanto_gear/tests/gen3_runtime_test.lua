@@ -56,6 +56,10 @@ end
 local display = assert(upvalue(hook, "displayRuntime"))
 T.check(display.gen3 ~= nil, "native adapter selected")
 T.check(display.sourceGame == raw, "host input keeps original identity")
+local titleCompat = assert(upvalue(assert(upvalue(display.drawContents, "drawTitle")), "compat"))
+local editionCode = os.getenv("POKEPORT_VERSION") == "firered" and "FR" or "LG"
+T.eq(titleCompat.systemId(nil, "3.3.0"), "SLS-" .. editionCode .. "-3.3.0",
+  "title identifier works before a save exists")
 local session = Schema.newGame({ version = os.getenv("POKEPORT_VERSION"), name = "RUNTIME", rngSeed = 2000 })
 require("src.core.game3.party").giveMon(session, 1, 15)
 local Bag = require("src.core.game3.bag")
