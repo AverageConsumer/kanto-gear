@@ -37,6 +37,8 @@ function Gen3.new(game)
   self.Warp = require("src.core.game3.warp")
   self.Runtime = require("src.core.game3.runtime")
   self.Message = require("src.ui.game3.message")
+  self.Font = require("src.ui.game3.frlg_font")
+  self.TextIR = require("src.core.game3.scripting.text_ir")
   self.Choice = require("src.ui.game3.choice")
   self.typeNames = {}
   for name, id in pairs(self.Types.ID) do
@@ -419,6 +421,26 @@ function Gen3:battleState()
   return view
 end
 
+-- Message.currentPage is a single visible page, not a history of messages.
+-- Read the native printer's tokens so color/spacing codes never become text.
+function Gen3:messageText()
+  if not self.Message.isOpen() then return nil end
+  local out = {}
+  local glyphs = { [0x53] = "PK", [0x54] = "MN", [0x34] = "Lv",
+    [0x2C] = "er", [0x84] = "e", [0xA0] = "re" }
+  for kind, value in self.Font.scanTokens(self.Message.currentPage()) do
+    if kind == "char" or kind == "nl" then out[#out + 1] = value
+    elseif kind == "glyph" then
+      out[#out + 1] = glyphs[value] or self.TextIR.CHARMAP[value]
+        or self.TextIR.EXTRA_SYMBOL[value - 0x100] or "?"
+    elseif kind == "icon" then
+      out[#out + 1] = ({ "A", "B", "L", "R", "START", "SELECT",
+        "UP", "DOWN", "LEFT", "RIGHT", "UP/DOWN", "LEFT/RIGHT", "DPAD" })[value + 1] or "?"
+    end
+  end
+  return table.concat(out)
+end
+
 function Gen3:battleSnapshot(snapshot)
   if not snapshot then return nil end
   local state = self:battleState()
@@ -426,6 +448,16 @@ function Gen3:battleSnapshot(snapshot)
   if not st then return snapshot end
   snapshot.menuIndex, snapshot.moveIndex = state.menuIndex, state.moveIndex
   snapshot.nativeUnsupported = state.tutorial or state.demo or st.link
+  snapshot.nativeMessage = self:messageText()
+  if snapshot.nativeMessage then
+    snapshot.message = { snapshot.nativeMessage }
+    -- An Oak voiceover or an item notice can cover a still-open command menu.
+    -- Held/timed pages must not advertise a continue action they cannot take.
+    local M = self.Message
+    snapshot.nativeCanReveal = M.isTyping() and not M._choice
+    snapshot.prompt = M.isWaiting() and not M._stay and not M._held
+      and not M._choice and "advance" or "locked"
+  end
   if st.safari and snapshot.prompt == "menu" then
     snapshot.prompt, snapshot.safariBalls = "safari", st.safariState and st.safariState.balls or 0
   end

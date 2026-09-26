@@ -1226,6 +1226,9 @@ local function prepareBattleSnapshot(a, b, state, data, ownsMoveFocus)
     end
   end
   return (a and a.menuIndex) ~= (b and b.menuIndex)
+    or (a and a.prompt) ~= (b and b.prompt)
+    or (a and a.nativeMessage) ~= (b and b.nativeMessage)
+    or (a and a.nativeCanReveal) ~= (b and b.nativeCanReveal)
     or (a and a.moveIndex) ~= (b and b.moveIndex)
     or (a and a.partyIndex) ~= (b and b.partyIndex)
     or (a and a.subIndex) ~= (b and b.subIndex)
@@ -9531,7 +9534,9 @@ return function(mod)
   local function drawBattleLocked(title)
     if THEME.style == "hgss" then
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
-      local lines = THEME:messageLines(battle.message or {}, 24, 4)
+      local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, 192, 6,
+        function(value) return THEME.hgss:labelWidth(value) end)
+        or THEME:messageLines(battle.message or {}, 24, 4)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:battleMessage(lines,
@@ -9547,7 +9552,8 @@ return function(mod)
         and battle.message and #battle.message > 0 then
       box("fill", 6, 30, 148, 106, DARK)
       outline(6, 30, 148, 106, PAPER)
-      local lines = THEME:messageLines(battle.message, 22, 4)
+      local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, 132, 6)
+        or THEME:messageLines(battle.message, 22, 4)
       local y = 65 - math.floor((#lines - 1) * 7.5)
       for _, line in ipairs(lines) do
         text(line, 14, y, PAPER)
@@ -11166,6 +11172,7 @@ return function(mod)
       back()
       return
     end
+    if not moveInfo and battle.nativeCanReveal then press("a"); return end
     if moveInfo or battle.prompt == "locked" then return end
     if battle.prompt == "advance" then
       press("a")

@@ -251,6 +251,39 @@ run.loader.modOptions.kanto_gear.battle_view = "standard"
 run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
 run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
 paintBattle("native battle commands")
+-- Every real Oak page, including the voiceovers which leave the command
+-- cursor open underneath. Never treat the second source line as a new log item.
+local Message = require("src.ui.game3.message")
+local Oak = require("src.core.game3.battle.oak_advice")
+local theme = upvalue(display.drawContents, "THEME")
+for key in pairs(Oak.TEXT) do
+  for _, text in ipairs(Oak.pages({ playerName = "RED" }, key) or {}) do
+    Message.show(text, { frame = "voiceover", speed = 0 })
+    for pageIndex = 1, #Message._pages do
+      Message._page = pageIndex; Message.skipReveal()
+      display.gen3.syncScreens(); refreshBattle()
+      local snap = upvalue(refreshBattle, "battle")
+      local plain = display.gen3:messageText()
+      T.eq(snap.prompt, "advance", "Oak page covers the command menu: " .. key)
+      T.eq(snap.message[1], plain, "Oak page retains both native lines: " .. key)
+      local lines = theme:wrapText(plain, 192, nil, function(s) return theme.hgss:labelWidth(s) end)
+      T.check(#lines <= 6, "complete Oak page fits without dropping words: " .. key)
+      T.check(pcall(display.drawContents), "Oak page renders: " .. key)
+    end
+    Message.reset()
+  end
+end
+Message.show("FIRST LINE\nA LONG SECOND LINE THAT MUST NOT ERASE THE FIRST", { frame = "battle", speed = 1 })
+refreshBattle()
+local typing = upvalue(refreshBattle, "battle")
+T.check(typing.nativeCanReveal and typing.prompt == "locked", "typing can be completed without submitting a command")
+Message.skipReveal(); refreshBattle()
+T.eq(upvalue(refreshBattle, "battle").prompt, "advance", "finished printer refreshes continue even on the same page")
+Message.show("{COLOR RED}POKEMON {PK}{MN}", { frame = "battle", speed = 0, stay = true })
+refreshBattle()
+T.eq(display.gen3:messageText(), "POKEMON PKMN", "printer controls are removed and ligatures retained")
+T.eq(upvalue(refreshBattle, "battle").prompt, "locked", "timed stay pages do not promise a continue action")
+Message.reset(); display.gen3.syncScreens(); refreshBattle()
 tapBattle(62 / 1.5, 76 / 1.5)
 T.eq(Ui._mode, "moves", "FIGHT opens the actual native move menu")
 paintBattle("native move selection")
