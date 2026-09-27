@@ -102,11 +102,10 @@ from apps, shortcuts and widgets.
   Explorer and the battle interface reveal.
 - Redesigned battle menus, Party selection, move learning, item use and PC
   storage still execute the original game actions and rules.
-  **Gear** keeps its HGSS battle styling while leaving native D-pad navigation
-  unchanged. It omits focus highlights where its card arrangement differs from
-  native navigation; touch still selects the card you tap. **Full Gear** owns
-  companion navigation and retains its matching focus, while **Standard** follows
-  the native menu layout.
+  **Gear** keeps the upper HP displays and puts battle menus on the companion
+  screen, with D-pad navigation and focus matching its HGSS controls.
+  **Full Gear** also moves the HP displays below. **Standard** follows the native
+  menu layout. Unsupported menus retain their native controls and presentation.
 
 <p align="center">
   <img src="screenshots/kanto-gear-hgss-store-light.png" width="49%" alt="Silph Store App of the Day and recommendations">

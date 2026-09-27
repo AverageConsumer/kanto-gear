@@ -147,24 +147,24 @@ H.roundedFocusFrame = function(self, ...) focusCount=focusCount+1; return origin
 for slot=1,4 do
   battle.menuIndex,battle.moveIndex=slot,slot
   battle.prompt="menu"; focusCount=0; drawBattle()
-  T.eq(focusCount,0,"Gear hero root has no misleading native focus")
+  T.check(focusCount > 0,"Gear hero root shows its owned command focus")
   local action=H.battleActions[slot]
   hit(action.x+action.w/2,action.y+action.h/2)
   T.eq(raw.menuIndex,slot,"Gear hero touch targets the original semantic action")
   battle.prompt="moves"; focusCount=0; drawBattle()
-  T.eq(focusCount,0,"Gear move grid has no vertical native focus")
+  T.check(focusCount > 0,"Gear move grid shows its owned move focus")
   local x,y=6+((slot-1)%2)*116,33+math.floor((slot-1)/2)*85
   hit(x+40,y+40)
   T.eq(intents[#intents].slot,slot,"Gear grid touch submits the exact move slot")
   snapshot()
   hit(x+103,y+12)
-  T.eq(upvalue(input,"moveInfo"),battle.moves[slot],"Gear detail selects the tapped move despite hidden focus")
+  T.eq(upvalue(input,"moveInfo"),battle.moves[slot],"Gear detail selects the tapped move with matching focus")
   upvalue(input,"moveInfo",nil,true); runtime.animation=nil
 end
 for _, progress in ipairs({0,0.5,1}) do
   focusCount=0
   H:battleMovesTransition(runtime.battleMon(),runtime.battlePortrait,{}, {},progress)
-  T.eq(focusCount,0,"Gear move transition keeps focus hidden throughout")
+  T.check(focusCount > 0,"Gear move transition preserves command or move focus")
 end
 H.focusFrame,H.roundedFocusFrame=originalFocus,originalRoundedFocus
 options.battle_view = "standard"
@@ -279,19 +279,42 @@ H.partyCard=function(self,mon,x,y,selected,...)
 end
 for slot=1,6 do
   menu.index=slot; focusedCards=0; drawBattle()
-  T.eq(focusedCards,0,"Gear party grid does not claim native vertical focus")
+  T.eq(focusedCards,1,"Gear party grid highlights exactly the selected partner")
   local x,y=H:partyPosition(slot)
   hit(x+40,y+25)
   T.eq(menu.index,slot,"Gear party card selects the correct native partner")
 end
 H.partyCard=originalPartyCard
-game.input.pressQueue = { "down", "right", "a", "b" }
-runtime.remapBattleRootInput(game)
-T.eq(table.concat(game.input.pressQueue, ","), "down,right,a,b", "Gear never remaps native input")
+local oldGearDisplay = upvalue(input, "hasDisplay", function() return true end, true)
+local oldGearReady = upvalue(input, "displayReady", true, true)
+local oldGearActive = upvalue(input, "active", true, true)
+stack.states[3] = nil
+battle.prompt = "menu"
+local expectedGear = {
+  {left=3,right=2,up=1,down=4}, {left=4,right=2,up=1,down=2},
+  {left=3,right=4,up=1,down=3}, {left=3,right=2,up=1,down=4},
+}
+for slot=1,4 do
+  for direction,target in pairs(expectedGear[slot]) do
+    raw.menuIndex,battle.menuIndex=slot,slot
+    game.input.pressQueue={direction}
+    runtime.remapBattleRootInput(game)
+    T.eq(raw.menuIndex,target,"Gear D-pad follows visible hero geometry")
+    T.eq(#game.input.pressQueue,0,"owned direction is consumed exactly once")
+  end
+end
 T.eq(run.loader.hooks:call("battle.move_grid_navigation", function() return false end, raw),
-  false, "Gear retains the native vertical move cursor")
-T.eq(run.loader.hooks:call("ui.party.grid_navigation", function() return false end,
-  { screenId = "PartyMenu", index = 1 }), false, "Gear retains native vertical party input")
+  true, "Gear owns the visible move grid")
+T.eq(run.loader.hooks:call("ui.party.grid_navigation", function() return false end, menu),
+  true, "Gear owns the visible party grid")
+upvalue(input,"displayReady",false,true)
+game.input.pressQueue={"down"};raw.menuIndex=1
+runtime.remapBattleRootInput(game)
+T.eq(#game.input.pressQueue,1,"unavailable Gear preserves native input")
+T.eq(raw.menuIndex,1,"unavailable Gear cannot move focus")
+upvalue(input,"hasDisplay",oldGearDisplay,true)
+upvalue(input,"displayReady",oldGearReady,true)
+upvalue(input,"active",oldGearActive,true)
 options.battle_view = "standard"
 stack.states[3] = nil
 for _, prompt in ipairs({ "safari", "mimic" }) do
@@ -395,9 +418,9 @@ for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
   summary.page, summary.moveIndex = 2, 1
   game.input.pressQueue = { "down" }
   runtime.remapSummaryMovesInput(game)
-  T.eq(#game.input.pressQueue, mode == "full" and 0 or 1,
-    mode .. " only intercepts summary navigation in Full Gear")
-  T.eq(runtime.summaryView(summary).moveIndex ~= nil, mode == "full",
+  T.eq(#game.input.pressQueue, not mirrored and 0 or 1,
+    mode .. " only intercepts owned summary navigation")
+  T.eq(runtime.summaryView(summary).moveIndex ~= nil, not mirrored,
     mode .. " shows move focus only when D-pad actually controls it")
   if mirrored then
     game.input.pressQueue = { "a", "b", "up", "down", "left", "right" }

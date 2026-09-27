@@ -310,8 +310,8 @@ do
     rootMon=mon; return rootDraw(self,mon,...)
   end
   paintBattle("Gear HGSS hero commands")
-  T.check(rootMon and rootMon.hideRootFocus,"FRLG Gear uses the HGSS hero root without mismatched command focus")
-  T.eq(rootMon.hideMoveFocus,false,"FRLG native move grid retains its matching focus")
+  T.check(rootMon and rootMon.moveIndex,"FRLG Gear uses the HGSS hero root with its move selection")
+  T.eq(rootMon.hideMoveFocus,nil,"FRLG native move grid retains its matching focus")
   theme.hgss.battleRoot=rootDraw
   local oldSubmit, submitIndex, chosen
   for i=1,debug.getinfo(tapBattle,"u").nups do
@@ -368,7 +368,7 @@ for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
   run.loader.modOptions.kanto_gear.battle_view = mode
   T.eq(owns("panel"), mode == "gear" or mode == "full", mode .. " native panel ownership")
   T.eq(owns("hud"), mode == "full", mode .. " native healthbox ownership")
-  T.eq(owns("navigation"), mode == "full", mode .. " command navigation authority")
+  T.eq(owns("navigation"), mode == "gear" or mode == "full", mode .. " command navigation authority")
   for index = 1, 4 do
     for _, direction in ipairs({ "up", "down", "left", "right" }) do
       Ui._menuIndex = index
@@ -376,7 +376,13 @@ for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
       local columnChange = direction == "left" or direction == "right"
       local expected = columnChange and (index % 2 == 1 and index + 1 or index - 1)
         or (index <= 2 and index + 2 or index - 2)
-      if mode == "full" then
+      if mode == "gear" then
+        local targets = {
+          {left=3,right=2,up=1,down=4}, {left=4,right=2,up=1,down=2},
+          {left=3,right=4,up=1,down=3}, {left=3,right=2,up=1,down=4},
+        }
+        expected = ({1,3,2,4})[targets[semantic][direction]]
+      elseif mode == "full" then
         local nextSemantic = columnChange and (semantic % 2 == 1 and semantic + 1 or semantic - 1)
           or (semantic <= 2 and semantic + 2 or semantic - 2)
         expected = ({ 1, 3, 2, 4 })[nextSemantic]
@@ -386,6 +392,17 @@ for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
     end
   end
 end
+run.loader.modOptions.kanto_gear.battle_view = "gear"
+local previousDouble, previousActive = st.double, Ui._active
+st.double, Ui._active = true, 2
+Ui._menuIndex = 1
+Ui.handleInput({ wasPressed = function(_, key) return key == "down" end })
+T.eq(Ui._menuIndex,4,"Gear hero down reaches RUN even across both native axes")
+T.eq(Ui._actionCursor[2],4,"Gear retains the active doubles battler's command cursor")
+Ui.handleInput({ wasPressed = function(_, key) return key == "left" end })
+T.eq(Ui._menuIndex,2,"Gear lower row moves from RUN to BAG")
+T.eq(Ui._actionCursor[2],2,"doubles cursor follows the visible selection")
+st.double, Ui._active = previousDouble, previousActive
 Ui._menuIndex = 1; refreshBattle()
 local runtime = assert(upvalue(hook, "hgssRuntime"))
 local P = display.gen3.Pokemon
@@ -481,7 +498,7 @@ for _, mode in ipairs({ "gear", "full" }) do
     end
     NativeParty.cursor = count
     NativeParty.handleInput({ wasPressed = function(_, key) return key == "left" end })
-    T.eq(NativeParty.cursor, mode == "full" and count or 1,
+    T.eq(NativeParty.cursor, count,
       mode .. " applies only its own party navigation contract")
     NativeParty.cursor = 1
     NativeParty.handleInput({ wasPressed = function(_, key) return key == "up" end })

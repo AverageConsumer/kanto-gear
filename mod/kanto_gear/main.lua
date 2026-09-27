@@ -3241,7 +3241,7 @@ return function(mod)
 
   local function companionMoveGrid(state)
     return displayRuntime.gen3 ~= nil or moveGridLayout(state, bottomOwnsBattleUI(
-      fullBottomBattleUI(), active, hasDisplay(), displayReady, state, battle))
+      hideUpperBattleUI(), active, hasDisplay(), displayReady, state, battle))
   end
 
   local function romThemePalette(name)
@@ -7682,11 +7682,6 @@ return function(mod)
       partyLabel = THEME:translate("POKEMON"),
       runLabel = THEME:translate("RUN"),
       moveIndex = battle.moveIndex or 1,
-      -- Gear leaves native D-pad navigation alone. Its hero controls and
-      -- Gen 1/2 move grid do not share that geometry; keep their style without
-      -- suggesting a companion focus that the player cannot navigate directly.
-      hideRootFocus = currentBattleUIMode() == "gear",
-      hideMoveFocus = currentBattleUIMode() == "gear" and not displayRuntime.gen3,
       details = assist("move_details"),
       moves = {},
     }
@@ -7898,7 +7893,7 @@ return function(mod)
         accuracyText = move.accuracy and tostring(move.accuracy) or "--",
       }
     end
-    out.moveIndex = battle and fullBottomBattleUI() and (summary.moveIndex or 1) or nil
+    out.moveIndex = battle and hideUpperBattleUI() and (summary.moveIndex or 1) or nil
     return out, view
   end
 
@@ -7945,7 +7940,7 @@ return function(mod)
         local clock, period = hgssRuntime.clock()
         THEME.hgss:battlePartyTransition(mon, hgssRuntime.battlePortrait,
           playerTeam, enemyTeam, function(slot, x, y, focused, details)
-            partyCard(list[slot], x, y, currentBattleUIMode() ~= "gear" and focused, details)
+            partyCard(list[slot], x, y, focused, details)
           end, 1 - partyClose, THEME:translate("PARTY"), clock, period)
       else
         THEME.hgss:battleRoot(mon, hgssRuntime.battlePortrait,
@@ -8996,7 +8991,6 @@ return function(mod)
       if not ok then return end
     end
     local selected = not cancel and menu.index or nil
-    if THEME.style == "hgss" and currentBattleUIMode() == "gear" then selected = 0 end
     local title = compat.battlePartyTitle(menu, cancel)
     if THEME.style == "hgss" then
       local list = battle.party or {}
@@ -12990,10 +12984,12 @@ return function(mod)
         if top ~= raw and not (top and top.isTextBox) and not menu and not summary then return false end
         if require("src.ui.game3.stat_growth").isOpen() and not (menu and menu.nativeStats) then return false end
         if kind == "partyNavigation" then
-          return fullBottomBattleUI() and menu and menu.party and menu.valid() or false
+          return menu and menu.party and menu.valid() or false
         end
-        if kind == "navigation" then
-          return fullBottomBattleUI() and top == raw and battle.prompt == "menu"
+        if kind == "navigation" or kind == "heroNavigation" then
+          return (fullBottomBattleUI() or THEME.style == "hgss")
+            and (kind ~= "heroNavigation" or currentBattleUIMode() == "gear")
+            and top == raw and battle.prompt == "menu"
             and not raw.battle.safari and not adapter.Message.isOpen()
         end
         if kind == "hud" then
@@ -13001,7 +12997,7 @@ return function(mod)
             and not adapter.BattleUI.litHealthboxShown()
         end
         return true
-      end)
+      end, hgssRuntime.rootDirection)
     end
     displayRuntime.homeCatalog.packages.achievements.available = true
     displayRuntime.storeById.achievements.available = true
@@ -13181,7 +13177,7 @@ return function(mod)
 
   function hgssRuntime.remapBattleRootInput(stepGame)
     if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss"
-        or not fullBottomBattleUI() or not battle then return end
+        or displayRuntime.gen3 or not hideUpperBattleUI() or not battle then return end
     local raw = battleState()
     local top = game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
@@ -13191,7 +13187,7 @@ return function(mod)
     local party = screenContract(top, "party")
     if party and party.submenu then
       local actions, submenu = hgssRuntime.partySubmenuActions(party)
-      if #actions < 2 then return end
+      if #actions < 2 or not fullBottomBattleUI() then return end
       local current = party.subIndex or (submenu and submenu.index)
         or actions[1].index
       for i = 1, #queue do
@@ -13227,7 +13223,7 @@ return function(mod)
 
   function hgssRuntime.remapSummaryMovesInput(stepGame)
     if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss" or not battle
-        or displayRuntime.gen3 or not fullBottomBattleUI() or not assist("move_details") then return end
+        or displayRuntime.gen3 or not hideUpperBattleUI() or not assist("move_details") then return end
     local summary = screenById("summary")
     local raw, top = battleState(), game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
@@ -13705,7 +13701,7 @@ return function(mod)
   mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
     if next(state) == true then return true end
     return screenContract(state, "party") ~= nil and bottomOwnsBattleUI(
-      fullBottomBattleUI(), active,
+      hideUpperBattleUI(), active,
       hasDisplay(), displayReady, battleState(), battle)
   end)
 

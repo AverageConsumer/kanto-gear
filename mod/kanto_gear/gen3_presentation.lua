@@ -1,9 +1,9 @@
 -- Native FRLG does not call the legacy battle visibility hooks yet. Bridge
--- its presentation functions and Full Gear's owned command-grid navigation.
+-- its presentation functions and Gear's owned command navigation.
 local Presentation = {}
 Presentation.__index = Presentation
 
-function Presentation.new(owns)
+function Presentation.new(owns, heroDirection)
   local self = setmetatable({ owns = owns, patches = {} }, Presentation)
   local function wrap(module, name, callback)
     local original = module[name]
@@ -15,8 +15,36 @@ function Presentation.new(owns)
   local function hidden(kind)
     return self.owns and self.owns(kind) or false
   end
-  wrap(require("src.core.game3.battle.ui"), "handleInput", function(next, input, ...)
-    if hidden("navigation") then
+  local ui = require("src.core.game3.battle.ui")
+  wrap(ui, "handleInput", function(next, input, ...)
+    if input and heroDirection and hidden("heroNavigation") then
+      -- Gear's large FIGHT button and lower three buttons are not a 2x2
+      -- grid. Keep native semantic indices and the doubles cursor in sync.
+      local pressed
+      for _, direction in ipairs({ "left", "right", "up", "down" }) do
+        if input:wasPressed(direction) then pressed = direction; break end
+      end
+      if pressed then
+        ui.tick()
+        if hidden("heroNavigation") and ui._mode == "menu" and ui.waitingForCommand()
+            and not require("src.ui.game3.choice").active
+            and not (ui._st and ui._st.oldManTutorial) then
+          local order = { 1, 3, 2, 4 }
+          local target = order[heroDirection(order[ui._menuIndex or 1], pressed)]
+          if target ~= ui._menuIndex then
+            ui._menuIndex = target
+            ui._actionCursor[ui._active or 0] = target
+            pcall(function()
+              require("src.core.game3.audio").playSe(require("src.core.game3.se_ids").SE_SELECT)
+            end)
+          end
+          -- Consume this press even at an edge; never also confirm a command.
+          return true
+        end
+      end
+      return next(input, ...)
+    end
+    if input and hidden("navigation") then
       -- FRLG: FIGHT/BAG above PARTY/RUN. Full Gear: FIGHT/PARTY above
       -- BAG/RUN. Transpose directions at the native handler, after Input.step,
       -- so keyboard, held controls and gamepads all keep the same authority.
@@ -74,7 +102,7 @@ function Presentation.new(owns)
   local party = require("src.ui.game3.party_menu")
   wrap(party, "handleInput", function(next, input, ...)
     if hidden("partyNavigation") then
-      -- Full Gear's uniform vertical list has no native left-column shortcut.
+      -- Gear's uniform vertical list has no native left-column shortcut.
       local source = input
       input = setmetatable({ wasPressed = function(_, key)
         return key ~= "left" and key ~= "right" and source:wasPressed(key)

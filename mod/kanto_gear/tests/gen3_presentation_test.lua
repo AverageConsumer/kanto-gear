@@ -67,7 +67,7 @@ T.eq(count("src.ui.game3.window", "cursorPx"), 1, "Gear also removes its command
 T.eq(count("src.ui.game3.battle_chrome", "drawPanel"), 1, "Gear removes command chrome")
 T.eq(count("src.core.game3.battle.healthbox", "draw"), 2, "Gear retains native healthboxes")
 local down, right, confirm = U.handleInput(input)
-T.check(not down and right and confirm, "Gear retains native navigation and confirmation")
+T.check(not down and right and confirm, "presentation without a hero adapter retains native navigation")
 mode = "full"; U.draw()
 down, right, confirm = U.handleInput(input)
 T.check(down and not right and confirm, "Full Gear transposes only directions")
@@ -92,6 +92,31 @@ T.check(not down and right and confirm, "release leaves chained input as native 
 T.eq(releases, 1, "owned quad is released without releasing the host texture")
 T.eq(U.draw, original, "release restores native entry point")
 T.eq(F.draw("CHAINED MOD", 10, 122), "native", "later mod wrapper survives release")
+local allowed = true
+U.tick = function() end
+U.waitingForCommand = function() return true end
+U._mode, U._menuIndex, U._active, U._actionCursor = "menu", 1, 2, {}
+local hero = Presentation.new(function(kind)
+  return allowed and (kind == "heroNavigation" or kind == "navigation")
+end, function(_, direction) return direction == "down" and 4 or 2 end)
+local moveAndConfirm = { wasPressed = function(_, key) return key == "down" or key == "a" end }
+T.eq(U.handleInput(moveAndConfirm),true,"hero navigation consumes the directional press")
+T.eq(U._menuIndex,4,"hero can cross the native grid diagonally")
+T.eq(U._actionCursor[2],4,"hero updates the active battler cursor")
+U._menuIndex=1
+modules["src.ui.game3.choice"].active=true
+local d, r, a = U.handleInput(moveAndConfirm)
+T.check(d and a,"native choices keep direction and confirmation")
+T.eq(U._menuIndex,1,"hero never moves under a choice")
+modules["src.ui.game3.choice"].active=false
+U._st={oldManTutorial=true}
+U.handleInput(moveAndConfirm)
+T.eq(U._menuIndex,1,"tutorial retains command authority")
+U._st=nil
+allowed=false
+U.handleInput(moveAndConfirm)
+T.eq(U._menuIndex,1,"lost presentation ownership restores native input")
+hero:release()
 for name in pairs(modules) do package.loaded[name] = saved[name] end
 love = oldLove
 T.finish("Native Gen3 presentation ownership")

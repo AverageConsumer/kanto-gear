@@ -1076,8 +1076,8 @@ do
     function() return false end, invalidParty), false,
     "replacement battle party menus retain native navigation")
   T.eq(run.loader.hooks:call("ui.party.grid_navigation",
-    function() return false end, validParty), false,
-    "GEAR retains native party navigation")
+    function() return false end, validParty), true,
+    "GEAR owns its visible party grid")
   run.loader.modOptions.kanto_gear.battle_view = "full"
   T.eq(run.loader.hooks:call("ui.party.grid_navigation",
     function() return false end, validParty), true,
@@ -1226,8 +1226,8 @@ do
   game.stack.states = { world, rawSummaryBattle, summaryState }
   game.input = { pressQueue = { "down" } }
   hgssRuntime.remapSummaryMovesInput(game)
-  T.eq(summaryState.moveIndex, 1, "GEAR leaves native summary focus unchanged")
-  T.eq(game.input.pressQueue[1], "down", "GEAR preserves native summary directional input")
+  T.eq(summaryState.moveIndex, 2, "GEAR moves focus in its owned summary")
+  T.eq(#game.input.pressQueue, 0, "GEAR consumes its summary directional input")
   run.loader.modOptions.kanto_gear.battle_view = "full"
   hgssRuntime.remapSummaryMovesInput(game)
   T.eq(summaryState.moveIndex, 2,
