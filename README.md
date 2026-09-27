@@ -29,6 +29,10 @@ Silver, Crystal, FireRed and LeafGreen in [Gen1Recomp](https://github.com/bryant
 
 ## Silph Link OS
 
+**Fixed in 3.3.2:** Gear restores its HGSS battle layout, with visible focus and
+D-pad navigation matching its controls. Upper HP displays stay visible; unsupported
+menus retain their native controls.
+
 **New in 3.3.1: Silph Connect**, an optional online display app and Home widget.
 See players visible through Recomp's online service, their reported edition and
 status, and up to three names at a glance on Home. The connection and player
