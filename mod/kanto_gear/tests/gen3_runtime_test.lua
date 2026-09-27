@@ -40,7 +40,8 @@ end
 local run = T.sdk.loadMod(path, { generation = 3, data = data, fs = fs })
 T.eq(run.mod and run.mod.state, "loaded", "native Gen3 test build loads")
 for _, err in ipairs(run.errors) do print(err.message or err.error or tostring(err)) end
-local raw = { generation = 3, data = data, phase = "boot" }
+local raw = setmetatable({ generation = 3, data = data, phase = "boot" },
+  { __index = require("src.core.Game3") })
 run.loader.game = raw
 run.loader.events:emit("game.ready", { game = raw })
 local function upvalue(fn, target)
@@ -669,6 +670,7 @@ do
   run.loader.events:emit("map.entered", { game = raw, mapId = session.map })
 end
 assert(loadfile(path .. "/tests/pss_runtime_cases.lua"))()(T, display)
+assert(loadfile(path .. "/tests/gen3_pointer_runtime_cases.lua"))()(T, run, display, raw)
 if type(_G.KANTO_GEAR_RENDER_CAPTURE) == "function" then
   _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, maps)
 end

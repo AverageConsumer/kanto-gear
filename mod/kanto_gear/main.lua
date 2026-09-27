@@ -12953,6 +12953,9 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     displayRuntime.pss:close()
+    if displayRuntime.gen3Pointer then
+      displayRuntime.gen3Pointer:release(); displayRuntime.gen3Pointer = nil
+    end
     if displayRuntime.gen3Presentation then
       displayRuntime.gen3Presentation:release(); displayRuntime.gen3Presentation = nil
     end
@@ -12967,6 +12970,10 @@ return function(mod)
     displayRuntime.gen3PollAt = nil
     displayRuntime.gen3BoundSession = nil
     if game.generation == 3 then
+      displayRuntime.gen3Pointer = assert(load(mod:read("gen3_pointer.lua"),
+        "@kanto_gear/gen3_pointer.lua"))().new(game, function(action, x, y)
+        return displayRuntime.primaryTouch(action, x, y)
+      end)
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
       displayRuntime.gen3Progress = assert(load(mod:read("gen3_progress.lua"), "@kanto_gear/gen3_progress.lua"))().new(displayRuntime.gen3)
       displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss)
@@ -13630,6 +13637,8 @@ return function(mod)
     end
     return true
   end
+
+  displayRuntime.primaryTouch = primaryTouch
 
   mod.hooks:wrap("input.pointer", function(next, pointerGame, event)
     local action = ({ pressed = "down", released = "up", moved = "move",

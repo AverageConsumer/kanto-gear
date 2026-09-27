@@ -41,3 +41,5 @@ tests/start_menu_runtime_test.lua
 tests/display_background_test.lua
 tests/auto_battle_screen_test.lua
 tests/party_summary_test.lua
+tests/gen3_pointer_test.lua
+tests/gen3_pointer_runtime_cases.lua
