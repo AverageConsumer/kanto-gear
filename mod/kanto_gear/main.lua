@@ -3201,8 +3201,10 @@ return function(mod)
   end
 
   function compat.screenName(kind, gen2)
+    local wanted = gen2 and 2 or 1
     for id in pairs(compat.screens[kind] or {}) do
-      if (id:sub(1, 4) == "Gen2") == gen2 then return id end
+      local generation = tonumber(id:match("^Gen(%d+)")) or 1
+      if generation == wanted then return id end
     end
   end
 
