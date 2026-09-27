@@ -29,6 +29,10 @@ Silver, Crystal, FireRed and LeafGreen in [Gen1Recomp](https://github.com/bryant
 
 ## Silph Link OS
 
+**Fixed in 3.3.3:** Gen 1 Party → Stats opens correctly again, with working
+HGSS page arrows, swipes and Back. FireRed/LeafGreen accept mouse and touch
+input in combined-screen layouts, including stacked, side-by-side and overlay.
+
 **Fixed in 3.3.2:** Gear restores its HGSS battle layout, with visible focus and
 D-pad navigation matching its controls. Upper HP displays stay visible; unsupported
 menus retain their native controls.
