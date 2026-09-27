@@ -10629,6 +10629,22 @@ return function(mod)
     mod.input:tap(displayRuntime.sourceGame or game, key)
   end
 
+  function displayRuntime.summaryInput(summary, key)
+    if summary.screenId == "SummaryMenu" and compat.summary.supports(summary, game) then
+      if summary.closing or (tonumber(summary.whiteHold) or 0) > 0 then return end
+      -- Gen 1 ignores left/right; A and B both advance, then close on page 2.
+      -- Keep the native page in sync with Gear, and use its normal close path.
+      if key == "left" or key == "right" then
+        summary.page = summary.page == 1 and 2 or 1
+        dirty = true
+        return
+      elseif key == "b" then
+        summary.page = 2
+      end
+    end
+    press(key)
+  end
+
   local function holdTextSpeed(held)
     if held == (textSpeedToken ~= nil) then return end
     if held then textSpeedToken = mod.input:press(displayRuntime.sourceGame or game, "a")
@@ -11207,20 +11223,20 @@ return function(mod)
       if THEME.style == "hgss" then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
         if hy < 30 and hx < 27 then
-          press("b")
+          displayRuntime.summaryInput(top, "b")
         elseif hy < 30 and hx < 82 then
-          press("left")
+          displayRuntime.summaryInput(top, "left")
         elseif hy < 30 and hx < 139 then
-          press("right")
+          displayRuntime.summaryInput(top, "right")
         end
       elseif y < HEADER and x < 24 then
-        press("b")
+        displayRuntime.summaryInput(top, "b")
       elseif compat.summary.supports(top, game)
           and inside(x, y, 103, 125, 53, 15) then
         press("a")
       elseif not compat.summary.supports(top, game)
           and inside(x, y, 14, 94, 132, 34) then
-        press("b")
+        displayRuntime.summaryInput(top, "b")
       end
       return
     end
@@ -12051,11 +12067,11 @@ return function(mod)
       if THEME.style == "hgss" and compat.summary.supports(summary, game) then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
         if hy < 30 and hx < 27 then
-          press("b")
+          displayRuntime.summaryInput(summary, "b")
         elseif hy < 30 and hx < 82 then
-          press("left")
+          displayRuntime.summaryInput(summary, "left")
         elseif hy < 30 and hx < 139 then
-          press("right")
+          displayRuntime.summaryInput(summary, "right")
         elseif assist("move_details")
             and tonumber(summary.page) == (displayRuntime.gen3 and 3 or 2) then
           for slot = 1, 4 do
@@ -12073,13 +12089,13 @@ return function(mod)
       elseif not battle then
         return
       elseif y < HEADER and x < 24 then
-        press("b")
+        displayRuntime.summaryInput(summary, "b")
       elseif compat.summary.supports(summary, game)
           and inside(x, y, 103, 125, 53, 15) then
         press("a")
       elseif not compat.summary.supports(summary, game)
           and inside(x, y, 14, 94, 132, 34) then
-        press("b")
+        displayRuntime.summaryInput(summary, "b")
       else
         return
       end
@@ -12544,7 +12560,7 @@ return function(mod)
       local summary = screenById("summary")
       if summary and game.stack:top() == summary
           and compat.summary.supports(summary, game) then
-        press(dx < 0 and "right" or "left")
+        displayRuntime.summaryInput(summary, dx < 0 and "right" or "left")
         dirty = true
         return
       end
