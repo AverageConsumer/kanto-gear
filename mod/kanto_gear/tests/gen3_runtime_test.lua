@@ -303,6 +303,30 @@ paintBattle("native battle commands")
 local Message = require("src.ui.game3.message")
 local Oak = require("src.core.game3.battle.oak_advice")
 local theme = upvalue(display.drawContents, "THEME")
+do
+  run.loader.modOptions.kanto_gear.battle_view="gear"
+  local rootDraw, rootMon = theme.hgss.battleRoot
+  theme.hgss.battleRoot=function(self,mon,...)
+    rootMon=mon; return rootDraw(self,mon,...)
+  end
+  paintBattle("Gear HGSS hero commands")
+  T.check(rootMon and rootMon.hideRootFocus,"FRLG Gear uses the HGSS hero root without mismatched command focus")
+  T.eq(rootMon.hideMoveFocus,false,"FRLG native move grid retains its matching focus")
+  theme.hgss.battleRoot=rootDraw
+  local oldSubmit, submitIndex, chosen
+  for i=1,debug.getinfo(tapBattle,"u").nups do
+    local name,fn=debug.getupvalue(tapBattle,i)
+    if name=="submit" then oldSubmit,submitIndex=fn,i end
+  end
+  debug.setupvalue(tapBattle,submitIndex,function(kind,fields) chosen=fields.choice end)
+  for i,choice in ipairs({"fight","party","item","run"}) do
+    local action=theme.hgss.battleActions[i]
+    tapBattle((action.x+action.w/2)/theme.hgssScale,(action.y+action.h/2)/theme.hgssScale)
+    T.eq(chosen,choice,"FRLG Gear hero touch routes "..choice.." correctly")
+  end
+  debug.setupvalue(tapBattle,submitIndex,oldSubmit)
+  run.loader.modOptions.kanto_gear.battle_view="standard"
+end
 for key in pairs(Oak.TEXT) do
   for _, text in ipairs(Oak.pages({ playerName = "RED" }, key) or {}) do
     Message.show(text, { frame = "voiceover", speed = 0 })

@@ -2799,14 +2799,13 @@ return function(mod)
   end
 
   function hgssRuntime.nativeBattleLayout()
-    local mode = currentBattleUIMode()
-    return THEME.style == "hgss" and (mode == "standard" or mode == "gear")
+    return THEME.style == "hgss" and currentBattleUIMode() == "standard"
   end
 
   function hgssRuntime.beginAnimation(kind, data)
     if THEME.style ~= "hgss" or mod.options:get("ui_motion") == false
         or (hgssRuntime.nativeBattleLayout() or displayRuntime.gen3) and kind:match("^battle_") then
-      -- Hero transitions assume the custom Full Gear geometry. Native
+      -- Hero transitions assume the custom HGSS geometry. Native
       -- layouts use the shared compositor without a one-frame wrong layout.
       hgssRuntime.animation = nil
       return
@@ -2846,7 +2845,7 @@ return function(mod)
       or nil
     local items = menu and (menu.subItems or (submenu and submenu.items)) or {}
     local actions = {}
-    for index = 1, hgssRuntime.nativeBattleLayout() and #items or math.min(2, #items) do
+    for index = 1, not fullBottomBattleUI() and #items or math.min(2, #items) do
       actions[#actions + 1] = { index = index, item = items[index] }
     end
     return actions, submenu
@@ -7683,6 +7682,11 @@ return function(mod)
       partyLabel = THEME:translate("POKEMON"),
       runLabel = THEME:translate("RUN"),
       moveIndex = battle.moveIndex or 1,
+      -- Gear leaves native D-pad navigation alone. Its hero controls and
+      -- Gen 1/2 move grid do not share that geometry; keep their style without
+      -- suggesting a companion focus that the player cannot navigate directly.
+      hideRootFocus = currentBattleUIMode() == "gear",
+      hideMoveFocus = currentBattleUIMode() == "gear" and not displayRuntime.gen3,
       details = assist("move_details"),
       moves = {},
     }
@@ -7941,7 +7945,7 @@ return function(mod)
         local clock, period = hgssRuntime.clock()
         THEME.hgss:battlePartyTransition(mon, hgssRuntime.battlePortrait,
           playerTeam, enemyTeam, function(slot, x, y, focused, details)
-            partyCard(list[slot], x, y, focused, details)
+            partyCard(list[slot], x, y, currentBattleUIMode() ~= "gear" and focused, details)
           end, 1 - partyClose, THEME:translate("PARTY"), clock, period)
       else
         THEME.hgss:battleRoot(mon, hgssRuntime.battlePortrait,
@@ -8992,6 +8996,7 @@ return function(mod)
       if not ok then return end
     end
     local selected = not cancel and menu.index or nil
+    if THEME.style == "hgss" and currentBattleUIMode() == "gear" then selected = 0 end
     local title = compat.battlePartyTitle(menu, cancel)
     if THEME.style == "hgss" then
       local list = battle.party or {}

@@ -1335,6 +1335,8 @@ function love.load()
     mon.fightLabel, mon.bagLabel = translate("FIGHT"), translate("BAG")
     mon.partyLabel, mon.runLabel = translate("POKEMON"), translate("RUN")
     mon.moveIndex = 1
+    mon.hideRootFocus = os.getenv("KANTO_GEAR_PREVIEW_BATTLE_VIEW") == "gear"
+    mon.hideMoveFocus = mon.hideRootFocus
     if gen1 then
       mon.moves = {
         { name = "BODY SLAM", type = "NORMAL", typeLabel = "NORMAL",
@@ -2621,7 +2623,7 @@ function love.load()
     else
       for slot = 1, #party do
         local x, y = theme:partyPosition(slot)
-        drawMon(slot, x, y, slot == 2, false)
+        drawMon(slot, x, y, os.getenv("KANTO_GEAR_PREVIEW_BATTLE_VIEW") ~= "gear" and slot == 2, false)
       end
     end
   elseif battlePartyTransition then

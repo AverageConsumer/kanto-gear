@@ -268,7 +268,7 @@ game.stack.states[1] = world
 for _, mode in ipairs({ "standard", "gear" }) do
   run.loader.modOptions.kanto_gear.battle_view = mode
   runtime.beginAnimation("battle_moves")
-  T.eq(runtime.animation, nil, mode .. " keeps the native layout during transitions")
+  T.eq(runtime.animation ~= nil, mode == "gear", mode .. " uses its own layout during transitions")
 end
 run.loader.modOptions.kanto_gear.battle_view = "full"
 -- Opposite hero transitions start at the last rendered position.

@@ -4208,6 +4208,7 @@ return function(ui)
   end
 
   function H:battleFightAction(mon, drawPortrait, selected, offsetX, offsetY)
+    selected = selected and not mon.hideRootFocus
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
     local pressed = self:beginPress(22 + offsetX, 32 + offsetY, 196, 122)
@@ -4262,6 +4263,7 @@ return function(ui)
   local BATTLE_ACTION_CONTENT_RISE = 2
 
   function H:battleBagAction(mon, selected, offsetX, offsetY)
+    selected = selected and not mon.hideRootFocus
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
     local pressed = self:beginPress(6 + offsetX, 159 + offsetY, 68, 52)
@@ -4276,6 +4278,7 @@ return function(ui)
   end
 
   function H:battlePartyAction(mon, selected, offsetX, offsetY)
+    selected = selected and not mon.hideRootFocus
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
     local pressed = self:beginPress(166 + offsetX, 159 + offsetY, 68, 52)
@@ -4307,6 +4310,7 @@ return function(ui)
   end
 
   function H:battleRunAction(mon, selected, offsetX, offsetY)
+    selected = selected and not mon.hideRootFocus
     local G, colors = ui.graphics, self.colors
     offsetX, offsetY = offsetX or 0, offsetY or 0
     local pressed = self:beginPress(86 + offsetX, 159 + offsetY, 68, 52)
@@ -5566,7 +5570,7 @@ return function(ui)
       local column, row = (slot - 1) % 2, math.floor((slot - 1) / 2)
       local move = mon.moves[slot]
       self:battleMoveCard(move, 6 + column * 116,
-        33 + row * 85, mon.moveIndex == slot, self:moveHasStab(mon, move))
+        33 + row * 85, not mon.hideMoveFocus and mon.moveIndex == slot, self:moveHasStab(mon, move))
     end
   end
 
@@ -5647,7 +5651,7 @@ return function(ui)
       local x = 6 + column * 116
         + math.floor(direction * 122 * cardsProgress + 0.5)
       self:battleMoveCard(move, x, 33 + row * 85,
-        mon.moveIndex == slot, self:moveHasStab(mon, move))
+        not mon.hideMoveFocus and mon.moveIndex == slot, self:moveHasStab(mon, move))
     end
 
     local infoProgress = math.max(0, math.min(1, (progress - 0.10) / 0.90))
@@ -5694,7 +5698,7 @@ return function(ui)
         + math.floor(direction * 122 * (1 - cardProgress) + 0.5)
       local move = mon.moves[slot]
       self:battleMoveCard(move, x, 33 + row * 85,
-        mon.moveIndex == slot, self:moveHasStab(mon, move))
+        not mon.hideMoveFocus and mon.moveIndex == slot, self:moveHasStab(mon, move))
     end
     if oldX then G.setScissor(oldX, oldY, oldW, oldH) else G.setScissor() end
     self:battleTeamStrip(playerTeam, enemyTeam, true)

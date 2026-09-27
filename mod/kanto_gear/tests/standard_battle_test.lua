@@ -124,20 +124,49 @@ for _, method in ipairs({ "battleStandardRoot", "battleRoot", "battleFullRoot",
   end
 end
 for _, mode in ipairs({ "standard", "gear", "full" }) do
+  rendered = {}
   options.battle_view = mode
   battle.prompt = "menu"
   snapshot()
   drawBattle()
-  T.check(rendered[mode ~= "full" and "battleStandardRoot"
-    or "battleFullRoot"], mode .. " chooses its own root")
+  T.check(rendered[mode == "standard" and "battleStandardRoot"
+    or mode == "gear" and "battleRoot" or "battleFullRoot"], mode .. " chooses its own root")
   battle.prompt = "moves"
   drawBattle()
-  T.check(rendered[mode ~= "full" and "battleStandardMoves" or "battleMoves"],
+  T.check(rendered[mode == "standard" and "battleStandardMoves" or "battleMoves"],
     mode .. " chooses its own move layout")
   runtime.beginAnimation("battle_moves")
-  T.eq(runtime.animation ~= nil, mode == "full", "native layouts do not animate through a different grid")
+  T.eq(runtime.animation ~= nil, mode ~= "standard", "custom HGSS layouts retain their own animations")
   runtime.animation = nil
 end
+options.battle_view = "gear"
+local focusCount = 0
+local originalFocus, originalRoundedFocus = H.focusFrame, H.roundedFocusFrame
+H.focusFrame = function(self, ...) focusCount=focusCount+1; return originalFocus(self, ...) end
+H.roundedFocusFrame = function(self, ...) focusCount=focusCount+1; return originalRoundedFocus(self, ...) end
+for slot=1,4 do
+  battle.menuIndex,battle.moveIndex=slot,slot
+  battle.prompt="menu"; focusCount=0; drawBattle()
+  T.eq(focusCount,0,"Gear hero root has no misleading native focus")
+  local action=H.battleActions[slot]
+  hit(action.x+action.w/2,action.y+action.h/2)
+  T.eq(raw.menuIndex,slot,"Gear hero touch targets the original semantic action")
+  battle.prompt="moves"; focusCount=0; drawBattle()
+  T.eq(focusCount,0,"Gear move grid has no vertical native focus")
+  local x,y=6+((slot-1)%2)*116,33+math.floor((slot-1)/2)*85
+  hit(x+40,y+40)
+  T.eq(intents[#intents].slot,slot,"Gear grid touch submits the exact move slot")
+  snapshot()
+  hit(x+103,y+12)
+  T.eq(upvalue(input,"moveInfo"),battle.moves[slot],"Gear detail selects the tapped move despite hidden focus")
+  upvalue(input,"moveInfo",nil,true); runtime.animation=nil
+end
+for _, progress in ipairs({0,0.5,1}) do
+  focusCount=0
+  H:battleMovesTransition(runtime.battleMon(),runtime.battlePortrait,{}, {},progress)
+  T.eq(focusCount,0,"Gear move transition keeps focus hidden throughout")
+end
+H.focusFrame,H.roundedFocusFrame=originalFocus,originalRoundedFocus
 options.battle_view = "standard"
 runtime.animation = { kind = "battle_bag", started = 1 }
 display.optionsChanged({ mod = "kanto_gear", key = "battle_view" })
@@ -240,6 +269,22 @@ if generation == 2 then
 end
 options.battle_view = "gear"
 T.eq(#runtime.partySubmenuActions(menu), 3, "Gear keeps every native action including cancel")
+menu.submenu=nil
+runtime.animation=nil
+local originalPartyCard=H.partyCard
+local focusedCards=0
+H.partyCard=function(self,mon,x,y,selected,...)
+  if selected then focusedCards=focusedCards+1 end
+  return originalPartyCard(self,mon,x,y,selected,...)
+end
+for slot=1,6 do
+  menu.index=slot; focusedCards=0; drawBattle()
+  T.eq(focusedCards,0,"Gear party grid does not claim native vertical focus")
+  local x,y=H:partyPosition(slot)
+  hit(x+40,y+25)
+  T.eq(menu.index,slot,"Gear party card selects the correct native partner")
+end
+H.partyCard=originalPartyCard
 game.input.pressQueue = { "down", "right", "a", "b" }
 runtime.remapBattleRootInput(game)
 T.eq(table.concat(game.input.pressQueue, ","), "down,right,a,b", "Gear never remaps native input")
