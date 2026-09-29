@@ -1,17 +1,16 @@
 <div align="center">
 
-# Kanto Gear 3.3
+# Kanto Gear
 
 ### Silph Link OS — Your adventure. Reconnected.
 
 A Nintendo DS-inspired companion OS for Pokémon Red, Blue, Yellow, Gold,
-Silver, Crystal, FireRed and LeafGreen in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
+Silver, Crystal, FireRed, LeafGreen and Emerald in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
 
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest Kanto Gear release"></a>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases"><img src="https://img.shields.io/github/downloads/AverageConsumer/kanto-gear/total?label=downloads&color=2f81f7" alt="Total Kanto Gear downloads"></a>
   <a href="https://bryanthaboi.github.io/gen1recomp-mod-index/"><img src="https://img.shields.io/badge/official-Mod%20Index-6f42c1" alt="Available in the official Gen1Recomp Mod Index"></a>
-  <img src="https://img.shields.io/badge/games-Gen%201%20%2B%20Gen%202%20%2B%20FRLG-e8b923" alt="Supports Pokémon Gen 1, Gen 2, FireRed and LeafGreen">
 </p>
 
 <p>
@@ -27,210 +26,96 @@ Silver, Crystal, FireRed and LeafGreen in [Gen1Recomp](https://github.com/bryant
 
 </div>
 
-## Silph Link OS
+## Your companion in Kanto, Johto and Hoenn
 
-**Fixed in 3.3.3:** Gen 1 Party → Stats opens correctly again, with working
-HGSS page arrows, swipes and Back. FireRed/LeafGreen accept mouse and touch
-input in combined-screen layouts, including stacked, side-by-side and overlay.
+Keep the adventure on the game screen and everything you need close at hand.
+Kanto Gear brings maps, party information and touch controls together in a
+customizable Home screen, with **HGSS Light, Dark and Auto** themes.
 
-**Fixed in 3.3.2:** Gear restores its HGSS battle layout, with visible focus and
-D-pad navigation matching its controls. Upper HP displays stay visible; unsupported
-menus retain their native controls.
-
-**New in 3.3.1: Silph Connect**, an optional online display app and Home widget.
-See players visible through Recomp's online service, their reported edition and
-status, and up to three names at a glance on Home. The connection and player
-list stay active when you switch to another Gear app during gameplay.
-
-Silph Connect is a **proof of concept for displaying online presence**. It does
-not offer friends, invitations, trading, battles or chat. Those interactions
-need supported integration from Gen1Recomp before they can be added to Gear;
-there is no promised timetable. Install it through **Silph Store**, open it and
-choose **Connect**. Add its widget through Home editing. The visible count
-excludes yourself and is not a total of everyone connected to the server.
-See [Silph Connect](tools/PSS.md) for details.
-
-**New in 3.3:** FireRed and LeafGreen support, detailed native terrain in Gen 1/2
-minimaps, and more Japanese translations from Theeohn. FR/LG includes live Party,
-Bag, Pokédex and map data, battle controls, PC storage, naming, move learning,
-route stamps and Itemfinder scans. Pokémon summaries show nature and ability;
-level-up pages show the actual stat gains.
-
-FR/LG support is new: eggs, move-detail reordering and specialized minigames
-still use the native game screen. Ruby, Sapphire and Emerald are not supported.
-See [FR/LG coverage](tools/GEN3.md) for details and report problems with the game,
-screen and display mode where they occur.
-
-Kanto Gear turns otherwise unused screen space into a live companion system.
-Version 3 replaces the old fixed tab bar with a customizable Home screen built
-from apps, shortcuts and widgets.
-
-- **Explorer** combines the local map, current encounters, trainers, items and
-  Itemfinder behavior without reducing the adventure to a spreadsheet.
-  Available encounters are ordered by access and method, with uncaught species
-  ahead of caught ones at the same availability. Gen 2 fishing entries require a bank.
-  In Gold, Silver and Crystal, fruit markers show berry and apricorn trees.
-  Tap a tree for its item name and whether it is ready or already picked today.
-  Daily harvests do not change permanent item totals or Stamps progress.
-  **Options → Appearance → Map Motion** lets you choose Quality or Performance
-  for movement in both the local map and the Home Explorer widget.
-- **Party, Bag, Pokédex, Map, Trainer Card and Field Kit** are dedicated
-  bottom-screen apps with contextual touch flows.
-  Pokédex habitats prioritize visited areas with matching encounter times and
-  available methods, and show missing requirements or unvisited locations.
-  This is catch planning: owned TMs/HMs and boxed partners can count toward a
-  method. Explorer's **Here Now** still requires tools usable with your current party and bag.
-- **Contextual Start menu** mirrors the game's current entries as touch rows,
-  in the same order and with the same D-pad selection. It follows unlocks and
-  mod-added entries, preserves native confirmations, and returns to your
-  previous Gear view when the game menu closes.
-- **Auto Battle Screen** is an optional setting under **Options → Battle**
-  for **Fullscreen Swap** and **Combined Screen** layouts. It puts Gear in the
-  primary position for supported battle selections and the game there for
-  messages and animations, then restores the previous arrangement. Overlay
-  corner, size, visibility and side-by-side/stacked geometry are preserved.
-  Y/F6 overrides the current selection flow (enable Quick Swap for combined
-  layouts). Auto Battle Screen defaults to off and does not
-  take over tutorials, unknown screens, or the information-only battle view.
-- **Silph Store** explains and manages optional apps and widgets. Everything
-  already ships inside Kanto Gear; the Store never downloads executable code.
-- **Achievements** tracks trainers, items, hidden finds, and local wild Pokémon. Bronze marks a visited area; silver completes its trainer and item goals; gold also completes its local species list. Pokémon already registered as caught count wherever they were obtained. Gym trainers follow the game's completion flags, including trainers automatically cleared by a Gym Leader victory. One-shot battles that allow a loss are optional; missed regular goals and unverified progress remain explicit.
-  Install it from Silph Store; it respects your research mode. Its full-width
-  **Stamps widget** shows the current area, stamp tier and progress across all
-  four categories. Tap it to open that area's details.
-  Story-locked pickups do not count as collected or visited. Recurring pickups
-  whose flags cannot prove collection remain explicitly untracked.
-- **Notes** keeps personal notes and checklists for your playthrough, either
-  general or attached to a route or area. Install it from the HGSS Silph Store.
-  Create a note and choose **Tasks → + Task** to start a checklist.
-- **Team View** puts all six party members on Home, with a tap into their details.
-- **HGSS Light, Dark and Auto** provide the new high-resolution visual system.
-  Auto follows Gen 2 night and uses the same 18:00 boundary in Gen 1.
-- **Vanilla, Enhanced and Spoilers** let each player choose how much assistance
-  Explorer and the battle interface reveal.
-- Redesigned battle menus, Party selection, move learning, item use and PC
-  storage still execute the original game actions and rules.
-  **Gear** keeps the upper HP displays and puts battle menus on the companion
-  screen, with D-pad navigation and focus matching its HGSS controls.
-  **Full Gear** also moves the HP displays below. **Standard** follows the native
-  menu layout. Unsupported menus retain their native controls and presentation.
+- **Explore:** follow your live map, find local encounters and check trainers,
+  items and hidden finds. Choose Vanilla, Enhanced or Spoilers to set how much
+  help you want.
+- **Plan your team:** browse your Party, Bag and Pokédex, check move details and
+  find places to catch the Pokémon you are looking for.
+- **Track your adventure:** earn route stamps, see what is left to do and keep
+  your own notes, checklists and colored sketches.
+- **Make it yours:** arrange apps and widgets on Home. Long-press to edit and
+  visit Silph Store to enable the optional tools you want.
+- **Battle your way:** use contextual touch menus, keep the original layout or
+  choose Gear and Full Gear to move more of the battle interface below.
+- **See who is around:** Silph Connect shows online presence in an app and Home
+  widget. It is an early display-only feature; friends, invites, trades,
+  battles and chat need further support from Gen1Recomp.
 
 <p align="center">
-  <img src="screenshots/kanto-gear-hgss-store-light.png" width="49%" alt="Silph Store App of the Day and recommendations">
-  <img src="screenshots/kanto-gear-hgss-party-light.png" width="49%" alt="HGSS Party app with HP, EXP, status and type information">
+  <img src="screenshots/kanto-gear-hgss-store-light.png" width="49%" alt="Silph Store">
+  <img src="screenshots/kanto-gear-hgss-party-light.png" width="49%" alt="HGSS Party app">
 </p>
 
-Long-press an app or widget to edit Home, then swap it with another compatible
-card or an empty slot. Layout, installed apps, widgets and settings persist
-across restarts. Legacy Kanto Gear themes remain available, but every 3.0
-installation starts once in HGSS Light so Silph Link OS cannot be missed.
+## Get started
 
-## Install
+1. Install the [latest official Gen1Recomp](https://github.com/bryanthaboi/gen1recomp/releases/latest)
+   and import your own supported ROM.
+2. Install **Kanto Gear** from the [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/),
+   or import the ZIP from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
+3. Enable the mod, start your game and choose your display layout in Gear's
+   **Options** app.
 
-1. Install the [latest official Gen1Recomp release](https://github.com/bryanthaboi/gen1recomp/releases/latest)
-   for your platform. Kanto Gear 3.3 requires **Recomp 0.3.20 or newer**.
-2. Install **Kanto Gear** from the official Mod Index, or import
-   `kanto_gear-*.zip` from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
-3. Enable Kanto Gear, start a supported game and select your display mode in
-   the fixed **Options** app.
+The same mod ZIP works on Android, Windows and Linux. Kanto Gear contains no
+ROM or save file.
 
-You need your own supported ROM. Kanto Gear contains no ROM, ROM-derived game
-data or save file. English, German, Spanish (Spain), French and Japanese are built in under
-**Settings → Appearance → Language**. Disable the old companion language packs;
-they are no longer needed. Only Kanto Gear's interface changes language; game
-text remains untouched.
-See [language support](translations/README.md).
-
-Game translation mods can supply their own font through `mod.content.font`.
-Kanto Gear uses that font when it covers text missing from its pixel fonts.
-Bundled Japanese and Korean Fusion Pixel fonts also work without a game
-translation mod and cover gaps in a game's font, including the numero sign.
-They load only when needed; supported Latin text keeps the HGSS pixel fonts.
-Measurement, truncation and centering use the same selected font.
-Japanese includes 737 translated UI text keys, including Home, Notes, stamps,
-the bag, Store, settings and habitat availability. New Silph Connect labels
-and six FR/LG/progress labels await translation and fall back to English.
-Korean Gear menu translations are not included yet.
-Gear's own menu language is selected
-separately; installing a game translation does not translate Gear's menus.
-For type labels, Gear also reads contextual `type|<name>` entries from the
-public `strings` registry. RBY packages need the generator's companion type
-string addition; older packages retain their canonical type labels in Gear.
-
-The Notes touch keyboard defaults to QWERTY. Choose QWERTZ under
-**Settings → Controls → Keyboard**; the selection also applies to note titles
-and checklist entries and persists between sessions.
-
-Notes also supports colored drawing, stroke erasing and undo on surfaces that
-provide continuous pointer input. Android secondary displays need a host that
-forwards pointer movement; without it, Gear shows **HOST MISSING LIVE DRAWING
-INPUT**. Text notes and checklists remain usable. Notes are saved separately
-for each playthrough.
-
-Compatibility checks use packages from the
-[translation mod generator](https://github.com/thibautbus/gen1recomp-translation-mod-generator).
-The eleven standard language/game packages have been checked with the mod
-loader across Red, Blue, Yellow, Gold, Silver and Crystal, and with offscreen
-HGSS rendering. Device validation remains a separate step: enable Gear and
-one matching translation package, then check Party, Bag and a long translated
-name in both light and dark themes. Korean Crystal-specific dialogue remains
-English where the generator has no translation corpus.
-See the [repeatable translation checks](tools/translation_preview/README.md)
-for exact coverage, commands and known integration gaps.
-
-## Display modes
-
-| Mode | Best for |
+| Games | Minimum Gen1Recomp version |
 | --- | --- |
-| **Fullscreen Swap** | Phones and small one-screen handhelds |
-| **Combined Screen** | Steam Deck-style devices, tablets and large displays; optional bottom safe area for Android touch controls |
-| **Separate Screens** | AYN Thor, RG DS, desktop windows and multi-monitor setups |
+| Red, Blue and Yellow | 0.3.20 |
+| Gold, Silver and Crystal | 0.3.20 |
+| FireRed and LeafGreen | 0.3.20 |
+| Emerald (US 1.0) | 0.3.33 |
 
-Swipe or use visible arrows inside paged Silph Link apps. Optional **Trigger
-Tabs** use L2/R2 where supported, while Home editing intentionally remains
-touch-only. Android touch-control positions belong to the host; use its
-**Touch Controls** editor if they overlap a combined layout.
-Combined Screen can also reserve a configurable **Bottom Safe Area** so the
-complete game and companion layout stays above fixed Android controls.
+**Gen 3 support is still early.** Emerald, FireRed and LeafGreen have not been
+extensively playtested yet. Feedback from your playthroughs is very welcome!
+Some specialized menus stay on the original game screen. Ruby and Sapphire
+are not currently supported. See [Gen 3 coverage](tools/GEN3.md) for details.
 
-## Compatibility
+## One screen or two
 
-| Game | Minimum official host |
+| Layout | Best for |
 | --- | --- |
-| Pokémon Red, Blue and Yellow | Gen1Recomp 0.3.20 |
-| Pokémon Gold, Silver and Crystal | Gen1Recomp 0.3.20 |
-| Pokémon FireRed and LeafGreen | Gen1Recomp 0.3.20 |
+| **Fullscreen Swap** | Phones and small handhelds; switch between the game and Gear |
+| **Combined Screen** | Both views in one window, stacked, side by side or as an overlay |
+| **Separate Screens** | Dual-screen handhelds, desktop windows and multiple monitors |
 
-Android, Windows and Linux use the same Kanto Gear mod ZIP. The AYN Thor is the
-primary development device; combined layouts, independent displays and the
-desktop companion window are also supported.
+Use touch or a mouse, swipe between pages or tap the visible arrows. Supported
+native menus also follow the game's D-pad selection. **Auto Battle Screen** can
+switch the main view for battle choices on single-screen layouts.
 
-<details>
-<summary><strong>Moving from the former Kanto Android host</strong></summary>
+## Languages and notes
 
-The legacy and official Android hosts use separate app identities. Export your
-save from the old host, then import the ROM, save and Kanto Gear into the
-official app. Keep the old host until the migrated save has been verified.
-Gen1Recomp cannot currently export Gold or Silver cartridge `.sav` files, so
-those players should retain the legacy installation until an upstream transfer
-path exists.
+English, German, Spanish (Spain), French and Japanese are available under
+**Options → Appearance → Language**. Some newer labels still fall back to
+English. Gear's language setting changes its own interface; translating the
+game itself requires a separate game translation mod.
 
-</details>
+Notes supports QWERTY and QWERTZ keyboards, checklists and colored drawing.
+Drawing needs continuous pointer input from the host. If your secondary
+screen reports missing live drawing input, text notes and checklists still
+work. Notes are saved separately for each playthrough.
 
-## Support
+## Feedback
 
-For Kanto Gear display, touch or companion-UI problems, open an
-[issue](https://github.com/AverageConsumer/kanto-gear/issues) with your device,
-operating system, host version, Kanto Gear version, display mode and installed
-mods. General startup and host problems belong to the
-[Gen1Recomp issue tracker](https://github.com/bryanthaboi/gen1recomp/issues).
+Found something that feels wrong? [Open an issue](https://github.com/AverageConsumer/kanto-gear/issues)
+with your game, device, Recomp and Gear versions, display mode and other active
+mods. A screenshot and the steps to reproduce it help a lot.
+
+For update history, see the [release notes](https://github.com/AverageConsumer/kanto-gear/releases).
+More details: [languages](translations/README.md) · [Silph Connect](tools/PSS.md) ·
+[Gen 3 support](tools/GEN3.md).
 
 ## Credits
 
 Kanto Gear is built on [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)
 and released under the [MIT License](LICENSE). Spanish was contributed by
-**Desierto La Espada**, French by **Blastheaven2** and Japanese by **Theeohn**. Special thanks to
-[@Rocky5150](https://github.com/Rocky5150) for extensive device testing.
+**Desierto La Espada**, French by **Blastheaven2** and Japanese by **Theeohn**.
+Special thanks to [@Rocky5150](https://github.com/Rocky5150) for extensive device testing.
 
 Font credits:
 

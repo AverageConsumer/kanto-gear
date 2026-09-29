@@ -2,13 +2,13 @@
 
 Version **3.3.0** adds initial public support for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
-support. The **3.4.0-emerald.7** test package adds Emerald US 1.0 on official
+support. Version **3.4.0** adds Emerald US 1.0 on official
 Recomp **v0.3.33 or newer**. Ruby and Sapphire remain unsupported.
 The FRLG test package passed the user's Thor check; both editions also
 have automated native-data and menu checks. This does not verify every possible
 playthrough, mod combination or specialized native menu.
 
-## Emerald test scope
+## Emerald scope
 
 Emerald shares the native Gen 3 engine, but uses its own edition profile,
 Hoenn location names and region map, eight badge flags, 202-entry regional Dex
@@ -38,7 +38,8 @@ regional/National Dex order, bag actions, summary transitions and battle menu
 ownership in all four display modes. They also verify that read models leave
 the save unchanged. GPU checks compare native and Gear terrain pixel-for-pixel
 at three scales on six maps. This does not replace an interactive playthrough;
-the initial integration is being tested on the user's Thor.
+initial on-device checks were performed on an AYN Thor. All supported Gen 3
+games still need broader playthrough testing and community feedback.
 
 With the environment described below, use `POKEPORT_VERSION=emerald` and run:
 
