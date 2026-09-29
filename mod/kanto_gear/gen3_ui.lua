@@ -20,8 +20,9 @@ local function labels(items)
   return out
 end
 
--- The native keyboard is alphabetic, with a separate three-button column.
--- Keep that geometry and its blank cells so D-pad focus means the same thing.
+-- Fallback for hosts without extracted naming pages (FRLG). Newer hosts
+-- supply state.pages, including Emerald's extra blank cells. Those cells
+-- determine where the native three-button column starts.
 local keyboard = {
   { { "A", "B", "C", "D", "E", "F", " ", "." }, { "G", "H", "I", "J", "K", "L", " ", "," },
     { "M", "N", "O", "P", "Q", "R", "S" }, { "T", "U", "V", "W", "X", "Y", "Z" } },
@@ -34,7 +35,8 @@ local keyboard = {
 function UI:naming(layer)
   local native, state = layer.mod, layer.mod._state
   if not native.openFlag or not state or state.finished then return nil end
-  local page = keyboard[state.page]
+  local page = state.pages and state.pages[state.page] and state.pages[state.page].rows
+    or keyboard[state.page]
   if not page then return nil end
   local key = tostring(layer) .. ":" .. tostring(state) .. ":" .. state.page .. ":" .. tostring(state.pcPage)
   local view = self.namingView
