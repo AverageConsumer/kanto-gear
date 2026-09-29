@@ -6244,6 +6244,52 @@ return function(ui)
     end
   end
 
+  function H:summaryContest(mon, drawPortrait)
+    self:summaryIdentity(mon, drawPortrait)
+    local c = self.colors
+    for slot = 1, 4 do
+      local move, y = mon.moves[slot], 63 + (slot - 1) * 37
+      local pressed = self:beginPress(6, y, 228, 34, move.available)
+      self:panel(6, y, 228, 34, false, self:typeColor(move.type), self:typeColor(move.type))
+      self:moveTypeBadge(move, 14, y + 12)
+      self:partyName(move.name, 70, y + 4, c.ink, 88)
+      if move.available then
+        self:partyInfo(move.ppLabel, 163, y + 4, c.green)
+        self:partyInfo(move.ppText, 183, y + 4, c.ink, 35, "right")
+        self:detailChevron(223, y + 8, c.ink)
+        for column, pair in ipairs({ { move.powerLabel, move.powerText }, { move.accuracyLabel, move.accuracyText } }) do
+          local x = 70 + (column - 1) * 77
+          local label = self:fitPartyInfo(pair[1], 56)
+          local width = self:partyInfoWidth(label) + 4 + self:partyInfoWidth(pair[2])
+          local left = x + math.floor((70 - width) / 2)
+          self:partyInfo(label, left, y + 19, c.green)
+          self:partyInfo(pair[2], left + self:partyInfoWidth(label) + 4, y + 19, c.ink)
+        end
+      end
+      self:endPress(pressed)
+    end
+  end
+
+  function H:summaryContestInfo(move)
+    local c = self.colors
+    self:panel(6, 34, 228, 51, false, nil, self:typeColor(move.type))
+    self:partyInfo(self:fitPartyInfo(move.name, 208), 16, 41, c.ink, 208, "center")
+    self:moveTypeBadge(move, 96, 63)
+    self:panel(6, 90, 228, 120, false, nil, c.blueLight)
+    for column, pair in ipairs({ { move.powerLabel, move.powerText }, { move.accuracyLabel, move.accuracyText } }) do
+      local x = 16 + (column - 1) * 108
+      self:partyInfo(self:fitPartyInfo(pair[1], 100), x, 97, c.green, 100, "center")
+      self:partyInfo(pair[2], x, 111, c.ink, 100, "center")
+    end
+    box("fill", 120, 96, 1, 27, c.band)
+    box("fill", 16, 128, 208, 1, c.band)
+    local lines = move.descriptionLines or {}
+    local top = 135 + math.floor((66 - #lines * 11) / 2)
+    for i, line in ipairs(lines) do
+      self:partyInfo(line, 20, top + (i - 1) * 11, c.ink, 200, "center")
+    end
+  end
+
   function H:summaryTrainerMemo(mon)
     local colors = self.colors
     self:panel(6, 63, 228, 62, false, nil, colors.blueLight)

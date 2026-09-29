@@ -2,7 +2,7 @@
 
 Version **3.3.0** adds initial public support for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
-support. The **3.4.0-emerald.5** test package adds Emerald US 1.0 on official
+support. The **3.4.0-emerald.6** test package adds Emerald US 1.0 on official
 Recomp **v0.3.33 or newer**. Ruby and Sapphire remain unsupported.
 The FRLG test package passed the user's Thor check; both editions also
 have automated native-data and menu checks. This does not verify every possible
@@ -17,8 +17,11 @@ use the extracted Emerald entries indexed by internal species ID.
 
 All five bag pockets open directly, including TMs/HMs and berries. Action
 buttons mirror Emerald's native grid and cursor. Player-PC choices include
-the bedroom decoration entry and item-storage Toss action. The first three
-summary pages are mirrored; the fourth contest page retains the native UI.
+the bedroom decoration entry and item-storage Toss action. All four summary
+pages are mirrored. The fourth lists contest categories, PP, appeal and jam
+from the host's extracted Emerald data. Tapping a move opens its contest
+description without activating native move reordering. Native move selection
+and reordering details retain the native UI.
 Gear/Full Gear also suppress the native Emerald menu skins while Gear owns
 the corresponding menu, including the separately drawn action/move borders.
 Unsupported PokéNav, contest and Frontier screens
@@ -35,18 +38,22 @@ regional/National Dex order, bag actions, summary transitions and battle menu
 ownership in all four display modes. They also verify that read models leave
 the save unchanged. GPU checks compare native and Gear terrain pixel-for-pixel
 at three scales on six maps. This does not replace an interactive playthrough;
-Emerald has not yet been checked on the user's Thor.
+the initial integration is being tested on the user's Thor.
 
 With the environment described below, use `POKEPORT_VERSION=emerald` and run:
 
 ```text
 luajit <mod-path>/tests/emerald_native_test.lua
 luajit <mod-path>/tests/emerald_runtime_test.lua
+luajit <mod-path>/tests/emerald_summary_test.lua
 ```
 
 The runtime suite includes the native suite. Both map and UI preview tools
 also accept Emerald. Keep using the FRLG suites for FireRed/LeafGreen regression
 checks; their fixtures deliberately exercise edition-specific native menus.
+The summary suite routes Gear arrows and swipes through the real Emerald skin,
+checks 3 → 4 → 3 and native page boundaries, and verifies contest descriptions
+and values against the extracted ROM in both Light and Dark themes.
 
 Run `tests/gen3_naming_test.lua` for each of the three editions to exercise
 every displayed character and the page, Back and OK buttons through the native

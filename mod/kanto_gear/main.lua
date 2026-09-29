@@ -7900,6 +7900,20 @@ return function(mod)
         accuracyText = move.accuracy and tostring(move.accuracy) or "--",
       }
     end
+    if view.contest then
+      out.moveDetails = true
+      for slot, move in ipairs(out.moves) do
+        local contest = view.contest[slot]
+        move.available = contest ~= nil
+        move.type = contest and ({ COOL = "FIRE", BEAUTY = "WATER", CUTE = "PSYCHIC",
+          SMART = "GRASS", TOUGH = "ELECTRIC" })[contest.category] or "NORMAL"
+        move.typeLabel = contest and THEME:translate(contest.category) or "--"
+        move.powerLabel, move.accuracyLabel = THEME:translate("APPEAL"), THEME:translate("JAM")
+        move.powerText, move.accuracyText = contest and contest.appeal or "--", contest and contest.jam or "--"
+        move.descriptionLines = contest and THEME:wrapText(displayRuntime.gen3:plainText(contest.description), 200, 6,
+          function(value) return THEME.hgss:partyInfoWidth(value) end) or {}
+      end
+    end
     out.moveIndex = battle and hideUpperBattleUI() and (summary.moveIndex or 1) or nil
     return out, view
   end
@@ -8868,6 +8882,15 @@ return function(mod)
     local summary = screenById("summary")
     if THEME.style == "hgss" and summary
         and compat.summary.supports(summary, game) then
+      if summary.page == 4 then
+        local mon = hgssRuntime.summaryView(summary)
+        header(THEME:translate("CONTEST MOVES"), true)
+        G.push()
+        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        THEME.hgss:summaryContestInfo(mon.moves[summary.moveIndex or 1])
+        G.pop()
+        return
+      end
       local _, view = hgssRuntime.summaryMove(summary,
         summary.moveIndex or 1)
       local moveType = move.type or def.type
@@ -9226,7 +9249,7 @@ return function(mod)
     if THEME.style == "hgss" then
       local mon, view = hgssRuntime.summaryView(summary)
       if not mon then return end
-      local pageLabels = view.gen3 and { "TRAINER", "STATS", "MOVES" }
+      local pageLabels = view.gen3 and { "TRAINER", "STATS", "MOVES", "CONTESTS" }
         or { "STATS", "MOVES", "TRAINER" }
       local layoutPage = view.layoutPage or view.page
       header(THEME:format("%s %d/%d",
@@ -9245,6 +9268,8 @@ return function(mod)
           pageProgress, hgssRuntime.animation.from, hgssRuntime.animation.to)
       elseif layoutPage == 1 then
         THEME.hgss:summaryPage(mon, hgssRuntime.summaryPortrait)
+      elseif layoutPage == 4 then
+        THEME.hgss:summaryContest(mon, hgssRuntime.summaryPortrait)
       elseif layoutPage == 2 then
         THEME.hgss:summaryMoves(mon, hgssRuntime.summaryPortrait)
       else
@@ -9257,7 +9282,14 @@ return function(mod)
     local mon, def = view.mon, view.def
     local page, level = view.page, view.level
     header(THEME:format("STATS %d/%d", page, view.pages), true)
-    if view.gen3 and page == 1 then
+    if view.contest then
+      for slot = 1, 4 do
+        local row, contest = view.moves[slot], view.contest[slot]
+        local y = 25 + (slot - 1) * 24
+        text(fit(row.name, 22), 7, y, INK)
+        if contest then text(fit(THEME:translate(contest.category) .. " " .. contest.appeal .. "/" .. contest.jam, 24), 7, y + 11, DARK) end
+      end
+    elseif view.gen3 and page == 1 then
       centered(view.name, 25, INK)
       centered(THEME:translate("NATURE") .. ": " .. displayRuntime.gen3:plainText(view.nature), 41, INK)
       centered(THEME:translate("ABILITY") .. ": " .. displayRuntime.gen3:plainText(view.ability), 55, INK)
@@ -12078,8 +12110,8 @@ return function(mod)
           displayRuntime.summaryInput(summary, "left")
         elseif hy < 30 and hx < 139 then
           displayRuntime.summaryInput(summary, "right")
-        elseif assist("move_details")
-            and tonumber(summary.page) == (displayRuntime.gen3 and 3 or 2) then
+        elseif (displayRuntime.gen3 and tonumber(summary.page) == 4)
+            or (assist("move_details") and tonumber(summary.page) == (displayRuntime.gen3 and 3 or 2)) then
           for slot = 1, 4 do
             local rowY = 63 + (slot - 1) * 37
             if inside(hx, hy, 6, rowY, 228, 34) then

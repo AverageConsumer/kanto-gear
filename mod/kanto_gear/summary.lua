@@ -44,7 +44,7 @@ function Summary.supports(state)
       or type(state.itemName) ~= "function"
       or type(state.otName) ~= "function"
       or type(state.otId) ~= "function") then return false end
-  local pages = (gen2 or gen3) and 3 or 2
+  local pages = gen3 and (state.pages or 3) or (gen2 and 3 or 2)
   local page = tonumber(state.page) or 1
   return page >= 1 and page <= pages
 end
@@ -53,7 +53,7 @@ function Summary.view(state, game)
   if not Summary.supports(state) then return nil end
   local gen2, gen3 = state.screenId == "Gen2SummaryMenu", state.screenId == "Gen3SummaryMenu"
   local mon = state.mon
-  local pages = gen3 and state.pages or ((gen2 or gen3) and 3 or 2)
+  local pages = gen3 and (state.pages or 3) or (gen2 and 3 or 2)
   local page = tonumber(state.page) or 1
 
   local def = definition(game, "pokemon", mon.species) or {}
@@ -76,9 +76,29 @@ function Summary.view(state, game)
     ability = Pokemon.abilityName(abilityId)
     abilityDescription = Native.abilityDescription(abilityId, ability)
   end
+  local contest
+  if gen3 and page == 4 then
+    local native = require("src.core.game3.rse.contest")
+    local data = native.data()
+    contest = {}
+    for slot = 1, 4 do
+      local move = mon.moves and mon.moves[slot]
+      local entry = data and data.moves and move and data.moves[move.index]
+      local effect = entry and data.effects and data.effects[entry.effect]
+      if entry and effect then
+        contest[slot] = {
+          category = native.CATEGORY_NAMES[entry.category]:upper(),
+          appeal = effect.appeal == 255 and "--" or tostring(math.floor(effect.appeal / 10)),
+          jam = effect.jam == 255 and "--" or tostring(math.floor(effect.jam / 10)),
+          description = effect.description or "",
+        }
+      end
+    end
+  end
   return {
     gen2 = gen2 or gen3, gen3 = gen3,
-    layoutPage = gen3 and ({ 3, 1, 2 })[page] or page,
+    layoutPage = gen3 and ({ 3, 1, 2, 4 })[page] or page,
+    contest = contest,
     page = page,
     pages = pages,
     mon = mon,

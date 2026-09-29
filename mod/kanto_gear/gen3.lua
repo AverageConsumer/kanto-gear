@@ -423,7 +423,7 @@ function Gen3:gameView()
           if self.profile.id == "emerald" then
             local skin = require("src.ui.game3.rse.summary_menu")
             state.page, state.pages = skin.page(native) + 1, 4
-            state.moveDetail = skin.detail(native) or state.page == 4
+            state.moveDetail = skin.detail(native)
           end
         end
         state.phase = layer.mod and layer.mod.mode

@@ -801,4 +801,13 @@ return {
 
   -- PSS: shared online lobby; browsing only, no invites or chat.
   ["PREV"] = "ZURÜCK",
+  ["CONTEST MOVES"] = "WETTBEWERB",
+  ["CONTESTS"] = "WETTB.",
+  ["APPEAL"] = "AUSDRUCK",
+  ["JAM"] = "STÖRUNG",
+  ["COOL"] = "COOL",
+  ["BEAUTY"] = "SCHÖN",
+  ["CUTE"] = "ANMUT",
+  ["SMART"] = "KLUG",
+  ["TOUGH"] = "STARK",
 }

@@ -53,4 +53,13 @@ return {
 
   -- PSS: shared online lobby; browsing only, no invites or chat.
   ["PREV"] = false,
+  ["CONTEST MOVES"] = false,
+  ["CONTESTS"] = false,
+  ["APPEAL"] = false,
+  ["JAM"] = false,
+  ["COOL"] = false,
+  ["BEAUTY"] = false,
+  ["CUTE"] = false,
+  ["SMART"] = false,
+  ["TOUGH"] = false,
 }
