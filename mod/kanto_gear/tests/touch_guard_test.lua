@@ -170,5 +170,18 @@ stack.states = { world };sync()
 T.eq(released,1,"text acceleration stops as soon as the text screen closes")
 now=7.5;touch("up,40,60")
 T.eq(#keys,0,"releasing the old text gesture cannot click the app beneath it")
+-- Field conversations use the dimmed companion as A, independently of battle.
+clear(); now=8
+for i=1,3 do
+  stack.states = { world, { isTextBox=true, waiting=true, done=true } }
+  sync(); touch("down,80,90"); touch("up,80,90"); step()
+  now=now+0.08
+end
+T.eq(#keys,3,"completed field dialogue pages accept consecutive bottom-screen taps")
+for _,key in ipairs(keys) do T.eq(key,"a","field dialogue forwards A") end
+clear(); now=9
+stack.states = { world, { isTextBox=true, done=true, choice=function() end } }
+sync(); now=10; touch("tap,80,90"); step()
+T.eq(#keys,0,"completed field text awaiting a choice does not send blind A")
 T.eq(#run.errors,0,"guard produces no runtime errors")
 T.finish("Touch transition guard Gen "..generation)

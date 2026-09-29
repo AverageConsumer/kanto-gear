@@ -2,7 +2,7 @@
 
 Version **3.3.0** adds initial public support for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
-support. The **3.4.0-emerald.2** test package adds Emerald US 1.0 on official
+support. The **3.4.0-emerald.3** test package adds Emerald US 1.0 on official
 Recomp **v0.3.33 or newer**. Ruby and Sapphire remain unsupported.
 The FRLG test package passed the user's Thor check; both editions also
 have automated native-data and menu checks. This does not verify every possible
@@ -51,6 +51,11 @@ Run `tests/gen3_naming_test.lua` for each of the three editions to exercise
 every displayed character and the page, Back and OK buttons through the native
 input handler. Gear uses the host's extracted keyboard rows, including blank
 cells, and retains the FRLG fallback for hosts without those rows.
+
+`tests/gen3_dialogue_test.lua` checks bottom-screen taps through the native
+HUD input handler in all three editions. Scripted text can advance between
+pages and resume an armed `waitbuttonpress`; an unarmed final page, held text,
+choices and a script lock alone must not generate a blind A press.
 
 Normal field scripts and warps retain the current companion page with its
 input-lock dimming. The upper-screen handoff controls are reserved for actual

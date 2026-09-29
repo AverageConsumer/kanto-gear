@@ -41,6 +41,7 @@ function Gen3.new(game)
   self.Warp = require("src.core.game3.warp")
   self.Runtime = require("src.core.game3.runtime")
   self.Message = require("src.ui.game3.message")
+  self.Hud = require("src.ui.game3.hud")
   self.Font = require("src.ui.game3.frlg_font")
   self.TextIR = require("src.core.game3.scripting.text_ir")
   self.Choice = require("src.ui.game3.choice")
@@ -434,7 +435,11 @@ function Gen3:gameView()
       end
       if self.Message.isOpen() and not self.Choice.active then
         text.page = self.Message._page
-        text.choice = self.Message._stay or self.Message._choice or self.Message._held
+        -- Script messages stay visible until closemessage, but their earlier
+        -- pages and an armed waitbuttonpress still accept native A input.
+        local lastPage = self.Message._page >= #(self.Message._pages or {})
+        text.choice = self.Message._choice or self.Message._held
+          or (self.Message._stay and lastPage and not self.Hud._waitButton)
         text.waiting = self.Message.isWaiting() and not text.choice
         text.done = not self.Message.isTyping()
         stack.states[#stack.states + 1] = text
