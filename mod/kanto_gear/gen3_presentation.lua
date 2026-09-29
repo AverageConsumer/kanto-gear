@@ -63,10 +63,14 @@ function Presentation.new(owns, heroDirection)
     self.drawing = previous
     if not ok then error(err, 0) end
   end)
-  wrap(require("src.ui.game3.battle_chrome"), "drawPanel", function(next, ...)
-    if not self.drawing then return next(...) end
-  end)
   local chrome = require("src.ui.game3.battle_chrome")
+  -- Emerald draws user-selected menu borders separately from its textbox.
+  -- Both belong to the relocated command panel, within the same draw scope.
+  for _, name in ipairs({ "drawPanel", "drawMenuFrames" }) do
+    wrap(chrome, name, function(next, ...)
+      if not self.drawing then return next(...) end
+    end)
+  end
   wrap(chrome, "drawTerrain", function(next, key, ...)
     local drawn = next(key, ...)
     if self.drawing and drawn then

@@ -9,7 +9,7 @@ for _, name in ipairs({ "src.core.game3.battle.ui", "src.core.game3.battle.healt
     "src.ui.game3.summary_menu", "src.core.game3.oam" }) do
   saved[name] = package.loaded[name]
   local m = {}; modules[name], package.loaded[name] = m, m
-  for _, method in ipairs({ "draw", "drawPanel", "drawTerrain", "cursorPx" }) do
+  for _, method in ipairs({ "draw", "drawPanel", "drawMenuFrames", "drawTerrain", "cursorPx" }) do
     local key = name .. ":" .. method
     m[method] = function() calls[key] = (calls[key] or 0) + 1; return "native" end
   end
@@ -27,7 +27,8 @@ love = { graphics = {
 C.terrain = function() return { bgImage = {} } end
 U.draw = function()
   C.drawTerrain("grass")
-  C.drawPanel("menu"); F.draw("FIGHT", 136, 122); W.cursorPx(128, 122)
+  C.drawPanel("menu"); C.drawMenuFrames("menu")
+  F.draw("FIGHT", 136, 122); W.cursorPx(128, 122)
   F.draw("HP", 10, 20); H.draw("player", {})
 end
 local mode, errorNow = "standard", false
@@ -65,6 +66,7 @@ T.eq(#bands, 6, "terrain outside battle scope remains unchanged")
 T.eq(count("src.ui.game3.frlg_font", "draw"), 3, "Gear removes only the command printer")
 T.eq(count("src.ui.game3.window", "cursorPx"), 1, "Gear also removes its command cursor")
 T.eq(count("src.ui.game3.battle_chrome", "drawPanel"), 1, "Gear removes command chrome")
+T.eq(count("src.ui.game3.battle_chrome", "drawMenuFrames"), 1, "Gear removes Emerald's separate menu frame")
 T.eq(count("src.core.game3.battle.healthbox", "draw"), 2, "Gear retains native healthboxes")
 local down, right, confirm = U.handleInput(input)
 T.check(not down and right and confirm, "presentation without a hero adapter retains native navigation")
@@ -72,10 +74,13 @@ mode = "full"; U.draw()
 down, right, confirm = U.handleInput(input)
 T.check(down and not right and confirm, "Full Gear transposes only directions")
 T.eq(count("src.core.game3.battle.healthbox", "draw"), 2, "Full Gear relocates healthboxes")
+T.eq(count("src.ui.game3.battle_chrome", "drawMenuFrames"), 1, "Full Gear removes Emerald's separate menu frame")
+T.eq(C.drawMenuFrames("moves"), "native", "menu frames outside battle scope remain untouched")
 T.eq(F.draw("FIELD TEXT", 10, 122), "native", "same coordinates outside battle rendering are untouched")
 errorNow = true
 T.check(not pcall(U.draw), "native render errors still propagate")
 T.eq(F.draw("AFTER ERROR", 10, 122), "native", "failed draw restores printer scope")
+T.eq(C.drawMenuFrames("menu"), "native", "failed draw restores menu-frame scope")
 for _, name in ipairs({ "message", "choice", "bag_menu", "party_menu", "summary_menu" }) do
   modules["src.ui.game3." .. name].draw()
   T.eq(count("src.ui.game3." .. name, "draw"), 0, "owned " .. name .. " stays off the upper screen")

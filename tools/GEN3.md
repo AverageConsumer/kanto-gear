@@ -2,7 +2,7 @@
 
 Version **3.3.0** adds initial public support for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
-support. The **3.4.0-emerald.3** test package adds Emerald US 1.0 on official
+support. The **3.4.0-emerald.4** test package adds Emerald US 1.0 on official
 Recomp **v0.3.33 or newer**. Ruby and Sapphire remain unsupported.
 The FRLG test package passed the user's Thor check; both editions also
 have automated native-data and menu checks. This does not verify every possible
@@ -20,7 +20,8 @@ buttons mirror Emerald's native grid and cursor. Player-PC choices include
 the bedroom decoration entry and item-storage Toss action. The first three
 summary pages are mirrored; the fourth contest page retains the native UI.
 Gear/Full Gear also suppress the native Emerald menu skins while Gear owns
-the corresponding menu. Unsupported PokéNav, contest and Frontier screens
+the corresponding menu, including the separately drawn action/move borders.
+Unsupported PokéNav, contest and Frontier screens
 retain native controls and presentation.
 
 Stamps and Explorer read Emerald's imported trainer, item, hidden-item and
