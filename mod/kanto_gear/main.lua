@@ -8646,9 +8646,37 @@ return function(mod)
     end
     state.pocket = math.max(1, math.min(state.pocket or 1, #pockets))
     local pocket = pockets[state.pocket]
-    local ok, Bag = pcall(require, "src.inventory.Bag")
-    local order = displayRuntime.gen3 and (save.bagOrder or {})
-      or ok and Bag.order and Bag.order(save) or {}
+    local order = save.bagOrder or {}
+    if not displayRuntime.gen3 then
+      -- Bag.order can be filtered to another mod's currently open pocket.
+      -- Read our independent view without changing its filter or the save.
+      local ordered, seen, missing = {}, {}, {}
+      local inventory = save.inventory or {}
+      for _, id in ipairs(order) do
+        if not seen[id] and (tonumber(inventory[id]) or 0) > 0
+            and not tostring(id):find("BADGE", 1, true) then
+          ordered[#ordered + 1], seen[id] = id, true
+        end
+      end
+      for id, count in pairs(inventory) do
+        if not seen[id] and (tonumber(count) or 0) > 0
+            and not tostring(id):find("BADGE", 1, true) then
+          missing[#missing + 1] = id
+        end
+      end
+      table.sort(missing, function(a, b)
+        local ad, bd = (data.items or {})[a] or {}, (data.items or {})[b] or {}
+        local ai, bi = ad.index or ad.itemId or math.huge,
+          bd.index or bd.itemId or math.huge
+        if ai ~= bi then
+          if type(ai) == type(bi) then return ai < bi end
+          return tostring(ai) < tostring(bi)
+        end
+        return tostring(a) < tostring(b)
+      end)
+      for _, id in ipairs(missing) do ordered[#ordered + 1] = id end
+      order = ordered
+    end
     local entries = {}
     for _, id in ipairs(order) do
       local count = tonumber((save.inventory or {})[id]) or 0

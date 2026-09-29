@@ -161,4 +161,48 @@ save.inventory.GREAT_BALL = nil
 T.eq(display.bagSummary().ball, previous - 12, "depositing or removing a stack removes its full quantity")
 T.eq(display.bagItemKind("CUSTOM_ORB", { ball = true }), "ball", "explicit mod ball metadata remains supported")
 T.eq(display.bagItemKind("LIGHT_BALL", { pocket = "ITEM" }), "item", "a held Light Ball is not a capture ball")
+
+-- Pocket mods filter the shared Bag.order while their native menu is open.
+-- Gear's independent inventory must not inherit that temporary view.
+local Bag = require("src.inventory.Bag")
+local originalOrder = Bag.order
+local originalInventory, originalBagOrder = save.inventory, save.bagOrder
+save.inventory = { POTION = 3, POKE_BALL = 8, TM01 = 1,
+  FIX_BADGE_1 = 1, EMPTY = 0 }
+save.bagOrder = { "POTION", "POKE_BALL", "POKE_BALL", "STALE", "FIX_BADGE_1" }
+local savedOrder = table.concat(save.bagOrder, ",")
+local orderCalls = 0
+Bag.order = function()
+  orderCalls = orderCalls + 1
+  return { "POTION" }
+end
+local function allBagIds()
+  local ids = {}
+  for pocket = 1, generation == 2 and 4 or 1 do
+    display.bag.pocket, display.bag.page = pocket, 1
+    for page = 1, display.bagModel().pages do
+      display.bag.page = page
+      for _, entry in ipairs(display.bagModel().entries) do
+        ids[#ids + 1] = entry.id
+      end
+    end
+  end
+  table.sort(ids)
+  return ids
+end
+T.same(allBagIds(), { "POKE_BALL", "POTION", "TM01" },
+  "all owned items remain visible despite another mod's pocket filter")
+T.eq(orderCalls, 0, "reading Gear's inventory never invokes the mutable pocket filter")
+T.eq(table.concat(save.bagOrder, ","), savedOrder,
+  "Gear leaves the native acquisition order untouched")
+T.eq(save.inventory.POKE_BALL, 8, "reading hidden balls preserves their quantity")
+save.bagOrder = nil
+T.same(allBagIds(), { "POKE_BALL", "POTION", "TM01" },
+  "legacy saves without acquisition order still expose the full inventory")
+T.eq(save.bagOrder, nil, "reading a legacy save does not create acquisition order")
+save.inventory.POKE_BALL = nil
+T.same(allBagIds(), { "POTION", "TM01" },
+  "removed stacks disappear even while the native pocket filter is active")
+Bag.order = originalOrder
+save.inventory, save.bagOrder = originalInventory, originalBagOrder
 T.finish("Kanto Gear HGSS Bag runtime")
