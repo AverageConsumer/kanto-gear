@@ -2,7 +2,7 @@
 
 Version **3.3.0** adds initial public support for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
-support. The **3.4.0-emerald.4** test package adds Emerald US 1.0 on official
+support. The **3.4.0-emerald.5** test package adds Emerald US 1.0 on official
 Recomp **v0.3.33 or newer**. Ruby and Sapphire remain unsupported.
 The FRLG test package passed the user's Thor check; both editions also
 have automated native-data and menu checks. This does not verify every possible
@@ -57,6 +57,12 @@ cells, and retains the FRLG fallback for hosts without those rows.
 HUD input handler in all three editions. Scripted text can advance between
 pages and resume an armed `waitbuttonpress`; an unarmed final page, held text,
 choices and a script lock alone must not generate a blind A press.
+
+`tests/gen3_menu_refresh_test.lua` drives the real redraw scheduler with its
+clock refresh disabled. Pocket switches, quantities, notices and naming edits
+must redraw within the normal 50ms UI poll; unchanged menus stay cached.
+The Gen 1/2 start-menu suite also covers visible row changes and Gen 2 pockets,
+item submenus and quantities through the same scheduler.
 
 Normal field scripts and warps retain the current companion page with its
 input-lock dimming. The upper-screen handoff controls are reserved for actual

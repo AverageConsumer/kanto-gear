@@ -2250,8 +2250,10 @@ return function(mod)
       tostring(state.index), tostring(state.pickIndex),
       tostring(state.listIndex), tostring(state.boxIndex),
       tostring(state.scroll), tostring(state.phase), tostring(state.mode),
+      tostring(state.pocketIndex), tostring(state.__gen3uiBagPocketIndex),
       tostring(state.picking), tostring(state.savePhase),
       tostring(state.saveChoice), tostring(state.submenuIndex),
+      tostring(state.submenu), tostring(type(state.submenu) == "table" and state.submenu.index),
       tostring(state.message), tostring(state.messagePage),
       tostring(type(message) == "table" and message.page),
       tostring(qty and qty.qty), tostring(qty and qty.max),
@@ -13966,7 +13968,8 @@ return function(mod)
         if frame ~= radarFrame then radarFrame, dirty = frame, true end
       end
       displayRuntime.advanceExplorerScan(now)
-      local startCursor = displayRuntime.StartMenu.cursor(top)
+      local nativeMenu = displayRuntime.startMenu()
+      local startCursor = displayRuntime.StartMenu.cursor(nativeMenu or top)
       displayRuntime.startMenuIndex = startCursor and startCursor.index or nil
       local screenKey = table.concat({ mode, tostring(top),
         tostring(page), tostring(guidePage), tostring(areaPage),
@@ -13987,6 +13990,7 @@ return function(mod)
          tostring(top and top.waiting), tostring(top and top.done),
          tostring(top and top.index), tostring(top and top.kind),
          tostring(displayRuntime.startMenuIndex),
+         displayRuntime.StartMenu.redrawKey(nativeMenu or top),
          tostring(currentChoice and compat.choiceIndex(
            currentChoice, currentChoiceField)),
          tostring(top and top.row), tostring(top and top.col), tostring(top and top.lower),

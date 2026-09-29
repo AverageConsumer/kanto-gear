@@ -29,6 +29,31 @@ function Menu.window(top, preview)
   return first, math.min(Menu.visible, #top.items - first + 1), cursor.index
 end
 
+-- Compare the visible menu, not the identity of a reused native screen.
+-- This is sampled at the normal UI poll; unchanged menus keep their canvas.
+function Menu.redrawKey(top)
+  local first, count, selected = Menu.window(top, true)
+  if not first then return "" end
+  local quantity, stats = top.quantity, top.nativeStats
+  local parts = { tostring(top.nativeKey), tostring(selected), tostring(#top.items),
+    tostring(Menu.cursor(top) ~= nil), tostring(top.title), tostring(top.name),
+    tostring(top.prompt), tostring(top.notice), tostring(top.canAdvance),
+    tostring(quantity and quantity.label), tostring(quantity and quantity.qty),
+    tostring(quantity and quantity.max), tostring(stats and stats._page) }
+  for i = first, first + count - 1 do
+    local item = top.items[i]
+    parts[#parts + 1] = tostring(item.label)
+    parts[#parts + 1] = tostring(item.right)
+    parts[#parts + 1] = tostring(item.disabled)
+    local mon = item.mon or item.rawMon
+    if mon then
+      parts[#parts + 1] = tostring(mon.hp)
+      parts[#parts + 1] = tostring(mon.status)
+    end
+  end
+  return table.concat(parts, "\31")
+end
+
 function Menu.select(top, index)
   local cursor = Menu.cursor(top)
   if not cursor or type(index) ~= "number" or index % 1 ~= 0

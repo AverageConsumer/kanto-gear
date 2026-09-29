@@ -197,4 +197,45 @@ else
   T.eq(contest.phase, "confirmContest", "native contest action opens confirmation")
   T.eq(display.StartMenu.model(contest), nil, "no list during native confirmation")
 end
+-- Native changes must invalidate the canvas without waiting for the clock.
+local compose = hook("render.compose")
+run.loader.modOptions.kanto_gear.ui_motion = false
+run.loader.modOptions.kanto_gear.display_mode = "separate"
+run.loader.modOptions.kanto_gear.display_target = "secondary"
+run.loader.events:emit("mod.options_changed", { mod="kanto_gear", key="ui_motion" })
+upvalue(compose,"nextClock",math.huge,true)
+local canvas = upvalue(upvalue(compose,"pumpDisplay"),"canvas")
+canvas.requestImageData,canvas.pollImageData=nil,nil
+canvas.newImageData=function() return {} end
+local context={secondScreen={detected=function() return true end,
+  pollTouch=function() end,push=function() return true end}}
+local draw,draws=display.drawContents,0
+display.drawContents=function(...) draws=draws+1;return draw(...) end
+local function tick()
+  now=now+0.06
+  compose(function() end,{},context)
+end
+local function changed(label,action)
+  local n=draws;action();tick()
+  T.check(draws>n,label.." redraws within one UI poll")
+  n=draws;tick();tick()
+  T.eq(draws,n,label.." remains cached when unchanged")
+end
+stack.states={world,native}; cursor.index=1
+tick();tick();tick()
+changed("native cursor",function() cursor.index=2 end)
+changed("visible row text",function() native.items[2].label="UPDATED ROW" end)
+if generation==2 then
+  game.save.bugContest=nil
+  game.save.inventory={FIX_POTION=5}
+  local pack=require("src.ui.gen2.PackMenu").new(game,{pocket="ITEM"})
+  stack.states={world,pack};tick();tick()
+  changed("native pack pocket",function() pack:switchPocket(1) end)
+  pack:switchPocket(-1);tick()
+  changed("native item submenu",function() pack:openSubmenu() end)
+  changed("native submenu cursor",function() pack.submenu.index=2 end)
+  pack:closeSubmenu();pack:tossItem(pack.rows[1]);tick()
+  changed("native toss quantity",function() pack.qtyState.qty=2 end)
+end
+display.drawContents=draw
 T.finish()
