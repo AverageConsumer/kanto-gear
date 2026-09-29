@@ -463,15 +463,15 @@ local busy = Anim.busy
 Anim.busy = function() return true end
 Message.show("CHARMANDER used\nSCRATCH!", { frame = "battle", speed = 0, stay = true })
 display.gen3.syncScreens(); refreshBattle()
-local oldStatuses, displayed = theme.hgss.battleFullStatuses
-theme.hgss.battleFullStatuses = function(self, player, enemy, portrait, playerTeam, enemyTeam, lines)
+local oldMessage, displayed = theme.hgss.battleFullMessage
+theme.hgss.battleFullMessage = function(self, lines, ...)
   displayed = lines
-  return oldStatuses(self, player, enemy, portrait, playerTeam, enemyTeam, lines)
+  return oldMessage(self, lines, ...)
 end
 display.drawContents()
 T.check(displayed and table.concat(displayed, " "):find("SCRATCH!", 1, true),
   "Full Gear retains native move text alongside draining HP")
-theme.hgss.battleFullStatuses = oldStatuses
+theme.hgss.battleFullMessage = oldMessage
 Message.reset(); Anim.busy = busy
 present.displayHp = 7.9; refreshBattle()
 T.eq(upvalue(refreshBattle, "battle").player.hp, 7, "Gear follows animated HP rather than jumping to the result")

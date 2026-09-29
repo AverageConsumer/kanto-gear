@@ -438,7 +438,7 @@ function love.load()
   local standardBattle = os.getenv("KANTO_GEAR_PREVIEW_BATTLE_VIEW") == "standard"
   local battleRoot = screen == "battle_root"
   local battleParty = screen == "battle_party" or screen == "battle_item_target"
-  local battleFull = screen == "battle_full"
+  local battleFull = screen == "battle_full" or screen == "battle_full_message"
   local battleMessage = screen == "battle_message"
   local battlePartyTransition = screen == "battle_party_transition"
   local battlePartyMenu = screen == "battle_party_menu"
@@ -2665,12 +2665,17 @@ function love.load()
       statusLabel = "PAR",
       caught = true,
     }
-    theme:battleFullRoot(mon, player, enemy,
-      function(subject, x, y, size, fainted)
-        if subject == player then drawPortrait(slot, x, y, size, fainted)
-        else drawPortrait(gen1 and 4 or 2, x, y, size, fainted) end
-      end, playerTeam, enemyTeam,
-      tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 1)
+    local function portrait(subject, x, y, size, fainted)
+      if subject == player then drawPortrait(slot, x, y, size, fainted)
+      else drawPortrait(gen1 and 4 or 2, x, y, size, fainted) end
+    end
+    if screen == "battle_full_message" then
+      theme:battleFullStatuses(player, enemy, portrait, playerTeam, enemyTeam)
+      theme:battleFullMessage({ "THE ATTACK WAS", "SUPER EFFECTIVE!" }, true, nil, 0)
+    else
+      theme:battleFullRoot(mon, player, enemy, portrait, playerTeam, enemyTeam,
+        tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 1)
+    end
   elseif battleRoot then
     local mon = battleMon()
     local slot = gen1 and 6 or 1

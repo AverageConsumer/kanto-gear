@@ -4841,11 +4841,19 @@ return function(mod)
       elseif top.quantity then
         THEME.hgss:pcQuantity(top.quantity)
       elseif top.notice then
-        local lines = THEME:wrapText(displayRuntime.gen3:plainText(top.notice), 192, 6,
-          function(value) return THEME.hgss:labelWidth(value) end)
+        local compact = battle and fullBottomBattleUI()
+        local lines = THEME:wrapText(displayRuntime.gen3:plainText(top.notice), compact and 208 or 192, 6,
+          function(value) return compact and THEME.hgss:partyInfoWidth(value) or THEME.hgss:labelWidth(value) end)
         local playerTeam, enemyTeam = {}, {}
         if battle then playerTeam, enemyTeam = hgssRuntime.battleTeams() end
-        THEME.hgss:battleMessage(lines, top.canAdvance, playerTeam, enemyTeam, nil, love.timer.getTime())
+        if compact then
+          THEME.hgss:battleFullStatuses(hgssRuntime.battleStatus("player"),
+            hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
+            playerTeam, enemyTeam, nil, hgssRuntime.battleStatuses())
+          THEME.hgss:battleFullMessage(lines, top.canAdvance, nil, love.timer.getTime())
+        else
+          THEME.hgss:battleMessage(lines, top.canAdvance, playerTeam, enemyTeam, nil, love.timer.getTime())
+        end
         if not battle then
           G.pop(); header(THEME:translate(top.title), true)
           return
@@ -7699,8 +7707,8 @@ return function(mod)
     return view
   end
 
-  function hgssRuntime.battleStatus(side)
-    local source = battle and battle[side] or nil
+  function hgssRuntime.battleStatus(side, source)
+    source = source or battle and battle[side] or nil
     if not source then return nil end
     local def = game.data.pokemon[source.species] or {}
     local hp = math.max(0, source.hp or 0)
@@ -7709,6 +7717,9 @@ return function(mod)
       or THEME:statusName(source.status, mod.content)
     return {
       species = source.species,
+      id = source.id, absent = source.absent, side = side,
+      active = battle and battle.double and (battle.prompt == "menu" or battle.prompt == "moves")
+        and source.id == battle.active,
       source = source,
       name = source.name or def.name or source.species or "POKEMON",
       levelText = THEME:format("L%d", source.level or 0),
@@ -7722,6 +7733,15 @@ return function(mod)
         and caughtWild(battle.kind,
           compat.caughtDex(game.save)[source.species]),
     }
+  end
+
+  function hgssRuntime.battleStatuses()
+    if not (battle and battle.double) then return nil end
+    local rows = {}
+    for _, source in ipairs(battle.battlers or {}) do
+      rows[#rows + 1] = hgssRuntime.battleStatus(source.side, source)
+    end
+    return rows
   end
 
   function hgssRuntime.battlePortrait(mon, x, y, size, fainted)
@@ -7943,7 +7963,8 @@ return function(mod)
         THEME.hgss:battleFullRoot(mon,
           hgssRuntime.battleStatus("player"),
           hgssRuntime.battleStatus("enemy"),
-          hgssRuntime.battlePortrait, playerTeam, enemyTeam, battle.menuIndex)
+          hgssRuntime.battlePortrait, playerTeam, enemyTeam, battle.menuIndex,
+          hgssRuntime.battleStatuses())
         G.pop()
         return
       end
@@ -9801,18 +9822,28 @@ return function(mod)
   local function drawBattleLocked(title)
     if THEME.style == "hgss" then
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
-      local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, 192, 6,
-        function(value) return THEME.hgss:labelWidth(value) end)
-        or THEME:messageLines(battle.message or {}, 24, 4)
+      local compact = fullBottomBattleUI()
+      local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, compact and 208 or 192, 6,
+        function(value) return compact and THEME.hgss:partyInfoWidth(value) or THEME.hgss:labelWidth(value) end)
+        or THEME:messageLines(battle.message or {}, compact and 34 or 24, compact and 6 or 4)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:battleMessage(lines,
+      if compact then
+        THEME.hgss:battleFullStatuses(hgssRuntime.battleStatus("player"),
+          hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, nil, hgssRuntime.battleStatuses())
+        THEME.hgss:battleFullMessage(lines, battle.prompt == "advance",
+          title and THEME:translate(title), love.timer.getTime())
+      else
+        THEME.hgss:battleMessage(lines,
         battle.prompt == "advance" or nil,
         playerTeam, enemyTeam, title and THEME:translate(title) or nil,
         love.timer.getTime())
+      end
       G.pop()
       return
     end
+    if fullBottomBattleUI() then return displayRuntime.drawFullBattleMessage() end
     header(THEME:translate(title or (battle.kind == "wild" and "Wild battle"
       or battle.kind == "trainer" and "Trainer battle" or "BATTLE")))
     if hideUpperBattleUI()
@@ -9877,8 +9908,35 @@ return function(mod)
   end
 
   local function drawFullBattleStatuses()
+    if battle.double then
+      for _, mon in ipairs(battle.battlers or {}) do
+        local x, y = 4 + mon.id % 2 * 78, 3 + math.floor(mon.id / 2) * 45
+        box("fill", x, y, 74, 40, MID)
+        outline(x, y, 74, 40, DARK)
+        text(fit(mon.absent and "--" or mon.name or mon.species, 11), x + 4, y + 4, INK)
+        if not mon.absent then
+          text(THEME:format("L%d", mon.level or 0), x + 4, y + 14, DARK)
+          drawFullBattleHpBar(x + 4, y + 25, 66, mon.hp, mon.maxHp)
+        end
+      end
+      return
+    end
     drawFullBattleStatus(battle.enemy, 3, false)
     drawFullBattleStatus(battle.player, 48, true)
+  end
+
+  function displayRuntime.drawFullBattleMessage()
+    drawFullBattleStatuses()
+    box("fill", 3, 94, 154, 46, MID)
+    outline(3, 94, 154, 46, DARK)
+    local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, 132, 6)
+      or THEME:messageLines(battle.message or {}, 22, 6)
+    local y = 96 + math.floor((42 - #lines * 7) / 2)
+    for _, line in ipairs(lines) do
+      text(line, 9, y, INK)
+      y = y + 7
+    end
+    if battle.prompt == "advance" then displayRuntime.drawContinueArrow(145, 128) end
   end
 
   local function drawFullBattleRoot()
@@ -10120,24 +10178,7 @@ return function(mod)
     elseif battle.prompt == "moves" then
       drawMoves()
     elseif battle.prompt ~= "menu" then
-      if fullBottomBattleUI() and raw and (raw.draining or raw.hpAnim) then
-        if THEME.style == "hgss" then
-          local playerTeam, enemyTeam = hgssRuntime.battleTeams()
-          local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, 192, 6,
-            function(value) return THEME.hgss:labelWidth(value) end)
-          G.push()
-          G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-          THEME.hgss:battleFullStatuses(
-            hgssRuntime.battleStatus("player"),
-            hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
-            playerTeam, enemyTeam, lines)
-          G.pop()
-        else
-          if battle.nativeMessage then drawBattleLocked() else drawFullBattleStatuses() end
-        end
-      else
-        drawBattleLocked()
-      end
+      drawBattleLocked()
     else
       if THEME.style == "hgss" then drawBattleRoot()
       elseif fullBottomBattleUI() then drawFullBattleRoot()
@@ -10575,6 +10616,15 @@ return function(mod)
           ~= (nextBattle.player and nextBattle.player.presentationSprite)
         or (battle.enemy and battle.enemy.presentationSprite)
           ~= (nextBattle.enemy and nextBattle.enemy.presentationSprite)))
+    if battle and nextBattle and nextBattle.double then
+      for i, mon in ipairs(nextBattle.battlers or {}) do
+        local before = battle.battlers and battle.battlers[i]
+        if not before or before.id ~= mon.id or before.hp ~= mon.hp
+            or before.maxHp ~= mon.maxHp or before.species ~= mon.species
+            or before.name ~= mon.name or before.status ~= mon.status or before.absent ~= mon.absent
+            or before.level ~= mon.level or battle.active ~= nextBattle.active then changed = true end
+      end
+    end
     if THEME.style == "hgss" and battle and nextBattle then
       local oldParty, newParty = battle.partyIndex ~= nil,
         nextBattle.partyIndex ~= nil
@@ -13039,8 +13089,8 @@ return function(mod)
         if not (active and hasDisplay() and displayReady and hideUpperBattleUI()
             and raw and battle and not battle.nativeUnsupported) then return false end
         adapter.syncScreens()
-        -- Unsupported windows retain every original control. Native doubles
-        -- keep all four healthboxes until Gear has a four-battler status view.
+        -- Unsupported windows retain every original control. Only take the
+        -- doubles HUD when the snapshot contains every battlefield slot.
         local top = game.stack:top()
         local menu = displayRuntime.gen3Ui:list(battle)
         local summary = compat.isScreen(top, "summary") and compat.summary.supports(top, game)
@@ -13056,7 +13106,8 @@ return function(mod)
             and not raw.battle.safari and not adapter.Message.isOpen()
         end
         if kind == "hud" then
-          return fullBottomBattleUI() and not raw.battle.double
+          return fullBottomBattleUI() and (not raw.battle.double
+              or battle.battlers and #battle.battlers == 4)
             and not adapter.BattleUI.litHealthboxShown()
         end
         return true

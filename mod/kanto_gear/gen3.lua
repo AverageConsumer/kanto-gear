@@ -573,6 +573,19 @@ function Gen3:battleSnapshot(snapshot)
       out.nativeShownHp = out.hp
     end
   end
+  -- The four slots keep battlefield identity even when the active command
+  -- switches to the partner. Reuse the host's displayed HP during animations.
+  for _, out in ipairs(snapshot.battlers or {}) do
+    local source = st.battlers and st.battlers[out.id]
+      or (out.id == 0 and st.player or out.id == 1 and st.enemy)
+    if source then
+      local key = st.double and out.id or out.side
+      local shown = self.Anim.shownBattler(key, source)
+      enrich(out, shown and shown.mon)
+      local _, hp, maxHp = self.Anim.displayHpRatio(key, shown)
+      out.hp, out.maxHp = math.floor(hp), maxHp
+    end
+  end
   for _, move in ipairs(snapshot.moves or {}) do
     move.id = self.Moves.constName(move.id)
     move.type = self.typeNames[move.type] or move.type

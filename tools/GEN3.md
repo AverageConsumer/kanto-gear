@@ -2,7 +2,7 @@
 
 Version **3.3.0** adds initial public support for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
-support. The **3.4.0-emerald.6** test package adds Emerald US 1.0 on official
+support. The **3.4.0-emerald.7** test package adds Emerald US 1.0 on official
 Recomp **v0.3.33 or newer**. Ruby and Sapphire remain unsupported.
 The FRLG test package passed the user's Thor check; both editions also
 have automated native-data and menu checks. This does not verify every possible
@@ -300,13 +300,23 @@ remain native input actions. Timed/held messages do not show a false continue.
 `gen3_presentation.lua` bridges the native draw functions because v0.3.20 does
 not call the legacy battle visibility hooks. Gear suppresses the native command
 panel, printers and mirrored menus only while the secondary display is ready.
-Full Gear additionally relocates singles healthboxes. The bridge never changes
+Full Gear additionally relocates singles and doubles healthboxes. The bridge never changes
 battle phases or input, restores its printer scope after errors, and releases
 only its own wrappers. Stat-growth pages show native deltas/totals and acknowledge
 through native input. Unknown menus and tutorial-only
-battles retain native presentation; doubles retain all four native healthboxes.
+battles retain native presentation. Doubles move all four healthboxes below only
+when the snapshot contains every battlefield slot; incomplete snapshots keep
+the native HUD. Each compact card preserves its slot through partner selection,
+uses the native displayed Pokemon and HP during animations, and marks absent slots.
 Animated HP and native status bitfields are converted by the read adapter.
-During damage animations Full Gear keeps the current text beneath its HP cards.
+In every generation, Full Gear text replaces only the four action buttons and
+keeps HP cards visible, during both waiting text and damage animations. The same
+layout covers native Gen 3 item notices. Gear's larger text layout is unchanged.
+`tests/gen3_full_battle_test.lua` verifies all four slots, active partners, native
+text and item notices, animated HP and replacement identity in FRLG/Emerald.
+It also verifies that partner-only HP animation redraws without a battle revision
+change, while unchanged views stay cached. The Gen 1/2 standard-battle suite
+checks compact messages and HP persistence in both Light and Dark.
 The clean native ground bands continue into the removed textbox area using the
 host's existing texture. No asset copy, GPU readback or extra canvas is needed.
 

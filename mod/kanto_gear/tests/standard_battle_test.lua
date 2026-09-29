@@ -486,4 +486,48 @@ upvalue(visibility, "hasDisplay", oldDisplay, true)
 upvalue(visibility, "displayReady", oldReady, true)
 upvalue(visibility, "active", oldActive, true)
 T.eq(#run.errors, 0, "no runtime errors during the battle screen audit")
+-- Full Gear text replaces only the action grid, even outside HP animations.
+stack.states = { world, raw }
+local statusCard, fullMessage, message, panel = H.battleStatusCard, H.battleFullMessage, H.battleMessage, H.panel
+local cards, compact, large, messageRect = 0, 0, 0
+H.battleStatusCard = function(self, ...) cards=cards+1; return statusCard(self, ...) end
+H.battleFullMessage = function(self, lines, canAdvance, ...)
+  compact=compact+1
+  T.eq(canAdvance, battle.prompt=="advance", "continue indicator follows native prompt")
+  return fullMessage(self, lines, canAdvance, ...)
+end
+H.battleMessage = function(self, ...) large=large+1; return message(self, ...) end
+H.panel = function(self, x,y,w,h,...)
+  if y==117 then messageRect={x,y,w,h} end
+  return panel(self,x,y,w,h,...)
+end
+for _,dark in ipairs({false,true}) do
+  H:setVariant(dark)
+  for _,prompt in ipairs({"advance","locked"}) do
+    for _,draining in ipairs({false,true}) do
+      options.battle_view="full"
+      battle.prompt,battle.message,raw.draining=prompt,{"TESTMON used a move!"},draining
+      snapshot();cards,compact,large=0,0,0
+      drawBattle()
+      T.eq(cards,2,"Full Gear retains both status cards during "..prompt)
+      T.eq(compact,1,"Full Gear draws one compact message")
+      T.eq(large,0,"Full Gear never covers the status region with text")
+      T.check(messageRect and messageRect[1]==6 and messageRect[3]==228 and messageRect[4]==93,
+        "message bounds equal the four action buttons")
+    end
+  end
+end
+options.battle_view="gear";cards,compact,large=0,0,0;drawBattle()
+T.eq(large,1,"Gear retains its existing message layout")
+T.eq(compact,0,"compact messages apply only to Full Gear")
+H.battleStatusCard,H.battleFullMessage,H.battleMessage,H.panel=statusCard,fullMessage,message,panel
+local partyInfo=H.partyInfo
+H.partyInfo=function(self,value,x,y,...)
+  T.check(y>=117 and y+8<210,"six-line text stays inside the action area")
+  return partyInfo(self,value,x,y,...)
+end
+for _,title in ipairs({false,"NEW MOVE"}) do
+  H:battleFullMessage({"ONE","TWO","THREE","FOUR","FIVE","SIX"},true,title or nil,0)
+end
+H.partyInfo=partyInfo
 T.finish("Standard battle layouts Gen " .. generation)

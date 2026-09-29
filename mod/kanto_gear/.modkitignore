@@ -49,3 +49,4 @@ tests/gen3_naming_test.lua
 tests/gen3_dialogue_test.lua
 tests/gen3_menu_refresh_test.lua
 tests/emerald_summary_test.lua
+tests/gen3_full_battle_test.lua

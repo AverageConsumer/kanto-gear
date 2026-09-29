@@ -4388,26 +4388,68 @@ return function(ui)
     self:endPress(pressed)
   end
 
-  function H:battleFullStatuses(player, enemy, drawPortrait,
-      playerTeam, enemyTeam, lines)
-    self:battleTeamStrip(playerTeam, enemyTeam)
-    self:battleStatusCard(player, 6, 33, 112, true, drawPortrait)
-    self:battleStatusCard(enemy, 122, 33, 112, false, drawPortrait)
-    if lines and #lines > 0 then
-      self:panel(6, 118, 228, 91, false, nil, self.colors.greenLight)
-      local height = 11 + (#lines - 1) * 13
-      local y = 118 + math.floor((91 - height) / 2)
-      for _, line in ipairs(lines) do
-        self:label(line, 24, y, self.colors.ink, 192, "center")
-        y = y + 13
-      end
+  function H:battleCompactStatus(mon, x, y, drawPortrait)
+    local c, player = self.colors, mon.side == "player"
+    local accent = player and c.green or c.red
+    self:panel(x, y, 112, 37, mon.active and not mon.absent, nil, accent)
+    if mon.absent then
+      self:partyInfo("--", x + 6, y + 14, c.green, 100, "center")
+      return
     end
+    local levelWidth = self:partyInfoWidth(mon.levelText)
+    self:partyName(mon.name, x + 5, y + 3, c.ink, 97 - levelWidth)
+    self:partyInfo(mon.levelText, x + 107 - levelWidth, y + 3, c.green)
+    drawPortrait(mon, x + 4, y + 12, 22, (mon.hp or 0) <= 0)
+    self:hpBar(x + 31, y + 17, 75, mon.hp, mon.maxHp)
+    if mon.statusId then self:statusIcon(mon.statusId, x + 31, y + 27) end
+    if player then self:partyInfo(mon.hpText, x + 58, y + 26, c.ink, 48, "right") end
+  end
+
+  function H:battleFullStatuses(player, enemy, drawPortrait,
+      playerTeam, enemyTeam, lines, battlers)
+    self:battleTeamStrip(playerTeam, enemyTeam)
+    if battlers then
+      for _, mon in ipairs(battlers) do
+        self:battleCompactStatus(mon, 6 + mon.id % 2 * 116,
+          33 + math.floor(mon.id / 2) * 41, drawPortrait)
+      end
+    else
+      self:battleStatusCard(player, 6, 33, 112, true, drawPortrait)
+      self:battleStatusCard(enemy, 122, 33, 112, false, drawPortrait)
+    end
+    if lines and #lines > 0 then self:battleFullMessage(lines) end
+  end
+
+  function H:battleFullMessage(lines, canAdvance, title, now)
+    local c = self.colors
+    local pressed = self:beginPress(6, 117, 228, 93, canAdvance)
+    self:panel(6, 117, 228, 93, false, nil, c.greenLight)
+    if title then self:partyInfo(self:fitPartyInfo(title, 208), 16, 124, c.green, 208, "center") end
+    lines = #lines > 0 and lines or { "..." }
+    local top, height = title and 138 or 125, title and 65 or 78
+    if canAdvance then height = height - 14 end
+    local step = title and 9 or 10
+    local y = top + math.floor((height - (8 + (#lines - 1) * step)) / 2)
+    for _, line in ipairs(lines) do
+      self:partyInfo(self:fitPartyInfo(line, 208), 16, y, c.ink, 208, "center")
+      y = y + step
+    end
+    if canAdvance then
+      local bob = self:battleContinueMotion(now)
+      for row = 0, 3 do
+        box("fill", 116 + row, 198 + bob + row * 2, 8 - row * 2, 2, c.outline)
+      end
+      box("fill", 117, 199 + bob, 6, 1, c.greenLight)
+      box("fill", 118, 200 + bob, 4, 2, c.green)
+      box("fill", 119, 202 + bob, 2, 2, c.green)
+    end
+    self:endPress(pressed)
   end
 
   function H:battleFullRoot(mon, player, enemy, drawPortrait,
-      playerTeam, enemyTeam, selected)
+      playerTeam, enemyTeam, selected, battlers)
     self:battleFullStatuses(player, enemy, drawPortrait,
-      playerTeam, enemyTeam)
+      playerTeam, enemyTeam, nil, battlers)
     local labels = { mon.fightLabel or translate("FIGHT"), mon.partyLabel or translate("POKEMON"),
       mon.bagLabel or translate("BAG"), mon.runLabel or translate("RUN") }
     for index = 1, 4 do
