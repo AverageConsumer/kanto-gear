@@ -28,7 +28,8 @@ function love.load()
       assert(ready, id .. ": " .. tostring(reason))
       count = count + 1
     end
-    local selected = { "FR_PALLET_TOWN", "FR_ROUTE_1", "FR_VIRIDIAN_CITY",
+    local selected = edition == "emerald" and { "EM_LITTLEROOT_TOWN", "EM_ROUTE101",
+      "EM_RUSTBORO_CITY", "EM_ROUTE119", "EM_PETALBURG_WOODS", "EM_GRANITE_CAVE_1F" } or { "FR_PALLET_TOWN", "FR_ROUTE_1", "FR_VIRIDIAN_CITY",
       "FR_ROUTE_24", "FR_VIRIDIAN_FOREST", "FR_MT_MOON_1F" }
     -- Compare actual GPU output to direct metatile draws, including fractional
     -- scale and clipping, rather than trusting batch construction alone.

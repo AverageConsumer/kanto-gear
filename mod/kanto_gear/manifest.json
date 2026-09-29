@@ -1,7 +1,7 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "3.3.3",
+  "version": "3.4.0-emerald.1",
   "api": 2,
   "entry": "main.lua",
   "category": "UI",
@@ -13,6 +13,6 @@
   "optional_dependencies": [],
   "conflicts": [],
   "permissions": ["engine_internals", "network"],
-  "description": "Companion UI for Red, Blue, Yellow, Gold, Silver, Crystal, FireRed and LeafGreen, with live maps, battle controls, route progress and notes. Requires Recomp 0.3.20 or newer.",
+  "description": "Companion UI for Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen and Emerald, with live maps, battle controls, route progress and notes. Requires Recomp 0.3.20 or newer; Emerald requires 0.3.33 or newer.",
   "github": "AverageConsumer/kanto-gear"
 }

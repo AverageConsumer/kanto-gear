@@ -1,11 +1,51 @@
-# Native FireRed / LeafGreen integration
+# Native Gen 3 integration
 
 Version **3.3.0** adds initial public support for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
-support. This is not full Gen 3 feature parity or support for Ruby, Sapphire
-and Emerald. The test package passed the user's Thor check; both editions also
+support. The **3.4.0-emerald.1** test package adds Emerald US 1.0 on official
+Recomp **v0.3.33 or newer**. Ruby and Sapphire remain unsupported.
+The FRLG test package passed the user's Thor check; both editions also
 have automated native-data and menu checks. This does not verify every possible
 playthrough, mod combination or specialized native menu.
+
+## Emerald test scope
+
+Emerald shares the native Gen 3 engine, but uses its own edition profile,
+Hoenn location names and region map, eight badge flags, 202-entry regional Dex
+order and RTC clock. National Dex mode contains 386 species. Dex descriptions
+use the extracted Emerald entries indexed by internal species ID.
+
+All five bag pockets open directly, including TMs/HMs and berries. Action
+buttons mirror Emerald's native grid and cursor. Player-PC choices include
+the bedroom decoration entry and item-storage Toss action. The first three
+summary pages are mirrored; the fourth contest page retains the native UI.
+Gear/Full Gear also suppress the native Emerald menu skins while Gear owns
+the corresponding menu. Unsupported PokéNav, contest and Frontier screens
+retain native controls and presentation.
+
+Stamps and Explorer read Emerald's imported trainer, item, hidden-item and
+Pokémon objectives. Decorative Poké Balls are excluded. Generated Frontier,
+Trainer Hill and Battle Pyramid challenges are repeatable, not permanent
+completion requirements. Random Pyramid items likewise have no durable
+pickup objective. Growing berry trees do not yet have a dedicated Gear view.
+
+The Emerald tests inspect all 518 imported maps, real data, live pickup flags,
+regional/National Dex order, bag actions, summary transitions and battle menu
+ownership in all four display modes. They also verify that read models leave
+the save unchanged. GPU checks compare native and Gear terrain pixel-for-pixel
+at three scales on six maps. This does not replace an interactive playthrough;
+Emerald has not yet been checked on the user's Thor.
+
+With the environment described below, use `POKEPORT_VERSION=emerald` and run:
+
+```text
+luajit <mod-path>/tests/emerald_native_test.lua
+luajit <mod-path>/tests/emerald_runtime_test.lua
+```
+
+The runtime suite includes the native suite. Both map and UI preview tools
+also accept Emerald. Keep using the FRLG suites for FireRed/LeafGreen regression
+checks; their fixtures deliberately exercise edition-specific native menus.
 
 Normal field scripts and warps retain the current companion page with its
 input-lock dimming. The upper-screen handoff controls are reserved for actual
@@ -49,7 +89,7 @@ It checks pixel parity at three scales and renders previous/native Light/Dark
 views. Timing compares warmed terrain redraws in the same clipped viewport,
 including GPU completion. It is not an upper-screen FPS or low-end-device test.
 
-## First test scope
+## Shared support and FRLG scope
 
 - Live party, all five inventory pockets, trainer and badge data, and the
   Kanto/National Dex with edition-specific encounter locations.
@@ -62,14 +102,13 @@ including GPU completion. It is not an upper-screen FPS or low-end-device test.
 - Notes and Home storage bound to the native playthrough, including new games,
   reloads and the quest-log-to-field transition.
 
-Unsupported native menus remain on the original game screen. This includes
-PC interactions, naming, move learning, quantity entry and special confirmations.
-Tutorial/demo/link battles also keep native ownership. Some native mechanics,
-including abilities and natures, are read but do not yet have dedicated Gear UI.
+Unsupported native menus remain on the original game screen. Tutorial/demo/link
+battles also keep native ownership. Specialized minigames and move-detail
+reordering retain the native UI.
 
 Stamps, their Home widget and Explorer trainer/item checklists now share native
-progress data. Item radar remains disabled for Gen 3. Gen 1/2 progress rules
-are unchanged.
+progress data. The item radar reads the host's native detection rules.
+Gen 1/2 progress rules are unchanged.
 
 ## Native route completion
 
@@ -115,7 +154,8 @@ storage must keep using the real host instance.
 - Live scalars come from `Game3.session`; `Game3.save` is a serialization snapshot.
 - Internal species IDs remain the keys. National numbers are display metadata.
   The catalogue has 386 unique entries; `save.pokedex.limit` follows the native
-  National Dex unlock. A renderer must apply this limit when listing the dex.
+  National Dex unlock. Use `dexNumber(species)` to filter and number entries:
+  Hoenn's regional order is not a prefix of the National Dex.
 - Party moves have named IDs and separate current/max PP. Stat views retain
   separate special attack/defense and six IV/EV values, not Gen 2 DVs.
 - Bag iteration reads the five native pocket arrays without calling mutating
@@ -149,7 +189,7 @@ map visibility, encounter terrain or item/trainer completion from its pixels.
 
 ## Verification
 
-Use an exact v0.3.20 Recomp checkout and local imports of both editions. No ROM
+Use an exact v0.3.33 Recomp checkout and fresh local edition imports. No ROM
 or extracted game asset belongs in this repository or its release archive.
 
 Set `KANTO_GEAR_MOD_PATH` to this repository's `mod/kanto_gear` directory,

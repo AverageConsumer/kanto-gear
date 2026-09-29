@@ -43,3 +43,5 @@ tests/auto_battle_screen_test.lua
 tests/party_summary_test.lua
 tests/gen3_pointer_test.lua
 tests/gen3_pointer_runtime_cases.lua
+tests/emerald_native_test.lua
+tests/emerald_runtime_test.lua

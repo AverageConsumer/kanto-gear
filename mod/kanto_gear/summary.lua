@@ -53,7 +53,7 @@ function Summary.view(state, game)
   if not Summary.supports(state) then return nil end
   local gen2, gen3 = state.screenId == "Gen2SummaryMenu", state.screenId == "Gen3SummaryMenu"
   local mon = state.mon
-  local pages = (gen2 or gen3) and 3 or 2
+  local pages = gen3 and state.pages or ((gen2 or gen3) and 3 or 2)
   local page = tonumber(state.page) or 1
 
   local def = definition(game, "pokemon", mon.species) or {}

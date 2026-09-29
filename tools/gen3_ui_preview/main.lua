@@ -19,9 +19,10 @@ function love.load()
       local Field = require("src.core.game3.field")
       require("src.core.game3.tileset_native").install(require("src.core.game3.dataset").cache())
       require("src.core.game3.ow_sprites").install(require("src.core.game3.dataset").cache())
-      game.session.map, game.session.x, game.session.y = "FR_ROUTE_1", 10, 25
+      local emerald = os.getenv("POKEPORT_VERSION") == "emerald"
+      game.session.map, game.session.x, game.session.y = emerald and "EM_ROUTE101" or "FR_ROUTE_1", 10, 15
       Map.current, Map._def = game.session.map, maps[game.session.map]
-      Player.cellX, Player.cellY, Player.px, Player.py = 10, 25, 160, 400
+      Player.cellX, Player.cellY, Player.px, Player.py = 10, 15, 160, 240
       Field.running = true
       display.gen3:refresh()
       run.loader.events:emit("map.entered", { game = game, mapId = game.session.map })
@@ -61,7 +62,10 @@ function love.load()
           elseif app:match("^summary") then
             Summary.openMenu(game.session.party, 1, { session = game.session,
               page = app == "summary-skills" and 1 or app == "summary-moves" and 2 or 0 })
-          else display.openHomeApp(app) end
+          else
+            assert(display.setPackageInstalled(app, true), app)
+            assert(display.openHomeApp(app), app)
+          end
           display.gen3.syncScreens()
           refreshBattle()
           if app == "battle-moves" then
@@ -106,8 +110,19 @@ function love.load()
       encoded:release(); pixels:release(); outputCanvas:release()
       print("Gear Light/Dark previews saved: " .. output)
     end
-    dofile(mod .. "/tests/gen3_runtime_test.lua")
+    local ran = false
+    local function run()
+      ran = true
+      dofile(mod .. (os.getenv("POKEPORT_VERSION") == "emerald"
+        and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+    end
+    if os.getenv("POKEPORT_VERSION") == "emerald" then
+      local root = assert(os.getenv("POKEPORT_GBA_CACHE")):gsub("/data/generated/gba$", "")
+      require("src.import.CacheFs").withMounted(root, "", run)
+    else run() end
+    assert(ran, "Preview cache mount unavailable")
   end, debug.traceback)
+  love.graphics.setCanvas()
   if not ok then print(err) end
   love.event.quit(ok and 0 or 1)
 end

@@ -133,6 +133,13 @@ function Presentation.new(owns, heroDirection)
       if not hidden("menu") then return next(...) end
     end)
   end
+  -- Newer hosts dispatch Emerald skins without calling the base menu draw.
+  local okScreens, screens = pcall(require, "src.ui.game3.screens")
+  if okScreens and type(screens.draw) == "function" then
+    wrap(screens, "draw", function(next, id, ...)
+      if (id ~= "bag" and id ~= "summary") or not hidden("menu") then return next(id, ...) end
+    end)
+  end
   return self
 end
 

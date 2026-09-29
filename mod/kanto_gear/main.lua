@@ -2940,7 +2940,7 @@ return function(mod)
 
   function compat.clockTimestamp(currentGame, source, now)
     if source ~= "game" or not (currentGame and currentGame.save
-        and currentGame.save.generation == 2) then return now, false end
+        and (currentGame.save.generation == 2 or currentGame.save.generation == 3)) then return now, false end
     local world = currentGame.world
     if not (world and type(world.hour) == "function"
         and type(world.minute) == "function") then return now, false end
@@ -3017,7 +3017,7 @@ return function(mod)
 
   compat.romCodes = {
     red = "RD", blue = "BL", yellow = "YL", gold = "GD", silver = "SV",
-    crystal = "CR", firered = "FR", leafgreen = "LG",
+    crystal = "CR", firered = "FR", leafgreen = "LG", emerald = "EM",
   }
 
   function compat.systemId(version, release)
@@ -3703,7 +3703,7 @@ return function(mod)
   end
 
   function displayRuntime.sectionName(id, fallback)
-    local section = tostring(id or "OTHER AREA"):gsub("^FR_", ""):gsub("_", " ")
+    local section = tostring(id or "OTHER AREA"):gsub("^FR_", ""):gsub("^EM_", ""):gsub("_", " ")
     local entry = locationEntry(id)
     local name = entry and tostring(entry.name or entry.label or "") or ""
     for word in name:upper():gmatch("[%w]+") do
@@ -5730,6 +5730,7 @@ return function(mod)
   end
 
   function compat.currentRegion()
+    if displayRuntime.gen3 then return displayRuntime.gen3.profile.id == "emerald" and "hoenn" or "kanto" end
     if not compat.isGen2() then return nil end
     local entry = locationEntry(mapId)
     local index = tonumber(entry and entry.index) or 0
@@ -6601,7 +6602,7 @@ return function(mod)
     local owned = 0
     local dexTotal = 0
     for species, def in pairs(game.data.pokemon or {}) do
-      if def.dex and (not displayRuntime.gen3 or def.dex <= save.pokedex.limit) then
+      if def.dex and (not displayRuntime.gen3 or displayRuntime.gen3:dexNumber(species) ~= nil) then
         dexTotal = dexTotal + 1
         if ownedDex[species] then owned = owned + 1 end
       end
@@ -6609,7 +6610,9 @@ return function(mod)
     local badges = game.data.constants and game.data.constants.badges or {}
     if displayRuntime.gen3 then
       badges = {}
-      for _, id in ipairs(THEME.gen2Badges.kanto) do badges[#badges + 1] = { id = id } end
+      for _, badge in ipairs(displayRuntime.gen3.flagDefinitions.BADGES) do
+        badges[#badges + 1] = { id = badge.name }
+      end
     end
     local shownBadges = badges
     if compat.isGen2() then
@@ -6674,7 +6677,7 @@ return function(mod)
       for index, badge in ipairs(shownBadges) do
         badgeOwned[index] = not not ownsBadge(badge, index)
       end
-      local dexSize = game.data.constants and game.data.constants.dexSize
+      local dexSize = displayRuntime.gen3 and dexTotal or game.data.constants and game.data.constants.dexSize
         or dexTotal
       local region = (compat.currentRegion() or "kanto"):upper()
       local model = {
@@ -8279,10 +8282,10 @@ return function(mod)
     local entries, caughtCount = {}, 0
     for species, def in pairs(data.pokemon or {}) do
       if tonumber(def.dex) and (not displayRuntime.gen3
-          or def.dex <= (save.pokedex and save.pokedex.limit or 151)) then
+          or displayRuntime.gen3:dexNumber(species) ~= nil) then
         local owned = caught[species] == true
         entries[#entries + 1] = {
-          species = species, dex = tonumber(def.dex),
+          species = species, dex = displayRuntime.gen3 and displayRuntime.gen3:dexNumber(species) or tonumber(def.dex),
           name = def.name or tostring(species):gsub("_", " "),
           seen = owned or seen[species] == true, caught = owned,
           habitat = habitats[species],
@@ -8377,8 +8380,9 @@ return function(mod)
       for index = first, math.min(dex.total, first + 8) do
         entries[#entries + 1] = dex.entries[index]
       end
-      return { view = "index", region = (compat.isGen2() or displayRuntime.gen3 and dex.total > 151)
-          and "NATIONAL DEX" or "KANTO DEX",
+      return { view = "index", region = displayRuntime.gen3 and
+          ((game.save.pokedex.national and "NATIONAL" or compat.currentRegion():upper()) .. " DEX")
+          or (compat.isGen2() and "NATIONAL DEX" or "KANTO DEX"),
         caught = dex.caught, total = dex.total,
         page = state.page, pages = pages, entries = entries,
         drawPokemon = drawPokemon }

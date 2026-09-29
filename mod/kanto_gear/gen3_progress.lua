@@ -1,4 +1,4 @@
--- Native FR/LG route objectives. Read the imported event graph, never execute
+-- Native Gen 3 route objectives. Read the imported event graph, never execute
 -- scripts or infer victory/collection from an NPC simply being hidden.
 local M = {}
 M.__index = M
@@ -18,13 +18,18 @@ end
 
 function M.new(adapter)
   local renewable, initiallyHidden = {}, {}
-  for _, flag in ipairs(adapter.Flags.NEW_GAME_HIDE_FLAGS or {}) do initiallyHidden[flag] = true end
-  for _, zone in ipairs(require("src.core.game3.renewable_hidden_items").ZONES) do
+  local emerald = adapter.profile.id == "emerald"
+  if not emerald then
+    for _, flag in ipairs(adapter.Flags.NEW_GAME_HIDE_FLAGS or {}) do initiallyHidden[flag] = true end
+  end
+  for _, zone in ipairs(not emerald and require("src.core.game3.renewable_hidden_items").ZONES or {}) do
     for _, tier in ipairs({ "rare", "uncommon", "common" }) do
       for _, flag in ipairs(zone[tier]) do renewable[flag] = true end
     end
   end
   return setmetatable({ adapter = adapter, maps = {}, renewable = renewable, initiallyHidden = initiallyHidden,
+    emerald = emerald,
+    constants = emerald and require("src.core.game3.constants").of("emerald"),
     Trainers = require("src.core.game3.scripting.trainers"), builds = 0 }, M)
 end
 
@@ -62,7 +67,15 @@ function M:bundle()
   -- The field engine owns/loads the bundle. Boot and missing extraction must
   -- yield unknown objectives, not a permanently cached empty catalogue.
   local bundle = self.adapter.Space.bundle
-  if bundle ~= self.source then self.maps, self.source = {}, bundle end
+  if bundle ~= self.source then
+    self.maps, self.source = {}, bundle
+    if self.emerald and bundle then
+      self.initiallyHidden = {}
+      for _, row in ipairs(M.scan(bundle.scripts, "EventScript_ResetAllMapFlags")) do
+        if row.op == "setflag" then self.initiallyHidden[row.flag or row[1]] = true end
+      end
+    end
+  end
   return bundle
 end
 
@@ -99,9 +112,11 @@ function M:catalog(mapId, checkpoint)
         hasTrainer = true
         local id, typ = command.trainer or command[1], command.type
         local def = self.Trainers.get(id)
-        if typ ~= 5 and typ ~= 7 then -- rematch op points at the same base trainer
-          local rival = def and (def.class == 81 or def.class == 89 or def.class == 90)
+        if typ ~= 5 and typ ~= 7 and not (self.emerald and (typ == 9 or typ == 12)) then -- rematch op points at the same base trainer
+          local rival = def and (self.emerald and def.class == self.constants:id("trainer_classes", "TRAINER_CLASS_RIVAL")
+            or not self.emerald and (def.class == 81 or def.class == 89 or def.class == 90))
           local league = mapId:match("^FR_POKEMON_LEAGUE_") ~= nil
+            or mapId:match("^EM_EVER_GRANDE_CITY_.*ROOM$") ~= nil
           local key = rival and ("rival:" .. tostring(def.class) .. ":" .. tostring(typ == 9))
             or league and def and ("league:" .. def.class .. ":" .. def.name) or tostring(id)
           local row = trainers[key]
@@ -109,7 +124,7 @@ function M:catalog(mapId, checkpoint)
             row = base(obj)
             row.id = mapId .. "_trainer_" .. key
             row.label = def and ((def.className or "") .. " " .. (def.name or "")):gsub("^%s+", "") or "TRAINERS"
-            row.rival, row.league, row.optional = rival, league, typ == 9
+            row.rival, row.league, row.optional = rival, league, not self.emerald and typ == 9
             row.flags, row.untracked = {}, not def or type(id) ~= "number"
             trainers[key], out[1][#out[1] + 1] = row, row
           end
@@ -124,7 +139,7 @@ function M:catalog(mapId, checkpoint)
         else
           out[1][#out[1] + 1] = { label = "POKEMON", mapId = mapId, untracked = true }
         end
-      elseif command.op == "special" and command.id == 443 then
+      elseif not self.emerald and command.op == "special" and command.id == 443 then
         -- CreateEventLegalEnemyMon uses the immediately preceding three vars.
         local species
         for _, r in ipairs(rows) do
@@ -133,7 +148,11 @@ function M:catalog(mapId, checkpoint)
         end
         hasMon = true
         mon(species, obj)
-      elseif command.op == "specialvar" and command[2] == 252 then
+      elseif self.emerald and command.op == "special" and command.id == self.constants:special("ChooseStarter") then
+        hasMon = true
+        for _, nat in ipairs({ 252, 255, 258 }) do mon(self.adapter.Pokemon.speciesFromNational(nat), obj) end
+      elseif command.op == "specialvar" and command[2] == (self.emerald
+          and self.constants:special("GetInGameTradeSpeciesInfo") or 252) then
         -- FRLG's trade helper copies the selected trade (VAR_0x8008) into
         -- VAR_0x8004 before GetInGameTradeSpeciesInfo overwrites VAR_RESULT.
         local Trade = require("src.core.game3.scripting.natives_trade")
@@ -155,6 +174,12 @@ function M:catalog(mapId, checkpoint)
           local row = base(obj)
           row.kind, row.itemId, row.event = "item", value, obj.flag
           row.untracked = not self.adapter.data.items[value] or not obj.flag or obj.flag < 0x20 or obj.flag == 65535
+          if self.emerald and mapId:match("^EM_BATTLE_PYRAMID_SQUARE") then
+            -- These templates receive random items for each challenge and have
+            -- no permanent collection flag. Never count them as route pickups.
+            row.itemId, row.event, row.untracked, row.repeatable = nil, nil, nil, true
+            row.label = "ITEMS"
+          end
           out[2][#out[2] + 1], hasItem = row, true
         end
       end
@@ -170,8 +195,13 @@ function M:catalog(mapId, checkpoint)
         row.event, row.alternative = obj.flag == 47 and 626 or 627, obj.flag == 47 and 627 or 626
         out[2][#out[2] + 1], hasItem = row, true
       end
+      local decorativeBall = self.emerald and (
+        obj.flag == self.constants:flag("FLAG_HIDE_CONTEST_POKE_BALL")
+        or obj.flag == self.constants:flag("FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F_POKE_BALL")
+        or obj.flag == self.constants:flag("FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_2F_POKE_BALL"))
       if not hasTrainer and (obj.trainerType == 1 or obj.trainerType == 3)
-          or obj.graphicsId == 92 and not hasItem and not hasMon then
+          or obj.graphicsId == (self.emerald and self.constants:id("event_objects", "OBJ_EVENT_GFX_ITEM_BALL") or 92)
+            and not hasItem and not hasMon and not decorativeBall then
         local row = base(obj)
         row.label, row.untracked = "NOT TRACKED", true
         out[1][#out[1] + 1] = row
@@ -204,7 +234,8 @@ function M:catalog(mapId, checkpoint)
       out[3][#out[3] + 1] = row
     elseif bg.scriptKey then scan(bg) end
   end
-  if mapId:match("^FR_TRAINER_TOWER_%dF$") then
+  if mapId:match("^FR_TRAINER_TOWER_%dF$") or mapId:match("^EM_TRAINER_HILL_")
+      or mapId:match("^EM_BATTLE_FRONTIER_BATTLE_") or mapId:match("^EM_BATTLE_PYRAMID_SQUARE") then
     -- Tower opponents are generated per challenge, without route defeat flags.
     out[1][#out[1] + 1] = { label = "TRAINERS", mapId = mapId, repeatable = true }
   end
@@ -229,6 +260,7 @@ end
 function M:completionKey()
   -- These two non-consumable keys start as hidden objects and require actual
   -- ownership. Bag/PC writes need not emit flag.changed in the native host.
+  if self.emerald then return 0 end
   return (self:ownsKey(356) and 1 or 0) + (self:ownsKey(359) and 2 or 0)
 end
 
@@ -253,7 +285,7 @@ function M:rows(mapIds, checkpoint)
         row.excluded = row.alternative and not row.done and flag(row.alternative) or nil
         if row.repeatable then
           row.available, row.done = not flag(row.event), false
-          row.status = category == 1 and "REPEATABLE" or row.available and "READY" or "RENEWABLE"
+          row.status = (category == 1 or not row.event) and "REPEATABLE" or row.available and "READY" or "RENEWABLE"
         elseif row.untracked then row.status = "NOT TRACKED"
         elseif row.excluded then row.status = "ALTERNATIVE CHOICE"
         elseif not row.done and id:match("^FR_SSANNE_") and flag("FLAG_HIDE_SS_ANNE") then
@@ -295,7 +327,10 @@ function M:pokemon(mapIds, checkpoint)
     end
   end
   for _, id in ipairs(mapIds) do
-    if id == "FR_OAKS_LAB" then
+    if id == "EM_ROUTE101" then
+      goal({ adapter.Pokemon.speciesFromNational(252), adapter.Pokemon.speciesFromNational(255),
+        adapter.Pokemon.speciesFromNational(258) })
+    elseif id == "FR_OAKS_LAB" then
       -- One starter is obtainable, even before the player chooses it.
       local starter = adapter.Flags.getVar(adapter:flagStore(), nil, "VAR_STARTER_MON")
       if adapter.Flags.getFlag(adapter:flagStore(), nil, "FLAG_SYS_POKEMON_GET") then

@@ -5,6 +5,11 @@ local names = { [0] = "KANTO", "SEVII 1-3", "SEVII 4-5", "SEVII 6-7" }
 local images = { [0] = "kanto_map", "sevii123_map", "sevii45_map", "sevii67_map" }
 
 function Region.new(adapter, graphics)
+  if adapter.profile.id == "emerald" then
+    return setmetatable({ adapter = adapter, graphics = graphics,
+      Hoenn = require("src.ui.game3.rse.region_map"),
+      Kit = require("src.ui.game3.rse.scene_kit") }, Region)
+  end
   local Extract = require("src.import.gba.region_map_extract")
   Extract.ensureGenerated()
   return setmetatable({ adapter = adapter, graphics = graphics, Extract = Extract,
@@ -30,6 +35,7 @@ function Region:position()
 end
 
 function Region:model(area, marker)
+  if self.Hoenn then return self:hoennModel(area, marker) end
   local region, px, py = self:position()
   local model = { area = area, region = names[region] or "MAP" }
   if region == nil then return model end
@@ -44,6 +50,34 @@ function Region:model(area, marker)
     g.draw(img, self.quad, left, top, 0, scale, scale)
     if px and py and marker then
       marker(left + (px * 8 + 12) * scale, top + (py * 8 + 20) * scale, 1)
+    end
+  end
+  return model
+end
+
+function Region:hoennModel(area, marker)
+  local model = { area = area, region = "HOENN" }
+  local session = self.adapter.session
+  local def = session and self.adapter.data.maps[session.map]
+  if not def then return model end
+  local entry = self.Hoenn.manifest().layers.map
+  local img = self.Kit.image(type(entry) == "table" and entry.png or entry)
+  if not img then return model end
+  -- Use an independent read model; never open or alter the host's map screen.
+  local ok, state = pcall(self.Hoenn.newState, { session = session, mapDef = def })
+  local g = self.graphics
+  self.quad = self.quad or g.newQuad(8, 16, 224, 120, img:getDimensions())
+  model.drawMap = function(x, y, w, h)
+    local scale = math.min(w / 224, h / 120)
+    local left = math.floor(x + (w - 224 * scale) / 2 + 0.5)
+    local top = math.floor(y + (h - 120 * scale) / 2 + 0.5)
+    g.setColor(1, 1, 1, 1)
+    g.draw(img, self.quad, left, top, 0, scale, scale)
+    if ok and state.showPlayerIcon and marker then
+      local px, py = state.playerIconX * 8 - 4, state.playerIconY * 8 - 12
+      if px >= 0 and px < 224 and py >= 0 and py < 120 then
+        marker(left + px * scale, top + py * scale, 1)
+      end
     end
   end
   return model

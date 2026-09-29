@@ -1,4 +1,4 @@
--- Read models for the native FR/LG engine. Never write presentation data back
+-- Read models for the native Gen 3 engine. Never write presentation data back
 -- to Game3.save: it is a serialization snapshot, not the running session.
 local Gen3 = {}
 Gen3.__index = Gen3
@@ -22,6 +22,9 @@ local geneticFields = { "hp", "atk", "def", "spe", "spa", "spd" }
 function Gen3.new(game)
   assert(game.generation == 3, "native Gen 3 game required")
   local self = setmetatable({ game = game, mons = setmetatable({}, { __mode = "k" }) }, Gen3)
+  self.profile = require("src.core.game3.profile").forSession(game.session)
+  self.flagDefinitions = self.profile.id == "emerald" and require("src.core.game3.scripting.flags").forVersion("emerald")
+    or require("src.core.game3.scripting.flags")
   self.Pokemon = require("src.core.game3.pokemon")
   self.Moves = require("src.core.game3.battle.moves")
   self.Items = require("src.core.game3.items_data")
@@ -79,6 +82,8 @@ function Gen3:refreshDefinitions()
   local source = Compat.dataView(self.game.data or {})
   local P, M, I = self.Pokemon, self.Moves, self.Items
   local dexData = require("src.core.game3.pokedex_data")
+  local hoennEntries = self.profile.id == "emerald" and
+    assert(require("src.ui.game3.rse.mapsec").readLua("pokemon/pokedex/entries.lua"))
   local data = { pokemon = {}, moves = {}, items = {}, maps = self.game.data and self.game.data.maps or {} }
   -- Iterate National IDs, not the native table length (which includes holes
   -- and special sprite IDs). Keep internal IDs as keys everywhere else.
@@ -87,9 +92,11 @@ function Gen3:refreshDefinitions()
     if id then
       local row = copy(source.pokemon[id])
       row.index, row.dex, row.national = id, dex, dex
-      local entry = dexData.getEntry(dex)
-      row.dexEntry = { kind = entry.category, heightM = entry.heightDm / 10,
-        weightKg = entry.weightHg / 10, text = entry.description }
+      row.regionalDex = self.Dex.regionalNumber and self.Dex.regionalNumber(id, self.profile.id)
+        or (self.profile.id ~= "emerald" and dex <= 151 and dex or nil)
+      local entry = hoennEntries and assert(hoennEntries[id]) or dexData.getEntry(dex)
+      row.dexEntry = { kind = entry.category, heightM = (entry.heightDm or entry.height) / 10,
+        weightKg = (entry.weightHg or entry.weight) / 10, text = entry.description }
       row.types = self:types(row.types)
       row.learnset = {}
       for _, learn in ipairs(P.learnset(id) or {}) do
@@ -216,7 +223,7 @@ function Gen3:itemfinderSignals()
     neighborList = current and Map.neighborList or {},
     neighbors = current and Map.neighbors or {}, eventsFor = events,
     flagSet = function(ev)
-      local flag = ev.flag or ev.hiddenItemId and (0x3E8 + ev.hiddenItemId)
+      local flag = ev.flag or ev.hiddenItemId and ((self.flagDefinitions.IDS.FLAG_HIDDEN_ITEMS_START or 0x3E8) + ev.hiddenItemId)
       return not flag or self.Flags.getFlag(store, nil, flag)
     end,
   })
@@ -279,7 +286,8 @@ function Gen3:refresh()
   end
   if dexChanged then self.dexRevision = (self.dexRevision or 0) + 1 end
   save.pokedex.national = dex.national == true
-  save.pokedex.limit = save.pokedex.national and self.Dex.NATIONAL_MAX or self.Dex.KANTO_MAX
+  save.pokedex.limit = save.pokedex.national and self.Dex.NATIONAL_MAX or (self.Dex.regionalMax
+    and self.Dex.regionalMax(self.profile.id) or self.Dex.KANTO_MAX)
   return save
 end
 
@@ -324,9 +332,15 @@ function Gen3:flagStore()
   return self.session
 end
 
+function Gen3:dexNumber(species)
+  local def = self.data.pokemon[species]
+  return def and (self.save and self.save.pokedex.national and def.dex or def.regionalDex)
+end
+
 function Gen3:badge(index)
-  return self.session ~= nil and index >= 1 and index <= 8
-    and self.Flags.getFlag(self:flagStore(), nil, 0x81f + index) == true
+  local badge = self.flagDefinitions.BADGES[index]
+  return self.session ~= nil and badge ~= nil
+    and self.Flags.getFlag(self:flagStore(), nil, badge.flag) == true
 end
 
 function Gen3:locations()
@@ -334,9 +348,13 @@ function Gen3:locations()
   local sections = require("src.import.gba.map_sections_extract")
   local out = {}
   for id, def in pairs(self.data.maps) do
-    local info = sections.getInfo(def.regionMapSectionId, id, def.floorNum)
+    local info
+    if self.profile.id == "emerald" then
+      local entry = require("src.ui.game3.rse.mapsec").entry(def.regionMapSectionId)
+      info = entry and { resolved = true, rawName = entry.name }
+    else info = sections.getInfo(def.regionMapSectionId, id, def.floorNum) end
     out[id] = { name = info and info.resolved and info.rawName
-      or id:gsub("^FR_", ""):gsub("_", " "), section = def.regionMapSectionId }
+      or id:gsub("^FR_", ""):gsub("^EM_", ""):gsub("_", " "), section = def.regionMapSectionId }
     -- Localized names are labels, never progress identity. Keep gyms/dojo
     -- separate from city houses; combine dungeon floors and route segments.
     local facility = id:match("_GYM$") and "GYM" or id:match("_DOJO$") and "DOJO"
@@ -367,6 +385,14 @@ end
 function Gen3:gameView()
   if self.view then return self.view end
   local world = { player = require("src.core.game3.player"), map = {} }
+  if self.profile.clock and self.profile.clock.rtc then
+    local rtc = require("src.core.game3.rtc")
+    local function time()
+      return rtc.calcTimeDifferenceRtc(rtc.getInfo(self.session), self.session and self.session.localTimeOffset)
+    end
+    function world:hour() return time().hours end
+    function world:minute() return time().minutes end
+  end
   local methods = {}
   local stack = { states = {} }
   local layers = setmetatable({}, { __mode = "k" })
@@ -393,6 +419,11 @@ function Gen3:gameView()
           state.mon = self:mon(native._party and native._party[native._cursor])
           state.page = (native._page or 0) + 1
           state.moveDetail = native._mode == "select_move" or state.page > 3 or false
+          if self.profile.id == "emerald" then
+            local skin = require("src.ui.game3.rse.summary_menu")
+            state.page, state.pages = skin.page(native) + 1, 4
+            state.moveDetail = skin.detail(native) or state.page == 4
+          end
         end
         state.phase = layer.mod and layer.mod.mode
         state.index = layer.mod and (layer.mod.mode == "action" and layer.mod.actionCursor

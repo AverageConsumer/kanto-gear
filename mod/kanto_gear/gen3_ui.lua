@@ -1,4 +1,4 @@
--- Native FRLG menu projections. All activation is routed through the host's
+-- Native Gen 3 menu projections. All activation is routed through the host's
 -- normal input handler; Gear never invokes item/switch callbacks itself.
 local UI = {}
 UI.__index = UI
@@ -206,6 +206,8 @@ function UI:list(battle)
     if release then return release end
   end
   if not layer or not layer.mod or layer.mod.open ~= true then return nil end
+  if layer.id == "summary" and self.adapter.profile.id == "emerald"
+      and require("src.ui.game3.rse.summary_menu").page(layer.mod) == 3 then return nil end
   local native, items, field, title, slots = layer.mod
   local quantity, prompt, grid, boxParty
   local mode = native.mode or native.state or native._mode
@@ -231,7 +233,8 @@ function UI:list(battle)
     if layer.id == "bag" and mode == "deposit_done" then return native._depositText end
     if layer.id == "bag" and mode == "toss_done" then
       local row = native.list()[native.cursor]
-      return row and RomText.box("gText_ThrewAwayStrVar2StrVar1s",
+      return row and RomText.box(self.adapter.profile.id == "emerald"
+        and "gText_ThrewAwayVar2Var1s" or "gText_ThrewAwayStrVar2StrVar1s",
         { stringVars = { self.adapter.Items.displayName(row.id), tostring(native.tossQty) } })
     end
   end
@@ -322,6 +325,15 @@ function UI:list(battle)
     title, field = "PC", "cursor"
     if mode == "root" then items = labels(native._rootEntries())
     elseif mode == "storage_menu" then items = labels(native._storageOptions())
+    elseif self.adapter.profile.id == "emerald" and (mode == "player_pc" or mode == "item_storage") then
+      local rows = mode == "player_pc" and require("src.ui.game3.rse.player_pc").topOrder(native)
+        or { "withdraw", "deposit", "toss", "exit" }
+      local keys = { item_storage = "gText_ItemStorage", mailbox = "gText_Mailbox",
+        decoration = "gText_Decoration", turn_off = "gText_TurnOff",
+        withdraw = "gText_WithdrawItem", deposit = "gText_DepositItem",
+        toss = "gText_TossItem", exit = "gText_Cancel" }
+      items = {}
+      for _, id in ipairs(rows) do items[#items + 1] = { label = RomText.plain(keys[id]) } end
     elseif mode == "player_pc" then items = labels(native.TOP_ACTIONS)
     elseif mode == "item_storage" then items = labels(native.ITEM_STORAGE_ACTIONS) end
   elseif layer.id == "item_pc" then
@@ -367,7 +379,9 @@ function UI:list(battle)
     if mode == "toss_confirm" then
       items, field = labels({ "YES", "NO" }), "yesNoCursor"
       prompt = row and self.adapter.Items.displayName(row.id) .. "\n" ..
-        RomText.box("gText_ThrowAwayStrVar2OfThisItemQM", { stringVars = { [2] = tostring(native.tossQty) } })
+        RomText.box(self.adapter.profile.id == "emerald" and "gText_ConfirmTossItems"
+          or "gText_ThrowAwayStrVar2OfThisItemQM", {
+          stringVars = { self.adapter.Items.displayName(row.id), tostring(native.tossQty) } })
     else quantity = row and { label = self.adapter.Items.displayName(row.id), qty = native.tossQty } end
   elseif layer.id == "start" then
     title = "CHOOSE ACTION"
@@ -420,7 +434,8 @@ function UI:list(battle)
     if native.mode == "list" then
       items, field, pocket = {}, "cursor", true
       local id = native.currentPocket()
-      title = ({ ITEMS = "ITEMS", KEY_ITEMS = "KEY ITEMS", POKE_BALLS = "BALLS" })[id] or "BAG"
+      title = ({ ITEMS = "ITEMS", KEY_ITEMS = "KEY ITEMS", POKE_BALLS = "BALLS",
+        TM_CASE = "TM/HM", BERRY_POUCH = "BERRIES" })[id] or "BAG"
       for _, item in ipairs(native.list()) do
         items[#items + 1] = { label = item.name or self.adapter.Items.displayName(item.id),
           right = "x" .. tostring(item.qty or 0), itemId = item.id }
@@ -428,6 +443,18 @@ function UI:list(battle)
       items[#items + 1] = { label = "CANCEL" }
     elseif native.mode == "action" then
       items, field = labels(native.ACTIONS), "actionCursor"
+    end
+  end
+  if layer.id == "bag" and native.mode == "action" and self.adapter.profile.id == "emerald" then
+    local st = require("src.ui.game3.rse.bag_menu")._st
+    if not st.grid then return nil end
+    grid = true
+    for i, cell in ipairs(st.grid.cells) do
+      if cell then
+        local col, row = (i - 1) % st.grid.cols, math.floor((i - 1) / st.grid.cols)
+        local width = math.floor(228 / st.grid.cols)
+        items[cell.idx].rect = { 7 + col * width, 86 + row * 40, width - 2, 37 }
+      end
     end
   end
   if quantity then items, field = { { label = "CONFIRM" } }, nil end
@@ -475,7 +502,15 @@ function UI:list(battle)
             elseif layer.id == "item_pc" and field == "row" then
               native.scroll = math.max(0, math.min(v - 1, #t.items - 6))
               native.row = v - 1 - native.scroll
-            else native[field] = t.nativeSlots and t.nativeSlots[v] or v end
+            else
+              native[field] = t.nativeSlots and t.nativeSlots[v] or v
+              if layer.id == "bag" and mode == "action" and owner.adapter.profile.id == "emerald" then
+                local st = require("src.ui.game3.rse.bag_menu")._st
+                for i, cell in ipairs(st.grid and st.grid.cells or {}) do
+                  if cell and cell.idx == native[field] then st.gridPos = i - 1; break end
+                end
+              end
+            end
           end
         else rawset(t, k, v) end
       end,
@@ -514,10 +549,10 @@ function UI:openBagItem(id)
   local def = a.data.items[id]
   local pocket = def and def.nativePocket
   local menu
-  if pocket == "TM_CASE" then
+  if pocket == "TM_CASE" and a.profile.id ~= "emerald" then
     menu = require("src.ui.game3.tm_case")
     menu.show(session, session.bag)
-  elseif pocket == "BERRY_POUCH" then
+  elseif pocket == "BERRY_POUCH" and a.profile.id ~= "emerald" then
     menu = require("src.ui.game3.berry_pouch")
     menu.show(session, session.bag)
   else
