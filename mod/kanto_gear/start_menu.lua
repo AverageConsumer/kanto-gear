@@ -44,6 +44,7 @@ function Menu.redrawKey(top)
     local item = top.items[i]
     parts[#parts + 1] = tostring(item.label)
     parts[#parts + 1] = tostring(item.right)
+    parts[#parts + 1] = tostring(item.catchChance)
     parts[#parts + 1] = tostring(item.disabled)
     local mon = item.mon or item.rawMon
     if mon then
@@ -104,7 +105,7 @@ function Menu.model(top)
     local index = first + row - 1
     local item = top.items[index]
     local r = item.rect or { Menu.x, Menu.y + (row - 1) * Menu.step, Menu.width, Menu.height }
-    entries[row] = { label = Menu.label(item), right = item.right, selected = index == selected,
+    entries[row] = { label = Menu.label(item), right = item.right, catchChance = item.catchChance, selected = index == selected,
       kind = item.value or item.id or kinds[item.label],
       rawMon = item.rawMon, disabled = top.screenId == "Gen2StartMenu" and item.disabled,
       x = r[1], y = r[2], w = r[3], h = r[4] }

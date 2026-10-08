@@ -443,7 +443,8 @@ function UI:list(battle)
         TM_CASE = "TM/HM", BERRY_POUCH = "BERRIES" })[id] or "BAG"
       for _, item in ipairs(native.list()) do
         items[#items + 1] = { label = item.name or self.adapter.Items.displayName(item.id),
-          right = "x" .. tostring(item.qty or 0), itemId = item.id }
+          right = "x" .. tostring(item.qty or 0), itemId = item.id,
+          catchChance = battle and self.adapter:catchChance(item.id, self.adapter.Battle.getState()) }
       end
       items[#items + 1] = { label = "CANCEL" }
     elseif native.mode == "action" then

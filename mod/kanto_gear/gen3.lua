@@ -499,6 +499,7 @@ function Gen3:battleState()
   view.phase = B._phase == "command" and U and U._mode or B._phase
   view.kind, view.battle = st.kind or (st.wild and "wild" or "trainer"), st
   view.player, view.enemy = st.player, st.enemy
+  view.enemyParty = st.foeParty
   view.tutorial, view.demo = st.oldManTutorial or B._auto, st.pokedude
   view.activeBattler = U and U._active
   view.draining = self.Anim.busy() and (not self.Message.isOpen()
@@ -588,9 +589,27 @@ function Gen3:battleSnapshot(snapshot)
   end
   for _, move in ipairs(snapshot.moves or {}) do
     move.id = self.Moves.constName(move.id)
+    -- Base type matchup, as in the other editions. Doubles need an explicit target.
+    local target = st.double and snapshot.target ~= nil and st.battlers[snapshot.target]
+      or not st.double and st.enemy
+    if target and move.id ~= "HIDDEN_POWER" and move.id ~= "WEATHER_BALL" then
+      move.effectiveness = self.Types.effectiveness(move.type, target.type1, target.type2) * 10
+    end
     move.type = self.typeNames[move.type] or move.type
   end
   return snapshot
+end
+
+function Gen3:catchChance(itemId, st)
+  if not st or not st.wild or st.ghost or st.noCatch or st.double
+      or require("src.mods.Runtime").wantsHook("catch.rate") then return nil end
+  local catching = require("src.core.game3.battle.catching")
+  if not catching.isBall(itemId) then return nil end
+  local odds = catching.catchOdds(itemId, st.enemy, st, self.session)
+  if odds >= 255 then return 100 end
+  -- Native catching uses four independent draws from 0..65535; no RNG is consumed here.
+  local threshold = math.floor(1048560 / math.sqrt(math.sqrt(16711680 / odds)))
+  return 100 * (threshold / 65536) ^ 4
 end
 
 function Gen3:toolUnlocked(def)

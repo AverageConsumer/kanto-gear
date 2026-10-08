@@ -4824,6 +4824,12 @@ return function(mod)
   function displayRuntime.drawStartMenu(top)
     header(THEME:translate(top.title or "CHOOSE ACTION"), true, top.nativePocket)
     local model = displayRuntime.startMenuModel(top)
+    if battle and assist("catch_odds") then
+      for _, entry in ipairs(model.entries) do
+        local chance = THEME.hgss:battleCatchLabel(entry.catchChance)
+        if chance then entry.right = (entry.right or "") .. " " .. chance end
+      end
+    end
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       if top.nativeStats then
@@ -7676,9 +7682,8 @@ return function(mod)
       accuracyText = hgssRuntime.numberLabel(accuracy),
       stabLabel = "STAB",
       matchupLabel = THEME:translate("MATCHUP"),
-      effectiveness = source.effectiveness or enemyTypes
-        and assist("type_hints") and compat.typeEffectiveness(
-          moveType, enemyTypes, game.data.type_chart) or nil,
+      effectiveness = assist("type_hints") and (source.effectiveness or enemyTypes
+        and compat.typeEffectiveness(moveType, enemyTypes, game.data.type_chart)) or nil,
       disabled = THEME:moveUnavailableReason(source) ~= nil,
       descriptionLines = compat.moveInfoLines(source, def,
         battleState() and battleState().ruleset),
