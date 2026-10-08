@@ -284,5 +284,82 @@ if generation == 2 then world.mapImage = nil else world.map.renderer = nil end
 T.eq(loadMap().drawTerrain, nil, "missing host terrain keeps the established map fallback")
 G.newSpriteBatch = originalBatch
 T.love.timer.getTime = time
+
+-- Zoom is about walking-cell context, independent of terrain resolution.
+-- Cover the room/route shapes that previously made all three levels useless.
+for _, dark in ipairs({ false, true }) do
+  theme.hgss:setVariant(dark)
+  for _, dimensions in ipairs({ { 6, 6 }, { 10, 8 }, { 42, 18 },
+      { 10, 100 }, { 100, 10 }, { 120, 120 }, { 512, 512 } }) do
+    local w, h = unpack(dimensions)
+    local camera = { mapId = "ZOOM", x = (w - 1) / 2, y = (h - 1) / 2 }
+    local marker = { kind = "hidden", x = camera.x, y = camera.y }
+    local terrainCalls, playerDraw = 0
+    local map = { width = w, height = h, rows = {}, markers = { marker },
+      drawTerrain = function() terrainCalls = terrainCalls + 1 end }
+    for y = 1, h do map.rows[y] = string.rep(" ", w) end
+    local scales = {}
+    for _, density in ipairs({ 1, 2, 4 }) do
+      map.tileRows, map.tileDetailRows = nil, nil
+      if density == 2 then
+        map.tileRows, map.tileWidth, map.tileHeight = {}, w * 2, h * 2
+      elseif density == 4 then
+        map.tileDetailRows, map.tileDetailWidth, map.tileDetailHeight = {}, w * 4, h * 4
+      end
+      for zoom = 1, 3 do
+        local opts = { full = true, zoom = zoom, player = camera,
+          drawPlayer = function(_, x, y) playerDraw = { x, y } end }
+        local frame = { x = 7, y = 72, w = 226, h = 138 }
+        local before = terrainCalls
+        local layout = theme.hgss:mapOverview(map, frame.x, frame.y, frame.w, frame.h, opts)
+        local size = layout.tileSize
+        T.eq(terrainCalls, before + 1, "zoom draws cached native terrain once")
+        if density == 1 then scales[zoom] = size end
+        T.eq(size, scales[zoom], "source terrain resolution never changes zoom")
+        if zoom == 1 then
+          T.check(w * size <= layout.innerW and h * size <= layout.innerH,
+            "overview includes the entire area, even beyond 222 walking cells")
+          T.check(size <= 8, "overview does not inflate small rooms")
+        else
+          local columns = layout.innerW / size
+          T.check(zoom == 2 and columns >= 16 and columns <= 20
+              or zoom == 3 and columns >= 12 and columns <= 15,
+            "nearby and detail retain useful walking context on every map shape")
+          T.check(size > scales[zoom - 1], "every zoom step visibly enlarges the map")
+        end
+        T.check(math.abs(layout.left + w * size / 2 - (frame.x + frame.w / 2)) <= 0.5
+            and math.abs(layout.top + h * size / 2 - (frame.y + frame.h / 2)) <= 0.5,
+          "centered terrain has equal visible margins within one pixel")
+        T.eq(theme.hgss:mapMarkerAt(layout.left + (marker.x + .5) * size,
+            layout.top + (marker.y + .5) * size, map, frame, opts), 1,
+          "touch selects the marker at its drawn position at every zoom")
+        T.check(math.abs(playerDraw[1] - (layout.left + (camera.x + .5) * size)) <= 1,
+          "player anchor remains aligned with terrain")
+        for _, edge in ipairs({ { 0, 0 }, { w - 1, h - 1 } }) do
+          camera.x, camera.y = unpack(edge)
+          local atEdge = theme.hgss:mapOverview(map, frame.x, frame.y, frame.w, frame.h, opts)
+          T.check(playerDraw[1] >= atEdge.innerX and playerDraw[1] < atEdge.innerX + atEdge.innerW
+              and playerDraw[2] > atEdge.innerY and playerDraw[2] <= atEdge.innerY + atEdge.innerH + 1,
+            "camera keeps the player visible at either map corner")
+          if w * size > atEdge.innerW then
+            T.check(atEdge.left <= atEdge.innerX
+                and atEdge.left + w * size >= atEdge.innerX + atEdge.innerW,
+              "cropped camera exposes no empty horizontal border")
+          end
+          if h * size > atEdge.innerH then
+            T.check(atEdge.top <= atEdge.innerY
+                and atEdge.top + h * size >= atEdge.innerY + atEdge.innerH,
+              "cropped camera exposes no empty vertical border")
+          end
+        end
+        camera.x, camera.y = (w - 1) / 2, (h - 1) / 2
+      end
+      for _, viewport in ipairs({ { 226, 84 }, { 226, 42 }, { 110, 75 } }) do
+        local layout = theme.hgss:mapOverview(map, 7, 53, viewport[1], viewport[2], { player = camera })
+        T.eq(layout.tileSize, 8, "widget and compact/detail panel retain the same readable scale")
+      end
+    end
+  end
+end
 run.release()
 T.finish("Kanto Gear map motion")
