@@ -208,7 +208,8 @@ function UI:list(battle)
     if release then return release end
   end
   if not layer or not layer.mod or layer.mod.open ~= true then return nil end
-  if layer.id == "summary" and self.adapter.profile.id == "emerald"
+  -- The contest summary has its own view, but move replacement still needs its touch list.
+  if layer.id == "summary" and layer.mod._mode ~= "select_move" and self.adapter.profile.id == "emerald"
       and require("src.ui.game3.rse.summary_menu").page(layer.mod) == 3 then return nil end
   local native, items, field, title, slots = layer.mod
   local quantity, prompt, grid, boxParty
@@ -373,7 +374,9 @@ function UI:list(battle)
     end
     items[#items + 1], slots[#slots + 1] = { label = "CANCEL", right = native._moveToLearn
       and self.adapter.Pokemon.moveName(native._moveToLearn) or nil }, 5
-    if native._hmNotice then prompt = RomText.plain("gText_PokeSum_HmMovesCantBeForgotten") end
+    if native._hmNotice then
+      prompt = RomText.plain(require("src.core.game3.battle.profile").get(self.adapter.session).strings.hmCantForget)
+    end
   elseif (layer.id == "bag" or layer.id == "berry_pouch") and
       (mode == "toss" or mode == "toss_select" or mode == "deposit" or mode == "toss_confirm") then
     title = mode == "deposit" and "DEPOSIT" or "TOSS"
