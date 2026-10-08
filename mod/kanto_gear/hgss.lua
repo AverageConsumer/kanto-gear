@@ -3120,11 +3120,17 @@ return function(ui)
           local tint = marker.found and colors.silverDark or colors.blueLight
           local shine = marker.found and colors.silver or colors.white
           if tileSize < 9 then
+            box("fill", anchorX - 1, anchorY - 3, 3, 7, colors.outline)
+            box("fill", anchorX - 3, anchorY - 1, 7, 3, colors.outline)
             box("fill", anchorX, anchorY - 2, 1, 5, tint)
             box("fill", anchorX - 2, anchorY, 5, 1, tint)
             box("fill", anchorX, anchorY, 1, 1, shine)
           else
             local unit = math.floor(tileSize / 9)
+            box("fill", anchorX - unit - 1, anchorY - 3 * unit - 1,
+              3 * unit + 2, 7 * unit + 2, colors.outline)
+            box("fill", anchorX - 4 * unit - 1, anchorY - unit - 1,
+              9 * unit + 2, 3 * unit + 2, colors.outline)
             box("fill", anchorX - unit, anchorY - 3 * unit,
               3 * unit, 7 * unit, tint)
             box("fill", anchorX - 4 * unit, anchorY - unit,
