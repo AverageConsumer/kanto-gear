@@ -142,6 +142,65 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     render("profile")
     if emerald then
       T.eq(#profile.items,4,"Emerald keeps AREA CRY SIZE CANCEL actions")
+      action(2); phase("cryInput")
+      waitFor(function() return not Native.active().pal:fadeActive() end)
+      local s = Native.active()
+      local cry = view()
+      T.eq(cry.dexModel.view,"cry","native cry uses the common research hero and actions")
+      T.eq(cry.dexModel.pokemon.species,first,"cry retains the actual selected species")
+      T.check(not profile.valid(),"entry touch targets expire when cry opens")
+      render("cry")
+      local stable = display.StartMenu.redrawKey(view())
+      T.eq(display.StartMenu.redrawKey(view()),stable,"idle cry preserves the companion canvas")
+      local Audio = require("src.core.game3.audio")
+      local play, played, species = Audio.playCry, 0
+      Audio.playCry = function(sp,...)
+        played, species = played + 1, sp
+        return play(sp,...)
+      end
+      T.eq(action(2),"a","play dispatches the genuine native cry action")
+      waitFor(function() return played > 0 end)
+      T.eq(played,1,"one accepted touch plays the cry exactly once")
+      T.eq(species,first,"the native audio handler receives the internal species ID")
+      Audio.playCry = play
+      T.check(view().items[2].inert,"native repeat cooldown disables the play tile")
+      T.eq(action(2),nil,"cooldown rejects a second touch rather than animating an ineffective action")
+      waitFor(function() return s.cry.cryRepeatDelay == 0 and s.cry.cryOverrideCountdown == 0 end)
+      local pcm, playing, buffer = s.cry.pcm, s.cryPlaying, s.cry.buffer
+      s.cryPlaying, s.cry.pcm = true, nil
+      T.eq(view().dexModel.wave,nil,"missing PCM never invents waveform data")
+      s.cry.pcm, s.cry.buffer = { data = string.rep("\127",64), rate = 13379 }, {}
+      for i=0,15 do s.cry.buffer[i] = i%2==0 and 40 or 216 end
+      cry = view()
+      local oldKey, changed = cry.nativeKey, display.StartMenu.redrawKey(cry)
+      T.eq(cry.dexModel.wave,s.cry.buffer,"waveform uses the native signed sample buffer without a copied image")
+      s.cry.buffer[3] = 0
+      T.check(display.StartMenu.redrawKey(view())~=changed,"actual sample changes invalidate the cry canvas")
+      T.eq(view().nativeKey,oldKey,"sample changes do not invalidate accepted navigation targets")
+      render("cry_signal_fixture")
+      s.cry.pcm, s.cryPlaying, s.cry.buffer = pcm, playing, buffer
+      T.eq(action(3),"right","size uses the native right action from cry")
+      phase("sizeInput")
+      local size = view()
+      T.eq(size.dexModel.view,"size","native size uses the common comparison page")
+      T.eq(#size.dexModel.comparison,2,"comparison contains the real Pokemon and trainer silhouettes")
+      T.eq(size.dex.comparison[1].img,s.sizeMon.img,"comparison keeps the native form-aware Pokemon artwork")
+      T.eq(size.dex.comparison[2].img,s.sizeTrainer.img,"comparison keeps the trainer selected by the native player gender")
+      T.check(math.abs(size.dexModel.comparison[1].scale/size.dexModel.comparison[2].scale
+        - s.sizeTrainer.scale/s.sizeMon.scale)<1e-10,"one shared fit preserves the exact ROM size ratio")
+      local rows = size.dex.comparison
+      T.eq(view().dex.comparison[1].bounds,rows[1].bounds,"visible bounds are cached instead of scanning pixels every poll")
+      T.check(rows[1].bounds[1]>0 or rows[1].bounds[2]>0,"real imported Pokemon alpha bounds exclude transparent padding")
+      T.eq(click(120,110),nil,"comparison artwork is static and has no hidden action")
+      render("size")
+      T.eq(action(1),"left","cry button returns through the native size handler")
+      phase("cryInput");waitFor(function() return not s.pal:fadeActive() end)
+      T.check(not size.valid(),"old comparison rejects taps after leaving")
+      click(14,13);phase("infoInput")
+      action(3);phase("sizeInput")
+      T.eq(action(2),"b","entry button returns through the native size back action")
+      phase("infoInput")
+      T.eq(view().dexModel.pokemon.species,first,"return from size preserves the selected species")
       action(4)
       waitFor(function() return Native.active().fn == "mainInput" and Native.active().menuY == 0 end)
     else
@@ -162,6 +221,11 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     if emerald then
       T.eq(unknown.items[3].inert,true,"unowned size comparison is inert")
       T.eq(action(3),nil,"disabled size control sends no input")
+      action(2);phase("cryInput")
+      waitFor(function() return not Native.active().pal:fadeActive() end)
+      T.eq(view().items[3].inert,true,"seen-only cry retains the native size restriction")
+      T.eq(action(3),nil,"seen-only size cannot be opened from cry")
+      click(14,13);phase("infoInput")
       action(4); waitFor(function() return Native.active().fn == "mainInput" and Native.active().menuY == 0 end)
       T.eq(click(60,56),"select","search tool dispatches the native select key")
       waitFor(function() return Native.active().fn ~= "mainInput" end)
@@ -298,6 +362,37 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.check(not registration.valid(),"closed registration rejects delayed touches")
   end
   if emerald then
+    local gender, playerGender = game.session.gender, game.session.playerGender
+    local trainerImages = {}
+    for _, test in ipairs({{321,"male","size_large"},{298,"female","size_small"},{327,"female","size_spinda"}}) do
+      Native.reset();Stack.clear()
+      local sp = Pokemon.speciesFromNational(test[1])
+      dex = Dex.new();Dex.setCaught(dex,sp);dex.spindaPersonality=0x12345678
+      game.session.dex,game.session.gender=dex,test[2]
+      Native.show(dex,{session=game.session})
+      phase("mainInput")
+      local list=view()
+      local found
+      for i,row in ipairs(list.dex.rows) do if row.species==sp then found=i break end end
+      T.check(found~=nil,"comparison fixture species exists in the real regional catalogue")
+      T.check(display.StartMenu.select(list,found),"select the native comparison species")
+      tick("a");phase("infoInput")
+      action(3);phase("sizeInput")
+      local size=view()
+      T.eq(size.dexModel.pokemon.species,sp,"size resolves the correct internal ID for each ROM fixture")
+      local s=Native.active()
+      T.check(math.abs(size.dexModel.comparison[1].scale/size.dexModel.comparison[2].scale
+        - s.sizeTrainer.scale/s.sizeMon.scale)<1e-10,"extreme native species preserve their calibrated size ratio")
+      trainerImages[test[2]]=s.sizeTrainer.img
+      if test[1]==327 then
+        local pic=Pokemon.frontPic(Pokemon.picSpecies(sp,dex.spindaPersonality),nil,false,dex.spindaPersonality,"dex")
+        T.eq(size.dex.comparison[1].img,pic.image,"Spinda comparison keeps the caught personality's spots")
+      end
+      render(test[3])
+      action(2);phase("infoInput")
+    end
+    T.check(trainerImages.male~=trainerImages.female,"male and female comparisons retain distinct native trainer artwork")
+    game.session.gender,game.session.playerGender=gender,playerGender
     open()
     local session, flags, vars = game.session, game.session.flags, game.session.vars
     game.session.flags, game.session.vars = {}, {}

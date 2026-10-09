@@ -174,6 +174,35 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.eq(Page.hit(model,x,y-1),nil,"description pager excludes empty space above it")
   end
   T.eq(Page.hit(model,110,145),nil,"description counter remains static")
+  for _,scale in ipairs({64,256,2048}) do
+    local rows = {
+      {img={},x=88,y=56,y2=-12,scale=scale,bounds={7,17,53,59}},
+      {img={},x=152,y=56,y2=8,scale=256,bounds={20,6,44,62}},
+    }
+    local fitted=Page.comparison(rows,15,82,210,53)
+    local l,t,r,b=math.huge,math.huge,-math.huge,-math.huge
+    for i,row in ipairs(fitted) do
+      local bounds=rows[i].bounds
+      l,t=math.min(l,row.x+(bounds[1]-32)*row.scale),math.min(t,row.y+(bounds[2]-32)*row.scale)
+      r,b=math.max(r,row.x+(bounds[3]-32)*row.scale),math.max(b,row.y+(bounds[4]-32)*row.scale)
+    end
+    T.check(math.abs((l+r)/2-120)<1e-10 and math.abs((t+b)/2-108.5)<1e-10,
+      "comparison centers the visible compound group rather than transparent image boxes")
+    T.check(l>=15-1e-10 and r<=225+1e-10 and t>=82-1e-10 and b<=135+1e-10,
+      "both extreme and small native silhouettes fit the same comparison card")
+    T.check(math.abs(fitted[1].scale/fitted[2].scale-256/scale)<1e-10,
+      "fitting never changes the native relative size")
+  end
+  T.eq(#Page.comparison({},15,82,210,53),0,"missing silhouettes invent no comparison")
+  for _,kind in ipairs({"cry","size"}) do
+    local special={view=kind,actions={{label="CRY"},{label="SIZE",inert=true}}}
+    local x,y,w,h=Page.actionRect(1,2)
+    T.eq(Page.hit(special,x+w/2,y+h/2),"action","special pages reuse the common action geometry")
+    x,y,w,h=Page.actionRect(2,2)
+    T.eq(Page.hit(special,x+w/2,y+h/2),nil,"inert special actions have no touch target")
+    special.canUse=false
+    T.eq(Page.hit(special,14,13),nil,"transition locks also cover the special page header")
+  end
   local H, presses = theme.hgss, 0
   local begin = H.beginPress
   H.beginPress = function(self,...)
@@ -189,6 +218,9 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local blocked = { view="index", entries={}, page=1, pages=2, canCycle=true, canUse=false }
   H:setTouch(149/1.5,205/1.5,true);H:pokedex(blocked)
   T.eq(Page.hit(blocked,149,205),nil,"disabled pager has no input target")
+  local x,y,w,h=Page.actionRect(2,2)
+  H:setTouch((x+w/2)/1.5,(y+h/2)/1.5,true)
+  H:pokedexActions({actions={{label="CRY"},{label="SIZE",inert=true}}})
   T.eq(presses,0,"static and disabled pager regions never animate")
   H.beginPress=begin;H:setTouch(nil,nil,true)
   local stats, bst = Page.stats({ hp=10, attack=20, defense=30, special=40, speed=50 }, false)

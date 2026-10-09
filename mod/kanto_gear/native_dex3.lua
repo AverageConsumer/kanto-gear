@@ -1,5 +1,40 @@
 -- Gen 3 catalogues retain internal species IDs and the native discovery rules.
 -- Search choices and movement come from the edition's imported native menu.
+local imageBounds = setmetatable({}, { __mode = "k" })
+local function bounds(image, path, Pokemon)
+  if not image then return { 0, 0, 64, 64 } end
+  if imageBounds[image] then return imageBounds[image] end
+  local cache = Pokemon._cache or require("src.core.game3.dataset").cache()
+  local bytes = cache and cache:read(path) or nil
+  local b = { 64, 64, 0, 0 }
+  if type(bytes) == "string" and #bytes == 64 * 64 * 4 then
+    for y = 0, 63 do for x = 0, 63 do
+      if bytes:byte((y * 64 + x) * 4 + 4) > 0 then
+        b[1], b[2], b[3], b[4] = math.min(b[1], x), math.min(b[2], y), math.max(b[3], x + 1), math.max(b[4], y + 1)
+      end
+    end end
+  end
+  if b[3] <= b[1] then b = { 0, 0, 64, 64 } end
+  imageBounds[image] = b
+  return b
+end
+
+local function comparison(s, Pokemon)
+  local sp = require("src.ui.game3.rse.pokedex").speciesOf(s.list.items[s.selected].dexNum)
+  local C = require("src.core.game3.constants").of(require("src.core.game3.profile").forSession(s.session).id)
+  local personality = sp == C.species.byName.SPECIES_UNOWN and (tonumber(s.dex.unownPersonality) or 0)
+    or sp == C.species.byName.SPECIES_SPINDA and (tonumber(s.dex.spindaPersonality) or 0) or 0
+  local gender = s.session.gender or s.session.playerGender
+  local trainer = C:id("trainer_classes", (gender == 1 or gender == "female" or gender == "girl") and "TRAINER_PIC_MAY" or "TRAINER_PIC_BRENDAN")
+  local rows = {}
+  for i, row in ipairs({ s.sizeMon, s.sizeTrainer }) do
+    local path = "data/generated/gba/" .. (i == 1 and "pokemon/front/" .. Pokemon.picSpecies(sp, personality)
+      or "trainers/front/" .. trainer) .. ".rgba"
+    rows[i] = { img = row.img, x = row.x, y = row.y, y2 = row.y2, scale = row.scale, bounds = bounds(row.img, path, Pokemon) }
+  end
+  return rows
+end
+
 local function searchPage(s, Native)
   local q = s.searchState
   if not q then return end
@@ -187,6 +222,21 @@ local function describe(layer, game, previous)
             name = Pokemon.name(sp), seen = row.seen, caught = row.owned }
         end
       end
+    elseif s.page == Native.PAGE.CRY and s.cry then
+      local row, cry = s.list.items[s.selected], s.cry
+      local ready = cry.cryRepeatDelay == 0 and cry.cryOverrideCountdown == 0
+      state = { kind = "cry", species = Native.speciesOf(row.dexNum), owned = row.owned,
+        signature = tostring(s) .. ":" .. s.fn .. ":" .. tostring(ready), waiting = s.fn ~= "cryInput" or s.pal:fadeActive(),
+        playing = s.cryPlaying == true, wave = s.cryPlaying and cry.pcm and cry.buffer or nil,
+        actions = { { label = "AREA", key = "left" }, { label = "PLAY", key = "a", inert = not ready },
+          { label = "SIZE", key = "right", inert = not row.owned } } }
+    elseif s.page == Native.PAGE.SIZE and s.sizeMon and s.sizeTrainer then
+      local row = s.list.items[s.selected]
+      state = { kind = "size", species = Native.speciesOf(row.dexNum), owned = row.owned,
+        signature = tostring(s) .. ":" .. s.fn, waiting = s.fn ~= "sizeInput" or s.pal:fadeActive(),
+        caption = s.sizeText and s.sizeText.text,
+        comparison = comparison(s, Pokemon),
+        actions = { { label = "CRY", key = "left" }, { label = "ENTRY", key = "b" } } }
     elseif s.page == Native.PAGE.INFO and s.info and s.info.dexNum or s.page == Native.PAGE.CAUGHT and s.caught then
       local caught = s.page == Native.PAGE.CAUGHT
       local info = caught and s.caught or s.info

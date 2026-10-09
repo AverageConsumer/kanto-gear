@@ -30,6 +30,25 @@ function Page.toolRect(index)
   return 7 + (index - 1) * 115, 49, 111, 15
 end
 
+-- Fit the visible silhouettes as one unit, preserving the ROM's affine ratio and offsets.
+function Page.comparison(rows, x, y, width, height)
+  local left, top, right, bottom = math.huge, math.huge, -math.huge, -math.huge
+  for _, row in ipairs(rows) do
+    local b, k = row.bounds, 256 / math.max(1, row.scale)
+    left, top = math.min(left, row.x + (b[1] - 32) * k), math.min(top, row.y + row.y2 + (b[2] - 32) * k)
+    right, bottom = math.max(right, row.x + (b[3] - 32) * k), math.max(bottom, row.y + row.y2 + (b[4] - 32) * k)
+  end
+  if #rows == 0 then return {} end
+  local fit = math.min(1, width / math.max(1, right - left), height / math.max(1, bottom - top))
+  local ox, oy = x + width / 2 - (left + right) * fit / 2, y + height / 2 - (top + bottom) * fit / 2
+  local result = {}
+  for i, row in ipairs(rows) do
+    result[i] = { image = row.img, x = ox + row.x * fit, y = oy + (row.y + row.y2) * fit,
+      scale = fit * 256 / math.max(1, row.scale) }
+  end
+  return result
+end
+
 function Page.pagerRect(direction, description)
   return direction < 0 and 82 or 140, description and 140 or 199, 18, description and 11 or 12
 end
@@ -133,16 +152,17 @@ function Page.hit(model, x, y)
       if x >= 120 and x < 138 then return "next" end
     end
   end
+  if model.actions then
+    for index, action in ipairs(model.actions) do
+      if not action.inert and inside(x, y, Page.actionRect(index, #model.actions)) then return "action", index end
+    end
+  end
   if model.view == "profile" then
     if (model.descriptionPages or 1) > 1 then
       if inside(x, y, Page.pagerRect(-1, true)) then return "description_prev" end
       if inside(x, y, Page.pagerRect(1, true)) then return "description_next" end
     end
-    if model.actions then
-      for index, action in ipairs(model.actions) do
-        if not action.inert and inside(x, y, Page.actionRect(index, #model.actions)) then return "action", index end
-      end
-    else
+    if not model.actions then
       for index, action in ipairs(Page.cards) do
         if inside(x, y, Page.cardRect(index)) then return action end
       end

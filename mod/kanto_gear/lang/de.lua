@@ -892,4 +892,9 @@ return {
   ["MODE"] = "MODUS",
   ["APPLY"] = "ANWENDEN",
   ["BEGIN SEARCH!!"] = "SUCHE STARTEN",
+  ["PLAY"] = "ABSPIELEN",
+  ["PLAYING"] = "SPIELT",
+  ["CRY"] = "RUF",
+  ["SIZE"] = "GRÖSSE",
+  ["ENTRY"] = "EINTRAG",
 }

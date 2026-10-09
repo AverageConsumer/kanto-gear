@@ -73,7 +73,7 @@ function Dex.project(top, game, generation, previous)
   local view = previous
   if not view or view.nativeKey ~= nativeKey then
     view = { screenId = "CompanionMenu", title = state.title or "POKEDEX", nativeKey = nativeKey,
-      owner = top, fixedLayout = state.fixedLayout or state.kind == "index" or state.kind == "profile", back = state.back, update = function() end }
+      owner = top, fixedLayout = state.fixedLayout or state.actions ~= nil or state.kind == "index", back = state.back, update = function() end }
     view.valid = function(preview)
       if generation == 3 then
         if require("src.ui.game3.stack").top() ~= top then return false end
@@ -110,7 +110,7 @@ function Dex.project(top, game, generation, previous)
       state.entries[i] = entry
       view.items[i] = { label = entry.name or "???", inert = not seen }
     end
-  elseif state.kind == "profile" then
+  elseif state.actions then
     view.items = {}
     for i, row in ipairs(state.actions) do view.items[i] = { label = row.label, inert = row.inert } end
   else
@@ -132,15 +132,22 @@ function Dex.model(view, Page, pokemon, drawPokemon, lines)
     return { view = "index", entries = entries, page = page, pages = pages, canCycle = pages > 1,
       total = #state.entries, caught = state.caught, region = state.region, tools = state.tools,
       drawPokemon = drawPokemon, canUse = view.valid() }
-  elseif state.kind == "profile" then
+  elseif state.kind == "profile" or state.kind == "cry" or state.kind == "size" then
     local info = pokemon(state.species)
     info.revealed, info.caught = true, not not state.owned
     if state.hideKind then info.kind = "?????" end
     if not state.owned then info.height, info.weight = "--", "--" end
     if state.description ~= nil then info.descriptionText = state.description end
     info.description = state.owned and lines(info.descriptionText or "") or {}
-    local model = { view = "profile", pokemon = info, actions = view.items,
+    local model = { view = state.kind, pokemon = info, actions = view.items,
       drawPokemon = state.waiting and function() return false end or drawPokemon, canUse = view.valid() }
+    if state.kind == "cry" then
+      model.playing, model.wave = state.playing, state.wave
+      return model
+    elseif state.kind == "size" then
+      model.caption, model.comparison = state.caption, Page.comparison(state.comparison, 15, 82, 210, 53)
+      return model
+    end
     return Page.description(view, model)
   end
 end
@@ -161,7 +168,12 @@ end
 function Dex.redrawKey(model)
   local mon = model.pokemon or {}
   local parts = { tostring(model.page), tostring(model.caught), tostring(model.total),
-    tostring(model.descriptionPage), tostring(mon.name), tostring(mon.height), tostring(mon.weight), tostring(mon.caught) }
+    tostring(model.descriptionPage), tostring(mon.name), tostring(mon.height), tostring(mon.weight), tostring(mon.caught),
+    tostring(model.playing), tostring(model.caption) }
+  if model.wave then for i = 0, 15 do parts[#parts + 1] = tostring(model.wave[i] or 0) end end
+  for _, row in ipairs(model.comparison or {}) do
+    parts[#parts + 1] = tostring(row.image) .. ":" .. row.x .. ":" .. row.y .. ":" .. row.scale
+  end
   for _, line in ipairs(mon.description or {}) do parts[#parts + 1] = line end
   for _, row in ipairs(model.entries or {}) do
     parts[#parts + 1] = tostring(row.species) .. tostring(row.name) .. tostring(row.revealed) .. tostring(row.caught)

@@ -880,4 +880,9 @@ return {
   ["MODE"] = false,
   ["APPLY"] = false,
   ["BEGIN SEARCH!!"] = false,
+  ["PLAY"] = false,
+  ["PLAYING"] = false,
+  ["CRY"] = false,
+  ["SIZE"] = false,
+  ["ENTRY"] = false,
 }

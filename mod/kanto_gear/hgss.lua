@@ -995,13 +995,7 @@ return function(ui)
     end
 
     if model.actions then
-      for index, action in ipairs(model.actions) do
-        local x, y, w, h = PokedexPage.actionRect(index, #model.actions)
-        local pressed = self:beginPress(x, y, w, h, model.canUse ~= false and not action.inert)
-        self:homeTile(x, y, w, h, colors.red, false)
-        self:partyInfoCentered(self:fitPartyInfo(translate(action.label), w - 10), x + 5, y, w - 10, h, colors.ink)
-        self:endPress(pressed)
-      end
+      self:pokedexActions(model)
       return
     end
     local cards = {
@@ -1032,6 +1026,61 @@ return function(ui)
       157, 39, colors.ink, 69, "center")
     self:partyType(self:fitPartyType(facts or "", 69),
       157, 56, colors.green, 69)
+  end
+
+  function H:pokedexActions(model)
+    local colors = self.colors
+    for index, action in ipairs(model.actions or {}) do
+      local x, y, w, h = PokedexPage.actionRect(index, #model.actions)
+      local enabled = model.canUse ~= false and not action.inert
+      local pressed = self:beginPress(x, y, w, h, enabled)
+      self:homeTile(x, y, w, h, colors.red, false)
+      self:partyInfoCentered(self:fitPartyInfo(translate(action.label), w - 10), x + 5, y, w - 10, h,
+        enabled and colors.ink or colors.disabledInk)
+      self:endPress(pressed)
+    end
+  end
+
+  function H:pokedexCry(model)
+    local colors, G = self.colors, ui.graphics
+    dexResearchHero(self, model, colors.blue, translate("CRY"), translate(model.playing and "PLAYING" or "READY"))
+    self:panel(7, 76, 226, 75, false, nil, colors.blueLight)
+    for x = 16, 224, 13 do box("fill", x, 86, 1, 55, colors.bandLight) end
+    for y = 86, 140, 9 do box("fill", 16, y, 209, 1, colors.bandLight) end
+    box("fill", 16, 113, 209, 1, colors.band)
+    local previousY = 113
+    for i = 0, 15 do
+      local v = model.wave and (model.wave[i] or 0) % 256 or 0
+      if v >= 128 then v = v - 256 end
+      local y = 113 - math.floor(math.max(-60, math.min(60, v)) * 25 / 60 + 0.5)
+      if i > 0 then
+        G.setColor(unpack(colors.blue))
+        G.line(16 + (i - 1) * 208 / 15, previousY, 16 + i * 208 / 15, y)
+      end
+      previousY = y
+    end
+    self:pokedexActions(model)
+  end
+
+  function H:pokedexSize(model)
+    local colors, G = self.colors, ui.graphics
+    dexResearchHero(self, model, colors.blue, translate("SIZE"), model.pokemon.height or "--")
+    self:panel(7, 76, 226, 75, false, nil, colors.blueLight)
+    if self.dexSilhouetteShader == nil then
+      local ok, shader = pcall(G.newShader, [[vec4 effect(vec4 tint, Image image, vec2 uv, vec2 screen) {
+        return vec4(tint.rgb, Texel(image, uv).a * tint.a);
+      }]])
+      self.dexSilhouetteShader = ok and shader or false
+    end
+    local previous = G.getShader()
+    if self.dexSilhouetteShader then G.setShader(self.dexSilhouetteShader) end
+    G.setColor(unpack(colors.ink))
+    for _, row in ipairs(model.comparison or {}) do
+      if row.image then G.draw(row.image, row.x, row.y, 0, row.scale, row.scale, 32, 32) end
+    end
+    G.setShader(previous)
+    self:partyInfoCentered(self:fitPartyInfo(model.caption or "", 210), 15, 139, 210, 10, colors.mutedInk)
+    self:pokedexActions(model)
   end
 
   function H:pokedexStats(model)
@@ -1117,6 +1166,8 @@ return function(ui)
 
   function H:pokedex(model)
     if model.view == "profile" then return self:pokedexProfile(model) end
+    if model.view == "cry" then return self:pokedexCry(model) end
+    if model.view == "size" then return self:pokedexSize(model) end
     if model.view == "stats" then return self:pokedexStats(model) end
     if model.view == "moves" then return self:pokedexMoves(model) end
     if model.view == "habitat" then return self:pokedexHabitat(model) end
