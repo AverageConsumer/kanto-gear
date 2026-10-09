@@ -1,4 +1,5 @@
 return {
+  ["NO ITEM"] = "SIN OBJETO",
   ["NATURE"] = "NATURALEZA",
   ["ABILITY"] = "HABILIDAD",
   ["SWITCH BOX"] = "CAMBIAR CAJA",

@@ -41,7 +41,7 @@ return function(services)
       expLabel = services.theme:translate("EXP"),
       expProgress = level >= 100 and 1
         or services.progress(view.experience, currentLevelExp, nextLevelExp),
-      nextLabel = services.theme:translate("NEXT"),
+      nextLabel = services.theme:translate("TO NEXT"),
       nextValue = nextValue and tostring(nextValue) or nil,
       infoLabel = services.theme:translate(view.capabilities.heldItems and "ITEM" or "OT"),
       infoText = view.capabilities.heldItems and itemText or view.ot,

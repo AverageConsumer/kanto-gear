@@ -1,4 +1,5 @@
 return {
+  ["NO ITEM"] = "AUCUN OBJET",
   ["NATURE"] = "NATURE",
   ["ABILITY"] = "TALENT",
   ["SWITCH BOX"] = "CHANGER DE BOÎTE",

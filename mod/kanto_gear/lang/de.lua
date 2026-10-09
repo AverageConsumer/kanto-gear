@@ -1,4 +1,5 @@
 return {
+  ["NO ITEM"] = "KEIN ITEM",
   ["RENEWABLE"] = "KOMMT WIEDER",
   ["REPEATABLE"] = "WIEDERHOLBAR",
   ["KEYBOARD"] = "TASTATUR",

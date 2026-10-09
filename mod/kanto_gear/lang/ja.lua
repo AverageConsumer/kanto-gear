@@ -1,4 +1,5 @@
 return {
+  ["NO ITEM"] = "アイテムなし",
   ["KEYBOARD"] = "キーボード",
   ["QWERTY"] = "QWERTY",
   ["QWERTZ"] = "QWERTZ",
