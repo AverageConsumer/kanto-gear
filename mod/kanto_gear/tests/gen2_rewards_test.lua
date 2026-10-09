@@ -211,12 +211,79 @@ if native then
   T.eq(entries["BLACKTHORN_EMYS_HOUSE:DODRIO"].needsGender, "TRADE_GENDER_FEMALE", "native gender restriction is preserved")
   T.eq(entries["DAY_CARE:EGG"].event, 830, "random Odd Egg uses its actual receipt flag")
   T.eq(entries["DAY_CARE:EGG"].species, nil, "native Odd Egg does not invent a fixed species")
-  T.eq(count, 7, "Crystal includes both special rewards")
+  T.eq(count, 13, "Crystal includes seven gifts/loans and six prize species")
   T.eq(trades, 7, "Crystal uses all seven actual trade rows rather than an old six-trade constant")
   else
     T.eq(entries["DAY_CARE:EGG"], nil, "Gold and Silver do not invent Crystal's Odd Egg")
-    T.eq(count, 5, "Gold and Silver include their five actual gifts and loans")
+    T.eq(count, 11, "Gold and Silver include five gifts/loans and six prize species")
     T.eq(trades, 6, "Gold and Silver use their actual six NPC trades")
+  end
+  local edition = require("src.core.GameVersion").get()
+  local oracle = edition == "crystal" and { ABRA = {100,5}, CUBONE = {800,15}, WOBBUFFET = {1500,15} }
+    or { ABRA = {200,10}, [edition == "silver" and "SANDSHREW" or "EKANS"] = {700,10}, DRATINI = {2100,10} }
+  local Vm, Events = require("src.script.gen2.Vm"), require("src.world.gen2.Events")
+  for _, mapId in ipairs({ "GOLDENROD_GAME_CORNER", "CELADON_GAME_CORNER_PRIZE_ROOM" }) do
+    local nativeSave = { party = {}, inventory = { COIN_CASE = 1 }, player = { coins = 9999 }, pokedex = { caught = {} } }
+    local function prizeRows() return Area.gen2Rows(imported, nativeSave, world, { mapId })[4] end
+    T.eq(#prizeRows(), 3, "each native Gen2 counter has three actual prize species")
+    for _, offer in ipairs(prizeRows()) do
+      T.eq(offer.catchGoal, true, "repeatable casino reward uses a caught goal")
+      T.eq(offer.event, nil, "repeatable casino reward never invents a receipt")
+      T.eq(offer.available, true, "native prize is immediately affordable with space")
+      if mapId == "GOLDENROD_GAME_CORNER" then
+        local expected = assert(oracle[offer.species], "wrong edition's prize species")
+        T.eq(offer.coinCost, expected[1], "Goldenrod prize price follows edition")
+        T.eq(offer.level, expected[2], "Goldenrod prize level follows edition")
+      else T.eq(offer.index, nil, "background counter cannot follow an unrelated NPC actor") end
+      nativeSave.player.coins = offer.coinCost - 1
+      for _, r in ipairs(prizeRows()) do if r.id == offer.id then T.eq(r.available, false, "one coin short hides the prize") end end
+      nativeSave.player.coins = offer.coinCost
+      for _, r in ipairs(prizeRows()) do if r.id == offer.id then T.eq(r.available, true, "exact coin price allows the prize") end end
+      nativeSave.inventory = {}
+      for _, r in ipairs(prizeRows()) do T.eq(r.available, false, "missing Coin Case hides every immediate prize") end
+      nativeSave.inventory = { COIN_CASE = 1 }
+      nativeSave.party = { {}, {}, {}, {}, {}, {} }
+      for _, r in ipairs(prizeRows()) do T.eq(r.available, false, "full party blocks Gen2 prize even with PC space") end
+      nativeSave.party = {}
+      nativeSave.pokedex.caught[offer.species] = true
+      for _, r in ipairs(prizeRows()) do if r.id == offer.id then
+        T.eq(r.done, true, "prize goal survives release via native caught dex")
+        T.eq(r.status, "CAUGHT", "prize completion describes catching rather than unique receipt")
+      end end
+      nativeSave.pokedex.caught[offer.species] = nil
+      local source
+      local candidates = mapId == "GOLDENROD_GAME_CORNER" and imported.gen2Maps[mapId].objects or imported.gen2Maps[mapId].bgEvents
+      for _, obj in ipairs(candidates) do if obj.x == offer.x and obj.y == offer.y then source = obj.scriptKey end end
+      T.check(source ~= nil, "prize is attached to actual NPC or background script")
+      -- Drive the original bytecode and vary its menu choice; only presentation
+      -- and the World delivery hook are substituted in this headless test.
+      local matched = false
+      for choice = 1, 3 do
+        local coins, delivered, menus, questions = 9999, nil, 0, 0
+        local vm = Vm.new(imported.gen2Scripts, {}, Events.new(), {
+          showText = function(_, done) if done then done() end end,
+          openMenu = function(_, _, done) menus = menus + 1; done(menus == 1 and choice or 0) end,
+          yesorno = function(done) questions = questions + 1; done(questions == 1) end,
+          hasItem = function(id) return id == 54 end,
+          readVar = function(id) return id == 1 and 0 or 0 end,
+          gsVersion = function() return edition == "silver" and 1 or 0 end,
+          getCoins = function() return coins end, setCoins = function(n) coins = n end,
+          givePoke = function(sp, lv) delivered = { species = sp, level = lv }; return delivered end,
+          getMonName = function(id) for name, def in pairs(imported.pokemon) do if type(def) == "table" and def.index == id then return name end end end,
+          specialOrder = imported.gen2Constants.specialOrder,
+        })
+        vm:start(source)
+        for _ = 1, 100 do if not vm:running() then break end; vm:update() end
+        T.eq(vm:running(), false, "native prize transaction finishes")
+        if delivered and delivered.species == imported.pokemon[offer.species].index then
+          matched = true
+          T.eq(delivered.level, offer.level, "native VM gives projected prize level")
+          T.eq(9999 - coins, offer.coinCost, "native VM charges projected coin price")
+        end
+      end
+      T.eq(matched, true, "each catalogue offer is reachable through native vendor menu")
+      nativeSave.player.coins = 9999
+    end
   end
   print("GEN2_NATIVE_REWARDS", count, trades)
 end

@@ -1032,7 +1032,15 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
       rows[1][#rows[1] + 1] = { mapId = mapId, label = "NOT TRACKED", untracked = true, unknown = true }
     end
     local gifts = {}
-    for _, obj in ipairs(map and map.objects or {}) do
+    local objects = {}
+    for _, obj in ipairs(map and map.objects or {}) do objects[#objects + 1] = obj end
+    -- Celadon's prize counters are background events rather than NPC actors.
+    if mapId == "CELADON_GAME_CORNER_PRIZE_ROOM" then
+      for _, bg in ipairs(map and map.bgEvents or {}) do
+        objects[#objects + 1] = { scriptKey = bg.scriptKey, x = bg.x, y = bg.y, eventFlag = 65535 }
+      end
+    end
+    for _, obj in ipairs(objects) do
       local trainer = obj.trainer or Area.gen2ScriptTrainer(data, obj)
       if trainer then
         rows[1][#rows[1] + 1] = {
@@ -1056,7 +1064,7 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
         }
       end
       for _, gift in ipairs(Area.Gifts and not obj.itemball
-          and Area.giftPolicy:catalog(obj.scriptKey, checkpoint) or {}) do
+          and Area.giftPolicy:catalog(obj.scriptKey, checkpoint, mapId) or {}) do
         local trade = gift.tradeId ~= nil and Trades and Trades.row(data.gen2EventTables, gift.tradeId) or nil
         local def, species
         if gift.speciesIndex then def, species = gen2Definition(data.pokemon, gift.speciesIndex) end
@@ -1064,10 +1072,11 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
         local pokemon = species ~= nil or gift.isEgg
         if gift.itemId or def or gift.isEgg then
           local key = gift.tradeId ~= nil and "trade:" .. gift.tradeId
-            or gift.event .. ":" .. tostring(species or gift.itemId or "egg")
+            or (gift.event or "caught") .. ":" .. tostring(species or gift.itemId or "egg")
           local hidden = obj.eventFlag ~= 65535 and gen2FlagSet(world, obj.eventFlag)
           if not gifts[key] or gifts[key].mapVisible == false and not hidden then
             local done = trade and Trades.done(save, gift.tradeId) or gen2FlagSet(world, gift.event)
+            if gift.catchGoal then done = ((save.pokedex or {}).caught or {})[species] == true end
             local available = not done and not hidden
             if pokemon and available then
               available = Area.giftPolicy:available(gift, save, world, checkpoint)
@@ -1081,8 +1090,8 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
             end
             local row = {
               id = mapId .. "_gift_" .. key,
-              actorId = string.format("%s_obj_%d", mapId, obj.index or 0),
-              mapId = mapId, index = obj.index or 0, x = obj.x, y = obj.y,
+              actorId = obj.index and string.format("%s_obj_%d", mapId, obj.index) or nil,
+              mapId = mapId, index = obj.index, x = obj.x, y = obj.y,
               spriteId = obj.sprite, palette = obj.palette, hideEvent = obj.eventFlag,
               kind = pokemon and "pokemon" or "item", gift = true, itemId = gift.itemId, event = gift.event,
               label = gift.isEgg and "EGG" or def and (def.name or species) or gen2ItemName(data, gift.itemId), done = done,
@@ -1091,9 +1100,9 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
                 and gift.command and (gift.command.trainer or (gift.command.args or {})[4]) == 1 or nil,
               trade = trade ~= nil, tradeId = gift.tradeId, needsSpecies = trade and trade.give,
               needsGender = trade and trade.gender, noRoom = pokemon and not trade and not done and not hidden and #(save.party or {}) >= 6,
-              repeatable = gift.repeatable, available = available,
+              repeatable = gift.repeatable, available = available, coinCost = gift.coinCost, catchGoal = gift.catchGoal,
               mapVisible = not hidden, unknown = gen2PickupUnknown(world, gift.event),
-              status = not done and not available and "LATER" or nil,
+              status = gift.catchGoal and done and "CAUGHT" or not done and not available and "LATER" or nil,
             }
             if row.unknown then
               row.untracked, row.status = true, "NOT TRACKED"

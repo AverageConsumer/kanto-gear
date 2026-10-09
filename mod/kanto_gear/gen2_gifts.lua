@@ -88,6 +88,18 @@ local function reaches(data, key, gift, event, value, proof, checkpoint, partyCo
         elseif sameGift(previous, gift) and specialGift(data, gift) and failed ~= nil then
           local reward = specialGift(data, gift)
           if reward.result then variable = failed and 0 or reward.result end
+        elseif previous and previous.op == "checkver" then
+          variable = require("src.core.GameVersion").get() == "silver" and 1 or 0
+        elseif save and previous and previous.op == "checkitem" then
+          local id = previous.item or (previous.args or {})[1]
+          for name, def in pairs(data.items or {}) do
+            if type(def) == "table" and def.index == id then variable = ((save.inventory or {})[name] or 0) > 0 and 1 or 0; break end
+          end
+          if variable == nil then return nil end
+        elseif save and previous and previous.op == "checkcoins" then
+          local args = previous.args or {}
+          local price, have = (args[1] or 0) + 256 * (args[2] or 0), (save.player or {}).coins or 0
+          variable = have < price and 2 or have == price and 1 or 0
         elseif save and previous and previous.op == "checkpoke" then
           variable = 0
           local species = previous.species or (previous.args or {})[1]
@@ -132,16 +144,31 @@ function M.new(data, checkpoint)
     for _, callback in ipairs(map.callbacks or {}) do scan(callback.scriptKey) end
   end
   local cache = {}
-  return { catalog = function(_, key, yield)
+  return { catalog = function(_, key, yield, mapId)
     if key == nil then return {} end
-    if cache[key] then return cache[key] end
-    local commands, visited, checked, written, reset, rewards = {}, {}, {}, {}, {}, {}
+    local cacheKey = type(key) == "string" and tostring(mapId) .. ":" .. key or key
+    if cache[cacheKey] then return cache[cacheKey] end
+    local casino = mapId == "GOLDENROD_GAME_CORNER" or mapId == "CELADON_GAME_CORNER_PRIZE_ROOM"
+    local commands, visited, checked, written, reset, rewards, prices = {}, {}, {}, {}, {}, {}, {}
     local function walk(at)
       local rows = list(data, at)
       if type(rows) ~= "table" or visited[rows] then return end
       visited[rows] = true
       for i, row in ipairs(rows) do
         commands[#commands + 1] = row
+        if casino and row.op == "givepoke" then
+          local price
+          for n = 1, i - 1 do
+            if rows[n].op == "checkcoins" then
+              local args = rows[n].args or {}
+              price = (args[1] or 0) + 256 * (args[2] or 0)
+            end
+          end
+          for n = i + 1, #rows do
+            local args = rows[n].args or {}
+            if rows[n].op == "takecoins" and price == (args[1] or 0) + 256 * (args[2] or 0) then prices[row] = price; break end
+          end
+        end
         if row.event ~= nil then
           if row.op == "checkevent" then checked[row.event] = true
           elseif row.op == "setevent" then written[row.event] = true
@@ -186,6 +213,15 @@ function M.new(data, checkpoint)
             break
           end
         end
+        local price = prices[command]
+        local id = "caught:" .. tostring(species)
+        if casino and command.op == "givepoke" and price and price > 0 and not added[id]
+            and reaches(data, key, command, nil, 0, false, yield, 0, false,
+              { party = {}, inventory = { COIN_CASE = 1 }, player = { coins = 9999 } }) == true then
+          rewards[#rewards + 1] = { speciesIndex = species, level = level, coinCost = price,
+            catchGoal = true, command = command, key = key }
+          added[id] = true
+        end
       elseif command.op == "trade" then
         local id = command.trade or (command.args or {})[1]
         if type(id) == "number" and id % 1 == 0 and id >= 0 and id < 255 and not added["trade:" .. id]
@@ -195,7 +231,7 @@ function M.new(data, checkpoint)
         end
       end
     end
-    cache[key] = rewards
+    cache[cacheKey] = rewards
     return rewards
   end, available = function(_, gift, save, world, yield)
     if (gift.speciesIndex or gift.isEgg) and #(save.party or {}) >= 6 then return false end
