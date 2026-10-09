@@ -56,7 +56,7 @@ local function hardware(run, display, game, scenes)
   game.input = original
 end
 
-local function nativeCursorPresentation(theme)
+local function nativeCursorPresentation(theme, display)
   local H=theme.hgss
   T.eq(H.nativeFocus,false,"companion presentation does not inherit hardware focus")
   local frame,rounded=H.focusFrame,H.roundedFocusFrame
@@ -73,7 +73,7 @@ local function nativeCursorPresentation(theme)
     function() H:actionRow(18, 104, 204, 32, "WITHDRAW", "switch", 0, H.nativeFocus and entry.selected) end,
     function() H:pcList({entries={entry}}) end,
     function() H:battleMimic({moves={move},index=1}) end,
-    function() H:moveLearnList({moves={move},index=1}) end,
+    function() display.MovePage.draw(H,{moves={move},newMove=move,details=true}) end,
     function() H:moveLearnPrompt({choices={"YES","NO"},choice=1}) end,
     function() H:battleBag({title="BAG",items={{label="POTION",right="x2"}},index=1},{},{}) end,
   }) do
@@ -141,7 +141,7 @@ if gen == 3 then
     for _, style in ipairs({ "hgss", "hgss_dark" }) do
       run.loader.modOptions.kanto_gear.theme_v3 = style
       run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
-      nativeCursorPresentation(up(display.drawContents,"THEME"))
+      nativeCursorPresentation(up(display.drawContents,"THEME"), display)
       hardware(run, display, game, scenes)
       assert(loadfile(path .. "/tests/press_feedback_cases.lua"))()(T,display,up(display.drawContents,"THEME").hgss)
       assert(loadfile(path .. "/tests/sprite_runtime_cases.lua"))()(T,display,up(hook(run,"input.step"),"hgssRuntime"),gen,up)
@@ -201,7 +201,7 @@ else
   for _, style in ipairs({ "hgss", "hgss_dark" }) do
     run.loader.modOptions.kanto_gear = { theme_v3 = style, info_level = "enhanced", ui_motion = false }
     run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
-    nativeCursorPresentation(theme)
+    nativeCursorPresentation(theme, display)
     assert(loadfile(path .. "/tests/press_feedback_cases.lua"))()(T,display,theme.hgss)
     assert(loadfile(path .. "/tests/sprite_runtime_cases.lua"))()(T,display,up(hook(run,"input.step"),"hgssRuntime"),gen,up)
     for _, saved in ipairs({ "standard", "gear", "full", "info" }) do

@@ -1,4 +1,4 @@
-return function(T, display, game, generation)
+return function(T, display, game, generation, run)
   local savedStates, savedInput, pending = game.stack.states, game.input, display.bag.pending
   local mon = { species = "FIXMON_A", nickname = "TESTMON", moves = {
     { id = "FIX_MOVE_A", pp = 0, ppUps = 0 }, { id = "PP_FIX", pp = 1, ppUps = 3, maxPp = 40 } } }
@@ -78,6 +78,55 @@ return function(T, display, game, generation)
     T.eq(page.items[2].label,"GROWL","transformed display follows the picker's original moves")
     mon.moves,mon.volatile=original,nil
   end
+  local compose
+  for _,entry in ipairs(run.loader.hooks.chains["render.compose"]) do
+    if entry.owner=="kanto_gear" then compose=entry.callback end
+  end
+  local tap=up(up(compose,"touchEvent"),"tap")
+  local newId="PP_FIX_NEW"
+  local oldDef=game.data.moves[newId]
+  game.data.moves[newId]={name="EMBER",type="FIRE",power=40,accuracy=100,pp=25}
+  run.loader.modOptions.kanto_gear.info_level="spoiler"
+  for _,style in ipairs({"hgss","hgss_dark"}) do
+    run.loader.modOptions.kanto_gear.theme_v3=style
+    run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3",value=style})
+    mon.moves={{id="FIX_MOVE_A",pp=0},{id="PP_FIX",pp=1}}
+    local chosen,cancel=0,0
+    if generation==1 then
+      picker=require("src.ui.MoveLearnMenu").new(game,mon,newId,function() end)
+      picker.screenId,picker.selecting="MoveLearnMenu",true
+    else
+      picker=require("src.ui.gen2.MoveDeleter").new(game,{mon=mon,layout="forget",
+        onChoose=function(slot) chosen=slot end,onCancel=function() cancel=cancel+1 end})
+      picker.screenId="Gen2MoveDeleter"
+    end
+    game.stack.states={game.world,picker}
+    display.bag.pending={moveId=newId,mon=mon}
+    local learning=assert(display.moveLearnScreen(),"real legacy learning menu has a companion page")
+    T.eq(learning.newMoveId,newId,"common learning model keeps the native move identity")
+    T.check(pcall(display.drawContents),"legacy learning renders using the shared attack page")
+    local before=#keys
+    local cursor=picker.index or picker.row
+    tap(220/1.5,115/1.5)
+    T.check(up(display.syncCompanionDetails,"moveInfo")~=nil,"legacy learning opens attack information")
+    T.eq(picker.index or picker.row,cursor,"inspection does not change the native learning cursor")
+    T.eq(#keys,before,"legacy inspection sends no confirm")
+    tap(10,10)
+    T.eq(up(display.syncCompanionDetails,"moveInfo"),nil,"local back closes legacy move information")
+    T.eq(#keys,before,"closing details does not cancel learning")
+    tap(120/1.5,115/1.5)
+    T.eq(keys[#keys],"a","selecting a replacement sends native confirmation")
+    pressed="a";picker:update();pressed=nil
+    if generation==1 then
+      T.eq(mon.moves[2].id,newId,"native Gen1 learning replaces the exact selected move")
+      T.eq(mon.moves[2].pp,25,"native Gen1 learning supplies the new move's PP")
+      T.eq(mon.moves[1].id,"FIX_MOVE_A","native Gen1 learning preserves other moves")
+    else
+      T.eq(chosen,2,"native Gen2 callback receives the exact selected replacement")
+      T.eq(cancel,0,"native Gen2 replacement never calls cancellation")
+    end
+  end
+  game.data.moves[newId]=oldDef
   api.input.tap, game.input, game.stack.states, display.bag.pending = oldTap, savedInput, savedStates, pending
   game.data.moves.FIX_MOVE_A, game.data.moves.PP_FIX = savedA,savedB
 end

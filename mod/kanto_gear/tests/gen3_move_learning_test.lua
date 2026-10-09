@@ -1,4 +1,4 @@
--- Exercise the native learning flow through Gear's mirrored touch rows.
+-- Exercise the native learning flow through Gear's shared attack cards.
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
 local function up(fn, key)
@@ -14,6 +14,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     if entry.owner == "kanto_gear" then compose = entry.callback end
   end
   local refresh = up(compose, "refreshBattle")
+  local tap = up(up(compose, "touchEvent"), "tap")
+  local H = up(display.drawContents, "THEME").hgss
   local api = up(display.saveHome, "mod")
   local Summary = require("src.ui.game3.summary_menu")
   local Screens = require("src.ui.game3.screens")
@@ -26,7 +28,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local State = require("src.core.game3.battle.state")
   local Pokemon = require("src.core.game3.pokemon")
   local mon = game.session.party[1]
-  local savedMoves, savedPp = mon.moves, mon.pp
+  local savedMoves, savedPp, savedMax, savedBonus = mon.moves, mon.pp, mon.maxPp, mon.ppBonusesPacked
   local queued
   api.input.tap = function(_, target, key)
     T.eq(target, game, "move learning forwards input to original game")
@@ -58,20 +60,22 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     local row = assert(display.StartMenu.model(menu).entries[index - (menu.touchWindow and menu.touchWindow.first or 1) + 1])
     queued = nil
     display.tapStartMenu(menu, (row.x + row.w / 2) / 1.5, (row.y + row.h / 2) / 1.5)
-    T.eq(queued, "a", "touch confirms the selected native move row")
+    T.eq(queued, index == 5 and "b" or "a", "touch uses the matching native move/cancel input")
     Screens.handleInput("summary", Summary, input(queued), game.session)
     return menu
   end
   local options = run.loader.modOptions.kanto_gear
   local emerald = os.getenv("POKEPORT_VERSION") == "emerald"
+  options.info_level = "spoiler"
   for _, style in ipairs({ "hgss", "hgss_dark" }) do
     options.theme_v3 = style
-    run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
+    run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3", value = style })
     for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
       options.battle_view = mode
       for _, outcome in ipairs({ "replace", "cancel", "retry" }) do
         Stack.clear(); Message.reset(); Learn.reset(); Choice.active = false
         mon.moves, mon.pp = { 15, 33, 45, 10 }, { 30, 35, 40, 35 }
+        mon.maxPp,mon.ppBonusesPacked={30,35,40,35},0
         local st = State.new({ playerParty = game.session.party, foeParty = { mon }, wild = true })
         Battle._active, Battle._auto, Battle._phase, Battle._st = true, false, "awards", st
         Ui.reset({ headless = false }); Ui.bindState(st, game.session)
@@ -86,12 +90,38 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
           Screens.handleInput("summary", Summary, input(outcome == "retry" and "left" or "right"), game.session)
         end
         sync(); display.drawContents()
+        local view=assert(display.startMenu())
+        T.check(view.moveSelection and not view.choiceState,"learning uses the common four-card page")
+        T.eq(view.moveSelection.newMoveId,display.gen3.Moves.constName(22),"new move keeps its native identity")
+        T.eq(view.moveSelection.items[2].right,"35/35","learning cards show real PP")
+        T.same(view.items[5].rect,{0,0,27,28},"native cancel is the shared back arrow")
+        local cursor=Summary._moveCursor
+        for _,point in ipairs({{220,115},{120,40}}) do
+          queued=nil
+          tap(point[1]/1.5,point[2]/1.5)
+          T.check(up(display.syncCompanionDetails,"moveInfo")~=nil,"touch opens learning attack details")
+          T.eq(Summary._moveCursor,cursor,"inspection never moves the native replacement cursor")
+          T.eq(queued,nil,"inspection sends no native input")
+          display.syncCompanionDetails()
+          local original,rendered=H.battleMoveInfoBody,nil
+          H.battleMoveInfoBody=function(_,info) rendered=info end
+          display.drawContents();H.battleMoveInfoBody=original
+          T.check(rendered~=nil,"local details render above the native chooser")
+          tap(120/1.5,80/1.5)
+          T.eq(queued,nil,"details block the covered replacement buttons")
+          tap(10,10)
+          T.eq(up(display.syncCompanionDetails,"moveInfo"),nil,"back closes local details")
+          T.eq(queued,nil,"closing local details never cancels native learning")
+          T.check(view.valid(),"inspection leaves the native chooser intact")
+        end
         local old = touchRow(1)
         T.check(Summary._hmNotice, "touching an HM shows native refusal")
         T.eq(mon.moves[1], 15, "HM is never replaced")
         T.eq(completed, 0, "HM refusal does not finish learning")
         T.check(not display.StartMenu.select(old, 2), "HM notice invalidates previous touch rows")
         sync(); display.drawContents()
+        T.check(display.startMenu().moveSelection and not display.startMenu().choiceState,
+          "native HM warning keeps the common attack layout")
         T.eq(display.startMenu().prompt, require("src.core.game3.rom_text").plain(
           require("src.core.game3.battle.profile").get(game.session).strings.hmCantForget),
           "HM warning uses this edition's ROM text")
@@ -120,7 +150,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       end
     end
   end
-  mon.moves, mon.pp = savedMoves, savedPp
+  mon.moves, mon.pp, mon.maxPp, mon.ppBonusesPacked = savedMoves, savedPp, savedMax, savedBonus
   Stack.clear(); Message.reset(); Learn.reset(); Ui.reset({ headless = true })
   Battle._active, Battle._st = false, nil
 end

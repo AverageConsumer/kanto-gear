@@ -21,6 +21,23 @@ return function(T, display, H)
     model.moves[1].available = false
     T.eq(Page.hit(model, 120, 80), nil, "disabled moves never accept touches")
     model.moves[1].available = true
+    model.newMove, model.details = model.moves[1], true
+    T.eq(Page.hit(model,120,40),"new","new move opens details without selecting a replacement")
+    local action,slot=Page.hit(model,220,80)
+    T.eq(action,"info","row chevron opens move information")
+    T.eq(slot,1,"row information retains its real move slot")
+    T.eq(Page.hit(model,200,80),1,"row body still selects the move")
+    model.message="HM moves cannot be forgotten!"
+    T.eq(Page.hit(model,120,40),nil,"native refusal is static information")
+    T.check(pcall(Page.draw,H,model),"native refusal renders without shifting the rows")
+    model.message,model.newMove,model.details=nil,nil,false
+    local sparse={moves={[3]=model.moves[1]}}
+    T.eq(Page.hit(sparse,120,150),3,"sparse slots retain their actual card position")
+    T.eq(Page.hit(sparse,120,80),nil,"missing early slots have no actions")
+    local rows={{},{},{}}
+    Page.layout(rows,{1,3,5})
+    T.same(rows[2].rect,{Page.rect(3)},"native compact rows map to actual move slots")
+    T.same(rows[3].rect,{0,0,27,28},"native cancellation uses the shared header back button")
   end
   H:setVariant(false)
 end

@@ -4840,6 +4840,16 @@ return function(mod)
     return menu, party, title
   end
 
+  function displayRuntime.moveChoiceRow(move, label)
+    local def = game.data.moves[move.id]
+    local base = def and def.pp or move.maxPp or move.pp or 0
+    local maxPp = compat.isGen2() and require("src.battle.gen2.Mon").maxPpOf(move, game.data)
+      or def and def.pp and base + (move.ppUps or 0) * math.floor(base / 5)
+      or move.maxPp or base
+    return { label = label or def and def.name or move.id or "MOVE", move = move,
+      right = THEME:format("%d/%d", move.pp or 0, maxPp) }
+  end
+
   function displayRuntime.fieldPpMoveScreen()
     local pending = displayRuntime.bag.pending
     local top = game and game.stack and game.stack:top()
@@ -4861,13 +4871,7 @@ return function(mod)
     if type(selectedMoves) ~= "table" then return nil end
     local items = {}
     for slot, move in ipairs(selectedMoves) do
-      local def = game.data and game.data.moves and game.data.moves[move.id]
-      local base = def and def.pp or move.maxPp or move.pp or 0
-      local maxPp = compat.isGen2() and require("src.battle.gen2.Mon").maxPpOf(move, game.data)
-        or def and def.pp and base + (move.ppUps or 0) * math.floor(base / 5)
-        or move.maxPp or base
-      items[slot] = { label = def and def.name or move.id or "MOVE",
-        right = THEME:format("%d/%d", move.pp or 0, maxPp), move = move }
+      items[slot] = displayRuntime.moveChoiceRow(move)
     end
     return { native = picker, items = items, index = index, cursor = cursor, mon = mon, itemId = pending and pending.itemId,
       enabled = picker.ready ~= false and not picker.done,
@@ -5106,14 +5110,14 @@ return function(mod)
           drawPokemon = function(x, y, size) hgssRuntime.summaryPortrait({ source = mon, species = mon.species }, x, y, size) end })
       elseif top.namingModel and not top.notice then
         THEME.hgss:naming(top.namingModel)
+      elseif top.moveSelection then
+        displayRuntime.MovePage.draw(THEME.hgss, displayRuntime.moveSelectionModel(top.moveSelection))
       elseif top.choiceState then
         local labels = {}
         for index, item in ipairs(top.items) do labels[index] = THEME:menuActionLabel(item.label) end
         THEME.hgss:choiceScreen(displayRuntime.choiceModel(top, labels, top.prompt))
       elseif top.quantity then
         THEME.hgss:pcQuantity(top.quantity)
-      elseif top.moveSelection then
-        displayRuntime.MovePage.draw(THEME.hgss, displayRuntime.moveSelectionModel(top.moveSelection))
       elseif top.itemModel then
         THEME.hgss:bagDetail(top.itemModel)
       elseif top.notice then
@@ -9527,17 +9531,33 @@ return function(mod)
   function displayRuntime.moveSelectionModel(menu)
     local moves = {}
     for index, row in ipairs(menu.items or {}) do
-      local move = hgssRuntime.moveView(row.move)
-      move.name, move.ppText = row.label, row.right or move.ppText
-      move.available = not row.inert and row.enabled ~= false
-      moves[index] = move
+      local slot = menu.slots and menu.slots[index] or index
+      if slot <= 4 then
+        local move = hgssRuntime.moveView(row.move)
+        move.name, move.ppText = row.label, row.right or move.ppText
+        move.available = not row.inert and row.enabled ~= false
+        moves[slot] = move
+      end
     end
     local mon = menu.mon
     local def = mon and game.data.pokemon[mon.species] or {}
     return { moves = moves, name = mon and (mon.nickname or mon.name or def.name or mon.species) or "",
       prompt = menu.itemName or menu.itemId and (game.data.items[menu.itemId] or {}).name
         or THEME:translate("CHOOSE MOVE"), enabled = menu.enabled ~= false
-        and (not menu.valid or menu.valid()) }
+        and (not menu.valid or menu.valid()),
+      newMove = menu.newMoveId and hgssRuntime.moveView(menu.newMoveId),
+      newLabel = THEME:translate("NEW"), details = menu.learning and assist("move_details"), message = menu.message }
+  end
+
+  function displayRuntime.learningMoveModel(learn)
+    local menu = { mon = learn.mon, newMoveId = learn.newMoveId, learning = true, items = {}, slots = {} }
+    for slot = 1, 4 do
+      local source = learn.mon and learn.mon.moves and learn.mon.moves[slot]
+      if source then
+        menu.items[#menu.items + 1], menu.slots[#menu.slots + 1] = displayRuntime.moveChoiceRow(source), slot
+      end
+    end
+    return displayRuntime.moveSelectionModel(menu)
   end
 
   local function drawPpItemMoves(menu)
@@ -9887,20 +9907,11 @@ return function(mod)
       local raw = battleState()
       local mon = raw and screenContract(raw, "forget")
       local pending = raw and raw.pendingLearn
-      local newMove = hgssRuntime.moveView(pending and pending.move)
-      if battle.learningMove then newMove.name = battle.learningMove end
-      local moves = {}
-      for slot = 1, 4 do
-        local source = mon and mon.moves and mon.moves[slot]
-        moves[slot] = hgssRuntime.moveView(source)
-        if not source and battle.forgetMoves and battle.forgetMoves[slot] then
-          moves[slot].name = battle.forgetMoves[slot]
-        end
-      end
+      local model = displayRuntime.learningMoveModel({mon = mon or {}, newMoveId = pending and pending.move})
+      if battle.learningMove and model.newMove then model.newMove.name = battle.learningMove end
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:moveLearnList({ newMove = newMove, moves = moves,
-        index = battle.forgetIndex or 1, details = assist("move_details") })
+      displayRuntime.MovePage.draw(THEME.hgss, model)
       G.pop()
       return
     end
@@ -10152,15 +10163,10 @@ return function(mod)
     if THEME.style == "hgss" then
       local newMove = hgssRuntime.moveView(learn.newMoveId)
       if learn.selecting and top == (learn.native or learn) then
-        local moves = {}
-        for slot = 1, 4 do
-          moves[slot] = hgssRuntime.moveView(learn.mon.moves[slot])
-        end
         header(THEME:translate("FORGET MOVE"), true)
         G.push()
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-        THEME.hgss:moveLearnList({ newMove = newMove, moves = moves,
-          index = learn.index, details = assist("move_details") })
+        displayRuntime.MovePage.draw(THEME.hgss, displayRuntime.learningMoveModel(learn))
         G.pop()
         return
       end
@@ -10353,10 +10359,10 @@ return function(mod)
         pressTouch and pressTouch.y, not pendingFly and not pendingAction)
       THEME.hgss:backdrop()
     end
-    if startMenu then
-      displayRuntime.drawStartMenu(startMenu)
-    elseif moveInfo then
+    if moveInfo then
       drawMoveInfo(moveInfo)
+    elseif startMenu then
+      displayRuntime.drawStartMenu(startMenu)
     elseif learn and (not choice or learn.field) then
       drawLearnMove(learn, top, choice, choiceField)
     elseif naming then
@@ -11205,8 +11211,11 @@ return function(mod)
         press("b")
         return
       end
-      local action, slot = THEME.hgss:moveLearnHit(
-        hx, hy, learn.selecting)
+      local action, slot
+      if learn.selecting then
+        action, slot = displayRuntime.MovePage.hit(displayRuntime.learningMoveModel(learn), hx, hy)
+        if type(action) == "number" then slot, action = action, "move" end
+      elseif inside(hx, hy, 6, 94, 228, 34) then action = "new" end
       local details = assist("move_details")
       if action == "new" and details then
         moveInfo = compat.moveInfoEntry(learn.newMoveId)
@@ -11216,12 +11225,12 @@ return function(mod)
         if action == "info" and not details then action = "move" end
         local source = learn.mon.moves[slot]
         if not source then return end
-        learn.index = slot
-        if learn.native then learn.native.row = slot end
         if action == "info" then
           moveInfo = compat.moveInfoEntry(source)
           dirty = moveInfo ~= nil or dirty
         else
+          learn.index = slot
+          if learn.native then learn.native.row = slot end
           press("a")
         end
         return
@@ -11506,17 +11515,19 @@ return function(mod)
           press("b")
           return
         end
-        local action, slot = THEME.hgss:moveLearnHit(hx, hy, true)
+        local action, slot = displayRuntime.MovePage.hit(displayRuntime.learningMoveModel({
+          mon = mon or {}, newMoveId = raw.pendingLearn and raw.pendingLearn.move }), hx, hy)
+        if type(action) == "number" then slot, action = action, "move" end
         local details = assist("move_details")
         if action == "new" and details then
           moveInfo = compat.moveInfoEntry(
             raw.pendingLearn and raw.pendingLearn.move)
         elseif action and mon and mon.moves[slot] then
           if action == "info" and not details then action = "move" end
-          raw.forgetIndex, battle.forgetIndex = slot, slot
           if action == "info" then
             moveInfo = compat.moveInfoEntry(mon.moves[slot])
           else
+            raw.forgetIndex, battle.forgetIndex = slot, slot
             press("a")
           end
         end
@@ -11681,6 +11692,24 @@ return function(mod)
     if top.namingModel and not top.notice and THEME.style == "hgss" then
       local index = displayRuntime.NamingPage.hit(top.namingModel, x * THEME.hgssScale, y * THEME.hgssScale)
       if index and displayRuntime.StartMenu.select(top, index) then press("a"); dirty = true end
+      return
+    end
+    if top.moveSelection and THEME.style == "hgss" then
+      local action, slot = displayRuntime.MovePage.hit(displayRuntime.moveSelectionModel(top.moveSelection),
+        x * THEME.hgssScale, y * THEME.hgssScale)
+      if action == "back" then press("b")
+      elseif action == "new" then moveInfo = compat.moveInfoEntry(top.moveSelection.newMoveId)
+      elseif action == "info" then
+        for index, row in ipairs(top.items) do
+          if (top.nativeSlots and top.nativeSlots[index] or index) == slot then moveInfo = compat.moveInfoEntry(row.move); break end
+        end
+      elseif type(action) == "number" then
+        for index in ipairs(top.items) do
+          if (top.nativeSlots and top.nativeSlots[index] or index) == action
+              and displayRuntime.StartMenu.select(top, index) then press("a"); break end
+        end
+      end
+      if action then dirty = true end
       return
     end
     if top.choiceState and THEME.style == "hgss" then
@@ -12017,6 +12046,10 @@ return function(mod)
   end
 
   local function tap(x, y)
+    if moveInfo then
+      if y < HEADER and x < 24 then back() end
+      return
+    end
     local startMenu = displayRuntime.startMenu()
     if startMenu then
       displayRuntime.tapStartMenu(startMenu, x, y)
@@ -12024,10 +12057,6 @@ return function(mod)
     end
     if displayRuntime.homeHelpActive() then
       displayRuntime.tapHomeHelp(x * THEME.hgssScale, y * THEME.hgssScale)
-      return
-    end
-    if moveInfo then
-      if y < HEADER and x < 24 then back() end
       return
     end
     local summary = displayRuntime.summaryContext()

@@ -6309,21 +6309,6 @@ return function(ui)
     self:endPress(pressed)
   end
 
-  function H:moveLearnList(model)
-    local colors = self.colors
-    local details = model.details == true
-    self:summaryMoveRow(model.newMove or {}, 6, 33, false,
-      details, details)
-    self:partyType(self:fitPartyType(translate("NEW"), 48),
-      14, 35, colors.amber, 48)
-    for slot = 1, 4 do
-      local move = model.moves and model.moves[slot] or {}
-      self:summaryMoveRow(move, 6, 70 + (slot - 1) * 35,
-        self.nativeFocus and model.index == slot, move.available ~= false,
-        details and move.available ~= false)
-    end
-  end
-
   function H:moveLearnPrompt(model)
     local colors = self.colors
     local mon = model.mon or {}
@@ -6358,21 +6343,6 @@ return function(ui)
     if y < 145 or y >= 185 then return nil end
     if x >= 27 and x < 117 then return 1 end
     if x >= 123 and x < 213 then return 2 end
-  end
-
-  function H:moveLearnHit(x, y, selecting)
-    if x < 6 or x >= 234 then return nil end
-    if not selecting then
-      if y >= 94 and y < 128 then return "new", 0 end
-      return nil
-    end
-    if y >= 33 and y < 67 then return "new", 0 end
-    for slot = 1, 4 do
-      local top = 70 + (slot - 1) * 35
-      if y >= top and y < top + 34 then
-        return x >= 210 and "info" or "move", slot
-      end
-    end
   end
 
   function H:summaryMoves(mon, drawPortrait)

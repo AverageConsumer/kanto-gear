@@ -9,6 +9,20 @@ function UI.new(adapter, layout, choicePage, namingPage, storagePage, itemPage, 
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
 end
 
+function UI:moveItem(raw, slot, name)
+  local id = self.adapter.Pokemon.moveIdAt(raw, slot)
+  if not id or id <= 0 then return nil end
+  local mon = self.adapter:mon(raw)
+  local move = mon.moves[slot]
+  if not move then return nil end
+  local base = self.adapter.Pokemon.movePp(id)
+  local bonus = type(raw.ppBonusesPacked) == "number" and bit.band(bit.rshift(raw.ppBonusesPacked, (slot - 1) * 2), 3)
+  local maxPp = bonus and base + math.floor(base * bonus / 5) or move.maxPp or base
+  return { label = name or self.adapter.Pokemon.moveName(id),
+    move = { id = move.id, index = id, pp = move.pp, maxPp = maxPp, ppUps = bonus or move.ppUps },
+    right = tostring(move.pp or 0) .. "/" .. maxPp }
+end
+
 function UI:panel()
   local layer = self.Stack.top()
   return layer and layer.id
@@ -416,15 +430,15 @@ function UI:list(battle)
     end
   elseif layer.id == "summary" and native._mode == "select_move" then
     title, items, slots, field = "FORGET MOVE", {}, {}, "_moveCursor"
-    local mon = native._party and native._party[native._cursor]
+    local raw = native._party and native._party[native._cursor]
+    local mon = raw and self.adapter:mon(raw)
     for slot = 1, 4 do
-      local id = mon and mon.moves and mon.moves[slot]
-      if id and id ~= 0 then
-        items[#items + 1], slots[#slots + 1] = { label = self.adapter.Pokemon.moveName(id) }, slot
-      end
+      local row = raw and self:moveItem(raw, slot)
+      if row then items[#items + 1], slots[#slots + 1] = row, slot end
     end
-    items[#items + 1], slots[#slots + 1] = { label = "CANCEL", right = native._moveToLearn
-      and self.adapter.Pokemon.moveName(native._moveToLearn) or nil }, 5
+    items[#items + 1], slots[#slots + 1] = { label = "CANCEL" }, 5
+    moveSelection = { mon = mon, items = items, slots = slots,
+      newMoveId = native._moveToLearn and self.adapter.Moves.constName(native._moveToLearn), learning = true }
     if native._hmNotice then
       prompt = RomText.plain(require("src.core.game3.battle.profile").get(self.adapter.session).strings.hmCantForget)
     end
@@ -473,13 +487,9 @@ function UI:list(battle)
       local slot = 0
       for index, name in ipairs(native._forgetMoves) do
         repeat slot = slot + 1 until slot > 4 or (self.adapter.Pokemon.moveIdAt(raw, slot) or 0) > 0
-        local move = mon and mon.moves[slot]
-        if not move then return nil end
-        -- Match the host's PP-bonus representation, including imported saves.
-        local base = self.adapter.Pokemon.movePp(self.adapter.Pokemon.moveIdAt(raw, slot))
-        local bonus = type(raw.ppBonusesPacked) == "number" and bit.band(bit.rshift(raw.ppBonusesPacked, (slot - 1) * 2), 3)
-        local maxPp = bonus and base + math.floor(base * bonus / 5) or move.maxPp or base
-        items[index] = { label = name, move = move, right = tostring(move.pp or 0) .. "/" .. maxPp }
+        local row = raw and self:moveItem(raw, slot, name)
+        if not row then return nil end
+        items[index] = row
       end
       moveSelection = { mon = mon, items = items, itemName = self.adapter.Items.displayName(native._item) }
     elseif native.mode == "action" then
@@ -546,7 +556,7 @@ function UI:list(battle)
     local holding = native.holdingMon
     local storageBox = layer.id == "box_storage" and native._session.storage.currentBox
     local hmNotice, confirmExit = native._hmNotice, native._confirmExit
-    local forgetMoves, forgetCallback, forgetMon = native._forgetMoves, native._forgetCallback, moveSelection and native._party[native.cursor]
+    local forgetMoves, forgetCallback, forgetMon = native._forgetMoves, native._forgetCallback, moveSelection and native._party[native.cursor or native._cursor]
     function view.valid(preview)
       return owner.Stack.top() == layer and native.open == true
         and nativeMode(layer) == mode and native.pocketIdx == pocketIdx
@@ -556,7 +566,7 @@ function UI:list(battle)
         and native.holdingMon == holding
         and (not storageBox or mode == "pick_box" or native._session.storage.currentBox == storageBox)
         and native._forgetMoves == forgetMoves and native._forgetCallback == forgetCallback
-        and (not forgetMon or native._party[native.cursor] == forgetMon)
+        and (not forgetMon or native._party[native.cursor or native._cursor] == forgetMon)
         and native._hmNotice == hmNotice and native._confirmExit == confirmExit
         and (not sale or native._sell == sale and sale.state == saleState)
         and (layer.id ~= "box_storage" or not require("src.ui.game3.release_seq").isActive())
@@ -610,7 +620,7 @@ function UI:list(battle)
     and native._location ~= "berry_tree" and native._location ~= "blender"
   if quantity and quantity.itemId then quantity.itemSprite = self.adapter:itemIcon(quantity.itemId) end
   view.moveSelection = moveSelection
-  if moveSelection then moveSelection.valid = view.valid end
+  if moveSelection then moveSelection.valid, moveSelection.message = view.valid, prompt end
   view.quantity = quantity
   view.prompt = prompt
   view.nativeGrid, view.boxParty = grid, boxParty
@@ -623,8 +633,10 @@ function UI:list(battle)
   view.fixedLayout, view.party = grid or moveSelection ~= nil or itemActionId ~= nil or prompt ~= nil or partyLayout or view.partyActions ~= nil, partyLayout and native or nil
   -- Every projection (including upper-screen ownership checks) retains the
   -- exact same draw/hit geometry; never leave a cached view with fresh bare rows.
-  if not prompt then view.choiceState, view.touchWindow = nil, nil end
-  if prompt then
+  if not prompt or moveSelection then view.choiceState, view.touchWindow = nil, nil end
+  if moveSelection then
+    self.movePage.layout(items, slots)
+  elseif prompt then
     view.choiceState = view.choiceState or { page = 1 }
     local names = {}
     for index, item in ipairs(items) do names[index] = item.label end
@@ -633,8 +645,6 @@ function UI:list(battle)
     for _, entry in ipairs(model.entries) do
       items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
     end
-  elseif moveSelection then
-    self.movePage.layout(items)
   elseif itemActionId then
     self.itemPage.layout(items)
   elseif partyLayout then

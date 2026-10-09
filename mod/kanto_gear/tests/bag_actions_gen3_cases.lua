@@ -197,6 +197,8 @@ return function(T, run, display, raw)
   mon.ppBonusesPacked,mon.maxPp[1]=2,35
   view=assert(display.startMenu())
   T.eq(view.items[1].right,"42/49","packed PP bonuses are authoritative like the native item handler")
+  T.eq(view.items[1].move.maxPp,49,"inspection and the card share the authoritative PP maximum")
+  T.eq(view.items[1].move.ppUps,2,"normalized move data retains imported PP bonuses")
   local old = view
   Party._forgetMoves = {"different"}
   T.check(not old.valid(),"replaced chooser rows invalidate stale touch indices")

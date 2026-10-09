@@ -52,6 +52,13 @@ return function(T, display, H)
   at(120,80,function() display.MovePage.draw(H,moves) end,1,"usable move selection responds")
   at(120,120,function() display.MovePage.draw(H,moves) end,0,"empty move slot never responds")
   at(120,40,function() display.MovePage.draw(H,moves) end,0,"move context stays still")
+  moves.newMove,moves.details=moves.moves[1],true
+  at(120,40,function() display.MovePage.draw(H,moves) end,1,"new move responds when its details are available")
+  moves.details=false
+  at(120,40,function() display.MovePage.draw(H,moves) end,0,"new move stays still when details are unavailable")
+  moves.message="HM moves cannot be forgotten!"
+  at(120,40,function() display.MovePage.draw(H,moves) end,0,"native refusal never animates")
+  moves.message=nil
   moves.enabled=false
   at(120,80,function() display.MovePage.draw(H,moves) end,0,"locked move chooser stays still")
   local app={id="notes",label="NOTES",icon="notes",category="UTILITY",state="soon"}
