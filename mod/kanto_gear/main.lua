@@ -2426,6 +2426,8 @@ return function(mod)
     "@kanto_gear/legacy_shop.lua"))()
   displayRuntime.LegacyParty = assert(load(mod:read("legacy_party.lua"),
     "@kanto_gear/legacy_party.lua"))()
+  displayRuntime.LegacyBag = assert(load(mod:read("legacy_bag.lua"),
+    "@kanto_gear/legacy_bag.lua"))()
   displayRuntime.RegionPage = assert(load(mod:read("region_map_page.lua"),
     "@kanto_gear/region_map_page.lua"))()
   displayRuntime.LegacyRegion = assert(load(mod:read("legacy_region.lua"),
@@ -4959,26 +4961,33 @@ return function(mod)
     end
   end
 
-  function displayRuntime.startMenu()
-    if displayRuntime.gen3Ui then
-      local top = displayRuntime.gen3Ui:list(battle)
-      if top then
-        top.recentBag = nil
-        local recent = top.bagList and displayRuntime.lastBagItem()
-        if recent then
-          if top.bagContainer == "bag" then
-            local def = game.data.items[recent.id] or {}
-            for _, pocket in ipairs(displayRuntime.gen3.Items.BAG_POCKET_ORDER) do
-              if def.nativePocket == pocket then top.recentBag = recent break end
-            end
-          else
-            for _, row in ipairs(top.items) do
-              if row.itemId == recent.id then top.recentBag = recent break end
-            end
-          end
+  function displayRuntime.decorateBagList(top)
+    if not top then return end
+    top.recentBag = nil
+    local recent = top.bagList and displayRuntime.lastBagItem()
+    if recent then
+      if displayRuntime.gen3 and top.bagContainer == "bag" then
+        local def = game.data.items[recent.id] or {}
+        for _, pocket in ipairs(displayRuntime.gen3.Items.BAG_POCKET_ORDER) do
+          if def.nativePocket == pocket then top.recentBag = recent break end
+        end
+      elseif compat.isGen2() then
+        local def = game.data.items[recent.id] or {}
+        for _, pocket in ipairs(displayRuntime.bagPockets) do
+          if (def.pocket or "ITEM") == pocket.id then top.recentBag = recent break end
+        end
+      else
+        for _, row in ipairs(top.items) do
+          if row.itemId == recent.id then top.recentBag = recent break end
         end
       end
-      return top
+    end
+    return top
+  end
+
+  function displayRuntime.startMenu()
+    if displayRuntime.gen3Ui then
+      return displayRuntime.decorateBagList(displayRuntime.gen3Ui:list(battle))
     end
     local top = game and game.stack and game.stack:top()
     local quantity = top and (top.screenId == "Gen2PackMenu"
@@ -5017,6 +5026,9 @@ return function(mod)
     displayRuntime.legacyPartyView = not battle and displayRuntime.LegacyParty.project(top, game, compat.isGen2(),
       displayRuntime.StoragePage, THEME.hgss, displayRuntime.legacyPartyView) or nil
     if displayRuntime.legacyPartyView then return displayRuntime.legacyPartyView end
+    displayRuntime.legacyBagView = not battle and displayRuntime.LegacyBag.project(top, game, compat.isGen2(),
+      displayRuntime.legacyBagView) or nil
+    if displayRuntime.legacyBagView then return displayRuntime.decorateBagList(displayRuntime.legacyBagView) end
     displayRuntime.legacyShopView = displayRuntime.LegacyShop.project(top, game,
       function(label) return THEME:translate(label) end, displayRuntime.legacyShopView)
     if displayRuntime.legacyShopView then return displayRuntime.legacyShopView end
@@ -5756,6 +5768,14 @@ return function(mod)
 
   function displayRuntime.choiceModel(top, labels, prompt, field)
     local state = top.choiceState or displayRuntime.choiceState(top, field, labels)
+    if not prompt and not displayRuntime.gen3 and game.stack:top() == top then
+      local states = game.stack.states or {}
+      local text = states[#states - 1]
+      if text and text.isTextBox then
+        prompt = type(text.visibleText) == "function" and text:visibleText()
+          or text.pages and text.pages[text.pageIndex or 1]
+      end
+    end
     if type(prompt) == "string" then prompt = { prompt } end
     if not prompt or #prompt == 0 then prompt = { THEME:translate("MAKE A CHOICE") } end
     local lines = THEME:messageLines(prompt, 34, 3)
@@ -11235,6 +11255,7 @@ return function(mod)
       end
       return false
     end
+    top = top.owner or top
     if top.screenId == "Gen2PackMenu" then
       local def = game.data.items[item.id] or {}
       for index, pocket in ipairs(displayRuntime.bagPockets) do
@@ -11685,6 +11706,9 @@ return function(mod)
     elseif type(action) == "number" and top.battleTargets then
       submit("target", { target = top.battleTargets[action] })
     elseif type(action) == "number" and menu.select(top, action) then
+      if top.party and displayRuntime.bag.pending and top.items[action].mon then
+        displayRuntime.bag.pending.mon = top.items[action].mon
+      end
       press(top.items[action].inputKey or "a")
     end
     if action then dirty = true end

@@ -114,10 +114,13 @@ for _, style in ipairs({"hgss", "hgss_dark"}) do
   T.eq(stack:top(), world, "header back delegates to native cancellation without a fake seventh Pokemon")
 
   local picked
+  display.bag.pending={itemId="ETHER"}
   native = open(generation == 1 and {pickOnly=true, onSwitch=function(m) picked=m end}
     or {submenu=false, onChoose=function(_,m) picked=m;stack:pop() end})
   team = view(); choose(2)
   T.eq(picked, save.party[2], "target picker answers its original callback once")
+  T.eq(display.bag.pending.mon,save.party[2],"target touch updates PP/TM context before native input runs")
+  display.bag.pending=nil
   T.eq(stack:top(), world, "target selection obeys native picker closure")
   T.check(not team.valid(), "old picker cannot answer another target")
 
@@ -145,6 +148,14 @@ for _, style in ipairs({"hgss", "hgss_dark"}) do
   T.check(pcall(display.drawContents), "blocked party preserves its visible cards")
   local shown = display.startMenuPartyViews(waiting)
   T.eq(shown[1].hp, 4, "lower HP bar follows native displayed HP instead of jumping to final HP")
+  local before=display.StartMenu.redrawKey(waiting)
+  for _=1,30 do
+    step()
+    if display.startMenuPartyViews(display.startMenu())[1].hp~=4 then break end
+  end
+  local after=display.StartMenu.redrawKey(display.startMenu())
+  T.check(after~=before,"native HP progress invalidates the cached lower-screen canvas")
+  T.eq(display.StartMenu.redrawKey(display.startMenu()),after,"unchanged displayed HP preserves the canvas")
 end
 if generation == 2 then
   local native = open()

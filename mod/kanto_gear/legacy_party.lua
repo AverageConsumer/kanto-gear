@@ -28,14 +28,6 @@ local function describe(top, game, isGen2)
     if top.switchFrom or top.swapFrom then title = "SWAP WITH?" end
     return { kind = "team", source = top, field = "index", mons = mons, title = title,
       from = top.switchFrom or top.swapFrom, soft = top.softboiledFrom }
-  elseif isGen2 and getmetatable(top) == require("src.ui.gen2.PackMenu") and top.give and not top:inBattle() then
-    if top.message and not top.switching then
-      return { kind = "notice", source = top, field = "index", record = top.message,
-        page = top.messagePage, title = "GIVE" }
-    elseif not top.submenu and not top.qtyState and not top.confirm then
-      return { kind = "items", source = top, field = "index", rows = top.rows,
-        pocket = top:pocket().label, pocketIndex = top.pocketIndex, from = top.switching, title = "GIVE" }
-    end
   elseif isGen2 and getmetatable(top) == require("src.ui.gen2.HeldItemMenu") and not top.busy then
     local confirm = top.confirm
     if top.message or confirm then
@@ -93,12 +85,6 @@ function Party.project(top, game, isGen2, page, layout, previous)
     items, slots = page.party(layout, { monAt = function(slot) return state.mons[slot] end,
       monView = function(mon) return mon end, enabled = function(slot) return state.mons[slot] ~= nil end,
       cancelValue = #state.mons + 1, cancelKey = "b" })
-  elseif state.kind == "items" then
-    items = {}
-    for i, row in ipairs(state.rows) do
-      items[i] = { label = row.name, right = "x" .. row.count, itemId = row.id }
-    end
-    items[#items + 1] = { label = "CANCEL" }
   elseif state.kind == "actions" then
     items = {}
     for i, row in ipairs(state.rows or {}) do items[i] = { label = row.label } end
@@ -107,7 +93,7 @@ function Party.project(top, game, isGen2, page, layout, previous)
   else items = { { label = "CONTINUE" } } end
   if #items == 0 then return end
   view.items, view.nativeSlots, view.title = items, slots, state.title
-  view.nativePocket, view.partyMons = state.pocket, state.mons
+  view.partyMons = state.mons
   view.party = (state.kind == "team" or state.kind == "notice") and state.mons and top or nil
   view.fixedLayout = state.kind == "team" or state.kind == "actions" and #items <= 3
   view.partyActions = state.kind == "actions" and #items <= 3 and state.mon or nil

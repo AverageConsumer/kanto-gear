@@ -38,11 +38,17 @@ function Menu.redrawKey(top)
   local first, count, selected = Menu.window(top, true)
   if not first then return "" end
   local quantity, stats = top.quantity, top.nativeStats
+  local party = top.party
+  local heal, result, anim = party and party.heal, party and party.itemResult, party and party._hpAnim
+  local function hp(value) return type(value) == "number" and math.floor(value + 0.5) or "" end
   local parts = { tostring(top.nativeKey), tostring(selected), tostring(#top.items), tostring(first), tostring(count),
     tostring(Menu.cursor(top) ~= nil), tostring(top.title), tostring(top.name),
     tostring(top.prompt), tostring(top.notice), tostring(top.canAdvance), tostring(top.recentBag and top.recentBag.id), tostring(top.recentBag and top.recentBag.count),
     tostring(quantity and quantity.label), tostring(quantity and quantity.qty),
-    tostring(quantity and quantity.max), tostring(quantity and quantity.total), tostring(stats and stats._page) }
+    tostring(quantity and quantity.max), tostring(quantity and quantity.total), tostring(stats and stats._page),
+    tostring(heal and heal.mon), hp(heal and heal.shown),
+    tostring(result and result.slot), hp(result and result.shown),
+    tostring(anim and anim.slot), hp(anim and anim.current) }
   for i = first, first + count - 1 do
     local item = top.items[i]
     parts[#parts + 1] = tostring(item.label)
