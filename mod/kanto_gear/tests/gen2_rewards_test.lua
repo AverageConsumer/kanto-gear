@@ -50,6 +50,27 @@ data.gen2Scripts.WRONG_LEVEL = gift(45, "givepoke", 133)
 data.gen2Scripts.WRONG_LEVEL[5].level = 101
 T.eq(#policy:catalog("WRONG_LEVEL"), 0, "invalid gift level is rejected")
 
+data.gen2Constants = { specialOrder = { "GiveShuckle", "GiveOddEgg", "UnrelatedSpecial" } }
+data.pokemon.SHUCKLE = { index = 213, name = "SHUCKLE" }
+data.gen2Scripts.SHUCKLE = { { op = "checkevent", event = 69 }, { op = "iftrue", script = "END" },
+  { op = "special", id = 0 }, { op = "iffalse", script = "END" }, { op = "setevent", event = 69 }, { op = "end" } }
+local shuckle = policy:catalog("SHUCKLE")[1]
+T.eq(shuckle.speciesIndex, 213, "named Shuckle special resolves its fixed species")
+T.eq(shuckle.loan, true, "Shuckle is a loan rather than a permanent ownership requirement")
+T.eq(shuckle.event, 69, "Shuckle receipt is independent of its later return")
+data.gen2Scripts.ODD_EGG = { { op = "readvar", var = 1 }, { op = "ifequal", value = 6, script = "END" },
+  { op = "special", id = 1 }, { op = "setevent", event = 830 }, { op = "end" } }
+local odd = policy:catalog("ODD_EGG")[1]
+T.eq(odd.isEgg, true, "Odd Egg is catalogued without rolling its contents")
+T.eq(odd.speciesIndex, nil, "Odd Egg never invents one fixed species")
+T.eq(policy:available(odd, { party = { {}, {}, {}, {}, {}, {} } }, {}), false, "full party blocks the random egg")
+data.gen2Scripts.BAD_SPECIAL = { { op = "special", id = 2 }, { op = "setevent", event = 831 }, { op = "end" } }
+T.eq(#policy:catalog("BAD_SPECIAL"), 0, "unrelated specials cannot invent Pokemon")
+data.gen2Scripts.BAD_SHUCKLE = { { op = "special", id = 0 }, { op = "setevent", event = 832 }, { op = "end" } }
+T.eq(#policy:catalog("BAD_SHUCKLE"), 0, "failed Shuckle receipt is rejected without its success branch")
+T.eq(#Gifts.new({ gen2Scripts = data.gen2Scripts }):catalog("SHUCKLE"), 0,
+  "numeric special IDs alone cannot identify a gift without the active name table")
+
 local run = T.sdk.loadMod(root, { generation = 2, data = T.fixtures.fresh() })
 T.eq(run.mod and run.mod.state, "loaded", "Gen2 companion loads Pokémon reward integration")
 local input
@@ -144,17 +165,34 @@ game.data.pokemon.EEVEE, game.data.pokemon.TOGEPI = data.pokemon.EEVEE, data.pok
 api.world.getFlag = world.getFlag
 local area = up(display.achievementData, "areaData")({ "TEST" }, true)
 T.eq(#(area.pokemon or {}), 3, "shared area data forwards all Gen2 rewards to Explorer and Stamps")
+data.gen2Maps.TEST.objects[4] = { index = 4, x = 8, y = 9, scriptKey = "ODD_EGG", eventFlag = 65535 }
+data.gen2Maps.TEST.objects[5] = { index = 5, x = 9, y = 9, scriptKey = "SHUCKLE", eventFlag = 65535 }
+game.data.gen2Constants, game.data.pokemon.SHUCKLE = data.gen2Constants, data.pokemon.SHUCKLE
+area = up(display.achievementData, "areaData")({ "TEST" }, true)
+T.eq(#area.pokemon, 5, "species-free egg is included in the shared Pokemon section")
+T.eq(area.pokemon[4].species, nil, "shared egg model still conceals the random species")
+T.eq(area.pokemon[4].kind, "pokemon", "random egg uses the Pokemon marker and details")
+explorer.data.area = area
+local eggModel
+for _, row in ipairs(model().rows) do if row.isEgg and row.species == nil then eggModel = row end end
+T.eq(eggModel and eggModel.name, "EGG", "Explorer presents the random egg without a species")
+T.eq(eggModel and eggModel.method, "NPC GIFT", "random egg opens Pokemon gift details rather than item details")
+flags[69], flags[70], flags[830] = true, true, true
+T.eq(rows()[4][5].done, true, "returning Shuckle does not undo its acquisition")
+T.eq(rows()[4][4].done, true, "Odd Egg acquisition is independent of hatching or release")
+flags[69], flags[70], flags[830] = nil, nil, nil
 
 local native = os.getenv("KANTO_GEAR_NATIVE_GEN2")
 if native then
   local imported = { gen2Scripts = dofile(native .. "/scripts.lua"), gen2Maps = dofile(native .. "/maps.lua"),
     gen2InitialEvents = dofile(native .. "/initial_events.lua"), pokemon = dofile(native .. "/pokemon.lua"),
-    items = dofile(native .. "/items.lua"), gen2EventTables = dofile(native .. "/events.lua") }
+    items = dofile(native .. "/items.lua"), gen2EventTables = dofile(native .. "/events.lua"),
+    gen2Constants = dofile(native .. "/constants.lua") }
   local count, trades, entries = 0, 0, {}
   for id in pairs(imported.gen2Maps) do
     for _, row in ipairs(Area.gen2Rows(imported, {}, world, { id })[4]) do
       if row.trade then trades = trades + 1 else count = count + 1 end
-      entries[id .. ":" .. row.species] = row
+      entries[id .. ":" .. (row.species or "EGG")] = row
     end
   end
   T.eq(entries["BILLS_FAMILYS_HOUSE:EEVEE"].event, 79, "native Bill gift uses its receipt event")
@@ -163,14 +201,23 @@ if native then
   flags[1193] = true
   local kiyo = Area.gen2Rows(imported, {}, world, { "MOUNT_MORTAR_B1F" })[4][1]
   T.eq(kiyo.available, true, "Kiyo's defeated battle unlocks the pending gift")
+  T.eq(entries["MANIAS_HOUSE:SHUCKLE"].event, 69, "native Shuckle uses its original receipt flag")
+  T.eq(entries["MANIAS_HOUSE:SHUCKLE"].loan, true, "native Shuckle is identified as a loan")
+  if require("src.core.GameVersion").get() == "crystal" then
   T.eq(entries["VIOLET_POKECENTER_1F:TOGEPI"].event, 45, "egg uses its received flag rather than the separate refusal flag")
   T.eq(entries["VIOLET_POKECENTER_1F:TOGEPI"].label, "EGG", "native Togepi egg does not leak its contents")
   T.eq(entries["DRAGON_SHRINE:DRATINI"].event, 189, "native shrine reward uses a durable receipt")
   T.eq(entries["ROUTE_35_GOLDENROD_GATE:SPEAROW"].loan, true, "Kenya is identified as a loan")
   T.eq(entries["BLACKTHORN_EMYS_HOUSE:DODRIO"].needsGender, "TRADE_GENDER_FEMALE", "native gender restriction is preserved")
-  T.eq(entries["DAY_CARE:TOGEPI"], nil, "random Odd Egg does not invent a fixed species")
-  T.eq(count, 5, "Crystal has four proven gifts/eggs plus the Kenya loan")
+  T.eq(entries["DAY_CARE:EGG"].event, 830, "random Odd Egg uses its actual receipt flag")
+  T.eq(entries["DAY_CARE:EGG"].species, nil, "native Odd Egg does not invent a fixed species")
+  T.eq(count, 7, "Crystal includes both special rewards")
   T.eq(trades, 7, "Crystal uses all seven actual trade rows rather than an old six-trade constant")
+  else
+    T.eq(entries["DAY_CARE:EGG"], nil, "Gold and Silver do not invent Crystal's Odd Egg")
+    T.eq(count, 5, "Gold and Silver include their five actual gifts and loans")
+    T.eq(trades, 6, "Gold and Silver use their actual six NPC trades")
+  end
   print("GEN2_NATIVE_REWARDS", count, trades)
 end
 T.finish("Kanto Gear Gen2 Pokémon gifts and trades")

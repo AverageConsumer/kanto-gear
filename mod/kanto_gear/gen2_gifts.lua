@@ -7,6 +7,15 @@ local branches = { iftrue = true, iffalse = true, ifequal = true,
 local endings = { ["end"] = true, endcallback = true, reloadend = true,
   jumptext = true, farjumptext = true, jumptextfaceplayer = true }
 local gifts = { giveitem = true, verbosegiveitem = true }
+local specialGifts = {
+  GiveShuckle = { species = 213, level = 15, loan = true, result = 1 },
+  GiveOddEgg = { isEgg = true, level = 5 },
+}
+
+local function specialGift(data, row)
+  local order = data.gen2Constants and data.gen2Constants.specialOrder
+  return row and row.op == "special" and order and specialGifts[order[(row.id or -1) + 1]] or nil
+end
 
 local function list(data, key)
   return type(key) == "table" and key or (data.gen2Scripts or {})[key]
@@ -76,6 +85,9 @@ local function reaches(data, key, gift, event, value, proof, checkpoint, partyCo
           variable = partyCount
         elseif sameGift(previous, gift) and gift.op == "giveegg" and failed ~= nil then
           variable = failed and 0 or 2
+        elseif sameGift(previous, gift) and specialGift(data, gift) and failed ~= nil then
+          local reward = specialGift(data, gift)
+          if reward.result then variable = failed and 0 or reward.result end
         elseif save and previous and previous.op == "checkpoke" then
           variable = 0
           local species = previous.species or (previous.args or {})[1]
@@ -149,24 +161,26 @@ function M.new(data, checkpoint)
     end
     table.sort(candidates)
     local added = {}
-    -- shortcut: literal gifts with durable receipt events; opaque specials and
-    -- random eggs need their own acquisition proof before joining the album.
+    -- shortcut: other opaque specials still need a proven acquisition contract.
     for _, command in ipairs(commands) do
       local item = gifts[command.op] and (command.item or (command.args or {})[1])
-      local pokemon = command.op == "givepoke" or command.op == "giveegg"
-      local species = pokemon and (command.species or (command.args or {})[1])
-      local level = pokemon and (command.level or (command.args or {})[2])
+      local special = specialGift(data, command)
+      local pokemon = command.op == "givepoke" or command.op == "giveegg" or special ~= nil
+      local species, level
+      if special then species, level = special.species, special.level
+      elseif pokemon then species, level = command.species or (command.args or {})[1], command.level or (command.args or {})[2] end
+      local egg = command.op == "giveegg" or special and special.isEgg
       local literal = pokemon and species or item
-      if type(literal) == "number" and literal % 1 == 0 and literal > 0 and literal < 255
+      if (special and special.isEgg or type(literal) == "number" and literal % 1 == 0 and literal > 0 and literal < 255)
           and (not pokemon or type(level) == "number" and level % 1 == 0 and level >= 1 and level <= 100) then
         for _, event in ipairs(candidates) do
-          local id = event .. ":" .. (pokemon and "pokemon:" or "item:") .. literal
+          local id = event .. ":" .. (pokemon and "pokemon:" or "item:") .. tostring(literal or "egg")
           if not added[id] and (pokemon or checked[event])
               and (pokemon or reaches(data, key, command, event, 1, false, yield) == false)
               and reaches(data, key, command, event, 0, true, yield, pokemon and 0 or nil, false) == true
               and (not pokemon or reaches(data, key, command, event, 0, true, yield, 6, true) == false) then
             rewards[#rewards + 1] = { itemId = item or nil, speciesIndex = species or nil, level = level or nil,
-              isEgg = command.op == "giveegg" or nil, event = event, repeatable = cleared[event] or nil,
+              isEgg = egg or nil, loan = special and special.loan, event = event, repeatable = cleared[event] or nil,
               command = pokemon and command or nil, key = pokemon and key or nil }
             added[id] = true
             break
@@ -184,7 +198,7 @@ function M.new(data, checkpoint)
     cache[key] = rewards
     return rewards
   end, available = function(_, gift, save, world, yield)
-    if gift.speciesIndex and #(save.party or {}) >= 6 then return false end
+    if (gift.speciesIndex or gift.isEgg) and #(save.party or {}) >= 6 then return false end
     return reaches(data, gift.key, gift.command, gift.event, 0, false, yield,
       #(save.party or {}), false, save, world) == true
   end }

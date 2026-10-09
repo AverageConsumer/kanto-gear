@@ -1018,10 +1018,12 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
   local rows = { {}, {}, {}, {} }
   local Trades = data.gen2EventTables and require("src.core.gen2.NpcTrade")
   if Area.Gifts and (Area.giftData ~= data or Area.giftScripts ~= data.gen2Scripts
-      or Area.giftInitial ~= data.gen2InitialEvents or Area.giftMaps ~= data.gen2Maps) then
+      or Area.giftInitial ~= data.gen2InitialEvents or Area.giftMaps ~= data.gen2Maps
+      or Area.giftConstants ~= data.gen2Constants) then
     Area.giftPolicy = Area.Gifts.new(data, checkpoint)
     Area.giftData, Area.giftScripts = data, data.gen2Scripts
     Area.giftInitial, Area.giftMaps = data.gen2InitialEvents, data.gen2Maps
+    Area.giftConstants = data.gen2Constants
   end
   for _, mapId in ipairs(mapIds) do
     if checkpoint then checkpoint() end
@@ -1059,14 +1061,15 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
         local def, species
         if gift.speciesIndex then def, species = gen2Definition(data.pokemon, gift.speciesIndex) end
         if trade then species, def = trade.get, data.pokemon and data.pokemon[trade.get] end
-        if gift.itemId or def then
+        local pokemon = species ~= nil or gift.isEgg
+        if gift.itemId or def or gift.isEgg then
           local key = gift.tradeId ~= nil and "trade:" .. gift.tradeId
-            or gift.event .. ":" .. tostring(species or gift.itemId)
+            or gift.event .. ":" .. tostring(species or gift.itemId or "egg")
           local hidden = obj.eventFlag ~= 65535 and gen2FlagSet(world, obj.eventFlag)
           if not gifts[key] or gifts[key].mapVisible == false and not hidden then
             local done = trade and Trades.done(save, gift.tradeId) or gen2FlagSet(world, gift.event)
             local available = not done and not hidden
-            if species and available then
+            if pokemon and available then
               available = Area.giftPolicy:available(gift, save, world, checkpoint)
               if trade then
                 local partner = false
@@ -1081,22 +1084,22 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
               actorId = string.format("%s_obj_%d", mapId, obj.index or 0),
               mapId = mapId, index = obj.index or 0, x = obj.x, y = obj.y,
               spriteId = obj.sprite, palette = obj.palette, hideEvent = obj.eventFlag,
-              kind = species and "pokemon" or "item", gift = true, itemId = gift.itemId, event = gift.event,
+              kind = pokemon and "pokemon" or "item", gift = true, itemId = gift.itemId, event = gift.event,
               label = gift.isEgg and "EGG" or def and (def.name or species) or gen2ItemName(data, gift.itemId), done = done,
               species = species, level = gift.level, order = def and def.index or 0, isEgg = gift.isEgg,
-              loan = mapId == "ROUTE_35_GOLDENROD_GATE" and species == "SPEAROW"
+              loan = gift.loan or mapId == "ROUTE_35_GOLDENROD_GATE" and species == "SPEAROW"
                 and gift.command and (gift.command.trainer or (gift.command.args or {})[4]) == 1 or nil,
               trade = trade ~= nil, tradeId = gift.tradeId, needsSpecies = trade and trade.give,
-              needsGender = trade and trade.gender, noRoom = species ~= nil and not trade and not done and not hidden and #(save.party or {}) >= 6,
+              needsGender = trade and trade.gender, noRoom = pokemon and not trade and not done and not hidden and #(save.party or {}) >= 6,
               repeatable = gift.repeatable, available = available,
               mapVisible = not hidden, unknown = gen2PickupUnknown(world, gift.event),
               status = not done and not available and "LATER" or nil,
             }
             if row.unknown then
               row.untracked, row.status = true, "NOT TRACKED"
-              if species then row.available = false end
+              if pokemon then row.available = false end
             end
-            local list = species and rows[4] or rows[2]
+            local list = pokemon and rows[4] or rows[2]
             if gifts[key] then
               for i, previous in ipairs(list) do
                 if previous == gifts[key] then list[i] = row; break end
@@ -6704,12 +6707,12 @@ return function(mod)
         and "USE ITEMFINDER" or row.gift and "TALK TO NPC" or "MARKED ON MAP")
     end
     allItems = Discovery.filter(allItems, function(row)
-      return Discovery.row(displayRuntime.discoveryMode(), row, row.species and 4 or row.kind == "hidden" and 3 or 2,
+      return Discovery.row(displayRuntime.discoveryMode(), row, (row.species or row.isEgg) and 4 or row.kind == "hidden" and 3 or 2,
         displayRuntime.knownMap(row.mapId or id))
     end)
     local gifts, items = {}, {}
     for _, row in ipairs(allItems) do
-      if row.species then
+      if row.species or row.isEgg then
         if filters.wildScope == "ROUTE" or row.available and row.mapVisible ~= false
             and not row.outsideMap and not row.done and not row.excluded then
           row.key, row.name, row.caught = row.id, row.isEgg and THEME:translate("EGG") or row.label, row.done
