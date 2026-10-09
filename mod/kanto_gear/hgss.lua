@@ -2272,7 +2272,7 @@ return function(ui)
     self:toolIcon(action.icon, 45, 76, accent)
     self:partyInfo(self:fitPartyInfo(action.label, 116),
       86, 72, colors.ink, 116, "center")
-    self:partyType(translate("USE NOW?"), 86, 94, colors.green, 116)
+    self:partyType(translate(action.prompt or "USE NOW?"), 86, 94, colors.green, 116)
     for index, option in ipairs({ "YES", "NO" }) do
       local x = index == 1 and 39 or 126
       local pressed = self:beginPress(x, 124, 75, 27)
@@ -3239,6 +3239,39 @@ return function(ui)
   function H:regionMap(model)
     local G, colors = ui.graphics, self.colors
     self:panel(7, 32, 226, 178, false, nil, colors.blueLight)
+    if model.interactive then
+      clipped(12, 37, 216, 116,
+        mixed(colors.surface, colors.blueLight, self.dark and 0.18 or 0.12))
+      border(12, 37, 216, 116, colors.outline)
+      G.setScissor(14, 39, 212, 112)
+      model.drawMap(14, 39, 212, 112)
+      if model.fly and model.flyPoints then
+        local scale = math.min(212 / model.width, 112 / model.height)
+        local left = math.floor(14 + (212 - model.width * scale) / 2 + 0.5)
+        local top = math.floor(39 + (112 - model.height * scale) / 2 + 0.5)
+        for _, point in ipairs(model.flyPoints) do
+          local x, y = math.floor(left + point.x * scale + 0.5), math.floor(top + point.y * scale + 0.5)
+          box("fill", x - 2, y - 2, 5, 5, colors.outline)
+          box("fill", x - 1, y - 1, 3, 3, colors.amberLight)
+        end
+      end
+      local x, y = math.floor(model.cursorX + 0.5), math.floor(model.cursorY + 0.5)
+      -- Symmetric brackets keep the selected map tile visible at the center.
+      for _, corner in ipairs({ {-1,-1}, {1,-1}, {-1,1}, {1,1} }) do
+        local sx, sy = corner[1], corner[2]
+        box("fill", x + (sx < 0 and -6 or 2), y + (sy < 0 and -6 or 4), 5, 3, colors.outline)
+        box("fill", x + (sx < 0 and -6 or 4), y + (sy < 0 and -6 or 2), 3, 5, colors.outline)
+        box("fill", x + (sx < 0 and -5 or 3), y + sy * 5, 3, 1, colors.white)
+        box("fill", x + sx * 5, y + (sy < 0 and -5 or 3), 1, 3, colors.white)
+      end
+      G.setScissor()
+      self:panel(12, 157, 216, 29, false, nil, colors.greenLight)
+      self:partyInfo(self:fitPartyInfo(model.area, 204), 18, 158, colors.ink, 204, "center")
+      self:partyType(self:fitPartyType(translate(model.status), 204), 18, 173, colors.green, 204)
+      self:tab(12, 190, 104, 18, translate("MAP"), not model.fly)
+      self:tab(124, 190, 104, 18, translate("FLY"), model.fly)
+      return
+    end
     clipped(12, 37, 216, 142,
       mixed(colors.surface, colors.blueLight, self.dark and 0.18 or 0.12))
     border(12, 37, 216, 142, colors.outline)

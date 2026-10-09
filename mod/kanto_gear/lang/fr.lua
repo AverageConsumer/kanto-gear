@@ -1,4 +1,9 @@
 return {
+  ["FLY"] = false,
+  ["DRAG TO EXPLORE"] = false,
+  ["NOT A FLY DESTINATION"] = false,
+  ["FLY UNAVAILABLE HERE"] = false,
+  ["TAP AGAIN TO FLY"] = false,
   ["NO ITEM"] = "AUCUN OBJET",
   ["NATURE"] = "NATURE",
   ["ABILITY"] = "TALENT",

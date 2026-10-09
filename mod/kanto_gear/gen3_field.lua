@@ -101,4 +101,14 @@ function Field:useFieldAction(id, opts)
   return nil, "field action unavailable"
 end
 
+function Field:flyTo(target, region)
+  if self:busy() then return nil, "world is busy" end
+  local result = self:result("FLY")
+  local fresh = region and region:resolve(target)
+  if not result or not fresh then return nil, "destination unavailable" end
+  self.adapter.Field.flyTo(fresh.id, result.mon, { dest = fresh.dest,
+    posWithinMapSec = fresh.pos })
+  return true
+end
+
 return Field

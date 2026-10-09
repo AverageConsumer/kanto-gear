@@ -52,6 +52,10 @@ function Region:model(area, marker)
       marker(left + (px * 8 + 12) * scale, top + (py * 8 + 20) * scale, 1)
     end
   end
+  model.width, model.height = 192, 144
+  model.key = "gen3:" .. region
+  model.playerX, model.playerY = px and px * 8 + 12, py and py * 8 + 20
+  model.pick = function(x, y, fly) return self:pick(region, x, y, fly) end
   return model
 end
 
@@ -80,7 +84,73 @@ function Region:hoennModel(area, marker)
       end
     end
   end
+  model.width, model.height, model.key = 224, 120, "gen3:hoenn"
+  model.playerX = ok and state.showPlayerIcon and state.playerIconX * 8 - 4 or nil
+  model.playerY = ok and state.showPlayerIcon and state.playerIconY * 8 - 12 or nil
+  model.pick = function(x, y, fly) return self:pick("hoenn", x, y, fly) end
   return model
+end
+
+function Region:flag(name)
+  local a = self.adapter
+  local id = a.Flags.IDS[name]
+  return id and a.Flags.getFlag(a:flagStore(), nil, id) == true or false
+end
+
+function Region:pick(region, x, y, fly)
+  local a = self.adapter
+  if not a.session then return nil end
+  if self.Hoenn then
+    local r = self.Hoenn
+    -- The host exposes its cursor update on an independent state: it also
+    -- resolves the two distinct Ever Grande landing points correctly.
+    local s = { session = a.session, cursorX = math.floor(x / 8) + 1,
+      cursorY = math.floor(y / 8) + 2, mapSecId = -1,
+      inputFn = "move", moveCounter = 0, dx = 0, dy = 0 }
+    r.inputCallback(s, {})
+    if s.mapSecType == r.TYPE.NONE then return nil end
+    r.updateFlyText(s)
+    local dest = r.flyWarpDestination(a.session, s.mapSecId, s.posWithinMapSec)
+      or a.Field.flyDestination(s.mapSecId)
+    local visited = s.mapSecType == r.TYPE.CITY_CANFLY or s.mapSecType == r.TYPE.BATTLE_FRONTIER
+    return { id = s.mapSecId, region = region, x = x, y = y,
+      name = fly and s.flyText and s.flyText.sub and s.flyText.sub ~= "" and s.flyText.sub or s.mapSecName,
+      pos = s.posWithinMapSec,
+      flyPoint = dest ~= nil, flyable = dest ~= nil and visited, dest = dest }
+  end
+  local cx, cy = math.floor((x - 8) / 8), math.floor((y - 16) / 8)
+  local layout = self.Extract.LAYOUTS[region]
+  if not layout or cx < 0 or cx >= 22 or cy < 0 or cy >= 15 then return nil end
+  local sections = require("src.import.gba.map_sections_extract")
+  local id = layout.map[cy][cx]
+  local section = sections.SECTIONS[id]
+  if not section or id == self.Extract.MAPSEC_NONE then return nil end
+  local symbol = section.id
+  if (symbol == "MAPSEC_NAVEL_ROCK" and not self:flag("FLAG_WORLD_MAP_NAVEL_ROCK_EXTERIOR"))
+      or (symbol == "MAPSEC_BIRTH_ISLAND" and not self:flag("FLAG_WORLD_MAP_BIRTH_ISLAND_EXTERIOR")) then return nil end
+  local exceptions = { MAPSEC_INDIGO_PLATEAU = "FLAG_WORLD_MAP_INDIGO_PLATEAU_EXTERIOR",
+    MAPSEC_ROUTE_4_POKECENTER = "FLAG_WORLD_MAP_ROUTE4_POKEMON_CENTER_1F",
+    MAPSEC_ROUTE_10_POKECENTER = "FLAG_WORLD_MAP_ROUTE10_POKEMON_CENTER_1F" }
+  local flag = exceptions[symbol] or ("FLAG_WORLD_MAP_" .. symbol:gsub("^MAPSEC_", ""))
+  local dest = a.Field.flyDestination(id)
+  local name = self.Extract.SECTION_NAMES[symbol]
+  if not fly then
+    local dungeon = sections.SECTIONS[layout.dungeon[cy][cx]]
+    if dungeon and dungeon.id ~= "MAPSEC_NONE"
+        and (dungeon.id ~= "MAPSEC_CERULEAN_CAVE" or self:flag("FLAG_SYS_CAN_LINK_WITH_RS")) then
+      name = self.Extract.SECTION_NAMES[dungeon.id] or name
+    end
+  end
+  return { id = id, region = region, x = x, y = y, name = name and require("src.core.Strings")(name) or "",
+    flyPoint = dest ~= nil, flyable = dest ~= nil and self:flag(flag), dest = dest }
+end
+
+function Region:resolve(target)
+  local current = self.Hoenn and "hoenn" or self:position()
+  if not target or current ~= target.region then return nil end
+  local fresh = self:pick(current, target.x, target.y, true)
+  if not fresh or fresh.id ~= target.id or fresh.pos ~= target.pos or not fresh.flyable then return nil end
+  return fresh
 end
 
 function Region:release()

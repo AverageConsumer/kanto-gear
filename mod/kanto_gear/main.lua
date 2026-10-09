@@ -2388,6 +2388,11 @@ return function(mod)
     "@kanto_gear/touch_guard.lua"))().new()
   displayRuntime.StartMenu = assert(load(mod:read("start_menu.lua"),
     "@kanto_gear/start_menu.lua"))()
+  displayRuntime.RegionPage = assert(load(mod:read("region_map_page.lua"),
+    "@kanto_gear/region_map_page.lua"))()
+  displayRuntime.LegacyRegion = assert(load(mod:read("legacy_region.lua"),
+    "@kanto_gear/legacy_region.lua"))()
+  displayRuntime.regionCursor = {}
   displayRuntime.Home = assert(load(mod:read("home_layout.lua"),
     "@kanto_gear/home_layout.lua"))()
   displayRuntime.Achievements = assert(load(mod:read("achievements.lua"),
@@ -5673,7 +5678,7 @@ return function(mod)
            22 + (y * 8 + 4) * 0.75
   end
 
-  function displayRuntime.homeRegionMap()
+  function displayRuntime.homeRegionMap(full, regionOverride)
     if displayRuntime.gen3 then
       if not displayRuntime.gen3Region then
         displayRuntime.gen3Region = assert(load(mod:read("gen3_region.lua"),
@@ -5682,19 +5687,26 @@ return function(mod)
       return displayRuntime.gen3Region:model(areaName(mapId), compat.drawMapMarker)
     end
     local asset = loadMap()
-    local region = compat.currentRegion() or "kanto"
+    local region = regionOverride or compat.currentRegion() or "kanto"
     local cells = asset and (asset.gen2 and asset.maps[region] or asset.map)
     if not (asset and cells) then
       return { region = region:upper(), area = areaName(mapId) }
     end
+    local rows = math.max(1, math.ceil(#cells / 20) - (asset.gen2 and 0 or 1))
+    local playerX, playerY = mapPoint(locationEntry(mapId))
+    if regionOverride and regionOverride ~= (compat.currentRegion() or "kanto") then playerX, playerY = nil, nil end
     return {
+      width = 160, height = rows * 8, key = "legacy:" .. region,
+      playerX = playerX and (playerX - 20) / 0.75,
+      playerY = playerY and (playerY - (asset.gen2 and 20 or 22)) / 0.75,
       region = region:upper(), area = areaName(mapId),
       drawMap = function(x, y, w, h)
         local rows = math.max(1, math.ceil(#cells / 20)
           - (asset.gen2 and 0 or 1))
-        local scale = w / 160
+        local scale = full and math.min(w / 160, h / (rows * 8)) or w / 160
+        local left = full and math.floor(x + (w - 160 * scale) / 2 + 0.5) or x
         local mapHeight = rows * 8 * scale
-        local px, py = mapPoint(locationEntry(mapId))
+        local px, py = playerX, playerY
         local oldTop = asset.gen2 and 20 or 22
         local sourceY = py and (py - oldTop) / 0.75 or rows * 4
         local top = y + math.floor((h - mapHeight) / 2 + 0.5)
@@ -5717,7 +5729,7 @@ return function(mod)
                   and asset.palMap[tile + 1]) or 1] or mapColors
               local function paint()
                 G.setColor(1, 1, 1, 1)
-                G.draw(asset.image, quad, x + column * 8 * scale,
+                G.draw(asset.image, quad, left + column * 8 * scale,
                   top + visibleRow * 8 * scale, 0, scale, scale)
               end
               if palette and gbc.available() then gbc.with(palette, paint)
@@ -5726,7 +5738,7 @@ return function(mod)
           end
         end
         if px then
-          compat.drawMapMarker(x + (px - 20) / 0.75 * scale,
+          compat.drawMapMarker(left + (px - 20) / 0.75 * scale,
             top + sourceY * scale, 1)
         end
       end,
@@ -5743,21 +5755,22 @@ return function(mod)
       "HGSS region map touch targets follow the rendered map transform")
   end
 
-  local function outside(map)
-    local tileset = map and map.def and map.def.tileset
-    for _, id in ipairs(game.data.field.outsideTilesets or {}) do
-      if id == tileset then return true end
-    end
-    return false
-  end
-
   local function flyTargets()
     local out, field = {}, game.data.field or {}
+    if compat.isGen2() then
+      local points, region = displayRuntime.regionFlight():points(compat.currentRegion())
+      local landmarks = (game.data.gen2Landmarks or {}).landmarks or {}
+      for _, row in ipairs(points) do
+        local x, y = mapPoint(landmarks[row.landmark])
+        if x and y then out[#out + 1] = { id = row.spawn, region = region, name = row.name, x = x, y = y } end
+      end
+      return out
+    end
     for _, id in ipairs(field.flyOrder or {}) do
       local def = game.data.maps and game.data.maps[id]
       local x, y = mapPoint(locationEntry(id))
       if x and game.save.visited and game.save.visited[id]
-          and field.flyWarps and field.flyWarps[id] and outside({ def = def }) then
+          and field.flyWarps and field.flyWarps[id] and def and require("src.world.Map").isFlyTown(def) then
         out[#out + 1] = { id = id, name = areaName(id), x = x, y = y }
       end
     end
@@ -5765,8 +5778,76 @@ return function(mod)
   end
 
   local function canFly()
+    if displayRuntime.gen3Field then
+      return not displayRuntime.gen3Field:busy() and displayRuntime.gen3Field:result("FLY") ~= nil
+    end
+    if compat.isGen2() then return displayRuntime.regionFlight():canFly() end
     return mod.world and mod.world.canFly and mod.world:canFly()
       and #flyTargets() > 0
+  end
+
+  function displayRuntime.regionFlight()
+    if not displayRuntime.legacyRegion then
+      displayRuntime.legacyRegion = displayRuntime.LegacyRegion.new(game, mod.world, compat.isGen2() and 2 or 1)
+    end
+    return displayRuntime.legacyRegion
+  end
+
+  function displayRuntime.regionMapModel()
+    local state, region = displayRuntime.regionCursor, compat.currentRegion() or "kanto"
+    if displayRuntime.gen3 then
+      local model = displayRuntime.homeRegionMap(true)
+      if model.width then displayRuntime.RegionPage.bind(state, model) end
+      return model
+    end
+    local flight, eligible = displayRuntime.regionFlight(), {}
+    if compat.isGen2() then
+      local points, shown = flight:points(region)
+      if state.fly then region = shown end
+      for _, row in ipairs(points) do eligible[row.landmark] = row.spawn end
+    else
+      for _, row in ipairs(flyTargets()) do eligible[row.id] = row.id end
+    end
+    local model, points = displayRuntime.homeRegionMap(true, region), {}
+    if not model.width then return model end
+    local records = compat.isGen2() and (game.data.gen2Landmarks or {}).landmarks or locationEntries()
+    local flyIds = {}
+    if compat.isGen2() then
+      for _, row in ipairs(flight.Moves.FLYPOINTS) do flyIds[row.landmark] = row.spawn end
+    else
+      for _, id in ipairs((game.data.field or {}).flyOrder or {}) do
+        local def = game.data.maps and game.data.maps[id]
+        if (game.data.field.flyWarps or {})[id] and def and require("src.world.Map").isFlyTown(def) then flyIds[id] = id end
+      end
+    end
+    for id, entry in pairs(records or {}) do
+      local index = tonumber(entry.index) or 0
+      local sameRegion = not compat.isGen2() or (index < 46 and region == "johto")
+        or (index >= 46 and index < 94 and region == "kanto")
+      local x, y = mapPoint(entry)
+      if sameRegion and x and y then
+        points[#points + 1] = { id = flyIds[id] or id, region = region,
+          name = tostring(entry.name or entry.label or id):gsub("<LF>", " "):gsub("\n", " "),
+          x = (x - 20) / 0.75, y = (y - (compat.isGen2() and 20 or 22)) / 0.75,
+          flyPoint = flyIds[id] ~= nil, flyable = eligible[id] ~= nil }
+      end
+    end
+    model.pick = function(x, y) return displayRuntime.LegacyRegion.pick(points, x, y) end
+    model.flyPoints = {}
+    for _, point in ipairs(points) do
+      if point.flyable then model.flyPoints[#model.flyPoints + 1] = point end
+    end
+    displayRuntime.RegionPage.bind(state, model)
+    return model
+  end
+
+  function displayRuntime.tapRegionMap(x, y)
+    local model = displayRuntime.regionMapModel()
+    if not model.pick then return end
+    local action, target = displayRuntime.RegionPage.tap(displayRuntime.regionCursor, model,
+      x * THEME.hgssScale, y * THEME.hgssScale, canFly())
+    if action == "fly" then pendingFly = target end
+    dirty = true
   end
 
   function compat.currentRegion()
@@ -5778,15 +5859,27 @@ return function(mod)
   end
 
   local function drawMap()
+    if THEME.style == "hgss" then
+      local model = displayRuntime.regionMapModel()
+      local state, Page = displayRuntime.regionCursor, displayRuntime.RegionPage
+      header(THEME:translate("MAP"), true, false)
+      if model.pick then
+        local target = Page.target(state, model)
+        model.area = target and target.name or THEME:translate("UNKNOWN AREA")
+        model.status = Page.status(state, target, canFly())
+        model.interactive, model.fly = true, state.fly == true
+        local left, top, scale = Page.transform(model)
+        model.cursorX, model.cursorY = left + state.x * scale, top + state.y * scale
+      end
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:regionMap(model)
+      G.pop()
+      return
+    end
     if displayRuntime.gen3 then
       local model = displayRuntime.homeRegionMap()
       header(THEME:translate("MAP"), THEME.style == "hgss", THEME.style ~= "hgss")
-      displayRuntime.regionMapTargets = {}
-      if THEME.style == "hgss" then
-        G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-        THEME.hgss:regionMap(model)
-        G.pop()
-      elseif model.drawMap then model.drawMap(4, 24, 152, 116) end
+      if model.drawMap then model.drawMap(4, 24, 152, 116) end
       return
     end
     local region = compat.currentRegion()
@@ -5832,56 +5925,8 @@ return function(mod)
             top + (py - oldTop) / 0.75 * tileScale, markerScale)
         end
       end
-      if THEME.style == "hgss" then
-        G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-        THEME.hgss:regionMap({ area = areaName(mapId),
-          drawMap = function(x, y, w, h)
-            local rows = math.max(1, math.ceil(#(cells or {}) / 20)
-              - (asset.gen2 and 0 or 1))
-            local scale = math.min(w / 160, h / (rows * 8))
-            local mapWidth, mapHeight = 160 * scale, rows * 8 * scale
-            local left = math.floor(x + (w - mapWidth) / 2 + 0.5)
-            local top = math.floor(y + (h - mapHeight) / 2 + 0.5)
-            paintMap(left, top, scale, 1.5)
-            local oldTop = asset.gen2 and 20 or 22
-            displayRuntime.regionMapTargets = {}
-            for _, target in ipairs(flyTargets()) do
-              local targetX, targetY = displayRuntime.hgssMapPoint(
-                target.x, target.y, left, top, scale, oldTop)
-              displayRuntime.regionMapTargets[#displayRuntime.regionMapTargets + 1] = {
-                id = target.id, name = target.name,
-                x = targetX, y = targetY,
-              }
-            end
-          end })
-        G.pop()
-        return
-      end
       paintMap(20, asset.gen2 and 20 or 22, 0.75)
     else
-      if THEME.style == "hgss" then
-        displayRuntime.regionMapTargets = {}
-        G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-        THEME.hgss:regionMap({ area = areaName(mapId),
-          drawMap = function(x, y, w, h)
-            local townMap = game.data.field and game.data.field.townMap
-            local locations = townMap and (townMap.locations or townMap) or {}
-            local playerX, playerY
-            for id, entry in pairs(locations) do
-              local c = entry.coords or entry
-              local cx, cy = tonumber(c.x or c.col), tonumber(c.y or c.row)
-              if cx and cy then
-                local px = math.floor(x + 12 + cx * 10)
-                local py = math.floor(y + 8 + cy * 9)
-                box("fill", px, py, 6, 6, DARK)
-                if id == mapId then playerX, playerY = px + 3, py + 3 end
-              end
-            end
-            if playerX then compat.drawMapMarker(playerX, playerY, 1.5) end
-          end })
-        G.pop()
-        return
-      end
       drawMapFallback()
     end
     box("fill", 4, 128, 152, 14, DARK)
@@ -6564,7 +6609,7 @@ return function(mod)
   local function drawFlyPrompt()
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:toolPrompt({ icon = "teleport", label = pendingFly.name })
+      THEME.hgss:toolPrompt({ icon = "teleport", label = pendingFly.name, prompt = "FLY TO" })
       G.pop()
       return
     end
@@ -10625,6 +10670,8 @@ return function(mod)
     if not action then return false end
     if rodId then
       useTool(action, { rod = rodId })
+    elseif action.id == "fly" and THEME.style == "hgss" then
+      page, displayRuntime.regionCursor.fly, displayRuntime.regionCursor.armed = "MAP", true, nil
     elseif action.id == "dig" or action.id == "teleport" then
       pendingAction = action
     elseif action.id == "fish" and #(action.rods or {}) > 1 then
@@ -12201,8 +12248,13 @@ return function(mod)
         local target = pendingFly
         pendingFly = nil
         if canFly() then
-          local ok, err = mod.world:flyTo(target.id)
+          local ok, err
+          if displayRuntime.gen3Field then
+            ok, err = displayRuntime.gen3Field:flyTo(target, displayRuntime.gen3Region)
+          elseif THEME.style == "hgss" or compat.isGen2() then ok, err = displayRuntime.regionFlight():fly(target)
+          else ok, err = mod.world:flyTo(target.id) end
           if not ok then mod.log:warn("fly rejected: %s", tostring(err)) end
+          if ok then displayRuntime.regionCursor.fly = false end
         end
         dirty = true
       elseif no then
@@ -12361,10 +12413,13 @@ return function(mod)
       dirty = true
       return
     end
+    if page == "MAP" and THEME.style == "hgss" then
+      displayRuntime.tapRegionMap(x, y)
+      return
+    end
     if page == "MAP" and canFly() then
       local best, distance
-      local targets = THEME.style == "hgss"
-        and displayRuntime.regionMapTargets or flyTargets()
+      local targets = flyTargets()
       for _, target in ipairs(targets or {}) do
         local d = (x - target.x) ^ 2 + (y - target.y) ^ 2
         if d <= 144 and (not distance or d < distance) then
@@ -12672,10 +12727,11 @@ return function(mod)
       tostring(top and top.picking), tostring(top and top.qtyState),
       tostring(top and top.confirm), tostring(top and top.selecting),
       tostring(not text and top and top.message ~= nil),
-      tostring(moveInfo), tostring(fieldChoice), tostring(battleInfoDetail),
+      tostring(moveInfo), tostring(fieldChoice), tostring(pendingFly), tostring(battleInfoDetail),
       tostring(partyActionSlot), tostring(displayRuntime.localSummary),
       tostring(displayRuntime.localSummary and displayRuntime.localSummary.page),
       tostring(displayRuntime.nativeSummary and displayRuntime.nativeSummary.page), tostring(page), tostring(mode),
+      tostring(page == "MAP" and displayRuntime.regionCursor.fly), tostring(page == "MAP" and mapId),
       tostring(displayRuntime.touchChoice and displayRuntime.touchChoice.page),
       tostring(page == "PSS" and (displayRuntime.pss.state .. ":"
         .. tostring(displayRuntime.pss.inUse) .. ":" .. tostring(displayRuntime.pss.selected)
@@ -12725,6 +12781,7 @@ return function(mod)
       touchDown = nil
       return
     end
+    local mapX, mapY = x and x * 240 / (sourceWidth or WIDTH), y and y * 216 / (sourceHeight or HEIGHT)
     if x and sourceWidth and sourceHeight then
       x = math.max(0, math.min(WIDTH - 1,
         math.floor(x * WIDTH / sourceWidth)))
@@ -12773,14 +12830,31 @@ return function(mod)
           or (emptyHome and hy >= 30 and "__empty" or nil)
       end
       touchDown.homeHelp = displayRuntime.homeHelpActive()
+      if mode == "active" and not battle and page == "MAP" and THEME.style == "hgss"
+          and not pendingFly and not pendingAction and not fieldChoice then
+        local model = displayRuntime.regionMapModel()
+        if model.pick and displayRuntime.RegionPage.inside(model, mapX, mapY) then
+          touchDown.mapModel, touchDown.mapX, touchDown.mapY = model, mapX, mapY
+          displayRuntime.RegionPage.select(displayRuntime.regionCursor, model, mapX, mapY)
+        end
+      end
       if speed then holdTextSpeed(true) end
       dirty = true
     elseif (action == "move" or action == "moved") and x and touchDown then
       touchDown.currentX, touchDown.currentY = x, y
+      if touchDown.mapModel then
+        if (mapX - touchDown.mapX)^2 + (mapY - touchDown.mapY)^2 >= 16 then
+          touchDown.mapMoved = true
+          displayRuntime.regionCursor.armed = nil
+        end
+        displayRuntime.RegionPage.select(displayRuntime.regionCursor, touchDown.mapModel, mapX, mapY)
+        dirty = true
+      end
     elseif action == "cancel" then
       textSpeedReleasePending = false
       holdTextSpeed(false)
       touchDown = nil
+      displayRuntime.regionCursor.armed = nil
       dirty = true
     elseif action == "tap" and x then
       -- Some hosts report down/tap/up for one gesture. Only its up may commit.
@@ -12800,6 +12874,16 @@ return function(mod)
       if not guard:allow(love.timer.getTime(), down.epoch) then
         textSpeedReleasePending = false
         holdTextSpeed(false)
+        return
+      end
+      if down.mapModel then
+        local state, Page = displayRuntime.regionCursor, displayRuntime.RegionPage
+        local target = Page.select(state, down.mapModel, mapX, mapY)
+        if down.mapMoved or (mapX - down.mapX)^2 + (mapY - down.mapY)^2 >= 16 then
+          state.armed = state.fly and target and target.flyable and canFly() and Page.targetKey(target) or nil
+        else
+          displayRuntime.dispatchTouchTap(tap, x, y)
+        end
         return
       end
       if down.homeHelp then
@@ -12909,6 +12993,7 @@ return function(mod)
     if displayRuntime.nativeMap then displayRuntime.nativeMap:release(); displayRuntime.nativeMap = nil end
     if displayRuntime.gen3Map then displayRuntime.gen3Map:release(); displayRuntime.gen3Map = nil end
     if displayRuntime.gen3Region then displayRuntime.gen3Region:release(); displayRuntime.gen3Region = nil end
+    displayRuntime.legacyRegion, displayRuntime.regionCursor = nil, {}
     game = payload.game
     displayRuntime.sourceGame = game
     displayRuntime.gen3 = nil
