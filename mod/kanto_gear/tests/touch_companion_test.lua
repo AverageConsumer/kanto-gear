@@ -70,7 +70,7 @@ local function nativeCursorPresentation(theme)
     function() H:choiceScreen({entries={entry}}) end,
     function() H:naming({name="RED",entries={entry}}) end,
     function() H:nativeGrid({entries={entry}}) end,
-    function() H:pcRoot({entries={entry}}) end,
+    function() H:actionRow(18, 104, 204, 32, "WITHDRAW", "switch", 0, H.nativeFocus and entry.selected) end,
     function() H:pcList({entries={entry}}) end,
     function() H:battleMimic({moves={move},index=1}) end,
     function() H:moveLearnList({moves={move},index=1}) end,

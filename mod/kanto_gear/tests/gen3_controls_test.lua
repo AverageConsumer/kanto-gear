@@ -109,7 +109,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw, maps)
   end
   display.StartMenu.select(m, 11); T.eq(Box.cursorSlot, 8, "sparse box slot is not compacted")
   Box.handleInput(input("a")); m = menu()
-  T.eq(m.partyActions.source,mon,"box action hero identifies the actual selected partner")
+  T.eq(m.partyActions,display.gen3:mon(mon),"box action hero identifies the actual selected partner")
   for index,entry in ipairs(m.items) do
     T.same(entry.rect,{display.gen3Ui.layout:partyActionRow(index,#m.items)},"all storage actions share common hero controls")
   end
