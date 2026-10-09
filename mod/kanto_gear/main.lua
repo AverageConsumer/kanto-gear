@@ -1262,7 +1262,7 @@ end
 
 local function battleChoice(state)
   return state and type(state.onChoose) == "function"
-    and type(state.index) == "number" and state.items == nil or false
+    and type(state.index) == "number" and state.items == nil and state.pending == nil or false
 end
 
 local function categorizedBag(state)
@@ -3166,6 +3166,7 @@ return function(mod)
 
   function compat.yesNoField(top)
     if not top or (top.messageTimer or 0) > 0 then return nil end
+    if top.screenId == "Gen2SaveMenu" and top.yesNoVisible and not top:yesNoVisible() then return nil end
     local phases = compat.yesNoFields[top.screenId]
     return phases and phases[top.phase] or nil
   end
@@ -5790,6 +5791,9 @@ return function(mod)
 
   function displayRuntime.choiceModel(top, labels, prompt, field)
     local state = top.choiceState or displayRuntime.choiceState(top, field, labels)
+    if not prompt and top.screenId == "Gen2SaveMenu" and type(top.promptText) == "function" then
+      prompt = top:promptText():gsub("[\v\f]", "\n")
+    end
     if not prompt and not displayRuntime.gen3 and game.stack:top() == top then
       local states = game.stack.states or {}
       local text = states[#states - 1]

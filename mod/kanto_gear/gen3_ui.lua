@@ -55,6 +55,7 @@ local function nativeMode(layer)
   local native = layer.mod
   -- Emerald retains mode=buy throughout list, quantity, confirmation and receipt.
   if layer.id == "shop" and native._rse then return native.state end
+  if layer.id == "save" then return native._phase end
   return native.mode or native.state or native._mode
 end
 
@@ -613,6 +614,14 @@ function UI:list(battle)
         max = math.max(1, math.min(99, math.floor((tonumber(native._session.money) or 0)
           / math.max(1, pending.price or 0)))) }
     elseif mode == "buy_confirm" then items, field, prompt = labels({ "YES", "NO" }), "yesNoCursor", native._status end
+  elseif layer.id == "save" and (mode == "confirm" or mode == "overwrite") then
+    title, items, field = "SAVE", labels({ "YES", "NO" }), "cursor"
+    local key = native._rse and (mode == "confirm" and "gText_ConfirmSave" or "gText_AlreadySavedFile")
+      or (mode == "confirm" and "gText_WouldYouLikeToSaveTheGame" or "gText_AlreadySaveFile_WouldLikeToOverwrite")
+    local pyramid = native._rse and mode == "confirm" and require("src.core.game3.rse.init").system("pyramid")
+    prompt = pyramid and pyramid.inPyramid(native._session)
+      and require("src.core.game3.scripting.text_ir").toPlain(pyramid.manifest().confirmRest.ir)
+      or RomText.plain(key)
   elseif layer.id == "pc_menu" then
     title, field = "PC", "cursor"
     if mode == "root" then items = labels(native._rootEntries())
@@ -812,6 +821,7 @@ function UI:list(battle)
         and (not sale or native._sell == sale and sale.state == saleState)
         and (layer.id ~= "box_storage" or not require("src.ui.game3.release_seq").isActive())
         and (preview or not native._hpAnim) and not native._pokedude and not native._statBoost
+        and (preview or not owner.Message.isOpen() and not owner.Choice.active)
         and (preview or not native._fx and not (native._slide and native._slide.active))
         and (preview or not native._fading)
         and (preview or not native.isPresentationBusy or not native.isPresentationBusy())
