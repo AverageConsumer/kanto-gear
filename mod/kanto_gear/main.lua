@@ -2420,6 +2420,8 @@ return function(mod)
     "@kanto_gear/touch_guard.lua"))().new()
   displayRuntime.StartMenu = assert(load(mod:read("start_menu.lua"),
     "@kanto_gear/start_menu.lua"))()
+  displayRuntime.NativeOptions = assert(load(mod:read("native_options.lua"),
+    "@kanto_gear/native_options.lua"))()
   displayRuntime.LegacyPC = assert(load(mod:read("legacy_pc.lua"),
     "@kanto_gear/legacy_pc.lua"))()
   displayRuntime.StoragePage = assert(load(mod:read("storage_page.lua"),
@@ -5009,6 +5011,11 @@ return function(mod)
   end
 
   function displayRuntime.startMenu()
+    local nativeTop = displayRuntime.gen3Ui and require("src.ui.game3.stack").top()
+      or game and game.stack and game.stack:top()
+    displayRuntime.nativeOptionsView = THEME.style == "hgss" and displayRuntime.NativeOptions.project(nativeTop, game,
+      displayRuntime.gen3Ui and 3 or compat.isGen2() and 2 or 1, displayRuntime.nativeOptionsView)
+    if displayRuntime.nativeOptionsView then return displayRuntime.nativeOptionsView end
     if displayRuntime.gen3Ui then
       return displayRuntime.decorateBagList(displayRuntime.gen3Ui:list(battle))
     end
@@ -5099,7 +5106,9 @@ return function(mod)
     end
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if top.nativeStats then
+      if top.optionsModel then
+        displayRuntime.NativeOptions.draw(THEME.hgss, top.optionsModel)
+      elseif top.nativeStats then
         local result = top.levelStats
         THEME.hgss:levelUp(displayRuntime.levelUpModel(result.mon, result.gain, result.stats, result.source))
       elseif top.namingModel and not top.notice then
@@ -11703,6 +11712,15 @@ return function(mod)
 
   function displayRuntime.tapStartMenu(top, x, y)
     if not displayRuntime.StartMenu.cursor(top) then return end
+    if top.optionsModel and THEME.style == "hgss" then
+      local action, key = displayRuntime.NativeOptions.hit(top.optionsModel, x * THEME.hgssScale, y * THEME.hgssScale)
+      if action == "back" then press("b")
+      elseif action == "previous" or action == "next" then
+        displayRuntime.StartMenu.select(top, top.optionsModel.first + (action == "next" and 4 or -4))
+      elseif type(action) == "number" and displayRuntime.StartMenu.select(top, action) then press(key) end
+      dirty = true
+      return
+    end
     if top.recentBag and THEME.style == "hgss"
         and inside(x * THEME.hgssScale, y * THEME.hgssScale, 6, 33, 228, 33) then
       displayRuntime.selectRecentBagItem(top)
@@ -12546,6 +12564,11 @@ return function(mod)
     local native = displayRuntime.startMenu()
     if native and not native.choiceState then
       local menu = displayRuntime.StartMenu
+      if native.optionsModel then
+        local nextFirst = direction and native.optionsModel.first + direction * 4
+        if nextFirst and nextFirst >= 1 and nextFirst < #native.items then menu.select(native, nextFirst); dirty = true end
+        return true
+      end
       if native.moveSelection and native.moveSelection.catalogue then
         local model = displayRuntime.moveSelectionModel(native.moveSelection)
         local nextFirst = direction and model.first + direction * 4
