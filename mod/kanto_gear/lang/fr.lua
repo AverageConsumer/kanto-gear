@@ -1,4 +1,10 @@
 return {
+  ["NPC TRADE"] = false,
+  ["NEED SPACE"] = false,
+  ["NPC OFFER"] = false,
+  ["GIFT"] = false,
+  ["OFFER"] = false,
+  ["BRING %s"] = false,
   ["NPC GIFT"] = false,
   ["TALK TO NPC"] = false,
   ["UNOWN MODE"] = false,

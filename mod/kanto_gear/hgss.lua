@@ -3237,7 +3237,7 @@ return function(ui)
 
   local function explorerMapFocus(model)
     local marker = model.selectedMarker
-    return marker and (marker.kind == "trainer" or marker.kind == "fruit")
+    return marker and (marker.kind == "trainer" or marker.kind == "fruit" or marker.gift)
       and marker or model.player
   end
   do
@@ -3702,13 +3702,36 @@ return function(ui)
     if selected and view == "wild" then
       local wildAccent = self:typeColor(selected.type)
       self:panel(7, 99, 226, 111, false, nil, wildAccent)
-      self:partyPortrait(16, 106, false, false)
-      if model.drawPokemon then model.drawPokemon(selected, 16, 109, 34) end
-      self:partyInfo(self:fitPartyInfo(selected.name, 100),
-        58, 107, colors.ink)
-      self:partyInfo(self:fitPartyInfo(translate(selected.caught and "CAUGHT"
-        or "NOT CAUGHT"), 100), 58, 122, colors.green)
-      self:typeBadges(selected, 58, 136, false)
+      local status = selected.gift and (selected.excluded and "ALTERNATIVE CHOICE"
+        or selected.done and "RECORDED" or selected.noRoom and "NEED SPACE" or selected.status or "OPEN")
+        or selected.caught and "CAUGHT" or "NOT CAUGHT"
+      local name = self:fitPartyInfo(selected.name, selected.gift and 140 or 100)
+      status = self:fitPartyInfo(translate(status), selected.gift and 140 or 100)
+      local portraitX, textX, textWidth, badgeX = 16, 58, 100, 58
+      if selected.gift then
+        local dual = selected.type2 and selected.type2 ~= selected.type
+        textWidth = math.max(self:partyInfoWidth(name), self:partyInfoWidth(status), dual and 43 or 23)
+        portraitX = 7 + math.floor((226 - 42 - textWidth) / 2)
+        textX = portraitX + 42
+        badgeX = textX + math.floor((textWidth - (dual and 43 or 23)) / 2) - (dual and 0 or 10)
+      end
+      self:partyPortrait(portraitX, 106, false, false)
+      if model.drawPokemon then model.drawPokemon(selected, portraitX, 109, 34) end
+      self:partyInfo(name, textX, 107, colors.ink,
+        selected.gift and textWidth or nil, selected.gift and "center" or nil)
+      self:partyInfo(status, textX, 122, colors.green,
+        selected.gift and textWidth or nil, selected.gift and "center" or nil)
+      self:typeBadges(selected, badgeX, 136, false)
+      if selected.gift then
+        self:panel(12, 150, 216, 53, false, nil, wildAccent)
+        self:partyType(self:fitPartyType(translate(selected.method), 202), 19, 155, colors.green, 202)
+        local requirement = selected.needsSpeciesName and string.format(translate("BRING %s"), selected.needsSpeciesName)
+          or selected.cost and "$" .. tostring(selected.cost) or translate("TALK TO NPC")
+        self:partyInfo(self:fitPartyInfo(requirement, 202), 19, 169, colors.ink, 202, "center")
+        self:partyType(selected.level and "L" .. tostring(selected.level) or translate("TALK TO NPC"),
+          19, 190, colors.green, 202)
+        return
+      end
       if model.detailPages > 1 then
         pager(166, 106, 58, model.detailPage, model.detailPages)
       else
@@ -3853,7 +3876,10 @@ return function(ui)
         if model.drawPokemon then
           model.drawPokemon(row, x + 1, baseY + 4, 32, uncaught)
         end
-        if row.best then
+        if row.gift then
+          self:partyType(translate(row.trade and "TRADE" or row.cost and "OFFER" or "GIFT"),
+            x - 9, baseY + 36, row.available and colors.ink or colors.mutedInk, 52)
+        elseif row.best then
           local odds = tostring(row.best.chance or 0) .. "%"
           local method = self:fitPartyType(translate(row.best.method),
             52 - fontWidth(partyTypeFont, odds) - 4)

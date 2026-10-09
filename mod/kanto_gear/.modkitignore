@@ -97,3 +97,4 @@ tests/native_dex3_test.lua
 tests/evolutions_cases.lua
 tests/gen2_gifts_test.lua
 tests/gen1_gifts_test.lua
+tests/gen1_rewards_test.lua

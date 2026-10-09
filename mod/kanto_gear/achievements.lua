@@ -104,19 +104,26 @@ function M.build(groups, read, context, checkpoint)
       area.done, area.total = area.done + section.done, area.total + section.total
     end
     area.fieldTotal, area.fieldDone = area.total, area.done
-    local pokemon = { rows = {}, total = 0, done = 0 }
+    local pokemon = { rows = {}, total = 0, done = 0, unavailable = 0,
+      excluded = 0, untracked = 0, repeatable = 0, optional = 0 }
     for _, source in ipairs(sourceData.pokemon or {}) do
       local row = {}
       for key, value in pairs(source) do row[key] = value end
-      row.state = row.done and "done" or "open"
+      row.state = row.gift and M.rowState(row, 4, context) or row.done and "done" or "open"
       pokemon.rows[#pokemon.rows + 1] = row
-      pokemon.total = pokemon.total + 1
-      if row.done then pokemon.done = pokemon.done + 1 end
+      if row.state == "excluded" or row.state == "untracked" or row.state == "repeatable" or row.state == "optional" then
+        pokemon[row.state] = pokemon[row.state] + 1
+      else
+        pokemon.total = pokemon.total + 1
+        if row.state == "done" then pokemon.done = pokemon.done + 1 end
+        if row.state == "unavailable" then pokemon.unavailable = pokemon.unavailable + 1 end
+      end
+      area.evidence = area.evidence or row.gift and row.state == "done"
     end
     area.sections[4] = pokemon
     area.total, area.done = area.total + pokemon.total, area.done + pokemon.done
     area.remaining = area.total - area.done
-    area.availableRemaining = area.remaining
+    area.availableRemaining = area.remaining - pokemon.unavailable
     local unknown = 0
     for i = 1, 3 do
       unknown = unknown + area.sections[i].untracked
@@ -214,7 +221,7 @@ function M.visible(result, mode)
     local open = area.sections[1].total - area.sections[1].done
       + area.sections[2].total - area.sections[2].done
       + area.sections[4].total - area.sections[4].done
-      - area.sections[1].unavailable - area.sections[2].unavailable
+      - area.sections[1].unavailable - area.sections[2].unavailable - (area.sections[4].unavailable or 0)
     -- Do not advertise an undiscovered hidden item's existence outside Spoiler.
     if mode == "spoiler" or mode ~= "vanilla" and open > 0 then goals[#goals + 1] = area end
   end
@@ -231,7 +238,10 @@ function M.visibleRows(area, category, mode)
     local order = { open = 1, later = 2, optional = 3, done = 4,
       unavailable = 5, untracked = 6, excluded = 7, repeatable = 8 }
     if order[a.state] ~= order[b.state] then return order[a.state] < order[b.state] end
-    if category == 4 then return a.order < b.order end
+    if category == 4 then
+      if (a.order or 0) ~= (b.order or 0) then return (a.order or 0) < (b.order or 0) end
+      return tostring(a.id or a.species) < tostring(b.id or b.species)
+    end
     return (a.mapId .. ":" .. tostring(a.y) .. ":" .. tostring(a.x))
       < (b.mapId .. ":" .. tostring(b.y) .. ":" .. tostring(b.x))
   end)

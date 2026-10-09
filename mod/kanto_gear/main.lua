@@ -4229,6 +4229,7 @@ return function(mod)
       return { name = areaName(mapId), screens = screens, pages = #screens,
         sections = sections, remaining = Area.remaining(sections) }
     end
+    local pokemon = {}
     local showFuture = completion or assist("spoilers")
     for _, id in ipairs(maps) do
       if checkpoint then checkpoint() end
@@ -4293,7 +4294,8 @@ return function(mod)
         end
       end
       for _, gift in ipairs(Area.gen1Gifts(data, save, id, map, checkpoint)) do
-        sections[2].rows[#sections[2].rows + 1] = Area.pickupBounds(gift, map)
+        local rows = gift.species and pokemon or sections[2].rows
+        rows[#rows + 1] = Area.pickupBounds(gift, map)
       end
       for _, hidden in ipairs(field.hiddenItems and field.hiddenItems[id] or {}) do
         local item = data.items and data.items[hidden.item]
@@ -4316,7 +4318,7 @@ return function(mod)
     if not completion then displayRuntime.visibleAreaSections(sections) end
     local screens = checklistPages(sections)
     return { name = areaName(mapId), screens = screens, pages = #screens,
-      sections = sections, remaining = Area.remaining(sections) }
+      sections = sections, pokemon = pokemon, remaining = Area.remaining(sections) }
   end
 
   function displayRuntime.achievementData(currentOnly, advance)
@@ -4384,7 +4386,7 @@ return function(mod)
           species = guideData(maps, true, checkpoint).rows
           state.species[maps[1]] = species
         end
-        result.pokemon = {}
+        result.pokemon = result.pokemon or {}
         for _, row in ipairs(species) do
           result.pokemon[#result.pokemon + 1] = { species = row.species,
             label = (game.data.pokemon[row.species] or {}).name or row.name,
@@ -4425,6 +4427,9 @@ return function(mod)
   function displayRuntime.presentAchievement(area)
     return displayRuntime.Achievements.presentArea(area, displayRuntime.discoveryMode(), function(row, category)
       if category == 4 then
+        if row.gift then
+          return Discovery.row(displayRuntime.discoveryMode(), row, category, displayRuntime.knownMap(row.mapId))
+        end
         return displayRuntime.knownMap(row.mapId) and displayRuntime.knownSpecies(row.species)
       end
       return Discovery.row(displayRuntime.discoveryMode(), row, category, displayRuntime.knownMap(row.mapId))
@@ -6571,7 +6576,7 @@ return function(mod)
           and displayRuntime.fruitTrees.rows(game.data, id) or {},
         guide = guideEnabled and guideData()
           or { rows = {}, caught = 0, time = "DAY", timed = false },
-        area = areaEnabled and areaData({ id }, true)
+        area = (areaEnabled or guideEnabled and not compat.isGen2() and not displayRuntime.gen3) and areaData({ id }, true)
           or { sections = { { rows = {} }, { rows = {} }, { rows = {} } } },
       }
       explorer.data = cached
@@ -6592,11 +6597,12 @@ return function(mod)
     end
     local sections = area.sections or { { rows = {} }, { rows = {} },
       { rows = {} } }
-    local allTrainers, allItems, wild = Discovery.filter(sections[1].rows, function(row)
+    local allTrainers, allItems, wild = Discovery.filter(areaEnabled and sections[1].rows or {}, function(row)
       return Discovery.row(displayRuntime.discoveryMode(), row, 1, displayRuntime.knownMap(row.mapId or id))
     end), {}, {}
-    for _, row in ipairs(sections[2].rows) do allItems[#allItems + 1] = row end
-    for _, row in ipairs(sections[3].rows) do allItems[#allItems + 1] = row end
+    for _, row in ipairs(areaEnabled and sections[2].rows or {}) do allItems[#allItems + 1] = row end
+    for _, row in ipairs(areaEnabled and sections[3].rows or {}) do allItems[#allItems + 1] = row end
+    for _, row in ipairs(guideEnabled and area.pokemon or {}) do allItems[#allItems + 1] = row end
 
     local filters = explorer.filters
     filters.wildScope = filters.wildScope == "ROUTE" and "ROUTE" or "HERE"
@@ -6670,9 +6676,26 @@ return function(mod)
         and "USE ITEMFINDER" or row.gift and "TALK TO NPC" or "MARKED ON MAP")
     end
     allItems = Discovery.filter(allItems, function(row)
-      return Discovery.row(displayRuntime.discoveryMode(), row, row.kind == "hidden" and 3 or 2,
+      return Discovery.row(displayRuntime.discoveryMode(), row, row.species and 4 or row.kind == "hidden" and 3 or 2,
         displayRuntime.knownMap(row.mapId or id))
     end)
+    local gifts, items = {}, {}
+    for _, row in ipairs(allItems) do
+      if row.species then
+        if filters.wildScope == "ROUTE" or row.available and row.mapVisible ~= false
+            and not row.outsideMap and not row.done and not row.excluded then
+          row.key, row.name, row.caught = row.id, row.label, row.done
+          row.method = row.trade and "NPC TRADE" or row.cost and "NPC OFFER" or "NPC GIFT"
+          row.needsSpeciesName = row.needsSpecies and ((game.data.pokemon[row.needsSpecies] or {}).name or row.needsSpecies)
+          row.best, row.matches, row.detailPages = nil, {}, 1
+          gifts[#gifts + 1] = row
+        end
+      else items[#items + 1] = row end
+    end
+    allItems = items
+    for i = #gifts, 1, -1 do
+      if gifts[i].available then table.insert(wild, 1, gifts[i]) else wild[#wild + 1] = gifts[i] end
+    end
     local mapItems = Discovery.filter(allItems, function(row) return not row.outsideMap end)
     for _, row in ipairs(wild) do
       local def = game.data.pokemon and game.data.pokemon[row.species] or {}
@@ -6718,6 +6741,14 @@ return function(mod)
         local marker = { kind = row.kind, x = row.x, y = row.y,
           found = row.done, scanned = row.scanned, source = row,
           gift = row.gift, actor = row.actor or row, state = row.done and "beaten" or "open" }
+        markers[#markers + 1] = marker
+        if row == selected then selectedMarker = marker end
+      end
+    end
+    for _, row in ipairs(gifts) do
+      if row.mapVisible ~= false and not row.excluded and not row.outsideMap and row.x ~= nil and row.y ~= nil then
+        local marker = { kind = "pokemon", gift = true, x = row.x, y = row.y, source = row,
+          actor = row.actor or row, state = row.done and "beaten" or "open" }
         markers[#markers + 1] = marker
         if row == selected then selectedMarker = marker end
       end
@@ -12590,7 +12621,8 @@ return function(mod)
       elseif action == "marker" and model.markers[slot]
           and model.markers[slot].source then
         displayRuntime.explorer.view = model.markers[slot].kind == "trainer"
-          and "trainers" or model.markers[slot].kind == "fruit" and "fruit" or "items"
+          and "trainers" or model.markers[slot].kind == "fruit" and "fruit"
+          or model.markers[slot].kind == "pokemon" and "wild" or "items"
         displayRuntime.explorer.selected = model.markers[slot].source.key
         displayRuntime.explorer.detailPage = 1
         displayRuntime.explorer.mapFull = false
