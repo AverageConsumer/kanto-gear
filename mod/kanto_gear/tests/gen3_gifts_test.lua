@@ -49,7 +49,7 @@ for id in pairs(raw.data.maps) do
   for _, r in ipairs(model:catalog(id)[4]) do if r.gift and not r.trade then all = all + 1 end end
 end
 check(Json.encode(Schema.toSaveTable(session)) == before, "catalogue cannot give Pokemon or advance RNG")
-check(all == 6, "all proven gifts and eggs, without speculative fossil receipts: " .. all)
+check(all == (edition == "emerald" and 6 or 9), "all proven gifts and eggs, without speculative fossil receipts: " .. all)
 for _, e in ipairs(expected) do
   local map, receipt, species, egg = unpack(e)
   flag(receipt, false)
@@ -106,7 +106,7 @@ if edition ~= "emerald" then
   local dojo = model:pokemon({ "FR_SAFFRON_CITY_DOJO" })
   check(#dojo == 1 and dojo[1].label:find("/", 1, true), "both dojo choices form one receipt goal")
 end
-local johto = {}
+local johto, fossils = {}, {}
 if edition == "emerald" then
   local map = "EM_LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB"
   local var = model.constants:var("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE")
@@ -144,6 +144,86 @@ if edition == "emerald" then
   gifts(); model:pokemon({ map })
   check(Json.encode(Schema.toSaveTable(session)) == before, "Johto queries cannot alter native state or RNG")
 end
+if edition ~= "emerald" then
+  local map = "FR_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM"
+  local function state(stage, kind)
+    Flags.setVar(session, nil, 0x406A, stage)
+    Flags.setVar(session, nil, 0x4069, kind)
+  end
+  local function goals()
+    local out = {}
+    for _, row in ipairs(model:pokemon({ map })) do if not row.trade then out[#out + 1] = row end end
+    return out
+  end
+  local function stamp()
+    return Progress.build({ { id = map, name = map, maps = { map } } }, function(ids)
+      local r = model:rows(ids)
+      return { sections = { { rows = r[1] }, { rows = r[2] }, { rows = r[3] } }, pokemon = model:pokemon(ids) }
+    end, { save = adapter.save, gen3 = true, mapId = map }).areas[1]
+  end
+  session.party = { { species = 1, level = 5 } }
+  for _, entry in ipairs({ { 749, 138 }, { 748, 140 }, { 750, 142 } }) do
+    local row = reward(map, entry[1])
+    check(row.species == entry[2] and row.level == 5 and row.toPC, "fossil has native species, level and PC contract")
+    fossils[#fossils + 1] = row
+    adapter.save.pokedex.caught[row.species] = true
+    check(not row.done, "a fossil caught elsewhere cannot prove laboratory receipt")
+  end
+  check(#goals() == 2, "before choice one Mt Moon fossil and Amber are required, separately from the Seel trade")
+  check(stamp().sections[4].total == 3 and stamp().sections[4].done == 0,
+    "Stamps counts two fossil goals and the separate Seel trade, without caught-dex shortcuts")
+  for stage = 0, 2 do
+    for kind = 1, 3 do
+      state(stage, kind)
+      local ready = 0
+      for _, row in ipairs(model:rows({ map })[4]) do
+        if row.available then
+          ready = ready + 1
+          check(row.species == ({ 138, 140, 142 })[kind], "only the fossil currently being revived is ready")
+        end
+      end
+      check(ready == (stage == 2 and 1 or 0), "idle and unfinished revival are not immediate offers")
+    end
+  end
+  for _, choice in ipairs({ { 627, 626, 749, 138 }, { 626, 627, 748, 140 } }) do
+    flag(choice[1], true); flag(choice[2], false)
+    check(#goals() == 2, "selected fossil and Amber remain two goals")
+    local selected = reward(map, choice[3])
+    check(not selected.excluded, "own fossil choice stays required")
+    for _, row in ipairs(model:rows({ map })[4]) do
+      if row.choiceEvent == choice[2] then check(row.excluded and not row.available, "unchosen fossil is excluded") end
+    end
+    flag(choice[3], true); flag(750, true)
+    session.party = {}
+    for _, goal in ipairs(goals()) do check(goal.done, "receipts survive release and complete native fossil goals") end
+    check(stamp().tier == "silver", "completed fossils cannot waive the independent Seel trade")
+    flag(630, true)
+    check(stamp().tier == "gold", "received fossils and Seel trade complete the actual laboratory stamp")
+    flag(630, false)
+    local restored = Schema.fromSaveTable(Schema.toSaveTable(session))
+    check(Flags.getFlag(restored, nil, choice[3]), "revival receipt survives save roundtrip")
+    flag(choice[3], false); flag(750, false)
+    for _, goal in ipairs(goals()) do check(not goal.done, "older save restores unreceived fossils despite caught dex") end
+    flag(choice[1], false)
+  end
+  flag(626, true); flag(627, true)
+  check(#goals() == 3, "a modified save with both fossils retains both real receipt goals")
+  for _, row in ipairs(model:rows({ map })[4]) do check(not row.excluded, "own choice flags prevent false exclusion when both exist") end
+  flag(626, false); flag(627, false)
+  state(0, 0)
+  before = Json.encode(Schema.toSaveTable(session))
+  model:rows({ map }); model:pokemon({ map })
+  check(Json.encode(Schema.toSaveTable(session)) == before, "fossil queries cannot hand in items or change revival state")
+else
+  local map = "EM_RUSTBORO_CITY_DEVON_CORP_2F"
+  check(#model:pokemon({ map }) == 2, "Emerald keeps both fossil species as separate catch goals")
+  check(#model:rows({ map })[4] == 0, "shared Emerald flag cannot prove either unique fossil receipt")
+  flag(267, true)
+  for _, goal in ipairs(model:pokemon({ map })) do check(not goal.done, "one shared receipt cannot complete both Emerald species") end
+  adapter.save.pokedex.caught[388] = true
+  for _, goal in ipairs(model:pokemon({ map })) do check(goal.done == (goal.species == 388), "Emerald fossils retain separate honest caught goals") end
+  flag(267, false)
+end
 -- A failed delivery must never be mistaken for a valid receipt.
 local function giftGraph(bad, mutate)
   local scripts = { main = { { op = "checkflag", flag = 700 },
@@ -174,6 +254,28 @@ check(#giftGraph(false, function(s)
   s.main[5] = { op = "goto_if", cond = 1, target = "loop" }
   s.loop = { { op = "goto", target = "loop" } }
 end) == 0, "a gift path looping before its receipt cannot prove completion")
+local function separateDelivery(s)
+  s.delivery = { s.main[3], s.main[4], s.main[5], s.main[6], s.main[7] }
+  s.main[3] = { op = "multichoice", 0, 0, 1 }
+  s.main[4] = { op = "goto", target = "delivery" }
+  for i = #s.main, 5, -1 do s.main[i] = nil end
+end
+check(#giftGraph(false, separateDelivery) == 1, "a unique receipt is provable inside its own delivery block")
+check(#giftGraph(false, function(s)
+  separateDelivery(s); table.insert(s.main, 3, { op = "setflag", flag = 700 })
+end) == 0, "a second writer outside delivery invalidates local receipt proof")
+check(#giftGraph(false, function(s)
+  separateDelivery(s)
+  s.writer = { s.delivery[4], { op = "return" } }
+  s.delivery[4] = { op = "call", target = "writer" }
+end) == 0, "a shared external writer cannot be proven from a delivery block")
+check(#giftGraph(false, function(s)
+  separateDelivery(s); s.main[3] = { op = "goto", target = "done" }
+end) == 0, "known unreachable reward cannot become a mandatory receipt goal")
+check(#giftGraph(false, function(s)
+  separateDelivery(s); s.loop = { { op = "goto", target = "loop" } }
+  s.main[3] = { op = "goto", target = "loop" }
+end) == 0, "unreachable reward behind an unconditional loop cannot become a receipt goal")
 if edition == "emerald" then
   local var = model.constants:var("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE")
   local function variableReceipt(s)
@@ -226,12 +328,19 @@ do
   local sources = {}
   for _, e in ipairs(expected) do sources[#sources + 1] = reward(e[1], e[2]) end
   for _, source in ipairs(johto) do sources[#sources + 1] = source end
+  for _, source in ipairs(fossils) do sources[#sources + 1] = source end
   for _, source in ipairs(sources) do
     local map, receipt, egg = source.mapId, source.event, source.isEgg
     local event, object = Space.bundle.events[map]
     for _, o in ipairs(event.objects) do if o.localId == source.index then object = o end end
     check(object ~= nil, "gift is attached to its actual native NPC")
     for scenario = 1, 3 do
+      if map == "FR_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM" then
+        for _, id in ipairs({ 748, 749, 750, 626, 627 }) do flag(id, false) end
+        Flags.setVar(session, nil, 0x406A, 2)
+        Flags.setVar(session, nil, 0x4069, ({ [138] = 1, [140] = 2, [142] = 3 })[source.species])
+        if source.choiceEvent then flag(source.choiceEvent, true) end
+      end
       if source.receiptVar then Flags.setVar(session, nil, source.receiptVar, source.receiptValue - 1)
       else flag(receipt, false) end
       if source.hideEvent and source.hideEvent >= 0x20 then flag(source.hideEvent, false) end
@@ -290,6 +399,11 @@ do
   Space.active = false
   for _, box in ipairs(session.storage.boxes) do box.mons = {} end
   for _, e in ipairs(expected) do flag(e[2], false) end
+  for _, source in ipairs(fossils) do flag(source.event, false) end
+  if #fossils > 0 then
+    flag(626, false); flag(627, false)
+    Flags.setVar(session, nil, 0x406A, 0)
+  end
   if #johto > 0 then Flags.setVar(session, nil, johto[1].receiptVar, 5) end
 end
 
@@ -368,6 +482,26 @@ if #johto > 0 then
   check(display.achievements.progressKeys == 1, "native variable write invalidates Stamps without a flag event")
   Flags.setVar(session, nil, johto[1].receiptVar, 5)
   if os.getenv("KANTO_GEAR_PREVIEW_JOHTO") ~= "1" then offer = original; session.map = offer.map end
+  display.gen3:refresh()
+end
+if #fossils > 0 then
+  local original = offer
+  offer = { map = fossils[1].mapId, source = fossils[1] }
+  session.map, overview.mapId = offer.map, offer.map
+  explorer.filters.wildScope = "HERE"
+  flag(627, true); flag(626, false)
+  Flags.setVar(session, nil, 0x4069, 1)
+  for stage = 0, 2 do
+    Flags.setVar(session, nil, 0x406A, stage)
+    display.gen3:refresh()
+    local rows = explorerModel().rows
+    check(#rows == (stage == 2 and 1 or 0), "HERE NOW shows only completed native fossil revival")
+    if stage == 2 then check(rows[1].id == fossils[1].id and rows[1].method == "NPC GIFT", "Explorer points to the right laboratory reward") end
+  end
+  flag(fossils[1].event, true)
+  check(#explorerModel().rows == 0, "recorded laboratory receipt leaves HERE NOW")
+  flag(fossils[1].event, false)
+  if os.getenv("KANTO_GEAR_PREVIEW_FOSSIL") ~= "1" then offer = original; session.map = offer.map end
   display.gen3:refresh()
 end
 if _G.KANTO_GEAR_RENDER_CAPTURE then _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, offer) end

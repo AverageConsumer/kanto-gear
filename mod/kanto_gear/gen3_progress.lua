@@ -366,7 +366,7 @@ function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
     if row.op == "setvar" and (row.var or row[1]) == starterVar
         and (row.value or row[2]) == 6 then starterWritten = true end
     local flag = row.flag or row[1]
-    if row.op == "setflag" then written[flag] = true
+    if row.op == "setflag" then written[flag] = (written[flag] or 0) + 1
     elseif row.op == "checkflag" then checked[flag] = true
     elseif row.op == "clearflag" then cleared[flag] = true
     elseif row.op == "removeobject" and (row.localId or row[1]) == obj.localId
@@ -384,7 +384,19 @@ function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
   if starterChecked and starterWritten then receipts[#receipts + 1] = { var = starterVar, value = 6 } end
   -- shortcut: repeated fossil/casino rewards retain their catch goals until a
   -- distinct receipt can be proven; temporary variables are never receipts.
+  local keys = { key }
+  for _, row in ipairs(rows) do
+    if row.target then keys[#keys + 1] = row.target end
+    if row.eventScript then keys[#keys + 1] = row.eventScript end
+  end
   for _, command in ipairs(commands) do
+    local localKey
+    -- A single receipt writer in this delivery block cannot belong to another
+    -- reward. This also proves branches selected by a persistent native variable.
+    for _, entry in ipairs(keys) do
+      for _, row in ipairs(scripts[entry] or {}) do if row == command then localKey = entry; break end end
+      if localKey then break end
+    end
     local species = type(command[1]) == "number" and command[1] or nil
     if species and species >= 0x4000 then
       local choices = sortedKeys(vars[species]); species = #choices == 1 and choices[1] or nil
@@ -394,10 +406,22 @@ function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
         local success = { party = 1, result = 0, firered = not self.emerald }
         local failure = { party = 6, result = 2, firered = not self.emerald }
         local pc = { party = 6, result = 1, firered = not self.emerald }
-        if pokemonPath(scripts, key, command, receipt, success, checkpoint) == true
-            and pokemonPath(scripts, key, command, receipt, failure, checkpoint) == false then
+        local proofKey = key
+        local proof = pokemonPath(scripts, key, command, receipt, success, checkpoint)
+        if proof == nil and written[receipt] == 1 and localKey
+            and reaches(scripts, key, command, receipt, 0, false, checkpoint) == true then
+          for _, row in ipairs(scripts[localKey]) do
+            if row.op == "setflag" and (row.flag or row[1]) == receipt then
+              proofKey = localKey
+              proof = pokemonPath(scripts, proofKey, command, receipt, success, checkpoint)
+              break
+            end
+          end
+        end
+        if proof == true
+            and pokemonPath(scripts, proofKey, command, receipt, failure, checkpoint) == false then
           local isEgg = command.op == "giveegg"
-          local box = not isEgg and pokemonPath(scripts, key, command, receipt, pc, checkpoint) == true
+          local box = not isEgg and pokemonPath(scripts, proofKey, command, receipt, pc, checkpoint) == true
           local cost
           for _, r in ipairs(rows) do if r.op == "checkmoney" then cost = r[1] end end
           out[#out + 1] = { species = species, level = not isEgg and command[2] or nil,
@@ -471,6 +495,10 @@ function M:catalog(mapId, checkpoint)
         local row = base(obj)
         for k, v in pairs(offer) do row[k] = v end
         row.id, row.kind, row.gift = mapId .. "_gift_" .. key, "pokemon", true
+        if mapId == "FR_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM" then
+          if row.species == 138 and row.event == 749 then row.alternative, row.choiceEvent = 626, 627
+          elseif row.species == 140 and row.event == 748 then row.alternative, row.choiceEvent = 627, 626 end
+        end
         gifts[key], out[4][#out[4] + 1] = row, row
       end
     end
@@ -684,7 +712,8 @@ function M:rows(mapIds, checkpoint)
             row.done = self:ownsKey(row.itemId)
           end
           if row.itemId then row.label = (adapter.data.items[row.itemId] or {}).name or "ITEMS" end
-          row.excluded = row.alternative and not row.done and flag(row.alternative) or nil
+          row.excluded = row.alternative and not row.done and flag(row.alternative)
+            and not (row.choiceEvent and flag(row.choiceEvent)) or nil
           if row.repeatable then
             row.available, row.done = not flag(row.event), false
             row.status = (category == 1 or not row.event) and "REPEATABLE" or row.available and "READY" or "RENEWABLE"
@@ -723,7 +752,7 @@ function M:rows(mapIds, checkpoint)
             local friendship = lead and adapter.Pokemon.friendshipOf(lead) or 0
             local score = friendship == 255 and 6 or friendship >= 200 and 5 or friendship >= 150 and 4
               or friendship >= 100 and 3 or friendship >= 50 and 2 or friendship > 0 and 1 or 0
-            row.available = not row.done and row.available ~= false and not row.noRoom
+            row.available = not row.done and not row.excluded and row.available ~= false and not row.noRoom
               and pokemonPath(self.source.scripts, row.scriptKey, row.command,
                 row.event or { var = row.receiptVar, value = row.receiptValue },
                 { live = true, party = party, money = session.money or 0, gender = session.gender,
@@ -787,9 +816,13 @@ function M:pokemon(mapIds, checkpoint)
   local choices = {}
   for _, row in ipairs(self:rows(mapIds, checkpoint)[4]) do
     local receipt = row.event or (row.receiptVar and "var:" .. row.receiptVar .. ":" .. row.receiptValue)
+    if row.alternative and not (adapter.Flags.getFlag(adapter:flagStore(), nil, 626)
+        and adapter.Flags.getFlag(adapter:flagStore(), nil, 627)) then receipt = "fossil-choice" end
     local existing = not row.trade and choices[receipt]
-    if existing then
+    if row.excluded then -- The other Mt. Moon fossil is unobtainable in this save.
+    elseif existing then
       existing.label = existing.label .. " / " .. row.label
+      existing.done = existing.done or row.done
     else
       out[#out + 1] = row
       if not row.trade then choices[receipt] = row end
