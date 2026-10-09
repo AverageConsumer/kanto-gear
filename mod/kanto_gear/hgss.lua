@@ -3857,7 +3857,7 @@ return function(ui)
       end
       self:endPress(pressed)
     end
-    if not model.fixedLayout and model.total > 5 then self:menuPager(model) end
+    if not model.fixedLayout and model.total > (model.visible or 5) then self:menuPager(model) end
   end
 
   function H:menuPager(model)
@@ -4455,7 +4455,7 @@ return function(ui)
   end
 
   function H:battleRoot(mon, drawPortrait, playerTeam, enemyTeam, selected)
-    selected = selected or 1
+    selected = self.nativeFocus and selected or nil
     self:battleTeamStrip(playerTeam, enemyTeam)
     self:battleFightAction(mon, drawPortrait, selected == 1)
     self:battleBagAction(mon, selected == 3)
@@ -5307,7 +5307,7 @@ return function(ui)
 
   function H:battleBagWindow(bag)
     local items = bag.items or {}
-    local count = math.min(4, #items)
+    local count = math.min(bag.recent and 3 or 4, #items)
     local first = math.max(1, math.min((bag.index or 1) - 1,
       #items - count + 1))
     return first, count
@@ -5414,16 +5414,30 @@ return function(ui)
     self:partyInfo(page, 197, 45, colors.ink, 23, "center")
     self:pageChevron(222, 51, true, (model.pages or 1) > 1)
 
+    if model.recent then self:recentBagItem(model.recent, 72, model.canUse) end
     if #(model.entries or {}) == 0 then
-      self:panel(24, 91, 192, 70, false)
-      self:partyInfo(translate("THIS POCKET IS EMPTY."), 25, 120,
+      self:panel(24, model.recent and 115 or 91, 192, 70, false)
+      self:partyInfo(translate("THIS POCKET IS EMPTY."), 24, model.recent and 144 or 120,
         colors.mutedInk, 192, "center")
       return
     end
     for index, item in ipairs(model.entries or {}) do
       local col, row = (index - 1) % 2, math.floor((index - 1) / 2)
-      self:bagCard(item, 6 + col * 116, 72 + row * 47)
+      self:bagCard(item, 6 + col * 116, (model.recent and 109 or 72) + row * 47)
     end
+  end
+
+  function H:recentBagItem(item, y, enabled)
+    local colors = self.colors
+    local pressed = self:beginPress(6, y, 228, 33, enabled ~= false)
+    self:panel(6, y, 228, 33, false, nil, colors.amberLight)
+    self:battleItemIcon(item, 14, y + 8, self:itemAccent(item.icon))
+    box("fill", 38, y + 5, 1, 23, colors.band)
+    self:partyType(translate("LAST USED"), 45, y + 4, colors.mutedInk, 158)
+    self:partyInfo(self:fitPartyInfo(item.label, 158), 45, y + 17,
+      enabled ~= false and colors.ink or colors.disabledInk, 158, "center")
+    self:partyInfo("x" .. tostring(item.count), 204, y + 12, colors.mutedInk, 24, "center")
+    self:endPress(pressed)
   end
 
   function H:bagDetail(model)
@@ -5471,6 +5485,8 @@ return function(ui)
           and model.canUse ~= false then return "use" end
       return nil
     end
+    if model.recent and model.canUse ~= false and x >= 6 and x < 234
+        and y >= 72 and y < 105 then return "recent" end
     if y >= 34 and y < 68 then
       if (model.pockets or 1) > 1 and x >= 48 and x < 69 then
         return "pocket", -1
@@ -5484,7 +5500,7 @@ return function(ui)
     end
     for index = 1, #(model.entries or {}) do
       local col, row = (index - 1) % 2, math.floor((index - 1) / 2)
-      local left, top = 6 + col * 116, 72 + row * 47
+      local left, top = 6 + col * 116, (model.recent and 109 or 72) + row * 47
       if x >= left and x < left + 112 and y >= top and y < top + 43 then
         return "item", index
       end
@@ -5579,12 +5595,23 @@ return function(ui)
 
   function H:battleBagRows(bag, rowOffset)
     local first, count = self:battleBagWindow(bag)
+    if bag.recent then self:recentBagItem(bag.recent, 66) end
     for row = 1, count do
       local index = first + row - 1
       self:battleBagRow(bag.items[index], index,
-        66 + (row - 1) * 33, self.nativeFocus and bag.index == index,
+        (bag.recent and 103 or 66) + (row - 1) * 33, self.nativeFocus and bag.index == index,
         type(rowOffset) == "function" and rowOffset(row) or rowOffset)
     end
+  end
+
+  function H:battleBagHit(x, y, bag)
+    y = y - self.battleBagOffsetY
+    if bag.recent and x >= 6 and x < 234 and y >= 66 and y < 99 then return "recent" end
+    local first, count = self:battleBagWindow(bag)
+    local top = bag.recent and 103 or 66
+    local row = math.floor((y - top) / 33)
+    if x >= 7 and x < 233 and row >= 0 and row < count
+        and y < top + row * 33 + 31 then return first + row end
   end
 
   function H:battleBag(bag, playerTeam, enemyTeam)

@@ -26,8 +26,9 @@ function Menu.window(top, preview)
   if not cursor then return nil end
   if top.touchWindow then return top.touchWindow.first, top.touchWindow.count, cursor.index end
   if top.fixedLayout then return 1, #top.items, cursor.index end
-  local first = math.floor((cursor.index - 1) / Menu.visible) * Menu.visible + 1
-  return first, math.min(Menu.visible, #top.items - first + 1), cursor.index
+  local visible = top.recentBag and 4 or Menu.visible
+  local first = math.floor((cursor.index - 1) / visible) * visible + 1
+  return first, math.min(visible, #top.items - first + 1), cursor.index
 end
 
 -- Compare the visible menu, not the identity of a reused native screen.
@@ -38,7 +39,7 @@ function Menu.redrawKey(top)
   local quantity, stats = top.quantity, top.nativeStats
   local parts = { tostring(top.nativeKey), tostring(selected), tostring(#top.items), tostring(first), tostring(count),
     tostring(Menu.cursor(top) ~= nil), tostring(top.title), tostring(top.name),
-    tostring(top.prompt), tostring(top.notice), tostring(top.canAdvance),
+    tostring(top.prompt), tostring(top.notice), tostring(top.canAdvance), tostring(top.recentBag and top.recentBag.id), tostring(top.recentBag and top.recentBag.count),
     tostring(quantity and quantity.label), tostring(quantity and quantity.qty),
     tostring(quantity and quantity.max), tostring(stats and stats._page) }
   for i = first, first + count - 1 do
@@ -82,8 +83,10 @@ function Menu.hit(top, x, y)
     if x >= 177 and x < 233 and first + count <= #top.items then return "next" end
   end
   if x < Menu.x or x >= Menu.x + Menu.width then return nil end
-  local row = math.floor((y - Menu.y) / Menu.step)
-  if row >= 0 and row < count and y < Menu.y + row * Menu.step + Menu.height then
+  local topY = top.recentBag and 70 or Menu.y
+  local step = top.recentBag and 30 or Menu.step
+  local row = math.floor((y - topY) / step)
+  if row >= 0 and row < count and y < topY + row * step + Menu.height then
     return first + row
   end
 end
@@ -105,14 +108,14 @@ function Menu.model(top)
   for row = 1, count do
     local index = first + row - 1
     local item = top.items[index]
-    local r = item.rect or { Menu.x, Menu.y + (row - 1) * Menu.step, Menu.width, Menu.height }
+    local r = item.rect or { Menu.x, (top.recentBag and 70 or Menu.y) + (row - 1) * (top.recentBag and 30 or Menu.step), Menu.width, Menu.height }
     entries[row] = { label = Menu.label(item), right = item.right, catchChance = item.catchChance, selected = index == selected,
       kind = item.value or item.id or kinds[item.label],
       rawMon = item.rawMon, disabled = item.inert or top.screenId == "Gen2StartMenu" and item.disabled,
       x = r[1], y = r[2], w = r[3], h = r[4] }
   end
   return { entries = entries, first = first, last = first + count - 1, total = #top.items,
-    fixedLayout = top.fixedLayout }
+    fixedLayout = top.fixedLayout, visible = top.recentBag and 4 or Menu.visible }
 end
 
 return Menu

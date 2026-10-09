@@ -307,14 +307,14 @@ local Oak = require("src.core.game3.battle.oak_advice")
 local theme = upvalue(display.drawContents, "THEME")
 do
   run.loader.modOptions.kanto_gear.battle_view="gear"
-  local rootDraw, rootMon = theme.hgss.battleFullRoot
-  theme.hgss.battleFullRoot=function(self,mon,...)
+  local rootDraw, rootMon = theme.hgss.battleRoot
+  theme.hgss.battleRoot=function(self,mon,...)
     rootMon=mon; return rootDraw(self,mon,...)
   end
   paintBattle("independent companion commands")
   T.check(rootMon ~= nil,"FRLG uses the independent lower command layout")
   T.eq(rootMon.moveIndex,nil,"lower move cards have no D-pad focus")
-  theme.hgss.battleFullRoot=rootDraw
+  theme.hgss.battleRoot=rootDraw
   local oldSubmit, submitIndex, chosen
   for i=1,debug.getinfo(tapBattle,"u").nups do
     local name,fn=debug.getupvalue(tapBattle,i)
@@ -322,7 +322,7 @@ do
   end
   debug.setupvalue(tapBattle,submitIndex,function(kind,fields) chosen=fields.choice end)
   for i,choice in ipairs({"fight","party","item","run"}) do
-    local action=theme.hgss.fullBattleActions[i]
+    local action=theme.hgss.battleActions[i]
     tapBattle((action.x+action.w/2)/theme.hgssScale,(action.y+action.h/2)/theme.hgssScale)
     T.eq(chosen,choice,"FRLG companion touch routes "..choice.." correctly")
   end
@@ -449,8 +449,7 @@ theme.hgss.battleFullMessage = function(self, lines, ...)
   return oldMessage(self, lines, ...)
 end
 display.drawContents()
-T.check(displayed and table.concat(displayed, " "):find("SCRATCH!", 1, true),
-  "Full Gear retains native move text alongside draining HP")
+T.eq(displayed,nil,"native move text is not duplicated on the companion")
 theme.hgss.battleFullMessage = oldMessage
 Message.reset(); Anim.busy = busy
 present.displayHp = 7.9; refreshBattle()
@@ -539,14 +538,14 @@ for _, mode in ipairs({ "gear", "full" }) do
 end
 run.loader.modOptions.kanto_gear.battle_view = "standard"
 display.gen3:refresh(); display.gen3.syncScreens(); refreshBattle()
-tapBattle(62 / 1.5, 158 / 1.5)
+tapBattle(120 / 1.5, 90 / 1.5)
 T.eq(Ui._mode, "moves", "FIGHT opens the actual native move menu")
 paintBattle("native move selection")
 for _, move in ipairs(upvalue(refreshBattle, "battle").moves) do
   T.eq(move.type, display.gen3.data.moves[move.id].type, "battle move retains its native type: " .. move.id)
 end
 submit("back"); refreshBattle()
-tapBattle(178 / 1.5, 158 / 1.5)
+tapBattle(200 / 1.5, 185 / 1.5)
 paintBattle("native battle party")
 T.check(display.startMenu() ~= nil, "battle party uses its actual display order")
 NativeParty.close(); Ui.openMenu(0); display.gen3.syncScreens(); refreshBattle()
@@ -656,5 +655,7 @@ if type(_G.KANTO_GEAR_RENDER_CAPTURE) == "function" then
   _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, maps)
 end
 T.eq(#run.errors, 0, "runtime event paths contain no errors")
+assert(loadfile(path .. "/tests/recent_item_gen3_cases.lua"))()(T,run,display,raw)
 run.release()
+assert(loadfile(path .. "/tests/recent_item_cases.lua"))()(T,path)
 T.finish("Kanto Gear native Gen3 runtime")

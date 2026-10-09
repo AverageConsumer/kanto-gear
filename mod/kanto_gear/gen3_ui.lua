@@ -433,7 +433,7 @@ function UI:list(battle)
       items, field = {}, "cursor"
       for _, row in ipairs(native.list()) do
         items[#items + 1] = { label = row.name or self.adapter.Items.displayName(row.id),
-          right = "x" .. tostring(row.qty or 0) }
+          right = "x" .. tostring(row.qty or 0), itemId = self.adapter.Items.toNumericId(row.id) }
       end
       items[#items + 1] = { label = "CANCEL" }
     elseif native.mode == "action" and not native._sellMode then
@@ -533,6 +533,12 @@ function UI:list(battle)
     self.view = view
   end
   view.items, view.nativeSlots, view.title, view.nativePocket = items, slots, title, pocket
+  view.bagContainer = layer.id
+  view.bagList = not quantity and mode == "list" and not native._sellMode
+    and (layer.id == "bag" or layer.id == "berry_pouch" or layer.id == "tm_case")
+    and not native._fromBerryCrush and not native.holdingMon
+    and native._location ~= "shop" and native._location ~= "itempc"
+    and native._location ~= "berry_tree" and native._location ~= "blender"
   view.quantity = quantity
   view.prompt = prompt
   view.nativeGrid, view.boxParty = grid, boxParty

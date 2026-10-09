@@ -820,4 +820,5 @@ return {
   ["NEED ROCK SMASH"] = "いわくだきひつよう",
   ["NEED BADGE"] = "バッジひつよう",
   ["NO SPACE"] = "ひろさくない",
+  ["LAST USED"] = false,
 }

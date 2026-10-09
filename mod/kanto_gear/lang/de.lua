@@ -878,4 +878,5 @@ return {
   ["CUTE"] = "ANMUT",
   ["SMART"] = "KLUG",
   ["TOUGH"] = "STARK",
+  ["LAST USED"] = "ZULETZT BENUTZT",
 }

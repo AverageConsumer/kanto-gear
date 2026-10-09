@@ -63,3 +63,5 @@ tests/region_map_test.lua
 tests/region_map_runtime_test.lua
 tests/settings_discovery_test.lua
 tests/summary_details_cases.lua
+tests/recent_item_cases.lua
+tests/recent_item_gen3_cases.lua

@@ -2256,6 +2256,9 @@ return function(mod)
     pokedex = { view = "index", page = 1, habitatPage = 1 },
     bag = { pocket = 1, page = 1, pending = nil },
   }
+  displayRuntime.recentItem = assert(load(mod:read("recent_item.lua"),
+    "@kanto_gear/recent_item.lua"))().new(mod.save)
+
   function displayRuntime.pcStateKey(state)
     if not state then return "" end
     local qty, confirm, pack, message = state.qtyState, state.confirm,
@@ -2771,6 +2774,14 @@ return function(mod)
   local canvas = G.newCanvas(WIDTH, HEIGHT, { dpiscale = 1 })
   canvas:setFilter("nearest", "nearest")
   local game
+  function displayRuntime.lastBagItem()
+    local id = displayRuntime.recentItem:available(game and game.save)
+    if not id then return end
+    local def = game.data and game.data.items and game.data.items[id] or {}
+    return { id = id, label = def.name or tostring(id):gsub("_", " "),
+      count = game.save.inventory[id], icon = displayRuntime.bagItemKind(id, def) }
+  end
+
   local companion
   local active = false
   dirty = true
@@ -4920,7 +4931,26 @@ return function(mod)
   end
 
   function displayRuntime.startMenu()
-    if displayRuntime.gen3Ui then return displayRuntime.gen3Ui:list(battle) end
+    if displayRuntime.gen3Ui then
+      local top = displayRuntime.gen3Ui:list(battle)
+      if top then
+        top.recentBag = nil
+        local recent = top.bagList and displayRuntime.lastBagItem()
+        if recent then
+          if top.bagContainer == "bag" then
+            local def = game.data.items[recent.id] or {}
+            for _, pocket in ipairs(displayRuntime.gen3.Items.BAG_POCKET_ORDER) do
+              if def.nativePocket == pocket then top.recentBag = recent break end
+            end
+          else
+            for _, row in ipairs(top.items) do
+              if row.itemId == recent.id then top.recentBag = recent break end
+            end
+          end
+        end
+      end
+      return top
+    end
     local top = game and game.stack and game.stack:top()
     return displayRuntime.StartMenu.cursor(top) and top or nil
   end
@@ -4961,23 +4991,12 @@ return function(mod)
       elseif top.quantity then
         THEME.hgss:pcQuantity(top.quantity)
       elseif top.notice then
-        local compact = battle and fullBottomBattleUI()
-        local lines = THEME:wrapText(displayRuntime.gen3:plainText(top.notice), compact and 208 or 192, 6,
-          function(value) return compact and THEME.hgss:partyInfoWidth(value) or THEME.hgss:labelWidth(value) end)
-        local playerTeam, enemyTeam = {}, {}
-        if battle then playerTeam, enemyTeam = hgssRuntime.battleTeams() end
-        if compact then
-          THEME.hgss:battleFullStatuses(hgssRuntime.battleStatus("player"),
-            hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
-            playerTeam, enemyTeam, nil, hgssRuntime.battleStatuses())
-          THEME.hgss:battleFullMessage(lines, top.canAdvance, nil, love.timer.getTime())
-        else
-          THEME.hgss:battleMessage(lines, top.canAdvance, playerTeam, enemyTeam, nil, love.timer.getTime())
+        if battle then
+          local mon = hgssRuntime.battleMon()
+          local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+          THEME.hgss:battleRoot(mon, hgssRuntime.battlePortrait, playerTeam, enemyTeam)
         end
-        if not battle then
-          G.pop(); header(THEME:translate(top.title), true)
-          return
-        end
+        THEME.hgss:systemOverlay(0.55)
       elseif top.boxParty then
         local views = {}
         for slot, item in ipairs(top.items) do
@@ -5034,6 +5053,7 @@ return function(mod)
         THEME.hgss:partyBackdrop()
         THEME.hgss:partySelection(views, hgssRuntime.summaryPortrait)
       else
+        if top.recentBag then THEME.hgss:recentBagItem(top.recentBag, 33) end
         THEME.hgss:startMenu(model)
         if top.prompt then
           local tall = #top.items <= 2
@@ -5256,7 +5276,9 @@ return function(mod)
       end
     elseif page == "BAG" then
       local bag = displayRuntime.bag
-      if not bag.detail then region(tostring(bag.pocket), bag.page, 70, 214) end
+      if not bag.detail then
+        region(tostring(bag.pocket), bag.page, displayRuntime.lastBagItem() and 109 or 70, 214)
+      end
     elseif page == "POKEDEX" then
       local dex = displayRuntime.pokedex
       if dex.view == "index" then region("index", dex.page, 66, 197)
@@ -8019,6 +8041,7 @@ return function(mod)
     return {
       title = menu.title or THEME:translate("BAG"), items = items,
       index = menu.index or 1, categorized = categorizedBag(menu),
+      recent = displayRuntime.lastBagItem(),
     }
   end
 
@@ -8048,10 +8071,7 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:battleFullRoot(mon,
-        hgssRuntime.battleStatus("player"), hgssRuntime.battleStatus("enemy"),
-        hgssRuntime.battlePortrait, playerTeam, enemyTeam, nil,
-        hgssRuntime.battleStatuses())
+      THEME.hgss:battleRoot(mon, hgssRuntime.battlePortrait, playerTeam, enemyTeam)
       G.pop()
       return
     end
@@ -8072,13 +8092,7 @@ return function(mod)
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       local model = { balls = battle.safariBalls or 0,
         index = nil }
-      if fullBottomBattleUI() then
-        THEME.hgss:battleFullSafari(model,
-          hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam)
-      else
-        THEME.hgss:battleSafari(model, playerTeam, enemyTeam)
-      end
+      THEME.hgss:battleSafari(model, playerTeam, enemyTeam)
       G.pop()
       return
     end
@@ -8758,10 +8772,12 @@ return function(mod)
         return tostring(a.id) < tostring(b.id)
       end)
     end
-    local pages = math.max(1, math.ceil(#entries / 6))
+    local recent = displayRuntime.lastBagItem()
+    local perPage = recent and 4 or 6
+    local pages = math.max(1, math.ceil(#entries / perPage))
     state.page = math.max(1, math.min(state.page or 1, pages))
-    local visible, first = {}, (state.page - 1) * 6 + 1
-    for index = first, math.min(#entries, first + 5) do
+    local visible, first = {}, (state.page - 1) * perPage + 1
+    for index = first, math.min(#entries, first + perPage - 1) do
       visible[#visible + 1] = entries[index]
     end
     local detail
@@ -8774,7 +8790,7 @@ return function(mod)
     return {
       pocket = THEME:translate(pocket.label), pocketIndex = state.pocket,
       pockets = #pockets, page = state.page, pages = pages,
-      entries = visible, total = #entries, detail = detail,
+      entries = visible, total = #entries, detail = detail, recent = recent,
       message = state.message, canUse = screenState() == "active" and not battle,
       money = tonumber(save.money) or 0,
     }
@@ -8807,6 +8823,7 @@ return function(mod)
 
   function displayRuntime.useBagItem(itemId)
     if screenState() ~= "active" or battle or not itemId then return false end
+    displayRuntime.recentItem:watch(game.save, itemId)
     if displayRuntime.gen3 then return displayRuntime.gen3Ui:openBagItem(itemId) end
     local state = displayRuntime.bag
     state.message = nil
@@ -9844,53 +9861,13 @@ return function(mod)
     end
   end
 
-  local function drawBattleLocked(title)
+  local function drawBattleLocked()
     if THEME.style == "hgss" then
-      local playerTeam, enemyTeam = hgssRuntime.battleTeams()
-      local compact = fullBottomBattleUI()
-      local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, compact and 208 or 192, 6,
-        function(value) return compact and THEME.hgss:partyInfoWidth(value) or THEME.hgss:labelWidth(value) end)
-        or THEME:messageLines(battle.message or {}, compact and 34 or 24, compact and 6 or 4)
-      G.push()
-      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if compact then
-        THEME.hgss:battleFullStatuses(hgssRuntime.battleStatus("player"),
-          hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, nil, hgssRuntime.battleStatuses())
-        THEME.hgss:battleFullMessage(lines, battle.prompt == "advance",
-          title and THEME:translate(title), love.timer.getTime())
-      else
-        THEME.hgss:battleMessage(lines,
-        battle.prompt == "advance" or nil,
-        playerTeam, enemyTeam, title and THEME:translate(title) or nil,
-        love.timer.getTime())
-      end
-      G.pop()
+      drawBattleRoot()
+      drawDim(0.55)
       return
     end
-    if fullBottomBattleUI() then return displayRuntime.drawFullBattleMessage() end
-    header(THEME:translate(title or (battle.kind == "wild" and "Wild battle"
-      or battle.kind == "trainer" and "Trainer battle" or "BATTLE")))
-    if customBattleLayout()
-        and battle.message and #battle.message > 0 then
-      box("fill", 6, 30, 148, 106, DARK)
-      outline(6, 30, 148, 106, PAPER)
-      local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, 132, 6)
-        or THEME:messageLines(battle.message, 22, 4)
-      local y = 65 - math.floor((#lines - 1) * 7.5)
-      for _, line in ipairs(lines) do
-        text(line, 14, y, PAPER)
-        y = y + 15
-      end
-      if battle.prompt == "advance" then
-        box("fill", 14, 96, 132, 1, MID)
-        displayRuntime.drawContinueArrow(75, 105)
-      end
-      return
-    end
-    if battle.prompt == "advance" then
-      displayRuntime.drawContinueArrow(75, 65)
-    end
+    drawUnavailableMenu()
   end
 
   local function drawFullBattleHpBar(x, y, w, hp, maxHp)
@@ -11159,6 +11136,8 @@ return function(mod)
     elseif action == "item" and model.entries[value] then
       state.detail, state.message = model.entries[value].id, nil
       dirty = true
+    elseif action == "recent" and model.recent then
+      displayRuntime.useBagItem(model.recent.id)
     elseif action == "use" and model.detail then
       displayRuntime.useBagItem(model.detail.id)
     end
@@ -11323,6 +11302,54 @@ return function(mod)
     end
   end
 
+  function displayRuntime.selectRecentBagItem(top)
+    local item = displayRuntime.lastBagItem()
+    if not item then return false end
+    if displayRuntime.gen3Ui then
+      local layer = displayRuntime.gen3Ui.Stack.top()
+      if not layer or not (layer.id == "bag" or layer.id == "berry_pouch" or layer.id == "tm_case")
+          or layer.mod.mode ~= "list" then return false end
+      local native = layer.mod
+      if layer.id == "bag" then
+        local def = game.data.items[item.id]
+        for index, pocket in ipairs(displayRuntime.gen3.Items.BAG_POCKET_ORDER) do
+          if def and def.nativePocket == pocket then native.pocketIdx = index break end
+        end
+      end
+      for index, row in ipairs(native.list()) do
+        if displayRuntime.gen3.Items.toNumericId(row.id) == item.id then
+          native.cursor, native.scroll = index, math.max(0, index - 1)
+          displayRuntime.recentItem:watch(game.save, item.id)
+          displayRuntime.gen3.syncScreens()
+          press("a"); dirty = true
+          return true
+        end
+      end
+      return false
+    end
+    if top.screenId == "Gen2PackMenu" then
+      local def = game.data.items[item.id] or {}
+      for index, pocket in ipairs(displayRuntime.bagPockets) do
+        if pocket.id == (def.pocket or "ITEM") then
+          top.pocketIndex = index
+          if top.restoreCursor then top:restoreCursor() end
+          top:rebuild()
+          break
+        end
+      end
+    end
+    local menu = compat.battleBagMenu(top)
+    for index, row in ipairs(menu and menu.items or {}) do
+      if row.value == item.id then
+        compat.selectBattleBagItem(top, index)
+        displayRuntime.recentItem:watch(game.save, item.id)
+        press("a"); dirty = true
+        return true
+      end
+    end
+    return false
+  end
+
   local function fullBattleChoice(x, y)
     for i = 1, 4 do
       local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
@@ -11452,13 +11479,13 @@ return function(mod)
           elseif categorizedBag(top) and hx >= 158 and hx < 187 then
             press("right")
           end
-        elseif hx >= 7 and hx < 233
-            and hy >= 66 + bagY and hy < 197 + bagY then
+        else
           local view = hgssRuntime.bagView(menu)
-          local first, count = THEME.hgss:battleBagWindow(view)
-          local row = math.floor((hy - 66 - bagY) / 33) + 1
-          if row >= 1 and row <= count then
-            compat.selectBattleBagItem(top, first + row - 1)
+          local index = THEME.hgss:battleBagHit(hx, hy, view)
+          if index == "recent" then displayRuntime.selectRecentBagItem(top)
+          elseif index then
+            compat.selectBattleBagItem(top, index)
+            displayRuntime.recentItem:watch(game.save, menu.items[index].value)
             press("a")
           end
         end
@@ -11493,13 +11520,7 @@ return function(mod)
     if battle.prompt == "safari" then
       local choice
       if THEME.style == "hgss" then
-        if fullBottomBattleUI() then
-          choice = THEME.hgss:fullBattleChoice(
-            x * THEME.hgssScale, y * THEME.hgssScale)
-        else
-          choice = THEME.hgss:safariHit(
-            x * THEME.hgssScale, y * THEME.hgssScale)
-        end
+        choice = THEME.hgss:safariHit(x * THEME.hgssScale, y * THEME.hgssScale)
       elseif fullBottomBattleUI() then
         choice = fullBattleChoice(x, y)
       elseif y >= 24 then
@@ -11628,9 +11649,6 @@ return function(mod)
       if hgssRuntime.nativeBattleLayout() then
         choice = THEME.hgss:safariHit(x * THEME.hgssScale, y * THEME.hgssScale)
         if displayRuntime.gen3 and choice then choice = ({ 1, 3, 2, 4 })[choice] end
-      elseif fullBottomBattleUI() then
-        choice = THEME.hgss:fullBattleChoice(
-          x * THEME.hgssScale, y * THEME.hgssScale)
       else
         choice = THEME.hgss:battleChoice(
           x * THEME.hgssScale, y * THEME.hgssScale)
@@ -11862,6 +11880,11 @@ return function(mod)
 
   function displayRuntime.tapStartMenu(top, x, y)
     if not displayRuntime.StartMenu.cursor(top) then return end
+    if top.recentBag and THEME.style == "hgss"
+        and inside(x * THEME.hgssScale, y * THEME.hgssScale, 6, 33, 228, 33) then
+      displayRuntime.selectRecentBagItem(top)
+      return
+    end
     if top.namingModel and not top.notice and THEME.style == "hgss" then
       local index = displayRuntime.NamingPage.hit(top.namingModel, x * THEME.hgssScale, y * THEME.hgssScale)
       if index and displayRuntime.StartMenu.select(top, index) then press("a"); dirty = true end
@@ -11908,7 +11931,8 @@ return function(mod)
       press("b")
     elseif action == "previous" or action == "next" then
       local first = menu.window(top)
-      local index = action == "next" and first + menu.visible or first - menu.visible
+      local visible = top.recentBag and 4 or menu.visible
+      local index = action == "next" and first + visible or first - visible
       menu.select(top, index)
     elseif type(action) == "number" and top.battleTargets then
       submit("target", { target = top.battleTargets[action] })
@@ -13172,6 +13196,7 @@ return function(mod)
       displayRuntime.gen3:syncStorageIdentity()
       displayRuntime.gen3BoundSession = displayRuntime.gen3.session
     end
+    displayRuntime.recentItem:bind(game.save)
     displayRuntime.resetAchievements()
     THEME.storedTheme = mod.options:get("theme_v3")
     spriteCache.__badges = nil
@@ -13214,6 +13239,7 @@ return function(mod)
       displayRuntime.gen3:syncStorageIdentity()
       displayRuntime.gen3BoundSession = displayRuntime.gen3.session
     end
+    displayRuntime.recentItem:bind(game.save)
     displayRuntime.resetAchievements()
     displayRuntime.pokedex.data = nil
     reloadSteps()
@@ -13380,6 +13406,76 @@ return function(mod)
     end
   end
 
+  mod.hooks:wrap("item.use", function(next, useGame, ...)
+    local id = select(2, ...)
+    local ours = useGame == displayRuntime.sourceGame or useGame == game
+    if ours then
+      if displayRuntime.gen3 then
+        id = displayRuntime.gen3.Items.toNumericId(id)
+        displayRuntime.gen3:refresh()
+      end
+      displayRuntime.recentItem:watch(game.save, id)
+    end
+    local function capture(...) return { n = select("#", ...), ... } end
+    local result = capture(next(useGame, ...))
+    local a, b = result[1], result[2]
+    if ours then
+      if displayRuntime.gen3 then displayRuntime.gen3:refresh() end
+      if displayRuntime.recentItem:poll(game.save) then dirty = true end
+      -- Reusable Gen3 field tools report success directly; opening a
+      -- container or a target/teaching prompt is not successful use.
+      if displayRuntime.gen3 and a == true and b ~= "tm" and b ~= "tm_case"
+          and b ~= "berry_pouch" then
+        if displayRuntime.recentItem:remember(game.save, id) then dirty = true end
+      end
+    end
+    return unpack(result, 1, result.n)
+  end)
+
+  function displayRuntime.observeBagInput()
+    local queue = displayRuntime.sourceGame and displayRuntime.sourceGame.input
+      and displayRuntime.sourceGame.input.pressQueue or {}
+    local confirms = false
+    for _, key in ipairs(queue) do if key == "a" then confirms = true end end
+    if not confirms then return end
+    local top = game and game.stack and game.stack:top()
+    if top and top.screenId == "Gen2PackMenu" then
+      if not top.submenu then displayRuntime.recentItem.pending = nil end
+      local submenu = top.submenu
+      local row = submenu and submenu.row or (top.rows or {})[top.index]
+      local action = submenu and submenu.rows and submenu.rows[submenu.index]
+      if action and action ~= "use" then displayRuntime.recentItem.pending = nil
+      elseif not top.give and not top.qtyState and not top.confirm then
+        displayRuntime.recentItem:watch(game.save, row and row.id)
+      end
+    elseif displayRuntime.gen3Ui then
+      local layer = displayRuntime.gen3Ui.Stack.top()
+      if layer and (layer.id == "bag" or layer.id == "berry_pouch" or layer.id == "tm_case") then
+        local native = layer.mod
+        if native._location == "shop" or native._location == "itempc"
+            or native._location == "berry_tree" or native._location == "blender"
+            or native._fromBerryCrush or native.holdingMon then
+          displayRuntime.recentItem.pending = nil
+          return
+        end
+        if native.mode == "list" then displayRuntime.recentItem.pending = nil end
+        if native.mode == "action" and native.ACTIONS
+            and native.ACTIONS[native.actionCursor] ~= "USE" then
+          displayRuntime.recentItem.pending = nil
+        elseif native.mode == "list" or native.mode == "action" then
+          local row = native.list()[native.cursor]
+          displayRuntime.recentItem:watch(game.save,
+            row and displayRuntime.gen3.Items.toNumericId(row.id))
+        end
+      end
+    elseif battle then
+      local menu = compat.battleBagMenu(top)
+      local row = menu and (menu.items or {})[menu.index]
+      if menu then displayRuntime.recentItem.pending = nil end
+      displayRuntime.recentItem:watch(game.save, row and row.value)
+    end
+  end
+
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
     if stepGame == displayRuntime.sourceGame then displayRuntime.syncCompanionDetails() end
     if stepGame == displayRuntime.sourceGame and displayRuntime.levelUp:scan(game.save,
@@ -13406,8 +13502,10 @@ return function(mod)
         displayRuntime.overlayHidden and "hidden" or "shown")
     end
     if closingPanel then hgssRuntime.beginAnimation(closingPanel) end
+    if stepGame == displayRuntime.sourceGame then displayRuntime.observeBagInput() end
     local result = next(stepGame, dt)
     if stepGame == displayRuntime.sourceGame then
+      if displayRuntime.recentItem:poll(game.save) then dirty = true end
       displayRuntime.syncCompanionDetails()
       displayRuntime.updateAutoBattleScreen()
       local pending = displayRuntime.touchGuard.pending
@@ -13780,6 +13878,22 @@ return function(mod)
     end
     if game and displayRuntime.levelUp:scan(game.save,
         game.stack and game.stack:top()) then dirty = true end
+    if game and displayRuntime.recentItem:poll(game.save) then dirty = true end
+    if displayRuntime.recentItem.pending then
+      local top = game and game.stack and game.stack:top()
+      local raw = battleState()
+      if displayRuntime.gen3 then
+        if not displayRuntime.gen3Ui.Stack.top() and not displayRuntime.gen3Ui.Message.isOpen()
+            and (not displayRuntime.gen3.Battle.isActive()
+              or displayRuntime.gen3.Battle._phase == "command") then displayRuntime.recentItem.pending = nil end
+      elseif top == game.world or top == game.overworld or top == nil
+          or top.screenId == "BagMenu"
+          or top.screenId == "Gen2PackMenu" and not top.submenu and not top.message
+            and not top.qtyState and not top.confirm
+          or top == raw and battle and battle.prompt == "menu" then
+        displayRuntime.recentItem.pending = nil
+      end
+    end
     local inline = inlineDisplay()
     companion = context and context.secondScreen
     if companion and companion.setEnabled then
@@ -13904,6 +14018,8 @@ return function(mod)
       displayRuntime.startMenuIndex = startCursor and startCursor.index or nil
       local screenKey = table.concat({ mode, tostring(top),
         tostring(page), tostring(guidePage), tostring(areaPage),
+        page == "BAG" and tostring(displayRuntime.recentItem.id) or "",
+        page == "BAG" and tostring((game.save.inventory or {})[displayRuntime.recentItem.id]) or "",
         compat.summary.redrawKey(displayRuntime.summaryContext(), game, displayRuntime.gen3),
          tostring(displayRuntime.explorer.view),
          tostring(displayRuntime.explorer.selected),
@@ -13950,9 +14066,8 @@ return function(mod)
         tostring(fieldChoice and fieldChoice.kind),
         tostring(fieldChoice and fieldChoice.source
           and fieldChoice.source.slot) }, ":")
-      if THEME.style == "hgss" and displayRuntime.motionEnabled() and battle and battle.prompt == "advance" then
-        screenKey = screenKey .. ":" .. math.floor(now * 4)
-      end
+      -- Native battle text owns its animation upstairs; the dim companion
+      -- needs no blinking arrow or periodic text redraw downstairs.
       if page == "LOCAL" and mod.world and mod.world.current then
         local pos = mod.world:current()
         screenKey = screenKey .. ":" .. tostring(pos and pos.facing)

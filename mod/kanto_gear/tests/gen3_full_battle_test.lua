@@ -68,20 +68,17 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     H=theme.hgss
     for _,active in ipairs({0,2}) do
       Ui.openMenu(active);Message.reset();cards={};tick()
+      T.eq(next(cards),nil,"companion commands never duplicate native HP cards")
+      local snap=up(refresh,"battle")
       for id=0,3 do
-        T.check(cards[id]~=nil,"Full Gear draws battler "..id)
-        T.eq(cards[id].hp,10+id,"all four cards follow animated HP")
-        T.eq(cards[id].x,6+id%2*116,"side preserves battlefield identity")
-        T.eq(cards[id].y,33+math.floor(id/2)*41,"partner retains its row")
-        T.eq(cards[id].active,id==active,"active partner is highlighted")
+        T.eq(snap.battlers[id+1].hp,10+id,"native double-battle presentation remains readable")
       end
       T.eq(display.gen3Presentation,nil,"all four native healthboxes stay above")
       for _,stay in ipairs({false,true}) do
         Message.show("The attack hits both opposing POKéMON!",{frame="battle",speed=0,stay=stay})
         cards,compact={},nil;tick()
-        T.check(compact and table.concat(compact.lines," "):find("BOTH OPPOSING",1,true),"native text reaches compact box")
-        T.eq(compact and compact.advance,not stay,"timed text does not advertise confirmation")
-        for id=0,3 do T.check(cards[id]~=nil,"text retains battler "..id) end
+        T.eq(compact,nil,"native battle text is not mirrored downstairs")
+        T.eq(next(cards),nil,"native battle text does not add duplicate HP cards")
         Message.reset()
       end
     end
@@ -91,8 +88,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   Bag.show(game.session.bag,{session=game.session,battle=st});Bag.settle()
   Bag.showMessage("The item restored health.")
   cards,compact={},nil;tick()
-  T.check(compact and table.concat(compact.lines," "):find("RESTORED HEALTH",1,true),"item notice uses compact text")
-  for id=0,3 do T.check(cards[id]~=nil,"item notice retains battler "..id) end
+  T.eq(compact,nil,"native item results stay upstairs")
+  T.eq(next(cards),nil,"native item results do not duplicate HP cards")
   Bag.close();Stack.clear()
   -- A partner's displayed HP can change without the native battle revision.
   Message.reset();Ui.openMenu(0);tick();tick()
@@ -100,14 +97,15 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   nativePresent[3].displayHp=4.4;tick()
   T.eq(up(refresh,"battle").revision,revision,"animation alone does not change battle revision")
   T.check(draws>before,"partner HP animation invalidates the cached frame")
-  T.eq(cards[3].hp,4,"second foe HP updates on next normal poll")
+  T.eq(up(refresh,"battle").battlers[4].hp,4,"native second foe HP remains correct")
   before=draws;tick();tick();T.eq(draws,before,"unchanged doubles HUD stays cached")
-  st.absent[3]=true;tick();T.check(cards[3].absent,"absent opponent is not displayed as live")
+  st.absent[3]=true;tick();T.check(up(refresh,"battle").battlers[4].absent,"native absent opponent remains represented")
   st.absent[3]=nil
   local shown=nativePresent[2].shown
   nativePresent[2].shown=st.battlers[0];tick()
-  T.eq(cards[2].name,cards[0].name,"partner replacement follows the host's displayed Pokemon")
-  T.eq(cards[2].y,74,"replacement keeps the same battlefield slot")
+  local replaced=up(refresh,"battle").battlers
+  T.eq(replaced[3].name,replaced[1].name,"partner replacement follows native displayed Pokemon")
+  T.eq(next(cards),nil,"replacement never adds a duplicate lower healthbox")
   nativePresent[2].shown=shown
   -- Native Gen3 transitions use the same actual-page compositor as Gen1/2.
   local Team=require("src.ui.game3.party_menu")

@@ -195,7 +195,7 @@ else
       T.eq(raw.moveIndex, 1, "snapshot never skips the original zero-PP cursor")
       preservedHooks(run, { raw, stack:top() })
       stack.states = { world, raw }; state.prompt = "menu"; refresh()
-      for index, action in ipairs(theme.hgss.fullBattleActions) do
+      for index, action in ipairs(theme.hgss.battleActions) do
         tapBattle((action.x + action.w / 2) / 1.5, (action.y + action.h / 2) / 1.5)
         T.eq(raw.menuIndex, index, "touch chooses its semantic action without D-pad navigation")
         T.eq(tapped[#tapped], "a", "explicit touch delegates native confirmation")

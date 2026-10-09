@@ -866,4 +866,5 @@ return {
   ["CUTE"] = "CUTE",
   ["SMART"] = "SMART",
   ["TOUGH"] = "TOUGH",
+  ["LAST USED"] = false,
 }

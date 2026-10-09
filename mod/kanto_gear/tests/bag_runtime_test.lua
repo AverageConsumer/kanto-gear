@@ -205,4 +205,44 @@ T.same(allBagIds(), { "POTION", "TM01" },
   "removed stacks disappear even while the native pocket filter is active")
 Bag.order = originalOrder
 save.inventory, save.bagOrder = originalInventory, originalBagOrder
+-- The real native field-item dispatch, not a synthetic decrement.
+stack:clear();stack:push(world)
+save.inventory,save.bagOrder={ POTION=3, FULL_RESTORE=2 }, { "POTION", "FULL_RESTORE" }
+run.data.items.POTION={ name="POTION", pocket="ITEM", needsTarget=true }
+run.data.items.FULL_RESTORE={ name="FULL RESTORE", pocket="ITEM", needsTarget=true }
+save.party={ { species="FIXMON_A",name="PARTNER",hp=1,
+  stats={hp=30},moves={} } }
+world.useFieldItem=function() return nil end
+game.say=function() end
+if generation==2 then
+  local Game2=require("src.core.Game2")
+  game.useFieldItem,game.usePartyItem,game.consumeItem=Game2.useFieldItem,Game2.usePartyItem,Game2.consumeItem
+end
+display.bag.pocket=1
+display.recentItem:bind(save)
+T.check(display.useBagItem("POTION"),"companion opens the real potion target picker")
+local picker=stack:top()
+if generation==1 then picker.onSwitch(save.party[1],picker)
+else picker.onChoose(1,save.party[1]) end
+display.recentItem:poll(save)
+T.eq(save.inventory.POTION,2,"native successful use consumes exactly one potion")
+T.eq(display.lastBagItem().id,"POTION","successful native effect enables the shortcut")
+T.eq(display.lastBagItem().count,2,"shortcut shows the live remaining quantity")
+stack:clear();stack:push(world);save.party[1].hp=30
+T.check(display.useBagItem("FULL_RESTORE"),"another native medicine can be attempted")
+picker=stack:top()
+if generation==1 then picker.onSwitch(save.party[1],picker)
+else picker.onChoose(1,save.party[1]) end
+display.recentItem:poll(save)
+T.eq(save.inventory.FULL_RESTORE,2,"native no-effect use consumes nothing")
+T.eq(display.lastBagItem().id,"POTION","no-effect use does not replace the last successful item")
+stack:clear();stack:push(world);display.bag.detail=nil;display.bag.message=nil
+local H=upvalue(display.drawBag,"THEME").hgss
+local model=display.bagModel()
+T.eq(H:bagHit(120,88,model),"recent","visible quick-access row is touch reachable")
+T.eq(H:bagHit(20,120,model),"item","ordinary cards stay touch reachable below it")
+T.eq(H:bagHit(20,106,model),nil,"the gap between shortcut and cards is inactive")
+save.inventory.POTION=nil
+T.eq(display.bagModel().recent,nil,"an empty stack removes the shortcut from the model")
+assert(loadfile(path .. "/tests/recent_item_cases.lua"))()(T,path)
 T.finish("Kanto Gear HGSS Bag runtime")
