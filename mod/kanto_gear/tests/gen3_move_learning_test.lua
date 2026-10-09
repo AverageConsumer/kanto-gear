@@ -51,7 +51,11 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     local menu = display.startMenu()
     T.check(menu ~= nil, "move chooser remains mirrored on either Emerald move tab")
     assert(menu, "missing mirrored move chooser")
-    local row = assert(display.StartMenu.model(menu).entries[index])
+    while menu.touchWindow and (index < menu.touchWindow.first or index >= menu.touchWindow.first + menu.touchWindow.count) do
+      display.pageChoice(index > menu.touchWindow.first and 1 or -1)
+      menu = display.startMenu()
+    end
+    local row = assert(display.StartMenu.model(menu).entries[index - (menu.touchWindow and menu.touchWindow.first or 1) + 1])
     queued = nil
     display.tapStartMenu(menu, (row.x + row.w / 2) / 1.5, (row.y + row.h / 2) / 1.5)
     T.eq(queued, "a", "touch confirms the selected native move row")

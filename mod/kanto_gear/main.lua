@@ -2330,6 +2330,8 @@ return function(mod)
       + math.floor(packed % 0x100 * factor + 0.5)
   end
 
+  displayRuntime.ChoicePage = assert(load(mod:read("choice_page.lua"),
+    "@kanto_gear/choice_page.lua"))()
   displayRuntime.PartyPage = assert(load(mod:read("party_page.lua"),
     "@kanto_gear/party_page.lua"))()
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
@@ -4825,6 +4827,10 @@ return function(mod)
         THEME.hgss:levelUp({ name = displayRuntime.gen3.Pokemon.displayMonName(native._mon),
           level = THEME:format("L%d", mon.level), type = mon.types[1], rows = rows,
           drawPokemon = function(x, y, size) hgssRuntime.summaryPortrait({ source = mon, species = mon.species }, x, y, size) end })
+      elseif top.choiceState then
+        local labels = {}
+        for index, item in ipairs(top.items) do labels[index] = THEME:menuActionLabel(item.label) end
+        THEME.hgss:choiceScreen(displayRuntime.choiceModel(top, labels, top.prompt))
       elseif top.quantity then
         THEME.hgss:pcQuantity(top.quantity)
       elseif top.notice then
@@ -5483,45 +5489,35 @@ return function(mod)
     end
   end
 
+  function displayRuntime.choiceState(top, field, labels)
+    local state = displayRuntime.touchChoice
+    local key = tostring(field) .. ":" .. table.concat(labels, "\31")
+    if not state or state.owner ~= top or state.key ~= key then
+      state = { owner = top, key = key, page = 1 }
+      displayRuntime.touchChoice = state
+    end
+    return state
+  end
+
+  function displayRuntime.choiceModel(top, labels, prompt, field)
+    local state = top.choiceState or displayRuntime.choiceState(top, field, labels)
+    if type(prompt) == "string" then prompt = { prompt } end
+    if not prompt or #prompt == 0 then prompt = { THEME:translate("MAKE A CHOICE") } end
+    local lines = THEME:messageLines(prompt, 34, 3)
+    return displayRuntime.ChoicePage.model(state, labels, lines,
+      top.choiceState and top.index or compat.choiceIndex(top, field))
+  end
+
   local function drawDialogueChoice(top, labels, prompt, field)
     header(THEME:translate("CHOOSE"))
     local selected = compat.choiceIndex(top, field)
     local rows, cols, left, topY, cellW, cellH, gap =
       compat.choiceGrid(top, field, #labels)
     if THEME.style == "hgss" then
-      local entries = {}
-      if rows then
-        for row = 1, rows do
-          for col = 1, cols do
-            local index = (row - 1) * cols + col
-            if labels[index] then
-              entries[#entries + 1] = {
-                x = left + (col - 1) * (cellW + gap),
-                y = topY + (row - 1) * (cellH + gap),
-                w = cellW, h = cellH, label = labels[index],
-                selected = selected == index,
-              }
-            end
-          end
-        end
-      elseif #labels == 2 then
-        for index, y in ipairs({ 54, 90 }) do
-          entries[#entries + 1] = { x = 24, y = y, w = 112, h = 32,
-            label = labels[index], selected = selected == index }
-        end
-      else
-        local start, count = choiceWindow(labels, selected)
-        for row = 1, count do
-          local index = start + row - 1
-          entries[#entries + 1] = { x = 8,
-            y = 24 + (row - 1) * 27, w = 144, h = 24,
-            label = labels[index], selected = selected == index }
-        end
-      end
+      local model = displayRuntime.choiceModel(top, labels, prompt, field)
+      model.nudge = choiceNudgeUntil > love.timer.getTime()
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:choiceScreen({ entries = entries,
-        prompt = THEME:messageLines(prompt, 24, 3),
-        nudge = choiceNudgeUntil > love.timer.getTime() })
+      THEME.hgss:choiceScreen(model)
       G.pop()
       return
     end
@@ -11651,6 +11647,18 @@ return function(mod)
 
   function displayRuntime.tapStartMenu(top, x, y)
     if not displayRuntime.StartMenu.cursor(top) then return end
+    if top.choiceState and THEME.style == "hgss" then
+      local labels = {}
+      for index, item in ipairs(top.items) do labels[index] = item.label end
+      local model = displayRuntime.choiceModel(top, labels, top.prompt)
+      local action = displayRuntime.ChoicePage.hit(model, x * THEME.hgssScale, y * THEME.hgssScale)
+      if y < HEADER and x < 27 / THEME.hgssScale then press("b")
+      elseif action == "previous" or action == "next" then
+        displayRuntime.ChoicePage.step(top.choiceState, action == "next" and 1 or -1, #labels)
+      elseif type(action) == "number" and displayRuntime.StartMenu.select(top, action) then press("a") end
+      dirty = true
+      return
+    end
     if top.nativeStats then
       if y >= HEADER then press("a"); dirty = true end
       return
@@ -11710,6 +11718,18 @@ return function(mod)
   end
 
   local function tapDialogueChoice(top, labels, x, y, field)
+    if THEME.style == "hgss" then
+      local model = displayRuntime.choiceModel(top, labels, nil, field)
+      local action = displayRuntime.ChoicePage.hit(model, x * THEME.hgssScale, y * THEME.hgssScale)
+      if action == "previous" or action == "next" then
+        displayRuntime.ChoicePage.step(displayRuntime.choiceState(top, field, labels),
+          action == "next" and 1 or -1, #labels)
+        dirty = true
+      elseif type(action) == "number" then
+        displayRuntime.commitDialogueChoice(top, field, action)
+      end
+      return
+    end
     local selected
     local rows, cols, left, topY, cellW, cellH, gap =
       compat.choiceGrid(top, field, #labels)
@@ -12401,7 +12421,25 @@ return function(mod)
       and displayRuntime.explorerSwipeTarget("wild", true, 99) == "detail",
     "Explorer horizontal swipe regions")
 
+  function displayRuntime.pageChoice(direction)
+    if THEME.style ~= "hgss" then return false end
+    local native = displayRuntime.startMenu()
+    local top, labels, field = dialogueChoice()
+    local state
+    if native and native.choiceState then
+      state, labels = native.choiceState, native.items
+    elseif top then
+      state = displayRuntime.choiceState(top, field, labels)
+    else return false end
+    if direction and #labels > 4 then
+      displayRuntime.ChoicePage.step(state, direction, #labels)
+      dirty = true
+    end
+    return true
+  end
+
   local function swipe(dx, down)
+    if displayRuntime.pageChoice(dx < 0 and 1 or -1) then return end
     if THEME.style == "hgss" and not moveInfo then
       local summary = displayRuntime.summaryContext()
       if summary then
@@ -12493,6 +12531,7 @@ return function(mod)
   end
 
   local function swipeVertical(dy)
+    if displayRuntime.pageChoice(dy < 0 and 1 or -1) then return end
     if displayRuntime.startMenu() then return end
     if radarOpen then return end
     if page == "LOCAL" and THEME.style == "hgss" then return end
@@ -12590,6 +12629,7 @@ return function(mod)
       tostring(partyActionSlot), tostring(displayRuntime.localSummary),
       tostring(displayRuntime.localSummary and displayRuntime.localSummary.page),
       tostring(displayRuntime.nativeSummary and displayRuntime.nativeSummary.page), tostring(page), tostring(mode),
+      tostring(displayRuntime.touchChoice and displayRuntime.touchChoice.page),
       tostring(page == "PSS" and (displayRuntime.pss.state .. ":"
         .. tostring(displayRuntime.pss.inUse) .. ":" .. tostring(displayRuntime.pss.selected)
         .. ":" .. displayRuntime.pss.page)),
@@ -12664,7 +12704,7 @@ return function(mod)
       touchDown = { x = x, y = y,
         epoch = guard.epoch,
         at = love.timer.getTime(),
-        pageSwipe = pageSwipeAllowed(mode, battle)
+        pageSwipe = displayRuntime.pageChoice() or pageSwipeAllowed(mode, battle)
           or THEME.style == "hgss" and not moveInfo
             and compat.isScreen(top, "summary"),
         textSpeed = speed,
@@ -12815,6 +12855,7 @@ return function(mod)
   mod.events:on("game.ready", function(payload)
     displayRuntime.pss:close()
     displayRuntime.localSummary, displayRuntime.nativeSummary = nil, nil
+    displayRuntime.touchChoice = nil
     if displayRuntime.gen3Pointer then
       displayRuntime.gen3Pointer:release(); displayRuntime.gen3Pointer = nil
     end
@@ -12835,7 +12876,7 @@ return function(mod)
       end)
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
       displayRuntime.gen3Progress = assert(load(mod:read("gen3_progress.lua"), "@kanto_gear/gen3_progress.lua"))().new(displayRuntime.gen3)
-      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss)
+      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage)
       game = displayRuntime.gen3:gameView()
     end
     displayRuntime.homeCatalog.packages.achievements.available = true

@@ -3,8 +3,8 @@
 local UI = {}
 UI.__index = UI
 
-function UI.new(adapter, layout)
-  return setmetatable({ adapter = adapter, layout = layout, Stack = require("src.ui.game3.stack"),
+function UI.new(adapter, layout, choicePage)
+  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, Stack = require("src.ui.game3.stack"),
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
 end
 
@@ -107,7 +107,11 @@ function UI:release(layer)
     if state == "confirm" then
       view.items, view.fixedLayout, view.prompt = labels({ "YES", "NO" }), true,
         self.adapter.Pokemon.displayMonName(mon) .. "\n" .. text.plain("gText_ReleaseThisPokemon")
-      for i, item in ipairs(view.items) do item.rect = { 7, 116 + (i - 1) * 47, 226, 44 } end
+      view.choiceState = { page = 1 }
+      local model = self.choicePage.model(view.choiceState, { "YES", "NO" })
+      for _, entry in ipairs(model.entries) do
+        view.items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
+      end
     else
       view.items, view.canAdvance = labels({ "CONTINUE" }), state ~= "anim"
       view.notice = state == "anim" and "..." or text.plain(state == "released"
@@ -144,7 +148,7 @@ function UI:list(battle)
     local view = self.choiceView
     if not view or view.options ~= key then
       view = { screenId = "Gen3Menu", title = "CHOOSE ACTION", options = key,
-        nativeKey = tostring(key), update = function() end,
+        nativeKey = tostring(key), choiceState = { page = 1 }, update = function() end,
         valid = function() return Choice.active and Choice.options == key end }
       setmetatable(view, {
         __index = function(_, k) if k == "index" then return Choice.cursor end end,
@@ -156,19 +160,11 @@ function UI:list(battle)
       self.choiceView = view
     end
     view.items = labels(key)
-    view.prompt = #key <= 5 and self.adapter:messageText() or nil
-    view.fixedLayout = view.prompt ~= nil or (Choice.cols or 1) > 1
-    if view.fixedLayout then
-      local cols = Choice.cols or 1
-      local rows = math.ceil(#key / cols)
-      if rows > 6 or cols > 4 then return nil end
-      local top = view.prompt and (#key <= 2 and 116 or 86) or 34
-      local step = math.floor((210 - top) / rows)
-      for i, item in ipairs(view.items) do
-        local col = (i - 1) % cols
-        local left, right = 7 + math.floor(col * 228 / cols), 7 + math.floor((col + 1) * 228 / cols)
-        item.rect = { left, top + math.floor((i - 1) / cols) * step, right - left - 2, step - 3 }
-      end
+    view.prompt = self.adapter:messageText()
+    local model = self.choicePage.model(view.choiceState, key, nil, Choice.cursor)
+    view.fixedLayout, view.touchWindow = true, { first = model.first, count = #model.entries }
+    for _, entry in ipairs(model.entries) do
+      view.items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
     end
     return view
   end
@@ -544,10 +540,16 @@ function UI:list(battle)
   view.fixedLayout, view.party = grid or prompt ~= nil or partyLayout or view.partyActions ~= nil, partyLayout and native or nil
   -- Every projection (including upper-screen ownership checks) retains the
   -- exact same draw/hit geometry; never leave a cached view with fresh bare rows.
+  if not prompt then view.choiceState, view.touchWindow = nil, nil end
   if prompt then
-    local start, step, height = 116, 47, 44
-    if #items > 2 then start, step, height = 86, 24, 22 end
-    for slot, item in ipairs(items) do item.rect = { 7, start + (slot - 1) * step, 226, height } end
+    view.choiceState = view.choiceState or { page = 1 }
+    local names = {}
+    for index, item in ipairs(items) do names[index] = item.label end
+    local model = self.choicePage.model(view.choiceState, names, nil, view.index)
+    view.touchWindow = { first = model.first, count = #model.entries }
+    for _, entry in ipairs(model.entries) do
+      items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
+    end
   elseif partyLayout then
     for slot, item in ipairs(items) do
       item.rect = { self.layout:partySelectionRect(slot, #items - 1, true) }

@@ -55,3 +55,4 @@ tests/gen3_battle_hints_test.lua
 tests/touch_companion_test.lua
 tests/unified_summary_test.lua
 tests/party_storage_test.lua
+tests/unified_choice_test.lua

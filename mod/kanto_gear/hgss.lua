@@ -3759,7 +3759,11 @@ return function(ui)
       end
       self:endPress(pressed)
     end
-    if model.fixedLayout or model.total <= 5 then return end
+    if not model.fixedLayout and model.total > 5 then self:menuPager(model) end
+  end
+
+  function H:menuPager(model)
+    local c = self.colors
     local controls = {
       { x = 7, up = true, enabled = model.first > 1 },
       { x = 177, enabled = model.last < model.total },
@@ -3772,39 +3776,37 @@ return function(ui)
       for line = 0, 3 do
         local width = 1 + line * 2
         box("fill", control.x + 28 - math.floor(width / 2),
-          199 + (control.up and line or 3 - line), width, 1, tint)
+          200 + (control.up and line or 3 - line), width, 1, tint)
       end
       self:endPress(pressed)
     end
     self:partyInfo(model.first .. "-" .. model.last .. " / " .. model.total,
-      68, 197, c.ink, 104, "center")
+      68, 196, c.ink, 104, "center")
   end
 
   function H:choiceScreen(model)
     local colors = self.colors
     if #(model.prompt or {}) > 0 then
-      self:panel(20, 35, 200, 42, false, nil, colors.greenLight)
-      local firstY = 43 + math.floor((24 - #model.prompt * 10) / 2)
-      for index, line in ipairs(model.prompt) do
-        self:partyInfo(self:fitPartyInfo(line, 184), 28,
-          firstY + (index - 1) * 10, colors.ink, 184, "center")
+      self:panel(7, 34, 226, 46, false, nil, colors.greenLight)
+      local lines = model.nudge and { translate("PAUSE THEN CHOOSE") } or model.prompt
+      local firstY = 33 + math.floor((46 - (9 + (#lines - 1) * 11)) / 2)
+      for index, line in ipairs(lines) do
+        self:partyInfo(self:fitPartyInfo(line, 210), 15,
+          firstY + (index - 1) * 11, model.nudge and colors.amber or colors.ink, 210, "center")
       end
     end
     for _, entry in ipairs(model.entries or {}) do
-      local x, y, w, h = legacyRect(entry)
+      local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h)
       local focused = self.nativeFocus and entry.selected
       self:homeTile(x, y, w, h,
         focused and colors.green or colors.blue, focused)
       self:partyInfo(self:fitPartyInfo(entry.label, w - 16),
-        x + 8, y + math.floor((h - 9) / 2), colors.ink,
+        x + 8, y + math.floor((h - 9) / 2) - 1, colors.ink,
         w - 16, "center")
       self:endPress(pressed)
     end
-    if model.nudge then
-      self:partyType(translate("PAUSE THEN CHOOSE"), 20, 201,
-        colors.amber, 200)
-    end
+    if model.pages and model.pages > 1 then self:menuPager(model) end
   end
 
   function H:nativeGrid(model, drawIcon)

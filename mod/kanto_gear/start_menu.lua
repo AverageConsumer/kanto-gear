@@ -24,6 +24,7 @@ end
 function Menu.window(top, preview)
   local cursor = Menu.cursor(top, preview)
   if not cursor then return nil end
+  if top.touchWindow then return top.touchWindow.first, top.touchWindow.count, cursor.index end
   if top.fixedLayout then return 1, #top.items, cursor.index end
   local first = math.floor((cursor.index - 1) / Menu.visible) * Menu.visible + 1
   return first, math.min(Menu.visible, #top.items - first + 1), cursor.index
@@ -35,7 +36,7 @@ function Menu.redrawKey(top)
   local first, count, selected = Menu.window(top, true)
   if not first then return "" end
   local quantity, stats = top.quantity, top.nativeStats
-  local parts = { tostring(top.nativeKey), tostring(selected), tostring(#top.items),
+  local parts = { tostring(top.nativeKey), tostring(selected), tostring(#top.items), tostring(first), tostring(count),
     tostring(Menu.cursor(top) ~= nil), tostring(top.title), tostring(top.name),
     tostring(top.prompt), tostring(top.notice), tostring(top.canAdvance),
     tostring(quantity and quantity.label), tostring(quantity and quantity.qty),
