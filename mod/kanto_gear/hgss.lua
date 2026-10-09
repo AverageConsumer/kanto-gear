@@ -3885,7 +3885,7 @@ return function(ui)
           model.drawPokemon(row, x + 1, baseY + 4, 32, uncaught)
         end
         if row.gift then
-          self:partyType(translate(row.trade and "TRADE" or row.loan and "LOAN" or row.cost and "OFFER" or "GIFT"),
+          self:partyType(translate(row.trade and "TRADE" or row.loan and "LOAN" or (row.cost or row.coinCost) and "OFFER" or "GIFT"),
             x - 9, baseY + 36, row.available and colors.ink or colors.mutedInk, 52)
         elseif row.best then
           local odds = tostring(row.best.chance or 0) .. "%"

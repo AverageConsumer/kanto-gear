@@ -260,8 +260,8 @@ return function(H, G, translate, format)
           and row.state ~= "unavailable" and row.state ~= "later"
         card(6, top, 228, 32, canLocate and "locate" or nil, row, function()
           name(row.isEgg and translate("EGG") or row.label, 13, top + 2, 171, 19)
-          label(translate(row.species and not row.gift and (row.done and "CAUGHT" or "NOT CAUGHT")
-            or ({ done = "RECORDED", open = row.trade and "NPC TRADE" or row.loan and "NPC LOAN" or row.cost and "NPC OFFER" or row.gift and "NPC GIFT" or "NOT YET", later = "LATER",
+          label(translate(row.species and (not row.gift or row.catchGoal) and (row.done and "CAUGHT" or "NOT CAUGHT")
+            or ({ done = "RECORDED", open = row.trade and "NPC TRADE" or row.loan and "NPC LOAN" or (row.cost or row.coinCost) and "NPC OFFER" or row.gift and "NPC GIFT" or "NOT YET", later = "LATER",
             optional = "OPTIONAL", unavailable = "NO LONGER AVAILABLE",
             untracked = "NOT TRACKED", excluded = "ALTERNATIVE CHOICE",
             repeatable = row.kind == "hidden" and "RENEWABLE" or "REPEATABLE" })[row.state]),
