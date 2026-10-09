@@ -10,6 +10,7 @@ end
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local Page = display.PokedexPage
   local theme = up(display.drawContents, "THEME")
+  assert(loadfile(path.."/tests/evolutions_cases.lua"))()(T,display,game,theme)
   T.eq(table.concat(theme:descriptionLines("FIRST\fSECOND\vTHIRD\nFOURTH",24,nil,210)," "),
     "FIRST SECOND THIRD FOURTH", "native page and line controls preserve word boundaries")
   local compose
@@ -121,6 +122,39 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       T.eq(state.view, "profile", "actual header back returns from research to the profile")
       T.eq(display.home.activeApp, "pokedex", "research back keeps the app open")
     end
+    local def=(display.gen3 and display.gen3.data or game.data).pokemon[state.selected]
+    local evolutions=def.evolutions
+    local into=dex.entries[2].species
+    def.evolutions={}
+    for level=1,3 do
+      def.evolutions[level]=generation==3 and {method=4,param=level,target=into}
+        or {method=generation==2 and "EVOLVE_LEVEL" or "LEVEL",level=level,into=into,species=into}
+    end
+    local x,y,w,h=Page.cardRect(4);click(x+w/2,y+h/2)
+    local detail=display.pokedexModel()
+    T.eq(detail.pages,3,"all evolution branches are reachable")
+    T.eq(detail.rows[1].species,into,"evolution page uses the active definition")
+    T.eq(detail.rows[1].lines[1],"LEVEL UP: LV.1+","evolution conditions are visible in the actual model")
+    click(149,205)
+    T.eq(state.evolutionPage,2,"touch pager advances evolution choices")
+    swipe(-30,{y=90})
+    T.eq(state.evolutionPage,3,"swipe advances to the final evolution choice")
+    click(149,205)
+    T.eq(state.evolutionPage,1,"evolution choices wrap forward")
+    click(91,205)
+    T.eq(state.evolutionPage,3,"evolution choices wrap backward")
+    local known=display.knownSpecies;display.knownSpecies=function() return false end
+    detail=display.pokedexModel()
+    T.eq(detail.rows[1].name,"???","hidden target names never leak through the actual model")
+    T.eq(detail.rows[1].revealed,false,"hidden target sprites stay hidden")
+    display.knownSpecies=known
+    def.evolutions={};detail=display.pokedexModel()
+    T.eq(detail.emptyText,"NO FURTHER EVOLUTION","final forms have an explicit empty state")
+    T.eq(detail.canCycle,false,"final forms do not animate an inert pager")
+    T.check(pcall(display.drawContents),"final-form state renders")
+    def.evolutions=nil;detail=display.pokedexModel()
+    T.eq(detail.emptyText,"NO EVOLUTION DATA AVAILABLE","missing native data has a different empty state")
+    def.evolutions=evolutions;click(14,13)
     -- Forward/reverse species navigation preserves the research view and skips unknown rows.
     for i, entry in ipairs(dex.entries) do entry.revealed = i == 1 or i == #dex.entries end
     state.view = "stats"
@@ -150,7 +184,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.eq(Page.hit(model,130,13), nil, "one-page header arrow is inert")
   T.eq(Page.hit(model,149,205), nil, "one-page footer arrow is inert")
   T.eq(Page.cycle(state,dex,model,1), false, "one-page swipe is inert")
-  for _, kind in ipairs({ "moves", "habitat" }) do
+  for _, kind in ipairs({ "moves", "habitat", "evolutions" }) do
     state.view = kind
     model = Page.controls({ view = kind, page = 1, pages = 1 }, dex)
     T.eq(Page.hit(model,91,205), nil, "one-page research pager is inert: " .. kind)

@@ -2373,6 +2373,7 @@ return function(mod)
   displayRuntime.MovePage = assert(load(mod:read("move_page.lua"), "@kanto_gear/move_page.lua"))()
   displayRuntime.ItemPage = assert(load(mod:read("item_page.lua"), "@kanto_gear/item_page.lua"))()
   displayRuntime.PokedexPage = assert(load(mod:read("pokedex_page.lua"), "@kanto_gear/pokedex_page.lua"))()
+  displayRuntime.Evolutions = assert(load(mod:read("evolutions.lua"), "@kanto_gear/evolutions.lua"))()
   displayRuntime.NativeDex = assert(load(mod:read("native_dex.lua"), "@kanto_gear/native_dex.lua"))()
   displayRuntime.NativeDex.describe3 = assert(load(mod:read("native_dex3.lua"), "@kanto_gear/native_dex3.lua"))()
   displayRuntime.SafariPage = assert(load(mod:read("safari_page.lua"), "@kanto_gear/safari_page.lua"))()
@@ -8784,6 +8785,34 @@ return function(mod)
       common.rows, common.page, common.pages = displayRuntime.PokedexPage.window(moves, state.movePage, 4)
       state.movePage = common.page
       return displayRuntime.PokedexPage.controls(common, dex)
+    elseif state.view == "evolutions" then
+      local native = displayRuntime.gen3
+      local evolution = native and require("src.core.game3.evolution")
+      local rows, available = displayRuntime.Evolutions.rows(def, native and 3 or compat.isGen2() and 2 or 1, {
+        format = function(key, ...) return THEME:format(key, ...) end,
+        itemName = function(id)
+          local item = id and game.data.items[id]
+          return item and item.name or THEME:translate("UNKNOWN ITEM")
+        end,
+        knownSpecies = displayRuntime.knownSpecies,
+        noClock = native and not (native.profile.clock and native.profile.clock.rtc),
+        nationalAllows = native and function(id) return evolution.nationalAllows(id, native.session) end,
+      })
+      common.rows, common.page, common.pages = displayRuntime.PokedexPage.window(rows, state.evolutionPage, 1)
+      state.evolutionPage, common.view = common.page, "evolutions"
+      common.emptyText = THEME:translate(available and "NO FURTHER EVOLUTION" or "NO EVOLUTION DATA AVAILABLE")
+      for _, row in ipairs(common.rows) do
+        local entry = dex.bySpecies[row.species] or {}
+        row.seen, row.caught = entry.seen, entry.caught
+        row.name = row.revealed and (game.data.pokemon[row.species] or {}).name or "???"
+        row.lines = {}
+        for _, condition in ipairs(row.conditions) do
+          for _, line in ipairs(THEME:descriptionLines(condition, 34, nil, 210)) do
+            row.lines[#row.lines + 1] = line
+          end
+        end
+      end
+      return displayRuntime.PokedexPage.controls(common, dex)
     end
     local plan = displayRuntime.pokedexHabitatPlan(selected)
     local plannedRows
@@ -9231,6 +9260,7 @@ return function(mod)
         model.page or 1, model.pages or 1)
       or model.view == "moves" and THEME:format("MOVES %d/%d",
         model.page or 1, model.pages or 1)
+      or model.view == "evolutions" and THEME:translate("EVOLUTION")
       or THEME:translate("STATS")
     header(title, true, model.canCycle)
     G.push()
@@ -11134,8 +11164,8 @@ return function(mod)
       displayRuntime.cyclePokedex(action == "next" and 1 or -1)
     elseif action == "species" then
       displayRuntime.selectPokedexSpecies(model.entries[index].index)
-    elseif action == "stats" or action == "habitat" or action == "moves" then
-      state.view, state.habitatPage, state.movePage, dirty = action, 1, 1, true
+    elseif action == "stats" or action == "habitat" or action == "moves" or action == "evolutions" then
+      state.view, state.habitatPage, state.movePage, state.evolutionPage, dirty = action, 1, 1, 1, true
     end
   end
 

@@ -1002,14 +1002,14 @@ return function(ui)
       { "STATS", model.statsText or translate("BASE POWER"), colors.blue },
       { "HABITAT", model.habitatText or translate("WHERE TO FIND"), colors.green },
       { "MOVES", model.movesText or translate("LEARNSET"), colors.amber },
+      { "EVOLUTIONS", translate("METHOD + CONDITIONS"), colors.red },
     }
     for index, card in ipairs(cards) do
       local left, top, width, height = PokedexPage.cardRect(index)
       local pressed = self:beginPress(left, top, width, height, model.canUse ~= false)
       self:homeTile(left, top, width, height, card[3], false)
-      self:partyInfoCentered(self:fitPartyInfo(translate(card[1]), 62), left + 5, 161, 62, 16, colors.ink)
-      self:partyInfoCentered(self:fitPartyInfo(card[2], 58), left + 7, 180, 58, 14, quiet)
-      self:detailChevron(left + 62, 201, colors.green)
+      self:partyInfoCentered(self:fitPartyInfo(translate(card[1]), width - 10), left + 5, top + 3, width - 10, 10, colors.ink)
+      self:partyInfoCentered(self:fitPartyInfo(card[2], width - 10), left + 5, top + 14, width - 10, 8, quiet)
       self:endPress(pressed)
     end
   end
@@ -1174,6 +1174,29 @@ return function(ui)
     dexPager(self, model.page or 1, model.pages or 1, model.canUse)
   end
 
+  function H:pokedexEvolutions(model)
+    local colors = self.colors
+    dexResearchHero(self, model, colors.red, translate("EVOLUTION"), "")
+    self:panel(7, 76, 226, 119, false, nil, colors.redLight)
+    local row = (model.rows or {})[1]
+    if row then
+      local lines = row.lines or row.conditions or {}
+      local height = 32 + 4 + 12 + 4 + #lines * 9
+      local top = 77 + math.floor((117 - height) / 2)
+      if row.revealed ~= false and model.drawPokemon then model.drawPokemon(row, 104, top, 32, false)
+      else self:partyInfoCentered("???", 104, top, 32, 32, colors.mutedInk) end
+      self:partyInfoCentered(self:fitPartyInfo(row.name or "???", 210), 15, top + 36, 210, 12, colors.ink)
+      for index, line in ipairs(lines) do
+        self:partyInfoCentered(self:fitPartyInfo(line, 210), 15, top + 52 + (index - 1) * 9, 210, 9,
+          row.blocked and (self.dark and colors.redLight or colors.red) or colors.green)
+      end
+    else
+      self:partyInfoCentered(self:fitPartyInfo(model.emptyText or translate("NO FURTHER EVOLUTION"), 210),
+        15, 77, 210, 117, colors.mutedInk)
+    end
+    dexPager(self, model.page or 1, model.pages or 1, model.canUse)
+  end
+
   function H:pokedexHabitat(model)
     local colors = self.colors
     local quiet = colors.mutedInk
@@ -1221,6 +1244,7 @@ return function(ui)
     if model.view == "size" then return self:pokedexSize(model) end
     if model.view == "stats" then return self:pokedexStats(model) end
     if model.view == "moves" then return self:pokedexMoves(model) end
+    if model.view == "evolutions" then return self:pokedexEvolutions(model) end
     if model.view == "habitat" then return self:pokedexHabitat(model) end
     return self:pokedexIndex(model)
   end

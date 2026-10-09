@@ -94,3 +94,4 @@ tests/pokedex_page_test.lua
 tests/native_dex_test.lua
 
 tests/native_dex3_test.lua
+tests/evolutions_cases.lua

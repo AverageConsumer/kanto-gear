@@ -408,13 +408,15 @@ T.check(dexModel.view == "index" and #dexModel.entries > 0,
 display.tapPokedex(20, 50)
 T.eq(display.pokedex.view, "profile",
   "tapping a species opens its encyclopedia profile")
-display.tapPokedex(80, 115)
+local dx,dy,dw,dh=display.PokedexPage.cardRect(2)
+display.tapPokedex((dx+dw/2)/1.5,(dy+dh/2)/1.5)
 T.eq(display.pokedex.view, "habitat",
   "the profile habitat card opens real encounter research")
 display.tapPokedex(5, 5)
 T.eq(display.pokedex.view, "profile",
   "Pokedex detail back returns to the species profile")
-display.tapPokedex(25, 115)
+dx,dy,dw,dh=display.PokedexPage.cardRect(1)
+display.tapPokedex((dx+dw/2)/1.5,(dy+dh/2)/1.5)
 T.eq(display.pokedex.view, "stats",
   "the profile stats card opens base-stat research")
 api.device = api.device or {
