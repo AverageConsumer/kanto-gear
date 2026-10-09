@@ -84,3 +84,4 @@ tests/pp_legacy_cases.lua
 tests/gen3_level_up_test.lua
 tests/gen3_safari_test.lua
 tests/safari_cases.lua
+tests/gen3_pokeblock_test.lua

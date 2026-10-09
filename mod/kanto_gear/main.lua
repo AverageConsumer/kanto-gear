@@ -11786,7 +11786,8 @@ return function(mod)
       if top.party and displayRuntime.bag.pending and top.items[action].mon then
         displayRuntime.bag.pending.mon = top.items[action].mon
       end
-      press(top.items[action].inputKey or "a")
+      if top.confirmSelection then top.confirmSelection(function() press("a") end)
+      else press(top.items[action].inputKey or "a") end
     end
     if action then dirty = true end
   end
