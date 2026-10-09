@@ -443,7 +443,8 @@ function UI:list(battle)
       for _, mon in ipairs(battle.battlers or {}) do
         if allowed[id] and mon.id == id and (id ~= target.battler or selfTarget) then
           items[#items + 1], ids[#ids + 1] = { label = mon.name or "POKEMON",
-            right = (mon.side == "player" and "ALLY" or "FOE") }, id
+            targetSide = mon.side, value = "pokemon",
+            right = (mon.side == "player" and "YOUR SIDE" or "FOE") }, id
           if target.cursor == id then selected = #items end
         end
       end

@@ -4033,15 +4033,22 @@ return function(ui)
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h, not entry.disabled)
       local focused = self.nativeFocus and entry.selected
-      self:homeTile(x, y, w, h, focused and c.green or c.blue, focused)
+      local targetAccent = entry.targetSide and (entry.targetSide == "player" and c.blue or c.red)
+      self:homeTile(x, y, w, h, targetAccent or (focused and c.green or c.blue), focused)
       if entry.itemSprite then
         self:battleItemIcon(entry, x + 8, y + math.floor((h - 17) / 2), c.amberLight)
       else self:startMenuIcon(entry.kind, x + 9, y + 6) end
       box("fill", x + 33, y + 5, 1, h - 10, c.band)
-      local reserved = entry.right and 78 or 0
+      local reserved = targetAccent and 94 or entry.right and 78 or 0
       self:partyInfoCentered(self:fitPartyInfo(entry.label, w - 52 - reserved), x + 40,
         y, w - 52 - reserved, h, entry.disabled and c.mutedInk or c.ink)
-      if entry.right then
+      if targetAccent then
+        local badgeX, badgeY, badgeW, badgeH = x + w - 94, y + 5, 86, h - 10
+        clipped(badgeX, badgeY, badgeW, badgeH, mixed(c.surface, targetAccent, self.dark and 0.32 or 0.18))
+        border(badgeX, badgeY, badgeW, badgeH, targetAccent)
+        self:partyInfoCentered(self:fitPartyInfo(translate(entry.right), badgeW - 8),
+          badgeX, badgeY, badgeW, badgeH, c.ink)
+      elseif entry.right then
         self:partyInfoCentered(self:fitPartyInfo(entry.right, 72), x + w - 80,
           y, 72, h, c.ink)
       end

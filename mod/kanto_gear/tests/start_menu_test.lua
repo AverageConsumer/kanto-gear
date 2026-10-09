@@ -37,4 +37,12 @@ eq(Menu.label({ label = "図鑑 漢字" }), "図鑑 漢字", "translated labels 
 local lockedBack = { screenId = "CompanionMenu", valid = function() return true end,
   update = function() end, index = 1, items = { { label = "CONTINUE" } }, back = false }
 eq(Menu.hit(lockedBack, 14, 13), nil, "native results with no back action expose no inert target")
+local target = { screenId = "Gen3Menu", valid = function() return true end,
+  update = function() end, index = 1, items = { { label = "SAME NAME", right = "YOUR SIDE", targetSide = "player" } } }
+eq(Menu.model(target).entries[1].targetSide, "player", "target allegiance reaches the renderer")
+eq(Menu.hit(target, 100, 45), 1, "own-side targets remain selectable")
+local beforeSide = Menu.redrawKey(target)
+target.items[1].targetSide = "enemy"
+eq(Menu.redrawKey(target) ~= beforeSide, true, "allegiance changes invalidate a cached target row")
+eq(Menu.model(lockedBack).entries[1].targetSide, nil, "ordinary menus have no target styling")
 print("start menu: " .. n .. " checks passed")

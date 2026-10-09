@@ -5287,7 +5287,8 @@ return function(mod)
       end
       for _, entry in ipairs(model.entries) do
         button(entry.x / 1.5, entry.y / 1.5, entry.w / 1.5, entry.h / 1.5,
-          entry.label, entry.selected, not entry.disabled)
+          entry.targetSide and (entry.label .. " / " .. THEME:translate(entry.right)) or entry.label,
+          entry.selected, not entry.disabled)
         if entry.rawMon and entry.label == "" then
           local icon = displayRuntime.gen3.Pokemon.monIcon(entry.rawMon)
           if icon and icon.image and icon.quads and icon.quads[0] then

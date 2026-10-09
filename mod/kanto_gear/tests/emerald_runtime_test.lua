@@ -201,6 +201,24 @@ for _,variant in ipairs({"hgss","hgss_dark"}) do
  end
 end
 skin.draw=skinDraw
+Party.giveMon(foes, P.speciesFromNational(263), 12)
+for _, mon in ipairs(session.party) do mon.moves[1], mon.pp[1] = 33, 35 end
+st=State.new({playerParty=session.party,foeParty=foes.party,double=true})
+Battle._st=st
+Ui.reset({headless=true});Ui.bindState(st,session)
+for _,attacker in ipairs({0,2}) do
+ Ui.openMenu(attacker)
+ T.check(Ui.chooseTarget(st,attacker,1),"Emerald doubles opens target selection")
+ display.gen3.syncScreens();refreshBattle()
+ local targets=display.startMenu()
+ T.eq(#targets.items,3,"Emerald selected attack exposes partner and two foes")
+ for index,row in ipairs(display.startMenuModel(targets).entries) do
+  local ownSide=targets.battleTargets[index]%2==0
+  T.eq(row.targetSide,ownSide and "player" or "enemy","Emerald target color follows native side")
+  T.eq(row.right,ownSide and "YOUR SIDE" or "FOE","Emerald target badge identifies own side")
+ end
+ T.check(pcall(display.drawContents),"Emerald target badges render")
+end
 Battle._active,Battle._st=false,nil;Ui.reset({headless=true})
 local rtc=require("src.core.game3.rtc")
 rtc.setFixed("2026-09-29T15:35:00")

@@ -1,4 +1,6 @@
 return {
+  ["YOUR SIDE"] = false,
+  ["CHOOSE TARGET"] = false,
   ["EVOLUTION"] = false,
   ["EVOLUTIONS"] = false,
   ["METHOD + CONDITIONS"] = false,

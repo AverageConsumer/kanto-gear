@@ -564,12 +564,26 @@ local targets = display.startMenu()
 T.check(targets and #targets.items == 3, "target list excludes the user for an opponent-selected move")
 T.eq(targets and targets.battleTargets[1], 0, "ally retains native battler ID zero")
 T.eq(targets.battleTargets[2], 3, "target rows follow the native target cycle")
+for index, row in ipairs(display.startMenuModel(targets).entries) do
+  local ownSide = targets.battleTargets[index] % 2 == 0
+  T.eq(row.targetSide, ownSide and "player" or "enemy", "target color follows native allegiance")
+  T.eq(row.right, ownSide and "YOUR SIDE" or "FOE", "target text distinguishes friendly fire")
+end
 Ui.handleInput({ wasPressed = function(_, key) return key == "down" end })
 local afterTarget = display.startMenu()
 local nativeTarget = Ui._target.cursor
 T.eq(afterTarget.battleTargets[afterTarget.index], nativeTarget, "native target highlight matches the displayed row")
 submit("target", { target = 3 })
 T.eq(Ui._pendingCommand and Ui._pendingCommand.target, 3, "target command reaches right-hand opponent")
+session.party[1].moves[1], session.party[1].pp[1] = 33, 35
+Ui.openMenu(0)
+T.check(Ui.chooseTarget(st, 0, 1), "first battler also opens native target selection")
+paintBattle("first battler doubles targets")
+targets = display.startMenu()
+T.eq(targets.battleTargets[1], 2, "partner changes with the attacking battler")
+T.eq(targets.items[1].targetSide, "player", "partner is always own side")
+submit("target", { target = 2 })
+T.eq(Ui._pendingCommand and Ui._pendingCommand.target, 2, "friendly targeting remains intentional and available")
 st = State.new({ playerParty = session.party, foeParty = foes.party, wild = true })
 st.safari, st.safariState = true, { balls = 23 }
 Battle._st = st
