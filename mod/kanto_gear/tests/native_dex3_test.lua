@@ -72,6 +72,18 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     local x, y, w, h = display.PokedexPage.actionRect(index, #current.items)
     return click(x + w / 2, y + h / 2)
   end
+  local function menuRow(index)
+    local current = view()
+    local first, count = display.StartMenu.window(current)
+    while index < first or index >= first + count do
+      display.pageChoice(index < first and -1 or 1)
+      current = view(); first, count = display.StartMenu.window(current)
+    end
+    local rect = current.items[index].rect
+    if rect then return click(rect[1] + rect[3] / 2, rect[2] + rect[4] / 2) end
+    return click(120, display.StartMenu.y + (index - first) * display.StartMenu.step + 14)
+  end
+  local function phase(name) waitFor(function() return Native.active().fn == name end) end
   local function ready()
     if emerald then waitFor(function() local s = Native.active(); return s and s.fn == "infoInput" end) end
   end
@@ -154,6 +166,91 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       T.eq(click(60,56),"select","search tool dispatches the native select key")
       waitFor(function() return Native.active().fn ~= "mainInput" end)
       T.check(Native.active().search ~= nil,"search tool opens the original native search")
+      phase("searchTopBar")
+      local search = view()
+      T.eq(search.dex.kind,"search","search opens on shared action rows")
+      T.same({search.items[1].label,search.items[2].label,search.items[3].label},
+        {"SEARCH","OPTION","CANCEL"},"native search and listing options stay distinct")
+      render("search")
+      menuRow(1); phase("searchMenu")
+      local s = Native.active()
+      T.check(not s.nationalEnabled,"fixture starts without National Dex access")
+      local criteria = view()
+      T.eq(#criteria.items,6,"locked National Dex mode is absent from search criteria")
+      T.eq(criteria.items[6].label,"BEGIN SEARCH!!","execute retains its real native row")
+      render("criteria")
+      menuRow(2); phase("searchParam")
+      local before = s.searchState.cursor[Native.SEARCH.COLOR]
+      render("colors")
+      T.eq(view().title,"COLOR","parameter title identifies the actual filter")
+      menuRow(7); phase("searchMenu")
+      local colorOptions = Native.searchOptionTexts and Native.searchOptionTexts(Native.SEARCH.COLOR)
+        or require("src.ui.game3.rse.pokedex_gfx").manifest().search.colors
+      local topUpdated=false
+      for _,part in ipairs(s.searchText) do if part.text==colorOptions[7].title then topUpdated=true end end
+      T.check(topUpdated,"touch selection updates the original upper-screen option text")
+      T.eq(s.searchState.cursor[Native.SEARCH.COLOR]+s.searchState.scroll[Native.SEARCH.COLOR],6,
+        "second option page confirms the exact native color")
+      T.check(not criteria.valid(),"changed filters invalidate old criterion rows")
+      menuRow(2); phase("searchParam")
+      display.pageChoice(-1)
+      T.eq(s.searchState.cursor[Native.SEARCH.COLOR]+s.searchState.scroll[Native.SEARCH.COLOR],0,
+        "reverse touch pagination reaches the first native option")
+      click(14,13); phase("searchMenu")
+      T.eq(s.searchState.cursor[Native.SEARCH.COLOR]+s.searchState.scroll[Native.SEARCH.COLOR],6,
+        "cancel restores the previously confirmed option across native scroll offsets")
+      menuRow(1); phase("searchParam")
+      menuRow(1); phase("searchMenu")
+      menuRow(2); phase("searchParam")
+      menuRow(3); phase("searchMenu") -- Blue: none of the fixture's seen species.
+      menuRow(6); phase("searchDone")
+      T.eq(s.list.count,0,"native search genuinely reports no blue matches")
+      local none = view()
+      T.eq(none.prompt,s.searchState.message,"no-match message comes from native search")
+      T.eq(click(14,13),nil,"result message exposes no ineffective back action")
+      render("no_matches")
+      menuRow(1); phase("searchMenu")
+      T.check(not none.valid(),"dismissed result message rejects stale continuation")
+      menuRow(2); phase("searchParam")
+      menuRow(1); phase("searchMenu") -- Clear the color filter.
+      menuRow(3); phase("searchParam")
+      local sm = require("src.ui.game3.rse.pokedex_gfx").manifest().search
+      local grass
+      for i, id in ipairs(sm.typeIds) do if id == display.gen3.Types.ID.GRASS then grass = i end end
+      T.check(grass and grass > 5,"fixture exercises a later page of real native types")
+      menuRow(grass); phase("searchMenu")
+      render("type_criteria")
+      menuRow(6); phase("waitSearch")
+      local busy = view()
+      T.check(not busy.valid(),"search processing never accepts a premature touch")
+      phase("searchDone")
+      T.eq(s.list.count,1,"type filter obeys native owned-only rule")
+      T.eq(Native.speciesOf(s.list.items[0].dexNum),first,"search matches the actual caught grass species")
+      menuRow(1); phase("mainInput")
+      T.check(s.isSearchResults,"continue opens the actual native search-results list")
+      T.eq(view().dexModel.total,1,"shared results contain only the real matches")
+      T.eq(view().dexModel.entries[1].species,first,"result card retains internal species identity")
+      render("results")
+      click(14,13); phase("returnFromResults"); phase("mainInput")
+      T.check(not s.isSearchResults,"back from results restores the original catalogue")
+      click(60,56); phase("searchTopBar")
+      menuRow(2); phase("searchMenu")
+      T.eq(#view().items,2,"listing options expose only reachable order and apply when locked")
+      menuRow(1); phase("searchParam")
+      menuRow(2); phase("searchMenu")
+      menuRow(2); phase("mainInput")
+      T.eq(game.session.pokedex.order,sm.orderIds[2],"apply writes the native selected listing order")
+      T.eq(view().dexModel.total,3,"alphabetical listing retains all and only seen native species")
+      render("sorted")
+      -- Reopening and cancelling a pending order must retain the committed order.
+      click(60,56); phase("searchTopBar")
+      menuRow(2); phase("searchMenu")
+      menuRow(1); phase("searchParam")
+      menuRow(1); phase("searchMenu")
+      click(14,13); phase("searchTopBar")
+      menuRow(3); phase("mainInput")
+      T.eq(game.session.pokedex.order,sm.orderIds[2],"cancel never applies an uncommitted native order")
+      game.session.pokedex.order=0
     else
       tick("b"); tick("b")
       local modes = view()
@@ -192,6 +289,33 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     if emerald then waitFor(function() return Native.active() == nil end) end
     T.eq(closed,done+1,"registration invokes original callback exactly once")
     T.check(not registration.valid(),"closed registration rejects delayed touches")
+  end
+  if emerald then
+    open()
+    local session, flags, vars = game.session, game.session.flags, game.session.vars
+    game.session.flags, game.session.vars = {}, {}
+    Dex.enableNational(session)
+    local kanto = Pokemon.speciesFromNational(1)
+    Dex.setCaught(dex,kanto)
+    Native.reset(); Stack.clear()
+    Native.show(dex,{session=session})
+    phase("mainInput")
+    click(60,56); phase("searchTopBar")
+    menuRow(1); phase("searchMenu")
+    T.eq(#view().items,7,"native National unlock exposes its real mode criterion")
+    menuRow(6); phase("searchParam")
+    T.eq(#view().items,2,"unlocked mode exposes actual Hoenn and National choices")
+    menuRow(2); phase("searchMenu")
+    menuRow(7); phase("searchDone")
+    menuRow(1); phase("mainInput")
+    T.eq(Native.active().dexMode,1,"native search applies National mode after unlocking")
+    local found=false
+    for _,entry in ipairs(view().dexModel.entries) do if entry.species==kanto then found=true end end
+    T.check(found,"National results include caught species outside the Hoenn catalogue")
+    render("national_results")
+    Native.reset(); Stack.clear()
+    session.flags, session.vars = flags, vars
+    session.pokedex.mode,session.pokedex.order=0,0
   end
   open()
   local oldSession = game.session

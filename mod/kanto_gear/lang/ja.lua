@@ -823,4 +823,11 @@ return {
   ["LAST USED"] = false,
   ["SOLD OUT"] = false,
   ["NO RECORDS YET"] = false,
+  ["NAME"] = false,
+  ["TYPE1"] = false,
+  ["TYPE2"] = false,
+  ["ORDER"] = false,
+  ["MODE"] = false,
+  ["APPLY"] = false,
+  ["BEGIN SEARCH!!"] = false,
 }

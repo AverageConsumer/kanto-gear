@@ -34,4 +34,7 @@ for _, gen in ipairs({ 1, 2 }) do
 end
 eq(Menu.label({ label = "<PO><KE>GEAR" }), "POKéGEAR", "native font tokens expanded")
 eq(Menu.label({ label = "図鑑 漢字" }), "図鑑 漢字", "translated labels preserved")
+local lockedBack = { screenId = "CompanionMenu", valid = function() return true end,
+  update = function() end, index = 1, items = { { label = "CONTINUE" } }, back = false }
+eq(Menu.hit(lockedBack, 14, 13), nil, "native results with no back action expose no inert target")
 print("start menu: " .. n .. " checks passed")

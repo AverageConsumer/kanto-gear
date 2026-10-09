@@ -72,8 +72,8 @@ function Dex.project(top, game, generation, previous)
   local nativeKey = key(top, state)
   local view = previous
   if not view or view.nativeKey ~= nativeKey then
-    view = { screenId = "CompanionMenu", title = "POKEDEX", nativeKey = nativeKey,
-      owner = top, fixedLayout = state.kind == "index" or state.kind == "profile", update = function() end }
+    view = { screenId = "CompanionMenu", title = state.title or "POKEDEX", nativeKey = nativeKey,
+      owner = top, fixedLayout = state.fixedLayout or state.kind == "index" or state.kind == "profile", back = state.back, update = function() end }
     view.valid = function(preview)
       if generation == 3 then
         if require("src.ui.game3.stack").top() ~= top then return false end

@@ -875,4 +875,11 @@ return {
   ["LAST USED"] = false,
   ["SOLD OUT"] = "AGOTADO",
   ["NO RECORDS YET"] = "SIN RÉCORDS",
+  ["NAME"] = false,
+  ["TYPE1"] = false,
+  ["TYPE2"] = false,
+  ["ORDER"] = false,
+  ["MODE"] = false,
+  ["APPLY"] = false,
+  ["BEGIN SEARCH!!"] = false,
 }

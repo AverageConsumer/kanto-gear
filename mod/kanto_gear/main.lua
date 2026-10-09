@@ -5140,7 +5140,7 @@ return function(mod)
   end
 
   function displayRuntime.drawStartMenu(top)
-    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt and not top.nativeStats,
+    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt and not top.nativeStats and top.back ~= false,
       top.nativePocket or top.trainer and top.trainer.pages > 1 or top.dexModel and top.dexModel.canCycle)
     local model = displayRuntime.startMenuModel(top)
     if battle and assist("catch_odds") then

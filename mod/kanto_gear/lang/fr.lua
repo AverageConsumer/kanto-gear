@@ -873,4 +873,11 @@ return {
   ["LAST USED"] = false,
   ["SOLD OUT"] = "ÉPUISÉ",
   ["NO RECORDS YET"] = "AUCUN RECORD",
+  ["NAME"] = false,
+  ["TYPE1"] = false,
+  ["TYPE2"] = false,
+  ["ORDER"] = false,
+  ["MODE"] = false,
+  ["APPLY"] = false,
+  ["BEGIN SEARCH!!"] = false,
 }

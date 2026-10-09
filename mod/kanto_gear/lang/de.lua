@@ -885,4 +885,11 @@ return {
   ["LAST USED"] = "ZULETZT BENUTZT",
   ["SOLD OUT"] = "AUSVERKAUFT",
   ["NO RECORDS YET"] = "NOCH KEINE REKORDE",
+  ["NAME"] = "NAME",
+  ["TYPE1"] = "TYP 1",
+  ["TYPE2"] = "TYP 2",
+  ["ORDER"] = "SORTIERUNG",
+  ["MODE"] = "MODUS",
+  ["APPLY"] = "ANWENDEN",
+  ["BEGIN SEARCH!!"] = "SUCHE STARTEN",
 }

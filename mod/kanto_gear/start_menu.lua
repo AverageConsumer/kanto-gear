@@ -80,7 +80,7 @@ end
 function Menu.hit(top, x, y)
   local first, count = Menu.window(top)
   if not first then return nil end
-  if x >= 0 and x < 27 and y >= 0 and y < 28 then return "back" end
+  if x >= 0 and x < 27 and y >= 0 and y < 28 and top.back ~= false then return "back" end
   if top.fixedLayout then
     for index, item in ipairs(top.items) do
       local r = item.rect
