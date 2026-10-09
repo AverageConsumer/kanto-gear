@@ -191,6 +191,21 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       local rows = size.dex.comparison
       T.eq(view().dex.comparison[1].bounds,rows[1].bounds,"visible bounds are cached instead of scanning pixels every poll")
       T.check(rows[1].bounds[1]>0 or rows[1].bounds[2]>0,"real imported Pokemon alpha bounds exclude transparent padding")
+      local Paths = require("src.core.game3.cache_paths")
+      local cache = Pokemon._cache or require("src.core.game3.dataset").cache()
+      local root, readBytes, monImage, trainerImage = Paths.CACHE_ROOT, cache.read, s.sizeMon.img, s.sizeTrainer.img
+      local reads = 0
+      Paths.CACHE_ROOT = "fixture-active-import"
+      cache.read = function(self,path)
+        T.check(path:match("^fixture%-active%-import/")~=nil,"bounds follow the host's active dataset root")
+        reads = reads + 1
+        return readBytes(self,root..path:sub(#Paths.CACHE_ROOT+1))
+      end
+      s.sizeMon.img, s.sizeTrainer.img = {}, {}
+      view();view()
+      T.eq(reads,2,"each new image reads its active dataset once and then reuses bounds")
+      s.sizeMon.img, s.sizeTrainer.img = monImage, trainerImage
+      Paths.CACHE_ROOT, cache.read = root, readBytes
       T.eq(click(120,110),nil,"comparison artwork is static and has no hidden action")
       render("size")
       T.eq(action(1),"left","cry button returns through the native size handler")

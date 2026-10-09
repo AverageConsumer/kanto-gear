@@ -26,9 +26,11 @@ local function comparison(s, Pokemon)
     or sp == C.species.byName.SPECIES_SPINDA and (tonumber(s.dex.spindaPersonality) or 0) or 0
   local gender = s.session.gender or s.session.playerGender
   local trainer = C:id("trainer_classes", (gender == 1 or gender == "female" or gender == "girl") and "TRAINER_PIC_MAY" or "TRAINER_PIC_BRENDAN")
+  -- The host owns the active import root, including alternate datasets.
+  local root = require("src.core.game3.cache_paths").CACHE_ROOT
   local rows = {}
   for i, row in ipairs({ s.sizeMon, s.sizeTrainer }) do
-    local path = "data/generated/gba/" .. (i == 1 and "pokemon/front/" .. Pokemon.picSpecies(sp, personality)
+    local path = root .. "/" .. (i == 1 and "pokemon/front/" .. Pokemon.picSpecies(sp, personality)
       or "trainers/front/" .. trainer) .. ".rgba"
     rows[i] = { img = row.img, x = row.x, y = row.y, y2 = row.y2, scale = row.scale, bounds = bounds(row.img, path, Pokemon) }
   end
