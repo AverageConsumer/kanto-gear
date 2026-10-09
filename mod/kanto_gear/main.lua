@@ -2330,10 +2330,12 @@ return function(mod)
       + math.floor(packed % 0x100 * factor + 0.5)
   end
 
+  displayRuntime.PartyPage = assert(load(mod:read("party_page.lua"),
+    "@kanto_gear/party_page.lua"))()
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
-    nativeFocus = false,
+    nativeFocus = false, partyPage = displayRuntime.PartyPage,
     smallFont = THEME.hgssSmallFont,
     largeFont = THEME.hgssLargeFont,
     translationFonts = THEME.translationFonts,
@@ -4899,7 +4901,7 @@ return function(mod)
           end
         end
         THEME.hgss:partyBackdrop()
-        THEME.hgss:battleStandardParty(views, top.index, true, hgssRuntime.summaryPortrait)
+        THEME.hgss:partySelection(views, hgssRuntime.summaryPortrait)
       else
         THEME.hgss:startMenu(model)
         if top.prompt then
@@ -7138,9 +7140,11 @@ return function(mod)
     return {
       slot = mon.slot, name = mon.name or source.nickname or def.name,
       egg = compat.partyEgg(source),
-      gender = mon.gender, hp = mon.hp, maxHp = maxHp,
+      gender = mon.gender == "M" and "male" or mon.gender == "F" and "female" or mon.gender,
+      hp = mon.hp, maxHp = maxHp,
       expProgress = mon.expProgress or displayRuntime.gen3
-        and displayRuntime.gen3.Summary.expProgress(source, def.growthRate).progressPercent,
+        and displayRuntime.gen3.Summary.expProgress(source,
+          displayRuntime.gen3.Pokemon.growthRate(mon.species)).progressPercent,
       statusId = (mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content),
       type = type1, type2 = type2,
@@ -7533,15 +7537,14 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:partyBackdrop()
-      for i = 1, 6 do
-        local mon = list[i]
-        local x, y = THEME.hgss:partyPosition(i)
-        partyCard(mon, x, y,
-          selectedSlot and selectedSlot == i
-            or (not selectedSlot and mon and (mon.active
-              or (activeSpecies and mon.species == activeSpecies))),
-          paged and not back, partyMoveFrom ~= nil and selectedSlot == i)
-      end
+      displayRuntime.PartyPage.draw(THEME.hgss, {
+        party = list, selection = partyMoveFrom and selectedSlot or nil,
+        details = paged and not back,
+      }, function(slot, x, y, selected, details, focused)
+        local mon = list[slot]
+        partyCard(mon, x, y, selected or mon and activeSpecies and mon.species == activeSpecies,
+          details, focused)
+      end)
       G.pop()
       return
     end
@@ -8983,8 +8986,7 @@ return function(mod)
         G.push()
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
         THEME.hgss:partyBackdrop()
-        THEME.hgss:battleStandardParty(views, menu.index,
-          hgssRuntime.partyHasCancel(menu, #list), function(mon, x, y, size, fainted)
+        THEME.hgss:partySelection(views, function(mon, x, y, size, fainted)
             if mon.egg then
               compat.drawPokemonIcon(mon.source, x, y, size)
             else
@@ -11303,7 +11305,7 @@ return function(mod)
           if hgssRuntime.nativeBattleLayout() then
             local count = #(battle.party or {})
             local cancel = hgssRuntime.partyHasCancel(party, count)
-            slot = THEME.hgss:battleStandardPartyHit(
+            slot = THEME.hgss:partySelectionHit(
               x * THEME.hgssScale, y * THEME.hgssScale, count, cancel)
             if cancel and slot == count + 1 then
               party.index = slot

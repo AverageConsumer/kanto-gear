@@ -185,7 +185,7 @@ for slot = 1, 7 do
   T.eq(#model.entries, 7, "all native party slots and cancel remain visible")
   local row = model.entries[slot]
   T.check(row.selected, "party highlight follows native slot " .. slot)
-  T.eq(display.StartMenu.hit(projected, row.x + row.w / 2, row.y + row.h / 2), slot,
+  T.eq(display.StartMenu.hit(projected, row.x + row.w / 2, row.y + row.h / 2), slot == 7 and "back" or slot,
     "party touch geometry selects native slot " .. slot)
 end
 NativeParty.cursor = 5
@@ -475,7 +475,9 @@ for _, mode in ipairs({ "gear", "full" }) do
     for slot = 1, count do
       T.eq(model.entries[slot].h, model.entries[1].h, "all team cards have equal height")
       T.eq(model.entries[slot].w, model.entries[1].w, "all team cards have equal width")
-      T.check(model.entries[slot].h <= 50, "small teams never get an oversized hero card")
+      local x, y = theme.hgss:partyPosition(slot)
+      T.same({model.entries[slot].x, model.entries[slot].y, model.entries[slot].w, model.entries[slot].h},
+        {x, y, 112, 56}, "every team size uses the same fixed companion card")
     end
     NativeParty.cursor = count
     NativeParty.handleInput({ wasPressed = function(_, key) return key == "left" end })

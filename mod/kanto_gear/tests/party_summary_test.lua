@@ -47,6 +47,13 @@ for slot=1,2 do
 end
 run.loader.events:emit("game.ready",{game=game})
 
+for slot=1,6 do
+  local x,y,w,h=display.PartyPage.rect(theme.hgss,slot)
+  T.eq(display.PartyPage.hit(theme.hgss,x+w/2,y+h/2,6),slot,"fixed team card hits its own slot")
+  T.eq(display.PartyPage.hit(theme.hgss,x+w,y+h/2,6),nil,"card gaps do not select a neighbor")
+end
+T.eq(display.PartyPage.hit(theme.hgss,60,180,2),nil,"empty team slots stay inert")
+
 for _,style in ipairs({"hgss","hgss_dark"}) do
   run.loader.modOptions.kanto_gear={theme_v3=style,ui_motion=false,info_level="enhanced"}
   run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3"})

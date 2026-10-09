@@ -538,7 +538,7 @@ function UI:list(battle)
     for slot, item in ipairs(items) do item.rect = { 7, start + (slot - 1) * step, 226, height } end
   elseif partyLayout then
     for slot, item in ipairs(items) do
-      item.rect = { self.layout:battleStandardPartyRect(slot, #items - 1, true) }
+      item.rect = { self.layout:partySelectionRect(slot, #items - 1, true) }
     end
   elseif view.partyActions then
     for slot, item in ipairs(items) do

@@ -4632,58 +4632,18 @@ return function(ui)
     end
   end
 
-  function H:battleStandardPartyRect(slot, count, cancel)
-    count = math.max(1, math.min(6, count))
-    local height = math.min(50, math.floor((177 - (count - 1) * 3
-      - (cancel and 22 or 0)) / count))
-    local used = count * height + (count - 1) * 3 + (cancel and 22 or 0)
-    local top = 33 + math.floor((177 - used) / 2)
-    if slot == count + 1 and cancel then
-      return 6, top + count * (height + 3) + 1, 228, 18
-    end
-    return 6, top + (slot - 1) * (height + 3), 228, height
+  function H:partySelectionRect(slot, count, cancel)
+    return ui.partyPage.rect(self, slot, count, cancel)
   end
 
-  function H:battleStandardPartyHit(x, y, count, cancel)
-    for slot = 1, count + (cancel and 1 or 0) do
-      local left, top, width, height = self:battleStandardPartyRect(slot, count, cancel)
-      if x >= left and x < left + width and y >= top and y < top + height then
-        return slot
-      end
-    end
+  function H:partySelectionHit(x, y, count, cancel)
+    return ui.partyPage.hit(self, x, y, count, cancel)
   end
 
-  function H:battleStandardParty(party, selected, cancel, drawPortrait)
-    local colors = self.colors
-    for slot, mon in ipairs(party) do
-      local x, y, w, h = self:battleStandardPartyRect(slot, #party, cancel)
-      local fainted = mon.statusId == "FNT"
-      local pressed = self:beginPress(x, y, w, h)
-      local focused = self.nativeFocus and selected == slot
-      self:partyPanel(x, y, w, h, focused, fainted, focused)
-      local size = math.min(40, h - 4)
-      drawPortrait(mon, x + 4 + math.floor((40 - size) / 2),
-        y + math.floor((h - size) / 2), size, fainted)
-      local line = y + math.floor((h - 21) / 2)
-      self:partyName(mon.name or "", x + 46, line, colors.white, 108)
-      if not mon.egg then
-        self:partyInfo(mon.hpText, x + 161, line, colors.white, 61, "right")
-        self:typeBadges(mon, x + 46, line + 11, fainted)
-        self:partyInfo(mon.levelText, x + 95, line + 10, colors.white, 29)
-        self:statusIcon(mon.statusId, x + 128, line + 12)
-        self:genderIcon(mon.gender, x + 142, line + 11)
-        self:hpBar(x + 161, line + 11, 61, mon.hp, mon.maxHp)
-        self:expBar(x + 161, line + 17, 61, mon.expProgress)
-      end
-      self:endPress(pressed)
-    end
-    if cancel then
-      local x, y, w, h = self:battleStandardPartyRect(#party + 1, #party, true)
-      local pressed = self:beginPress(x, y, w, h)
-      self:panel(x, y, w, h, self.nativeFocus and selected == #party + 1, colors.greenLight)
-      self:partyInfo(translate("CANCEL"), x, y + 3, colors.ink, w, "center")
-      self:endPress(pressed)
-    end
+  function H:partySelection(party, drawPortrait)
+    ui.partyPage.draw(self, { party = party }, function(slot, x, y, selected, details, focused)
+      self:partyCard(party[slot], x, y, selected, details, drawPortrait, focused)
+    end)
   end
 
   function H:battleMimic(model, playerTeam, enemyTeam)
@@ -6482,13 +6442,7 @@ return function(ui)
   end
 
   function H:partySlot(x, y, count)
-    local hx, hy = x * 1.5, y * 1.5
-    local col = hx >= 120 and 1 or 0
-    for row = 0, 2 do
-      local slot = row * 2 + col + 1
-      local _, top = self:partyPosition(slot)
-      if slot <= count and hy >= top and hy < top + 56 then return slot end
-    end
+    return ui.partyPage.hit(self, x * 1.5, y * 1.5, count, false)
   end
 
   function H:hpBar(x, y, w, hp, maxHp)

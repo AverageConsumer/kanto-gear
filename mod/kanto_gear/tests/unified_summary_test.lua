@@ -9,6 +9,7 @@ end
 _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
   local Stack=require("src.ui.game3.stack")
   local Native=require("src.ui.game3.summary_menu")
+  local Party=require("src.ui.game3.party_menu")
   local Message=require("src.ui.game3.message")
   local theme=up(display.drawContents,"THEME")
   local summaryView=up(up(display.drawContents,"drawBattleSummary"),"hgssRuntime").summaryView
@@ -43,6 +44,11 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
     state.mon.gender=gender
     T.eq(state.pages,os.getenv("POKEPORT_VERSION")=="emerald" and 4 or 3,"capabilities add only supported tabs")
     local raw=game.session.party[1]
+    local card=display.partyView(state.mon)
+    T.eq(card.expProgress,display.gen3.Summary.expProgress(raw,display.gen3.Pokemon.growthRate(raw.species)).progressPercent,"team EXP uses the real species growth curve")
+    state.mon.gender="M";T.eq(display.partyView(state.mon).gender,"male","team normalizes native male code")
+    state.mon.gender="F";T.eq(display.partyView(state.mon).gender,"female","team normalizes native female code")
+    state.mon.gender=gender
     for page=1,state.pages do
       tab(state,page)
       T.eq(state.page,page,"named tab selection")
@@ -69,6 +75,22 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
     tap(12/theme.hgssScale,15/theme.hgssScale)
     T.eq(display.localSummary,nil,"touch Back closes local inspection")
     T.eq(#queued,0,"Back never leaks into the overworld")
+
+    Party.show(game.session.party,{session=game.session})
+    for _=1,40 do Party.update(1/60) end
+    display.gen3.syncScreens()
+    local menu=display.startMenu()
+    T.check(menu and menu.party,"original party projects into the common team page")
+    for slot,item in ipairs(menu.items) do
+      if item.mon then
+        local x,y=theme.hgss:partyPosition(slot)
+        T.same(item.rect,{x,y,112,56},"native touch target matches the shared fixed card")
+        T.eq(display.StartMenu.hit(menu,x+56,y+28),slot,"common team card activates the intended original slot")
+      end
+    end
+    T.eq(display.StartMenu.hit(menu,12,12),"back","team cancellation shares the header Back button")
+    T.check(pcall(display.drawContents),"original team uses the common six-slot renderer")
+    Party.close();Stack.clear();display.gen3.syncScreens()
 
     Native.openMenu(game.session.party,1,{session=game.session})
     for _=1,40 do Native.update(1/60) end
