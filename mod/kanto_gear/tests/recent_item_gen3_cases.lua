@@ -87,5 +87,6 @@ return function(T,run,display,raw)
   Party.close();Menu.close();Stack.clear();Message.reset();mon.hp=hp
   assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH") .. "/tests/bag_actions_gen3_cases.lua"))()(T,run,display,raw)
   assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH") .. "/tests/shop_gen3_cases.lua"))()(T,display,raw)
+  assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH") .. "/tests/pc_items_gen3_cases.lua"))()(T,display,raw)
   Runtime._game=nativeGame;raw.input=originalInput
 end

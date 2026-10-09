@@ -71,3 +71,5 @@ tests/sprite_runtime_cases.lua
 tests/trainer_markers_cases.lua
 tests/bag_actions_gen3_cases.lua
 tests/shop_gen3_cases.lua
+tests/pc_items_gen3_cases.lua
+tests/emerald_item_pc_test.lua

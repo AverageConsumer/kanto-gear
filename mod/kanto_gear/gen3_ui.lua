@@ -236,7 +236,8 @@ function UI:list(battle)
     end
     if native.mode == "message" and layer.id == "party" then return native._messageText end
     if native.mode == "message" and native.messageText then return native.messageText end
-    if layer.id == "pc_menu" and mode == "msg" then return native._status end
+    if layer.id == "pc_menu" and (mode == "msg" or mode == "rse_msg") then return native._status end
+    if layer.id == "rse_item_storage" and (mode == "remove" or mode == "error") then return native._message end
     if layer.id == "shop" and (mode == "buy_msg" or mode == "msg") then return native._status end
     if layer.id == "box_storage" and mode == "message" then return native._status end
     if layer.id == "item_pc" then
@@ -263,7 +264,7 @@ function UI:list(battle)
     if not view or view.nativeKey ~= key then
       view = { screenId = "Gen3Menu", nativeKey = key, notice = notice, canAdvance = ready(),
         title = ({ party = "PARTY", pc_menu = "PC", box_storage = "PC",
-          item_pc = "ITEMS", shop = "BUY", move_relearner = "MOVES" })[layer.id] or "BAG", index = 1,
+          item_pc = "ITEMS", rse_item_storage = "ITEMS", shop = "BUY", move_relearner = "MOVES" })[layer.id] or "BAG", index = 1,
         items = { { label = "CONTINUE" } }, update = function() end,
         valid = function(preview) return self.Stack.top() == layer and native.open
           and nativeMode(layer) == noticeMode
@@ -388,22 +389,27 @@ function UI:list(battle)
       for _, id in ipairs(rows) do items[#items + 1] = { label = RomText.plain(keys[id]) } end
     elseif mode == "player_pc" then items = labels(native.TOP_ACTIONS)
     elseif mode == "item_storage" then items = labels(native.ITEM_STORAGE_ACTIONS) end
-  elseif layer.id == "item_pc" then
-    title = "ITEMS"
-    if mode == "list" or mode == "move" then
+  elseif layer.id == "item_pc" or layer.id == "rse_item_storage" then
+    local rse = layer.id == "rse_item_storage"
+    title = (mode == "swap" or mode == "move") and "MOVE"
+      or rse and (native._toss and "TOSS" or "WITHDRAW") or "ITEMS"
+    local rows = native._session.storage.items
+    if mode == "list" or mode == "move" or mode == "swap" then
       items, field = {}, "row"
-      for _, row in ipairs(native._session.storage.items) do
+      for _, row in ipairs(rows) do
         items[#items + 1] = { label = self.adapter.Items.displayName(row.id),
           right = "x" .. row.qty, itemId = row.id }
       end
       items[#items + 1] = { label = "CANCEL" }
+    elseif mode == "qty" or mode == "quantity" then
+      local row = rows[native.scroll + native.row + 1]
+      quantity = row and { label = self.adapter.Items.displayName(row.id), qty = rse and native.quantity or native.qty,
+        itemId = row.id, max = row.qty, wrap = true }
+    elseif mode == "yesno" then
+      items, field, prompt = labels({ "YES", "NO" }), "yesCursor", native._message
     elseif mode == "submenu" then
       items, field = labels({ RomText.plain("gText_Withdraw"), RomText.plain("gOtherText_Give"),
         RomText.plain("gFameCheckerText_Cancel") }), "subCursor"
-    elseif mode == "qty" then
-      local row = native._session.storage.items[native.scroll + native.row + 1]
-      quantity = row and { label = self.adapter.Items.displayName(row.id), qty = native.qty,
-        itemId = row.id, max = row.qty, wrap = true }
     end
   elseif layer.id == "move_relearner" then
     title = "MOVES"
@@ -560,7 +566,8 @@ function UI:list(battle)
             if sale then sale[field] = v
             elseif layer.id == "box_storage" and mode == "pick_box" then native._session.storage.currentBox = v
             elseif field == "row" then
-              native.scroll = math.max(0, math.min(v - 1, #t.items - (layer.id == "shop" and 8 or 6)))
+              local visible = (layer.id == "shop" or layer.id == "rse_item_storage") and 8 or 6
+              native.scroll = math.max(0, math.min(v - 1, #t.items - visible))
               native.row = v - 1 - native.scroll
             else
               native[field] = t.nativeSlots and t.nativeSlots[v] or v
