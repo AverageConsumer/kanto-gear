@@ -82,3 +82,5 @@ tests/item_page_cases.lua
 tests/move_page_cases.lua
 tests/pp_legacy_cases.lua
 tests/gen3_level_up_test.lua
+tests/gen3_safari_test.lua
+tests/safari_cases.lua

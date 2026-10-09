@@ -323,6 +323,7 @@ for _, dark in ipairs({false,true}) do
   end
 end
 assert(loadfile(path .. "/tests/item_page_cases.lua"))()(T,display,H)
+assert(loadfile(path .. "/tests/safari_cases.lua"))()(T,display,H)
 assert(loadfile(path .. "/tests/move_page_cases.lua"))()(T,display,H)
 assert(loadfile(path .. "/tests/pp_legacy_cases.lua"))()(T,display,game,generation,run)
 assert(loadfile(path .. "/tests/recent_item_cases.lua"))()(T,path)

@@ -2372,10 +2372,12 @@ return function(mod)
     "@kanto_gear/party_page.lua"))()
   displayRuntime.MovePage = assert(load(mod:read("move_page.lua"), "@kanto_gear/move_page.lua"))()
   displayRuntime.ItemPage = assert(load(mod:read("item_page.lua"), "@kanto_gear/item_page.lua"))()
+  displayRuntime.SafariPage = assert(load(mod:read("safari_page.lua"), "@kanto_gear/safari_page.lua"))()
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
     nativeFocus = false, partyPage = displayRuntime.PartyPage, itemPage = displayRuntime.ItemPage,
+    safariPage = displayRuntime.SafariPage,
     smallFont = THEME.hgssSmallFont,
     smallFontMetrics = THEME.hgssSmallMetrics,
     largeFont = THEME.hgssLargeFont,
@@ -8250,8 +8252,7 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      local model = { balls = battle.safariBalls or 0,
-        index = nil }
+      local model = displayRuntime.SafariPage.model(battle)
       THEME.hgss:battleSafari(model, playerTeam, enemyTeam)
       G.pop()
       return
@@ -8260,8 +8261,9 @@ return function(mod)
     button(3, 24, 76, 54,
            THEME:format("BALL x%d", battle.safariBalls or 0),
            battle.menuIndex == 1)
-    button(81, 24, 76, 54, THEME:translate("BAIT"), battle.menuIndex == 2)
-    button(3, 81, 76, 56, THEME:translate("THROW ROCK"),
+    local actions = displayRuntime.SafariPage.model(battle).actions
+    button(81, 24, 76, 54, THEME:translate(actions[2].label), battle.menuIndex == 2)
+    button(3, 81, 76, 56, THEME:translate(actions[3].label),
       battle.menuIndex == 3)
     button(81, 81, 76, 56, THEME:translate("RUN"), battle.menuIndex == 4)
   end
@@ -9916,7 +9918,9 @@ return function(mod)
     drawFullBattleStatus(battle.enemy, 3, false)
     centered(THEME:format("SAFARI BALLS %d", battle.safariBalls or 0),
              64, DARK)
-    drawFullBattleActions({ "BALL", "BAIT", "ROCK", "RUN" })
+    local labels = {}
+    for index, action in ipairs(displayRuntime.SafariPage.model(battle).actions) do labels[index] = action.label end
+    drawFullBattleActions(labels)
   end
 
   displayRuntime.drawForgetMoves = function()
@@ -10663,7 +10667,14 @@ return function(mod)
     intentId = intentId + 1
     fields = fields or {}
     if displayRuntime.gen3 and kind == "safari" then
-      fields.choice = ({ ball = "fight", bait = "item", rock = "party", run = "run" })[fields.action]
+      local actions = displayRuntime.SafariPage.model(battle)
+      for index = 1, #actions.actions do
+        if displayRuntime.SafariPage.action(actions, index) == fields.action then
+          fields.choice = ({ "fight", "item", "party", "run" })[index]
+          break
+        end
+      end
+      if not fields.choice then return end
       kind = "menu"
     end
     fields.id, fields.revision, fields.kind = intentId, battle.revision, kind
@@ -11490,7 +11501,7 @@ return function(mod)
         local col, row = x >= 81 and 1 or 0, y >= 81 and 1 or 0
         choice = row * 2 + col + 1
       end
-      local action = ({ "ball", "bait", "rock", "run" })[choice]
+      local action = displayRuntime.SafariPage.action(displayRuntime.SafariPage.model(battle), choice)
       if not action then return end
       submit("safari", { action = action })
       return

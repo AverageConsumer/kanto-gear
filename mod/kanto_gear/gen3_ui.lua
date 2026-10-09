@@ -166,6 +166,91 @@ function UI:release(layer)
   return view
 end
 
+function UI:pokeblockIcon(color)
+  self.blockIcons = self.blockIcons or {}
+  if self.blockIcons[color] == nil then
+    local ok, image = pcall(function()
+      local gfx = require("src.ui.game3.rse.pokeblock_gfx").of("rse/pokeblock")
+      local palettes = gfx:manifest().colors
+      return gfx:sprite("pokeblock", 0, 8, 8, palettes[color] or palettes[1])
+    end)
+    self.blockIcons[color] = ok and { image = image, width = 8, height = 8 } or false
+  end
+  return self.blockIcons[color] or nil
+end
+
+function UI:pokeblocks(layer)
+  local native = layer.mod
+  local state = native._st
+  local Blocks = require("src.core.game3.rse.pokeblock")
+  if not native.open or not state or state.caseId ~= Blocks.CASE.BATTLE
+      or state.phase ~= "list" and state.phase ~= "actions" then return nil end
+  local phase, opts, itemId, map = state.phase, state.opts, state.itemId, state.map
+  local actions = opts.actions and (opts.actions[state.caseId] or opts.actions[Blocks.CASE.FIELD])
+    or native.ACTIONS[state.caseId]
+  local items, blocks = {}, {}
+  local Constants = require("src.core.game3.constants")
+  local caseItem = Constants.of(Constants.versionOf(state.session)):require("items", "ITEM_POKEBLOCK_CASE")
+  for id = 0, Blocks.count(state.session) - 1 do
+    local block = Blocks.get(state.session, id)
+    blocks[#blocks + 1] = block
+    items[#items + 1] = { label = self.adapter:plainText(Blocks.name(block)),
+      itemSprite = self:pokeblockIcon(Blocks.data(block, 0)), right = self.adapter:plainText(
+      require("src.core.game3.rom_text").plain("gText_LvVar1", {
+        stringVars = { tostring(Blocks.highestFlavorLevel(block)) } })) }
+  end
+  items[#items + 1] = { label = self.adapter:plainText(require("src.core.game3.rom_text").plain("gText_StowCase")) }
+  local key = tostring(opts) .. ":" .. tostring(map) .. ":" .. phase .. ":" .. tostring(itemId)
+  for _, block in ipairs(blocks) do key = key .. ":" .. tostring(block) end
+  local view = self.pokeblockView
+  if not view or view.nativeKey ~= key then
+    view = { screenId = "Gen3Menu", nativeKey = key, update = function() end,
+      title = self.adapter:plainText(self.adapter.Items.displayName(caseItem)),
+      valid = function(preview)
+        if self.Stack.top() ~= layer or not native.open or native._st ~= state
+            or state.opts ~= opts or state.map ~= map or state.phase ~= phase or state.itemId ~= itemId
+            or (not preview and state.fadeDir ~= 0) or Blocks.count(state.session) ~= #blocks then return false end
+        for index, block in ipairs(blocks) do
+          if Blocks.get(state.session, index - 1) ~= block then return false end
+        end
+        return true
+      end }
+    setmetatable(view, {
+      __index = function(_, k)
+        if k == "index" then return phase == "actions" and state.actionCursor + 1
+          or native.saved.scroll + native.saved.row + 1 end
+      end,
+      __newindex = function(t, k, value)
+        if k ~= "index" then rawset(t, k, value); return end
+        if not t.valid() then return end
+        if phase == "actions" then state.actionCursor = value - 1; return end
+        -- Let the native cursor update its scroll, highlight and flavor display.
+        for _ = 1, #items do
+          local current = native.saved.scroll + native.saved.row + 1
+          if current == value then break end
+          local direction = current < value and "down" or "up"
+          native.handleInput({ wasPressed = function(_, key) return key == direction end,
+            isDown = function() return false end })
+          native.update()
+        end
+      end,
+    })
+    self.pokeblockView = view
+  end
+  if phase == "actions" then
+    view.items = {}
+    for _, action in ipairs(actions) do
+      view.items[#view.items + 1] = { label = self.adapter:plainText(require("src.core.game3.rom_text").plain(action.text)) }
+    end
+    view.prompt = self.adapter:plainText(Blocks.name(Blocks.get(state.session, itemId)))
+    view.choiceState = view.choiceState or { page = 1 }
+    local model = self.choicePage.model(view.choiceState, view.items, nil, view.index)
+    view.fixedLayout, view.touchWindow = true, { first = model.first, count = #model.entries }
+    for _, entry in ipairs(model.entries) do view.items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h } end
+  else view.items = items end
+  return view
+end
+
 function UI:list(battle)
   local stats = require("src.ui.game3.stat_growth")
   if stats.isOpen() then
@@ -261,6 +346,7 @@ function UI:list(battle)
     return view
   end
   if layer and layer.id == "naming" then return self:naming(layer) end
+  if layer and layer.id == "rse_pokeblock_case" then return self:pokeblocks(layer) end
   if layer and layer.id == "box_storage" then
     local release = self:release(layer)
     if release then return release end

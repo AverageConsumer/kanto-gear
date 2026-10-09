@@ -4612,30 +4612,26 @@ return function(ui)
     end
   end
 
-  function H:battleFullSafari(model, enemy, drawPortrait,
-      playerTeam, enemyTeam)
-    self:battleTeamStrip(playerTeam, enemyTeam)
-    self:battleStatusCard(enemy, 6, 33, 228, false, drawPortrait)
-    local labels = { format("BALL x%d", model.balls or 0),
-      translate("BAIT"), translate("ROCK"), translate("RUN") }
-    for index = 1, 4 do
-      self:battleFullAction(model, index, self.nativeFocus and model.index == index, labels)
-    end
-  end
+  local safariIconBounds = { ball = { -8, 10 }, bait = { -9, 8 }, rock = { -7, 7 },
+    pokeblock = { -10, 10 }, go_near = { -13, 14 }, run = { -13, 14 } }
 
   function H:battleSafariAction(action, index, selected)
     local G, colors = ui.graphics, self.colors
     local column, row = (index - 1) % 2, math.floor((index - 1) / 2)
     local x, y = 6 + column * 116, 33 + row * 91
-    local pressed = self:beginPress(x, y, 112, 86)
+    if ui.safariPage then x, y = ui.safariPage.rect(index) end
+    local pressed = self:beginPress(x, y, 112, 86, action.enabled ~= false)
     self:battleActionPanel(x, y, 112, 86, action.color, selected)
-    self:label(self:fitLabel(translate(action.label), 96),
-      x + 8, y + (action.detail and 7 or 16),
-      colors.white, 96, "center")
-    local iconY = y + (action.detail and 46 or 55)
+    local bounds = safariIconBounds[action.kind] or safariIconBounds.run
+    -- Center the complete label/icon/count group using the icon's visible pixels.
+    local height = 24 + bounds[2] - bounds[1] + (action.detail and 24 or 0)
+    local titleY = y + math.floor((86 - height) / 2)
+    self:partyInfoCentered(self:fitPartyInfo(translate(action.label), 96),
+      x + 8, titleY, 96, 12, colors.white)
+    local iconY = titleY + 24 - bounds[1]
     if action.kind == "ball" then
       G.push()
-      G.translate(x + 47, iconY - 10)
+      G.translate(x + 45, iconY - 10)
       G.scale(2, 2)
       self:battleTeamBall(5, 5, true)
       G.pop()
@@ -4645,39 +4641,42 @@ return function(ui)
       box("fill", x + 51, iconY - 4, 11, 10, colors.amberLight)
       box("fill", x + 54, iconY - 9, 5, 3, colors.greenLight)
       box("fill", x + 56, iconY - 2, 4, 4, colors.redLight)
+    elseif action.kind == "pokeblock" then
+      box("fill", x + 47, iconY - 10, 18, 20, colors.outline)
+      box("fill", x + 49, iconY - 8, 14, 16, colors.redLight)
+      box("fill", x + 49, iconY - 8, 14, 4, colors.amberLight)
+      box("fill", x + 59, iconY - 4, 4, 12, colors.red)
+      box("fill", x + 51, iconY - 2, 3, 3, colors.white)
+    elseif action.kind == "go_near" then
+      self:battleRunnerIcon(x + 51, iconY)
+      self:detailChevron(x + 69, iconY - 2, colors.white)
     elseif action.kind == "rock" then
-      box("fill", x + 48, iconY - 3, 4, 8, colors.outline)
-      box("fill", x + 52, iconY - 7, 10, 14, colors.outline)
-      box("fill", x + 62, iconY - 2, 4, 9, colors.outline)
-      box("fill", x + 50, iconY - 2, 4, 6, colors.silverDark)
-      box("fill", x + 53, iconY - 5, 8, 10, colors.silver)
-      box("fill", x + 61, iconY - 1, 3, 6, colors.silverDark)
-      box("fill", x + 55, iconY - 4, 4, 2, colors.white)
+      box("fill", x + 47, iconY - 3, 4, 8, colors.outline)
+      box("fill", x + 51, iconY - 7, 10, 14, colors.outline)
+      box("fill", x + 61, iconY - 2, 4, 9, colors.outline)
+      box("fill", x + 49, iconY - 2, 4, 6, colors.silverDark)
+      box("fill", x + 52, iconY - 5, 8, 10, colors.silver)
+      box("fill", x + 60, iconY - 1, 3, 6, colors.silverDark)
+      box("fill", x + 54, iconY - 4, 4, 2, colors.white)
     else
       self:battleRunnerIcon(x + 56, iconY)
     end
     if action.detail then
-      self:partyInfo(action.detail, x + 8, y + 67,
-        colors.white, 96, "center")
+      self:partyInfoCentered(action.detail, x + 8, iconY + bounds[2] + 12,
+        96, 12, colors.white)
     end
     self:endPress(pressed)
   end
 
   function H:battleSafari(model, playerTeam, enemyTeam)
     self:battleTeamStrip(playerTeam, enemyTeam)
-    local actions = {
-      { kind = "ball", label = "BALL", color = "red",
-        detail = format("x%d", model.balls or 0) },
-      { kind = "bait", label = "BAIT", color = "green" },
-      { kind = "rock", label = "ROCK", color = "amber" },
-      { kind = "run", label = "RUN", color = "blue" },
-    }
-    for index, action in ipairs(actions) do
+    for index, action in ipairs(model.actions) do
       self:battleSafariAction(action, index, self.nativeFocus and model.index == index)
     end
   end
 
   function H:safariHit(x, y)
+    if ui.safariPage then return ui.safariPage.hit(x, y) end
     if y < 33 or y >= 210 then return nil end
     local column = x >= 122 and 1 or x >= 6 and 0 or nil
     if column == nil or x >= (column == 0 and 118 or 234) then return nil end

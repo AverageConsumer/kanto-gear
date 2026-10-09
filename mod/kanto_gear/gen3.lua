@@ -575,6 +575,7 @@ end
 function Gen3:plainText(text)
   local out = {}
   local glyphs = { [0x53] = "PK", [0x54] = "MN", [0x34] = "Lv",
+    [0x55] = "POKéBLOCK", [0x56] = "", [0x57] = "", [0x58] = "", [0x59] = "",
     [0x2C] = "er", [0x84] = "e", [0xA0] = "re" }
   for kind, value in self.Font.scanTokens(text) do
     if kind == "char" or kind == "nl" then out[#out + 1] = value
@@ -608,6 +609,26 @@ function Gen3:battleSnapshot(snapshot)
   end
   if st.safari and snapshot.prompt == "menu" then
     snapshot.prompt, snapshot.safariBalls = "safari", st.safariState and st.safariState.balls or 0
+    snapshot.safariActions = (require("src.core.game3.battle.profile").of(st).safari or {}).actions
+    local Text = require("src.core.game3.rom_text")
+    local ir = Text.ir("gText_SafariZoneMenu")
+    if self.safariMenuIr ~= ir then
+      local labels, buffer = {}, {}
+      local function flush()
+        if #buffer > 0 then labels[#labels + 1], buffer = table.concat(buffer), {} end
+      end
+      for _, segment in ipairs(ir) do
+        if segment.t == "text" then buffer[#buffer + 1] = segment.s
+        elseif segment.t == "tag" then buffer[#buffer + 1] = segment.tag
+        elseif segment.t == "nl" or segment.t == "ext" and segment.cmd == 19 then flush() end
+      end
+      flush()
+      self.safariMenuIr, self.safariMenuLabels = ir, labels
+    end
+    snapshot.safariLabels = {}
+    for index, label in ipairs(self.safariMenuLabels) do
+      snapshot.safariLabels[index] = self:plainText(require("src.core.Strings")(label, "gText_SafariZoneMenu"))
+    end
   end
   local function enrich(out, source)
     if not out or not source then return end
