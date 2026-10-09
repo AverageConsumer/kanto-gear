@@ -706,7 +706,11 @@ function Gen3:battleSnapshot(snapshot)
       out.hp, out.maxHp = math.floor(hp), maxHp
     end
   end
-  for _, move in ipairs(snapshot.moves or {}) do
+  for index, move in ipairs(snapshot.moves or {}) do
+    if snapshot.prompt == "moves" then
+      local reason = require("src.core.game3.battle.commands").selectionError(st, move.slot or index, snapshot.active)
+      move.disabled, move.disabledReason = reason ~= nil, reason and self:plainText((reason:gsub("\\[pl]", " ")))
+    end
     move.id = self.Moves.constName(move.id)
     -- Base type matchup, as in the other editions. Doubles need an explicit target.
     local target = st.double and snapshot.target ~= nil and st.battlers[snapshot.target]

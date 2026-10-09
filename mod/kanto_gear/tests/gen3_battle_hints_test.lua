@@ -49,8 +49,55 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   api.options:set("type_hints", false)
   T.eq(hgss.battleMon().moves[1].effectiveness, nil, "Independent type helper can be disabled")
   api.options:set("type_hints", true)
+  local Commands = require("src.core.game3.battle.commands")
+  local actor, turn = st.player, st.turn
+  local oldMove = mon.moves[4]
+  mon.moves[4] = 45
+  local attempts, submit = 0, api.battle.submit
+  api.battle.submit = function(...) attempts=attempts+1; return submit(...) end
+  local tap = up(up(up(compose,"touchEvent"),"tap"),"tapBattle")
+  local function blocked(slot, label)
+    Ui._mode="moves";sync()
+    local source=up(refresh,"battle").moves[slot]
+    local view=hgss.battleMon().moves[slot]
+    T.check(view.disabled,label.." disables the displayed card")
+    T.eq(source.disabledReason,display.gen3:plainText((Commands.selectionError(st,slot,0):gsub("\\[pl]"," "))),
+      label.." uses the native reason")
+    T.check(not source.disabledReason:find("\\[pl]"),label.." strips native page commands from the explanation")
+    T.eq(view.disabledLabel,theme:translate(mon.pp[slot]==0 and "NO PP" or "DISABLED"),
+      label.." has a short card status")
+    T.check(#view.disabledLines>=1 and #view.disabledLines<=3,label.." details fit the status panel")
+    local before=attempts
+    local x=6+(slot-1)%2*116;local y=33+math.floor((slot-1)/2)*85
+    tap((x+35)/1.5,(y+35)/1.5)
+    T.eq(attempts,before,label.." cannot submit a move by touch")
+    tap((x+104)/1.5,(y+11)/1.5)
+    sync()
+    T.eq(hgss.battleMon(up(display.syncCompanionDetails,"moveInfo")).moveIndex,slot,
+      label.." details retain the inspected slot after a new native snapshot")
+    T.check(pcall(display.drawContents),label.." renders")
+    tap(10/1.5,10/1.5)
+  end
+  mon.pp[1]=0;blocked(1,"empty PP");mon.pp[1]=15
+  actor.expDisabledMove=85;blocked(1,"Disable");actor.expDisabledMove=nil
+  actor.expTauntedTurns=2;blocked(4,"Taunt");actor.expTauntedTurns=nil
+  actor.torment,actor.lastMoveId=true,85;blocked(1,"Torment");actor.torment,actor.lastMoveId=nil,nil
+  local oldFoeMove=st.enemy.mon.moves[1]
+  st.enemy.expImprison,st.enemy.mon.moves[1]=true,85
+  blocked(1,"Imprison");st.enemy.expImprison=nil;st.enemy.mon.moves[1]=oldFoeMove
+  local oldItem=actor.item
+  actor.item,actor.choicedMove=186,85;blocked(2,"Choice Band");actor.item,actor.choicedMove=oldItem,nil
+  sync();T.check(not hgss.battleMon().moves[1].disabled,"cleared locks re-enable the card")
+  T.eq(st.turn,turn,"availability reads never advance the battle")
+  api.battle.submit=submit;mon.moves[4]=oldMove;Ui.openMenu(0)
   st.double, st.battlers = true, { [0] = st.player, [1] = st.enemy,
+    [2] = State.makeBattler(game.session.party[2], "player", { id = 2, partyIndex = 2 }),
     [3] = State.makeBattler(foes.party[4], "enemy", { id = 3, partyIndex = 4 }) }
+  local partner=st.battlers[2]
+  local partnerMove=partner.mon.moves[1]
+  partner.expDisabledMove=partnerMove;Ui.openMenu(2);Ui._mode="moves";sync()
+  T.check(hgss.battleMon().moves[1].disabled,"doubles reads the active partner's lock")
+  partner.expDisabledMove=nil;Ui.openMenu(0)
   sync()
   T.eq(hgss.battleMon().moves[1].effectiveness, nil, "double battle does not guess an unselected target")
   Ui._mode, Ui._target = "target", { cursor = 3 }

@@ -96,8 +96,8 @@ function THEME:moveName(move, data)
 end
 
 function THEME:moveUnavailableReason(move)
-  if move and move.disabled then return "DISABLED" end
   if not move or (move.pp or 0) <= 0 then return "NO PP" end
+  if move.disabled then return "DISABLED" end
 end
 
 function THEME:translate(source)
@@ -1219,6 +1219,13 @@ local function prepareBattleSnapshot(a, b, state, data, ownsMoveFocus)
       local move = pending.move or {}
       local def = (data.moves or {})[move.id] or {}
       b.learningMove = pending.moveName or def.name or move.id
+    end
+  end
+  if a and b then
+    for slot = 1, 4 do
+      local before, after = (a.moves or {})[slot] or {}, (b.moves or {})[slot] or {}
+      if before.pp ~= after.pp or before.disabled ~= after.disabled
+          or before.disabledReason ~= after.disabledReason then return true end
     end
   end
   return (a and a.menuIndex) ~= (b and b.menuIndex)
@@ -8142,6 +8149,7 @@ return function(mod)
     local accuracy = source.hitChance
     if accuracy == nil then accuracy = source.accuracy or def.accuracy end
     local maxPp = source.maxPp or def.pp or source.pp or 0
+    local unavailable = THEME:moveUnavailableReason(source)
     return {
       id = source.id,
       available = source.id ~= nil,
@@ -8159,7 +8167,10 @@ return function(mod)
       matchupLabel = THEME:translate("MATCHUP"),
       effectiveness = assist("type_hints") and (source.effectiveness or enemyTypes
         and compat.typeEffectiveness(moveType, enemyTypes, game.data.type_chart)) or nil,
-      disabled = THEME:moveUnavailableReason(source) ~= nil,
+      disabled = unavailable ~= nil,
+      disabledLabel = unavailable and THEME:translate(unavailable),
+      disabledLines = unavailable and THEME:descriptionLines(
+        source.disabledReason or THEME:translate(unavailable), 34, 3, 196),
       descriptionLines = compat.moveInfoLines(source, def,
         battleState() and battleState().ruleset),
     }
@@ -8183,7 +8194,7 @@ return function(mod)
     for slot = 1, 4 do
       local move = (battle.moves or {})[slot] or {}
       view.moves[slot] = hgssRuntime.moveView(move)
-      if detailMove == move then view.moveIndex = slot end
+      if detailMove == move or detailMove and detailMove.battleSlot == slot then view.moveIndex = slot end
     end
     return view
   end
@@ -11666,6 +11677,7 @@ return function(mod)
         if not move then return end
         local disabled = THEME:moveUnavailableReason(move) ~= nil
         if assist("move_details") and info then
+          move.battleSlot = slot
           moveInfo = move
           hgssRuntime.beginAnimation("battle_move_info")
           dirty = true
@@ -11683,6 +11695,7 @@ return function(mod)
       if assist("move_details")
           and inside(x, y, cardX + (grid and 62 or 130),
                      cardY + (grid and 0 or 13), 14, 14) then
+        move.battleSlot = slot
         moveInfo = move
         hgssRuntime.beginAnimation("battle_move_info")
         dirty = true

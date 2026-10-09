@@ -30,6 +30,11 @@ return function(T, display, H)
   at(30, 40, function() H:startMenu(menu) end, 1, "usable menu entries respond")
   entry.disabled=true
   at(30, 40, function() H:nativeGrid(menu) end, 0, "empty inert storage slots stay still")
+  local move={available=true,name="TACKLE",type="NORMAL",disabled=true,disabledLabel="NO PP",ppText="0/35"}
+  at(40,60,function() H:battleMoveCard(move,6,33,true,false) end,0,"empty-PP grid card stays still")
+  at(40,60,function() H:battleStandardMoves({moves={move},moveIndex=1}) end,0,"blocked move row stays still")
+  move.disabled,move.disabledLabel=false,nil
+  at(40,60,function() H:battleMoveCard(move,6,33,false,false) end,1,"usable grid card still responds")
   local quantity={label="POTION",qty=1,max=3}
   at(40,110,function() H:pcQuantity(quantity) end,0,"clamped minus stays still at one")
   T.eq(H:pcQuantityHit(40,110,quantity),nil,"clamped minus has no touch action at one")

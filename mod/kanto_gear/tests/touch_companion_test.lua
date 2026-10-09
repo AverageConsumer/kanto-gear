@@ -175,6 +175,12 @@ else
   local display = up(input, "displayRuntime")
   local theme = up(display.drawContents, "THEME")
   local refresh = up(hook(run, "render.compose"), "refreshBattle")
+  local prepare = up(refresh, "prepareBattleSnapshot")
+  T.eq(theme:moveUnavailableReason({pp=0,disabled=true}),"NO PP","zero PP takes priority over other locks")
+  T.check(prepare({moves={{pp=10}}},{moves={{pp=10,disabled=true}}}),"new lock invalidates cached battle cards")
+  T.check(prepare({moves={{pp=10,disabled=true,disabledReason="A"}}},
+    {moves={{pp=10,disabled=true,disabledReason="B"}}}),"changed lock reason invalidates cached details")
+  T.check(not prepare({moves={{pp=10}}},{moves={{pp=10}}}),"unchanged move availability keeps the cached frame")
   local tap = up(up(hook(run, "render.compose"), "touchEvent"), "tap")
   local tapBattle = up(tap, "tapBattle")
   local api = up(display.saveHome, "mod")
@@ -229,6 +235,8 @@ else
       theme.hgss.battleMoveInfo = function(_, info) rendered = info end
       display.drawContents()
       T.eq(rendered.ppText, "0/10", "details show the inspected move, independently of native focus")
+      T.eq(rendered.disabledLabel,theme:translate("NO PP"),"empty PP has a clear card status")
+      T.eq(rendered.disabledLines[1],theme:translate("NO PP"),"empty PP details explain their restriction")
       theme.hgss.battleMoveInfo = originalInfo
       hardware(run, display, game, { function() end })
       T.check(up(display.syncCompanionDetails, "moveInfo") ~= nil, "hardware does not dismiss details in an unchanged context")

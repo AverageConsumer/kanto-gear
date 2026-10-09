@@ -4928,29 +4928,36 @@ return function(ui)
         local x, y, w, h = self:battleStandardMoveRect(slot)
         local pressed = self:beginPress(x, y, w, h, not move.disabled)
         self:panel(x, y, w, h, mon.moveIndex == slot and not move.disabled,
-          self:typeColor(move.type))
+          self:typeColor(move.type), move.disabled and colors.band or nil, move.disabled and colors.red or nil)
         local ink = move.disabled and colors.disabledInk or colors.ink
         self:partyName(move.name or "-", x + 8, y + 5, ink, 141)
         self:partyInfo((move.ppLabel or translate("PP")) .. " " .. (move.ppText or "--"),
-          x + 153, y + 5, ink, 49, "right")
+          x + 153, y + 5, move.disabled and (self.dark and colors.redLight or colors.red) or ink, 49, "right")
         if mon.details ~= false then self:detailChevron(x + 217, y + 9, ink) end
         self:moveTypeBadge(move, x + 8, y + 25)
-        self:partyType((move.powerLabel or translate("PWR")) .. " " .. (move.powerText or "--"),
-          x + 61, y + 24, ink, 44)
-        self:partyType((move.accuracyLabel or translate("ACC")) .. " " .. (move.accuracyText or "--"),
-          x + 110, y + 24, ink, 44)
-        if self:moveHasStab(mon, move) then
-          clipped(x + 159, y + 25, 29, 10, self:typeColor(move.type))
-          border(x + 159, y + 25, 29, 10, colors.outline)
-          self:partyType(translate("STAB"), x + 160, y + 24, colors.white, 27)
+        if move.disabled then
+          clipped(x + 61, y + 24, 141, 12, colors.red)
+          border(x + 61, y + 24, 141, 12, colors.outline)
+          self:partyInfoCentered(move.disabledLabel or translate("DISABLED"),
+            x + 61, y + 24, 141, 12, colors.white)
+        else
+          self:partyType((move.powerLabel or translate("PWR")) .. " " .. (move.powerText or "--"),
+            x + 61, y + 24, ink, 44)
+          self:partyType((move.accuracyLabel or translate("ACC")) .. " " .. (move.accuracyText or "--"),
+            x + 110, y + 24, ink, 44)
+          if self:moveHasStab(mon, move) then
+            clipped(x + 159, y + 25, 29, 10, self:typeColor(move.type))
+            border(x + 159, y + 25, 29, 10, colors.outline)
+            self:partyType(translate("STAB"), x + 160, y + 24, colors.white, 27)
+          end
+          local label, effect = self:battleEffectLabel(move)
+          local fill = effect == 0 and colors.red
+            or effect and effect > 10 and colors.greenLight
+            or effect and effect < 10 and colors.amber or colors.silverDark
+          clipped(x + 193, y + 25, 27, 10, fill)
+          border(x + 193, y + 25, 27, 10, colors.outline)
+          self:partyType(label, x + 195, y + 24, colors.white, 23)
         end
-        local label, effect = self:battleEffectLabel(move)
-        local fill = effect == 0 and colors.red
-          or effect and effect > 10 and colors.greenLight
-          or effect and effect < 10 and colors.amber or colors.silverDark
-        clipped(x + 193, y + 25, 27, 10, fill)
-        border(x + 193, y + 25, 27, 10, colors.outline)
-        self:partyType(label, x + 195, y + 24, colors.white, 23)
         self:endPress(pressed)
       end
     end
@@ -5847,7 +5854,8 @@ return function(ui)
     local disabled = move.disabled
     local pressed = self:beginPress(x, y, 112, 80, not disabled)
     self:panel(x, y, 112, 80, selected and not disabled,
-      self:typeColor(move.type), self:typeColor(move.type))
+      self:typeColor(move.type), disabled and colors.band or self:typeColor(move.type),
+      disabled and colors.red or nil)
 
     local ink = disabled and colors.disabledInk or colors.ink
     self:partyName(move.name or "-", x + 9, y + 7, ink, 88)
@@ -5855,7 +5863,7 @@ return function(ui)
     self:moveTypeBadge(move, x + 9, y + 26)
     self:partyInfo(move.ppLabel or translate("PP"), x + 61, y + 25, colors.green)
     self:partyInfo(move.ppText or "--", x + 76, y + 25,
-      ink, 29, "right")
+      disabled and (self.dark and colors.redLight or colors.red) or ink, 29, "right")
     box("fill", x + 9, y + 42, 94, 1, colors.band)
     self:partyInfo(move.powerLabel or translate("PWR"), x + 9, y + 51, colors.green)
     self:partyInfo(move.powerText or "--", x + 35, y + 51,
@@ -5865,20 +5873,27 @@ return function(ui)
     self:partyInfo(move.accuracyText or "--", x + 84, y + 51,
       ink, 19, "right")
 
-    local effectLabel, effectiveness = self:battleEffectLabel(move)
-    local effectFill = effectiveness == 0 and colors.red
-      or effectiveness and effectiveness > 10 and colors.greenLight
-      or effectiveness and effectiveness < 10 and colors.amber
-      or colors.silverDark
-    local effectX = stab and x + 59 or x + 43
-    if stab then
-      clipped(x + 26, y + 66, 34, 10, self:typeColor(move.type))
-      border(x + 26, y + 66, 34, 10, colors.outline)
-      self:partyType(translate("STAB"), x + 28, y + 65, colors.white, 30)
+    if disabled then
+      clipped(x + 9, y + 65, 94, 12, colors.red)
+      border(x + 9, y + 65, 94, 12, colors.outline)
+      self:partyInfoCentered(move.disabledLabel or translate("DISABLED"),
+        x + 9, y + 65, 94, 12, colors.white)
+    else
+      local effectLabel, effectiveness = self:battleEffectLabel(move)
+      local effectFill = effectiveness == 0 and colors.red
+        or effectiveness and effectiveness > 10 and colors.greenLight
+        or effectiveness and effectiveness < 10 and colors.amber
+        or colors.silverDark
+      local effectX = stab and x + 59 or x + 43
+      if stab then
+        clipped(x + 26, y + 66, 34, 10, self:typeColor(move.type))
+        border(x + 26, y + 66, 34, 10, colors.outline)
+        self:partyType(translate("STAB"), x + 28, y + 65, colors.white, 30)
+      end
+      clipped(effectX, y + 66, 27, 10, effectFill)
+      border(effectX, y + 66, 27, 10, colors.outline)
+      self:partyType(effectLabel, effectX + 2, y + 65, colors.white, 23)
     end
-    clipped(effectX, y + 66, 27, 10, effectFill)
-    border(effectX, y + 66, 27, 10, colors.outline)
-    self:partyType(effectLabel, effectX + 2, y + 65, colors.white, 23)
     self:endPress(pressed)
   end
 
@@ -5919,26 +5934,38 @@ return function(ui)
     box("fill", 155, 74, 1, 30, colors.band)
     box("fill", 16, 112, 208, 1, colors.band)
 
-    self:partyInfo(move.stabLabel or translate("STAB"), 17, 122,
-      colors.mutedInk, 103, "center")
-    local stabFill = stab and accent or colors.silverDark
-    clipped(50, 137, 35, 11, stabFill)
-    border(50, 137, 35, 11, colors.outline)
-    self:partyType(stab and "1.5X" or "--", 52, 136,
-      colors.white, 31)
+    if move.disabled then
+      local lines = move.disabledLines or { move.disabledLabel or translate("DISABLED") }
+      clipped(16, 118, 208, 33, colors.red)
+      border(16, 118, 208, 33, colors.outline)
+      local height = #lines * 9
+      local top = 118 + math.floor((33 - height) / 2)
+      for index, line in ipairs(lines) do
+        self:partyInfoCentered(self:fitPartyInfo(line, 196), 22, top + (index - 1) * 9,
+          196, 9, colors.white)
+      end
+    else
+      self:partyInfo(move.stabLabel or translate("STAB"), 17, 122,
+        colors.mutedInk, 103, "center")
+      local stabFill = stab and accent or colors.silverDark
+      clipped(50, 137, 35, 11, stabFill)
+      border(50, 137, 35, 11, colors.outline)
+      self:partyType(stab and "1.5X" or "--", 52, 136,
+        colors.white, 31)
 
-    self:partyInfo(move.matchupLabel or translate("MATCHUP"), 122, 122,
-      colors.mutedInk, 103, "center")
-    local effectLabel, effectiveness = self:battleEffectLabel(move)
-    local effectFill = effectiveness == 0 and colors.red
-      or effectiveness and effectiveness > 10 and colors.greenLight
-      or effectiveness and effectiveness < 10 and colors.amber
-      or colors.silverDark
-    clipped(159, 137, 27, 11, effectFill)
-    border(159, 137, 27, 11, colors.outline)
-    self:partyType(effectLabel, 161, 136, colors.white, 23)
+      self:partyInfo(move.matchupLabel or translate("MATCHUP"), 122, 122,
+        colors.mutedInk, 103, "center")
+      local effectLabel, effectiveness = self:battleEffectLabel(move)
+      local effectFill = effectiveness == 0 and colors.red
+        or effectiveness and effectiveness > 10 and colors.greenLight
+        or effectiveness and effectiveness < 10 and colors.amber
+        or colors.silverDark
+      clipped(159, 137, 27, 11, effectFill)
+      border(159, 137, 27, 11, colors.outline)
+      self:partyType(effectLabel, 161, 136, colors.white, 23)
 
-    box("fill", 119, 122, 1, 27, colors.band)
+      box("fill", 119, 122, 1, 27, colors.band)
+    end
     box("fill", 16, 156, 208, 1, colors.band)
     local lines = move.descriptionLines or { move.description or "--" }
     if lines[2] then
