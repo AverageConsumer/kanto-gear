@@ -100,6 +100,31 @@ function Gen3:drawActor(g, actor, x, y, scale, feet, tint)
   return true
 end
 
+function Gen3:itemIcon(id)
+  id = self.Items.toNumericId(id)
+  if not id then return nil end
+  local image, quad
+  self.itemIcons = self.itemIcons or {}
+  local cached = self.itemIcons[id]
+  if self.profile.id == "emerald" then
+    local chrome = require("src.ui.game3.rse.bag_chrome")
+    local manifest = chrome.manifest()
+    local icons = manifest and manifest.icons
+    if not icons or id < 0 or id >= icons.count then return nil end
+    image = require("src.ui.game3.rse.scene_kit").rgbaImage(icons.rgba, icons.w, icons.h)
+    if not image then return nil end
+    if cached and cached.image == image then return cached end
+    quad = love.graphics.newQuad(0, id * 24, 24, 24, icons.w, icons.h)
+  else
+    image = require("src.ui.game3.bag_chrome").iconImage(id)
+    if not image then return nil end
+    if cached and cached.image == image then return cached end
+  end
+  cached = { image = image, quad = quad, width = 24, height = 24 }
+  self.itemIcons[id] = cached
+  return cached
+end
+
 function Gen3:types(source)
   local out = {}
   for _, id in ipairs(source or {}) do

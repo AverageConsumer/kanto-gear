@@ -2779,7 +2779,8 @@ return function(mod)
     if not id then return end
     local def = game.data and game.data.items and game.data.items[id] or {}
     return { id = id, label = def.name or tostring(id):gsub("_", " "),
-      count = game.save.inventory[id], icon = displayRuntime.bagItemKind(id, def) }
+      count = game.save.inventory[id], icon = displayRuntime.bagItemKind(id, def),
+      itemSprite = displayRuntime.gen3 and displayRuntime.gen3:itemIcon(id) }
   end
 
   local companion
@@ -5072,6 +5073,9 @@ return function(mod)
         THEME.hgss:partySelection(views, hgssRuntime.summaryPortrait)
       else
         if top.recentBag then THEME.hgss:recentBagItem(top.recentBag, 33) end
+        for _, entry in ipairs(model.entries) do
+          if entry.itemId then entry.itemSprite = displayRuntime.gen3:itemIcon(entry.itemId) end
+        end
         THEME.hgss:startMenu(model)
         if top.prompt then
           local tall = #top.items <= 2
@@ -8807,10 +8811,16 @@ return function(mod)
       end
       if not detail then state.detail = nil end
     end
+    -- Load art for the visible page/detail only; the host caches images/quads.
+    if displayRuntime.gen3 then
+      for _, entry in ipairs(visible) do entry.itemSprite = displayRuntime.gen3:itemIcon(entry.id) end
+      if detail then detail.itemSprite = displayRuntime.gen3:itemIcon(detail.id) end
+    end
     return {
       pocket = THEME:translate(pocket.label), pocketIndex = state.pocket,
       pockets = #pockets, page = state.page, pages = pages,
       entries = visible, total = #entries, detail = detail, recent = recent,
+      actions = detail and displayRuntime.bagActions(detail.id) or {},
       message = state.message, canUse = screenState() == "active" and not battle,
       money = tonumber(save.money) or 0,
     }
@@ -8841,10 +8851,107 @@ return function(mod)
     return out
   end
 
+  function displayRuntime.bagActions(itemId)
+    local def = game.data and game.data.items and game.data.items[itemId] or {}
+    local source
+    if displayRuntime.gen3 then source = displayRuntime.gen3Ui:bagActions(itemId)
+    elseif compat.isGen2() then
+      local Pack = require("src.ui.gen2.PackMenu")
+      source = type(Pack.submenuRows) == "function" and Pack.submenuRows({ items = game.data.items,
+        inBattle = function() return false end,
+        pocket = function() return { id = def.pocket or "ITEM" } end }, itemId) or { "use" }
+    else
+      source = { "use" }
+      if not def.keyItem and not tostring(itemId):match("^HM_?") then source[2] = "toss" end
+    end
+    local actions = {}
+    for _, name in ipairs(source or {}) do
+      local id = name:lower()
+      if id == "sel" or id == "set" then id = "register" end
+      if id ~= "quit" and id ~= "cancel" and id ~= "exit" then
+        local label = id == "check_tag" and "CHECK TAG" or id:upper()
+        if id == "register" and displayRuntime.gen3
+            and displayRuntime.gen3.session.registeredItem == itemId then label = "UNREGISTER" end
+        local enabled = true
+        if id == "give" then
+          enabled = false
+          for _, mon in ipairs(game.save.party or {}) do
+            if not mon.isEgg and not mon.egg then enabled = true break end
+          end
+        end
+        actions[#actions + 1] = { id = id, label = THEME:translate(label), enabled = enabled }
+      end
+    end
+    return actions
+  end
+
+  function displayRuntime.performBagAction(itemId, action)
+    if screenState() ~= "active" or battle or not itemId
+        or (tonumber(game.save.inventory[itemId]) or 0) <= 0 then return false end
+    local allowed = false
+    for _, row in ipairs(displayRuntime.bagActions(itemId)) do
+      if row.id == action and row.enabled ~= false then allowed = true break end
+    end
+    if not allowed then return false end
+    if action == "use" then return displayRuntime.useBagItem(itemId) end
+    -- Giving/discarding must never become the last successfully used item.
+    displayRuntime.recentItem.pending, displayRuntime.bag.pending = nil, nil
+    if displayRuntime.gen3 then
+      return displayRuntime.gen3Ui:openBagItem(itemId,
+        action == "register" and "SET" or action:upper())
+    end
+    local stack, backend = game.stack
+    if compat.isGen2() then
+      backend = require("src.ui.gen2.PackMenu").new(game, {
+        pocket = (game.data.items[itemId] or {}).pocket or "ITEM",
+        onChoose = function(id) if game.useFieldItem then game:useFieldItem(id) end end })
+      for index, row in ipairs(backend.rows or {}) do
+        if row.id == itemId then backend.index = index break end
+      end
+      if not backend.rows[backend.index] or backend.rows[backend.index].id ~= itemId then return false end
+      stack:push(backend)
+      backend:openSubmenu()
+      for index, name in ipairs(backend.submenu.rows) do
+        if name == action or name == "sel" and action == "register" then
+          backend.submenu.index = index
+          backend:chooseSubmenu()
+          dirty = true
+          return true
+        end
+      end
+      stack:pop()
+      return false
+    end
+    backend = require("src.ui.BagMenu").new(game)
+    for index, row in ipairs(backend.items or {}) do
+      if row.value == itemId then
+        backend.index = index
+        stack:push(backend)
+        backend.onChoose(row, backend)
+        local menu = stack:top()
+        local label = require("src.core.Strings")("TOSS")
+        if menu ~= backend then
+          for actionIndex, entry in ipairs(menu.items or {}) do
+            if entry.label == label and type(entry.onSelect) == "function" then
+              menu.index = actionIndex
+              entry.onSelect()
+              dirty = true
+              return true
+            end
+          end
+        end
+        if stack:top() ~= backend then stack:pop() end
+        stack:pop()
+        return false
+      end
+    end
+    return false
+  end
+
   function displayRuntime.useBagItem(itemId)
     if screenState() ~= "active" or battle or not itemId then return false end
     displayRuntime.recentItem:watch(game.save, itemId)
-    if displayRuntime.gen3 then return displayRuntime.gen3Ui:openBagItem(itemId) end
+    if displayRuntime.gen3 then return displayRuntime.gen3Ui:openBagItem(itemId, "USE") end
     local state = displayRuntime.bag
     state.message = nil
     local def = game.data and game.data.items and game.data.items[itemId]
@@ -8857,7 +8964,7 @@ return function(mod)
         return false
       end
       local backend = PackMenu.new(game, {
-        pocket = displayRuntime.bagPockets[state.pocket].id,
+        pocket = def and def.pocket or displayRuntime.bagPockets[state.pocket].id,
         onChoose = function(id)
           if type(game.useFieldItem) == "function" then game:useFieldItem(id) end
         end,
@@ -11175,9 +11282,14 @@ return function(mod)
       state.detail, state.message = model.entries[value].id, nil
       dirty = true
     elseif action == "recent" and model.recent then
-      displayRuntime.useBagItem(model.recent.id)
-    elseif action == "use" and model.detail then
-      displayRuntime.useBagItem(model.detail.id)
+      local canUse = false
+      for _, row in ipairs(displayRuntime.bagActions(model.recent.id)) do
+        if row.id == "use" and row.enabled ~= false then canUse = true break end
+      end
+      if canUse then displayRuntime.useBagItem(model.recent.id)
+      else state.detail, state.message, dirty = model.recent.id, nil, true end
+    elseif action == "action" and model.detail and model.actions[value] then
+      displayRuntime.performBagAction(model.detail.id, model.actions[value].id)
     end
   end
 

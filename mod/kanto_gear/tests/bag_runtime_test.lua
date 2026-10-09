@@ -244,5 +244,63 @@ T.eq(H:bagHit(20,120,model),"item","ordinary cards stay touch reachable below it
 T.eq(H:bagHit(20,106,model),nil,"the gap between shortcut and cards is inactive")
 save.inventory.POTION=nil
 T.eq(display.bagModel().recent,nil,"an empty stack removes the shortcut from the model")
+-- Companion actions must preserve the native safety prompts and ownership.
+stack:clear();stack:push(world)
+save.inventory.POTION=3
+local function actionIds(id)
+  local out={};for _, row in ipairs(display.bagActions(id)) do out[#out+1]=row.id end;return out
+end
+T.same(actionIds("POTION"),generation==1 and {"use","toss"} or {"use","give","toss"},
+  "item actions follow the generation's actual capabilities")
+run.data.items.SAFE_KEY={name="SAFE KEY",pocket="KEY_ITEM",keyItem=true,canToss=false,canSelect=true}
+save.inventory.SAFE_KEY=1
+T.same(actionIds("SAFE_KEY"),generation==1 and {"use"} or {"use","register"},"key items never offer toss/give")
+T.eq(display.performBagAction("SAFE_KEY","toss"),false,"important item cannot bypass the native permissions")
+T.eq(#stack.states,1,"rejected item action creates no screen")
+T.check(display.performBagAction("POTION","toss"),"discard reaches the native quantity flow")
+T.eq(save.inventory.POTION,3,"opening discard never removes inventory")
+T.eq(display.recentItem.pending,nil,"discard cannot be observed as successful use")
+if generation==1 then
+  local quantity=stack:top()
+  T.eq(quantity.max,3,"native toss quantity uses the real stack")
+  T.check(type(quantity.onDone)=="function","native quantity owns continuation/confirmation")
+  quantity.onDone(nil)
+  T.eq(save.inventory.POTION,3,"cancelled native quantity preserves every item")
+else
+  local pack=stack:top()
+  T.eq(pack.qtyState.max,3,"native toss quantity uses the real stack")
+  pack.qtyState.qty=2;pack:confirmToss()
+  T.eq(save.inventory.POTION,3,"quantity selection still requires native confirmation")
+  pack.confirm.onYes()
+  T.eq(save.inventory.POTION,1,"native confirmation discards exactly two items")
+end
+stack:clear();stack:push(world)
+if generation==2 then
+  T.check(display.performBagAction("POTION","give"),"give enters the original held-item flow")
+  T.eq(stack:top().screenId,"Gen2PartyMenu","give opens the native Pokemon selection")
+  T.eq(save.inventory.POTION,1,"opening give preserves the unselected item")
+  stack:clear();stack:push(world)
+end
+for _, dark in ipairs({false,true}) do
+  H:setVariant(dark)
+  for count=1,5 do
+    local actions={};for i=1,count do actions[i]={id=tostring(i),label="ACTION "..i} end
+    local detail={detail={label="POTION",count=3,icon="medicine",lines={"LINE ONE","LINE TWO","LINE THREE"}},actions=actions,canUse=true}
+    T.check(pcall(H.bagDetail,H,detail),"item actions draw in both themes")
+    for i=1,count do
+      local x,y,w,h=H:bagActionRect(i,count)
+      T.check(y>=148 and y+h<=210,"all action rows fit below the description")
+      local hit,index=H:bagHit(x+w/2,y+h/2,detail)
+      T.eq(hit,"action","button and tap geometry agree")
+      T.eq(index,i,"touch identifies the exact semantic item action")
+      detail.canUse=false
+      T.eq(H:bagHit(x+w/2,y+h/2,detail),nil,"blocked context cannot invoke an item action")
+      detail.canUse=true
+      actions[i].enabled=false
+      T.eq(H:bagHit(x+w/2,y+h/2,detail),nil,"unavailable item action has no touch target")
+      actions[i].enabled=true
+    end
+  end
+end
 assert(loadfile(path .. "/tests/recent_item_cases.lua"))()(T,path)
 T.finish("Kanto Gear HGSS Bag runtime")

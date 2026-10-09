@@ -571,7 +571,26 @@ function UI:list(battle)
   return view
 end
 
-function UI:openBagItem(id)
+function UI:bagActions(id)
+  local a = self.adapter
+  local def = a.data.items[id]
+  if not def then return {} end
+  local pocket, info = def.nativePocket, a.Items.info(id) or {}
+  if pocket == "KEY_ITEMS" then
+    local actions = { "USE" }
+    if (tonumber(info.registrability) or 0) > 0 then actions[#actions + 1] = "SET" end
+    return actions
+  elseif pocket == "POKE_BALLS" then return { "GIVE", "TOSS" }
+  elseif pocket == "TM_CASE" then
+    -- The host currently supports teaching here; its GIVE path refuses TMs/HMs.
+    return { "USE" }
+  elseif pocket == "BERRY_POUCH" and a.profile.id == "emerald" then
+    return { "CHECK_TAG", "USE", "GIVE", "TOSS" }
+  end
+  return { "USE", "GIVE", "TOSS" }
+end
+
+function UI:openBagItem(id, action)
   local a, session = self.adapter, self.adapter.session
   if not session or not a.save or (a.save.inventory[id] or 0) <= 0
       or self.Stack.top() or self.Message.isOpen() or self.Choice.active then return false end
@@ -591,7 +610,28 @@ function UI:openBagItem(id)
   for i, row in ipairs(menu.list()) do
     if row.id == id then
       menu.cursor, menu.scroll = i, math.max(0, i - 1)
-      return true
+      if not action then return true end
+      -- One explicit companion action enters the native item action directly.
+      -- Native handlers still own party/mail, quantity, confirmation and effects.
+      if menu.settle then menu.settle() end
+      local confirm = { wasPressed = function(_, key) return key == "a" end,
+        isDown = function() return false end }
+      menu.handleInput(confirm)
+      -- The host refreshes pocket-specific ACTIONS on the first action tick.
+      menu.handleInput({ wasPressed = function() return false end, isDown = function() return false end })
+      local actions = menu.ACTIONS or (pocket == "TM_CASE" and { "USE", "GIVE", "EXIT" }
+        or { "USE", "GIVE", "TOSS", "EXIT" })
+      if menu.mode == "action" then
+        for index, name in ipairs(actions) do
+          if name == action then
+            menu.actionCursor = index
+            menu.handleInput(confirm)
+            return true
+          end
+        end
+      end
+      menu.close()
+      return false
     end
   end
   menu.close()

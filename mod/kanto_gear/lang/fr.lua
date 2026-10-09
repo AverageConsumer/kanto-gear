@@ -1,4 +1,8 @@
 return {
+  ["GIVE"] = "DONNER",
+  ["REGISTER"] = "ENREGISTRER",
+  ["UNREGISTER"] = "RETIRER",
+  ["CHECK TAG"] = "FICHE BAIE",
   ["ATKS"] = "CAP.",
   ["DETAILS"] = false,
   ["FRIENDSHIP"] = false,

@@ -69,3 +69,4 @@ tests/press_feedback_cases.lua
 tests/sprite_filter_test.lua
 tests/sprite_runtime_cases.lua
 tests/trainer_markers_cases.lua
+tests/bag_actions_gen3_cases.lua

@@ -90,7 +90,7 @@ local RseBag=require("src.ui.game3.rse.bag_menu")
 for _,name in ipairs({"ITEM_POTION","ITEM_POKE_BALL","ITEM_TM01","ITEM_CHERI_BERRY","ITEM_OLD_ROD"}) do
  local id=C:require("items",name)
  Bag.add(session.bag,id,2);display.gen3:refresh()
- T.check(display.useBagItem(id),"open "..name)
+ T.check(display.gen3Ui:openBagItem(id),"open "..name)
  NativeBag.settle()
  T.eq(Stack.top().id,"bag","Emerald uses pockets, not FRLG containers")
  Screens.handleInput("bag",NativeBag,input("a"),session)
@@ -114,7 +114,7 @@ for _,name in ipairs({"ITEM_POTION","ITEM_POKE_BALL","ITEM_TM01","ITEM_CHERI_BER
  NativeBag.close();Stack.clear();RseBag.reset()
 end
 -- Emerald has its own toss texts and a fourth bedroom-PC action.
-T.check(display.useBagItem(C:require("items","ITEM_POTION")),"open potion for toss")
+T.check(display.gen3Ui:openBagItem(C:require("items","ITEM_POTION")),"open potion for toss")
 NativeBag.settle();Screens.handleInput("bag",NativeBag,input("a"),session)
 local menu=display.startMenu()
 for i,item in ipairs(menu.items) do if item.label=="TOSS" then display.StartMenu.select(menu,i) end end

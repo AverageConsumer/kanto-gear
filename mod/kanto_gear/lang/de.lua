@@ -1,4 +1,8 @@
 return {
+  ["GIVE"] = "GEBEN",
+  ["REGISTER"] = "REGISTRIEREN",
+  ["UNREGISTER"] = "ABWÄHLEN",
+  ["CHECK TAG"] = "BEERENINFO",
   ["ATKS"] = "ATT.",
   ["DETAILS"] = "DETAILS",
   ["FRIENDSHIP"] = "FREUNDSCHAFT",

@@ -1,4 +1,8 @@
 return {
+  ["GIVE"] = "DAR",
+  ["REGISTER"] = "REGISTRAR",
+  ["UNREGISTER"] = "QUITAR",
+  ["CHECK TAG"] = "FICHA BAYA",
   ["ATKS"] = "ATQ.",
   ["DETAILS"] = false,
   ["FRIENDSHIP"] = false,

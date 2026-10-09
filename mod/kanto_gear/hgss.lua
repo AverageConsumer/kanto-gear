@@ -3853,7 +3853,9 @@ return function(ui)
       local pressed = self:beginPress(x, y, w, h, not entry.disabled)
       local focused = self.nativeFocus and entry.selected
       self:homeTile(x, y, w, h, focused and c.green or c.blue, focused)
-      self:startMenuIcon(entry.kind, x + 9, y + 6)
+      if entry.itemSprite then
+        self:battleItemIcon(entry, x + 12, y + math.floor((h - 17) / 2), c.amberLight)
+      else self:startMenuIcon(entry.kind, x + 9, y + 6) end
       box("fill", x + 33, y + 5, 1, h - 10, c.band)
       local reserved = entry.right and 78 or 0
       self:partyInfo(self:fitPartyInfo(entry.label, w - 52 - reserved), x + 40,
@@ -5330,6 +5332,12 @@ return function(ui)
     local colors = self.colors
     if item.cancel then
       self:chevron(x + 8, y + 8, false)
+    elseif item.itemSprite then
+      local sprite, G = item.itemSprite, ui.graphics
+      local scale = 17 / math.max(sprite.width, sprite.height)
+      G.setColor(1, 1, 1, 1)
+      if sprite.quad then G.draw(sprite.image, sprite.quad, x, y, 0, scale, scale)
+      else G.draw(sprite.image, x, y, 0, scale, scale) end
     elseif item.icon == "ball" then
       self:battleTeamBall(x + 8, y + 8, true)
     elseif item.icon == "medicine" then
@@ -5447,15 +5455,24 @@ return function(ui)
     self:endPress(pressed)
   end
 
+  function H:bagActionRect(index, count)
+    local rows = math.ceil(count / 2)
+    local h = rows == 1 and 40 or rows == 2 and 22 or 18
+    local top = 210 - rows * h - (rows - 1) * 4
+    local row, col = math.floor((index - 1) / 2), (index - 1) % 2
+    if index == count and count % 2 == 1 then return 54, top + row * (h + 4), 132, h end
+    return 6 + col * 118, top + row * (h + 4), 110, h
+  end
+
   function H:bagDetail(model)
     local item, colors = model.detail, self.colors
     local accent = self:itemAccent(item.icon)
-    self:panel(6, 34, 228, 124, false, nil, accent)
+    self:panel(6, 34, 228, 110, false, nil, accent)
     clipped(16, 44, 45, 45,
       mixed(colors.surface, accent, self.dark and 0.24 or 0.18))
     border(16, 44, 45, 45, colors.outline)
     ui.graphics.push()
-    ui.graphics.translate(20, 48)
+    ui.graphics.translate(21, 49)
     ui.graphics.scale(2, 2)
     self:battleItemIcon(item, 0, 0, accent)
     ui.graphics.pop()
@@ -5467,19 +5484,20 @@ return function(ui)
     box("fill", 16, 99, 208, 1, colors.band)
     for index = 1, math.min(3, #lines) do
       self:partyInfo(self:fitPartyInfo(lines[index], 200),
-        20, 103 + (index - 1) * 14, colors.ink, 200, "center")
+        20, 103 + (index - 1) * 12, colors.ink, 200, "center")
     end
 
-    local enabled = model.canUse ~= false
-    local pressed = self:beginPress(54, 166, 132, 40, enabled)
-    self:panel(54, 166, 132, 40, false, nil, colors.amberLight)
-    clipped(57, 169, 126, 34,
-      enabled and self:focusSurface(true, colors.surface, colors.amberLight)
-        or colors.bandLight)
-    local label = translate(model.message and "USE AGAIN" or "USE")
-    self:partyInfo(label, 54, 180,
-      enabled and colors.ink or colors.disabledInk, 132, "center")
-    self:endPress(pressed)
+    for index, action in ipairs(model.actions or {}) do
+      local enabled = model.canUse ~= false and action.enabled ~= false
+      local x, y, w, h = self:bagActionRect(index, #model.actions)
+      local pressed = self:beginPress(x, y, w, h, enabled)
+      self:panel(x, y, w, h, false, nil, colors.amberLight)
+      clipped(x + 3, y + 3, w - 6, h - 6,
+        enabled and self:focusSurface(true, colors.surface, colors.amberLight) or colors.bandLight)
+      self:partyInfo(action.label, x, y + math.floor((h - 9) / 2),
+        enabled and colors.ink or colors.disabledInk, w, "center")
+      self:endPress(pressed)
+    end
   end
 
   function H:bag(model)
@@ -5488,8 +5506,12 @@ return function(ui)
 
   function H:bagHit(x, y, model)
     if model.detail then
-      if x >= 54 and x < 186 and y >= 166 and y < 206
-          and model.canUse ~= false then return "use" end
+      if model.canUse ~= false then
+        for index, action in ipairs(model.actions or {}) do
+          local ax, ay, w, h = self:bagActionRect(index, #model.actions)
+          if action.enabled ~= false and x >= ax and x < ax + w and y >= ay and y < ay + h then return "action", index end
+        end
+      end
       return nil
     end
     if model.recent and model.canUse ~= false and x >= 6 and x < 234

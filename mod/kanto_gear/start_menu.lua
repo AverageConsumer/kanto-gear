@@ -110,7 +110,7 @@ function Menu.model(top)
     local item = top.items[index]
     local r = item.rect or { Menu.x, (top.recentBag and 70 or Menu.y) + (row - 1) * (top.recentBag and 30 or Menu.step), Menu.width, Menu.height }
     entries[row] = { label = Menu.label(item), right = item.right, catchChance = item.catchChance, selected = index == selected,
-      kind = item.value or item.id or kinds[item.label],
+      kind = item.value or item.id or kinds[item.label], itemId = item.itemId,
       rawMon = item.rawMon, disabled = item.inert or top.screenId == "Gen2StartMenu" and item.disabled,
       x = r[1], y = r[2], w = r[3], h = r[4] }
   end
