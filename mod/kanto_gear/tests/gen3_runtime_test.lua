@@ -250,7 +250,7 @@ T.check(not display.StartMenu.select(choiceMenu, 1), "dismissed choice cannot ch
 T.check(display.homeCatalog.packages.achievements.available == true,
   "native progress enables the stamp app and widget")
 local NativeSummary = require("src.ui.game3.summary_menu")
-T.check(display.openPartySummary(1), "Gear opens the actual native summary")
+NativeSummary.openMenu(session.party,1,{session=session})
 for page = 0, 2 do
   NativeSummary._page = page
   display.gen3.syncScreens()

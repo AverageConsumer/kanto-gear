@@ -51,9 +51,11 @@ return function(T, run, display, raw)
       local ax,ay,aw,ah=theme.hgss:partyActionRow(1,count)
       click(ax+aw/2,ay+ah/2)
       display.gen3.syncScreens()
-      T.eq(display.gen3:gameView().stack:top().screenId,"Gen3SummaryMenu",
-        source.." opens Stats in "..layout.." without bypassing the pointer path")
-      require("src.ui.game3.summary_menu").close();display.gen3.syncScreens()
+      local inspected=display.summaryContext()
+      T.eq(inspected and inspected.screenId,"GearSummaryMenu",
+        source.." opens companion Stats in "..layout.." through the pointer path")
+      T.check(not require("src.ui.game3.summary_menu").open,"pointer inspection leaves native game menu closed")
+      display.summaryInput(inspected,"b");display.gen3.syncScreens()
     end
   end
   love.timer.getTime=oldTime

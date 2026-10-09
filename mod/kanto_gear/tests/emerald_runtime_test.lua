@@ -134,8 +134,8 @@ T.eq(#menu.items,4,"bedroom PC includes decoration")
 display.StartMenu.select(menu,1);Pc.handleInput(input("a"))
 T.eq(#display.startMenu().items,4,"Emerald PC storage includes toss")
 Pc.close();Stack.clear()
-T.check(display.openPartySummary(1),"open native summary")
 local Summary=require("src.ui.game3.summary_menu")
+Summary.openMenu(session.party,1,{session=session})
 for page=0,2 do
  Summary._page=page;Summary._slide.active=false
  display.gen3.syncScreens()

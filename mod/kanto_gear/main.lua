@@ -2913,6 +2913,9 @@ return function(mod)
   end
   compat.summary = assert(load(mod:read("summary.lua"),
     "@kanto_gear/summary.lua"))()
+  displayRuntime.SummaryPage = assert(load(mod:read("summary_page.lua"),
+    "@kanto_gear/summary_page.lua"))()
+
 
   function compat.isGen2()
     return game and game.save and game.save.generation == 2
@@ -7200,6 +7203,7 @@ return function(mod)
     return THEME.style == "hgss" and page == "HOME" and home.help == true
       and not home.editing and not home.library and not battle
       and not pendingFly and not pendingAction and not fieldChoice
+      and not displayRuntime.localSummary and not moveInfo
       and screenState() == "active"
   end
 
@@ -7822,115 +7826,13 @@ return function(mod)
     }
   end
 
-  function hgssRuntime.summaryView(summary)
-    local view = compat.summary.view(summary, game)
-    if not view then return nil end
-    local mon, def = view.mon, view.def
-    local types = view.types or {}
-    local level = view.level or 0
-    local growth = def.growthRate
-      and mod.content.growth_rates:get(def.growthRate)
-      or mod.content.growth_rates:get("MEDIUM_FAST")
-    local currentLevelExp = growth and growth.expForLevel
-      and growth.expForLevel(level) or view.experience
-    local nextLevelExp = level < 100 and growth and growth.expForLevel
-      and growth.expForLevel(level + 1) or currentLevelExp
-    if view.gen3 then
-      local nativeExp = displayRuntime.gen3.Summary.expProgress(mon,
-        displayRuntime.gen3.Pokemon.growthRate(mon.species))
-      currentLevelExp, nextLevelExp = nativeExp.curLevelExp, nativeExp.nextLevelExp
-    end
-    local nextValue = level < 100 and (view.nextExp
-      or math.max(0, nextLevelExp - view.experience)) or nil
-    local out = {
-      source = mon, species = mon.species, name = view.name,
-      gender = mon.gender, statusId = THEME:statusName(view.status, mod.content),
-      type = types[1], type2 = types[2] or types[1],
-      typeLabel = THEME:typeName(types[1], mod.content),
-      type2Label = THEME:typeName(types[2] or types[1], mod.content),
-      dexText = THEME:format("NO.%03d", view.dex or 0),
-      levelText = THEME:format("L%d", level),
-      hp = view.hp, maxHp = view.maxHp,
-      hpLabel = THEME:translate("HP"),
-      hpText = THEME:format("%d/%d", view.hp, view.maxHp),
-      expLabel = THEME:translate("EXP"),
-      expProgress = level >= 100 and 1
-        or progressRatio(view.experience, currentLevelExp, nextLevelExp),
-      nextLabel = THEME:translate("NEXT"),
-      nextValue = nextValue and tostring(nextValue) or nil,
-      infoLabel = THEME:translate(view.gen2 and "ITEM" or "OT"),
-      infoText = view.gen2 and (view.item or "---") or view.ot,
-      info2Label = view.gen2 and nil or THEME:translate("ID"),
-      info2Text = view.gen2 and nil or ("%05d"):format(view.otId or 0),
-      statsTitle = THEME:translate("BATTLE STATS"),
-      moves = {}, stats = {},
-      memoTitle = THEME:translate("TRAINER MEMO"),
-      otLabel = THEME:translate("ORIGINAL TRAINER"),
-      otText = view.ot,
-      idLabel = THEME:translate("ID NO."),
-      idText = ("%05d"):format(view.otId or 0),
-      growthTitle = THEME:translate("GROWTH RECORD"),
-      totalExpLabel = THEME:translate("TOTAL EXP"),
-      experienceText = tostring(view.experience or 0),
-      nextLevelLabel = THEME:translate("NEXT LEVEL"),
-      nextLevelText = level < 100 and THEME:format("L%d", level + 1)
-        or THEME:translate("MAX"),
-      nextExpLabel = THEME:translate("TO NEXT"),
-      moveDetails = assist("move_details"),
-    }
-    if view.gen3 then
-      out.natureLabel, out.natureText = THEME:translate("NATURE"), displayRuntime.gen3:plainText(view.nature)
-      out.abilityLabel, out.abilityText = THEME:translate("ABILITY"), displayRuntime.gen3:plainText(view.ability)
-      out.abilityLines = THEME:wrapText(displayRuntime.gen3:plainText(view.abilityDescription), 204, 3,
-        function(value) return THEME.hgss:partyInfoWidth(value) end)
-    end
-    local stats = view.stats or {}
-    local rows = view.gen2 and {
-      { "ATTACK", stats.attack }, { "DEFENSE", stats.defense },
-      { "SPEED", stats.speed }, { "SP. ATK", stats.specialAttack },
-      { "SP. DEF", stats.specialDefense }, { "MAX HP", view.maxHp },
-    } or {
-      { "ATTACK", stats.attack }, { "SPEED", stats.speed },
-      { "DEFENSE", stats.defense }, { "SPECIAL", stats.special },
-    }
-    for _, row in ipairs(rows) do
-      out.stats[#out.stats + 1] = {
-        label = THEME:translate(row[1]), value = row[2] or 0,
-      }
-    end
-    for slot = 1, 4 do
-      local source = mon.moves and mon.moves[slot] or {}
-      local move = game.data.moves[source.id] or {}
-      out.moves[slot] = {
-        available = source.id ~= nil,
-        name = move.name or source.id or "-", type = move.type,
-        typeLabel = THEME:typeName(move.type, mod.content),
-        ppLabel = THEME:translate("PP"),
-        ppText = source.id and THEME:format("%d/%d",
-          source.pp or 0, view.moves[slot].maxPp or move.pp or 0) or "--",
-        powerLabel = THEME:translate("PWR"),
-        powerText = move.power and move.power > 0 and tostring(move.power) or "--",
-        accuracyLabel = THEME:translate("ACC"),
-        accuracyText = move.accuracy and tostring(move.accuracy) or "--",
-      }
-    end
-    if view.contest then
-      out.moveDetails = true
-      for slot, move in ipairs(out.moves) do
-        local contest = view.contest[slot]
-        move.available = contest ~= nil
-        move.type = contest and ({ COOL = "FIRE", BEAUTY = "WATER", CUTE = "PSYCHIC",
-          SMART = "GRASS", TOUGH = "ELECTRIC" })[contest.category] or "NORMAL"
-        move.typeLabel = contest and THEME:translate(contest.category) or "--"
-        move.powerLabel, move.accuracyLabel = THEME:translate("APPEAL"), THEME:translate("JAM")
-        move.powerText, move.accuracyText = contest and contest.appeal or "--", contest and contest.jam or "--"
-        move.descriptionLines = contest and THEME:wrapText(displayRuntime.gen3:plainText(contest.description), 200, 6,
-          function(value) return THEME.hgss:partyInfoWidth(value) end) or {}
-      end
-    end
-    out.moveIndex = nil
-    return out, view
-  end
+  hgssRuntime.summaryView = assert(load(mod:read("summary_model.lua"),
+    "@kanto_gear/summary_model.lua"))()({
+      summary = compat.summary, theme = THEME, content = mod.content,
+      game = function() return game end,
+      native = function() return displayRuntime.gen3 end,
+      progress = progressRatio, assist = assist,
+    })
 
   function hgssRuntime.summaryPortrait(mon, x, y, size, fainted)
     if not drawSprite(mon.species, "front", x, y, size, size,
@@ -8923,9 +8825,8 @@ return function(mod)
     if power == 0 then power = nil end
     local accuracy = move.hitChance
     if accuracy == nil then accuracy = move.accuracy or def.accuracy end
-    local summary = screenById("summary")
-    if THEME.style == "hgss" and summary
-        and compat.summary.supports(summary, game) then
+    local summary = displayRuntime.summaryContext()
+    if THEME.style == "hgss" and summary then
       if summary.page == 4 then
         local mon = hgssRuntime.summaryView(summary)
         header(THEME:translate("CONTEST MOVES"), true)
@@ -9289,36 +9190,43 @@ return function(mod)
     end
   end
 
+  function displayRuntime.summaryContext(native)
+    if THEME.style ~= "hgss" or not game then return native end
+    local localState = displayRuntime.localSummary
+    if localState then
+      if battle or (game.save.party or {})[localState.slot] ~= localState.mon then
+        displayRuntime.localSummary, moveInfo, dirty = nil, nil, true
+      elseif game.stack:top() == game.world or game.stack:top() == game.overworld then
+        return localState
+      end
+    end
+    if native and native.screenId == "GearSummaryMenu" then native = native.owner end
+    native = native or screenById("summary")
+    if not native or game.stack:top() ~= native or not compat.summary.supports(native) then
+      displayRuntime.nativeSummary = nil
+      return nil
+    end
+    local state = displayRuntime.nativeSummary
+    if not state or state.owner ~= native or state.mon ~= native.mon then
+      state = compat.summary.inspection(native.mon, game, displayRuntime.gen3 and 3
+        or compat.isGen2() and 2 or 1, native.pages == 4)
+      state.owner = native
+      displayRuntime.nativeSummary = state
+    end
+    return state
+  end
+
   local function drawBattleSummary(summary)
     if THEME.style == "hgss" then
+      summary = displayRuntime.summaryContext(summary)
+      if not summary then return end
       local mon, view = hgssRuntime.summaryView(summary)
       if not mon then return end
-      local pageLabels = view.gen3 and { "TRAINER", "STATS", "MOVES", "CONTESTS" }
-        or { "STATS", "MOVES", "TRAINER" }
-      local layoutPage = view.layoutPage or view.page
-      header(THEME:format("%s %d/%d",
-        THEME:translate(pageLabels[view.page] or "STATS"),
-        view.page, view.pages), true, true, view.page == 1 and -1 or 0)
+      header(THEME:translate("POKEMON"), true)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      local open = not view.gen3 and hgssRuntime.progress("summary_open")
-      local pageProgress = not view.gen3 and hgssRuntime.progress("summary_page")
-      if open and view.page == 1 then
-        THEME.hgss:summaryTransition(mon, hgssRuntime.summaryPortrait, open,
-          hgssRuntime.animation.actionCount or 2,
-          THEME:translate("STATS"), THEME:translate("SWAP"))
-      elseif pageProgress then
-        THEME.hgss:summaryPageTransition(mon, hgssRuntime.summaryPortrait,
-          pageProgress, hgssRuntime.animation.from, hgssRuntime.animation.to)
-      elseif layoutPage == 1 then
-        THEME.hgss:summaryPage(mon, hgssRuntime.summaryPortrait)
-      elseif layoutPage == 4 then
-        THEME.hgss:summaryContest(mon, hgssRuntime.summaryPortrait)
-      elseif layoutPage == 2 then
-        THEME.hgss:summaryMoves(mon, hgssRuntime.summaryPortrait)
-      else
-        THEME.hgss:summaryMemo(mon, hgssRuntime.summaryPortrait)
-      end
+      displayRuntime.SummaryPage.draw(THEME.hgss, summary, mon,
+        hgssRuntime.summaryPortrait, function(value) return THEME:translate(value) end)
       G.pop()
       return
     end
@@ -10358,7 +10266,7 @@ return function(mod)
       G.push(); G.scale(THEME.hgssScale, THEME.hgssScale)
     end
     local mode, top, fade = screenState()
-    local summary = compat.isScreen(top, "summary") and top or nil
+    local summary = displayRuntime.summaryContext(compat.isScreen(top, "summary") and top or nil)
     local hgssSummary = THEME.style == "hgss" and summary
       and compat.summary.supports(summary, game)
     local learnScreen = screenById("MoveLearnMenu")
@@ -10403,11 +10311,11 @@ return function(mod)
       drawDialogueChoice(choice, labels, battle and battle.message, choiceField)
     elseif battle then
       drawBattle()
+    elseif hgssSummary then
+      drawBattleSummary(summary)
     elseif fieldParty then
       drawParty(fieldPartyData, fieldPartyTitle, true, nil,
         fieldParty.index, false)
-    elseif hgssSummary then
-      drawBattleSummary(summary)
     elseif displayRuntime.gen3 and mode == "locked"
         and top and top.nativeModal then
       -- Field scripts and warps only lock input; retain the companion page
@@ -10701,11 +10609,7 @@ return function(mod)
             and hgssRuntime.animation.kind == "battle_bag_close") then
           hgssRuntime.beginAnimation("battle_bag_close")
         end
-      elseif battle.summaryPage and nextBattle.summaryPage
-          and battle.summaryPage ~= nextBattle.summaryPage then
-        hgssRuntime.beginAnimation("summary_page", {
-          from = battle.summaryPage, to = nextBattle.summaryPage,
-        })
+
       end
     end
     battle = nextBattle
@@ -10760,18 +10664,22 @@ return function(mod)
   end
 
   function displayRuntime.summaryInput(summary, key)
-    if summary.screenId == "SummaryMenu" and compat.summary.supports(summary, game) then
-      if summary.closing or (tonumber(summary.whiteHold) or 0) > 0 then return end
-      -- Gen 1 ignores left/right; A and B both advance, then close on page 2.
-      -- Keep the native page in sync with Gear, and use its normal close path.
+    if THEME.style == "hgss" then
+      local state = displayRuntime.summaryContext(summary)
+      if not state then return end
       if key == "left" or key == "right" then
-        summary.page = summary.page == 1 and 2 or 1
-        dirty = true
+        displayRuntime.SummaryPage.turn(state, key == "left" and -1 or 1)
+        moveInfo, hgssRuntime.animation, dirty = nil, nil, true
         return
-      elseif key == "b" then
-        summary.page = 2
+      elseif key == "b" and state == displayRuntime.localSummary then
+        displayRuntime.localSummary, moveInfo, dirty = nil, nil, true
+        return
       end
     end
+    -- Gen 1's original Back advances first; explicitly closing its native menu
+    -- uses the existing second-page close path. Hardware remains untouched.
+    local native = summary.owner or summary
+    if native.screenId == "SummaryMenu" and key == "b" then native.page = 2 end
     press(key)
   end
 
@@ -10851,6 +10759,7 @@ return function(mod)
       displayRuntime.bag.page, displayRuntime.bag.detail = 1, nil
       displayRuntime.bag.message = nil
     end
+    displayRuntime.localSummary = nil
     page, dirty = app.target, true
     return true
   end
@@ -10864,21 +10773,26 @@ return function(mod)
 
   function displayRuntime.openPartySummary(slot)
     local mon = game.save.party and game.save.party[slot]
-    if not mon then return false end
+    if not mon or mon.isEgg then return false end
     partyActionSlot, partyMoveFrom = nil, nil
-    if displayRuntime.gen3 then
-      require("src.ui.game3.summary_menu").openMenu(displayRuntime.gen3.session.party, slot,
-        { session = displayRuntime.gen3.session })
-      displayRuntime.gen3.syncScreens()
-    elseif compat.isGen2() then
-      mod.ui.push(game, compat.screenName("summary", true), {
-        mon = mon, party = game.save.party, index = slot,
-        onClose = function() game.stack:pop() end,
-      })
-    else
-      mod.ui.push(game, compat.screenName("summary", false), mon)
+    if THEME.style ~= "hgss" then
+      if displayRuntime.gen3 then
+        require("src.ui.game3.summary_menu").openMenu(displayRuntime.gen3.session.party, slot,
+          { session = displayRuntime.gen3.session })
+        displayRuntime.gen3.syncScreens()
+      elseif compat.isGen2() then
+        mod.ui.push(game, compat.screenName("summary", true), {
+          mon = mon, party = game.save.party, index = slot,
+          onClose = function() game.stack:pop() end,
+        })
+      else mod.ui.push(game, compat.screenName("summary", false), mon) end
+      dirty = true
+      return true
     end
-    dirty = true
+    local state = compat.summary.inspection(mon, game, displayRuntime.gen3 and 3
+      or compat.isGen2() and 2 or 1, displayRuntime.gen3 and displayRuntime.gen3.profile.id == "emerald")
+    state.slot = slot
+    displayRuntime.localSummary, moveInfo, hgssRuntime.animation, dirty = state, nil, nil, true
     return true
   end
 
@@ -11350,24 +11264,9 @@ return function(mod)
       return
     end
     if compat.isScreen(top, "summary") then
-      if THEME.style == "hgss" then
-        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
-        if hy < 30 and hx < 27 then
-          displayRuntime.summaryInput(top, "b")
-        elseif hy < 30 and hx < 82 then
-          displayRuntime.summaryInput(top, "left")
-        elseif hy < 30 and hx < 139 then
-          displayRuntime.summaryInput(top, "right")
-        end
-      elseif y < HEADER and x < 24 then
-        displayRuntime.summaryInput(top, "b")
-      elseif compat.summary.supports(top, game)
-          and inside(x, y, 103, 125, 53, 15) then
-        press("a")
-      elseif not compat.summary.supports(top, game)
-          and inside(x, y, 14, 94, 132, 34) then
-        displayRuntime.summaryInput(top, "b")
-      end
+      if THEME.style == "hgss" then displayRuntime.tapSummary(top, x, y)
+      elseif y < HEADER and x < 24 then displayRuntime.summaryInput(top, "b")
+      elseif inside(x, y, 103, 125, 53, 15) then press("a") end
       return
     end
     local party = screenContract(top, "party")
@@ -12116,6 +12015,20 @@ return function(mod)
     return pressed, overlayPressed
   end
 
+  function displayRuntime.tapSummary(summary, x, y)
+    local state = displayRuntime.summaryContext(summary)
+    if not state then return end
+    local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
+    if hy < 28 and hx < 27 then displayRuntime.summaryInput(state, "b"); return end
+    local action, value = displayRuntime.SummaryPage.hit(state, hx, hy)
+    if action == "page" then
+      state.page, moveInfo, dirty = value, nil, true
+    elseif action == "move" and (assist("move_details") or state.page == 4) then
+      local selected = hgssRuntime.summaryMove(state, value)
+      if selected then moveInfo, dirty = selected, true end
+    end
+  end
+
   local function tap(x, y)
     local startMenu = displayRuntime.startMenu()
     if startMenu then
@@ -12130,46 +12043,9 @@ return function(mod)
       if y < HEADER and x < 24 then back() end
       return
     end
-    local summary = screenById("summary")
-    if summary and game.stack:top() == summary then
-      if THEME.style == "hgss" and compat.summary.supports(summary, game) then
-        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
-        if hy < 30 and hx < 27 then
-          displayRuntime.summaryInput(summary, "b")
-        elseif hy < 30 and hx < 82 then
-          displayRuntime.summaryInput(summary, "left")
-        elseif hy < 30 and hx < 139 then
-          displayRuntime.summaryInput(summary, "right")
-        elseif (displayRuntime.gen3 and tonumber(summary.page) == 4)
-            or (assist("move_details") and tonumber(summary.page) == (displayRuntime.gen3 and 3 or 2)) then
-          for slot = 1, 4 do
-            local rowY = 63 + (slot - 1) * 37
-            if inside(hx, hy, 6, rowY, 228, 34) then
-              local selected = hgssRuntime.summaryMove(summary, slot)
-              if selected then
-                moveInfo = selected
-                dirty = true
-              end
-              break
-            end
-          end
-        end
-      elseif not battle then
-        return
-      elseif y < HEADER and x < 24 then
-        displayRuntime.summaryInput(summary, "b")
-      elseif compat.summary.supports(summary, game)
-          and inside(x, y, 103, 125, 53, 15) then
-        press("a")
-      elseif not compat.summary.supports(summary, game)
-          and inside(x, y, 14, 94, 132, 34) then
-        displayRuntime.summaryInput(summary, "b")
-      else
-        return
-      end
-      if compat.summary.supports(summary, game) then
-        dirty = true
-      end
+    local summary = displayRuntime.summaryContext()
+    if THEME.style == "hgss" and summary then
+      displayRuntime.tapSummary(summary, x, y)
       return
     end
     local choice, labels, field = dialogueChoice()
@@ -12314,11 +12190,6 @@ return function(mod)
         end
       elseif mon and (action == 1
           or THEME.style ~= "hgss" and inside(x, y, 14, 37, 132, 38)) then
-        if THEME.style == "hgss" then
-          hgssRuntime.beginAnimation("summary_open", {
-            actionCount = canSwap and 2 or 1,
-          })
-        end
         displayRuntime.openPartySummary(slot)
       elseif canSwap and (action == 2
           or THEME.style ~= "hgss" and inside(x, y, 14, 84, 132, 38)) then
@@ -12625,9 +12496,8 @@ return function(mod)
 
   local function swipe(dx, down)
     if THEME.style == "hgss" and not moveInfo then
-      local summary = screenById("summary")
-      if summary and game.stack:top() == summary
-          and compat.summary.supports(summary, game) then
+      local summary = displayRuntime.summaryContext()
+      if summary then
         displayRuntime.summaryInput(summary, dx < 0 and "right" or "left")
         dirty = true
         return
@@ -12810,7 +12680,9 @@ return function(mod)
       tostring(top and top.confirm), tostring(top and top.selecting),
       tostring(not text and top and top.message ~= nil),
       tostring(moveInfo), tostring(fieldChoice), tostring(battleInfoDetail),
-      tostring(partyActionSlot), tostring(page), tostring(mode),
+      tostring(partyActionSlot), tostring(displayRuntime.localSummary),
+      tostring(displayRuntime.localSummary and displayRuntime.localSummary.page),
+      tostring(displayRuntime.nativeSummary and displayRuntime.nativeSummary.page), tostring(page), tostring(mode),
       tostring(page == "PSS" and (displayRuntime.pss.state .. ":"
         .. tostring(displayRuntime.pss.inUse) .. ":" .. tostring(displayRuntime.pss.selected)
         .. ":" .. displayRuntime.pss.page)),
@@ -13038,6 +12910,7 @@ return function(mod)
 
   mod.events:on("game.ready", function(payload)
     displayRuntime.pss:close()
+    displayRuntime.localSummary, displayRuntime.nativeSummary = nil, nil
     if displayRuntime.gen3Pointer then
       displayRuntime.gen3Pointer:release(); displayRuntime.gen3Pointer = nil
     end
@@ -13762,22 +13635,6 @@ return function(mod)
           inline and "inline" or bottomOnHandheld() and "game-transfer" or "gear-transfer",
           mod.options:get("map_motion") or "quality", mapId or "unknown"))
       end
-      local currentSummary = compat.isScreen(top, "summary")
-        and compat.summary.supports(top, game) and top or nil
-      if THEME.style == "hgss" and currentSummary and not battle then
-        local currentPage = tonumber(currentSummary.page) or 1
-        if hgssRuntime.summaryState == currentSummary
-            and hgssRuntime.summaryPage
-            and hgssRuntime.summaryPage ~= currentPage then
-          hgssRuntime.beginAnimation("summary_page", {
-            from = hgssRuntime.summaryPage, to = currentPage,
-          })
-        end
-        hgssRuntime.summaryState, hgssRuntime.summaryPage =
-          currentSummary, currentPage
-      else
-        hgssRuntime.summaryState, hgssRuntime.summaryPage = nil, nil
-      end
       if partyMoveFrom and (page ~= "PARTY" or not mod.world
           or not mod.world.canReorderParty or not mod.world:canReorderParty()) then
         partyMoveFrom, dirty = nil, true
@@ -13812,6 +13669,7 @@ return function(mod)
       displayRuntime.startMenuIndex = startCursor and startCursor.index or nil
       local screenKey = table.concat({ mode, tostring(top),
         tostring(page), tostring(guidePage), tostring(areaPage),
+        compat.summary.redrawKey(displayRuntime.summaryContext()),
          tostring(displayRuntime.explorer.view),
          tostring(displayRuntime.explorer.selected),
          tostring(displayRuntime.explorer.page),
