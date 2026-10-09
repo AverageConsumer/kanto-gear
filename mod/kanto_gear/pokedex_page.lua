@@ -14,7 +14,7 @@ function Page.cardRect(index)
   return 7 + (index - 1) * 77, 156, 72, 54
 end
 
-function Page.actionRect(index, count)
+function Page.actionRect(index, count, compact)
   local columns = count <= 3 and count or count == 4 and 2 or 3
   local rows = math.ceil(count / columns)
   local gap = columns == 2 and 4 or 5
@@ -23,7 +23,7 @@ function Page.actionRect(index, count)
   local visible = math.min(columns, count - row * columns)
   gap = visible == 2 and 4 or gap
   local left = math.floor((240 - (visible * width + (visible - 1) * gap)) / 2)
-  return left + (index - 1) % columns * (width + gap), 156 + row * 29, width, height
+  return left + (index - 1) % columns * (width + gap), (compact and 185 or 156) + row * 29, width, compact and 25 or height
 end
 
 function Page.toolRect(index)
@@ -47,6 +47,16 @@ function Page.comparison(rows, x, y, width, height)
       scale = fit * 256 / math.max(1, row.scale) }
   end
   return result
+end
+
+-- Native habitat atlases use their own coordinate system; fit the full region,
+-- never a viewport around the current Pokemon or a subset of its markers.
+function Page.areaTransform(area)
+  -- These tile atlases have 16-pixel-aligned crops. Eighth steps keep both
+  -- visible edges centered on exact pixels in Gear's 1.5x canvas.
+  local scale = math.floor(math.min(212 / area.width, 90 / area.height) * 8) / 8
+  return { x = 120 - (area.x + area.width / 2) * scale,
+    y = 128 - (area.y + area.height / 2) * scale, scale = scale }
 end
 
 function Page.pagerRect(direction, description)
@@ -154,7 +164,7 @@ function Page.hit(model, x, y)
   end
   if model.actions then
     for index, action in ipairs(model.actions) do
-      if not action.inert and inside(x, y, Page.actionRect(index, #model.actions)) then return "action", index end
+      if not action.inert and inside(x, y, Page.actionRect(index, #model.actions, model.compactActions)) then return "action", index end
     end
   end
   if model.view == "profile" then

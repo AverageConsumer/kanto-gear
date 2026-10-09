@@ -1,4 +1,7 @@
 return {
+  ["HOENN"] = false,
+  ["KANTO"] = false,
+  ["JOHTO"] = false,
   ["GIVE"] = "DAR",
   ["REGISTER"] = "REGISTRAR",
   ["UNREGISTER"] = "QUITAR",

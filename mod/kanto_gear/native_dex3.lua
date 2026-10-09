@@ -224,6 +224,35 @@ local function describe(layer, game, previous)
             name = Pokemon.name(sp), seen = row.seen, caught = row.owned }
         end
       end
+    elseif s.page == Native.PAGE.AREA and s.area then
+      local row, a = s.list.items[s.selected], s.area
+      local area = previous and previous.dex.areaKey == a and previous.dex.area
+      if not area then
+        -- Read the native finder once per open area. Merge adjacent atlas cells;
+        -- the companion needs neither a second glow texture nor animated highlights.
+        local Region = require("src.ui.game3.rse.region_map")
+        local sections, coverage = {}, {}
+        for _, found in ipairs(a.found.overworld) do sections[found.sec] = true end
+        for y = 0, 19 do
+          local first
+          for x = 0, 32 do
+            local occupied = x < 32 and sections[Region.mapSecAt(x, y)]
+            if occupied and not first then first = x end
+            if first and not occupied then
+              coverage[#coverage + 1] = { x = first * 8, y = y * 8 + 8, width = (x - first) * 8, height = 8 }
+              first = nil
+            end
+          end
+        end
+        area = { x = 8, y = 24, width = 224, height = 128, markers = a.markers, player = a.player,
+          coverage = coverage, available = a.map ~= nil, unknown = a.unknown,
+          draw = function() love.graphics.setColor(1, 1, 1, 1); love.graphics.draw(a.map, 0, 8) end }
+      end
+      state = { kind = "area", species = Native.speciesOf(row.dexNum), owned = row.owned,
+        area = area, areaKey = a, region = "HOENN", compactActions = true,
+        signature = tostring(s) .. ":" .. s.fn .. ":" .. tostring(a) .. ":" .. tostring(a.inputState),
+        waiting = s.fn ~= "areaInput" or a.inputState ~= 1 or s.pal:fadeActive(),
+        actions = { { label = "CRY", key = "right" }, { label = "ENTRY", key = "b" } } }
     elseif s.page == Native.PAGE.CRY and s.cry then
       local row, cry = s.list.items[s.selected], s.cry
       local ready = cry.cryRepeatDelay == 0 and cry.cryOverrideCountdown == 0

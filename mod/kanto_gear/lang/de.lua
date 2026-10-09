@@ -1,4 +1,7 @@
 return {
+  ["HOENN"] = "HOENN",
+  ["KANTO"] = "KANTO",
+  ["JOHTO"] = "JOHTO",
   ["GIVE"] = "GEBEN",
   ["REGISTER"] = "REGISTRIEREN",
   ["UNREGISTER"] = "ABWÄHLEN",

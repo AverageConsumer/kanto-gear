@@ -118,6 +118,63 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       x,y,w,h = display.PokedexPage.actionRect(3,4)
       click(x+w/2,y+h/2)
       T.eq(native.view, "entry", "Cry stays on the original entry")
+      local oldEnc,oldMaps,oldLandmarks,oldHof,oldRoamers=game.data.gen2Encounters,game.data.gen2Maps,
+        game.data.gen2Landmarks,game.save.hallOfFame,game.save.roamers
+      game.data.gen2Maps={ AREA_FIX_J={landmark=1},AREA_FIX_K={landmark=46},AREA_FIX_R={landmark=2} }
+      game.data.gen2Landmarks={order={[2]="LANDMARK_FIX_J",[3]="LANDMARK_FIX_R",[47]="LANDMARK_PALLET_TOWN"},
+        landmarks={LANDMARK_FIX_J={index=1,x=48,y=40},LANDMARK_FIX_R={index=2,x=80,y=72},
+          LANDMARK_PALLET_TOWN={index=46,x=48,y=112}}}
+      game.data.gen2Encounters={grass={AREA_FIX_J={slots={night={{species=order[1]}}}},
+        AREA_FIX_K={slots={day={{species=order[1]}}}}},water={}}
+      game.save.hallOfFame={count=0};game.save.roamers={{species=order[1],map="AREA_FIX_R",hp=0}}
+      x,y,w,h=display.PokedexPage.actionRect(2,4);click(x+w/2,y+h/2)
+      local area=view()
+      T.eq(area.dexModel.view,"area","Gen2 nest page uses the common habitat atlas")
+      T.eq(#area.dexModel.area.markers,2,"all-day native nests include a never-met active roamer")
+      T.eq(area.dexModel.area.markers[1].x,48,"native landmark coordinates are preserved")
+      T.eq(area.dexModel.region,"JOHTO","native habitat starts in Johto")
+      T.eq(view().dexModel.area,area.dexModel.area,"unchanged nest data reuses the projection")
+      local oldGfx,oldSheet=native.mapGfx,native.mapSheet
+      local tiles,drawn={},0
+      for i=1,360 do tiles[i]=i%8 end
+      native.mapGfx={maps={johto=tiles,kanto=tiles}}
+      native.mapSheet={draw=function(_,id,tx,ty)
+        T.eq(id,tiles[ty*20+tx+1],"companion atlas draws the native row-major tile value")
+        drawn=drawn+1
+      end}
+      local withMap=view()
+      T.check(withMap.dexModel.area.available,"native map metadata enables the atlas renderer")
+      withMap.dexModel.area.draw()
+      T.eq(drawn,360,"companion uses the full native tilemap without its old title or blinking markers")
+      native.mapGfx,native.mapSheet=oldGfx,oldSheet
+      area=view()
+
+      local stable=display.StartMenu.redrawKey(area)
+      for _=1,40 do tick() end
+      T.eq(display.StartMenu.redrawKey(view()),stable,"native nest blink does not redraw the companion atlas")
+      x,y,w,h=display.PokedexPage.actionRect(2,3,true)
+      T.eq(click(x+w/2,y+h/2),nil,"Kanto is inert before native Hall of Fame unlock")
+      T.eq(native:areaRegionName(),"johto","locked region cannot move native focus")
+      T.eq(click(120,128),nil,"habitat artwork has no hidden touch action")
+      if _G.KANTO_GEAR_NATIVE_DEX_RENDER then _G.KANTO_GEAR_NATIVE_DEX_RENDER(display,style,"area_locked") end
+      game.save.hallOfFame.count=1
+      T.check(not area.valid(),"unlock changes invalidate old area touch targets")
+      T.eq(click(x+w/2,y+h/2),"right","unlocked Kanto follows the native right handler")
+      local kanto=view()
+      T.eq(kanto.dexModel.region,"KANTO","native region selection updates the companion")
+      T.eq(#kanto.dexModel.area.markers,1,"Kanto map contains only its own native nests")
+      T.eq(kanto.dexModel.area.markers[1].y,112,"Kanto marker retains its original position")
+      x,y,w,h=display.PokedexPage.actionRect(1,3,true)
+      T.eq(click(x+w/2,y+h/2),"left","Johto button returns via native input")
+      T.check(not kanto.valid(),"previous region rejects delayed touches")
+      game.save.roamers[1].species=nil
+      T.eq(#view().dexModel.area.markers,1,"caught roamer disappears from the nest projection")
+      x,y,w,h=display.PokedexPage.actionRect(3,3,true)
+      T.eq(click(x+w/2,y+h/2),"b","Entry returns through the native area handler")
+      T.eq(native.view,"entry","habitat returns to the original entry")
+      game.data.gen2Encounters,game.data.gen2Maps,game.data.gen2Landmarks=oldEnc,oldMaps,oldLandmarks
+      game.save.hallOfFame,game.save.roamers=oldHof,oldRoamers
+
     end
     profile = view()
     T.check(pcall(display.drawContents), "native profile renders in " .. style)

@@ -1031,7 +1031,7 @@ return function(ui)
   function H:pokedexActions(model)
     local colors = self.colors
     for index, action in ipairs(model.actions or {}) do
-      local x, y, w, h = PokedexPage.actionRect(index, #model.actions)
+      local x, y, w, h = PokedexPage.actionRect(index, #model.actions, model.compactActions)
       local enabled = model.canUse ~= false and not action.inert
       local pressed = self:beginPress(x, y, w, h, enabled)
       self:homeTile(x, y, w, h, colors.red, false)
@@ -1039,6 +1039,41 @@ return function(ui)
         enabled and colors.ink or colors.disabledInk)
       self:endPress(pressed)
     end
+  end
+
+  function H:pokedexArea(model)
+    local colors, G = self.colors, ui.graphics
+    dexResearchHero(self, model, colors.green, translate(model.region or "AREA"), translate("AREA"))
+    self:panel(7, 76, 226, 104, false, nil, colors.greenLight)
+    local area = model.area
+    if area and area.available then
+      local t = PokedexPage.areaTransform(area)
+      G.setScissor(t.x + area.x * t.scale, t.y + area.y * t.scale,
+        area.width * t.scale, area.height * t.scale)
+      G.push(); G.translate(t.x, t.y); G.scale(t.scale, t.scale)
+      area.draw()
+      G.setColor(colors.redLight[1], colors.redLight[2], colors.redLight[3], 0.55)
+      for _, cell in ipairs(area.coverage or {}) do G.rectangle("fill", cell.x, cell.y, cell.width, cell.height) end
+      G.pop()
+      for _, mark in ipairs(area.markers or {}) do
+        local x, y = math.floor(t.x + mark.x * t.scale + 0.5), math.floor(t.y + mark.y * t.scale + 0.5)
+        box("fill", x - 3, y - 3, 7, 7, colors.outline)
+        box("fill", x - 2, y - 2, 5, 5, colors.redLight)
+        box("fill", x, y, 1, 1, colors.white)
+      end
+      if area.player then
+        local x, y = math.floor(t.x + area.player.x * t.scale + 0.5), math.floor(t.y + area.player.y * t.scale + 0.5)
+        box("fill", x - 2, y - 2, 5, 5, colors.outline)
+        box("fill", x - 1, y - 1, 3, 3, colors.blueLight)
+        box("fill", x, y, 1, 1, colors.white)
+      end
+      G.setScissor()
+    end
+    if not area or not area.available or area.unknown then
+      self:panel(39, 116, 162, 24, false, nil, colors.surface)
+      self:partyInfoCentered(self:fitPartyInfo(translate("UNKNOWN AREA"), 150), 45, 116, 150, 24, colors.mutedInk)
+    end
+    self:pokedexActions(model)
   end
 
   function H:pokedexCry(model)
@@ -1166,6 +1201,7 @@ return function(ui)
 
   function H:pokedex(model)
     if model.view == "profile" then return self:pokedexProfile(model) end
+    if model.view == "area" then return self:pokedexArea(model) end
     if model.view == "cry" then return self:pokedexCry(model) end
     if model.view == "size" then return self:pokedexSize(model) end
     if model.view == "stats" then return self:pokedexStats(model) end

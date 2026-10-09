@@ -18,6 +18,34 @@ local function describe(top, game, generation, previous)
         field = top.newEntry and nil or "entryAction",
         actions = top.newEntry and { { label = "CONTINUE" } } or {
           { label = "PAGE" }, { label = "AREA" }, { label = "CRY" }, { label = "PRNT" } } }
+    elseif top.view == "area" then
+      local row = top:current()
+      if not row then return end
+      local region = top:areaRegionName()
+      local unlocked = require("src.core.gen2.HallOfFame").hasEntered(game.save)
+      local identity = { region, row.species, tostring(top.mapSheet), tostring(game.data.gen2Encounters),
+        tostring(game.data.gen2Landmarks), tostring(game.data.gen2Maps) }
+      for _, roamer in ipairs(game.save.roamers or {}) do
+        identity[#identity + 1] = tostring(roamer.species) .. ":" .. tostring(roamer.map)
+      end
+      local areaKey = table.concat(identity, ":")
+      local area = previous and previous.dex.areaKey == areaKey and previous.dex.area
+      if not area then
+        local Nests = require("src.core.gen2.Nests")
+        local markers = {}
+        for _, index in ipairs(Nests.find(game.data, row.species, region, game.save)) do
+          local mark = Nests.landmark(game.data, index)
+          if mark and mark.x and mark.y then markers[#markers + 1] = { x = mark.x, y = mark.y } end
+        end
+        local cells = top.mapGfx and top.mapGfx.maps and top.mapGfx.maps[region]
+        area = { x = 0, y = 16, width = 160, height = 128, markers = markers,
+          available = cells ~= nil and top.mapSheet ~= nil, unknown = #markers == 0,
+          draw = function() top:drawTilemap(cells) end }
+      end
+      return { kind = "area", species = row.species, owned = row.caught, area = area, areaKey = areaKey,
+        signature = areaKey .. ":" .. tostring(unlocked), region = region:upper(), compactActions = true,
+        actions = { { label = "JOHTO", key = "left", inert = region == "johto" },
+          { label = "KANTO", key = "right", inert = region == "kanto" or not unlocked }, { label = "ENTRY", key = "b" } } }
     elseif top.view == "option" then
       local rows = {}
       for _, row in ipairs(top:optionRows()) do rows[#rows + 1] = { label = require("src.core.Strings")(row.label) } end
@@ -132,7 +160,7 @@ function Dex.model(view, Page, pokemon, drawPokemon, lines)
     return { view = "index", entries = entries, page = page, pages = pages, canCycle = pages > 1,
       total = #state.entries, caught = state.caught, region = state.region, tools = state.tools,
       drawPokemon = drawPokemon, canUse = view.valid() }
-  elseif state.kind == "profile" or state.kind == "cry" or state.kind == "size" then
+  elseif state.kind == "profile" or state.kind == "cry" or state.kind == "size" or state.kind == "area" then
     local info = pokemon(state.species)
     info.revealed, info.caught = true, not not state.owned
     if state.hideKind then info.kind = "?????" end
@@ -140,8 +168,12 @@ function Dex.model(view, Page, pokemon, drawPokemon, lines)
     if state.description ~= nil then info.descriptionText = state.description end
     info.description = state.owned and lines(info.descriptionText or "") or {}
     local model = { view = state.kind, pokemon = info, actions = view.items,
-      drawPokemon = state.waiting and function() return false end or drawPokemon, canUse = view.valid() }
-    if state.kind == "cry" then
+      drawPokemon = state.waiting and function() return false end or drawPokemon, canUse = view.valid(),
+      compactActions = state.compactActions }
+    if state.kind == "area" then
+      model.area, model.region = state.area, state.region
+      return model
+    elseif state.kind == "cry" then
       model.playing, model.wave = state.playing, state.wave
       return model
     elseif state.kind == "size" then
@@ -170,6 +202,9 @@ function Dex.redrawKey(model)
   local parts = { tostring(model.page), tostring(model.caught), tostring(model.total),
     tostring(model.descriptionPage), tostring(mon.name), tostring(mon.height), tostring(mon.weight), tostring(mon.caught),
     tostring(model.playing), tostring(model.caption) }
+  if model.area then
+    parts[#parts + 1] = tostring(model.area) .. ":" .. tostring(model.region)
+  end
   if model.wave then for i = 0, 15 do parts[#parts + 1] = tostring(model.wave[i] or 0) end end
   for _, row in ipairs(model.comparison or {}) do
     parts[#parts + 1] = tostring(row.image) .. ":" .. row.x .. ":" .. row.y .. ":" .. row.scale

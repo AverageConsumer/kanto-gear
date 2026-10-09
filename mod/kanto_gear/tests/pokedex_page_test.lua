@@ -58,7 +58,26 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     click(43, 88)
     T.eq(state.view, "index", "unknown Pokemon never open through the actual dispatcher")
     T.eq(requests, before, "unknown Pokemon do not request navigation")
-    local H, presses = theme.hgss, 0
+    for _,area in ipairs({{x=0,y=16,width=160,height=128},{x=8,y=24,width=224,height=128}}) do
+    local t=Page.areaTransform(area)
+    T.check(math.abs(t.x+(area.x+area.width/2)*t.scale-120)<1e-10,
+      "complete habitat atlas is centered horizontally including its source crop")
+    T.check(math.abs(t.y+(area.y+area.height/2)*t.scale-128)<1e-10,
+      "complete habitat atlas is centered vertically including its source crop")
+    T.check(area.width*t.scale<=212 and area.height*t.scale<=90,"habitat fit preserves every edge without clipping routes")
+    for _,edge in ipairs({t.x+area.x*t.scale,t.y+area.y*t.scale,area.width*t.scale,area.height*t.scale}) do
+      T.eq(edge*1.5,math.floor(edge*1.5),"atlas crop edges land on exact pixels in the 1.5x Gear canvas")
+    end
+  end
+  local area={view="area",compactActions=true,actions={{label="JOHTO",inert=true},{label="KANTO"},{label="ENTRY"}}}
+  local x,y,w,h=Page.actionRect(2,3,true)
+  T.eq(y,185,"habitat buttons leave the atlas's full content height")
+  T.eq(h,25,"compact habitat row uses the shared small button height")
+  T.eq(Page.hit(area,x+w/2,y+h/2),"action","compact touch target matches its visible action")
+  T.eq(Page.hit(area,x+w/2,170),nil,"old tall button region is now static map space")
+  x,y,w,h=Page.actionRect(1,3,true)
+  T.eq(Page.hit(area,x+w/2,y+h/2),nil,"already selected region is inert")
+  local H, presses = theme.hgss, 0
     local begin = H.beginPress
     H.beginPress = function(self, ...)
       local result = begin(self, ...)

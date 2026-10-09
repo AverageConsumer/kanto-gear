@@ -69,7 +69,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   end
   local function action(index)
     local current = view()
-    local x, y, w, h = display.PokedexPage.actionRect(index, #current.items)
+    local x, y, w, h = display.PokedexPage.actionRect(index, #current.items, current.dexModel.compactActions)
     return click(x + w / 2, y + h / 2)
   end
   local function menuRow(index)
@@ -142,6 +142,49 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     render("profile")
     if emerald then
       T.eq(#profile.items,4,"Emerald keeps AREA CRY SIZE CANCEL actions")
+      action(1); phase("areaInput")
+      waitFor(function() local s=Native.active();return s.area.inputState==1 and not s.pal:fadeActive() end)
+      local area=view()
+      T.eq(area.dexModel.view,"area","Emerald habitat has a companion map page")
+      T.eq(area.dex.areaKey,Native.active().area,"habitat retains the exact native area instance")
+      T.eq(area.dexModel.area.markers,Native.active().area.markers,"special locations use the native marker positions")
+      T.eq(area.dexModel.area.player,Native.active().area.player,"player position uses the native atlas coordinates")
+      T.eq(area.dexModel.area.unknown,Native.active().area.unknown,"unknown-area rule is inherited from native data")
+      T.eq(view().dexModel.area,area.dexModel.area,"unchanged habitat reuses its map projection")
+      T.check(not profile.valid(),"entry actions expire when the area page opens")
+      local stableArea=display.StartMenu.redrawKey(area)
+      for _=1,40 do tick() end
+      T.eq(display.StartMenu.redrawKey(view()),stableArea,"native glow animation does not repaint the steady companion atlas")
+      T.eq(click(120,128),nil,"atlas artwork is static and never dispatches an action")
+      render("area_unknown")
+      -- Contrast test uses real imported area coverage; the native finder remains the oracle.
+      local Area=require("src.ui.game3.rse.pokedex_area")
+      local wild=Area.findMapsWithMon(Pokemon.speciesFromNational(263),Native.areaContext(Native.active()))
+      T.check(#wild.overworld>0,"imported Zigzagoon habitat includes actual wild routes")
+      T.eq(action(1),"right","habitat cry button dispatches native navigation")
+      phase("cryInput");waitFor(function() return not Native.active().pal:fadeActive() end)
+      T.check(not area.valid(),"leaving habitat expires its compact touch targets")
+      click(14,13);phase("infoInput")
+      local sWild=Native.active()
+      local oldItem=sWild.list.items[sWild.selected]
+      sWild.list.items[sWild.selected]={dexNum=263,seen=true,owned=false}
+      action(1);phase("areaInput")
+      waitFor(function() return sWild.area.inputState==1 and not sWild.pal:fadeActive() end)
+      T.eq(view().dexModel.pokemon.species,Pokemon.speciesFromNational(263),"wild area retains its internal species identity")
+      T.check(not view().dexModel.area.unknown,"actual wild habitat displays coverage instead of unknown")
+      local sections,actual,expected={},{},{}
+      local Region=require("src.ui.game3.rse.region_map")
+      for _,found in ipairs(sWild.area.found.overworld) do sections[found.sec]=true end
+      for y=0,19 do for x=0,31 do if sections[Region.mapSecAt(x,y)] then expected[y*32+x]=true end end end
+      for _,cell in ipairs(view().dexModel.area.coverage) do
+        for x=cell.x/8,(cell.x+cell.width)/8-1 do actual[(cell.y-8)/8*32+x]=true end
+      end
+      T.same(actual,expected,"merged companion coverage matches every native habitat atlas cell exactly")
+      render("area_wild")
+      click(14,13);phase("infoInput")
+      sWild.list.items[sWild.selected]=oldItem
+      -- Reload info for the restored species rather than leaving a mismatched fixture page.
+      sWild.fn,sWild.state="loadInfo",0;phase("infoInput")
       action(2); phase("cryInput")
       waitFor(function() return not Native.active().pal:fadeActive() end)
       local s = Native.active()

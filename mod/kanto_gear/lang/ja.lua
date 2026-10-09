@@ -1,4 +1,7 @@
 return {
+  ["HOENN"] = false,
+  ["KANTO"] = false,
+  ["JOHTO"] = false,
   ["ATKS"] = false,
   ["DETAILS"] = false,
   ["FRIENDSHIP"] = false,
