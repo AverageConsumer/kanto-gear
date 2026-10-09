@@ -33,8 +33,11 @@ function Page.draw(H, state, mon, portrait, translate)
   for index = 1, state.pages do
     local left, top, width, height = Page.tabRect(state, index)
     local active = state.page == index
+    local label = labels[index]
+    if state.pages > 4 and index == 2 then label = "ATKS" end
+    if state.pages > 4 and index == 4 then label = "CONTEST" end
     H:tab(left, top, width, height, translate(mon.isEgg and "EGG"
-      or index == state.hiddenPage and "DETAILS" or labels[index]), active)
+      or index == state.hiddenPage and "DETAILS" or label), active)
   end
   H:panel(6, 54, 228, 24, false, nil, H:typeColor(mon.type))
   portrait(mon, 11, 55, 20, false)
@@ -64,7 +67,7 @@ function Page.draw(H, state, mon, portrait, translate)
     local details = mon.details
     H:panel(6, 82, 228, 128, false, nil, c.blueLight)
     if state.generation > 1 then
-      H:partyInfo(translate("FRIENDSHIP"), 14, 89, c.green, 83)
+      H:partyInfo(translate("FRIENDSHIP"), 14, 89, c.green, 83, "center")
       H:partyInfo(details.friendship and ("%d/255"):format(details.friendship) or "--", 99, 89, c.ink, 42, "center")
       if details.total then
         H:partyType(("EV %d/510"):format(details.total), 147, 91, c.green, 79)
@@ -72,12 +75,12 @@ function Page.draw(H, state, mon, portrait, translate)
     else
       H:partyInfo(translate("GENETICS AND TRAINING"), 14, 89, c.green, 212, "center")
     end
-    H:partyInfo(translate("STAT"), 14, 108, c.green, 83)
+    H:partyInfo(translate("STAT"), 14, 108, c.green, 83, "center")
     H:partyInfo(translate(details.geneLabel), 104, 108, c.green, 43, "center")
     H:partyInfo(translate(details.effortLabel), 151, 108, c.green, 75, "center")
     for i, row in ipairs(details.rows) do
       local y = 121 + (6 - #details.rows) * 6 + (i - 1) * 12
-      H:partyInfo(H:fitPartyInfo(row.label, 83), 14, y, c.ink, 83)
+      H:partyInfo(H:fitPartyInfo(row.label, 83), 14, y, c.ink, 83, "center")
       H:partyInfo(row.gene == nil and "--" or tostring(row.gene), 104, y, c.ink, 43, "center")
       H:partyInfo(row.effort == nil and "--" or tostring(row.effort), 151, y, c.ink, 75, "center")
     end

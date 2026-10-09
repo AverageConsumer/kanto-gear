@@ -1,4 +1,6 @@
 return {
+  ["ATKS"] = "ATT.",
+  ["CONTEST"] = "WETTB.",
   ["DETAILS"] = "DETAILS",
   ["FRIENDSHIP"] = "FREUNDSCHAFT",
   ["GENETICS AND TRAINING"] = "ANLAGEN UND TRAINING",

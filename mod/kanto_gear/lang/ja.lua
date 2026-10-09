@@ -1,4 +1,6 @@
 return {
+  ["ATKS"] = false,
+  ["CONTEST"] = false,
   ["DETAILS"] = false,
   ["FRIENDSHIP"] = false,
   ["GENETICS AND TRAINING"] = false,
