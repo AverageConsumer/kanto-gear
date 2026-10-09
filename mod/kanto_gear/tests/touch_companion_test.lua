@@ -144,6 +144,7 @@ if gen == 3 then
       nativeCursorPresentation(up(display.drawContents,"THEME"))
       hardware(run, display, game, scenes)
       assert(loadfile(path .. "/tests/press_feedback_cases.lua"))()(T,display,up(display.drawContents,"THEME").hgss)
+      assert(loadfile(path .. "/tests/sprite_runtime_cases.lua"))()(T,display,up(hook(run,"input.step"),"hgssRuntime"),gen,up)
       scenes[#scenes]()
       local guard=display.syncTouchGuard(); guard.readyAt=0
       up(display.drawContents,"touchDown",{x=80,y=60,epoch=guard.epoch},true)
@@ -201,6 +202,7 @@ else
     run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
     nativeCursorPresentation(theme)
     assert(loadfile(path .. "/tests/press_feedback_cases.lua"))()(T,display,theme.hgss)
+    assert(loadfile(path .. "/tests/sprite_runtime_cases.lua"))()(T,display,up(hook(run,"input.step"),"hgssRuntime"),gen,up)
     for _, saved in ipairs({ "standard", "gear", "full", "info" }) do
       run.loader.modOptions.kanto_gear.battle_view = saved
       hardware(run, display, game, {

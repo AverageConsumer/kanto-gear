@@ -2808,6 +2808,8 @@ return function(mod)
   local localMap = nil
   local localMapImage = nil
   local spriteCache = {}
+  displayRuntime.spriteFilter = assert(load(mod:read("sprite_filter.lua"),
+    "@kanto_gear/sprite_filter.lua"))().new(G)
   local touchDown = nil
   local textSpeedToken
   local textSpeedReleasePending = false
@@ -4517,7 +4519,14 @@ return function(mod)
       -- from a display-only record whose trainer/personality fields are absent.
       mon = mon and (mon.source or mon)
       local picId = mon and P.monPicSpecies(mon) or id
-      local shiny = mon and mon.shiny == true or false
+      local shiny = false
+      if mon then
+        if mon.shiny ~= nil then shiny = mon.shiny == true
+        elseif mon.isShiny ~= nil or mon.personality ~= nil
+            and (mon.otId ~= nil or mon.trainerId ~= nil) then
+          shiny = P.isShiny(mon)
+        end
+      end
       local pic = side == "back" and P.backPic(picId, nil, shiny)
         or P.frontPic(picId, nil, shiny, mon and mon.personality)
       return pic and pic.image, true
@@ -4544,6 +4553,7 @@ return function(mod)
                             mon, quiet, brightness)
     local image = mon and mon.presentationSprite
     local trueColor = image ~= nil
+    mon = mon and (mon.source or mon)
     if not image then image, trueColor = sprite(species, side, mon) end
     if not image then
       if not quiet then box("fill", x + 4, y + 4, maxW - 8, maxH - 8, DARK) end
@@ -4569,8 +4579,13 @@ return function(mod)
           mon and mon.transformed)
       end
     end
-    if colors and gbc.available() then gbc.with(colors, paint)
-    else paint() end
+    color(tint or { brightness or 1, brightness or 1, brightness or 1, 1 })
+    local resolved = colors and gbc.remap(gbc.resolve(colors), gbc.bgp)
+    if not displayRuntime.spriteFilter:draw(image, x + (maxW - iw * scale) / 2,
+        y + (maxH - ih * scale) / 2, scale, resolved) then
+      if colors and gbc.available() then gbc.with(colors, paint)
+      else paint() end
+    end
     return true
   end
 
