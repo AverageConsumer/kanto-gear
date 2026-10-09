@@ -97,6 +97,9 @@ function Bag.project(top, game, isGen2, previous)
     if state.cancel then items[#items + 1] = { label = "CANCEL" } end
   end
   view.items, view.title, view.nativePocket = items, state.title, state.pocket
+  view.itemActionId = state.kind == "actions" and (state.item.id or state.item.value) or nil
+  view.itemActionCount = state.kind == "actions" and state.item.count or nil
+  view.fixedLayout = view.itemActionId ~= nil
   view.bagList = state.kind == "items" and not state.switching and not top.give
   view.notice = state.kind == "notice" and state.record or nil
   view.choiceState = state.kind == "choice" and (view.choiceState or { page = 1 }) or nil

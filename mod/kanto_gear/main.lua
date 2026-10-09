@@ -2370,10 +2370,11 @@ return function(mod)
     "@kanto_gear/naming_page.lua"))()
   displayRuntime.PartyPage = assert(load(mod:read("party_page.lua"),
     "@kanto_gear/party_page.lua"))()
+  displayRuntime.ItemPage = assert(load(mod:read("item_page.lua"), "@kanto_gear/item_page.lua"))()
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
-    nativeFocus = false, partyPage = displayRuntime.PartyPage,
+    nativeFocus = false, partyPage = displayRuntime.PartyPage, itemPage = displayRuntime.ItemPage,
     smallFont = THEME.hgssSmallFont,
     smallFontMetrics = THEME.hgssSmallMetrics,
     largeFont = THEME.hgssLargeFont,
@@ -4963,7 +4964,19 @@ return function(mod)
 
   function displayRuntime.decorateBagList(top)
     if not top then return end
-    top.recentBag = nil
+    top.recentBag, top.itemModel = nil, nil
+    if top.itemActionId then
+      local detail = displayRuntime.bagItem(top.itemActionId, top.itemActionCount, top.title)
+      if displayRuntime.gen3 then detail.itemSprite = displayRuntime.gen3:itemIcon(top.itemActionId) end
+      top.itemModel = displayRuntime.ItemPage.model(detail, top.items,
+        displayRuntime.StartMenu.cursor(top) ~= nil, nil, function(label)
+          if label == "REGISTER" and displayRuntime.gen3
+              and displayRuntime.gen3.session.registeredItem == top.itemActionId then label = "UNREGISTER" end
+          return THEME:translate(label)
+        end)
+      top.fixedLayout = true
+      displayRuntime.ItemPage.layout(top.items)
+    end
     local recent = top.bagList and displayRuntime.lastBagItem()
     if recent then
       if displayRuntime.gen3 and top.bagContainer == "bag" then
@@ -5096,6 +5109,8 @@ return function(mod)
         THEME.hgss:choiceScreen(displayRuntime.choiceModel(top, labels, top.prompt))
       elseif top.quantity then
         THEME.hgss:pcQuantity(top.quantity)
+      elseif top.itemModel then
+        THEME.hgss:bagDetail(top.itemModel)
       elseif top.notice then
         if top.party then
           THEME.hgss:partyBackdrop()
@@ -8821,6 +8836,16 @@ return function(mod)
       THEME:translate("AN ITEM WITH A SPECIAL FIELD EFFECT."), 31, 3)
   end
 
+  function displayRuntime.bagItem(id, count, name)
+    local def = game.data.items and game.data.items[id] or {}
+    local moveId = def.teaches or def.machine and def.machine.move
+    local move = moveId and game.data.moves and game.data.moves[moveId]
+    return { id = id, count = count or tonumber((game.save.inventory or {})[id]) or 0,
+      label = name or def.name or tostring(id):gsub("_", " "),
+      icon = displayRuntime.bagItemKind(id, def), detail = move and move.name,
+      lines = displayRuntime.bagDescription(id, def) }
+  end
+
   function displayRuntime.bagModel()
     local state, save, data = displayRuntime.bag, game.save or {}, game.data or {}
     local gen2 = compat.isGen2()
@@ -8869,15 +8894,7 @@ return function(mod)
       local def = data.items and data.items[id] or {}
       local itemPocket = def.pocket or "ITEM"
       if count > 0 and (not gen2 and not displayRuntime.gen3 or itemPocket == pocket.id) then
-        local moveId = def.teaches or def.machine and def.machine.move
-        local move = moveId and data.moves and data.moves[moveId]
-        entries[#entries + 1] = {
-          id = id, count = count, label = def.name
-            or tostring(id):gsub("_", " "),
-          icon = displayRuntime.bagItemKind(id, def),
-          detail = move and move.name,
-          lines = displayRuntime.bagDescription(id, def),
-        }
+        entries[#entries + 1] = displayRuntime.bagItem(id, count)
       end
     end
     if gen2 then
@@ -8910,14 +8927,12 @@ return function(mod)
       for _, entry in ipairs(visible) do entry.itemSprite = displayRuntime.gen3:itemIcon(entry.id) end
       if detail then detail.itemSprite = displayRuntime.gen3:itemIcon(detail.id) end
     end
-    return {
-      pocket = THEME:translate(pocket.label), pocketIndex = state.pocket,
-      pockets = #pockets, page = state.page, pages = pages,
-      entries = visible, total = #entries, detail = detail, recent = recent,
-      actions = detail and displayRuntime.bagActions(detail.id) or {},
-      message = state.message, canUse = screenState() == "active" and not battle,
-      money = tonumber(save.money) or 0,
-    }
+    local model = displayRuntime.ItemPage.model(detail, detail and displayRuntime.bagActions(detail.id),
+      screenState() == "active" and not battle, state.message, function(label) return THEME:translate(label) end)
+    model.pocket, model.pocketIndex, model.pockets = THEME:translate(pocket.label), state.pocket, #pockets
+    model.page, model.pages, model.entries, model.total = state.page, pages, visible, #entries
+    model.recent, model.money = recent, tonumber(save.money) or 0
+    return model
   end
 
   function displayRuntime.cycleBagPage(direction)
@@ -12946,7 +12961,7 @@ return function(mod)
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
       displayRuntime.gen3Field = assert(load(mod:read("gen3_field.lua"), "@kanto_gear/gen3_field.lua"))().new(displayRuntime.gen3, mod.world)
       displayRuntime.gen3Progress = assert(load(mod:read("gen3_progress.lua"), "@kanto_gear/gen3_progress.lua"))().new(displayRuntime.gen3)
-      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage, displayRuntime.StoragePage)
+      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage, displayRuntime.StoragePage, displayRuntime.ItemPage)
       game = displayRuntime.gen3:gameView()
     end
     displayRuntime.homeCatalog.packages.achievements.available = true

@@ -321,5 +321,6 @@ for _, dark in ipairs({false,true}) do
     end
   end
 end
+assert(loadfile(path .. "/tests/item_page_cases.lua"))()(T,display,H)
 assert(loadfile(path .. "/tests/recent_item_cases.lua"))()(T,path)
 T.finish("Kanto Gear HGSS Bag runtime")

@@ -118,6 +118,22 @@ for _,style in ipairs({"hgss","hgss_dark"}) do
   local actions=view()
   T.check(not root.valid(),"opening item actions expires old list touches")
   T.eq(actions.title,"POTION","item action page identifies its selected item")
+  T.eq(actions.itemModel.detail.id,"POTION","native item actions use the shared detail card")
+  T.eq(actions.itemModel.detail.count,4,"item card shows the real native stack")
+  T.check(#actions.itemModel.detail.lines>0,"native item card uses the shared description")
+  T.eq(actions.nativeGrid,nil,"item actions no longer copy a generation-specific native grid")
+  T.check(actions.fixedLayout,"native actions keep all controls on the shared card")
+  local appDetail=display.bagItem("POTION")
+  T.same(actions.itemModel.detail,appDetail,"native and companion item cards use identical data")
+  local itemModel=display.startMenuModel(actions)
+  T.eq(#itemModel.entries,#actions.items,"all native actions, including cancel, remain visible")
+  for i,row in ipairs(itemModel.entries) do
+    T.same({row.x,row.y,row.w,row.h},{theme.hgss:bagActionRect(i,#actions.items)},"native bag action has the common item target")
+    T.eq(display.StartMenu.hit(actions,row.x+row.w/2,row.y+row.h/2),i,"native item touch preserves row identity")
+  end
+  local queuedBefore=#queued
+  display.tapStartMenu(actions,120/1.5,100/1.5)
+  T.eq(#queued,queuedBefore,"item description cannot activate the old list underneath")
   T.eq(native.index,1,"item submenu preserves parent cursor")
   choose(action("TOSS"))
   T.check(not actions.valid(),"opening quantity expires item action touches")

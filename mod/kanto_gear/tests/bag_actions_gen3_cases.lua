@@ -3,6 +3,9 @@ return function(T, run, display, raw)
   local Bag, Items = require("src.core.game3.bag"), a.Items
   local Menu, Party = require("src.ui.game3.bag_menu"), require("src.ui.game3.party_menu")
   local Stack, Message = require("src.ui.game3.stack"), require("src.ui.game3.message")
+  local function up(fn,key)
+    for i=1,debug.getinfo(fn,"u").nups do local k,v=debug.getupvalue(fn,i);if k==key then return v end end
+  end
   local function clear()
     Party.close(); Menu.close(); Stack.clear(); Message.reset()
     if a.profile.id == "emerald" then require("src.ui.game3.rse.bag_menu").reset() end
@@ -30,6 +33,60 @@ return function(T, run, display, raw)
   T.same(ids(rod), {"use","register"}, "key items expose use/registration and no destructive action")
   local nativeTm = Items.toNumericId("TM01")
   T.same(ids(nativeTm), {"use"}, "unsupported native TM giving is not advertised")
+  Bag.add(session.bag,nativeTm,1);a:refresh()
+  assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH") .. "/tests/item_page_cases.lua"))()(T, display,
+    up(display.drawContents,"THEME").hgss)
+  local Screens=require("src.ui.game3.screens")
+  for _,id in ipairs({potion,ball,rod,nativeTm}) do
+    T.check(display.gen3Ui:openBagItem(id),"open native item detail test")
+    local layer=Stack.top()
+    local native=layer.mod
+    if native.settle then native.settle() end
+    Screens.handleInput(layer.id,native,input("a"),session)
+    -- Emerald constructs the spatial grid on its first presentation tick.
+    Screens.handleInput(layer.id,native,input("none"),session)
+    local page=assert(display.startMenu())
+    T.eq(page.itemActionId,id,"all native containers retain the selected item ID")
+    T.eq(page.itemModel.detail.id,id,"native item page uses the companion detail model")
+    T.eq(page.itemModel.detail.count,Bag.get(session.bag,id),"native item detail keeps the live stack")
+    T.check(page.fixedLayout and not page.nativeGrid,"native containers share one item action layout")
+    T.check(pcall(display.drawContents),"native item detail renders without a handoff")
+    for i,row in ipairs(page.items) do
+      local x,y,w,h=unpack(row.rect)
+      T.same(row.rect,{display.ItemPage.rect(i,#page.items)},"Gen3 actions use the same targets as Gen1/2")
+      T.eq(display.StartMenu.hit(page,x+w/2,y+h/2),i,"item detail tap maps to its native index")
+      T.check(display.StartMenu.select(page,i),"each native item action remains selectable")
+      T.eq(native.actionCursor,i,"native action order remains authoritative")
+      if a.profile.id=="emerald" then
+        local st=require("src.ui.game3.rse.bag_menu")._st
+        T.eq(st.grid.cells[st.gridPos+1].idx,i,"common touch preserves Emerald's spatial cursor")
+      end
+    end
+    -- Touching the visible cancel executes the actual native cancel handler.
+    local cancel=#page.items
+    local queued={}
+    local mod=up(display.saveHome,"mod")
+    local oldTap=mod.input.tap
+    mod.input.tap=function(_,target,key) queued[#queued+1]=key end
+    local row=page.items[cancel].rect
+    display.tapStartMenu(page,(row[1]+row[3]/2)/1.5,(row[2]+row[4]/2)/1.5)
+    T.same(queued,{"a"},"one touch confirms exactly the native cancel action")
+    mod.input.tap=oldTap
+    Screens.handleInput(layer.id,native,input(queued[1]),session)
+    T.check(not page.valid(),"dismissed item detail rejects old touch targets")
+    T.eq(Bag.get(session.bag,id),page.itemModel.detail.count,"cancel leaves inventory unchanged")
+    clear()
+  end
+  -- A stale action map cannot activate a different command after native rows change.
+  T.check(display.gen3Ui:openBagItem(potion),"open item to verify action invalidation")
+  Menu.settle();Screens.handleInput("bag",Menu,input("a"),session)
+  Screens.handleInput("bag",Menu,input("none"),session)
+  local previous=assert(display.startMenu())
+  local actions=Menu.ACTIONS
+  Menu.ACTIONS={"CANCEL","USE"}
+  T.check(not previous.valid(),"changed native actions invalidate old touch indices")
+  Menu.ACTIONS=actions
+  clear()
   local before, last = Bag.get(session.bag,potion), display.lastBagItem().id
   T.eq(display.performBagAction(rod,"toss"), false, "important items cannot bypass the action whitelist")
   T.eq(display.performBagAction(ball,"use"), false, "unavailable field use does not open a stray native menu")

@@ -5419,12 +5419,7 @@ return function(ui)
   end
 
   function H:bagActionRect(index, count)
-    local rows = math.ceil(count / 2)
-    local h = rows == 1 and 40 or rows == 2 and 22 or 18
-    local top = 210 - rows * h - (rows - 1) * 4
-    local row, col = math.floor((index - 1) / 2), (index - 1) % 2
-    if index == count and count % 2 == 1 then return 54, top + row * (h + 4), 132, h end
-    return 6 + col * 118, top + row * (h + 4), 110, h
+    return ui.itemPage.rect(index, count)
   end
 
   function H:bagDetail(model)
@@ -5457,8 +5452,8 @@ return function(ui)
       self:panel(x, y, w, h, false, nil, colors.amberLight)
       clipped(x + 3, y + 3, w - 6, h - 6,
         enabled and self:focusSurface(true, colors.surface, colors.amberLight) or colors.bandLight)
-      self:partyInfo(action.label, x, y + math.floor((h - 9) / 2),
-        enabled and colors.ink or colors.disabledInk, w, "center")
+      self:partyInfoCentered(action.label, x, y, w, h,
+        enabled and colors.ink or colors.disabledInk)
       self:endPress(pressed)
     end
   end
@@ -5469,12 +5464,8 @@ return function(ui)
 
   function H:bagHit(x, y, model)
     if model.detail then
-      if model.canUse ~= false then
-        for index, action in ipairs(model.actions or {}) do
-          local ax, ay, w, h = self:bagActionRect(index, #model.actions)
-          if action.enabled ~= false and x >= ax and x < ax + w and y >= ay and y < ay + h then return "action", index end
-        end
-      end
+      local index = ui.itemPage.hit(model, x, y)
+      if index then return "action", index end
       return nil
     end
     if model.recent and model.canUse ~= false and x >= 6 and x < 234

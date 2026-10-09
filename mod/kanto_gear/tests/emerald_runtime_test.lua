@@ -96,9 +96,10 @@ for _,name in ipairs({"ITEM_POTION","ITEM_POKE_BALL","ITEM_TM01","ITEM_CHERI_BER
  Screens.handleInput("bag",NativeBag,input("a"),session)
  local menu=display.startMenu()
  T.check(menu~=nil,"project actions "..name)
- T.check(menu.nativeGrid,"native action grid mirrored "..name)
+ T.check(menu.itemActionId==id and menu.itemModel,"Emerald item action uses the shared detail card "..name)
+ T.check(not menu.nativeGrid,"native grid geometry is replaced by the common item page")
  for i,item in ipairs(menu.items) do
-  T.check(item.rect~=nil,"all actions have native grid position")
+  T.same(item.rect,{display.ItemPage.rect(i,#menu.items)},"all actions have common item page positions")
   T.check(display.StartMenu.select(menu,i),"select action "..i)
   local cell=RseBag._st.grid.cells[RseBag._st.gridPos+1]
   T.eq(cell.idx,NativeBag.actionCursor,"touch and native spatial cursor agree")

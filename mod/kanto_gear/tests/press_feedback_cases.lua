@@ -38,6 +38,16 @@ return function(T, display, H)
   at(40,110,function() H:pcQuantity(quantity) end,0,"single-item wrapping minus stays still")
   at(190,110,function() H:pcQuantity(quantity) end,0,"single-item wrapping plus stays still")
   at(40,170,function() H:pcQuantity(quantity) end,1,"quantity confirmation remains available")
+  local item = display.ItemPage.model({label="POTION",count=2,icon="medicine",lines={"RESTORES HP."}},
+    {{label="USE"},{label="TOSS",enabled=false}},true,nil,function(label) return label end)
+  local x,y,w,h=display.ItemPage.rect(1,2)
+  at(x+w/2,y+h/2,function() H:bagDetail(item) end,1,"available shared item action responds")
+  x,y,w,h=display.ItemPage.rect(2,2)
+  at(x+w/2,y+h/2,function() H:bagDetail(item) end,0,"disabled shared item action stays still")
+  item.canUse=false
+  x,y,w,h=display.ItemPage.rect(1,2)
+  at(x+w/2,y+h/2,function() H:bagDetail(item) end,0,"locked item card cannot animate an action")
+  at(120,80,function() H:bagDetail(item) end,0,"item information never bounces as a control")
   local app={id="notes",label="NOTES",icon="notes",category="UTILITY",state="soon"}
   at(60,85,function() H:storeAppCard(7,53,111,app,{}) end,0,
     "a disabled install action cannot bounce its containing card")

@@ -3,8 +3,8 @@
 local UI = {}
 UI.__index = UI
 
-function UI.new(adapter, layout, choicePage, namingPage, storagePage)
-  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, Stack = require("src.ui.game3.stack"),
+function UI.new(adapter, layout, choicePage, namingPage, storagePage, itemPage)
+  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, itemPage = itemPage, Stack = require("src.ui.game3.stack"),
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
 end
 
@@ -503,23 +503,21 @@ function UI:list(battle)
       items, field = labels(native.ACTIONS), "actionCursor"
     end
   end
-  if layer.id == "bag" and native.mode == "action" and self.adapter.profile.id == "emerald" then
-    local st = require("src.ui.game3.rse.bag_menu")._st
-    if not st.grid then return nil end
-    grid = true
-    for i, cell in ipairs(st.grid.cells) do
-      if cell then
-        local col, row = (i - 1) % st.grid.cols, math.floor((i - 1) / st.grid.cols)
-        local width = math.floor(228 / st.grid.cols)
-        items[cell.idx].rect = { 7 + col * width, 86 + row * 40, width - 2, 37 }
-      end
-    end
+  local itemActionId, itemActionCount, actionOrder
+  if items and mode == "action" and (layer.id == "bag" or layer.id == "tm_case" or layer.id == "berry_pouch") then
+    local row = native.list()[native.cursor]
+    itemActionId = row and self.adapter.Items.toNumericId(row.id)
+    if not itemActionId then return nil end
+    itemActionCount, title = row.qty, self.adapter.Items.displayName(itemActionId)
+    if layer.id == "bag" then actionOrder = table.concat(native.ACTIONS, "\31") end
+    if layer.id == "bag" and self.adapter.profile.id == "emerald"
+        and not require("src.ui.game3.rse.bag_menu")._st.grid then return nil end
   end
   if quantity then items, field = { { label = "CONFIRM" } }, nil end
   if not items or #items == 0 or not quantity and type((sale or native)[field]) ~= "number" then return nil end
   local key = tostring(layer) .. ":" .. tostring(mode) .. ":" .. tostring(native.pocketIdx)
     .. ":" .. tostring(native.holdingMon)
-    .. ":" .. tostring(saleState)
+    .. ":" .. tostring(saleState) .. ":" .. tostring(itemActionId) .. ":" .. tostring(actionOrder)
     .. ":" .. tostring(native._hmNotice) .. ":" .. tostring(native._confirmExit)
     .. ":" .. tostring(layer.id == "box_storage" and native._session.storage.currentBox)
   local view = self.view
@@ -533,6 +531,9 @@ function UI:list(battle)
     function view.valid(preview)
       return owner.Stack.top() == layer and native.open == true
         and nativeMode(layer) == mode and native.pocketIdx == pocketIdx
+        and (not itemActionId or native.list()[native.cursor]
+          and owner.adapter.Items.toNumericId(native.list()[native.cursor].id) == itemActionId)
+        and (not actionOrder or table.concat(native.ACTIONS, "\31") == actionOrder)
         and native.holdingMon == holding
         and (not storageBox or mode == "pick_box" or native._session.storage.currentBox == storageBox)
         and native._hmNotice == hmNotice and native._confirmExit == confirmExit
@@ -580,7 +581,7 @@ function UI:list(battle)
     self.view = view
   end
   view.items, view.nativeSlots, view.title, view.nativePocket = items, slots, title, pocket
-  view.bagContainer = layer.id
+  view.bagContainer, view.itemActionId, view.itemActionCount = layer.id, itemActionId, itemActionCount
   view.bagList = not quantity and mode == "list" and not native._sellMode
     and (layer.id == "bag" or layer.id == "berry_pouch" or layer.id == "tm_case")
     and not native._fromBerryCrush and not native.holdingMon
@@ -596,7 +597,7 @@ function UI:list(battle)
   if layer.id == "box_storage" and mode == "action_menu" then
     view.partyActions = self.adapter:mon(native._actionTarget and native._actionTarget.mon)
   end
-  view.fixedLayout, view.party = grid or prompt ~= nil or partyLayout or view.partyActions ~= nil, partyLayout and native or nil
+  view.fixedLayout, view.party = grid or itemActionId ~= nil or prompt ~= nil or partyLayout or view.partyActions ~= nil, partyLayout and native or nil
   -- Every projection (including upper-screen ownership checks) retains the
   -- exact same draw/hit geometry; never leave a cached view with fresh bare rows.
   if not prompt then view.choiceState, view.touchWindow = nil, nil end
@@ -609,6 +610,8 @@ function UI:list(battle)
     for _, entry in ipairs(model.entries) do
       items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
     end
+  elseif itemActionId then
+    self.itemPage.layout(items)
   elseif partyLayout then
     for slot, item in ipairs(items) do
       item.rect = { self.layout:partySelectionRect(slot, #items - 1, true) }
