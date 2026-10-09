@@ -49,6 +49,8 @@ function Menu.redrawKey(top)
     parts[#parts + 1] = tostring(item.right)
     parts[#parts + 1] = tostring(item.catchChance)
     parts[#parts + 1] = tostring(item.disabled)
+    parts[#parts + 1] = tostring(item.inert)
+    parts[#parts + 1] = tostring(item.rawMon)
     local mon = item.mon or item.rawMon
     if mon then
       parts[#parts + 1] = tostring(mon.hp)

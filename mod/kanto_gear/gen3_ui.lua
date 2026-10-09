@@ -3,8 +3,8 @@
 local UI = {}
 UI.__index = UI
 
-function UI.new(adapter, layout, choicePage, namingPage)
-  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, Stack = require("src.ui.game3.stack"),
+function UI.new(adapter, layout, choicePage, namingPage, storagePage)
+  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, Stack = require("src.ui.game3.stack"),
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
 end
 
@@ -289,37 +289,29 @@ function UI:list(battle)
     local storage = native._session.storage
     local box = storage.boxes[storage.currentBox]
     if mode == "browse" then
-      items, slots, field, grid = {}, {}, "cursorSlot", true
-      local function entry(label, value, rect, mon)
-        items[#items + 1], slots[#slots + 1] = { label = label, rect = rect, rawMon = mon }, value
-      end
-      entry("PARTY", -10, { 7, 33, 110, 22 })
-      entry("CLOSE", -20, { 123, 33, 110, 22 })
-      entry(box.name, 0, { 7, 59, 226, 22 })
-      for slot = 1, 30 do
+      field, grid = "cursorSlot", true
+      local function monAt(slot)
         local picked = native.holdingSource and native.holdingSource.loc == "box"
           and native.holdingSource.boxId == storage.currentBox and native.holdingSource.slot == slot
-        entry("", slot, { 7 + (slot - 1) % 6 * 38, 85 + math.floor((slot - 1) / 6) * 24, 36, 22 },
-          not picked and box.mons[slot] or nil)
+        return not picked and box.mons[slot] or nil
       end
+      items, slots = self.storagePage.box({ capacity = 30, name = box.name,
+        primary = { label = "PARTY", value = -10 }, cancel = { label = "CLOSE", value = -20 },
+        monAt = monAt, enabled = function(slot) return native.holdingMon ~= nil or monAt(slot) ~= nil end })
       local selected = native.holdingMon or box.mons[native.cursorSlot]
       title = selected and self.adapter.Pokemon.displayMonName(selected) or box.name
     elseif mode == "party_drawer" then
-      items, slots, field, grid, boxParty = {}, {}, "partyCursor", true, true
+      field, grid, boxParty = "partyCursor", true, true
       -- The common team page keeps native slot identity, including empty targets.
-      for slot = 1, 6 do
+      local function monAt(slot)
         local source = native._session.party[slot]
         local picked = source and source == native.holdingMon and native.holdingSource
           and native.holdingSource.loc == "party" and native.holdingSource.slot == slot
-        if picked then source = nil end
-        local mon = self.adapter:mon(source)
-        items[#items + 1], slots[#slots + 1] = {
-          label = mon and (mon.nickname or self.adapter.Pokemon.displayMonName(source)) or "-",
-          rawMon = source, mon = mon, inert = not mon and not native.holdingMon,
-          rect = { self.layout:partySelectionRect(slot, 6, true) },
-        }, slot
+        return not picked and source or nil
       end
-      items[7], slots[7] = { label = "CANCEL", rect = { self.layout:partySelectionRect(7, 6, true) } }, 7
+      items, slots = self.storagePage.party(self.layout, { monAt = monAt,
+        monView = function(mon) return self.adapter:mon(mon) end,
+        enabled = function(slot) return monAt(slot) ~= nil or native.holdingMon ~= nil end })
     elseif mode == "action_menu" then items, field = labels(native._activeActions), "actionCursor"
     elseif mode == "box_menu" then items, field = labels({ "SWITCH BOX", "WALLPAPER", "CANCEL" }), "boxMenuCursor"
     elseif mode == "pick_box" then
@@ -535,11 +527,13 @@ function UI:list(battle)
     view = { screenId = "Gen3Menu", nativeKey = key, update = function() end }
     local pocketIdx = native.pocketIdx
     local holding = native.holdingMon
+    local storageBox = layer.id == "box_storage" and native._session.storage.currentBox
     local hmNotice, confirmExit = native._hmNotice, native._confirmExit
     function view.valid(preview)
       return owner.Stack.top() == layer and native.open == true
         and nativeMode(layer) == mode and native.pocketIdx == pocketIdx
         and native.holdingMon == holding
+        and (not storageBox or mode == "pick_box" or native._session.storage.currentBox == storageBox)
         and native._hmNotice == hmNotice and native._confirmExit == confirmExit
         and (not sale or native._sell == sale and sale.state == saleState)
         and (layer.id ~= "box_storage" or not require("src.ui.game3.release_seq").isActive())
@@ -598,6 +592,9 @@ function UI:list(battle)
   view.emptyTargets = boxParty and native.holdingMon ~= nil
   view.partyActions = layer.id == "party" and (native.mode == "action" or native.mode == "item_action")
     and #items <= 3 and self.adapter:mon(native._party and native._party[native.cursor]) or nil
+  if layer.id == "box_storage" and mode == "action_menu" then
+    view.partyActions = self.adapter:mon(native._actionTarget and native._actionTarget.mon)
+  end
   view.fixedLayout, view.party = grid or prompt ~= nil or partyLayout or view.partyActions ~= nil, partyLayout and native or nil
   -- Every projection (including upper-screen ownership checks) retains the
   -- exact same draw/hit geometry; never leave a cached view with fresh bare rows.
@@ -616,9 +613,7 @@ function UI:list(battle)
       item.rect = { self.layout:partySelectionRect(slot, #items - 1, true) }
     end
   elseif view.partyActions then
-    for slot, item in ipairs(items) do
-      item.rect = { self.layout:partyActionRow(slot, #items) }
-    end
+    self.storagePage.actions(self.layout, items)
   end
   return view
 end

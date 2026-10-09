@@ -103,10 +103,16 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw, maps)
   m = menu(); T.eq(#m.items, 33, "box keeps all thirty slots, party, close and title")
   for i,entry in ipairs(m.items) do
     local r=entry.rect
-    T.eq(display.StartMenu.hit(m,r[1]+r[3]/2,r[2]+r[4]/2),i,"box touch targets retain exact empty and occupied slots")
+    local expected = not entry.inert and i or nil
+    T.eq(display.StartMenu.hit(m,r[1]+r[3]/2,r[2]+r[4]/2),expected,"only active native box targets accept touch")
+    if entry.inert then T.check(not display.StartMenu.select(m,i),"empty browsing cells cannot send a native action") end
   end
   display.StartMenu.select(m, 11); T.eq(Box.cursorSlot, 8, "sparse box slot is not compacted")
   Box.handleInput(input("a")); m = menu()
+  T.eq(m.partyActions.source,mon,"box action hero identifies the actual selected partner")
+  for index,entry in ipairs(m.items) do
+    T.same(entry.rect,{display.gen3Ui.layout:partyActionRow(index,#m.items)},"all storage actions share common hero controls")
+  end
   display.StartMenu.select(m, 1); Box.handleInput(input("a"))
   T.eq(Box.holdingMon, mon, "native move picks up original mon")
   m = menu(); display.StartMenu.select(m, 20); Box.handleInput(input("a"))

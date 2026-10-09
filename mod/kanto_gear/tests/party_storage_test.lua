@@ -48,6 +48,17 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,raw)
     end
     T.eq(display.StartMenu.hit(m,12,12),"back","header cancels the team drawer")
     Box.handleInput(input("b"));T.eq(Box.mode,"browse","native Back returns to the box")
+    m=menu()
+    T.eq(#m.items,33,"Gen 3 retains all thirty native box slots")
+    T.eq(m.items[3].label,session.storage.boxes[1].name.."  1/30","sparse native storage counts occupied slots")
+    session.storage.currentBox=2
+    T.eq(m.valid(),false,"a different native box expires touch targets from the previous box")
+    session.storage.currentBox=1
+    for slot=1,30 do
+      local r=m.items[slot+3].rect
+      T.same(r,{7+(slot-1)%6*38,85+math.floor((slot-1)/6)*24,36,22},"common box builder preserves native Gen 3 geometry")
+      T.eq(display.StartMenu.hit(m,r[1]+r[3]/2,r[2]+r[4]/2),slot==8 and slot+3 or nil,"empty box cells have no action while browsing")
+    end
     select(11);select(1)
     T.eq(Box.holdingMon,incoming,"native handler picks up the actual boxed partner")
     select(1);m=menu()

@@ -3925,7 +3925,8 @@ return function(ui)
     for _, e in ipairs(model.entries) do
       local x, y, w, h = e.x, e.y, e.w, e.h
       local pressed = self:beginPress(x, y, w, h, not e.disabled)
-      self:panel(x, y, w, h, self.nativeFocus and e.selected, c.greenLight, c.blueLight)
+      self:panel(x, y, w, h, self.nativeFocus and e.selected and not e.disabled,
+        c.greenLight, e.disabled and c.surface or c.blueLight)
       if e.rawMon and drawIcon then
         local size = math.min(h - 2, 32)
         local labelled = e.label ~= ""
@@ -3938,8 +3939,8 @@ return function(ui)
             y + math.floor((h - 9) / 2), c.ink, w - size - 8, "center")
         else drawIcon(e.rawMon, x + math.floor((w - size) / 2), y + math.floor((h - size) / 2), size) end
       else
-        self:partyInfo(self:fitPartyInfo(e.label, w - 4), x + 2,
-          y + math.floor((h - 9) / 2), c.ink, w - 4, "center")
+        self:partyInfoCentered(self:fitPartyInfo(e.label, w - 8), x, y, w, h,
+          e.disabled and c.mutedInk or c.ink)
       end
       self:endPress(pressed)
     end
@@ -4118,7 +4119,7 @@ return function(ui)
   function H:actionRow(x, y, w, h, label, kind, offset, selected)
     local G, colors = ui.graphics, self.colors
     local accent = (kind == "swap" or kind == "switch")
-      and colors.amberLight or colors.blueLight
+      and colors.amberLight or kind == "release" and colors.redLight or colors.blueLight
     y = y + (offset or 0)
     local pressed = self:beginPress(x, y, w, h)
     if self:shadowVisible() then
@@ -4142,16 +4143,27 @@ return function(ui)
       G.line(x + 17, y + 15, x + 27, y + 25)
       G.line(x + 27, y + 15, x + 17, y + 25)
       G.setLineWidth(1)
+    elseif kind == "release" then
+      box("fill", x + 20, y + 15, 5, 2, accent)
+      box("fill", x + 14, y + 17, 17, 2, accent)
+      border(x + 16, y + 19, 13, 8, accent)
+      box("fill", x + 19, y + 21, 2, 4, accent)
+      box("fill", x + 24, y + 21, 2, 4, accent)
+    elseif h < 24 then
+      box("fill", x + 15, y + 22, 3, 4, accent)
+      box("fill", x + 21, y + 18, 3, 8, accent)
+      box("fill", x + 27, y + 14, 3, 12, accent)
+      box("fill", x + 13, y + 26, 19, 1, colors.outline)
     else
       box("fill", x + 15, y + 22, 3, 7, accent)
       box("fill", x + 21, y + 17, 3, 12, accent)
       box("fill", x + 27, y + 12, 3, 17, accent)
       box("fill", x + 13, y + 29, 19, 1, colors.outline)
     end
-    local shown = self:fitLabel(label, w - 69)
-    self:label(shown, x + 43, y + 13, colors.ink)
-    self:detailChevron(x + w - 16, y + 16, colors.ink, true)
     G.pop()
+    -- Equal icon/chevron containers flank the independently centered label.
+    self:partyInfoCentered(self:fitPartyInfo(label, w - 86), x + 43, y, w - 86, h, colors.ink)
+    self:detailChevron(x + w - 25, y + math.floor((h - 8) / 2), colors.ink, true)
     if selected then self:focusFrame(x, y, w, h) end
     self:endPress(pressed)
   end
@@ -4768,7 +4780,8 @@ return function(ui)
 
   function H:partySelection(party, drawPortrait, emptyTargets)
     ui.partyPage.draw(self, { party = party }, function(slot, x, y, selected, details, focused)
-      self:partyCard(party[slot], x, y, selected, details, drawPortrait, focused, emptyTargets)
+      local target = type(emptyTargets) == "table" and emptyTargets[slot] or emptyTargets == true
+      self:partyCard(party[slot], x, y, selected, details, drawPortrait, focused, target)
     end)
   end
 
@@ -4994,49 +5007,6 @@ return function(ui)
     end
   end
 
-  function H:pcRootRows(count)
-    count = math.max(1, math.min(6, count or 0))
-    local height = math.min(40, math.floor((124 - (count - 1) * 3) / count))
-    local totalHeight = count * height + (count - 1) * 3
-    return 86 + math.floor((124 - totalHeight) / 2), height
-  end
-
-  function H:pcRoot(model)
-    local colors = self.colors
-    local entries = model.entries or {}
-    self:panel(7, 34, 226, 46, false, nil,
-      model.kind == "items" and colors.amberLight or colors.blueLight)
-    self:pcStorageIcon(16, 43, model.kind)
-    box("fill", 53, 40, 1, 34, colors.band)
-    self:partyInfo(self:fitPartyInfo(model.title or translate("PC"), 160),
-      62, 45, colors.ink, 160, "center")
-    self:partyType(self:fitPartyType(model.status or translate("READY"), 160),
-      62, 61, colors.green, 160)
-    if #entries == 0 then
-      self:panel(24, 105, 192, 70, false, nil, colors.silverDark)
-      self:partyInfo(translate("NOTHING HERE"), 33, 134,
-        colors.mutedInk, 176, "center")
-      return
-    end
-    local top, height = self:pcRootRows(#entries)
-    for index = 1, math.min(6, #entries) do
-      local entry = entries[index]
-      local y = top + (index - 1) * (height + 3)
-      local pressed = self:beginPress(7, y, 226, height)
-      self:panel(7, y, 226, height, false, nil,
-        colors.blueLight, self.dark and colors.band or colors.silverDark)
-      if self.nativeFocus and entry.selected then
-        clipped(9, y + 2, 222, height - 4,
-          self:focusSurface(true, colors.surface, colors.blueLight))
-      end
-      self:partyName(entry.label or tostring(index),
-        19, y + math.floor((height - 10) / 2), colors.ink, 184)
-      self:detailChevron(216, y + math.floor(height / 2), colors.green)
-      if self.nativeFocus and entry.selected then self:focusFrame(7, y, 226, height) end
-      self:endPress(pressed)
-    end
-  end
-
   function H:pcList(model)
     local colors = self.colors
     local entries = model.entries or {}
@@ -5152,15 +5122,6 @@ return function(ui)
     box("fill", 117, arrowY + 2, 6, 2, colors.outline)
     box("fill", 119, arrowY + 4, 2, 2, colors.outline)
     self:endPress(pressed)
-  end
-
-  function H:pcRootHit(x, y, count)
-    if x < 7 or x >= 233 or count < 1 then return nil end
-    local top, height = self:pcRootRows(count)
-    for index = 1, math.min(6, count) do
-      local rowTop = top + (index - 1) * (height + 3)
-      if y >= rowTop and y < rowTop + height then return index end
-    end
   end
 
   function H:pcListHit(x, y, count)
@@ -5305,15 +5266,8 @@ return function(ui)
   end
 
   do
-    local rootTop5, rootHeight5 = H:pcRootRows(5)
-    local rootTop6, rootHeight6 = H:pcRootRows(6)
     local noticeTop, noticeStep, noticeCount = H:pcNoticeRows(4)
-    assert(H:pcRootHit(120, 90, 4) == 1
-        and H:pcRootHit(120, 207, 5) == 5
-        and H:pcRootHit(120, 208, 6) == 6
-        and rootTop5 + 5 * rootHeight5 + 4 * 3 <= 210
-        and rootTop6 + 6 * rootHeight6 + 5 * 3 <= 210
-        and H:fitPartyInfo("WITHDRAW <PK><MN>", 220)
+    assert(H:fitPartyInfo("WITHDRAW <PK><MN>", 220)
           == "WITHDRAW PKMN"
         and noticeTop + (noticeCount - 1) * noticeStep + 9 <= 158
         and H:pcListHit(120, 100, 4) == 2
