@@ -6,6 +6,12 @@ return function(services)
     local view = services.summary.view(summary, game)
     if not view then return nil end
     local mon, def = view.mon, view.def
+    if view.egg then
+      local egg = view.spoilers and services.summary.details.egg(mon, view.generation, game.save, native) or {}
+      return { source = mon, isEgg = true, name = services.theme:translate("EGG"),
+        egg = egg, spoilers = view.spoilers,
+        hatchName = view.spoilers and (def.name or mon.species) or nil }, view
+    end
     local types = view.types or {}
     local level = view.level or 0
     local growth = def.growthRate
@@ -63,6 +69,11 @@ return function(services)
       nextExpLabel = services.theme:translate("TO NEXT"),
       moveDetails = services.assist("move_details"),
     }
+    if summary.page == summary.hiddenPage then
+      out.details = services.summary.details.read(mon, summary.generation)
+      for _, row in ipairs(out.details.rows) do row.label = services.theme:translate(row.label) end
+      out.details.typeLabel = out.details.type and services.theme:typeName(out.details.type, services.content)
+    end
     if native ~= nil then
       out.natureLabel, out.natureText = services.theme:translate("NATURE"), native:plainText(view.nature)
       out.abilityLabel, out.abilityText = services.theme:translate("ABILITY"), native:plainText(view.ability)

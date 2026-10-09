@@ -1,5 +1,9 @@
 local Summary = {}
 
+function Summary.isEgg(mon)
+  return mon and (mon.isEgg == true or mon.egg == true) or false
+end
+
 local function invoke(state, name)
   local fn = state and state[name]
   if type(fn) ~= "function" then return nil end
@@ -39,7 +43,8 @@ end
 -- a game menu. The page state below belongs entirely to the companion.
 function Summary.inspection(mon, game, generation, contests)
   local state = { screenId = "GearSummaryMenu", generation = generation,
-    mon = mon, page = 1, pages = contests and 4 or 3 }
+    mon = mon, page = 1, pages = contests and 4 or 3,
+    basePages = contests and 4 or 3 }
   function state:itemName()
     local item = definition(game, "items", self.mon.item)
     return item and item.name or self.mon.item
@@ -49,13 +54,34 @@ function Summary.inspection(mon, game, generation, contests)
   return state
 end
 
+function Summary.configure(state, spoilers)
+  state.spoilers = spoilers == true
+  state.hiddenPage = state.spoilers and not Summary.isEgg(state.mon)
+    and state.basePages + 1 or nil
+  state.pages = Summary.isEgg(state.mon) and 1 or state.hiddenPage or state.basePages
+  state.page = math.min(state.page or 1, state.pages)
+  return state
+end
+
 -- Cheap invalidation uses visible facts only, never an extra host snapshot.
-function Summary.redrawKey(state)
+function Summary.redrawKey(state, game, native)
   if not state then return "" end
   local mon, parts = state.mon or {}, { tostring(state), tostring(state.page) }
   for _, key in ipairs({ "species", "nickname", "level", "hp", "maxHp", "status",
-      "experience", "exp", "item", "ot", "otName", "otId", "nature", "ability" }) do
+      "experience", "exp", "item", "ot", "otName", "otId", "nature", "ability",
+      "friendship", "happiness", "isEgg", "egg", "eggSteps", "eggCycles", "isBadEgg" }) do
     parts[#parts + 1] = tostring(mon[key])
+  end
+  if state.spoilers and (state.page == state.hiddenPage or Summary.isEgg(mon)) then
+    for _, field in ipairs({ "dvs", "ivs", "statExp", "evs" }) do
+      for _, key in ipairs({ "hp", "attack", "defense", "speed", "special", "atk", "def", "spe", "spa", "spd" }) do
+        parts[#parts + 1] = tostring(mon[field] and mon[field][key])
+      end
+    end
+    if Summary.isEgg(mon) then
+      local egg = Summary.details.egg(mon, state.generation, game and game.save, native)
+      parts[#parts + 1] = tostring(egg.steps)
+    end
   end
   for _, key in ipairs({ "hp", "attack", "defense", "speed", "special", "specialAttack", "specialDefense" }) do
     parts[#parts + 1] = tostring(mon.stats and mon.stats[key])
@@ -75,7 +101,8 @@ function Summary.supports(state)
   local id = state and state.screenId
   local gen2, gen3 = id == "Gen2SummaryMenu" or state.generation == 2, id == "Gen3SummaryMenu" or state.generation == 3
   local mon = state and state.mon
-  if type(mon) ~= "table" or mon.isEgg or ((gen2 or gen3) and state.moveDetail) then
+  if type(mon) ~= "table" or (Summary.isEgg(mon) and id ~= "GearSummaryMenu")
+      or ((gen2 or gen3) and state.moveDetail) then
     return false
   end
   if gen2 and id ~= "GearSummaryMenu" and (type(state.expToNext) ~= "function"
@@ -95,6 +122,10 @@ function Summary.view(state, game)
   local page = tonumber(state.page) or 1
 
   local def = definition(game, "pokemon", mon.species) or {}
+  if Summary.isEgg(mon) then
+    return { mon = mon, def = def, egg = true, page = page, pages = pages,
+      generation = state.generation, spoilers = state.spoilers }
+  end
   local save = game and game.save or {}
   local player = save.player or {}
   local stats = mon.stats or {}
@@ -115,7 +146,7 @@ function Summary.view(state, game)
     abilityDescription = Native.abilityDescription(abilityId, ability)
   end
   local contest
-  if gen3 and page == 4 then
+  if gen3 and page == 4 and state.hiddenPage ~= 4 then
     local native = require("src.core.game3.rse.contest")
     local data = native.data()
     contest = {}
@@ -136,7 +167,7 @@ function Summary.view(state, game)
   return {
     gen2 = gen2 or gen3, gen3 = gen3,
     capabilities = { heldItems = gen2 or gen3, splitSpecial = gen2 or gen3,
-      abilities = gen3, contests = gen3 and pages == 4 },
+      abilities = gen3, contests = gen3 and (state.basePages or pages) == 4 },
     layoutPage = state.screenId == "GearSummaryMenu" and page or (gen3 and ({ 3, 1, 2, 4 })[page] or page),
     contest = contest,
     page = page,

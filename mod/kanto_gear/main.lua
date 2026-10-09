@@ -2996,6 +2996,8 @@ return function(mod)
   end
   compat.summary = assert(load(mod:read("summary.lua"),
     "@kanto_gear/summary.lua"))()
+  compat.summary.details = assert(load(mod:read("summary_details.lua"),
+    "@kanto_gear/summary_details.lua"))()
   displayRuntime.SummaryPage = assert(load(mod:read("summary_page.lua"),
     "@kanto_gear/summary_page.lua"))()
 
@@ -8029,6 +8031,10 @@ return function(mod)
     })
 
   function hgssRuntime.summaryPortrait(mon, x, y, size, fainted)
+    if mon.isEgg then
+      compat.drawPokemonIcon(mon.source or mon, x, y, size)
+      return
+    end
     if not drawSprite(mon.species, "front", x, y, size, size,
         nil, mon.source or mon, true, fainted and 0.48 or nil) then
       compat.drawPokemonIcon(mon.source or mon, x, y, size,
@@ -9295,12 +9301,13 @@ return function(mod)
       if battle or (game.save.party or {})[localState.slot] ~= localState.mon then
         displayRuntime.localSummary, moveInfo, dirty = nil, nil, true
       elseif game.stack:top() == game.world or game.stack:top() == game.overworld then
-        return localState
+        return compat.summary.configure(localState, assist("spoilers"))
       end
     end
     if native and native.screenId == "GearSummaryMenu" then native = native.owner end
     native = native or screenById("summary")
-    if not native or game.stack:top() ~= native or not compat.summary.supports(native) then
+    if not native or game.stack:top() ~= native or not (compat.summary.supports(native)
+        or compat.summary.details.isEgg(native.mon) and not native.moveDetail) then
       displayRuntime.nativeSummary = nil
       return nil
     end
@@ -9311,7 +9318,7 @@ return function(mod)
       state.owner = native
       displayRuntime.nativeSummary = state
     end
-    return state
+    return compat.summary.configure(state, assist("spoilers"))
   end
 
   local function drawBattleSummary(summary)
@@ -10870,7 +10877,7 @@ return function(mod)
 
   function displayRuntime.openPartySummary(slot)
     local mon = game.save.party and game.save.party[slot]
-    if not mon or mon.isEgg then return false end
+    if not mon or compat.summary.details.isEgg(mon) and THEME.style ~= "hgss" then return false end
     partyActionSlot, partyMoveFrom = nil, nil
     if THEME.style ~= "hgss" then
       if displayRuntime.gen3 then
@@ -10888,6 +10895,7 @@ return function(mod)
     end
     local state = compat.summary.inspection(mon, game, displayRuntime.gen3 and 3
       or compat.isGen2() and 2 or 1, displayRuntime.gen3 and displayRuntime.gen3.profile.id == "emerald")
+    compat.summary.configure(state, assist("spoilers"))
     state.slot = slot
     displayRuntime.localSummary, moveInfo, hgssRuntime.animation, dirty = state, nil, nil, true
     return true
@@ -13896,7 +13904,7 @@ return function(mod)
       displayRuntime.startMenuIndex = startCursor and startCursor.index or nil
       local screenKey = table.concat({ mode, tostring(top),
         tostring(page), tostring(guidePage), tostring(areaPage),
-        compat.summary.redrawKey(displayRuntime.summaryContext()),
+        compat.summary.redrawKey(displayRuntime.summaryContext(), game, displayRuntime.gen3),
          tostring(displayRuntime.explorer.view),
          tostring(displayRuntime.explorer.selected),
          tostring(displayRuntime.explorer.page),

@@ -14,6 +14,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
   local theme=up(display.drawContents,"THEME")
   local summaryView=up(up(display.drawContents,"drawBattleSummary"),"hgssRuntime").summaryView
   local compat=up(display.openPartySummary,"compat")
+  dofile(path.."/tests/summary_details_cases.lua")(T,compat.summary.details,3,display.gen3)
   local api=up(display.openPartySummary,"mod")
   local tap,swipe,refresh
   for _,entry in ipairs(run.loader.hooks.chains["render.compose"]) do
@@ -113,6 +114,30 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
     T.eq(state.page,2,"detail return retains the selected shared tab")
     Native.close();Stack.clear();display.gen3.syncScreens()
     T.eq(display.summaryContext(),nil,"native closing invalidates its projection")
+    run.loader.modOptions.kanto_gear.info_level="spoiler"
+    T.check(display.openPartySummary(1),"spoiler partner inspection opens")
+    state=display.summaryContext()
+    local nativeEggStatus=game.session.party[1].isEgg
+    tab(state,state.hiddenPage)
+    local model=summaryView(state)
+    T.eq(#model.details.rows,6,"Gen 3 has six IV and EV rows")
+    T.eq(model.details.friendship,game.session.party[1].friendship or game.session.party[1].happiness,
+      "friendship comes from the actual native partner")
+    T.check(pcall(display.drawContents),"Gen 3 hidden details render in both themes")
+    T.eq(game.session.party[1].isEgg,nativeEggStatus,"inspection never changes native egg status")
+    local rawEgg={species=game.session.party[1].species,isEgg=true,friendship=3,eggCycles=20}
+    local projectedEgg=display.gen3:mon(rawEgg)
+    T.eq(projectedEgg.friendship,3,"Gen 3 adapter retains the live hatch counter")
+    local egg=compat.summary.configure(compat.summary.inspection(projectedEgg,display.gen3:gameView(),3),true)
+    model=summaryView(egg)
+    T.eq(model.isEgg,true,"Gen 3 uses the common egg model")
+    T.eq(model.egg.cycles,3,"egg model does not show the stale copied cycle count")
+    T.check(pcall(display.SummaryPage.draw,theme.hgss,egg,model,function() end,function(v) return v end),"Gen 3 egg page renders")
+    run.loader.modOptions.kanto_gear.info_level="enhanced"
+    state=display.summaryContext()
+    T.eq(state.hiddenPage,nil,"leaving spoiler mode removes hidden Gen 3 details")
+    T.eq(summaryView(state).details,nil,"hidden data cannot linger in the visible model")
+    display.localSummary=nil
   end
 end
 dofile(path..(os.getenv("POKEPORT_VERSION")=="emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))

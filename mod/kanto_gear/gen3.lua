@@ -177,6 +177,8 @@ function Gen3:mon(source)
   out.status = ({ "PSN", "PAR", "SLP", "FRZ", "BRN", "PKRS", "FNT" })[
     self.Summary.statusAilment(source)]
   out.isEgg = P.isEgg(source)
+  out.friendship, out.happiness = source.friendship, source.happiness
+  out.eggCycles, out.isBadEgg = source.eggCycles, source.isBadEgg
   out.personality = source.personality
   out.gender = self.Summary.gender(source)
   out.shiny = P.isShiny(source)

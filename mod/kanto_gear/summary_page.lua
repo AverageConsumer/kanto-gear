@@ -20,7 +20,7 @@ function Page.hit(state, x, y)
       return "page", index
     end
   end
-  if (state.page == 2 or state.page == 4) and x >= 6 and x < 234 then
+  if state.page ~= state.hiddenPage and (state.page == 2 or state.page == 4) and x >= 6 and x < 234 then
     local slot = math.floor((y - 82) / 32) + 1
     if slot >= 1 and slot <= 4 and y < 82 + (slot - 1) * 32 + 29 then
       return "move", slot
@@ -33,18 +33,59 @@ function Page.draw(H, state, mon, portrait, translate)
   for index = 1, state.pages do
     local left, top, width, height = Page.tabRect(state, index)
     local active = state.page == index
-    H:tab(left, top, width, height, translate(labels[index]), active)
+    H:tab(left, top, width, height, translate(mon.isEgg and "EGG"
+      or index == state.hiddenPage and "DETAILS" or labels[index]), active)
   end
   H:panel(6, 54, 228, 24, false, nil, H:typeColor(mon.type))
   portrait(mon, 11, 55, 20, false)
   H:partyName(mon.name, 36, 56, c.ink, 94)
+  if mon.isEgg then
+    H:panel(6, 82, 228, 128, false, nil, c.greenLight)
+    H:partyInfo(translate("HATCHING"), 14, 91, c.green, 212, "center")
+    if mon.spoilers then
+      H:partyInfo(translate("ESTIMATED STEPS"), 14, 111, c.green, 212, "center")
+      H:partyInfo(mon.egg.steps and ("~%d"):format(mon.egg.steps) or "--", 14, 126, c.ink, 212, "center")
+      H:partyInfo(translate("HATCHES INTO"), 14, 155, c.green, 212, "center")
+      H:partyInfo(H:fitPartyInfo(mon.hatchName or "--", 212), 14, 170, c.ink, 212, "center")
+      H:partyType(translate("HATCH CYCLES") .. " " .. tostring(mon.egg.cycles or "--"), 14, 195, c.green, 212)
+    else
+      H:partyInfo(translate("KEEP THE EGG IN YOUR PARTY."), 14, 128, c.ink, 212, "center")
+      H:partyInfo(translate("WALK TO HELP IT HATCH."), 14, 145, c.ink, 212, "center")
+    end
+    return
+  end
   if mon.statusId then H:statusIcon(mon.statusId, 133, 59) end
   if mon.gender == "male" or mon.gender == "female" then H:genderIcon(mon.gender, 146, 58) end
   H:partyInfo(mon.levelText, 158, 57, c.ink, 68, "right")
   H:hpBar(36, 70, 114, mon.hp, mon.maxHp)
   H:partyType(mon.hpText, 157, 67, c.green, 69)
 
-  if state.page == 2 or state.page == 4 then
+  if state.page == state.hiddenPage then
+    local details = mon.details
+    H:panel(6, 82, 228, 128, false, nil, c.blueLight)
+    if state.generation > 1 then
+      H:partyInfo(translate("FRIENDSHIP"), 14, 89, c.green, 83)
+      H:partyInfo(details.friendship and ("%d/255"):format(details.friendship) or "--", 99, 89, c.ink, 42, "center")
+      if details.total then
+        H:partyType(("EV %d/510"):format(details.total), 147, 91, c.green, 79)
+      end
+    else
+      H:partyInfo(translate("GENETICS AND TRAINING"), 14, 89, c.green, 212, "center")
+    end
+    H:partyInfo(translate("STAT"), 14, 108, c.green, 83)
+    H:partyInfo(translate(details.geneLabel), 104, 108, c.green, 43, "center")
+    H:partyInfo(translate(details.effortLabel), 151, 108, c.green, 75, "center")
+    for i, row in ipairs(details.rows) do
+      local y = 121 + (6 - #details.rows) * 6 + (i - 1) * 12
+      H:partyInfo(H:fitPartyInfo(row.label, 83), 14, y, c.ink, 83)
+      H:partyInfo(row.gene == nil and "--" or tostring(row.gene), 104, y, c.ink, 43, "center")
+      H:partyInfo(row.effort == nil and "--" or tostring(row.effort), 151, y, c.ink, 75, "center")
+    end
+    if state.generation > 1 then
+      H:partyType(translate("HIDDEN POWER"), 14, 199, c.green, 96)
+      H:partyType(details.power and ("%s / %d"):format(details.typeLabel, details.power) or "--", 114, 199, c.ink, 112)
+    end
+  elseif state.page == 2 or state.page == 4 then
     for slot = 1, 4 do
       local move = mon.moves[slot] or {}
       local y, interactive = 82 + (slot - 1) * 32, move.available and mon.moveDetails

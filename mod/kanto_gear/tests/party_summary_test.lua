@@ -18,6 +18,7 @@ local function hook(key)
 end
 local display=upvalue(hook("input.step"),"displayRuntime")
 local compat=upvalue(display.openPartySummary,"compat")
+assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH").."/tests/summary_details_cases.lua"))()(T,compat.summary.details,generation)
 local theme=upvalue(display.drawContents,"THEME")
 local touchEvent=upvalue(hook("render.compose"),"touchEvent")
 local tap=upvalue(touchEvent,"tap")
@@ -96,5 +97,44 @@ for _,style in ipairs({"hgss","hgss_dark"}) do
     T.eq(game.stack:top(),world,"closing does not change the game screen")
     T.eq(#queued,0,"closing a local inspection sends no B into gameplay")
   end
+end
+local runtime=upvalue(upvalue(display.drawContents,"drawBattleSummary"),"hgssRuntime")
+game.stack.states={world}
+run.loader.modOptions.kanto_gear.info_level="spoiler"
+T.check(display.openPartySummary(1),"spoiler inspection opens")
+local state=display.summaryContext()
+state.page=state.hiddenPage
+local model=runtime.summaryView(state)
+T.eq(#model.details.rows,5,"Gen 1/2 use five DV and stat-EXP rows")
+T.eq(state.hiddenPage,4,"Details follows the three ordinary pages")
+T.eq(display.SummaryPage.hit(state,100,90),nil,"Details cannot accidentally open a contest move")
+T.check(pcall(display.drawContents),"hidden detail table renders")
+local key=compat.summary.redrawKey(state,game)
+state.mon.dvs.attack=7
+T.check(compat.summary.redrawKey(state,game)~=key,"live genes invalidate visible details")
+run.loader.modOptions.kanto_gear.info_level="enhanced"
+state=display.summaryContext()
+T.eq(state.hiddenPage,nil,"leaving spoiler mode removes the hidden tab immediately")
+T.eq(state.pages,3,"ordinary page count returns")
+T.eq(runtime.summaryView(state).details,nil,"ordinary modes expose no hidden detail model")
+if generation==2 then
+  game.save.party[3]={species="FIXMON_A",isEgg=true,eggSteps=3,moves={},stats={}}
+  T.check(display.openPartySummary(3),"touch inspection supports eggs")
+  state=display.summaryContext()
+  T.eq(state.pages,1,"eggs have a dedicated page without battle stats")
+  model=runtime.summaryView(state)
+  T.eq(model.hatchName,nil,"normal mode hides the hatchling")
+  T.eq(model.egg.steps,nil,"normal mode hides the step counter")
+  T.check(pcall(display.drawContents),"ordinary egg page renders")
+  game.save.stepCount=127
+  run.loader.modOptions.kanto_gear.info_level="spoiler"
+  state=display.summaryContext()
+  model=runtime.summaryView(state)
+  T.eq(model.egg.steps,513,"spoiler egg page shows current remaining steps")
+  T.check(model.hatchName~=nil,"spoiler mode reveals the hatchling")
+  T.check(pcall(display.drawContents),"spoiler egg page renders")
+  key=compat.summary.redrawKey(state,game)
+  game.save.stepCount=128
+  T.check(compat.summary.redrawKey(state,game)~=key,"walking invalidates the visible egg count")
 end
 T.finish("Unified Party Summary Gen "..generation)

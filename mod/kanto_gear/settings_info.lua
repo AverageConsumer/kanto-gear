@@ -7,7 +7,7 @@ Info.help = {
   clock_format = "Show 12-hour or 24-hour time. System follows your device preference.",
   ui_motion = "Short page transitions in Quality mode. Performance disables UI animations. Turn off for immediate changes in both modes.",
   map_motion = "Both keep maps smooth at up to 30 updates a second. Performance disables UI animations; Quality allows transitions. Map detail stays the same.",
-  info_level = "Controls what Gear reveals in Explorer, the Pokedex and Stamps. Battle helpers are separate.",
+  info_level = "Controls exploration hints and hidden partner details. Battle helpers are separate.",
   local_map = "Show the area map in older themes. Discovery is controlled separately.",
   display_mode = "Separate uses a second window or display. Combined puts both views in one window. Fullscreen switches between them.",
   fullscreen_start = "Choose which view appears first in fullscreen mode.",
@@ -33,7 +33,7 @@ Info.help = {
 Info.discovery = {
   purist = "Known Pokemon only; completed trainers and collected items. Habitats stay within visited maps. Hidden items appear after an Itemfinder scan or collection. Stamps show recorded progress.",
   enhanced = "All wild Pokemon, available trainers and visible items on visited maps. Hidden items appear after an Itemfinder scan or collection. Unvisited habitats and future story tasks stay hidden.",
-  spoiler = "Reveal every Pokemon and habitat, future tasks and all hidden item locations. Stamps show complete checklists. This reveals information ahead of your journey.",
+  spoiler = "Reveal all Pokemon, habitats, tasks and hidden items. Stamps show full checklists. Partner Details show friendship, genes, training and egg progress.",
 }
 function Info.description(key, value)
   return key == "info_level" and Info.discovery[value] or Info.help[key]
