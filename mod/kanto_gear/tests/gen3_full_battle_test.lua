@@ -75,7 +75,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
         T.eq(cards[id].y,33+math.floor(id/2)*41,"partner retains its row")
         T.eq(cards[id].active,id==active,"active partner is highlighted")
       end
-      T.check(display.gen3Presentation.owns("hud"),"complete doubles HUD can move to Gear")
+      T.eq(display.gen3Presentation,nil,"all four native healthboxes stay above")
       for _,stay in ipairs({false,true}) do
         Message.show("The attack hits both opposing POKéMON!",{frame="battle",speed=0,stay=stay})
         cards,compact={},nil;tick()

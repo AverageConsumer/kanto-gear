@@ -2053,12 +2053,6 @@ return function(mod)
     infoChoices[#infoChoices + 1] = { "SAVED CUSTOM", "legacy" }
   end
 
-  local battleDefault = mod.options:get("battle_view")
-  if battleDefault == nil then
-    battleDefault = battleUIMode(mod.options:get("hide_upper_battle_ui"),
-                                 mod.options:get("full_bottom_battle_ui"))
-  end
-
   THEME.displayModeDefault, THEME.combinedLayoutDefault = THEME:displayDefaults(
     function(key) return mod.options:get(key) end)
 
@@ -2177,15 +2171,8 @@ return function(mod)
       type = "toggle", default = false, visible_if = {
         key = "display_mode", not_equals = "fullscreen",
       } },
-    { key = "battle_view", label = "BATTLE VIEW",
-      type = "choice", default = battleDefault, reset_default = "standard", choices = {
-        { "STANDARD", "standard" }, { "GEAR", "gear" },
-        { "FULL GEAR", "full" }, { "INFO", "info" },
-      } },
     { key = "caught_icon", label = "CAUGHT ICON",
       type = "toggle", default = true },
-    { key = "trigger_tabs", label = "TRIGGER TABS",
-      type = "toggle", default = false },
     { key = "keyboard_layout", label = "KEYBOARD", type = "choice",
       default = "qwerty", choices = {
         { "QWERTY", "qwerty" }, { "QWERTZ", "qwertz" },
@@ -2222,13 +2209,14 @@ return function(mod)
     return THEME:researchMode(level) ~= "vanilla"
   end
   local function currentBattleUIMode()
-    return mod.options:get("battle_view") or "standard"
+    -- Experimental companion build: one lower layout; native UI stays intact.
+    return "full"
   end
   local function fullBottomBattleUI()
     if displayRuntime.autoBattle and displayRuntime.autoBattle.shown == false then return false end
     return currentBattleUIMode() == "full"
   end
-  local function hideUpperBattleUI()
+  local function customBattleLayout()
     if displayRuntime.autoBattle and displayRuntime.autoBattle.shown == false then return false end
     local mode = currentBattleUIMode()
     return mode == "gear" or mode == "full"
@@ -2555,11 +2543,11 @@ return function(mod)
         "bottom_safe_area", "overlay_corner", "overlay_button",
         "display_target", "screen_swap" } },
     { id = "battle", label = "BATTLE", detail = "HUD AND BATTLE INFO",
-      accent = "red", keys = { "battle_view", "auto_battle_screen", "caught_icon" } },
+      accent = "red", keys = { "auto_battle_screen", "caught_icon" } },
     { id = "research", label = "RESEARCH", detail = "VANILLA TO SPOILERS",
       accent = "amber", keys = { "info_level" } },
     { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS",
-      accent = "blue", keys = { "trigger_tabs", "ui_haptics", "keyboard_layout" } },
+      accent = "blue", keys = { "ui_haptics", "keyboard_layout" } },
     { id = "system", label = "SYSTEM", detail = "HELP AND RESET",
       accent = "green", actions = { "home_help", "reset_home", "reset_options" } },
   }
@@ -3245,7 +3233,7 @@ return function(mod)
 
   local function companionMoveGrid(state)
     return displayRuntime.gen3 ~= nil or moveGridLayout(state, bottomOwnsBattleUI(
-      hideUpperBattleUI(), active, hasDisplay(), displayReady, state, battle))
+      customBattleLayout(), active, hasDisplay(), displayReady, state, battle))
   end
 
   local function romThemePalette(name)
@@ -7701,7 +7689,7 @@ return function(mod)
       bagLabel = THEME:translate("BAG"),
       partyLabel = THEME:translate("POKEMON"),
       runLabel = THEME:translate("RUN"),
-      moveIndex = battle.moveIndex or 1,
+      moveIndex = nil, -- Gear has touch feedback, no D-pad focus.
       details = assist("move_details"),
       moves = {},
     }
@@ -7939,7 +7927,7 @@ return function(mod)
           function(value) return THEME.hgss:partyInfoWidth(value) end) or {}
       end
     end
-    out.moveIndex = battle and hideUpperBattleUI() and (summary.moveIndex or 1) or nil
+    out.moveIndex = nil
     return out, view
   end
 
@@ -7968,7 +7956,7 @@ return function(mod)
         THEME.hgss:battleFullRoot(mon,
           hgssRuntime.battleStatus("player"),
           hgssRuntime.battleStatus("enemy"),
-          hgssRuntime.battlePortrait, playerTeam, enemyTeam, battle.menuIndex,
+          hgssRuntime.battlePortrait, playerTeam, enemyTeam, nil,
           hgssRuntime.battleStatuses())
         G.pop()
         return
@@ -8012,7 +8000,7 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       local model = { balls = battle.safariBalls or 0,
-        index = battle.menuIndex or 1 }
+        index = nil }
       if fullBottomBattleUI() then
         THEME.hgss:battleFullSafari(model,
           hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
@@ -9879,7 +9867,7 @@ return function(mod)
     if fullBottomBattleUI() then return displayRuntime.drawFullBattleMessage() end
     header(THEME:translate(title or (battle.kind == "wild" and "Wild battle"
       or battle.kind == "trainer" and "Trainer battle" or "BATTLE")))
-    if hideUpperBattleUI()
+    if customBattleLayout()
         and battle.message and #battle.message > 0 then
       box("fill", 6, 30, 148, 106, DARK)
       outline(6, 30, 148, 106, PAPER)
@@ -10248,7 +10236,7 @@ return function(mod)
   local function drawLearnMove(learn, top, choice, choiceField)
     local newDef = moveDef(learn.newMoveId) or {}
     local newName = newDef.name or learn.newMoveId or "MOVE"
-    if battle and top and top.isTextBox and hideUpperBattleUI() then
+    if battle and top and top.isTextBox and customBattleLayout() then
       drawBattleLocked("NEW MOVE")
       return
     end
@@ -10581,6 +10569,25 @@ return function(mod)
     return shown
   end
 
+  function displayRuntime.syncCompanionDetails()
+    if displayRuntime.gen3 then displayRuntime.gen3.syncScreens() end
+    local top = game and game.stack and game.stack:top()
+    local prompt = battle and battle.prompt
+    local previous = displayRuntime.detailContext
+    if not moveInfo then
+      displayRuntime.detailContext = nil
+    elseif not previous or previous.info ~= moveInfo then
+      displayRuntime.detailContext = { info = moveInfo, top = top,
+        prompt = prompt, page = top and top.page, index = top and top.index }
+    elseif previous.top ~= top or previous.prompt ~= prompt
+        or previous.page ~= (top and top.page) or previous.index ~= (top and top.index) then
+      -- Game buttons remain live while Gear shows details. Drop stale details
+      -- when that native context changes instead of trapping the game input.
+      moveInfo, displayRuntime.detailContext, dirty = nil, nil, true
+      hgssRuntime.animation = nil
+    end
+  end
+
   local function refreshBattle()
     local nextBattle = mod.battle and mod.battle:snapshot() or nil
     if displayRuntime.gen3 then nextBattle = displayRuntime.gen3:battleSnapshot(nextBattle) end
@@ -10603,9 +10610,8 @@ return function(mod)
       nextBattle.itemTitle = bag and bag.title or nil
       nextBattle.summaryPage = compat.isScreen(top, "summary")
         and top.page or nil
-      prepareBattleSnapshot(nil, nextBattle, raw, game.data,
-        bottomOwnsBattleUI(hideUpperBattleUI(), active, hasDisplay(),
-          displayReady, raw, nextBattle))
+      -- Snapshot reads never redirect the original game cursor.
+      prepareBattleSnapshot(nil, nextBattle, raw, game.data, false)
       attachBattleArtSprites(raw, nextBattle)
       if battleChoice(top) and not nextBattle.message
           and raw and type(raw.visibleText) == "function" then
@@ -10701,6 +10707,7 @@ return function(mod)
       end
     end
     battle = nextBattle
+    displayRuntime.syncCompanionDetails()
     if changed then
       if not battle then
         moveInfo = nil
@@ -11571,9 +11578,6 @@ return function(mod)
         if not move then return end
         local disabled = THEME:moveUnavailableReason(move) ~= nil
         if assist("move_details") and info then
-          local raw = battleState()
-          if raw and not disabled then raw.moveIndex = slot end
-          battle.moveIndex = slot
           moveInfo = move
           hgssRuntime.beginAnimation("battle_move_info")
           dirty = true
@@ -11591,8 +11595,6 @@ return function(mod)
       if assist("move_details")
           and inside(x, y, cardX + (grid and 62 or 130),
                      cardY + (grid and 0 or 13), 14, 14) then
-        local raw = battleState()
-        if raw and not disabled then raw.moveIndex = slot end
         moveInfo = move
         hgssRuntime.beginAnimation("battle_move_info")
         dirty = true
@@ -12065,61 +12067,10 @@ return function(mod)
     dirty = true
   end
 
-  local triggerHeld = { left = false, right = false, overlay = false }
-  local screenSwapHeld = false
-  local function triggerEdge(value, held)
-    value = tonumber(value) or 0
-    local down = held and value > 0.35 or value >= 0.65
-    return down and not held, down
-  end
-  do
-    local pressed, held = triggerEdge(0.7, false)
-    local repeated = triggerEdge(0.7, held)
-    local _, released = triggerEdge(0.2, held)
-    assert(pressed and not repeated and not released,
-      "trigger tab edge and hysteresis")
-  end
-
-  local function pollTriggerTabs()
-    if mod.options:get("trigger_tabs") ~= true then
-      triggerHeld.left, triggerHeld.right = false, false
-      return
-    end
-    local js = love and love.joystick
-    local left, right = 0, 0
-    if js and js.getJoysticks then
-      local ok, pads = pcall(js.getJoysticks)
-      if ok then
-        for _, pad in ipairs(pads or {}) do
-          if pad.getGamepadAxis then
-            local okLeft, value = pcall(pad.getGamepadAxis, pad, "triggerleft")
-            if okLeft then left = math.max(left, tonumber(value) or 0) end
-            local okRight, value2 = pcall(pad.getGamepadAxis, pad, "triggerright")
-            if okRight then right = math.max(right, tonumber(value2) or 0) end
-          end
-        end
-      end
-    end
-    local leftPressed, rightPressed
-    leftPressed, triggerHeld.left = triggerEdge(left, triggerHeld.left)
-    rightPressed, triggerHeld.right = triggerEdge(right, triggerHeld.right)
-    if leftPressed or rightPressed then
-      local direction = leftPressed and -1 or 1
-      if battle then
-        local top = game and game.stack and game.stack:top()
-        if compat.battleBagMenu(top) or compat.isScreen(top, "summary")
-            or battle.prompt == "moves" or battle.prompt == "mimic"
-            or battle.prompt == "forget" then
-          press(direction < 0 and "left" or "right")
-        end
-      else
-        changePage(direction)
-      end
-    end
-  end
+  local overlayHeld = false
 
   local function pollScreenSwap()
-    local down, infoDown, overlayDown = false, false, false
+    local down, overlayDown = false, false
     local swapEnabled = THEME:displayMode(mod.options) == "fullscreen"
       or mod.options:get("screen_swap") == true
     local overlayButton = mod.options:get("overlay_button") or "off"
@@ -12132,8 +12083,6 @@ return function(mod)
         local ok, pressed = pcall(keyboard.isDown, "f6")
         down = ok and pressed or false
       end
-      local okInfo, pressedInfo = pcall(keyboard.isDown, "x")
-      infoDown = okInfo and pressedInfo or false
       if overlayEnabled and overlayButton == "f7" then
         local okOverlay, pressedOverlay = pcall(keyboard.isDown, "f7")
         overlayDown = okOverlay and pressedOverlay or false
@@ -12149,8 +12098,6 @@ return function(mod)
               local okDown, pressed = pcall(pad.isGamepadDown, pad, "y")
               if okDown and pressed then down = true end
             end
-            local okInfo, pressedInfo = pcall(pad.isGamepadDown, pad, "x")
-            if okInfo and pressedInfo then infoDown = true end
             if overlayEnabled and overlayButton ~= "f7" then
               local okOverlay, pressedOverlay = pcall(
                 pad.isGamepadDown, pad, overlayButton)
@@ -12161,12 +12108,10 @@ return function(mod)
       end
     end
     local pressed = down and not screenSwapHeld
-    local infoPressed = infoDown and not triggerHeld.info
-    local overlayPressed = overlayDown and not triggerHeld.overlay
+    local overlayPressed = overlayDown and not overlayHeld
     screenSwapHeld = down
-    triggerHeld.overlay = overlayDown
-    triggerHeld.info = infoDown
-    return pressed, infoPressed, overlayPressed
+    overlayHeld = overlayDown
+    return pressed, overlayPressed
   end
 
   local function tap(x, y)
@@ -12200,7 +12145,7 @@ return function(mod)
             if inside(hx, hy, 6, rowY, 228, 34) then
               local selected = hgssRuntime.summaryMove(summary, slot)
               if selected then
-                summary.moveIndex, moveInfo = slot, selected
+                moveInfo = selected
                 dirty = true
               end
               break
@@ -12893,6 +12838,7 @@ return function(mod)
     displayRuntime.touchDispatch = true
     fn(x, y)
     displayRuntime.touchDispatch = false
+    displayRuntime.syncCompanionDetails()
     displayRuntime.syncTouchGuard()
   end
 
@@ -13093,9 +13039,6 @@ return function(mod)
     if displayRuntime.gen3Pointer then
       displayRuntime.gen3Pointer:release(); displayRuntime.gen3Pointer = nil
     end
-    if displayRuntime.gen3Presentation then
-      displayRuntime.gen3Presentation:release(); displayRuntime.gen3Presentation = nil
-    end
     if displayRuntime.nativeMap then displayRuntime.nativeMap:release(); displayRuntime.nativeMap = nil end
     if displayRuntime.gen3Map then displayRuntime.gen3Map:release(); displayRuntime.gen3Map = nil end
     if displayRuntime.gen3Region then displayRuntime.gen3Region:release(); displayRuntime.gen3Region = nil end
@@ -13115,36 +13058,6 @@ return function(mod)
       displayRuntime.gen3Progress = assert(load(mod:read("gen3_progress.lua"), "@kanto_gear/gen3_progress.lua"))().new(displayRuntime.gen3)
       displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss)
       game = displayRuntime.gen3:gameView()
-      displayRuntime.gen3Presentation = assert(load(mod:read("gen3_presentation.lua"),
-        "@kanto_gear/gen3_presentation.lua"))().new(function(kind)
-        local adapter = displayRuntime.gen3
-        local raw = adapter and adapter:battleState()
-        if not (active and hasDisplay() and displayReady and hideUpperBattleUI()
-            and raw and battle and not battle.nativeUnsupported) then return false end
-        adapter.syncScreens()
-        -- Unsupported windows retain every original control. Only take the
-        -- doubles HUD when the snapshot contains every battlefield slot.
-        local top = game.stack:top()
-        local menu = displayRuntime.gen3Ui:list(battle)
-        local summary = compat.isScreen(top, "summary") and compat.summary.supports(top, game)
-        if top ~= raw and not (top and top.isTextBox) and not menu and not summary then return false end
-        if require("src.ui.game3.stat_growth").isOpen() and not (menu and menu.nativeStats) then return false end
-        if kind == "partyNavigation" then
-          return menu and menu.party and menu.valid() or false
-        end
-        if kind == "navigation" or kind == "heroNavigation" then
-          return (fullBottomBattleUI() or THEME.style == "hgss")
-            and (kind ~= "heroNavigation" or currentBattleUIMode() == "gear")
-            and top == raw and battle.prompt == "menu"
-            and not raw.battle.safari and not adapter.Message.isOpen()
-        end
-        if kind == "hud" then
-          return fullBottomBattleUI() and (not raw.battle.double
-              or battle.battlers and #battle.battlers == 4)
-            and not adapter.BattleUI.litHealthboxShown()
-        end
-        return true
-      end, hgssRuntime.rootDirection)
     end
     displayRuntime.homeCatalog.packages.achievements.available = true
     displayRuntime.storeById.achievements.available = true
@@ -13281,16 +13194,10 @@ return function(mod)
         displayRuntime.overlayHidden = false
         resetSwapState()
       end
-      if not assist("move_details")
-          or (payload.key == "battle_view"
-            and currentBattleUIMode() == "info") then moveInfo = nil end
-      if payload.key == "auto_battle_screen" or payload.key == "battle_view"
+      if not assist("move_details") then moveInfo = nil end
+      if payload.key == "auto_battle_screen"
           or payload.key == "display_mode" or payload.key == "fullscreen_start" then
         displayRuntime.updateAutoBattleScreen()
-      end
-      if payload.key == "battle_view" then
-        battleInfoDetail, hgssRuntime.animation = nil, nil
-        displayRuntime.motion.started = nil
       end
       if page == "GUIDE" and not assist("guide") then
         page, displayRuntime.guideDetail = "MAP", nil
@@ -13322,97 +13229,13 @@ return function(mod)
   end)
   mod.events:on("mod.kanto_gear.options_changed", displayRuntime.optionsChanged)
 
-  function hgssRuntime.remapBattleRootInput(stepGame)
-    if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss"
-        or displayRuntime.gen3 or not hideUpperBattleUI() or not battle then return end
-    local raw = battleState()
-    local top = game.stack:top()
-    local queue = stepGame and stepGame.input and stepGame.input.pressQueue
-    if not raw or type(queue) ~= "table"
-        or not bottomOwnsBattleUI(hideUpperBattleUI(), active,
-          hasDisplay(), displayReady, raw, battle) then return end
-    local party = screenContract(top, "party")
-    if party and party.submenu then
-      local actions, submenu = hgssRuntime.partySubmenuActions(party)
-      if #actions < 2 or not fullBottomBattleUI() then return end
-      local current = party.subIndex or (submenu and submenu.index)
-        or actions[1].index
-      for i = 1, #queue do
-        local target = queue[i] == "up" and actions[1]
-          or queue[i] == "down" and actions[2] or nil
-        if target then
-          table.remove(queue, i)
-          if submenu then submenu.index = target.index
-          else party.subIndex = target.index end
-          dirty = true
-          return true
-        end
-      end
-      return
-    end
-    if battle.prompt ~= "menu" or top ~= raw then return end
-    for i = 1, #queue do
-      local current = raw.menuIndex or battle.menuIndex or 1
-      local target
-      if fullBottomBattleUI() then
-        target = hgssRuntime.fullRootDirection(current, queue[i])
-      else
-        target = hgssRuntime.rootDirection(current, queue[i])
-      end
-      if target then
-        table.remove(queue, i)
-        raw.menuIndex, battle.menuIndex = target, target
-        dirty = true
-        return true
-      end
-    end
-  end
-
-  function hgssRuntime.remapSummaryMovesInput(stepGame)
-    if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss" or not battle
-        or displayRuntime.gen3 or not hideUpperBattleUI() or not assist("move_details") then return end
-    local summary = screenById("summary")
-    local raw, top = battleState(), game.stack:top()
-    local queue = stepGame and stepGame.input and stepGame.input.pressQueue
-    if not raw or top ~= summary or tonumber(summary and summary.page) ~= 2
-        or type(queue) ~= "table" or not compat.summary.supports(summary, game)
-        or not (active and hasDisplay() and displayReady) then return end
-    local view = compat.summary.view(summary, game)
-    local moves = view and view.mon and view.mon.moves or {}
-    local current = tonumber(summary.moveIndex) or 1
-    for i = 1, #queue do
-      local direction = queue[i] == "up" and -1
-        or queue[i] == "down" and 1 or nil
-      if direction then
-        for offset = 1, 4 do
-          local target = (current - 1 + direction * offset) % 4 + 1
-          if moves[target] and moves[target].id then
-            summary.moveIndex = target
-            table.remove(queue, i)
-            dirty = true
-            return true
-          end
-        end
-      elseif queue[i] == "a" then
-        local selected = hgssRuntime.summaryMove(summary, current)
-        if selected then
-          summary.moveIndex = current
-          moveInfo = selected
-          table.remove(queue, i)
-          dirty = true
-          return true
-        end
-      end
-    end
-  end
-
   function hgssRuntime.openingBattlePanel(stepGame)
     if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss"
         or not battle or battle.prompt ~= "menu" then return false end
     local raw = battleState()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
     if not raw or game.stack:top() ~= raw or type(queue) ~= "table"
-        or not bottomOwnsBattleUI(hideUpperBattleUI(), active,
+        or not bottomOwnsBattleUI(customBattleLayout(), active,
           hasDisplay(), displayReady, raw, battle) then return false end
     local index = raw.menuIndex or battle.menuIndex or 1
     local kind = index == 1 and "battle_moves"
@@ -13430,7 +13253,7 @@ return function(mod)
     local raw, top = battleState(), game.stack:top()
     local queue = stepGame and stepGame.input and stepGame.input.pressQueue
     if not raw or type(queue) ~= "table"
-        or not bottomOwnsBattleUI(hideUpperBattleUI(), active,
+        or not bottomOwnsBattleUI(customBattleLayout(), active,
           hasDisplay(), displayReady, raw, battle) then return end
     local kind
     if compat.battleBagMenu(top) then kind = "battle_bag_close"
@@ -13448,63 +13271,12 @@ return function(mod)
   end
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
+    if stepGame == displayRuntime.sourceGame then displayRuntime.syncCompanionDetails() end
     if stepGame == displayRuntime.sourceGame and displayRuntime.levelUp:scan(game.save,
         game.stack and game.stack:top()) then dirty = true end
-    local top = game and game.stack and game.stack:top()
-    local queue = stepGame and stepGame.input and stepGame.input.pressQueue
-    if stepGame == displayRuntime.sourceGame and battle and compat.battleBagMenu(top)
-        and bottomOwnsBattleUI(hideUpperBattleUI(), active,
-          hasDisplay(), displayReady, battleState(), battle)
-        and compat.useBattleBagItemDirectly(top, queue) then dirty = true end
-    hgssRuntime.remapBattleRootInput(stepGame)
-    hgssRuntime.remapSummaryMovesInput(stepGame)
-    local modalMoveInfo = moveInfo ~= nil
-    if modalMoveInfo or battleInfoDetail or displayRuntime.guideDetail then
-      local queue = stepGame and stepGame.input
-        and stepGame.input.pressQueue
-      local consumed
-      for i = #(queue or {}), 1, -1 do
-        if queue[i] == "b" then consumed = true end
-        if modalMoveInfo or queue[i] == "b" then
-          table.remove(queue, i)
-        end
-      end
-      if consumed then back() end
-      if modalMoveInfo then
-        local result = next(stepGame, dt)
-        if stepGame == displayRuntime.sourceGame then
-          displayRuntime.touchGuard.pending = false
-          displayRuntime.updateAutoBattleScreen()
-        end
-        return result
-      end
-    end
     local openingPanel = hgssRuntime.openingBattlePanel(stepGame)
     local closingPanel = hgssRuntime.closingBattlePanel(stepGame)
-    pollTriggerTabs()
-    local swapPressed, infoPressed, overlayPressed = pollScreenSwap()
-    if infoPressed and assist("move_details")
-        and currentBattleUIMode() ~= "info" then
-      moveInfo = displayRuntime.learningMoveInfo()
-      if not moveInfo and battle and battle.prompt == "moves" then
-        local raw = battleState()
-        local index = raw and raw.moveIndex or battle.moveIndex or 1
-        moveInfo = battle.moves and battle.moves[index]
-      end
-      if not moveInfo and battle then
-        local summary = screenById("summary")
-        if summary and game.stack:top() == summary
-            and tonumber(summary.page) == 2
-            and compat.summary.supports(summary, game) then
-          moveInfo = hgssRuntime.summaryMove(summary,
-            summary.moveIndex or 1)
-        end
-      end
-      if moveInfo and battle and battle.prompt == "moves" then
-        hgssRuntime.beginAnimation("battle_move_info")
-      end
-      dirty = moveInfo ~= nil or dirty
-    end
+    local swapPressed, overlayPressed = pollScreenSwap()
     if active and (inlineDisplay() or hasDisplay()) and swapPressed then
       if displayRuntime.autoBattle.wanted ~= nil then
         displayRuntime.autoBattle.shown = not displayRuntime.gearPrimary()
@@ -13526,6 +13298,7 @@ return function(mod)
     if closingPanel then hgssRuntime.beginAnimation(closingPanel) end
     local result = next(stepGame, dt)
     if stepGame == displayRuntime.sourceGame then
+      displayRuntime.syncCompanionDetails()
       displayRuntime.updateAutoBattleScreen()
       local pending = displayRuntime.touchGuard.pending
       displayRuntime.touchGuard.pending = false
@@ -13831,54 +13604,9 @@ return function(mod)
     dirty = true
   end)
 
-  mod.hooks:wrap("battle.bottom_ui_visible", function(next, state)
-    if next(state) == false then return false end
-    local raw = battleState()
-    local top = game and game.stack and game.stack:top()
-    local owned = bottomOwnsBattleUI(
-      hideUpperBattleUI(), active,
-      hasDisplay(), displayReady, raw, battle)
-    return not (owned
-      and (state == raw or (state == top and top.isTextBox)))
-  end)
-
-  mod.hooks:wrap("battle.move_grid_navigation", function(next, state)
-    if next(state) == true then return true end
-    return companionMoveGrid(state)
-  end)
-
-  mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
-    if next(state) == true then return true end
-    return screenContract(state, "party") ~= nil and bottomOwnsBattleUI(
-      hideUpperBattleUI(), active,
-      hasDisplay(), displayReady, battleState(), battle)
-  end)
-
-  mod.hooks:wrap("battle.status_hud_visible", function(next, state)
-    if next(state) == false then return false end
-    return not bottomOwnsBattleUI(
-      fullBottomBattleUI(), active, hasDisplay(),
-      displayReady, state, battle)
-  end)
-
   mod.hooks:wrap("battle.caught_marker_visible", function(next, state)
     if mod.options:get("caught_icon") ~= false and active then return true end
     return next(state)
-  end)
-
-  mod.hooks:wrap("screen.render_visible", function(next, state)
-    if next(state) == false then return false end
-    -- Standard/Info never replace native screens, including every stats page.
-    if not hideUpperBattleUI() then return true end
-    if compat.isScreen(state, "summary")
-        and compat.summary.supports(state, game) then
-      return not (active and hasDisplay() and displayReady
-        and battleState() ~= nil and battle ~= nil)
-    end
-    local owned = bottomOwnsBattleUI(
-      hideUpperBattleUI(), active,
-      hasDisplay(), displayReady, battleState(), battle)
-    return not (owned and screenContract(state))
   end)
 
   mod.events:on("battle.ended", function(payload)
@@ -13946,13 +13674,6 @@ return function(mod)
     companion = context and context.secondScreen
     if companion and companion.setEnabled then
       companion.setEnabled(active and not inline)
-    end
-    -- The captured game frame is wider than some lower displays. Keep dynamic
-    -- UI inside the central Game Boy viewport while that frame is cover-cropped;
-    -- beginFrame rebuilds anchors on the next normal frame.
-    if active and not inline and bottomOnHandheld()
-        and hasDisplay() and renderer then
-      renderer.uiAnchors = nil
     end
     local downstream = displayRuntime.perf:start()
     local handled = next(renderer, context)

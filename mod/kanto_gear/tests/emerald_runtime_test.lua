@@ -37,6 +37,7 @@ function fs.getDirectoryItems(file)
   if file == "mods" then return { "kanto_gear" } end
   return Fs.getDirectoryItems(resolve(file))
 end
+if _G.KANTO_GEAR_BEFORE_LOAD then _G.KANTO_GEAR_BEFORE_LOAD() end
 local run = T.sdk.loadMod(path, { generation = 3, data = data, fs = fs })
 T.eq(run.mod and run.mod.state, "loaded", "native Gen3 test build loads")
 for _, err in ipairs(run.errors) do print(err.message or err.error or tostring(err)) end
@@ -171,13 +172,7 @@ local refreshBattle
 for _,entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
  if entry.owner=="kanto_gear" then refreshBattle=upvalue(entry.callback,"refreshBattle") end
 end
-local owns=display.gen3Presentation.owns
-for i=1,debug.getinfo(owns,"u").nups do
- local name=debug.getupvalue(owns,i)
- if name=="active" or name=="displayReady" or name=="hasDisplay" then
-  debug.setupvalue(owns,i,name=="hasDisplay" and function() return true end or true)
- end
-end
+T.eq(display.gen3Presentation,nil,"native presentation has no Gear wrappers")
 local skin=Screens.skin("bag",session)
 local skinDraw,skinCalls=skin.draw,0
 skin.draw=function() skinCalls=skinCalls+1 end
@@ -185,9 +180,6 @@ run.loader.modOptions.kanto_gear = run.loader.modOptions.kanto_gear or {}
 for _,variant in ipairs({"hgss","hgss_dark"}) do
  run.loader.modOptions.kanto_gear.theme_v3=variant
  run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3"})
- for i=1,debug.getinfo(owns,"u").nups do
-  if debug.getupvalue(owns,i)=="displayReady" then debug.setupvalue(owns,i,true) end
- end
  for _,mode in ipairs({"standard","info","gear","full"}) do
   run.loader.modOptions.kanto_gear.battle_view=mode
   for _,scene in ipairs({"root","moves","party","bag"}) do
@@ -201,7 +193,7 @@ for _,variant in ipairs({"hgss","hgss_dark"}) do
    if scene=="bag" then
     T.check(display.startMenu()~=nil,"battle bag mirrored")
     local before=skinCalls;Screens.draw("bag",NativeBag,session)
-    T.eq(skinCalls-before,(mode=="gear" or mode=="full") and 0 or 1,"Emerald skin follows battle ownership")
+    T.eq(skinCalls-before,1,"Emerald skin always renders above")
    end
    require("src.ui.game3.party_menu").close();NativeBag.close();Stack.clear()
   end
