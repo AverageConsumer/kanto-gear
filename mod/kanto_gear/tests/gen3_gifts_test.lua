@@ -137,6 +137,30 @@ check(#giftGraph(false, function(s)
   s.loop = { { op = "goto", target = "loop" } }
 end) == 0, "a gift path looping before its receipt cannot prove completion")
 
+-- Shared battle/retry gift commands deduplicate; independent wild encounters do not.
+do
+  local original = Space.bundle
+  local scripts = { gift = { { op = "checkflag", flag = 700 },
+    { op = "goto_if", cond = 1, target = "done" }, { op = "givemon", 1, 5 },
+    { op = "compare_var_to_value", var = 0x800D, value = 2 },
+    { op = "goto_if", cond = 1, target = "done" }, { op = "setflag", flag = 700 }, { op = "end" } },
+    wild = { { op = "setwildbattle", 1, 5 }, { op = "end" } },
+    battle = { { op = "trainerbattle", type = 0, trainer = 1, eventScript = "gift" }, { op = "end" } },
+    done = { { op = "end" } } }
+  for _, reverse in ipairs({ false, true }) do
+    local objects = { { localId = 1, flag = 0, scriptKey = "gift" },
+      { localId = 2, flag = 0, scriptKey = "battle" } }
+    Space.bundle = { scripts = scripts, events = { TEST = { objects = objects } } }
+    check(#model:catalog("TEST")[4] == 1, "battle callback and retry share one gift receipt")
+    table.insert(objects, reverse and 1 or #objects + 1, { localId = 3, flag = 0, scriptKey = "wild" })
+    Space.bundle = { scripts = scripts, events = { TEST = { objects = objects } } }
+    local rows, gifts, wild = model:catalog("TEST")[4], 0, 0
+    for _, r in ipairs(rows) do if r.gift then gifts = gifts + 1 else wild = wild + 1 end end
+    check(gifts == 1 and wild == 1, "wild encounter survives matching gift regardless of NPC order")
+  end
+  Space.bundle = original
+end
+
 -- Run the real imported scripts and delivery/flag operations, stubbing only presentation.
 do
   local Vm = require("src.core.game3.scripting.vm")

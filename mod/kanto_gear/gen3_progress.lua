@@ -424,15 +424,18 @@ function M:catalog(mapId, checkpoint)
       graphicsId = obj.graphicsId or obj.graphics, graphicsVar = obj.graphicsVar,
       facing = obj.facing, hideEvent = obj.flag }
   end
-  local function mon(species, obj)
+  local function mon(species, obj, giftCommand)
     if mapId == "FR_POKEMON_TOWER_6F" and species == 105 then return end -- uncatchable ghost
     if not self.adapter.data.pokemon[species] then
       out[1][#out[1] + 1] = { label = "POKEMON", mapId = mapId, untracked = true }
       return
     end
-    if pokemon[species] then return end
+    if pokemon[species] then
+      if not giftCommand then pokemon[species].giftCommand = nil end
+      return
+    end
     local row = base(obj)
-    row.species = species
+    row.species, row.giftCommand = species, giftCommand
     pokemon[species], out[4][#out[4] + 1] = row, row
   end
   local function scan(obj, objectSource)
@@ -500,9 +503,12 @@ function M:catalog(mapId, checkpoint)
         hasMon = true
         local species = command[1]
         if proven[command] then -- receipt-based objective above
-        elseif type(species) == "number" and species < 0x4000 then mon(species, obj)
+        elseif type(species) == "number" and species < 0x4000 then
+          mon(species, obj, command.op ~= "setwildbattle" and command or nil)
         elseif vars[species] then
-          for _, candidate in ipairs(sortedKeys(vars[species])) do mon(candidate, obj) end
+          for _, candidate in ipairs(sortedKeys(vars[species])) do
+            mon(candidate, obj, command.op ~= "setwildbattle" and command or nil)
+          end
         else
           out[1][#out[1] + 1] = { label = "POKEMON", mapId = mapId, untracked = true }
         end
@@ -603,9 +609,9 @@ function M:catalog(mapId, checkpoint)
   -- A battle callback and its retry NPC can reference the same gift command.
   for i = #out[4], 1, -1 do
     local row = out[4][i]
-    if not row.gift then
+    if row.giftCommand then
       for _, reward in ipairs(out[4]) do
-        if reward.gift and not reward.trade and reward.species == row.species then table.remove(out[4], i); break end
+        if reward.command == row.giftCommand then table.remove(out[4], i); break end
       end
     end
   end
