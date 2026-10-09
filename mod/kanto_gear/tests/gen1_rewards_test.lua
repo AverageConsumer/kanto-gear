@@ -182,6 +182,78 @@ T.eq(#model().markers, 0, "live hidden NPC is removed from the map")
 explorer.filters.wildScope = "HERE"
 T.eq(#model().rows, 0, "live hidden giver is not advertised as immediately available")
 
+-- Gen1 counters are opaque native handlers: validate their audited metadata
+-- against the actual handler's menu, without opening an app or changing a save.
+do
+  local mapId = "GAME_CORNER_PRIZE_ROOM"
+  local source = { objects = {}, signs = {
+    { text = "TEXT_GAMECORNERPRIZEROOM_PRIZE_VENDOR_1", x = 2, y = 2 },
+    { text = "TEXT_GAMECORNERPRIZEROOM_PRIZE_VENDOR_2", x = 4, y = 2 } } }
+  local record = { flags = {}, inventory = { COIN_CASE = 1 }, party = {}, coins = 9999, pokedex = { caught = {} } }
+  local prizeData = { pokemon = {}, items = {}, text = {} }
+  for name in ("ABRA CLEFAIRY NIDORINA NIDORINO DRATINI SCYTHER PINSIR PORYGON VULPIX WIGGLYTUFF"):gmatch("%S+") do
+    prizeData.pokemon[name] = { name = name }
+  end
+  local function prizes() return policy:rows(prizeData, record, mapId, source) end
+  T.eq(#prizes(), 6, "native Gen1 prize counters expose six edition-specific caught goals")
+  local TextBox, Counter = require("src.render.TextBox"), require("src.ui.PrizeCounter")
+  local textNew, counterNew = TextBox.new, Counter.new
+  TextBox.new = function(_, text, done, opts) return { text = text, onDone = done, opts = opts } end
+  Counter.new = function(_, rows, opts) return { prizes = rows, opts = opts } end
+  local nativeRows = {}
+  for _, sign in ipairs(source.signs) do
+    local game = { data = prizeData, save = record, stack = { states = {},
+      push = function(self, value) self.states[#self.states+1] = value end,
+      pop = function(self) return table.remove(self.states) end,
+      top = function(self) return self.states[#self.states] end } }
+    local emitted
+    local ow = { runner = { run = function(_, rows) emitted = rows end } }
+    scripts.talkScript(mapId, sign.text)(game, ow, nil, function() end)
+    game.stack:pop().onDone()
+    game.stack:top().opts.stay.onShown()
+    local menu = game.stack:top()
+    for _, row in ipairs(menu.prizes) do nativeRows[row.prize.species] = row end
+    menu.opts.onPick(menu.prizes[1], 1)
+    game.stack:pop().opts.choice(true)
+    T.eq(emitted[1][1], "give_pokemon", "native transaction gives Pokemon before charging")
+    T.eq(emitted[2][1], "jump_if_false", "native delivery failure skips coin charge")
+    T.eq(emitted[3][2], menu.prizes[1].cost, "native transaction charges its displayed price")
+  end
+  TextBox.new, Counter.new = textNew, counterNew
+  for _, row in ipairs(prizes()) do
+    local actual = assert(nativeRows[row.species], "catalogue invented a prize species")
+    T.eq(row.level, actual.prize.level, "catalogue level matches actual edition's native menu")
+    T.eq(row.coinCost, actual.cost, "catalogue coin price matches actual edition's native menu")
+    T.eq(row.index, nil, "background counter does not impersonate an NPC actor")
+    T.eq(row.catchGoal, true, "repeatable native prize has a caught goal")
+    T.eq(row.event, nil, "repeatable native prize has no invented receipt")
+    record.coins = row.coinCost - 1
+    for _, offer in ipairs(prizes()) do if offer.id == row.id then T.eq(offer.available, false, "one coin short blocks immediate prize") end end
+    record.coins = row.coinCost
+    for _, offer in ipairs(prizes()) do if offer.id == row.id then T.eq(offer.available, true, "exact coins unlock immediate prize") end end
+    record.coins = 9999
+  end
+  record.inventory = {}
+  for _, row in ipairs(prizes()) do T.eq(row.available, false, "no Coin Case blocks every prize") end
+  record.inventory = { COIN_CASE = 1 }
+  record.party, record.boxes = { {}, {}, {}, {}, {}, {} }, {}
+  for i=1,Boxes.COUNT do record.boxes[i] = {}; for j=1,Boxes.CAPACITY do record.boxes[i][j] = {} end end
+  for _, row in ipairs(prizes()) do T.eq(row.noRoom, true, "full party and storage blocks every prize") end
+  record.boxes[Boxes.COUNT] = {}
+  for _, row in ipairs(prizes()) do T.eq(row.available, true, "Gen1 prize can overflow into available PC space") end
+  record.party = {}
+  for _, row in ipairs(prizes()) do record.pokedex.caught[row.species] = true end
+  for _, row in ipairs(prizes()) do
+    T.eq(row.done, true, "native caught dex completes prize after release")
+    T.eq(row.status, "CAUGHT", "prize completion never claims unique receipt")
+  end
+  T.eq(album(prizes()).tier, "gold", "all caught prize species allow gold")
+  local nativeTalk = scripts.talkScript
+  scripts.talkScript = function(id, text) if id == mapId then return function() end end; return nativeTalk(id,text) end
+  T.eq(#prizes(), 0, "replacement mod handler never inherits unproven native prize metadata")
+  scripts.talkScript = nativeTalk
+end
+
 local native = os.getenv("KANTO_GEAR_NATIVE_GEN1")
 if native then
   local imported = { maps = dofile(native .. "/maps.lua"), items = dofile(native .. "/items.lua"),

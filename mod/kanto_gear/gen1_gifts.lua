@@ -157,6 +157,15 @@ local native = {
   ["flavor.museum_1f"] = { { "MUSEUM_1F", "TEXT_MUSEUM1F_SCIENTIST2", "OLD_AMBER", "EVENT_GOT_OLD_AMBER" } },
 }
 
+local casinoPrizes = {
+  red = { { "ABRA",9,180 }, { "CLEFAIRY",8,500 }, { "NIDORINA",17,1200 },
+    { "DRATINI",18,2800 }, { "SCYTHER",25,5500 }, { "PORYGON",26,9999 } },
+  blue = { { "ABRA",6,120 }, { "CLEFAIRY",12,750 }, { "NIDORINO",17,1200 },
+    { "PINSIR",20,2500 }, { "DRATINI",24,4600 }, { "PORYGON",18,6500 } },
+  yellow = { { "ABRA",15,230 }, { "VULPIX",18,1000 }, { "WIGGLYTUFF",22,2680 },
+    { "SCYTHER",30,6500 }, { "PINSIR",30,6500 }, { "PORYGON",26,9999 } },
+}
+
 function M.new()
   local scripts, handlers, cache = require("src.script.MapScripts"), {}, setmetatable({}, { __mode = "k" })
   local Party, Boxes = require("src.pokemon.Party"), require("src.pokemon.Boxes")
@@ -168,12 +177,21 @@ function M.new()
     handlers[handler][#handlers[handler] + 1] = {
       itemId = not def.pokemon and def[3] or nil, species = def.pokemon and def[3] or nil,
       event = def[4], dex = def.dex, alias = def.alias, level = def.level,
+      coinCost = def.coinCost, catchGoal = def.catchGoal,
       needsItem = def.needsItem, requires = def.requires, alternative = def.alternative, happiness = def.happiness,
     }
   end
   for name, definitions in pairs(native) do
     local ok, module = pcall(require, "data.scripts." .. name)
     if ok then for _, def in ipairs(definitions) do add(module, def) end end
+  end
+  local found, story3 = pcall(require, "data.scripts.story3")
+  if found then
+    local version = require("src.core.GameVersion").get()
+    for i, prize in ipairs(casinoPrizes[version] or {}) do
+      add(story3, { "GAME_CORNER_PRIZE_ROOM", "TEXT_GAMECORNERPRIZEROOM_PRIZE_VENDOR_" .. math.ceil(i / 3),
+        prize[1], nil, pokemon = true, level = prize[2], coinCost = prize[3], catchGoal = true, needsItem = "COIN_CASE" })
+    end
   end
   local ok, gyms = pcall(require, "data.scripts.gyms")
   local found, victories = pcall(require, "data.scripts.victories")
@@ -190,7 +208,12 @@ function M.new()
   end
   return { rows = function(_, data, save, mapId, map, checkpoint)
     local out, added = {}, {}
-    for _, obj in ipairs(map and map.objects or {}) do
+    local objects = {}
+    for _, obj in ipairs(map and map.objects or {}) do objects[#objects + 1] = obj end
+    if mapId == "GAME_CORNER_PRIZE_ROOM" then
+      for _, sign in ipairs(map and map.signs or {}) do objects[#objects + 1] = sign end
+    end
+    for _, obj in ipairs(objects) do
       if checkpoint then checkpoint() end
       local handler = obj.text and scripts.talkScript(mapId, obj.text)
       local rewards = handlers[handler]
@@ -203,13 +226,14 @@ function M.new()
         local species = gift.species or trade and trade.get
         local item = species and data.pokemon and data.pokemon[species]
           or gift.itemId and data.items and data.items[gift.itemId]
-        local id = gift.event .. ":" .. tostring(species or gift.itemId)
+        local id = (gift.event or "caught") .. ":" .. tostring(species or gift.itemId)
         local visible = not obj.hidden
         local toggles = save.objectToggles and save.objectToggles[mapId] or {}
         if toggles[obj.name] ~= nil then visible = toggles[obj.name] == true end
         if item and (not added[id] or not added[id].mapVisible and visible) then
           local flags = save.flags or {}
           local done = flags[gift.event] == true or gift.alias and flags[gift.alias] == true or false
+          if gift.catchGoal then done = ((save.pokedex or {}).caught or {})[species] == true end
           local excluded = not done and gift.alternative and flags[gift.alternative] == true or false
           local available = visible and not done and not excluded
           if gift.command and available then
@@ -217,6 +241,7 @@ function M.new()
           end
           if gift.requires then available = available and flags[gift.requires] == true end
           if gift.needsItem then available = available and ((save.inventory or {})[gift.needsItem] or 0) > 0 end
+          if gift.coinCost then available = available and (save.coins or 0) >= gift.coinCost end
           if gift.happiness then available = available and (save.pikachuHappiness or 90) >= gift.happiness end
           if trade then
             local partner = false
@@ -237,13 +262,13 @@ function M.new()
             end
             available = not noRoom
           end
-          local row = { id = mapId .. "_gift_" .. id, actorId = mapId .. "_obj_" .. tostring(obj.index),
+          local row = { id = mapId .. "_gift_" .. id, actorId = obj.index and mapId .. "_obj_" .. obj.index or nil,
             mapId = mapId, index = obj.index, x = obj.x, y = obj.y, spriteId = obj.sprite,
             kind = species and "pokemon" or "item", gift = true, itemId = gift.itemId, event = gift.event,
             label = item.name or species or gift.itemId, species = species, level = gift.level,
-            order = item.index or 0, trade = trade ~= nil, needsSpecies = trade and trade.give, cost = gift.cost,
+            order = item.index or 0, trade = trade ~= nil, needsSpecies = trade and trade.give, cost = gift.cost, coinCost = gift.coinCost, catchGoal = gift.catchGoal,
             done = done, excluded = excluded, noRoom = noRoom, available = available, mapVisible = visible,
-            status = not done and not available and "LATER" or nil }
+            status = gift.catchGoal and done and "CAUGHT" or not done and not available and "LATER" or nil }
           if added[id] then
             for i, old in ipairs(out) do if old == added[id] then out[i] = row; break end end
           else out[#out + 1] = row end
