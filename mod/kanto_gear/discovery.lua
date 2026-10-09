@@ -12,8 +12,10 @@ function Discovery.mode(value, localMap)
 end
 
 function Discovery.map(mode, id, current, visited, save)
-  return mode == "spoiler" or id == current or (visited or {})[id] == true
-    or (save and save.visited or {})[id] == true
+  if mode == "spoiler" then return true end
+  if id == nil then return false end
+  return id == current or type(visited) == "table" and visited[id] == true
+    or save ~= nil and type(save.visited) == "table" and save.visited[id] == true
 end
 
 function Discovery.species(mode, species, seen, caught)

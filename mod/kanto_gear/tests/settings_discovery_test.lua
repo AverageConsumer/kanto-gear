@@ -20,6 +20,9 @@ end
 
 T.eq(Policy.mode("legacy", "enhanced"), "spoiler", "old explicitly revealing custom setting survives")
 T.eq(Policy.mode("legacy", true), "vanilla", "other saved custom modes migrate conservatively")
+T.check(not Policy.map("enhanced", nil, nil, {}, {}), "absent map IDs are not proof of a visit")
+T.check(not Policy.map("enhanced", "FUTURE", "HERE", 42, { visited = false }),
+  "old invalid visit metadata cannot expose or crash an undiscovered map")
 local rows = {
   { id = "visible", mapId = "HERE", kind = "item" },
   { id = "found", mapId = "HERE", kind = "hidden", done = true },
