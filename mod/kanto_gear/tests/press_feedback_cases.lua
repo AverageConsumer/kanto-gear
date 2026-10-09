@@ -48,6 +48,12 @@ return function(T, display, H)
   x,y,w,h=display.ItemPage.rect(1,2)
   at(x+w/2,y+h/2,function() H:bagDetail(item) end,0,"locked item card cannot animate an action")
   at(120,80,function() H:bagDetail(item) end,0,"item information never bounces as a control")
+  local moves = { name="TESTMON", prompt="CHOOSE MOVE", moves={{name="TACKLE",type="NORMAL",typeLabel="NORMAL",available=true}} }
+  at(120,80,function() display.MovePage.draw(H,moves) end,1,"usable move selection responds")
+  at(120,120,function() display.MovePage.draw(H,moves) end,0,"empty move slot never responds")
+  at(120,40,function() display.MovePage.draw(H,moves) end,0,"move context stays still")
+  moves.enabled=false
+  at(120,80,function() display.MovePage.draw(H,moves) end,0,"locked move chooser stays still")
   local app={id="notes",label="NOTES",icon="notes",category="UTILITY",state="soon"}
   at(60,85,function() H:storeAppCard(7,53,111,app,{}) end,0,
     "a disabled install action cannot bounce its containing card")

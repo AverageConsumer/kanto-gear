@@ -6277,8 +6277,8 @@ return function(ui)
     local fill = self:typeColor(move.type)
     clipped(x, y, 48, 10, fill)
     border(x, y, 48, 10, self.colors.outline)
-    self:partyType(self:fitPartyInfo(move.typeLabel or move.type, 44),
-      x + 2, y - 1, self.colors.white, 44)
+    self:partyInfoCentered(self:fitPartyInfo(move.typeLabel or move.type, 44),
+      x + 1, y + 1, 46, 8, self.colors.white)
   end
 
   function H:summaryMoveRow(move, x, y, selected, interactive, showChevron)

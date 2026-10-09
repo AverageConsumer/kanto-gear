@@ -25,6 +25,7 @@ return function(T, run, display, raw)
     local out = {}; for _, row in ipairs(display.bagActions(item)) do out[#out+1]=row.id end; return out
   end
   clear()
+  assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH") .. "/tests/move_page_cases.lua"))()(T, display, up(display.drawContents,"THEME").hgss)
   local potion, ball, rod = Items.toNumericId("POTION"), Items.toNumericId("POKE_BALL"), Items.toNumericId("OLD_ROD")
   Bag.add(session.bag, potion, 3); Bag.add(session.bag, ball, 3); Bag.add(session.bag, rod, 1)
   a:refresh()
@@ -135,6 +136,73 @@ return function(T, run, display, raw)
   T.eq(Party.mode,"use","use and give retain separate native purposes")
   T.eq(Party._item,potion,"use targets the exact chosen item")
   clear();mon.hp=hp
+  -- Actual item confirmation, including compacted sparse move slots.
+  local mon = session.party[1]
+  local savedMoves, savedPp, savedMax, savedBonus = mon.moves, mon.pp, mon.maxPp, mon.ppBonusesPacked
+  mon.moves, mon.pp, mon.maxPp, mon.ppBonusesPacked = {33,0,45,0}, {0,0,1,0}, {35,0,40,0}, 0
+  local ether, ppup = Items.toNumericId("ETHER"), Items.toNumericId("PP_UP")
+  Bag.add(session.bag,ether,3); Bag.add(session.bag,ppup,2)
+  local function ppChooser(id)
+    clear(); a:refresh()
+    T.check(display.performBagAction(id,"use"),"PP item opens the real party picker")
+    Menu.settle()
+    Screens.handleInput("party",Party,input("a"),session)
+    T.eq(Party.mode,"forget","native PP selector is open")
+    a:refresh(); a.syncScreens()
+    local view = assert(display.startMenu(),"PP selector has a common touch page")
+    T.check(view.moveSelection and view.fixedLayout,"PP uses attack cards instead of generic choices")
+    T.eq(#view.items,2,"empty native move slots never become fake actions")
+    T.eq(view.items[2].move.id,a.Moves.constName(45),"compacted second row retains native third move")
+    T.check(pcall(display.drawContents),"PP page draws without a handoff")
+    return view
+  end
+  local view = ppChooser(ether)
+  local beforeEther = Bag.get(session.bag,ether)
+  display.StartMenu.select(view,2)
+  T.eq(Party._forgetCursor,2,"touch updates native compact cursor rather than raw move slot")
+  Screens.handleInput("party",Party,input("b"),session)
+  T.eq(Bag.get(session.bag,ether),beforeEther,"cancel consumes no PP item")
+  T.eq(Party.mode,"use","cancel returns to the native party target page")
+  T.check(not view.valid(),"cancelled PP page rejects delayed taps")
+  view = ppChooser(ether)
+  local keys = {}; local mod = up(display.saveHome,"mod"); local savedTap = mod.input.tap
+  mod.input.tap = function(_,target,key) keys[#keys+1] = key end
+  local x,y,w,h = unpack(view.items[2].rect)
+  display.tapStartMenu(view,(x+w/2)/1.5,(y+h/2)/1.5)
+  mod.input.tap = savedTap
+  T.same(keys,{"a"},"one attack card tap confirms exactly once")
+  Screens.handleInput("party",Party,input(keys[1]),session)
+  T.eq(mon.pp[1],0,"choosing compact row two leaves the first move untouched")
+  T.check(mon.pp[3]>1,"actual host restores the native third move")
+  T.eq(Bag.get(session.bag,ether),beforeEther-1,"successful PP restoration consumes exactly one item")
+  T.check(not view.valid(),"completed PP page expires")
+  view = ppChooser(ppup)
+  display.StartMenu.select(view,1)
+  local beforeUp = Bag.get(session.bag,ppup)
+  Screens.handleInput("party",Party,input("a"),session)
+  T.eq(mon.maxPp[1],42,"native PP Up raises the actual maximum")
+  T.eq(Bag.get(session.bag,ppup),beforeUp-1,"PP Up consumes exactly one item")
+  view = ppChooser(ether)
+  T.eq(view.items[1].right,"7/42","common page shows PP bonuses from the live native mon")
+  -- A complete move still goes through the host's no-effect result.
+  mon.pp[1]=42
+  view=ppChooser(ether)
+  display.StartMenu.select(view,1)
+  local untouched=Bag.get(session.bag,ether)
+  Screens.handleInput("party",Party,input("a"),session)
+  T.eq(Bag.get(session.bag,ether),untouched,"full PP refuses without spending an Ether")
+  T.eq(mon.pp[1],42,"no-effect result preserves the actual PP")
+  view=ppChooser(ether)
+  -- Imported native saves may carry packed bonuses ahead of maxPp normalization.
+  mon.ppBonusesPacked,mon.maxPp[1]=2,35
+  view=assert(display.startMenu())
+  T.eq(view.items[1].right,"42/49","packed PP bonuses are authoritative like the native item handler")
+  local old = view
+  Party._forgetMoves = {"different"}
+  T.check(not old.valid(),"replaced chooser rows invalidate stale touch indices")
+  clear()
+  mon.moves, mon.pp, mon.maxPp, mon.ppBonusesPacked = savedMoves, savedPp, savedMax, savedBonus
+  a:refresh()
   local registered = session.registeredItem
   T.check(display.performBagAction(rod,"register"),"registration delegates to the native handler")
   T.eq(session.registeredItem,rod,"native registered item is updated")

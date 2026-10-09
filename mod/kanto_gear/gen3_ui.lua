@@ -1,10 +1,11 @@
 -- Native Gen 3 menu projections. All activation is routed through the host's
 -- normal input handler; Gear never invokes item/switch callbacks itself.
+local bit = require("bit")
 local UI = {}
 UI.__index = UI
 
-function UI.new(adapter, layout, choicePage, namingPage, storagePage, itemPage)
-  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, itemPage = itemPage, Stack = require("src.ui.game3.stack"),
+function UI.new(adapter, layout, choicePage, namingPage, storagePage, itemPage, movePage)
+  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, itemPage = itemPage, movePage = movePage, Stack = require("src.ui.game3.stack"),
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
 end
 
@@ -223,7 +224,7 @@ function UI:list(battle)
   if layer.id == "summary" and layer.mod._mode ~= "select_move" and self.adapter.profile.id == "emerald"
       and require("src.ui.game3.rse.summary_menu").page(layer.mod) == 3 then return nil end
   local native, items, field, title, slots = layer.mod
-  local quantity, prompt, grid, boxParty
+  local quantity, prompt, grid, boxParty, moveSelection
   local mode = nativeMode(layer)
   local sale = mode == "sell" and native._sell
   local saleState = sale and sale.state
@@ -465,6 +466,22 @@ function UI:list(battle)
       end
       items[#items + 1], slots[#slots + 1] = { label = "CANCEL" }, native.mode == "choose_multi" and 8 or 7
       if native.mode == "use" then title = "USE ITEM ON" end
+    elseif native.mode == "forget" and type(native._forgetMoves) == "table" then
+      title, items, field = "CHOOSE MOVE", {}, "_forgetCursor"
+      local raw = native._party and native._party[native.cursor]
+      local mon = raw and self.adapter:mon(raw)
+      local slot = 0
+      for index, name in ipairs(native._forgetMoves) do
+        repeat slot = slot + 1 until slot > 4 or (self.adapter.Pokemon.moveIdAt(raw, slot) or 0) > 0
+        local move = mon and mon.moves[slot]
+        if not move then return nil end
+        -- Match the host's PP-bonus representation, including imported saves.
+        local base = self.adapter.Pokemon.movePp(self.adapter.Pokemon.moveIdAt(raw, slot))
+        local bonus = type(raw.ppBonusesPacked) == "number" and bit.band(bit.rshift(raw.ppBonusesPacked, (slot - 1) * 2), 3)
+        local maxPp = bonus and base + math.floor(base * bonus / 5) or move.maxPp or base
+        items[index] = { label = name, move = move, right = tostring(move.pp or 0) .. "/" .. maxPp }
+      end
+      moveSelection = { mon = mon, items = items, itemName = self.adapter.Items.displayName(native._item) }
     elseif native.mode == "action" then
       items, field = labels(native.ACTIONS), "actionCursor"
     elseif native.mode == "item_action" then
@@ -518,6 +535,7 @@ function UI:list(battle)
   local key = tostring(layer) .. ":" .. tostring(mode) .. ":" .. tostring(native.pocketIdx)
     .. ":" .. tostring(native.holdingMon)
     .. ":" .. tostring(saleState) .. ":" .. tostring(itemActionId) .. ":" .. tostring(actionOrder)
+    .. ":" .. tostring(native._forgetMoves) .. ":" .. tostring(native._forgetCallback)
     .. ":" .. tostring(native._hmNotice) .. ":" .. tostring(native._confirmExit)
     .. ":" .. tostring(layer.id == "box_storage" and native._session.storage.currentBox)
   local view = self.view
@@ -528,6 +546,7 @@ function UI:list(battle)
     local holding = native.holdingMon
     local storageBox = layer.id == "box_storage" and native._session.storage.currentBox
     local hmNotice, confirmExit = native._hmNotice, native._confirmExit
+    local forgetMoves, forgetCallback, forgetMon = native._forgetMoves, native._forgetCallback, moveSelection and native._party[native.cursor]
     function view.valid(preview)
       return owner.Stack.top() == layer and native.open == true
         and nativeMode(layer) == mode and native.pocketIdx == pocketIdx
@@ -536,6 +555,8 @@ function UI:list(battle)
         and (not actionOrder or table.concat(native.ACTIONS, "\31") == actionOrder)
         and native.holdingMon == holding
         and (not storageBox or mode == "pick_box" or native._session.storage.currentBox == storageBox)
+        and native._forgetMoves == forgetMoves and native._forgetCallback == forgetCallback
+        and (not forgetMon or native._party[native.cursor] == forgetMon)
         and native._hmNotice == hmNotice and native._confirmExit == confirmExit
         and (not sale or native._sell == sale and sale.state == saleState)
         and (layer.id ~= "box_storage" or not require("src.ui.game3.release_seq").isActive())
@@ -588,6 +609,8 @@ function UI:list(battle)
     and native._location ~= "shop" and native._location ~= "itempc"
     and native._location ~= "berry_tree" and native._location ~= "blender"
   if quantity and quantity.itemId then quantity.itemSprite = self.adapter:itemIcon(quantity.itemId) end
+  view.moveSelection = moveSelection
+  if moveSelection then moveSelection.valid = view.valid end
   view.quantity = quantity
   view.prompt = prompt
   view.nativeGrid, view.boxParty = grid, boxParty
@@ -597,7 +620,7 @@ function UI:list(battle)
   if layer.id == "box_storage" and mode == "action_menu" then
     view.partyActions = self.adapter:mon(native._actionTarget and native._actionTarget.mon)
   end
-  view.fixedLayout, view.party = grid or itemActionId ~= nil or prompt ~= nil or partyLayout or view.partyActions ~= nil, partyLayout and native or nil
+  view.fixedLayout, view.party = grid or moveSelection ~= nil or itemActionId ~= nil or prompt ~= nil or partyLayout or view.partyActions ~= nil, partyLayout and native or nil
   -- Every projection (including upper-screen ownership checks) retains the
   -- exact same draw/hit geometry; never leave a cached view with fresh bare rows.
   if not prompt then view.choiceState, view.touchWindow = nil, nil end
@@ -610,6 +633,8 @@ function UI:list(battle)
     for _, entry in ipairs(model.entries) do
       items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
     end
+  elseif moveSelection then
+    self.movePage.layout(items)
   elseif itemActionId then
     self.itemPage.layout(items)
   elseif partyLayout then

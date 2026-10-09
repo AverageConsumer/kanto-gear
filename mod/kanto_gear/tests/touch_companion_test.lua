@@ -234,6 +234,43 @@ else
       T.check(up(display.syncCompanionDetails, "moveInfo") ~= nil, "hardware does not dismiss details in an unchanged context")
       state.prompt = "menu"; refresh()
       T.eq(up(display.syncCompanionDetails, "moveInfo"), nil, "native progression dismisses stale details")
+      -- Real PP move pickers remain touchable over a native battle in every saved style.
+      local selected, cancelled = nil, 0
+      party[1].moves = state.moves
+      local picker
+      local function choose(index) selected=index;table.remove(stack.states) end
+      local function cancel() cancelled=cancelled+1;table.remove(stack.states) end
+      if gen==1 then
+        picker=require("src.ui.MoveSelectMenu").new(game,party[1],"CHOOSE MOVE",choose,cancel)
+        picker.screenId,picker.ready,picker.boxShown="MoveSelectMenu",true,true
+      else
+        picker=require("src.ui.gen2.MoveDeleter").new(game,{mon=party[1],onChoose=choose,onCancel=cancel})
+        picker.screenId="Gen2MoveDeleter"
+      end
+      stack.states={world,raw,picker};state.prompt="locked";refresh()
+      T.check(display.fieldPpMoveScreen(),"native battle PP chooser uses the shared page")
+      T.check(pcall(display.drawContents),"native battle PP page renders")
+      T.eq(display.nativeHandoff,false,"native battle PP selection remains available below")
+      local x,y,w,h=display.MovePage.rect(2)
+      local before=#tapped
+      tap((x+w/2)/1.5,(y+h/2)/1.5)
+      T.eq(tapped[#tapped],"a","native battle PP touch sends confirm")
+      T.eq(#tapped,before+1,"native battle PP touch sends no cursor navigation")
+      game.input={wasPressed=function(_,key) return key=="a" end,isDown=function() return false end}
+      picker:update()
+      T.eq(selected,2,"battle PP touch selects the native second move")
+      T.eq(cancelled,0,"move selection never invokes cancellation")
+      local old=display.fieldPpMoveScreen()
+      T.eq(old,nil,"completed battle PP chooser no longer owns the companion")
+      -- Older host contracts use an explicit PP list rather than MoveSelectMenu.
+      local legacy={kind="pp_item_move",index=1,items={{label="FIRST",right="0/10"},{label="SECOND",right="5/10"}}}
+      stack.states={world,raw,legacy};refresh()
+      T.check(pcall(display.drawContents),"legacy battle PP contract draws the same move cards")
+      tapBattle((x+w/2)/1.5,(y+h/2)/1.5)
+      T.eq(legacy.index,2,"legacy PP contract shares the current page's touch geometry")
+      T.eq(tapped[#tapped],"a","legacy PP contract also confirms through native input")
+      stack.states={world,raw};state.prompt="menu";refresh()
+
     end
   end
   for _, option in ipairs(theme.optionSchema) do

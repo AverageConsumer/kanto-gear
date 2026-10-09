@@ -2370,6 +2370,7 @@ return function(mod)
     "@kanto_gear/naming_page.lua"))()
   displayRuntime.PartyPage = assert(load(mod:read("party_page.lua"),
     "@kanto_gear/party_page.lua"))()
+  displayRuntime.MovePage = assert(load(mod:read("move_page.lua"), "@kanto_gear/move_page.lua"))()
   displayRuntime.ItemPage = assert(load(mod:read("item_page.lua"), "@kanto_gear/item_page.lua"))()
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
@@ -4841,34 +4842,36 @@ return function(mod)
 
   function displayRuntime.fieldPpMoveScreen()
     local pending = displayRuntime.bag.pending
+    local top = game and game.stack and game.stack:top()
     local picker = screenById("Gen2MoveDeleter")
-    local mon, index, cursor = picker and picker.mon, picker and picker.row,
-      "row"
+    local mon, index, cursor = picker and picker.mon, picker and picker.row, "row"
+    if picker and (picker.forget or pending and pending.moveId) then return nil end
     if not picker and not compat.isGen2() then
-      local top = game and game.stack and game.stack:top()
-      if pending and not pending.moveId and top
+      if top and top.screenId == "MoveSelectMenu" and type(top.mon) == "table" then
+        picker, mon, index, cursor = top, top.mon, top.index, "index"
+      elseif pending and not pending.moveId and top
           and (top.kind == "Which move?" or top.title == "Which move?")
           and type(top.items) == "table" and type(top.index) == "number" then
         picker, mon, index, cursor = top, pending.mon, top.index, "index"
       end
     end
-    if not (pending and not pending.moveId and picker and type(mon) == "table"
-        and type(index) == "number" and type(mon.moves) == "table") then
-      return nil
-    end
-    if cursor == "row" and picker.list ~= mon.moves then return nil end
+    if not (picker and top == picker and type(mon) == "table"
+        and type(index) == "number" and type(mon.moves) == "table") then return nil end
+    local selectedMoves = cursor == "row" and picker.list or mon.moves
+    if type(selectedMoves) ~= "table" then return nil end
     local items = {}
-    for slot, move in ipairs(mon.moves or {}) do
+    for slot, move in ipairs(selectedMoves) do
       local def = game.data and game.data.moves and game.data.moves[move.id]
       local base = def and def.pp or move.maxPp or move.pp or 0
-      local maxPp = move.maxPp or base
-        + (move.ppUps or 0) * math.floor(base / 5)
-      items[slot] = {
-        label = def and def.name or move.id or "MOVE",
-        right = THEME:format("%d/%d", move.pp or 0, maxPp),
-      }
+      local maxPp = compat.isGen2() and require("src.battle.gen2.Mon").maxPpOf(move, game.data)
+        or def and def.pp and base + (move.ppUps or 0) * math.floor(base / 5)
+        or move.maxPp or base
+      items[slot] = { label = def and def.name or move.id or "MOVE",
+        right = THEME:format("%d/%d", move.pp or 0, maxPp), move = move }
     end
-    return { native = picker, items = items, index = index, cursor = cursor }
+    return { native = picker, items = items, index = index, cursor = cursor, mon = mon, itemId = pending and pending.itemId,
+      enabled = picker.ready ~= false and not picker.done,
+      valid = function() return game.stack:top() == picker and not picker.done and picker.ready ~= false end }
   end
 
   local function pcSession()
@@ -5109,6 +5112,8 @@ return function(mod)
         THEME.hgss:choiceScreen(displayRuntime.choiceModel(top, labels, top.prompt))
       elseif top.quantity then
         THEME.hgss:pcQuantity(top.quantity)
+      elseif top.moveSelection then
+        displayRuntime.MovePage.draw(THEME.hgss, displayRuntime.moveSelectionModel(top.moveSelection))
       elseif top.itemModel then
         THEME.hgss:bagDetail(top.itemModel)
       elseif top.notice then
@@ -9519,33 +9524,36 @@ return function(mod)
     end
   end
 
+  function displayRuntime.moveSelectionModel(menu)
+    local moves = {}
+    for index, row in ipairs(menu.items or {}) do
+      local move = hgssRuntime.moveView(row.move)
+      move.name, move.ppText = row.label, row.right or move.ppText
+      move.available = not row.inert and row.enabled ~= false
+      moves[index] = move
+    end
+    local mon = menu.mon
+    local def = mon and game.data.pokemon[mon.species] or {}
+    return { moves = moves, name = mon and (mon.nickname or mon.name or def.name or mon.species) or "",
+      prompt = menu.itemName or menu.itemId and (game.data.items[menu.itemId] or {}).name
+        or THEME:translate("CHOOSE MOVE"), enabled = menu.enabled ~= false
+        and (not menu.valid or menu.valid()) }
+  end
+
   local function drawPpItemMoves(menu)
-    header(THEME:translate(THEME.style == "hgss"
-      and "RESTORE PP" or "CHOOSE MOVE"), true)
+    header(THEME:translate("CHOOSE MOVE"), true)
     if THEME.style == "hgss" then
-      local first, count = choiceWindow(menu.items or {}, menu.index)
-      local entries = {}
-      for row = 1, count do
-        local index, item = first + row - 1, menu.items[first + row - 1]
-        entries[row] = {
-          kind = "move", label = item.label or tostring(index),
-          right = THEME:format("PP %s", item.right or "--"),
-          selected = menu.index == index,
-        }
-      end
-      G.push()
-      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:pcList({ summary = THEME:translate("CHOOSE MOVE"),
-        entries = entries })
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      displayRuntime.MovePage.draw(THEME.hgss, displayRuntime.moveSelectionModel(menu))
       G.pop()
       return
     end
     for i, item in ipairs(menu.items or {}) do
       button(8, 25 + (i - 1) * 28, 144, 25,
-             THEME:format("%s  PP %s", item.label or tostring(i),
-                          item.right or "--"), menu.index == i, true)
+             THEME:format("%s  PP %s", item.label or tostring(i), item.right or "--"), menu.index == i, true)
     end
   end
+
 
   function displayRuntime.summaryContext(native)
     if THEME.style ~= "hgss" or not game then return native end
@@ -10679,6 +10687,25 @@ return function(mod)
     mod.input:tap(displayRuntime.sourceGame or game, key)
   end
 
+  function displayRuntime.tapPpItemMoves(menu, x, y)
+    if menu.enabled == false or menu.valid and not menu.valid() then return end
+    local action
+    if THEME.style == "hgss" then
+      action = displayRuntime.MovePage.hit(displayRuntime.moveSelectionModel(menu), x * THEME.hgssScale, y * THEME.hgssScale)
+    elseif y < HEADER and x < 24 then action = "back"
+    else
+      local row = math.floor((y - 25) / 28) + 1
+      if x >= 8 and x < 152 and row >= 1 and row <= #menu.items then action = row end
+    end
+    if action == "back" then press("b")
+    elseif type(action) == "number" then
+      (menu.native or menu)[menu.cursor or "index"] = action
+      press("a")
+    end
+    if action then dirty = true end
+  end
+
+
   function displayRuntime.summaryInput(summary, key)
     if THEME.style == "hgss" then
       local state = displayRuntime.summaryContext(summary)
@@ -11331,25 +11358,7 @@ return function(mod)
     local top = game and game.stack and game.stack:top()
     local ppMoves = screenContract(top, "pp")
     if ppMoves then
-      if THEME.style == "hgss" then
-        local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
-        if hy < 30 and hx < 27 then
-          press("b")
-        else
-          local first, count = choiceWindow(ppMoves.items or {}, ppMoves.index)
-          local row = THEME.hgss:pcListHit(hx, hy, count)
-          if row then ppMoves.index = first + row - 1; press("a") end
-        end
-      elseif y < HEADER and x < 24 then
-        press("b")
-      else
-        local row = math.floor((y - 25) / 28) + 1
-        if x >= 8 and x < 152 and row >= 1
-            and row <= #ppMoves.items then
-          ppMoves.index = row
-          press("a")
-        end
-      end
+      displayRuntime.tapPpItemMoves(ppMoves, x, y)
       return
     end
     if compat.isScreen(top, "summary") then
@@ -12043,18 +12052,7 @@ return function(mod)
     end
     local fieldPp = displayRuntime.fieldPpMoveScreen()
     if fieldPp then
-      local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
-      if hy < 30 and hx < 27 then
-        press("b")
-      else
-        local first, count = choiceWindow(fieldPp.items, fieldPp.index)
-        local row = THEME.hgss:pcListHit(hx, hy, count)
-        if row then
-          fieldPp.native[fieldPp.cursor or "row"] = first + row - 1
-          press("a")
-        end
-      end
-      dirty = true
+      displayRuntime.tapPpItemMoves(fieldPp, x, y)
       return
     elseif learnScreen and not choice then
       return
@@ -12961,7 +12959,7 @@ return function(mod)
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
       displayRuntime.gen3Field = assert(load(mod:read("gen3_field.lua"), "@kanto_gear/gen3_field.lua"))().new(displayRuntime.gen3, mod.world)
       displayRuntime.gen3Progress = assert(load(mod:read("gen3_progress.lua"), "@kanto_gear/gen3_progress.lua"))().new(displayRuntime.gen3)
-      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage, displayRuntime.StoragePage, displayRuntime.ItemPage)
+      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage, displayRuntime.StoragePage, displayRuntime.ItemPage, displayRuntime.MovePage)
       game = displayRuntime.gen3:gameView()
     end
     displayRuntime.homeCatalog.packages.achievements.available = true
@@ -13815,7 +13813,7 @@ return function(mod)
         tostring(displayRuntime.pokedex.habitatPage),
         tostring(displayRuntime.pokedex.movePage),
         tostring(radarOpen),
-         tostring(top and top.waiting), tostring(top and top.done),
+         tostring(top and top.waiting), tostring(top and top.done), tostring(top and top.ready),
          tostring(top and top.index), tostring(top and top.kind),
          tostring(displayRuntime.startMenuIndex),
          displayRuntime.StartMenu.redrawKey(nativeMenu or top),

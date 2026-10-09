@@ -79,3 +79,5 @@ tests/legacy_shop_test.lua
 tests/legacy_party_test.lua
 tests/legacy_bag_test.lua
 tests/item_page_cases.lua
+tests/move_page_cases.lua
+tests/pp_legacy_cases.lua
