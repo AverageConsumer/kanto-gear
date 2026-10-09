@@ -1,4 +1,4 @@
--- Native, edition-specific NPC trade receipts, without running a game or trade scene.
+-- Native, edition-specific Pokemon gift receipts, without running a game scene.
 local root, cacheRoot = assert(os.getenv("KANTO_GEAR_MOD_PATH")), assert(os.getenv("POKEPORT_GBA_CACHE"))
 local edition = assert(os.getenv("POKEPORT_VERSION"))
 require("src.core.GameVersion").set(edition)
@@ -10,7 +10,7 @@ local P = require("src.core.game3.pokemon")
 P.install(Dataset.cache())
 require("src.core.game3.items_data").install(Dataset.cache())
 local Schema = require("src.core.game3.save_schema_firered")
-local session = Schema.newGame({ version = edition, name = "TRADES", rngSeed = 12345 })
+local session = Schema.newGame({ version = edition, name = "GIFTS", rngSeed = 12345 })
 local raw = { generation = 3, phase = "field", session = session,
   save = Schema.toSaveTable(session), data = { maps = Dataset.buildMaps(),
     gen3Encounters = dofile(cacheRoot .. "/encounters.lua") } }
@@ -49,7 +49,7 @@ for id in pairs(raw.data.maps) do
   for _, r in ipairs(model:catalog(id)[4]) do if r.gift and not r.trade then all = all + 1 end end
 end
 check(Json.encode(Schema.toSaveTable(session)) == before, "catalogue cannot give Pokemon or advance RNG")
-check(all == (edition == "emerald" and 3 or 6), "all normal gifts and eggs, without speculative fossil receipts: " .. all)
+check(all == 6, "all proven gifts and eggs, without speculative fossil receipts: " .. all)
 for _, e in ipairs(expected) do
   local map, receipt, species, egg = unpack(e)
   flag(receipt, false)
@@ -106,6 +106,44 @@ if edition ~= "emerald" then
   local dojo = model:pokemon({ "FR_SAFFRON_CITY_DOJO" })
   check(#dojo == 1 and dojo[1].label:find("/", 1, true), "both dojo choices form one receipt goal")
 end
+local johto = {}
+if edition == "emerald" then
+  local map = "EM_LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB"
+  local var = model.constants:var("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE")
+  local function state(value) Flags.setVar(session, nil, var, value) end
+  local function gifts() return model:rows({ map })[4] end
+  local species = { [152] = true, [155] = true, [158] = true }
+  state(5)
+  session.party = { { species = 1, level = 5 } }
+  for _, row in ipairs(gifts()) do
+    check(species[row.species] and row.receiptVar == var and row.receiptValue == 6,
+      "each Johto choice uses the native shared permanent receipt")
+    check(row.level == 5 and row.toPC, "Johto starters have native level and PC delivery")
+    species[row.species] = nil
+    flag(row.hideEvent, true)
+    johto[#johto + 1] = row
+  end
+  check(#johto == 3 and not next(species), "all three Johto choices are catalogued once")
+  for _, row in ipairs(gifts()) do check(not row.available, "hidden starter balls are unavailable") end
+  for _, row in ipairs(johto) do flag(row.hideEvent, false); adapter.save.pokedex.caught[row.species] = true end
+  for _, row in ipairs(gifts()) do check(row.available and not row.done, "caught elsewhere is not a starter receipt") end
+  local goals = model:pokemon({ map })
+  check(#goals == 1 and not goals[1].done, "three alternative starters form one Stamps goal")
+  check(model:completionKey() == 0, "unfinished starter state has the old cache key")
+  state(6)
+  session.party = {}
+  for _, row in ipairs(gifts()) do check(row.done and not row.available, "receipt persists after releasing starter") end
+  check(model:pokemon({ map })[1].done and model:completionKey() == 1, "variable-only receipt refreshes Stamps")
+  local restored = Schema.fromSaveTable(Schema.toSaveTable(session))
+  check(Flags.getVar(restored, nil, var) == 6, "receipt survives a native save roundtrip")
+  state(7)
+  check(model:pokemon({ map })[1].done, "later native state preserves receipt")
+  state(5)
+  check(not model:pokemon({ map })[1].done and model:completionKey() == 0, "loading older state restores unfinished goal")
+  before = Json.encode(Schema.toSaveTable(session))
+  gifts(); model:pokemon({ map })
+  check(Json.encode(Schema.toSaveTable(session)) == before, "Johto queries cannot alter native state or RNG")
+end
 -- A failed delivery must never be mistaken for a valid receipt.
 local function giftGraph(bad, mutate)
   local scripts = { main = { { op = "checkflag", flag = 700 },
@@ -136,6 +174,24 @@ check(#giftGraph(false, function(s)
   s.main[5] = { op = "goto_if", cond = 1, target = "loop" }
   s.loop = { { op = "goto", target = "loop" } }
 end) == 0, "a gift path looping before its receipt cannot prove completion")
+if edition == "emerald" then
+  local var = model.constants:var("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE")
+  local function variableReceipt(s)
+    s.main[1] = { op = "compare_var_to_value", var = var, value = 6 }
+    s.main[2].cond = 4
+    s.main[6] = { op = "setvar", var = var, value = 6 }
+  end
+  check(#giftGraph(false, variableReceipt) == 1, "successful variable receipt is proven")
+  check(#giftGraph(true, function(s)
+    variableReceipt(s); s.failed[1] = { op = "setvar", var = var, value = 6 }
+  end) == 0, "variable receipt written on failed delivery is rejected")
+  check(#giftGraph(false, function(s)
+    variableReceipt(s); table.insert(s.main, 7, { op = "setvar", var = var, value = 5 })
+  end) == 0, "cleared variable receipt is rejected")
+  check(#giftGraph(false, function(s)
+    variableReceipt(s); s.main[1].var = var + 1; s.main[6].var = var + 1
+  end) == 0, "unrelated progress variable cannot become a permanent gift receipt")
+end
 
 -- Shared battle/retry gift commands deduplicate; independent wild encounters do not.
 do
@@ -167,14 +223,17 @@ do
   local Adapters = require("src.core.game3.scripting.adapters")
   local Objects = require("src.core.game3.objects")
   local Party = require("src.core.game3.party")
-  for _, e in ipairs(expected) do
-    local map, receipt, _, egg = unpack(e)
-    local source = reward(map, receipt)
+  local sources = {}
+  for _, e in ipairs(expected) do sources[#sources + 1] = reward(e[1], e[2]) end
+  for _, source in ipairs(johto) do sources[#sources + 1] = source end
+  for _, source in ipairs(sources) do
+    local map, receipt, egg = source.mapId, source.event, source.isEgg
     local event, object = Space.bundle.events[map]
     for _, o in ipairs(event.objects) do if o.localId == source.index then object = o end end
     check(object ~= nil, "gift is attached to its actual native NPC")
     for scenario = 1, 3 do
-      flag(receipt, false)
+      if source.receiptVar then Flags.setVar(session, nil, source.receiptVar, source.receiptValue - 1)
+      else flag(receipt, false) end
       if source.hideEvent and source.hideEvent >= 0x20 then flag(source.hideEvent, false) end
       if receipt == 730 then flag(731, false) end
       session.party = { { species = 1, level = 5, friendship = 255 } }
@@ -184,6 +243,10 @@ do
         if scenario == 3 then for slot = 1, 30 do box.mons[slot] = { species = 1 } end end
       end
       session.money = 500
+      local expectedDone = scenario == 1 or scenario == 2 and not egg
+      for _, row in ipairs(model:rows({ map })[4]) do
+        if row.id == source.id then check(row.available == expectedDone, "availability predicts native capacity result") end
+      end
       Space.store, Space.active = session, true
       Objects.loadMap(nil, map, event)
       local native = Adapters.host(nil, nil, nil)
@@ -208,28 +271,32 @@ do
       local asked = 0
       presentation.askYesNo = function(done)
         asked = asked + 1
-        done(asked == 1 and (receipt == 585 or receipt == 632 or receipt == 266 or receipt == 298))
+        done(asked == 1 and (source.receiptVar ~= nil or receipt == 585 or receipt == 632 or receipt == 266 or receipt == 298))
       end
       local vm = Vm.new({ store = session, scripts = Space.bundle.scripts, text = Space.bundle.text, adapters = presentation })
       vm:startTalk(object.scriptKey, object.localId, 1)
       for _ = 1, 500 do if not vm:isRunning() then break end; vm:tick() end
       check(not vm:isRunning(), "native gift script finishes: " .. map .. " " .. Json.encode(vm.ctx.pc))
-      local expectedDone = scenario == 1 or scenario == 2 and not egg
       check((deliveries == 1) == expectedDone, "native delivery agrees with capacity contract")
-      check(Flags.getFlag(session, nil, receipt) == expectedDone, "native receipt written only on successful delivery")
-      check(reward(map, receipt).done == expectedDone, "model agrees with actual native VM outcome")
+      local actualDone = source.receiptVar and Flags.getVar(session, nil, source.receiptVar) >= source.receiptValue
+        or receipt and Flags.getFlag(session, nil, receipt) or false
+      check(actualDone == expectedDone, "native receipt written only on successful delivery")
+      local projected
+      for _, row in ipairs(model:rows({ map })[4]) do if row.id == source.id then projected = row end end
+      check(projected and projected.done == expectedDone, "model agrees with actual native VM outcome")
       if expectedDone then check(received == source.species, "native VM gives the catalogued species") end
     end
   end
   Space.active = false
   for _, box in ipairs(session.storage.boxes) do box.mons = {} end
   for _, e in ipairs(expected) do flag(e[2], false) end
+  if #johto > 0 then Flags.setVar(session, nil, johto[1].receiptVar, 5) end
 end
 
 local T = require("tests.modkit")
 love.graphics.arc = love.graphics.arc or function() end
 local run = T.sdk.loadMod(root, { generation = 3, data = raw.data })
-check(run.mod and run.mod.state == "loaded", "native companion loads trade integration")
+check(run.mod and run.mod.state == "loaded", "native companion loads gift integration")
 setmetatable(raw, { __index = require("src.core.Game3") })
 run.loader.game = raw
 run.loader.events:emit("game.ready", { game = raw })
@@ -284,6 +351,25 @@ check((find(explorerModel().rows, offer.source.event) ~= nil) == not offer.sourc
 explorer.filters.wildScope = "ROUTE"
 check(find(explorerModel().rows, offer.source.event), "WHOLE ROUTE retains unavailable egg in Spoiler mode")
 session.party = { { species = 1, level = 20, friendship = 255 } }; display.gen3:refresh()
+if #johto > 0 then
+  local original = offer
+  offer = { map = johto[1].mapId, source = johto[1] }
+  session.map, overview.mapId = offer.map, offer.map
+  for _, row in ipairs(johto) do flag(row.hideEvent, false) end
+  Flags.setVar(session, nil, johto[1].receiptVar, 5)
+  display.gen3:refresh()
+  explorer.filters.wildScope = "HERE"
+  check(#explorerModel().rows == 3, "HERE NOW presents all three ready native Johto choices")
+  display.achievementData(true)
+  check(display.achievements.progressKeys == 0, "live Stamps caches unfinished Johto state")
+  Flags.setVar(session, nil, johto[1].receiptVar, 6)
+  check(#explorerModel().rows == 0, "choosing one removes all alternatives from HERE NOW")
+  display.achievementData(true)
+  check(display.achievements.progressKeys == 1, "native variable write invalidates Stamps without a flag event")
+  Flags.setVar(session, nil, johto[1].receiptVar, 5)
+  if os.getenv("KANTO_GEAR_PREVIEW_JOHTO") ~= "1" then offer = original; session.map = offer.map end
+  display.gen3:refresh()
+end
 if _G.KANTO_GEAR_RENDER_CAPTURE then _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, offer) end
 print("GEN3_NATIVE_GIFTS", edition, all)
 print(checks .. " checks passed")

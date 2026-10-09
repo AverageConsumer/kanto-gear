@@ -226,7 +226,11 @@ end
 local giftFlow = { ["return"] = true, ["end"] = true, goto_if = true, ["goto"] = true, call = true, call_if = true }
 
 local function pokemonPath(scripts, key, gift, receipt, options, checkpoint)
-  local pending = { { key = key, index = 1, vars = {}, flags = { [receipt] = 0 } } }
+  local variable = type(receipt) == "table" and receipt.var
+  local pending = { { key = key, index = 1,
+    vars = variable and { [variable] = receipt.value - 1 } or {},
+    flags = not variable and { [receipt] = 0 } or {} } }
+  if variable and options.var then pending[1].vars[variable] = options.var(variable) end
   local seen, count, found = {}, 0, false
   while #pending > 0 do
     local at = table.remove(pending)
@@ -254,7 +258,7 @@ local function pokemonPath(scripts, key, gift, receipt, options, checkpoint)
           path = { signature = signature, parent = at.path } }
       end
       local function terminal()
-        local written = at.flags[receipt] == 1
+        local written = variable and (at.vars[variable] or 0) >= receipt.value or at.flags[receipt] == 1
         if written ~= (at.given == true) then return false end
         found = found or written
         return true
@@ -267,7 +271,8 @@ local function pokemonPath(scripts, key, gift, receipt, options, checkpoint)
         local function value(id)
           if type(id) ~= "number" then return nil end
           if id < 0x4000 then return id end
-          return at.vars[id]
+          if at.vars[id] ~= nil then return at.vars[id] end
+          if options.var and id >= 0x4010 and id < 0x8000 then return options.var(id) end
         end
         local again = false
         if row == gift then
@@ -353,7 +358,13 @@ end
 
 function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
   local written, checked, cleared, commands, removed, out = {}, {}, {}, {}, false, {}
+  local starterVar = self.emerald and self.constants:var("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE")
+  local starterChecked, starterWritten = false, false
   for _, row in ipairs(rows) do
+    if row.op == "compare_var_to_value" and (row.var or row[1]) == starterVar
+        and (row.value or row[2]) == 6 then starterChecked = true end
+    if row.op == "setvar" and (row.var or row[1]) == starterVar
+        and (row.value or row[2]) == 6 then starterWritten = true end
     local flag = row.flag or row[1]
     if row.op == "setflag" then written[flag] = true
     elseif row.op == "checkflag" then checked[flag] = true
@@ -362,31 +373,40 @@ function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
         and obj.flag and obj.flag >= 0x20 then removed = true
     elseif row.op == "givemon" or row.op == "giveegg" then commands[#commands + 1] = row end
   end
-  -- shortcut: variable/species choices and repeated fossil/casino rewards keep
-  -- their existing catch goals until a unique durable receipt can be proven.
+  local receipts = {}
+  for _, receipt in ipairs(sortedKeys(written)) do
+    if type(receipt) == "number" and receipt >= 0x20 and receipt ~= 65535 and not cleared[receipt]
+        and not self.initiallyHidden[receipt] and (checked[receipt] or removed) then
+      receipts[#receipts + 1] = receipt
+    end
+  end
+  -- This native state is permanent after a successful Johto starter delivery.
+  if starterChecked and starterWritten then receipts[#receipts + 1] = { var = starterVar, value = 6 } end
+  -- shortcut: repeated fossil/casino rewards retain their catch goals until a
+  -- distinct receipt can be proven; temporary variables are never receipts.
   for _, command in ipairs(commands) do
     local species = type(command[1]) == "number" and command[1] or nil
     if species and species >= 0x4000 then
       local choices = sortedKeys(vars[species]); species = #choices == 1 and choices[1] or nil
     end
     if species and self.adapter.data.pokemon[species] then
-      for _, receipt in ipairs(sortedKeys(written)) do
-        if type(receipt) == "number" and receipt >= 0x20 and receipt ~= 65535 and not cleared[receipt]
-            and not self.initiallyHidden[receipt] and (checked[receipt] or removed) then
-          local success = { party = 1, result = 0, firered = not self.emerald }
-          local failure = { party = 6, result = 2, firered = not self.emerald }
-          local pc = { party = 6, result = 1, firered = not self.emerald }
-          if pokemonPath(scripts, key, command, receipt, success, checkpoint) == true
-              and pokemonPath(scripts, key, command, receipt, failure, checkpoint) == false then
-            local isEgg = command.op == "giveegg"
-            local box = not isEgg and pokemonPath(scripts, key, command, receipt, pc, checkpoint) == true
-            local cost
-            for _, r in ipairs(rows) do if r.op == "checkmoney" then cost = r[1] end end
-            out[#out + 1] = { species = species, level = not isEgg and command[2] or nil,
-              event = receipt, isEgg = isEgg or nil, toPC = box or nil, cost = cost,
-              command = command, scriptKey = key }
-            break
-          end
+      for _, receipt in ipairs(receipts) do
+        local success = { party = 1, result = 0, firered = not self.emerald }
+        local failure = { party = 6, result = 2, firered = not self.emerald }
+        local pc = { party = 6, result = 1, firered = not self.emerald }
+        if pokemonPath(scripts, key, command, receipt, success, checkpoint) == true
+            and pokemonPath(scripts, key, command, receipt, failure, checkpoint) == false then
+          local isEgg = command.op == "giveegg"
+          local box = not isEgg and pokemonPath(scripts, key, command, receipt, pc, checkpoint) == true
+          local cost
+          for _, r in ipairs(rows) do if r.op == "checkmoney" then cost = r[1] end end
+          out[#out + 1] = { species = species, level = not isEgg and command[2] or nil,
+            event = type(receipt) == "number" and receipt or nil,
+            receiptVar = type(receipt) == "table" and receipt.var or nil,
+            receiptValue = type(receipt) == "table" and receipt.value or nil,
+            isEgg = isEgg or nil, toPC = box or nil, cost = cost,
+            command = command, scriptKey = key }
+          break
         end
       end
     end
@@ -444,7 +464,8 @@ function M:catalog(mapId, checkpoint)
     local hasTrainer, hasMon, hasItem = false, false, false
     local proven = {}
     for _, offer in ipairs(objectSource and self:pokemonGifts(bundle.scripts, obj.scriptKey, rows, vars, obj, checkpoint) or {}) do
-      local key = tostring(offer.event) .. ":pokemon:" .. offer.species
+      local receipt = offer.event or ("var:" .. offer.receiptVar .. ":" .. offer.receiptValue)
+      local key = tostring(receipt) .. ":pokemon:" .. offer.species
       proven[offer.command] = true
       if not gifts[key] then
         local row = base(obj)
@@ -634,9 +655,12 @@ function M:ownsKey(id)
 end
 
 function M:completionKey()
-  -- These two non-consumable keys start as hidden objects and require actual
-  -- ownership. Bag/PC writes need not emit flag.changed in the native host.
-  if self.emerald then return 0 end
+  -- Native variable and Bag/PC writes need not emit flag.changed.
+  if self.emerald then
+    return self.adapter.Flags.getVar(self.adapter:flagStore(), nil,
+      self.constants:var("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE")) >= 6 and 1 or 0
+  end
+  -- These hidden, non-consumable keys require actual ownership.
   return (self:ownsKey(356) and 1 or 0) + (self:ownsKey(359) and 2 or 0)
 end
 
@@ -651,6 +675,7 @@ function M:rows(mapIds, checkpoint)
         if category ~= 4 or source.gift then
           local row = copy(source)
           row.done = row.event and flag(row.event) or false
+          if row.receiptVar then row.done = Flags.getVar(store, nil, row.receiptVar) >= row.receiptValue end
           if row.flags then
             for event in pairs(row.flags) do row.done = row.done or flag(event) end
             if row.league then row.done = row.done or flag("FLAG_SYS_GAME_CLEAR") end
@@ -699,9 +724,11 @@ function M:rows(mapIds, checkpoint)
             local score = friendship == 255 and 6 or friendship >= 200 and 5 or friendship >= 150 and 4
               or friendship >= 100 and 3 or friendship >= 50 and 2 or friendship > 0 and 1 or 0
             row.available = not row.done and row.available ~= false and not row.noRoom
-              and pokemonPath(self.source.scripts, row.scriptKey, row.command, row.event,
+              and pokemonPath(self.source.scripts, row.scriptKey, row.command,
+                row.event or { var = row.receiptVar, value = row.receiptValue },
                 { live = true, party = party, money = session.money or 0, gender = session.gender,
-                  friendship = score, flag = flag, firered = not self.emerald }, checkpoint) == true
+                  friendship = score, flag = flag, var = function(v) return Flags.getVar(store, nil, v) end,
+                  firered = not self.emerald }, checkpoint) == true
             row.status = row.done and "RECORDED" or row.available and "READY" or "LATER"
           end
           out[category][#out[category] + 1] = row
@@ -759,12 +786,13 @@ function M:pokemon(mapIds, checkpoint)
   for _, species in ipairs(sortedKeys(bySpecies)) do goal({ species }) end
   local choices = {}
   for _, row in ipairs(self:rows(mapIds, checkpoint)[4]) do
-    local existing = not row.trade and choices[row.event]
+    local receipt = row.event or (row.receiptVar and "var:" .. row.receiptVar .. ":" .. row.receiptValue)
+    local existing = not row.trade and choices[receipt]
     if existing then
       existing.label = existing.label .. " / " .. row.label
     else
       out[#out + 1] = row
-      if not row.trade then choices[row.event] = row end
+      if not row.trade then choices[receipt] = row end
     end
   end
   table.sort(out, function(a, b) return a.order < b.order end)
