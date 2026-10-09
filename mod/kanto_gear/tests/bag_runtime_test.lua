@@ -287,6 +287,10 @@ T.eq(display.StartMenu.cursor(quantityView),nil,"a dismissed quantity page rejec
 if generation==2 then
   T.check(display.performBagAction("POTION","give"),"give enters the original held-item flow")
   T.eq(stack:top().screenId,"Gen2PartyMenu","give opens the native Pokemon selection")
+  local targets=display.startMenu()
+  T.check(targets and targets.party,"give exposes the native party on the shared lower-screen page")
+  T.eq(targets.title,"GIVE ITEM TO","give keeps its distinct purpose on the target page")
+  T.eq(display.StartMenu.select(targets,1),true,"give target is touch-selectable")
   T.eq(save.inventory.POTION,1,"opening give preserves the unselected item")
   stack:clear();stack:push(world)
 end

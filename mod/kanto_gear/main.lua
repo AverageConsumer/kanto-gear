@@ -2424,6 +2424,8 @@ return function(mod)
     "@kanto_gear/legacy_storage.lua"))()
   displayRuntime.LegacyShop = assert(load(mod:read("legacy_shop.lua"),
     "@kanto_gear/legacy_shop.lua"))()
+  displayRuntime.LegacyParty = assert(load(mod:read("legacy_party.lua"),
+    "@kanto_gear/legacy_party.lua"))()
   displayRuntime.RegionPage = assert(load(mod:read("region_map_page.lua"),
     "@kanto_gear/region_map_page.lua"))()
   displayRuntime.LegacyRegion = assert(load(mod:read("legacy_region.lua"),
@@ -5012,6 +5014,9 @@ return function(mod)
       return view
     end
     displayRuntime.legacyQuantityView = nil
+    displayRuntime.legacyPartyView = not battle and displayRuntime.LegacyParty.project(top, game, compat.isGen2(),
+      displayRuntime.StoragePage, THEME.hgss, displayRuntime.legacyPartyView) or nil
+    if displayRuntime.legacyPartyView then return displayRuntime.legacyPartyView end
     displayRuntime.legacyShopView = displayRuntime.LegacyShop.project(top, game,
       function(label) return THEME:translate(label) end, displayRuntime.legacyShopView)
     if displayRuntime.legacyShopView then return displayRuntime.legacyShopView end
@@ -5027,6 +5032,25 @@ return function(mod)
 
   function displayRuntime.startMenuModel(top)
     return displayRuntime.StartMenu.model(top)
+  end
+
+  function displayRuntime.startMenuPartyViews(top)
+    local views, native = {}, top.party
+    local rows = top.notice and top.partyMons or top.items
+    for slot, item in ipairs(rows or {}) do
+      local source = top.notice and item or item.mon
+      if source then
+        local view = displayRuntime.partyView(source)
+        view.species, view.source = source.species, source
+        local anim, heal = native._hpAnim, native.heal
+        local shown = native.shownHpFor and native:shownHpFor(slot, source)
+          or heal and heal.mon == source and heal.shown
+          or anim and anim.slot == slot and anim.current
+        if shown then view.hp = math.floor(shown + 0.5); view.hpText = view.hp .. "/" .. view.maxHp end
+        views[slot] = view
+      end
+    end
+    return views
   end
 
   function displayRuntime.drawStartMenu(top)
@@ -5061,7 +5085,10 @@ return function(mod)
       elseif top.quantity then
         THEME.hgss:pcQuantity(top.quantity)
       elseif top.notice then
-        if battle then
+        if top.party then
+          THEME.hgss:partyBackdrop()
+          THEME.hgss:partySelection(displayRuntime.startMenuPartyViews(top), hgssRuntime.summaryPortrait)
+        elseif battle then
           local mon = hgssRuntime.battleMon()
           local playerTeam, enemyTeam = hgssRuntime.battleTeams()
           THEME.hgss:battleRoot(mon, hgssRuntime.battlePortrait, playerTeam, enemyTeam)
@@ -5109,21 +5136,8 @@ return function(mod)
             THEME.hgss.nativeFocus and entry.selected)
         end
       elseif top.party then
-        local views = {}
-        for _, item in ipairs(top.items) do
-          if item.mon then
-            local view = displayRuntime.partyView(item.mon)
-            view.species, view.source = item.mon.species, item.mon
-            local anim = top.party._hpAnim
-            if anim and anim.slot == #views + 1 then
-              view.hp = math.floor(anim.current + 0.5)
-              view.hpText = view.hp .. "/" .. view.maxHp
-            end
-            views[#views + 1] = view
-          end
-        end
         THEME.hgss:partyBackdrop()
-        THEME.hgss:partySelection(views, hgssRuntime.summaryPortrait)
+        THEME.hgss:partySelection(displayRuntime.startMenuPartyViews(top), hgssRuntime.summaryPortrait)
       else
         if top.recentBag then THEME.hgss:recentBagItem(top.recentBag, 33) end
         for _, entry in ipairs(model.entries) do

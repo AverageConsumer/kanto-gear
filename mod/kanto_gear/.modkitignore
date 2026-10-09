@@ -76,3 +76,4 @@ tests/emerald_item_pc_test.lua
 tests/legacy_pc_runtime_test.lua
 tests/legacy_storage_test.lua
 tests/legacy_shop_test.lua
+tests/legacy_party_test.lua
