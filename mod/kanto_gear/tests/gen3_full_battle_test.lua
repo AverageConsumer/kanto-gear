@@ -109,6 +109,34 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.eq(cards[2].name,cards[0].name,"partner replacement follows the host's displayed Pokemon")
   T.eq(cards[2].y,74,"replacement keeps the same battlefield slot")
   nativePresent[2].shown=shown
+  -- Native Gen3 transitions use the same actual-page compositor as Gen1/2.
+  local Team=require("src.ui.game3.party_menu")
+  options.ui_motion=true
+  run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="ui_motion"})
+  for _,style in ipairs({"hgss","hgss_dark"}) do
+    options.theme_v3=style
+    run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3"})
+    Ui.openMenu(0);Stack.clear();Message.reset();tick();tick()
+    for _,scene in ipairs({
+      {"moves",1,function() Ui._openMoveMenu() end},
+      {"commands after moves",-1,function() Ui.openMenu(0) end},
+      {"party",1,function() Team.show(game.session.party,{session=game.session,battle=st}) end},
+      {"commands after party",-1,function() Team.close();Stack.clear();Ui.openMenu(0) end},
+      {"bag",-1,function() Bag.show(game.session.bag,{session=game.session,battle=st});Bag.settle() end},
+      {"commands after bag",1,function() Bag.close();Stack.clear();Ui.openMenu(0) end},
+    }) do
+      scene[3]();tick()
+      T.eq(display.motion.direction,scene[2],style.." "..scene[1].." uses common navigation direction")
+      T.check(display.motion.started~=nil,scene[1].." starts from the actual previous frame")
+      T.eq(display.motion.top,28,scene[1].." keeps the header stationary")
+      T.eq(display.motion.duration,.24,scene[1].." shares the same short duration")
+      local paints=draws
+      tick();tick()
+      T.eq(draws,paints,scene[1].." reuses the rendered destination between frames")
+      for _=1,5 do tick() end
+      T.eq(display.motion.started,nil,scene[1].." finishes without repeating")
+    end
+  end
   H.battleCompactStatus,H.battleFullMessage=drawCard,drawMessage
   display.drawContents=originalDraw
   for id=0,3 do nativePresent[id].displayHp=nil end

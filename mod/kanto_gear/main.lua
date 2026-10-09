@@ -2796,27 +2796,14 @@ return function(mod)
   end
 
   function hgssRuntime.beginAnimation(kind, data)
-    if THEME.style ~= "hgss" or mod.options:get("ui_motion") == false
-        or (hgssRuntime.nativeBattleLayout() or displayRuntime.gen3) and kind:match("^battle_") then
-      -- Hero transitions assume the custom HGSS geometry. Native
-      -- layouts use the shared compositor without a one-frame wrong layout.
+    if THEME.style ~= "hgss" or mod.options:get("ui_motion") == false then
       hgssRuntime.animation = nil
       return
     end
     data = data or {}
-    local previous = hgssRuntime.animation
     data.kind, data.queued = kind, love.timer.getTime()
-    data.started = nil
-    data.lastProgress = 0
-    data.duration = data.duration or (kind:match("^battle_") and 0.28 or 0.24)
-    if previous and (kind == "battle_moves" or kind == "battle_moves_close"
-        or kind == "battle_move_info" or kind == "battle_move_info_close")
-        and (previous.kind == kind .. "_close" or kind == previous.kind .. "_close") then
-      -- Both directions draw the same geometry with complementary progress.
-      -- Resume from the visible position, including a reversal before first draw.
-      data.lastProgress = 1 - (previous.lastProgress or 0)
-      data.started = data.queued - data.lastProgress * data.duration
-    end
+    data.started, data.lastProgress = nil, 0
+    data.duration = data.duration or 0.24
     hgssRuntime.animation, dirty = data, true
   end
 
@@ -5162,13 +5149,24 @@ return function(mod)
     displayRuntime.motion.pageDirection = direction
   end
 
+  function displayRuntime.battlePanel()
+    if not battle then return nil end
+    local _, top = screenState()
+    if moveInfo and battle.prompt == "moves" then return "detail" end
+    local panel = displayRuntime.gen3Ui and displayRuntime.gen3Ui:panel()
+    if panel == "party" or compat.isScreen(top, "party") then return "party" end
+    if panel == "bag" or compat.isScreen(top, "bag") then return "bag" end
+    if battle.prompt == "menu" then return "root" end
+    if battle.prompt == "moves" then return "moves" end
+  end
+
   function displayRuntime.prepareMotion()
     local motion, key = displayRuntime.motion, displayRuntime.motionKey()
     local navigation = displayRuntime.navigationState()
     local previousNavigation = motion.navigation
+    local previousPanel, panel = motion.battlePanel, displayRuntime.battlePanel()
+    motion.battlePanel = panel
     local pageDirection = motion.pageDirection
-    local interruptedTop = motion.interruptedTop
-    motion.interruptedTop = nil
     motion.pageDirection = nil
     motion.navigation = navigation
     local direct = page == "NOTES" and (displayRuntime.notes.view == "draw"
@@ -5177,6 +5175,21 @@ return function(mod)
       motion.key, motion.started, motion.cached = nil, nil, nil
       return
     end
+    local kind = hgssRuntime.animation and hgssRuntime.animation.kind
+    local battleSlide = (kind == "battle_party" or kind == "battle_bag_close"
+      or kind == "battle_moves" or kind == "battle_move_info") and 1
+      or (kind == "battle_party_close" or kind == "battle_bag"
+      or kind == "battle_moves_close" or kind == "battle_move_info_close") and -1 or nil
+    if panel and previousPanel and panel ~= previousPanel then
+      local forward = previousPanel == "root" and (panel == "moves" or panel == "party")
+        or previousPanel == "bag" and panel == "root"
+        or previousPanel == "moves" and panel == "detail"
+      local back = panel == "root" and (previousPanel == "moves" or previousPanel == "party")
+        or previousPanel == "root" and panel == "bag"
+        or previousPanel == "detail" and panel == "moves"
+      battleSlide = forward and 1 or back and -1 or battleSlide
+    end
+    if battleSlide then hgssRuntime.animation = nil end
     local changed = motion.key and motion.key ~= key
     motion.key = key
     if not changed then
@@ -5187,28 +5200,13 @@ return function(mod)
       return
     end
     local now = love.timer.getTime()
-    local kind = hgssRuntime.animation and hgssRuntime.animation.kind
-    local summaryTurn = kind == "summary_page" and hgssRuntime.animation
-    local battleSlide = (kind == "battle_party" or kind == "battle_bag_close") and 1
-      or (kind == "battle_party_close" or kind == "battle_bag") and -1 or nil
-    if battleSlide or summaryTurn then
-      -- Move the actual last frame, including selection and device status.
-      -- Render the live destination once instead of reconstructing either end.
-      hgssRuntime.animation = nil
-    end
     if hgssRuntime.animation
         or THEME.hgss:partyActionAnimating(now) then
       motion.started = nil
       return
     end
-    local previousTop = interruptedTop or (motion.started
-      and now - motion.started < motion.duration and motion.top) or 216
     motion.direction, motion.top, motion.bottom = battleSlide, 28, 216
-    if summaryTurn then
-      motion.direction = (summaryTurn.to - summaryTurn.from + 3) % 3 == 1 and 1 or -1
-      motion.top = math.min(previousTop,
-        summaryTurn.from ~= 1 and summaryTurn.to ~= 1 and 61 or 28)
-    elseif not battleSlide and navigation and previousNavigation
+    if not battleSlide and navigation and previousNavigation
         and navigation.host == previousNavigation.host then
       if navigation.page ~= previousNavigation.page then
         motion.direction = navigation.page == "HOME" and -1 or 1
@@ -5227,7 +5225,7 @@ return function(mod)
       motion.started, motion.cached = nil, nil
       return
     end
-    motion.duration = (battleSlide or summaryTurn) and 0.24 or 0.20
+    motion.duration = battleSlide and 0.24 or 0.20
     motion.cached = nil
     if not motion.canvas
         or motion.canvas:getWidth() ~= canvas:getWidth()
@@ -7853,42 +7851,10 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if hgssRuntime.nativeBattleLayout() then
-        THEME.hgss:battleStandardRoot(mon, hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, battle.menuIndex,
-          displayRuntime.gen3 and { 1, 3, 2, 4 } or nil)
-        G.pop()
-        return
-      end
-      if fullBottomBattleUI() then
-        THEME.hgss:battleFullRoot(mon,
-          hgssRuntime.battleStatus("player"),
-          hgssRuntime.battleStatus("enemy"),
-          hgssRuntime.battlePortrait, playerTeam, enemyTeam, nil,
-          hgssRuntime.battleStatuses())
-        G.pop()
-        return
-      end
-      local movesClose = hgssRuntime.progress("battle_moves_close")
-      local bagClose = hgssRuntime.progress("battle_bag_close")
-      local partyClose = hgssRuntime.progress("battle_party_close")
-      if movesClose then
-        THEME.hgss:battleMovesTransition(mon, hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, 1 - movesClose)
-      elseif bagClose and hgssRuntime.lastBag then
-        THEME.hgss:battleBagTransition(mon, hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, hgssRuntime.lastBag, 1 - bagClose)
-      elseif partyClose then
-        local list = battle.party or {}
-        local clock, period = hgssRuntime.clock()
-        THEME.hgss:battlePartyTransition(mon, hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, function(slot, x, y, focused, details)
-            partyCard(list[slot], x, y, focused, details)
-          end, 1 - partyClose, THEME:translate("PARTY"), clock, period)
-      else
-        THEME.hgss:battleRoot(mon, hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, battle.menuIndex)
-      end
+      THEME.hgss:battleFullRoot(mon,
+        hgssRuntime.battleStatus("player"), hgssRuntime.battleStatus("enemy"),
+        hgssRuntime.battlePortrait, playerTeam, enemyTeam, nil,
+        hgssRuntime.battleStatuses())
       G.pop()
       return
     end
@@ -8021,28 +7987,7 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if displayRuntime.gen3 then
-        THEME.hgss:battleMoves(mon, playerTeam, enemyTeam)
-        G.pop()
-        return
-      end
-      if hgssRuntime.nativeBattleLayout() then
-        THEME.hgss:battleStandardMoves(mon, playerTeam, enemyTeam)
-        G.pop()
-        return
-      end
-      local progress = hgssRuntime.progress("battle_moves")
-      local closing = hgssRuntime.progress("battle_moves_close")
-      local infoClose = hgssRuntime.progress("battle_move_info_close")
-      if infoClose then
-        THEME.hgss:battleMoveInfoTransition(mon, playerTeam, enemyTeam,
-          1 - infoClose)
-      elseif progress or closing then
-        THEME.hgss:battleMovesTransition(mon, hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, closing and 1 - closing or progress)
-      else
-        THEME.hgss:battleMoves(mon, playerTeam, enemyTeam)
-      end
+      THEME.hgss:battleMoves(mon, playerTeam, enemyTeam)
       G.pop()
       return
     end
@@ -8806,18 +8751,11 @@ return function(mod)
     if THEME.style == "hgss" and battle and battle.prompt == "moves" then
       local mon = hgssRuntime.battleMon(move)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
-      local progress = hgssRuntime.progress("battle_move_info")
-      local closing = hgssRuntime.progress("battle_move_info_close")
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if progress or closing then
-        THEME.hgss:battleMoveInfoTransition(mon, playerTeam, enemyTeam,
-          closing and 1 - closing or progress)
-      else
-        local selected = mon.moves[mon.moveIndex] or mon.moves[1] or {}
-        THEME.hgss:battleMoveInfo(selected,
-          THEME.hgss:moveHasStab(mon, selected), playerTeam, enemyTeam)
-      end
+      local selected = mon.moves[mon.moveIndex] or mon.moves[1] or {}
+      THEME.hgss:battleMoveInfo(selected,
+        THEME.hgss:moveHasStab(mon, selected), playerTeam, enemyTeam)
       G.pop()
       return
     end
@@ -8974,45 +8912,6 @@ return function(mod)
     local selected = (THEME.style ~= "hgss" or THEME.hgss.nativeFocus)
       and not cancel and menu.index or nil
     local title = compat.battlePartyTitle(menu, cancel)
-    if THEME.style == "hgss" then
-      local list = battle.party or {}
-      if hgssRuntime.nativeBattleLayout() then
-        header(compat.battlePartyTitle(menu), true, false, -1)
-        local views = {}
-        for slot, mon in ipairs(list) do
-          views[slot] = displayRuntime.partyView(mon)
-          views[slot].species, views[slot].source = mon.species, mon.source or mon
-        end
-        G.push()
-        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-        THEME.hgss:partyBackdrop()
-        THEME.hgss:partySelection(views, function(mon, x, y, size, fainted)
-            if mon.egg then
-              compat.drawPokemonIcon(mon.source, x, y, size)
-            else
-              hgssRuntime.battlePortrait(mon, x, y, size, fainted)
-            end
-          end)
-        G.pop()
-        return
-      end
-      local progress = hgssRuntime.progress("battle_party")
-      if progress then
-        local mon = hgssRuntime.battleMon()
-        local playerTeam, enemyTeam = hgssRuntime.battleTeams()
-        local clock, period = hgssRuntime.clock()
-        G.push()
-        G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-        THEME.hgss:battlePartyTransition(mon, hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, function(slot, x, y, focused, details)
-            partyCard(list[slot], x, y,
-              selected and selected == slot or not selected and focused,
-              details)
-          end, progress, title, clock, period)
-        G.pop()
-        return
-      end
-    end
     drawParty(battle.party or {}, title, true, nil, selected)
   end
 
@@ -9130,18 +9029,10 @@ return function(mod)
   local function drawBattleItems(menu)
     if THEME.style == "hgss" then
       local view = hgssRuntime.bagView(menu)
-      local mon = hgssRuntime.battleMon()
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
-      hgssRuntime.lastBag = view
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      local progress = hgssRuntime.progress("battle_bag")
-      if progress then
-        THEME.hgss:battleBagTransition(mon, hgssRuntime.battlePortrait,
-          playerTeam, enemyTeam, view, progress)
-      else
-        THEME.hgss:battleBag(view, playerTeam, enemyTeam)
-      end
+      THEME.hgss:battleBag(view, playerTeam, enemyTeam)
       G.pop()
       return
     end
@@ -12710,9 +12601,6 @@ return function(mod)
     -- Pointer hooks can run between the regular 50ms snapshots. Never send
     -- an old "advance" action to a battle that has already reached its menu.
     if battleState() then displayRuntime.perf:call("battle_snapshot", refreshBattle) end
-    local motion = displayRuntime.motion
-    motion.interruptedTop = motion.started
-      and love.timer.getTime() - motion.started < motion.duration and motion.top or nil
     displayRuntime.motion.started, displayRuntime.motion.cached = nil, nil
     displayRuntime.touchDispatch = true
     fn(x, y)

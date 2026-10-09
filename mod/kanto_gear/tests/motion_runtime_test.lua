@@ -230,31 +230,7 @@ for source = 1, 6 do
 end
 T.check(true, "all swap pairs stay below the header and above the bottom edge")
 G.scale = scale
-local pages = {}
-local identities = 0
-theme.summaryIdentity = function() identities = identities + 1 end
-theme.summaryPage = function() pages[#pages + 1] = 1 end
-theme.summaryMemo = function() pages[#pages + 1] = 3 end
-theme:summaryPageTransition({}, function() end, .5, 3, 1)
-T.same(pages, {3, 1}, "summary wrap renders both adjacent states")
-local translate = G.translate
-local shifts = {}
-G.translate = function(x, y) shifts[#shifts + 1] = x end
-theme.summaryMoves = function() pages[#pages + 1] = 2 end
-for _, pair in ipairs({ {1,2,1}, {2,3,1}, {3,1,1}, {2,1,-1}, {3,2,-1}, {1,3,-1} }) do
-  pages, shifts, clips, identities = {}, {}, {}, 0
-  theme:summaryPageTransition({}, function() end, .5, pair[1], pair[2])
-  T.same(pages, {pair[1], pair[2]}, "summary renders the correct two pages " .. pair[1] .. " to " .. pair[2])
-  T.same(shifts, {-120 * pair[3], 120 * pair[3]}, "summary carousel direction " .. pair[1] .. " to " .. pair[2])
-  local compact = pair[1] ~= 1 and pair[2] ~= 1
-  T.eq(identities, compact and 1 or 0, "shared summary identity is drawn once outside movement")
-  T.eq(clips[1][2], compact and 61 or 28, "summary only moves below shared identity when layouts match")
-end
-G.translate = translate
 run.loader.modOptions.kanto_gear.ui_motion = true
-runtime.beginAnimation("summary_open")
-T.eq(runtime.animation.duration, .24, "hero transitions share the shorter duration")
-run.loader.modOptions.kanto_gear.battle_view = "gear"
 runtime.animation = nil
 page("HOME"); now = 30; draw()
 -- A replaced native owner must not inherit a cached app page.
@@ -264,62 +240,23 @@ now = now + .02; draw()
 T.eq(display.motion.started, nil, "replacing the native owner cancels cached motion even with the same screen key")
 game.stack.states[1] = world
 
--- Native layouts must never flash the custom hero geometry.
-for _, mode in ipairs({ "standard", "gear" }) do
-  run.loader.modOptions.kanto_gear.battle_view = mode
-  runtime.beginAnimation("battle_moves")
-  T.eq(runtime.animation ~= nil, mode == "gear", mode .. " uses its own layout during transitions")
-end
-run.loader.modOptions.kanto_gear.battle_view = "full"
--- Opposite hero transitions start at the last rendered position.
-for _, kind in ipairs({ "battle_moves", "battle_move_info" }) do
-  runtime.animation = nil
-  runtime.beginAnimation(kind)
-  runtime.beginAnimation(kind .. "_close")
-  runtime.beginAnimation(kind)
-  T.check(runtime.progress(kind) < .000001, kind .. " handles multiple reversals before the first draw")
-  runtime.animation = nil
-  runtime.beginAnimation(kind); runtime.progress(kind)
-  now = now + .07
-  local opened = runtime.progress(kind)
-  runtime.beginAnimation(kind .. "_close")
-  local closed = runtime.progress(kind .. "_close")
-  T.check(math.abs(opened - (1 - closed)) < .000001, kind .. " reverses without jumping to its endpoint")
-  now = now + .02
-  closed = runtime.progress(kind .. "_close")
-  runtime.beginAnimation(kind)
-  T.check(math.abs(runtime.progress(kind) - (1 - closed)) < .000001, kind .. " can reverse again without jumping")
-end
-runtime.animation = nil
+-- Summary tabs belong to Gear; native page/cursor changes do not pan the screen.
 local summary = { screenId = gen == 2 and "Gen2SummaryMenu" or "SummaryMenu", page = 1, mon = {} }
 game.stack.states[2] = summary
 settle()
-for _, pair in ipairs({ {1,2,1}, {2,1,-1}, {1,3,-1}, {3,2,-1}, {2,3,1}, {3,1,1} }) do
-  display.dispatchTouchTap(function()
-    summary.page = pair[2]
-    runtime.beginAnimation("summary_page", { from = pair[1], to = pair[2] })
-  end, 0, 0)
-  now = now + .03; draw()
-  T.eq(runtime.animation, nil, "summary changes capture the visible frame instead of reconstructing an endpoint")
-  T.eq(display.motion.direction, pair[3], "rapid summary page change keeps its direction")
-  T.eq(display.motion.top, 28, "interrupted summary keeps a still-moving identity inside its original region")
+for _,pair in ipairs({{1,2},{2,3},{3,1},{1,3},{3,2},{2,1}}) do
+  still("native summary page " .. pair[1] .. " to " .. pair[2],function() summary.page=pair[2] end)
 end
-settle()
-summary.page = 2; settle()
-summary.page = 3
-runtime.beginAnimation("summary_page", { from = 2, to = 3 }); draw()
-T.eq(display.motion.top, 61, "settled compact summary keeps its identity stationary")
-summary.moveIndex = 2; now = now + .01; draw()
-T.eq(display.motion.started, nil, "controller selection cancels cached summary immediately")
-summary.page = 2
-runtime.beginAnimation("summary_page", { from = 3, to = 2 }); draw()
-summary.mon = {}; now = now + .01; draw()
-T.eq(display.motion.started, nil, "changing Pokemon cancels a cached summary immediately")
+still("native summary selection",function() summary.moveIndex=2 end)
+still("native summary partner",function() summary.mon={} end)
+
 game.stack.states[2] = nil; runtime.animation = nil
 settle()
 for _, transition in ipairs({
   { "battle_party", 1 }, { "battle_party_close", -1 },
   { "battle_bag", -1 }, { "battle_bag_close", 1 },
+  { "battle_moves", 1 }, { "battle_moves_close", -1 },
+  { "battle_move_info", 1 }, { "battle_move_info_close", -1 },
 }) do
   now = now + 1
   -- A native panel changes the screen key independently of app navigation.
@@ -337,42 +274,7 @@ for _, transition in ipairs({
   T.eq(paints, startPaints + 1, transition[1] .. " returns to fresh live rendering")
 end
 game.stack.states[2] = nil
-runtime.beginAnimation("battle_moves")
-local battleDuration = runtime.animation.duration
-T.eq(battleDuration, .28, "battle movement gets enough frames within a short transition")
-local fightY, stripClip, clip = nil, nil, nil
-local getScissor = G.getScissor
-G.getScissor = function() if clip then return unpack(clip) end end
-G.setScissor = function(...) clip = select("#", ...) > 0 and {...} or nil end
-theme.battleFightAction = function(_, _, _, _, _, offsetY)
-  fightY = offsetY
-  assert(clip and clip[2] == 28, "outgoing controls must pass behind the header")
-end
-theme.battleBagAction, theme.battlePartyAction, theme.battleRunAction =
-  function() end, function() end, function() end
-theme.battleMoveCard, theme.moveHasStab = function() end, function() return false end
-theme.battleTeamStrip = function() stripClip = clip end
-local last, leavesCompletely = 0, true
-for i = 0, 100 do
-  theme:battleMovesTransition({ moves = {} }, function() end, {}, {}, i / 100)
-  assert(fightY <= last, "fight exit reversed direction")
-  last = fightY
-  if i >= 85 then leavesCompletely = leavesCompletely and 32 + 122 + 3 + fightY < 0 end
-end
-T.check(leavesCompletely, "fight card and shadow are fully offscreen before its exit finishes")
-T.eq(stripClip, nil, "the stationary team strip is drawn outside the content clip")
-theme:battleMovesTransition({ moves = {} }, function() end, {}, {}, 0)
-T.eq(fightY, 0, "the reverse transition returns the fight card to its exact resting position")
-local maxJump, visibleFrames = 0, 0
-last = 0
-for frame = 1, math.ceil(battleDuration * 60) do
-  theme:battleMovesTransition({ moves = {} }, function() end, {}, {}, frame / 60 / battleDuration)
-  maxJump = math.max(maxJump, math.abs(fightY - last)); last = fightY
-  if 32 + 122 + 3 + fightY > 28 then visibleFrames = visibleFrames + 1 end
-end
-T.check(maxJump <= 18, "fight movement has no large position jumps at 60 Hz")
-T.check(visibleFrames >= 9, "fight exit has enough visible intermediate frames")
-G.getScissor = getScissor
+runtime.animation = nil
 G.newCanvas, G.draw, G.setScissor = newCanvas, drawImage, scissor
 run.release()
 T.finish("Kanto Gear motion Gen " .. gen)

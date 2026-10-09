@@ -8,6 +8,11 @@ function UI.new(adapter, layout)
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
 end
 
+function UI:panel()
+  local layer = self.Stack.top()
+  return layer and layer.id
+end
+
 local partyModes = { list = true, switch = true, use = true, give = true,
   choose = true, choose_multi = true, move_tutor = true, softboiled = true,
   battle_switch = true, battle_faint = true }
