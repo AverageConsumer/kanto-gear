@@ -5,7 +5,8 @@ function Menu.cursor(top, preview)
   if type(top) ~= "table" or type(top.update) ~= "function"
       or type(top.items) ~= "table" or #top.items == 0 then return nil end
   local cursor
-  if top.screenId == "Gen3Menu" and type(top.valid) == "function" and top.valid(preview) then
+  if (top.screenId == "Gen3Menu" or top.screenId == "CompanionMenu")
+      and type(top.valid) == "function" and top.valid(preview) then
     cursor = top
   elseif top.screenId == "StartMenu" and top.startCloses and top.phase == nil then
     cursor = top

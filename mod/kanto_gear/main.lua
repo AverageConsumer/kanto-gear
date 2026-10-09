@@ -2416,6 +2416,8 @@ return function(mod)
     "@kanto_gear/touch_guard.lua"))().new()
   displayRuntime.StartMenu = assert(load(mod:read("start_menu.lua"),
     "@kanto_gear/start_menu.lua"))()
+  displayRuntime.LegacyPC = assert(load(mod:read("legacy_pc.lua"),
+    "@kanto_gear/legacy_pc.lua"))()
   displayRuntime.RegionPage = assert(load(mod:read("region_map_page.lua"),
     "@kanto_gear/region_map_page.lua"))()
   displayRuntime.LegacyRegion = assert(load(mod:read("legacy_region.lua"),
@@ -4978,7 +4980,7 @@ return function(mod)
     if quantity and type(quantity.qty) == "number" and type(quantity.max) == "number" then
       local view = displayRuntime.legacyQuantityView
       if not view or view.owner ~= top or view.state ~= quantity then
-        view = { screenId = "Gen3Menu", owner = top, state = quantity,
+        view = { screenId = "CompanionMenu", owner = top, state = quantity,
           nativeKey = tostring(top) .. ":quantity:" .. tostring(quantity),
           title = "QUANTITY", index = 1, items = { { label = "CONFIRM" } }, update = function() end,
           valid = function() return game.stack:top() == top
@@ -4994,13 +4996,18 @@ return function(mod)
               and type(candidate.index) == "number" then parent = candidate break end
         end
       end
-      local row = quantity.row or top.rows and top.rows[top.listIndex]
+      local row = quantity.row or displayRuntime.LegacyPC.quantityRow(top)
+        or top.rows and top.rows[top.listIndex]
         or parent and parent.items and parent.items[parent.index]
       view.quantity = { label = row and (row.name or row.label),
         qty = quantity.qty, max = quantity.max, wrap = true }
       return view
     end
     displayRuntime.legacyQuantityView = nil
+    displayRuntime.legacyPcView = displayRuntime.LegacyPC.project(top,
+      function(owner) return game.stack:top() == owner end,
+      function(label) return THEME:translate(label) end, displayRuntime.legacyPcView)
+    if displayRuntime.legacyPcView then return displayRuntime.legacyPcView end
     return displayRuntime.StartMenu.cursor(top) and top or nil
   end
 
@@ -5104,7 +5111,7 @@ return function(mod)
       else
         if top.recentBag then THEME.hgss:recentBagItem(top.recentBag, 33) end
         for _, entry in ipairs(model.entries) do
-          if entry.itemId then entry.itemSprite = displayRuntime.gen3:itemIcon(entry.itemId) end
+          if entry.itemId and displayRuntime.gen3 then entry.itemSprite = displayRuntime.gen3:itemIcon(entry.itemId) end
         end
         THEME.hgss:startMenu(model)
         if top.prompt then
@@ -9833,59 +9840,6 @@ return function(mod)
       math.max(1, math.ceil(total / 4))), 132, DARK)
   end
 
-  local function drawPcItemList(list)
-    local titles = { pc_item_withdraw = "WITHDRAW",
-      pc_item_deposit = "DEPOSIT", pc_item_toss = "TOSS",
-      gen2_item_withdraw = "WITHDRAW", gen2_item_toss = "TOSS" }
-    local kind = pcListKind(list)
-    local gen2 = kind and kind:find("^gen2_item_") ~= nil
-    local items = gen2 and (list.rows or {}) or (list.items or {})
-    local selected = gen2 and list.listIndex or list.index
-    local total = #items + (gen2 and 1 or 0)
-    header(THEME:translate(titles[kind] or "ITEMS"), true)
-    if THEME.style == "hgss" then
-      local first, count = pageWindow(selected, total)
-      local entries = {}
-      for row = 1, count do
-        local index, item = first + row - 1, items[first + row - 1]
-        entries[row] = item and {
-          kind = "item", icon = "item",
-          label = item.label or item.name or tostring(index),
-          right = item.right or (gen2 and ("x" .. (item.count or 0)) or ""),
-          selected = selected == index,
-        } or { label = THEME:translate("BACK"), back = true,
-          selected = selected == index }
-      end
-      local summary = THEME:format("PAGE %d/%d",
-        math.floor((selected - 1) / 4) + 1,
-        math.max(1, math.ceil(total / 4)))
-      G.push()
-      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:pcList({ summary = summary,
-        entries = entries })
-      G.pop()
-      return
-    end
-    if total == 0 then
-      centered(THEME:translate("NOTHING HERE"), 56, INK)
-      button(34, 94, 92, 30, THEME:translate("BACK"), false)
-      return
-    end
-    local first, count = pageWindow(selected, total)
-    for row = 1, count do
-      local index, item = first + row - 1, items[first + row - 1]
-      button(8, 25 + (row - 1) * 25, 144, 22,
-             item and THEME:format("%s %s",
-               item.label or item.name or tostring(index),
-               item.right or (gen2 and ("x" .. (item.count or 0)) or ""))
-               or "BACK",
-             selected == index, item ~= nil)
-    end
-    centered(THEME:format("PAGE %d/%d",
-      math.floor((selected - 1) / 4) + 1,
-      math.max(1, math.ceil(total / 4))), 132, DARK)
-  end
-
   local function drawPcQuantity(quantity, list)
     local item = list and ((list.items and list.items[list.index])
       or (list.rows and list.rows[list.listIndex]))
@@ -9936,28 +9890,6 @@ return function(mod)
     G.pop()
   end
 
-  function displayRuntime.drawPcDeposit(root)
-    local menu = compat.battleBagMenu(root.pack)
-    if not menu then return drawUnavailableMenu() end
-    local first, count = choiceWindow(menu.items or {}, menu.index)
-    local entries = {}
-    for row = 1, count do
-      local index, item = first + row - 1, menu.items[first + row - 1]
-      entries[row] = {
-        kind = item.cancel and nil or "item",
-        icon = item.cancel and nil or "item",
-        label = item.label or tostring(index), right = item.right,
-        back = item.cancel, selected = menu.index == index,
-      }
-    end
-    header(THEME:translate("DEPOSIT ITEM"), true)
-    G.push()
-    G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-    THEME.hgss:pcList({ summary = menu.title or THEME:translate("ITEMS"),
-      entries = entries })
-    G.pop()
-  end
-
   function displayRuntime.pcNotice(kind, root, top)
     local source = top and top.screenId == "Gen2BoxMenu" and top.message
       or root and root.message
@@ -9996,14 +9928,14 @@ return function(mod)
       displayRuntime.drawPcBoxSubmenu(top)
     elseif root.screenId == "Gen2ItemPcMenu"
         and root.phase == "deposit" and root.pack then
-      displayRuntime.drawPcDeposit(root)
+      drawUnavailableMenu()
     elseif activeList and (activeKind == "pc_box_change"
         or activeKind == "gen2_box_change") then
       drawPcBoxChange(activeList)
     elseif activeList and activeKind and activeKind:find("_box_") then
       drawPcBoxList(activeList)
     elseif activeList and activeKind and activeKind:find("_item_") then
-      drawPcItemList(activeList)
+      drawUnavailableMenu()
     elseif root.screenId == "Gen2PcMenu"
         and (root.message or root.savePhase) then
       drawUnavailableMenu()
@@ -12877,6 +12809,19 @@ return function(mod)
   function displayRuntime.pageChoice(direction)
     if THEME.style ~= "hgss" then return false end
     local native = displayRuntime.startMenu()
+    if native and not native.choiceState then
+      local menu = displayRuntime.StartMenu
+      local first = not native.fixedLayout and not native.quantity and not native.notice and menu.window(native)
+      if first and direction then
+        local visible = native.recentBag and 4 or menu.visible
+        local nextFirst = first + direction * visible
+        if nextFirst >= 1 and nextFirst <= #native.items then
+          menu.select(native, nextFirst)
+          dirty = true
+        end
+      end
+      return true
+    end
     local top, labels, field = dialogueChoice()
     local state
     if native and native.choiceState then
@@ -13070,7 +13015,7 @@ return function(mod)
       and raw.phase ~= "choose-forget" and raw.phase ~= "stats-box"
       and raw.phase ~= "mimicSelect"
       and (raw.phase == "messages" or raw.message ~= nil) or false
-    local nativeMenu = displayRuntime.gen3Ui and displayRuntime.startMenu()
+    local nativeMenu = displayRuntime.startMenu()
     local key = table.concat({ tostring(top), text and "text" or tostring(top and top.phase),
       tostring(top and top.submenu), tostring(top and top.page),
       tostring(top and top.lower),
