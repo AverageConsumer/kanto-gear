@@ -191,7 +191,7 @@ function Gen3:refreshDefinitions()
       row.index, row.dex, row.national = id, dex, dex
       row.regionalDex = self.Dex.regionalNumber and self.Dex.regionalNumber(id, self.profile.id)
         or (self.profile.id ~= "emerald" and dex <= 151 and dex or nil)
-      local entry = hoennEntries and assert(hoennEntries[id]) or dexData.getEntry(dex)
+      local entry = hoennEntries and assert(hoennEntries[id]) or dexData.getEntry(id)
       row.dexEntry = { kind = entry.category, heightM = (entry.heightDm or entry.height) / 10,
         weightKg = (entry.weightHg or entry.weight) / 10, text = entry.description }
       row.types = self:types(row.types)

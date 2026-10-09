@@ -2,8 +2,12 @@
 local Page = {}
 Page.cards = { "stats", "habitat", "moves" }
 
-function Page.entryRect(index)
-  return 7 + (index - 1) % 3 * 77, 68 + math.floor((index - 1) / 3) * 43, 72, 41
+function Page.entryRect(index, count)
+  local row = math.floor((index - 1) / 3)
+  local visible = math.min(3, (count or 9) - row * 3)
+  local gap = visible == 2 and 4 or 5
+  local left = math.floor((240 - visible * 72 - (visible - 1) * gap) / 2)
+  return left + (index - 1) % 3 * (72 + gap), 68 + row * 43, 72, 41
 end
 
 function Page.cardRect(index)
@@ -148,7 +152,7 @@ function Page.hit(model, x, y)
       if inside(x, y, Page.toolRect(index)) then return "tool", index end
     end
     for index, entry in ipairs(model.entries) do
-      if entry.revealed ~= false and inside(x, y, Page.entryRect(index)) then return "species", index end
+      if entry.revealed ~= false and inside(x, y, Page.entryRect(index, #model.entries)) then return "species", index end
     end
   end
   if model.canCycle and (model.view == "index" or model.view == "moves" or model.view == "habitat") then

@@ -51,6 +51,14 @@ local function equal(a, b)
   return true
 end
 local adapter = Gen3.new(raw)
+local nativeEntries = assert(loadfile(cacheRoot .. "/pokemon/pokedex/entries.lua"))()
+for id, def in pairs(adapter.data.pokemon) do
+  local entry = assert(nativeEntries[id], "native species dex entry " .. id)
+  check(def.dexEntry.kind == entry.category, "internal-ID dex category: " .. id)
+  check(def.dexEntry.text == entry.description, "internal-ID dex description: " .. id)
+  check(def.dexEntry.heightM == entry.height / 10, "internal-ID dex height: " .. id)
+  check(def.dexEntry.weightKg == entry.weight / 10, "internal-ID dex weight: " .. id)
+end
 local Summary = dofile(root .. "/summary.lua")
 local natureFixture = Schema.newGame({ version=edition, name="NATURE", rngSeed=2 })
 Party.giveMon(natureFixture, 1, 15)

@@ -2374,6 +2374,7 @@ return function(mod)
   displayRuntime.ItemPage = assert(load(mod:read("item_page.lua"), "@kanto_gear/item_page.lua"))()
   displayRuntime.PokedexPage = assert(load(mod:read("pokedex_page.lua"), "@kanto_gear/pokedex_page.lua"))()
   displayRuntime.NativeDex = assert(load(mod:read("native_dex.lua"), "@kanto_gear/native_dex.lua"))()
+  displayRuntime.NativeDex.describe3 = assert(load(mod:read("native_dex3.lua"), "@kanto_gear/native_dex3.lua"))()
   displayRuntime.SafariPage = assert(load(mod:read("safari_page.lua"), "@kanto_gear/safari_page.lua"))()
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
@@ -5036,7 +5037,9 @@ return function(mod)
         displayRuntime.pokedexPokemon, function(row, x, y, size)
           if row.revealed == false then return false end
           local native, portrait = view.owner, { spriteKind = "dex" }
-          if native.picFor then
+          if view.dex.portrait then
+            portrait.presentationSprite, portrait.presentationTrueColor = view.dex.portrait(row.species), true
+          elseif native.picFor then
             portrait.presentationSprite, portrait.presentationTrueColor = native:picFor(row.species)
           elseif native.species == row.species and native.sprite then
             portrait.presentationSprite, portrait.presentationTrueColor = native.sprite, native.spriteTrueColor == true
@@ -11714,7 +11717,7 @@ return function(mod)
       local action, index = displayRuntime.PokedexPage.hit(top.dexModel, x * THEME.hgssScale, y * THEME.hgssScale)
       if action == "back" then press("b")
       elseif action == "tool" then press(top.dexModel.tools[index].key)
-      elseif action == "action" and displayRuntime.StartMenu.select(top, index) then press("a")
+      elseif action == "action" and displayRuntime.StartMenu.select(top, index) then press(top.actionKey(index))
       elseif action == "species" and displayRuntime.StartMenu.select(top, top.dexModel.entries[index].index) then press("a")
       elseif action == "prev" or action == "next" then
         displayRuntime.NativeDex.page(top, action == "next" and 1 or -1)

@@ -935,7 +935,7 @@ return function(ui)
     end
 
     for index, entry in ipairs(model.entries or {}) do
-      local left, top, width, height = PokedexPage.entryRect(index)
+      local left, top, width, height = PokedexPage.entryRect(index, #model.entries)
       local pressed = self:beginPress(left, top, width, height, entry.revealed ~= false and model.canUse ~= false)
       local entryAccent = entry.caught and colors.greenLight
         or entry.seen and colors.blueLight or colors.silverDark

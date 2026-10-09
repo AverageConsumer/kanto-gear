@@ -1,8 +1,9 @@
 -- Native menus own catalogue order, discovery, description pages and actions.
 local Dex = {}
 
-local function describe(top, game, generation)
-  if generation == 3 or type(top) ~= "table" then return end
+local function describe(top, game, generation, previous)
+  if type(top) ~= "table" then return end
+  if generation == 3 then return Dex.describe3(top, game, previous) end
   if generation == 2 then
     if getmetatable(top) ~= require("src.ui.gen2.PokedexMenu") then return end
     if top.view == "list" then
@@ -60,13 +61,13 @@ end
 local function key(top, state)
   return table.concat({ tostring(top), state.kind, tostring(state.species), tostring(state.page),
     tostring(state.owned), tostring(state.waiting), tostring(state.crying), tostring(state.description),
-    tostring(state.search1), tostring(state.search2), tostring(state.notice),
+    tostring(state.search1), tostring(state.search2), tostring(state.notice), tostring(state.signature),
     state.kind == "index" and tostring(state.rows) or "",
-    state.kind == "index" and tostring(math.floor((top[state.field] - 1) / 9)) or "" }, ":")
+    state.kind == "index" and tostring(math.floor(((state.cursor and state.cursor() or top[state.field]) - 1) / 9)) or "" }, ":")
 end
 
 function Dex.project(top, game, generation, previous)
-  local state = describe(top, game, generation)
+  local state = describe(top, game, generation, previous)
   if not state then return end
   local nativeKey = key(top, state)
   local view = previous
@@ -74,16 +75,21 @@ function Dex.project(top, game, generation, previous)
     view = { screenId = "CompanionMenu", title = "POKEDEX", nativeKey = nativeKey,
       owner = top, fixedLayout = state.kind == "index" or state.kind == "profile", update = function() end }
     view.valid = function(preview)
-      if game.stack:top() ~= top then return false end
-      local current = describe(top, game, generation)
+      if generation == 3 then
+        if require("src.ui.game3.stack").top() ~= top then return false end
+      elseif game.stack:top() ~= top then return false end
+      local current = describe(top, game, generation, view)
       return current and key(top, current) == nativeKey
         and (preview or not current.waiting and not current.crying)
+        and (not current.valid or current.valid(preview))
     end
     setmetatable(view, { __index = function(_, name)
-      if name == "index" then return state.field and top[state.field] or 1 end
+      if name == "index" then return state.cursor and state.cursor() or state.field and top[state.field] or 1 end
     end, __newindex = function(t, name, value)
       if name == "index" then
-        if not t.valid() or not state.field then return end
+        if not t.valid() then return end
+        if state.select then state.select(value); return end
+        if not state.field then return end
         top[state.field] = value
         if top.ensureVisible then top:ensureVisible() elseif top.syncScroll then top:syncScroll() end
       else rawset(t, name, value) end
@@ -96,21 +102,22 @@ function Dex.project(top, game, generation, previous)
     state.entries = {}
     view.items = {}
     for i, row in ipairs(state.rows) do
-      local species = generation == 2 and row.species or row.value
+      local species = generation >= 2 and row.species or row.value
       local def = species and game.data.pokemon[species] or {}
-      local seen = generation == 2 and row.seen or row.value ~= nil
-      local entry = { index = i, species = species, dex = generation == 2 and row.dex or tonumber(row.num),
-        name = def.name or row.name, seen = seen, caught = generation == 2 and row.caught or row.ball, revealed = seen }
+      local seen = generation >= 2 and row.seen or row.value ~= nil
+      local entry = { index = i, species = species, dex = generation >= 2 and row.dex or tonumber(row.num),
+        name = def.name or row.name, seen = seen, caught = generation >= 2 and row.caught or row.ball, revealed = seen }
       state.entries[i] = entry
       view.items[i] = { label = entry.name or "???", inert = not seen }
     end
   elseif state.kind == "profile" then
     view.items = {}
-    for i, row in ipairs(state.actions) do view.items[i] = { label = row.label } end
+    for i, row in ipairs(state.actions) do view.items[i] = { label = row.label, inert = row.inert } end
   else
     view.items = state.rows
     view.prompt = state.notice
   end
+  view.actionKey = function(index) return state.actions[index].key or "a" end
   view.dex = state
   if #view.items == 0 then view.items[1] = { label = "NO DETAILS AVAILABLE", inert = true } end
   return view
@@ -121,12 +128,14 @@ function Dex.model(view, Page, pokemon, drawPokemon, lines)
   if state.kind == "index" then
     local number = math.max(1, math.ceil(view.index / 9))
     local entries, page, pages = Page.window(state.entries, number, 9)
+    if state.number then page, pages = state.number, state.pages end
     return { view = "index", entries = entries, page = page, pages = pages, canCycle = pages > 1,
       total = #state.entries, caught = state.caught, region = state.region, tools = state.tools,
       drawPokemon = drawPokemon, canUse = view.valid() }
   elseif state.kind == "profile" then
     local info = pokemon(state.species)
-    info.revealed = true
+    info.revealed, info.caught = true, not not state.owned
+    if state.hideKind then info.kind = "?????" end
     if not state.owned then info.height, info.weight = "--", "--" end
     if state.description ~= nil then info.descriptionText = state.description end
     info.description = state.owned and lines(info.descriptionText or "") or {}
@@ -138,6 +147,10 @@ end
 
 function Dex.page(view, direction)
   if not view.valid() or view.dex.kind ~= "index" or direction ~= 1 and direction ~= -1 then return false end
+  if view.dex.cycle then
+    if view.dex.pages <= 1 then return false end
+    view.dex.cycle(direction); return true
+  end
   local pages = math.ceil(#view.dex.entries / 9)
   if pages <= 1 then return false end
   local current = math.ceil(view.index / 9)

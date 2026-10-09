@@ -137,6 +137,20 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.eq(number, 1, "empty catalogue keeps a valid page number")
   T.eq(pages, 1, "empty catalogue has one empty page")
   T.eq(Page.select(state, { entries = {} }, 1), false, "empty catalogue cannot be selected")
+  for count = 1, 9 do
+    local rows = {}; for i = 1, count do rows[i] = {revealed=true} end
+    local grid = {view="index",entries=rows}
+    for i = 1, count do
+      local x,y,w,h = Page.entryRect(i,count)
+      local action,index = Page.hit(grid,x+w/2,y+h/2)
+      T.eq(action,"species","centered card remains touchable")
+      T.eq(index,i,"centered card retains native index")
+    end
+    local first = math.floor((count-1)/3)*3+1
+    local left = Page.entryRect(first,count)
+    local right,_,width = Page.entryRect(count,count)
+    T.eq(left+right+width,240,"incomplete last row has equal visible edge gaps")
+  end
   local text = { "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN" }
   state = { view = "profile", descriptionPage = 99 }
   model = Page.description(state, { view = "profile", pokemon = { description = text } })
