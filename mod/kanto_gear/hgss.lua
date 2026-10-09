@@ -3368,7 +3368,7 @@ return function(ui)
           tileFrame(mx, my, marker.kind == "trainer" and colors.blueLight
             or colors.amberLight)
         end
-        if marker.kind == "trainer" then
+        if marker.kind == "trainer" or marker.gift then
           if opts.drawTrainer then
             opts.drawTrainer(marker, anchorX, my + tileSize, tileSize)
           end
@@ -3798,8 +3798,8 @@ return function(ui)
         or selected.status == "NOT TRACKED" and "UNKNOWN"
         or selected.status or "OPEN"), 72), 38, 181, colors.green, 72)
       box("fill", 120, 147, 1, 56, colors.band)
-      self:partyType(self:fitPartyType(translate(selected.kind == "hidden"
-        and "HIDDEN" or "VISIBLE"), 100), 126, 158, colors.green, 100)
+      self:partyType(self:fitPartyType(translate(selected.gift and "NPC GIFT"
+        or selected.kind == "hidden" and "HIDDEN" or "VISIBLE"), 100), 126, 158, colors.green, 100)
       self:partyInfo(self:fitPartyInfo(translate(selected.location
         or "ON THIS MAP"), 100), 126, 180, colors.ink, 100, "center")
       return

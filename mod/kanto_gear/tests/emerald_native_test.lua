@@ -93,6 +93,30 @@ for id in pairs(maps) do
 end
 check(total == 518, "full imported map catalogue")
 check(#unknown == 0, "all imported objective types classified")
+local gifts, daily = 0, 0
+for id, catalog in pairs(Progress.maps) do
+  for _, row in ipairs(catalog[2]) do
+    if row.gift then
+      gifts = gifts + 1
+      check(not s.flags[row.event], "new save has not received NPC reward " .. id)
+      if row.repeatable then
+        daily = daily + 1
+        check(row.event >= C:flag("DAILY_FLAGS_START") and row.event <= C:flag("DAILY_FLAGS_END"),
+          "daily native reset range remains informational")
+      else
+        s.flags[row.event] = true
+        local done
+        for _, live in ipairs(Progress:rows({id})[2]) do if live.id == row.id then done = live.done end end
+        check(done == true, "every native one-time gift reads its actual receipt flag " .. id)
+        s.flags[row.event] = nil
+        for _, live in ipairs(Progress:rows({id})[2]) do
+          if live.id == row.id then check(not live.done, "older save reverses NPC gift " .. id) end
+        end
+      end
+    end
+  end
+end
+check(gifts == 78 and daily == 2, "78 supported NPC rewards, two daily rewards excluded from completion: " .. gifts .. "/" .. daily)
 check(#adapter:encounters("EM_ROUTE101") == 3, "Route 101 encounter catalogue")
 check(#Progress:pokemon({"EM_ROUTE101"}) == 4, "one starter choice, three wild species")
 for _,row in ipairs(Progress:rows({"EM_RUSTBORO_CITY_GYM"})[1]) do

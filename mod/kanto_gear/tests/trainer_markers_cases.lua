@@ -92,6 +92,19 @@ return function(T, display, runtime, gen, up)
   T.eq(fetched, 106, "compat renderer delegates Gen 3 trainer graphics")
   live.hidden = true; explorer.renderModel = nil
   T.eq(#display.explorerModel(overview).markers, 0, "hidden trainers have neither visible markers nor map hit targets")
+  live.hidden = nil
+  explorer.data.area.sections[1].rows = {}
+  row.gift, row.kind, row.itemId, row.label, row.done = true, "item", 13, "POTION", false
+  explorer.data.area.sections[2].rows = {row}
+  explorer.renderModel = nil
+  model = display.explorerModel(overview)
+  T.eq(#model.markers, 1, "NPC gift reaches Explorer and its widget")
+  T.eq(model.markers[1].gift, true, "NPC marker is not rendered as a ground pickup")
+  T.eq(model.markers[1].x, 4, "gift marker follows the running NPC")
+  T.eq(row.location, "TALK TO NPC", "gift detail explains how to collect the reward")
+  T.eq(model.drawTrainer(model.markers[1],50,80,8),true,"gift uses the native NPC sprite")
+  live.hidden = true; explorer.renderModel = nil
+  T.eq(#display.explorerModel(overview).markers,0,"hidden gift NPC has no map marker or hit target")
   for key in pairs(explorer) do explorer[key] = nil end
   for key, value in pairs(saved) do explorer[key] = value end
   display.knownMap, display.explorerMethods, display.explorerWildRows = oldKnown, oldMethods, oldWild

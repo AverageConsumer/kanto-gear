@@ -6585,6 +6585,11 @@ return function(mod)
     local scanProgress = explorer.scanFrame
       and math.min(1, explorer.scanFrame / RADAR_FRAMES) or nil
     for _, row in ipairs(allItems) do
+      if row.gift and displayRuntime.gen3 then
+        row.actor = displayRuntime.gen3:mapActor(row)
+        row.mapVisible = not row.actor or row.actor.visible ~= false
+        if row.actor then row.x, row.y = row.actor.x, row.actor.y end
+      end
       row.key = table.concat({ "item", tostring(row.kind), tostring(row.x),
         tostring(row.y), tostring(row.label) }, ":")
       if canScan and scanProgress and row.kind == "hidden" and not row.done
@@ -6606,7 +6611,7 @@ return function(mod)
         or row.status == "NOT TRACKED" and "NOT TRACKED"
         or (row.kind == "hidden" and not enhanced and not row.done
           and not row.scanned
-        and "USE ITEMFINDER" or "MARKED ON MAP")
+        and "USE ITEMFINDER" or row.gift and "TALK TO NPC" or "MARKED ON MAP")
     end
     allItems = Discovery.filter(allItems, function(row)
       return Discovery.row(displayRuntime.discoveryMode(), row, row.kind == "hidden" and 3 or 2,
@@ -6653,9 +6658,10 @@ return function(mod)
       if row == selected then selectedMarker = marker end
     end
     for _, row in ipairs(mapItems) do
-      if row.x ~= nil and row.y ~= nil then
+      if row.mapVisible ~= false and row.x ~= nil and row.y ~= nil then
         local marker = { kind = row.kind, x = row.x, y = row.y,
-          found = row.done, scanned = row.scanned, source = row }
+          found = row.done, scanned = row.scanned, source = row,
+          gift = row.gift, actor = row.actor or row, state = row.done and "beaten" or "open" }
         markers[#markers + 1] = marker
         if row == selected then selectedMarker = marker end
       end

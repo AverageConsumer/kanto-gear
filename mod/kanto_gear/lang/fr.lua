@@ -1,4 +1,6 @@
 return {
+  ["NPC GIFT"] = false,
+  ["TALK TO NPC"] = false,
   ["UNOWN MODE"] = false,
   ["YOUR SIDE"] = false,
   ["CHOOSE TARGET"] = false,

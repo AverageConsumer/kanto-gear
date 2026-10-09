@@ -261,7 +261,7 @@ return function(H, G, translate, format)
         card(6, top, 228, 32, canLocate and "locate" or nil, row, function()
           name(row.label, 13, top + 2, 171, 19)
           label(translate(row.species and (row.done and "CAUGHT" or "NOT CAUGHT")
-            or ({ done = "RECORDED", open = "NOT YET", later = "LATER",
+            or ({ done = "RECORDED", open = row.gift and "NPC GIFT" or "NOT YET", later = "LATER",
             optional = "OPTIONAL", unavailable = "NO LONGER AVAILABLE",
             untracked = "NOT TRACKED", excluded = "ALTERNATIVE CHOICE",
             repeatable = row.kind == "hidden" and "RENEWABLE" or "REPEATABLE" })[row.state]),
