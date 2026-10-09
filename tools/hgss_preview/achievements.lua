@@ -33,6 +33,13 @@ return function(theme, screen, gen1, translate)
     areas[2].sections[4].done = 6
   elseif screen == "achievements_detail_unknown" then
     areas[2].tier, areas[2].sections[1].untracked = "bronze", 2
+    areas[2].unknown, areas[2].sections[1].unknown = 2, 2
+  elseif screen == "achievements_detail_untracked" then
+    areas[2].tier, areas[2].complete, areas[2].remaining = "gold", true, 0
+    areas[2].untracked, areas[2].unknown = 1, 0
+    areas[2].sections[3].done, areas[2].sections[3].total = 0, 0
+    areas[2].sections[3].untracked = 1
+    areas[2].sections[4].done = 6
   end
   theme:headerBar(view == "detail" and areas[2].name or translate("ACHIEVEMENTS"), true, false)
   theme:headerClock("20:04", "NITE", 139, 72, 6)
