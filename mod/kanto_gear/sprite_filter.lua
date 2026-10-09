@@ -1,35 +1,20 @@
--- Shrink portraits after palette lookup, retaining fine outlines and alpha.
--- Filtering grayscale first would invent palette indices and wrong colors.
+-- Sample one native texel so small portraits keep sharp colors and outlines.
 local Filter = {}
 local SOURCE = [[
 extern vec2 sourceSize;
-extern vec2 footprint;
 extern bool paletted;
 extern vec3 pal0;
 extern vec3 pal1;
 extern vec3 pal2;
 extern vec3 pal3;
 
-vec4 samplePixel(Image image, vec2 uv) {
+vec4 effect(vec4 tint, Image image, vec2 uv, vec2 screen) {
   uv = (clamp(floor(uv * sourceSize), vec2(0.0), sourceSize - 1.0) + 0.5) / sourceSize;
   vec4 px = Texel(image, uv);
   if (paletted) {
     float shade = floor((1.0 - px.r) * 3.0 + 0.5);
     px.rgb = shade > 2.5 ? pal3 : shade > 1.5 ? pal2 : shade > 0.5 ? pal1 : pal0;
   }
-  return vec4(px.rgb * px.a, px.a);
-}
-
-vec4 effect(vec4 tint, Image image, vec2 uv, vec2 screen) {
-  vec4 sum = vec4(0.0);
-  for (int y = 0; y < 4; y++) {
-    for (int x = 0; x < 4; x++) {
-      vec2 offset = (vec2(float(x), float(y)) + 0.5) / 4.0 - 0.5;
-      sum += samplePixel(image, uv + offset * footprint / sourceSize);
-    }
-  }
-  vec4 px = sum / 16.0;
-  if (px.a > 0.0) px.rgb /= px.a;
   return px * tint;
 }
 ]]
@@ -68,7 +53,6 @@ function Filter:draw(image, x, y, scale, colors)
   if not shader then return false end
   local iw, ih = image:getDimensions()
   vector(self, "sourceSize", iw, ih)
-  vector(self, "footprint", math.max(1, 1 / sx), math.max(1, 1 / sy))
   if self.paletted ~= (colors ~= nil) then
     self.paletted = colors ~= nil
     shader:send("paletted", self.paletted)
