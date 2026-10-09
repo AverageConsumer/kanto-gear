@@ -6716,7 +6716,7 @@ return function(mod)
         if filters.wildScope == "ROUTE" or row.available and row.mapVisible ~= false
             and not row.outsideMap and not row.done and not row.excluded then
           row.key, row.name, row.caught = row.id, row.isEgg and THEME:translate("EGG") or row.label, row.done
-          row.method = row.trade and "NPC TRADE" or row.loan and "NPC LOAN" or row.cost and "NPC OFFER" or "NPC GIFT"
+          row.method = row.trade and "NPC TRADE" or row.loan and "NPC LOAN" or (row.cost or row.coinCost) and "NPC OFFER" or "NPC GIFT"
           row.needsSpeciesName = row.needsSpecies and ((game.data.pokemon[row.needsSpecies] or {}).name or row.needsSpecies)
           row.best, row.matches, row.detailPages = nil, {}, 1
           gifts[#gifts + 1] = row

@@ -3727,6 +3727,7 @@ return function(ui)
         self:panel(12, 150, 216, 53, false, nil, wildAccent)
         self:partyType(self:fitPartyType(translate(selected.method), 202), 19, 155, colors.green, 202)
         local requirement = selected.needsSpeciesName and string.format(translate("BRING %s"), selected.needsSpeciesName)
+          or selected.coinCost and string.format(translate("%d COINS"), selected.coinCost)
           or selected.cost and "$" .. tostring(selected.cost) or translate("TALK TO NPC")
         local gender = selected.needsGender == "TRADE_GENDER_FEMALE" and "female"
           or selected.needsGender == "TRADE_GENDER_MALE" and "male"

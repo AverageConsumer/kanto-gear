@@ -49,7 +49,7 @@ for id in pairs(raw.data.maps) do
   for _, r in ipairs(model:catalog(id)[4]) do if r.gift and not r.trade then all = all + 1 end end
 end
 check(Json.encode(Schema.toSaveTable(session)) == before, "catalogue cannot give Pokemon or advance RNG")
-check(all == (edition == "emerald" and 8 or 9), "all proven gifts and current fossil offers: " .. all)
+check(all == (edition == "emerald" and 8 or 17), "all proven gifts and current fossil offers: " .. all)
 for _, e in ipairs(expected) do
   local map, receipt, species, egg = unpack(e)
   flag(receipt, false)
@@ -106,7 +106,7 @@ if edition ~= "emerald" then
   local dojo = model:pokemon({ "FR_SAFFRON_CITY_DOJO" })
   check(#dojo == 1 and dojo[1].label:find("/", 1, true), "both dojo choices form one receipt goal")
 end
-local johto, fossils = {}, {}
+local johto, fossils, offers = {}, {}, {}
 if edition == "emerald" then
   local map = "EM_LITTLEROOT_TOWN_PROFESSOR_BIRCHS_LAB"
   local var = model.constants:var("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE")
@@ -246,6 +246,66 @@ else
   adapter.save.pokedex.caught[388] = nil
   flag(267, false)
 end
+if edition ~= "emerald" then
+  local map = "FR_CELADON_CITY_GAME_CORNER_PRIZE_ROOM"
+  local oracle = edition == "firered" and { {63,180,9}, {35,500,8}, {147,2800,18}, {123,5500,25}, {137,9999,26} }
+    or { {63,120,7}, {35,750,12}, {127,2500,18}, {147,4600,24}, {137,6500,18} }
+  session.party = { { species = 1, level = 5 } }
+  flag(579, true)
+  for _, row in ipairs(model:rows({ map })[4]) do
+    local e = oracle[row.choice + 1]
+    check(row.catchGoal and not row.event and row.species == e[1] and row.coinCost == e[2] and row.level == e[3],
+      "edition-specific prize species, level and price come from the actual choice branch")
+    session.coins = row.coinCost - 1
+    for _, live in ipairs(model:rows({ map })[4]) do if live.id == row.id then check(not live.available, "one coin short cannot unlock a prize") end end
+    session.coins = row.coinCost
+    for _, live in ipairs(model:rows({ map })[4]) do if live.id == row.id then check(live.available, "exact coin price unlocks the prize") end end
+    offers[#offers + 1] = row
+  end
+  check(#offers == 5 and #model:pokemon({ map }) == 5, "repeatable prize counter has five separate caught goals")
+  flag(579, false)
+  for _, row in ipairs(model:rows({ map })[4]) do check(not row.available, "coins without a Coin Case cannot unlock the counter") end
+  session.coins = 9999
+  for _, stage in ipairs({ 0, 2, 3 }) do
+    Flags.setVar(session, nil, 0x4055, stage)
+    local count = 0
+    for _, row in ipairs(model:rows({ "FR_OAKS_LAB" })[4]) do
+      check(row.catchGoal and row.initialStarter and not row.event and row.level == 5, "initial starter is honestly a caught goal")
+      flag(row.hideEvent, false)
+      if row.available then count = count + 1 end
+      if stage == 2 then offers[#offers + 1] = row end
+    end
+    check(count == (stage == 2 and 3 or 0), "starter offer follows native laboratory story state")
+  end
+  check(#offers == 8, "five prizes and three starter alternatives are classified")
+  flag(2088, false)
+  check(#model:pokemon({ "FR_OAKS_LAB" }) == 1, "initial starters remain one alternative goal")
+else
+  local Field = require("src.core.game3.scripting.natives_field_rse")
+  local Choose = require("src.ui.game3.rse.starter_choose")
+  local manifest = Choose.manifest
+  Choose.manifest = function() return dofile(cacheRoot .. "/starter_choose/manifest.lua") end
+  for selection = 0, 2 do
+    session.party = {}
+    for _, nat in ipairs({252,255,258}) do session.dex.caught[P.speciesFromNational(nat)] = nil end
+    local species, code = Field.giveStarter({}, selection, session)
+    adapter:refresh()
+    check(code == 0 and species == P.speciesFromNational(({252,255,258})[selection+1]), "native Emerald starter selection gives the correct internal species")
+    local function starterGoal()
+      local goal, count = nil, 0
+      for _, row in ipairs(model:pokemon({ "EM_ROUTE101" })) do
+        if row.species == P.speciesFromNational(252) or row.species == P.speciesFromNational(255)
+            or row.species == P.speciesFromNational(258) then goal, count = row, count + 1 end
+      end
+      check(count == 1, "all Emerald starter alternatives form one goal alongside independent Route 101 wild encounters")
+      return goal
+    end
+    check(starterGoal().done, "each native Emerald starter completes one alternative catch goal")
+    session.party = {}; adapter:refresh()
+    check(starterGoal().done, "starter caught goal survives release without inventing a receipt")
+  end
+  Choose.manifest = manifest
+end
 -- A failed delivery must never be mistaken for a valid receipt.
 local function giftGraph(bad, mutate)
   local scripts = { main = { { op = "checkflag", flag = 700 },
@@ -351,12 +411,13 @@ do
   for _, e in ipairs(expected) do sources[#sources + 1] = reward(e[1], e[2]) end
   for _, source in ipairs(johto) do sources[#sources + 1] = source end
   for _, source in ipairs(fossils) do sources[#sources + 1] = source end
+  for _, source in ipairs(offers) do sources[#sources + 1] = source end
   for _, source in ipairs(sources) do
     local map, receipt, egg = source.mapId, source.event, source.isEgg
     local event, object = Space.bundle.events[map]
     for _, o in ipairs(event.objects) do if o.localId == source.index then object = o end end
     check(object ~= nil, "gift is attached to its actual native NPC")
-    for scenario = 1, (source.catchGoal and 6 or 3) do
+    for scenario = 1, (source.deliveryFlag and 6 or 3) do
       local capacity = (scenario - 1) % 3 + 1
       if map == "FR_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM" then
         for _, id in ipairs({ 748, 749, 750, 626, 627 }) do flag(id, false) end
@@ -364,7 +425,10 @@ do
         Flags.setVar(session, nil, 0x4069, ({ [138] = 1, [140] = 2, [142] = 3 })[source.species])
         if source.choiceEvent then flag(source.choiceEvent, true) end
       end
-      if source.catchGoal then
+      if source.catchGoal then session.dex.caught[source.species], session.dex.owned[source.species] = nil, nil end
+      if source.coinCost then session.coins = source.coinCost; flag(579, true) end
+      if source.initialStarter then Flags.setVar(session, nil, 0x4055, 2); flag(2088, false); flag(657, false) end
+      if source.deliveryFlag then
         Flags.setVar(session, nil, 0x40C4, 2)
         Flags.setVar(session, nil, 0x40C5, source.species == 388 and 1 or 2)
         flag(source.deliveryFlag, scenario > 3)
@@ -397,6 +461,7 @@ do
         applyMovement = function() return true end, pollMovement = function() return true end,
         removeObject = native.removeObject,
         giveMonToPlayer = function(sp, lv, item)
+          check(lv == source.level, "native gift level agrees with the projected offer")
           received = sp; local code = Party.giveMonToPlayer(session, sp, lv)
           if code ~= 2 then deliveries = deliveries + 1 end
           return code
@@ -410,11 +475,15 @@ do
       local asked = 0
       presentation.askYesNo = function(done)
         asked = asked + 1
-        done(asked == 1 and (source.receiptVar ~= nil or receipt == 585 or receipt == 632 or receipt == 266 or receipt == 298))
+        done(asked == 1 and (source.receiptVar ~= nil or source.coinCost ~= nil or source.initialStarter or receipt == 585 or receipt == 632 or receipt == 266 or receipt == 298))
       end
+      local Prize = require("src.ui.game3.prize_corner")
+      local show = Prize.show
+      Prize.show = function(opts) opts.onChoose(source.choice or 0); return true end
       local vm = Vm.new({ store = session, scripts = Space.bundle.scripts, text = Space.bundle.text, adapters = presentation })
       vm:startTalk(object.scriptKey, object.localId, 1)
       for _ = 1, 500 do if not vm:isRunning() then break end; vm:tick() end
+      Prize.show = show
       check(not vm:isRunning(), "native gift script finishes: " .. map .. " " .. Json.encode(vm.ctx.pc))
       check((deliveries == 1) == expectedDone, "native delivery agrees with capacity contract")
       adapter:refresh()
@@ -426,7 +495,8 @@ do
       for _, row in ipairs(model:rows({ map })[4]) do if row.id == source.id then projected = row end end
       check(projected and projected.done == expectedDone, "model agrees with actual native VM outcome")
       if expectedDone then check(received == source.species, "native VM gives the catalogued species") end
-      if source.catchGoal then
+      if source.coinCost then check(session.coins == (expectedDone and 0 or source.coinCost), "only successful native prize delivery charges coins") end
+      if source.deliveryFlag then
         check(Flags.getFlag(session, nil, source.deliveryFlag) == (scenario > 3 or expectedDone),
           "second fossil delivery does not require a fresh shared flag; failure preserves existing flag")
         check(Flags.getVar(session, nil, 0x40C4) == (expectedDone and 0 or 2), "only successful revival resets native stage")
@@ -578,6 +648,26 @@ if edition == "emerald" then
   if os.getenv("KANTO_GEAR_PREVIEW_FOSSIL") == "1" then
     for _, source in ipairs(fossils) do if source.species == 390 then offer.source = source end end
   else offer = original; session.map = offer.map end
+  display.gen3:refresh()
+end
+if edition ~= "emerald" then
+  local original = offer
+  offer = { map = "FR_CELADON_CITY_GAME_CORNER_PRIZE_ROOM", source = offers[1] }
+  for _, source in ipairs(offers) do if (source.coinCost or 0) > (offer.source.coinCost or 0) then offer.source = source end end
+  session.map, overview.mapId = offer.map, offer.map
+  for _, source in ipairs(offers) do session.dex.caught[source.species], session.dex.owned[source.species] = nil, nil end
+  flag(579, true); session.coins = 9999
+  explorer.filters.wildScope = "HERE"
+  display.gen3:refresh()
+  check(#explorerModel().rows == 4 and explorerModel().total == 5 and explorerModel().pages == 2, "HERE NOW presents all affordable uncaught native prizes")
+  for _, row in ipairs(explorerModel().rows) do check(row.method == "NPC OFFER" and row.coinCost > 0, "prize presentation includes coin price") end
+  session.coins = 0
+  check(#explorerModel().rows == 0, "HERE NOW hides prizes without enough coins")
+  explorer.filters.wildScope = "ROUTE"
+  check(explorerModel().total == 5, "WHOLE ROUTE retains five unavailable prize catch goals")
+  session.coins = 9999
+  explorer.filters.wildScope = "HERE"
+  if os.getenv("KANTO_GEAR_PREVIEW_CASINO") ~= "1" then offer = original; session.map = offer.map end
   display.gen3:refresh()
 end
 if _G.KANTO_GEAR_RENDER_CAPTURE then _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, offer) end

@@ -219,7 +219,7 @@ end
 -- party may send a gift to the PC, while a failed delivery must never earn a stamp.
 local giftPresentation = {}
 for op in ("lock lockall release releaseall faceplayer showmonpic hidemonpic applymovement waitmovement "
-    .. "removeobject showmoneybox hidemoneybox updatemoneybox playfanfare waitfanfare message "
+    .. "removeobject showmoneybox hidemoneybox updatemoneybox showcoinsbox hidecoinsbox updatecoinsbox playfanfare waitfanfare message "
     .. "waitmessage loadword fadescreen waitstate textcolor bufferspeciesname bufferboxname"):gmatch("%S+") do
   giftPresentation[op] = true
 end
@@ -277,7 +277,11 @@ local function pokemonPath(scripts, key, gift, receipt, options, checkpoint)
         end
         local again = false
         if row == gift then
-          if options.live then return true end
+          if options.live then
+            local species = value(a)
+            if options.species and species ~= options.species then return false end
+            return true, { species = species, level = row[2], coinCost = options.choice and at.vars[0x4002] }
+          end
           at.given, at.vars[0x800D] = options.result ~= 2, options.result
         elseif op == "givemon" or op == "giveegg" then return nil
         elseif op == "setvar" then at.vars[a] = b
@@ -285,6 +289,8 @@ local function pokemonPath(scripts, key, gift, receipt, options, checkpoint)
         elseif op == "addvar" or op == "subvar" then
           at.vars[a] = at.vars[a] and b and (at.vars[a] + (op == "addvar" and b or -b)) % 65536
         elseif op == "getpartysize" then at.vars[0x800D] = options.party
+        elseif op == "multichoice" and options.choice ~= nil then at.vars[0x800D] = options.choice
+        elseif op == "checkcoins" and options.choice ~= nil then at.vars[a] = options.coins or 0
         elseif op == "checkplayergender" then at.vars[0x800D] = options.gender or 0
         elseif op == "checkmoney" then
           at.vars[0x800D] = (options.money or math.huge) >= (row[1] or 0) and 1 or 0
@@ -447,6 +453,31 @@ function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint, mapId)
         out[#out + 1] = { species = species, level = command[2], catchGoal = true,
           deliveryFlag = fossilFlag, toPC = pokemonPath(scripts, localKey, command, fossilFlag, pc, checkpoint) == true,
           command = command, scriptKey = key }
+      end
+    end
+  end
+  -- Repeatable prizes and story-gated starters have no unique receipt. Read the
+  -- actual offer branch, but retain a caught goal instead of a story-flag goal.
+  local corner = not self.emerald and mapId == "FR_CELADON_CITY_GAME_CORNER_PRIZE_ROOM"
+  local starter = not self.emerald and mapId == "FR_OAKS_LAB" and obj.localId >= 5 and obj.localId <= 7
+  if corner or starter then
+    for choice = 0, corner and 4 or 0 do
+      for _, command in ipairs(commands) do
+        if command.op == "givemon" then
+          local ok, offer = pokemonPath(scripts, key, command, 0, {
+            live = true, party = 1, choice = corner and choice or nil, coins = 9999, firered = true,
+            flag = function(id) return corner and id == 579 end,
+            var = function(id) return starter and id == 0x4055 and 2 or 0 end }, checkpoint)
+          if ok and offer and self.adapter.data.pokemon[offer.species]
+              and type(offer.level) == "number" and offer.level >= 1 and offer.level <= 100
+              and (not corner or type(offer.coinCost) == "number" and offer.coinCost > 0) then
+            offer.catchGoal, offer.toPC, offer.choice = true, true, corner and choice or nil
+            offer.initialStarter = starter or nil
+            offer.command, offer.scriptKey = command, key
+            out[#out + 1] = offer
+            break
+          end
+        end
       end
     end
   end
@@ -770,8 +801,9 @@ function M:rows(mapIds, checkpoint)
               or friendship >= 100 and 3 or friendship >= 50 and 2 or friendship > 0 and 1 or 0
             row.available = not row.done and not row.excluded and row.available ~= false and not row.noRoom
               and pokemonPath(self.source.scripts, row.scriptKey, row.command,
-                row.event or row.deliveryFlag or { var = row.receiptVar, value = row.receiptValue },
+                row.event or row.deliveryFlag or (row.receiptVar and { var = row.receiptVar, value = row.receiptValue }) or 0,
                 { live = true, party = party, money = session.money or 0, gender = session.gender,
+                  choice = row.choice, coins = session.coins or 0, species = row.species,
                   friendship = score, flag = flag, var = function(v) return Flags.getVar(store, nil, v) end,
                   firered = not self.emerald }, checkpoint) == true
             row.status = row.done and (row.catchGoal and "CAUGHT" or "RECORDED") or row.available and "READY" or "LATER"
