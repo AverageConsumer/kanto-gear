@@ -90,3 +90,4 @@ tests/legacy_save_test.lua
 tests/gen3_relearner_test.lua
 tests/native_options_test.lua
 tests/trainer_page_test.lua
+tests/pokedex_page_test.lua

@@ -2372,12 +2372,13 @@ return function(mod)
     "@kanto_gear/party_page.lua"))()
   displayRuntime.MovePage = assert(load(mod:read("move_page.lua"), "@kanto_gear/move_page.lua"))()
   displayRuntime.ItemPage = assert(load(mod:read("item_page.lua"), "@kanto_gear/item_page.lua"))()
+  displayRuntime.PokedexPage = assert(load(mod:read("pokedex_page.lua"), "@kanto_gear/pokedex_page.lua"))()
   displayRuntime.SafariPage = assert(load(mod:read("safari_page.lua"), "@kanto_gear/safari_page.lua"))()
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
     nativeFocus = false, partyPage = displayRuntime.PartyPage, itemPage = displayRuntime.ItemPage,
-    safariPage = displayRuntime.SafariPage,
+    safariPage = displayRuntime.SafariPage, pokedexPage = displayRuntime.PokedexPage,
     smallFont = THEME.hgssSmallFont,
     smallFontMetrics = THEME.hgssSmallMetrics,
     largeFont = THEME.hgssLargeFont,
@@ -8615,14 +8616,6 @@ return function(mod)
     return state.data
   end
 
-  function displayRuntime.pokedexStat(stats, ...)
-    for index = 1, select("#", ...) do
-      local value = tonumber(stats and stats[select(index, ...)])
-      if value then return value end
-    end
-    return 0
-  end
-
   function displayRuntime.pokedexMoveRows(def)
     local rows = {}
     local function add(moveId, method)
@@ -8670,8 +8663,6 @@ return function(mod)
 
   function displayRuntime.pokedexModel()
     local state, dex = displayRuntime.pokedex, displayRuntime.pokedexData()
-    local pages = math.max(1, math.ceil(dex.total / 9))
-    state.page = math.max(1, math.min(state.page or 1, pages))
     if not state.selected and dex.entries[1] then
       state.selected = dex.entries[1].species
     end
@@ -8688,16 +8679,10 @@ return function(mod)
         tint, nil, true)
     end
     if state.view == "index" then
-      local entries, first = {}, (state.page - 1) * 9 + 1
-      for index = first, math.min(dex.total, first + 8) do
-        entries[#entries + 1] = dex.entries[index]
-      end
-      return { view = "index", region = displayRuntime.gen3 and
+      local region = displayRuntime.gen3 and
           ((game.save.pokedex.national and "NATIONAL" or compat.currentRegion():upper()) .. " DEX")
-          or (compat.isGen2() and "NATIONAL DEX" or "KANTO DEX"),
-        caught = dex.caught, total = dex.total,
-        page = state.page, pages = pages, entries = entries,
-        drawPokemon = drawPokemon }
+          or (compat.isGen2() and "NATIONAL DEX" or "KANTO DEX")
+      return displayRuntime.PokedexPage.index(state, dex, region, drawPokemon)
     end
     if not selected or selected.revealed == false then
       state.view = "index"
@@ -8714,25 +8699,12 @@ return function(mod)
     info.height = info.heightValue or "--"
     info.weight = info.weightValue or "--"
     if info.descriptionText then
-      info.description = THEME:descriptionLines(info.descriptionText, 24, 3, 210)
+      info.description = THEME:descriptionLines(info.descriptionText, 24, nil, 210)
     end
     if #info.description == 0 then
       info.description = { THEME:translate("NO RESEARCH DATA AVAILABLE.") }
     end
-    local base, stats, bst = def.baseStats or {}, {}, 0
-    local definitions = (compat.isGen2() or displayRuntime.gen3) and {
-      { "HP", "hp" }, { "ATK", "attack" }, { "DEF", "defense" },
-      { "SP.ATK", "specialAttack", "spAttack", "special" },
-      { "SP.DEF", "specialDefense", "spDefense", "special" },
-      { "SPEED", "speed" },
-    } or {
-      { "HP", "hp" }, { "ATK", "attack" }, { "DEF", "defense" },
-      { "SPECIAL", "special" }, { "SPEED", "speed" },
-    }
-    for _, keys in ipairs(definitions) do
-      local value = displayRuntime.pokedexStat(base, unpack(keys, 2))
-      stats[#stats + 1], bst = { label = keys[1], value = value }, bst + value
-    end
+    local stats, bst = displayRuntime.PokedexPage.stats(def.baseStats or {}, compat.isGen2() or displayRuntime.gen3 ~= nil)
     local moves = displayRuntime.pokedexMoveRows(def)
     local habitat = Discovery.filter(selected.habitat and selected.habitat.appearances, function(row)
       return displayRuntime.knownMap(row.mapId)
@@ -8749,39 +8721,31 @@ return function(mod)
     }
     if state.view == "profile" then
       common.view = "profile"
-      return common
+      displayRuntime.PokedexPage.description(state, common)
+      return displayRuntime.PokedexPage.controls(common, dex)
     elseif state.view == "stats" then
       common.view, common.stats = "stats", stats
       common.summary = THEME:format("BST %d", bst)
       common.catchText = THEME:format("CATCH %d",
         tonumber(def.catchRate) or 0)
       common.expText = THEME:format("XP %d", tonumber(def.baseExp) or 0)
-      return common
+      return displayRuntime.PokedexPage.controls(common, dex)
     elseif state.view == "moves" then
-      local movePages = math.max(1, math.ceil(#moves / 4))
-      state.movePage = math.max(1, math.min(state.movePage or 1, movePages))
-      common.view, common.page, common.pages = "moves", state.movePage, movePages
-      common.rows = {}
-      local first = (state.movePage - 1) * 4 + 1
-      for index = first, math.min(#moves, first + 3) do
-        common.rows[#common.rows + 1] = moves[index]
-      end
-      return common
+      common.view = "moves"
+      common.rows, common.page, common.pages = displayRuntime.PokedexPage.window(moves, state.movePage, 4)
+      state.movePage = common.page
+      return displayRuntime.PokedexPage.controls(common, dex)
     end
     local plan = displayRuntime.pokedexHabitatPlan(selected)
-    local habitatPages = math.max(1, math.ceil(#plan.rows / 3))
-    state.habitatPage = math.max(1,
-      math.min(state.habitatPage or 1, habitatPages))
-    common.view, common.page, common.pages = "habitat",
-      state.habitatPage, habitatPages
+    local plannedRows
+    plannedRows, common.page, common.pages = displayRuntime.PokedexPage.window(plan.rows, state.habitatPage, 3)
+    state.habitatPage, common.view = common.page, "habitat"
     common.summary = areaCount > 0
       and THEME:format("%d AREAS", areaCount) or THEME:translate("NO WILD AREA")
     common.matchText = plan.count > 0 and THEME:format("%d MATCHING AREAS", plan.count)
       or THEME:translate("NO MATCHING AREA KNOWN")
     common.rows = {}
-    local first = (state.habitatPage - 1) * 3 + 1
-    for index = first, math.min(#plan.rows, first + 2) do
-      local planned = plan.rows[index]
+    for _, planned in ipairs(plannedRows) do
       local appearance = planned.appearance
       local area = areaName(appearance.mapId)
       local section = appearance.section
@@ -8802,43 +8766,20 @@ return function(mod)
             appearance.maxLevel or 0),
       }
     end
-    return common
+    return displayRuntime.PokedexPage.controls(common, dex)
   end
 
   function displayRuntime.selectPokedexSpecies(index)
-    local entries = displayRuntime.pokedexData().entries
-    if #entries == 0 then return false end
-    index = (index - 1) % #entries + 1
-    if entries[index].revealed == false then return false end
-    displayRuntime.pokedex.selected = entries[index].species
-    displayRuntime.pokedex.view = "profile"
-    displayRuntime.pokedex.habitatPage = 1
-    displayRuntime.pokedex.movePage = 1
-    dirty = true
-    return true
+    local changed = displayRuntime.PokedexPage.select(displayRuntime.pokedex, displayRuntime.pokedexData(), index)
+    if changed then dirty = true end
+    return changed
   end
 
   function displayRuntime.cyclePokedex(direction)
-    displayRuntime.requestPageMotion(direction)
-    local state, model = displayRuntime.pokedex, displayRuntime.pokedexModel()
-    if state.view == "index" then
-      state.page = (state.page - 1 + direction) % model.pages + 1
-    elseif state.view == "profile" or state.view == "stats" then
-      local view = state.view
-      local selected = displayRuntime.pokedexData().bySpecies[state.selected]
-      local entries = displayRuntime.pokedexData().entries
-      for offset = 1, #entries do
-        local index = ((selected and selected.index or 1) - 1 + direction * offset) % #entries + 1
-        if displayRuntime.selectPokedexSpecies(index) then break end
-      end
-      state.view = view
-    elseif state.view == "moves" then
-      state.movePage = (state.movePage - 1 + direction) % model.pages + 1
-    else
-      state.habitatPage = (state.habitatPage - 1 + direction)
-        % model.pages + 1
-    end
-    dirty = true
+    local changed = displayRuntime.PokedexPage.cycle(displayRuntime.pokedex, displayRuntime.pokedexData(),
+      displayRuntime.pokedexModel(), direction)
+    if changed then displayRuntime.requestPageMotion(direction); dirty = true end
+    return changed
   end
 
   displayRuntime.bagPockets = {
@@ -9242,7 +9183,7 @@ return function(mod)
       or model.view == "moves" and THEME:format("MOVES %d/%d",
         model.page or 1, model.pages or 1)
       or THEME:translate("STATS")
-    header(title, true, model.view ~= "index")
+    header(title, true, model.canCycle)
     G.push()
     G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
     THEME.hgss:pokedex(model)
@@ -10872,6 +10813,7 @@ return function(mod)
       displayRuntime.pokedex.view, displayRuntime.pokedex.page = "index", 1
       displayRuntime.pokedex.habitatPage = 1
       displayRuntime.pokedex.movePage = 1
+      displayRuntime.pokedex.descriptionPage = 1
       displayRuntime.pokedex.data = nil
     elseif id == "trainer" then
       displayRuntime.trainerPage = 1
@@ -11128,29 +11070,21 @@ return function(mod)
   end
 
   function displayRuntime.tapPokedex(x, y)
-    local state = displayRuntime.pokedex
-    if y < HEADER and x < 22 then
-      if state.view == "index" then
-        page, displayRuntime.home.activeApp = "HOME", nil
-      elseif state.view == "profile" then
-        state.view = "index"
-      else
-        state.view = "profile"
-      end
+    local state, model = displayRuntime.pokedex, displayRuntime.pokedexModel()
+    local action, index = displayRuntime.PokedexPage.hit(model, x * THEME.hgssScale, y * THEME.hgssScale)
+    if action == "back" then
+      if state.view == "index" then page, displayRuntime.home.activeApp = "HOME", nil
+      elseif state.view == "profile" then state.view = "index"
+      else state.view = "profile" end
       dirty = true
-      return
-    end
-    local model = displayRuntime.pokedexModel()
-    local action, index = THEME.hgss:pokedexHit(
-      x * THEME.hgssScale, y * THEME.hgssScale, model)
-    if action == "prev" or action == "next" then
+    elseif action == "description_prev" or action == "description_next" then
+      if displayRuntime.PokedexPage.cycleDescription(state, model, action == "description_next" and 1 or -1) then dirty = true end
+    elseif action == "prev" or action == "next" then
       displayRuntime.cyclePokedex(action == "next" and 1 or -1)
-    elseif action == "species" and model.entries[index] then
+    elseif action == "species" then
       displayRuntime.selectPokedexSpecies(model.entries[index].index)
     elseif action == "stats" or action == "habitat" or action == "moves" then
-      state.view = action
-      state.habitatPage, state.movePage = 1, 1
-      dirty = true
+      state.view, state.habitatPage, state.movePage, dirty = action, 1, 1, true
     end
   end
 
@@ -12418,6 +12352,10 @@ return function(mod)
       local action = displayRuntime.TrainerPage.hit(x * THEME.hgssScale, y * THEME.hgssScale, context.pages)
       if action == "back" then page, displayRuntime.home.activeApp, dirty = "HOME", nil, true
       elseif type(action) == "number" then displayRuntime.cycleTrainer(action) end
+      return
+    end
+    if THEME.style == "hgss" and page == "POKEDEX" then
+      displayRuntime.tapPokedex(x, y)
       return
     end
     if THEME.style == "hgss" and displayRuntime.home.activeApp
@@ -13970,6 +13908,7 @@ return function(mod)
         tostring(displayRuntime.pokedex.page),
         tostring(displayRuntime.pokedex.habitatPage),
         tostring(displayRuntime.pokedex.movePage),
+        tostring(displayRuntime.pokedex.descriptionPage),
         tostring(radarOpen),
          tostring(top and top.waiting), tostring(top and top.done), tostring(top and top.ready),
          tostring(top and top.index), tostring(top and top.kind),

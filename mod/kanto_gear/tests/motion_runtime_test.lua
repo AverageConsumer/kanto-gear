@@ -180,6 +180,7 @@ settle(function() page("POKEDEX"); display.pokedex.view = "habitat"; display.pok
 still("Dex tab resets pages", function() display.pokedex.view = "moves"; display.pokedex.movePage = 1 end)
 still("Dex species selection", function() display.pokedex.selected = 2 end)
 still("Dex back", function() display.pokedex.view = "profile" end)
+still("Dex description paging", function() display.pokedex.descriptionPage = 2 end)
 settle(function() page("NOTES"); display.notes.view = "list"; display.notes.page = 2; display.notes.filter = "here" end)
 still("Notes filter", function() display.notes:action("filter", "all") end)
 settle(function() display.notes.view = "text"; display.notes.page = 2 end)

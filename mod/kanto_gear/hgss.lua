@@ -892,13 +892,22 @@ return function(ui)
       and "reset" or nil
   end
 
-  local function dexPager(self, page, pages)
+  local PokedexPage = ui.pokedexPage
+
+  local function dexArrows(self, enabled, description)
+    for _, direction in ipairs({ -1, 1 }) do
+      local x, y, w, h = PokedexPage.pagerRect(direction, description)
+      local pressed = self:beginPress(x, y, w, h, enabled)
+      self:pageChevron(x + w / 2, y + math.floor(h / 2), direction > 0, false)
+      self:endPress(pressed)
+    end
+  end
+
+  local function dexPager(self, page, pages, enabled)
     local colors = self.colors
     self:panel(82, 199, 76, 12, false)
-    self:pageChevron(91, 205, false, pages > 1)
-    self:partyType(tostring(page) .. "/" .. tostring(pages),
-      99, 199, colors.green, 42)
-    self:pageChevron(149, 205, true, pages > 1)
+    if pages > 1 then dexArrows(self, enabled ~= false) end
+    self:partyInfoCentered(tostring(page) .. "/" .. tostring(pages), 100, 199, 40, 12, colors.green)
   end
 
   function H:pokedexIndex(model)
@@ -917,15 +926,13 @@ return function(ui)
       colors.redLight)
 
     for index, entry in ipairs(model.entries or {}) do
-      local column, row = (index - 1) % 3, math.floor((index - 1) / 3)
-      local left, top = 7 + column * 77, 68 + row * 43
-      local pressed = self:beginPress(left, top, 72, 41)
+      local left, top, width, height = PokedexPage.entryRect(index)
+      local pressed = self:beginPress(left, top, width, height, entry.revealed ~= false and model.canUse ~= false)
       local entryAccent = entry.caught and colors.greenLight
         or entry.seen and colors.blueLight or colors.silverDark
-      self:panel(left, top, 72, 41, entry.selected, colors.redLight,
+      self:panel(left, top, width, height, entry.selected, colors.redLight,
         entryAccent)
-      self:partyType(("%03d"):format(tonumber(entry.dex) or 0),
-        left + 3, top + 2, quiet, 22)
+      self:partyInfoCentered(("%03d"):format(tonumber(entry.dex) or 0), left + 2, top + 2, 24, 8, quiet)
       color(entry.caught and colors.bandLight
         or mixed(colors.surface, colors.redLight, self.dark and 0.18 or 0.10))
       G.circle("fill", left + 36, top + 18, 11)
@@ -934,11 +941,11 @@ return function(ui)
         model.drawPokemon(entry, left + 26, top + 8, 20, not entry.caught)
       end
       if entry.caught then self:battleTeamBall(left + 63, top + 8, true) end
-      self:partyType(self:fitPartyType(entry.revealed == false and "???" or entry.name or "---", 66),
-        left + 3, top + 29, entry.caught and colors.ink or quiet, 66)
+      self:partyInfoCentered(self:fitPartyInfo(entry.revealed == false and "???" or entry.name or "---", 66),
+        left + 3, top + 29, 66, 9, entry.caught and colors.ink or quiet)
       self:endPress(pressed)
     end
-    dexPager(self, model.page or 1, model.pages or 1)
+    dexPager(self, model.page or 1, model.pages or 1, model.canUse)
   end
 
   function H:pokedexProfile(model)
@@ -950,29 +957,32 @@ return function(ui)
     G.circle("fill", 45, 69, 27)
     color(colors.outline); G.circle("line", 45, 69, 27)
     if model.drawPokemon then model.drawPokemon(mon, 18, 42, 54, false) end
-    self:partyInfo(self:fitPartyInfo(mon.name or translate("POKEMON"), 142),
-      80, 39, colors.ink)
-    self:typeBadges(mon, 80, 56, false)
-    self:partyType(self:fitPartyType(mon.kind or translate("UNKNOWN"), 67),
-      155, 57, quiet, 67)
-    self:partyType(self:fitPartyType(mon.height or translate("HEIGHT --"), 67),
-      80, 76, colors.green, 67)
-    self:partyType(self:fitPartyType(mon.weight or translate("WEIGHT --"), 67),
-      155, 76, colors.green, 67)
-    if mon.caught then
-      self:battleTeamBall(214, 44, true)
-    else
-      self:partyType(translate("NOT CAUGHT"), 152, 40, colors.red, 70)
-    end
+    self:partyInfoCentered(self:fitPartyInfo(mon.name or translate("POKEMON"), 142),
+      80, 38, 142, 14, colors.ink)
+    self:typeBadges(mon, 92, 56, false)
+    self:partyInfoCentered(self:fitPartyInfo(mon.kind or translate("UNKNOWN"), 67),
+      155, 55, 67, 12, quiet)
+    self:partyInfoCentered(self:fitPartyInfo(mon.height or translate("HEIGHT --"), 67),
+      80, 73, 67, 12, colors.green)
+    self:partyInfoCentered(self:fitPartyInfo(mon.weight or translate("WEIGHT --"), 67),
+      155, 73, 67, 12, colors.green)
+    self:partyInfoCentered(translate(mon.caught and "CAUGHT" or "NOT CAUGHT"),
+      80, 90, 142, 10, mon.caught and colors.green or colors.red)
 
     self:panel(7, 108, 226, 43, false, nil,
       self:typeColor(mon.types and mon.types[1]))
     local lines = mon.description or { translate("NO DETAILS AVAILABLE") }
     local visible = math.min(3, #lines)
-    local firstY = 115 + math.floor((29 - visible * 9) / 2)
+    local paged = (model.descriptionPages or 1) > 1
+    local firstY = 110 + math.floor(((paged and 29 or 39) - visible * 9) / 2)
     for index = 1, visible do
-      self:partyInfo(self:fitPartyInfo(lines[index], 210),
-        15, firstY + (index - 1) * 9, colors.ink, 210, "center")
+      self:partyInfoCentered(self:fitPartyInfo(lines[index], 210),
+        15, firstY + (index - 1) * 9, 210, 9, colors.ink)
+    end
+
+    if paged then
+      dexArrows(self, model.canUse ~= false, true)
+      self:partyInfoCentered(model.descriptionPage .. "/" .. model.descriptionPages, 100, 141, 40, 8, colors.green)
     end
 
     local cards = {
@@ -981,12 +991,11 @@ return function(ui)
       { "MOVES", model.movesText or translate("LEARNSET"), colors.amber },
     }
     for index, card in ipairs(cards) do
-      local left = 7 + (index - 1) * 77
-      local pressed = self:beginPress(left, 156, 72, 54)
-      self:homeTile(left, 156, 72, 54, card[3], false)
-      self:partyType(translate(card[1]), left + 5, 164, colors.ink, 62)
-      self:partyInfo(self:fitPartyInfo(card[2], 58),
-        left + 7, 183, quiet, 58, "center")
+      local left, top, width, height = PokedexPage.cardRect(index)
+      local pressed = self:beginPress(left, top, width, height, model.canUse ~= false)
+      self:homeTile(left, top, width, height, card[3], false)
+      self:partyInfoCentered(self:fitPartyInfo(translate(card[1]), 62), left + 5, 161, 62, 16, colors.ink)
+      self:partyInfoCentered(self:fitPartyInfo(card[2], 58), left + 7, 180, 58, 14, quiet)
       self:detailChevron(left + 62, 201, colors.green)
       self:endPress(pressed)
     end
@@ -1044,7 +1053,7 @@ return function(ui)
         53, top + 7, colors.ink, 101)
       self:typeBadges(row, 178, top + 7, false)
     end
-    dexPager(self, model.page or 1, model.pages or 1)
+    dexPager(self, model.page or 1, model.pages or 1, model.canUse)
   end
 
   function H:pokedexHabitat(model)
@@ -1084,7 +1093,7 @@ return function(ui)
       self:partyInfo(translate("NO WILD ENCOUNTERS"),
         14, 124, quiet, 212, "center")
     end
-    dexPager(self, model.page or 1, model.pages or 1)
+    dexPager(self, model.page or 1, model.pages or 1, model.canUse)
   end
 
   function H:pokedex(model)
@@ -1096,28 +1105,7 @@ return function(ui)
   end
 
   function H:pokedexHit(x, y, model)
-    if y < 29 and x >= 33 and x < 50 then return "prev" end
-    if y < 29 and x >= 116 and x < 139 then return "next" end
-    if model.view == "profile" then
-      if x >= 7 and x < 233 and y >= 156 and y < 210 then
-        local index = math.floor((x - 7) / 77) + 1
-        return ({ "stats", "habitat", "moves" })[index]
-      end
-    else
-      if model.view == "index" then
-        for index = 1, #(model.entries or {}) do
-          local column, row = (index - 1) % 3, math.floor((index - 1) / 3)
-          if x >= 7 + column * 77 and x < 79 + column * 77
-              and y >= 68 + row * 43 and y < 109 + row * 43 then
-            return "species", index
-          end
-        end
-      end
-    end
-    if y >= 197 and y < 214 then
-      if x >= 82 and x < 119 then return "prev" end
-      if x >= 121 and x < 159 then return "next" end
-    end
+    return PokedexPage.hit(model, x, y)
   end
 
   function H:homePartyIcon(x, y)
