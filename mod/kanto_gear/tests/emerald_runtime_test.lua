@@ -208,6 +208,8 @@ T.eq(display.gen3:gameView().world:hour(),13,"Emerald game clock offset")
 T.eq(display.gen3:gameView().world:minute(),30,"Emerald game clock minutes")
 rtc.reset()
 if _G.KANTO_GEAR_RENDER_CAPTURE then _G.KANTO_GEAR_RENDER_CAPTURE(run,display,raw,maps) end
-assert(loadfile(path .. "/tests/recent_item_gen3_cases.lua"))()(T,run,display,raw)
+if not _G.KANTO_GEAR_RENDER_CAPTURE then
+ assert(loadfile(path .. "/tests/recent_item_gen3_cases.lua"))()(T,run,display,raw)
+end
 assert(loadfile(path .. "/tests/recent_item_cases.lua"))()(T,path)
 T.finish("Emerald runtime")

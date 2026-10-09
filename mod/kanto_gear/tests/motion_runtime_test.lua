@@ -4,6 +4,7 @@ love.graphics.transformPoint = love.graphics.transformPoint or function(x, y) re
 local gen = tonumber(os.getenv("KANTO_GEAR_TEST_GEN")) or 2
 local run = T.sdk.loadMod(assert(os.getenv("KANTO_GEAR_MOD_PATH")),
   { generation = gen, data = T.fixtures.load() })
+assert(run.mod, run.error or run.reason)
 local function hook(name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end

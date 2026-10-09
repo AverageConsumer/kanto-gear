@@ -655,7 +655,9 @@ if type(_G.KANTO_GEAR_RENDER_CAPTURE) == "function" then
   _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, maps)
 end
 T.eq(#run.errors, 0, "runtime event paths contain no errors")
-assert(loadfile(path .. "/tests/recent_item_gen3_cases.lua"))()(T,run,display,raw)
+if not _G.KANTO_GEAR_RENDER_CAPTURE then
+  assert(loadfile(path .. "/tests/recent_item_gen3_cases.lua"))()(T,run,display,raw)
+end
 run.release()
 assert(loadfile(path .. "/tests/recent_item_cases.lua"))()(T,path)
 T.finish("Kanto Gear native Gen3 runtime")
