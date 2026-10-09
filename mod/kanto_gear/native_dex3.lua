@@ -15,7 +15,7 @@ local function searchPage(s, Native)
   local function selected(which) return (q.cursor[which] or 0) + (q.scroll[which] or 0) end
   local signature = { tostring(q), s.fn, tostring(q.topBar), tostring(q.menuItem), tostring(s.nationalEnabled) }
   for i = 0, 5 do signature[#signature + 1] = tostring(selected(i)) end
-  local state = { kind = "search", signature = table.concat(signature, ":"),
+  local state = { kind = "search", uiLabels = s.fn ~= "searchParam", signature = table.concat(signature, ":"),
     title = s.fn == "searchParam" and labels[q.menuItem + 1] or q.topBar == TOPBAR.SEARCH and "SEARCH" or "OPTION" }
   if s.fn == "searchTopBar" then
     state.rows = { { label = "SEARCH" }, { label = "OPTION" }, { label = "CANCEL" } }

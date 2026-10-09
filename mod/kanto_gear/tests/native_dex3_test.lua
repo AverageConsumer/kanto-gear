@@ -179,6 +179,13 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       T.eq(#criteria.items,6,"locked National Dex mode is absent from search criteria")
       T.eq(criteria.items[6].label,"BEGIN SEARCH!!","execute retains its real native row")
       render("criteria")
+      local originalColor = criteria.items[2].right
+      local language = run.loader.modOptions.kanto_gear.language
+      run.loader.modOptions.kanto_gear.language = "de"
+      T.eq(view().items[2].label,"FARBE","companion filter labels follow the Gear language")
+      T.eq(view().items[2].right,originalColor,"native option values retain the game's text")
+      render("criteria_de")
+      run.loader.modOptions.kanto_gear.language = language
       menuRow(2); phase("searchParam")
       local before = s.searchState.cursor[Native.SEARCH.COLOR]
       render("colors")

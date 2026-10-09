@@ -5046,7 +5046,10 @@ return function(mod)
           end
           return drawSprite(row.species, "front", x, y, size, size, nil, portrait, true)
         end, function(value) return THEME:descriptionLines(value, 24, nil, 210) end)
-      if view.dexModel then view.items[1].right = displayRuntime.NativeDex.redrawKey(view.dexModel) end
+      if view.dexModel then view.items[1].right = displayRuntime.NativeDex.redrawKey(view.dexModel)
+      elseif view.dex.uiLabels then
+        for _, row in ipairs(view.items) do row.label = THEME:translate(row.label) end
+      end
       return view
     end
     displayRuntime.nativeTrainerView = THEME.style == "hgss" and displayRuntime.TrainerPage.project(nativeTop, game,
