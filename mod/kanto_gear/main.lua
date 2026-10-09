@@ -1008,12 +1008,19 @@ end
 
 function Area.gen2Rows(data, save, world, mapIds, checkpoint)
   local rows = { {}, {}, {} }
+  if Area.Gifts and (Area.giftData ~= data or Area.giftScripts ~= data.gen2Scripts
+      or Area.giftInitial ~= data.gen2InitialEvents or Area.giftMaps ~= data.gen2Maps) then
+    Area.giftPolicy = Area.Gifts.new(data, checkpoint)
+    Area.giftData, Area.giftScripts = data, data.gen2Scripts
+    Area.giftInitial, Area.giftMaps = data.gen2InitialEvents, data.gen2Maps
+  end
   for _, mapId in ipairs(mapIds) do
     if checkpoint then checkpoint() end
     local map = data and data.gen2Maps and data.gen2Maps[mapId]
     if not map then
       rows[1][#rows[1] + 1] = { mapId = mapId, label = "NOT TRACKED", untracked = true, unknown = true }
     end
+    local gifts = {}
     for _, obj in ipairs(map and map.objects or {}) do
       local trainer = obj.trainer or Area.gen2ScriptTrainer(data, obj)
       if trainer then
@@ -1036,6 +1043,32 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
           unknown = gen2PickupUnknown(world, obj.eventFlag),
           mapId = mapId, x = obj.x, y = obj.y, kind = "item", event = obj.eventFlag,
         }
+      end
+      for _, gift in ipairs(Area.Gifts and not obj.itemball
+          and Area.giftPolicy:catalog(obj.scriptKey, checkpoint) or {}) do
+        local key = gift.event .. ":" .. gift.itemId
+        local hidden = obj.eventFlag ~= 65535 and gen2FlagSet(world, obj.eventFlag)
+        if not gifts[key] or gifts[key].mapVisible == false and not hidden then
+          local done = gen2FlagSet(world, gift.event)
+          local row = {
+            id = mapId .. "_gift_" .. key,
+            actorId = string.format("%s_obj_%d", mapId, obj.index or 0),
+            mapId = mapId, index = obj.index or 0, x = obj.x, y = obj.y,
+            spriteId = obj.sprite, palette = obj.palette, hideEvent = obj.eventFlag,
+            kind = "item", gift = true, itemId = gift.itemId, event = gift.event,
+            label = gen2ItemName(data, gift.itemId), done = done,
+            repeatable = gift.repeatable, available = not done and not hidden,
+            mapVisible = not hidden, unknown = gen2PickupUnknown(world, gift.event),
+            status = not done and hidden and "LATER" or nil,
+          }
+          if row.unknown then row.untracked, row.status = true, "NOT TRACKED" end
+          if gifts[key] then
+            for i, previous in ipairs(rows[2]) do
+              if previous == gifts[key] then rows[2][i] = row; break end
+            end
+          else rows[2][#rows[2] + 1] = row end
+          gifts[key] = row
+        end
       end
     end
     for _, hidden in ipairs(Area.gen2Hidden(data, world, mapId)) do
@@ -2460,6 +2493,8 @@ return function(mod)
   Area.Pickups = assert(load(mod:read("pickup_state.lua"),
     "@kanto_gear/pickup_state.lua"))()
   Area.pickupData = nil
+  Area.Gifts = assert(load(mod:read("gen2_gifts.lua"), "@kanto_gear/gen2_gifts.lua"))()
+  Area.giftData = nil
   displayRuntime.Habitats = assert(load(mod:read("habitats.lua"),
     "@kanto_gear/habitats.lua"))()
   assert(load(mod:read("achievements_ui.lua"), "@kanto_gear/achievements_ui.lua"))()(
@@ -6585,10 +6620,18 @@ return function(mod)
     local scanProgress = explorer.scanFrame
       and math.min(1, explorer.scanFrame / RADAR_FRAMES) or nil
     for _, row in ipairs(allItems) do
-      if row.gift and displayRuntime.gen3 then
-        row.actor = displayRuntime.gen3:mapActor(row)
-        row.mapVisible = not row.actor or row.actor.visible ~= false
-        if row.actor then row.x, row.y = row.actor.x, row.actor.y end
+      if row.gift then
+        row.actor = displayRuntime.gen3 and displayRuntime.gen3:mapActor(row) or actorById[row.actorId]
+        if row.actor then
+          row.mapVisible = row.actor.visible ~= false
+          row.x, row.y = row.actor.x, row.actor.y
+        elseif not displayRuntime.gen3 and mod.world and mod.world.npc and row.index ~= nil then
+          local handle = mod.world:npc(row.mapId, row.index)
+          if handle and type(handle.position) == "function" then
+            local x, y = handle:position()
+            if x ~= nil and y ~= nil then row.x, row.y = x, y end
+          end
+        end
       end
       row.key = table.concat({ "item", tostring(row.kind), tostring(row.x),
         tostring(row.y), tostring(row.label) }, ":")
