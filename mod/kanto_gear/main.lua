@@ -900,6 +900,14 @@ function Area.gen1TrainerMissed(save, mapId, done)
     and save.flags[event] == true or false
 end
 
+function Area.gen1Gifts(data, save, mapId, map, checkpoint)
+  if not Area.Gifts1 then return {} end
+  if Area.gift1Data ~= data then
+    Area.gift1Policy, Area.gift1Data = Area.Gifts1.new(), data
+  end
+  return Area.gift1Policy:rows(data, save, mapId, map, checkpoint)
+end
+
 function Area.itemfinderNear(px, py, x, y)
   local function near(origin, value, high)
     return value > math.max(origin - 5, 0) and value <= origin + high
@@ -2495,6 +2503,8 @@ return function(mod)
   Area.pickupData = nil
   Area.Gifts = assert(load(mod:read("gen2_gifts.lua"), "@kanto_gear/gen2_gifts.lua"))()
   Area.giftData = nil
+  Area.Gifts1 = assert(load(mod:read("gen1_gifts.lua"), "@kanto_gear/gen1_gifts.lua"))()
+  Area.gift1Data = nil
   displayRuntime.Habitats = assert(load(mod:read("habitats.lua"),
     "@kanto_gear/habitats.lua"))()
   assert(load(mod:read("achievements_ui.lua"), "@kanto_gear/achievements_ui.lua"))()(
@@ -4281,6 +4291,9 @@ return function(mod)
             mapId = id, x = obj.x, y = obj.y, kind = "item", itemId = obj.item,
           }, map)
         end
+      end
+      for _, gift in ipairs(Area.gen1Gifts(data, save, id, map, checkpoint)) do
+        sections[2].rows[#sections[2].rows + 1] = Area.pickupBounds(gift, map)
       end
       for _, hidden in ipairs(field.hiddenItems and field.hiddenItems[id] or {}) do
         local item = data.items and data.items[hidden.item]
