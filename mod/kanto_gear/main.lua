@@ -9280,21 +9280,10 @@ return function(mod)
       THEME:translate(page < view.pages and "NEXT" or "CLOSE"), false)
   end
 
-  local function drawTopSummaryControls(_, generic)
-    header(THEME:translate(generic and "MENU ON TOP" or "STATS ON TOP"), true)
-    if THEME.style == "hgss" then
-      G.push()
-      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:pcTopOnly({ kind = generic and "items" or "pokemon" })
-      G.pop()
-      return
-    end
-    centered(THEME:translate("FOLLOW TOP SCREEN"), 58, DARK)
-    if generic then
-      centered(THEME:translate("INPUT STAYS ON TOP"), 78, INK)
-      return
-    end
-    button(14, 94, 132, 34, THEME:translate("BACK"), false)
+  local function drawUnavailableMenu()
+    displayRuntime.drawCompanionPage()
+    drawDim(0.55)
+    displayRuntime.nativeHandoff = true
   end
 
   local function drawPcRoot(kind, root)
@@ -9595,7 +9584,7 @@ return function(mod)
 
   function displayRuntime.drawPcDeposit(root)
     local menu = compat.battleBagMenu(root.pack)
-    if not menu then return drawTopSummaryControls(nil, true) end
+    if not menu then return drawUnavailableMenu() end
     local first, count = choiceWindow(menu.items or {}, menu.index)
     local entries = {}
     for row = 1, count do
@@ -9663,13 +9652,13 @@ return function(mod)
       drawPcItemList(activeList)
     elseif root.screenId == "Gen2PcMenu"
         and (root.message or root.savePhase) then
-      drawTopSummaryControls(nil, true)
+      drawUnavailableMenu()
     elseif root.screenId == "Gen2ItemPcMenu"
         and (root.phase ~= "menu" or root.message
           or root.qtyState or root.confirm) then
-      drawTopSummaryControls(nil, true)
+      drawUnavailableMenu()
     elseif top ~= root then
-      drawTopSummaryControls(nil, true)
+      drawUnavailableMenu()
     else
       drawPcRoot(kind, root)
     end
@@ -9854,7 +9843,7 @@ return function(mod)
   end
 
   local function drawBattle()
-    if battle.nativeUnsupported then drawTopSummaryControls(nil, true); return end
+    if battle.nativeUnsupported then drawUnavailableMenu(); return end
     if currentBattleUIMode() == "info" then
       local info = displayRuntime.enemyInfo()
       if THEME.style == "hgss" then
@@ -10018,9 +10007,9 @@ return function(mod)
       drawMoveInfo(moveInfo)
     elseif summary then
       if compat.summary.supports(summary, game) then drawBattleSummary(summary)
-      else drawTopSummaryControls(summary) end
+      else drawUnavailableMenu() end
     elseif top and top ~= raw and not top.isTextBox then
-      drawTopSummaryControls(nil, true)
+      drawUnavailableMenu()
     elseif battle.prompt == "safari" then
       if THEME.style == "hgss" then drawSafari()
       elseif fullBottomBattleUI() then drawFullSafari()
@@ -10152,12 +10141,11 @@ return function(mod)
       displayRuntime.moveInfoBadge(145, 41, false)
     end
     box("fill", 7, 75, 146, 1, DARK)
-    centered(THEME:translate("FOLLOW TOP SCREEN"), 83, INK)
     if top and top.onChoose and (top.index == 1 or top.index == 2) then
       button(18, 106, 58, 27, THEME:translate("YES"), top.index == 1)
       button(84, 106, 58, 27, THEME:translate("NO"), top.index == 2)
-    elseif top and top.isTextBox then
-      drawDim(0.48, textPrompt(top))
+    else
+      drawDim(0.48, top and top.isTextBox and textPrompt(top))
     end
   end
 
@@ -10177,8 +10165,55 @@ return function(mod)
       and displayRuntime.pressTouch("active", nil, true) == true,
     "modal text and loading overlays capture HGSS press animation")
 
+  function displayRuntime.drawCompanionPage()
+    if fieldChoice then
+      drawFieldChoice()
+      return
+    end
+    if radarOpen then
+      drawRadar()
+    elseif THEME.style == "hgss" and page == "HOME" then
+      displayRuntime.drawHome()
+    elseif THEME.style == "hgss" and page == "STORE" then
+      displayRuntime.drawStore()
+    elseif THEME.style == "hgss" and page == "POKEDEX" then
+      displayRuntime.drawPokedex()
+    elseif THEME.style == "hgss" and page == "ACHIEVEMENTS" then
+      displayRuntime.drawAchievements()
+    elseif THEME.style == "hgss" and page == "NOTES" then
+      displayRuntime.drawNotes()
+    elseif THEME.style == "hgss" and page == "PSS" then
+      displayRuntime.drawPss()
+    elseif THEME.style == "hgss" and page == "BAG" then
+      displayRuntime.drawBag()
+    elseif THEME.style == "hgss" and page == "SETTINGS" then
+      displayRuntime.drawSettings()
+    elseif page == "MAP" then
+      drawMap()
+    elseif page == "LOCAL" then
+      drawLocalMap()
+    elseif page == "GUIDE" then
+      if displayRuntime.guideDetail then
+        displayRuntime.drawGuideDetail()
+      else
+        drawGuide()
+      end
+    elseif page == "AREA" then
+      drawArea()
+    elseif page == "TRAINER" then
+      if trainerStepsOpen then drawStepsDetail() else drawTrainer() end
+    elseif THEME.style == "hgss" and page == "STEPS" then
+      drawStepsDetail()
+    elseif page == "PARTY" then
+      if partyActionSlot then drawPartyAction() else drawNormalParty() end
+    else
+      drawTools()
+    end
+  end
+
   displayRuntime.drawContents = function()
     displayRuntime.backgroundDim = 0
+    displayRuntime.nativeHandoff = false
     G.setCanvas(canvas)
     G.origin()
     G.setScissor()
@@ -10227,7 +10262,7 @@ return function(mod)
     elseif naming then
       drawNaming(naming, namingKeys)
     elseif unsupportedSpecial then
-      drawTopSummaryControls(nil, true)
+      drawUnavailableMenu()
     elseif levelStats then
       drawLevelUpStats(levelStats)
     elseif fieldPp then
@@ -10243,55 +10278,16 @@ return function(mod)
         (THEME.style ~= "hgss" or THEME.hgss.nativeFocus) and fieldParty.index or nil, false)
     elseif displayRuntime.gen3 and mode == "locked"
         and top and top.nativeModal then
-      -- Field scripts and warps only lock input; retain the companion page
-      -- beneath its dim overlay. Reserve handoff controls for real native UI.
-      drawTopSummaryControls(nil, true)
+      -- Unknown native menus leave the companion visible but inactive.
+      drawUnavailableMenu()
     elseif pcKind then
       drawPc(pcKind, pcRoot, top)
-    elseif fieldChoice then
-      drawFieldChoice()
     elseif mode == "title" then
       drawTitle()
-    elseif radarOpen then
-      drawRadar()
-    elseif THEME.style == "hgss" and page == "HOME" then
-      displayRuntime.drawHome()
-    elseif THEME.style == "hgss" and page == "STORE" then
-      displayRuntime.drawStore()
-    elseif THEME.style == "hgss" and page == "POKEDEX" then
-      displayRuntime.drawPokedex()
-    elseif THEME.style == "hgss" and page == "ACHIEVEMENTS" then
-      displayRuntime.drawAchievements()
-    elseif THEME.style == "hgss" and page == "NOTES" then
-      displayRuntime.drawNotes()
-    elseif THEME.style == "hgss" and page == "PSS" then
-      displayRuntime.drawPss()
-    elseif THEME.style == "hgss" and page == "BAG" then
-      displayRuntime.drawBag()
-    elseif THEME.style == "hgss" and page == "SETTINGS" then
-      displayRuntime.drawSettings()
-    elseif page == "MAP" then
-      drawMap()
-    elseif page == "LOCAL" then
-      drawLocalMap()
-    elseif page == "GUIDE" then
-      if displayRuntime.guideDetail then
-        displayRuntime.drawGuideDetail()
-      else
-        drawGuide()
-      end
-    elseif page == "AREA" then
-      drawArea()
-    elseif page == "TRAINER" then
-      if trainerStepsOpen then drawStepsDetail() else drawTrainer() end
-    elseif THEME.style == "hgss" and page == "STEPS" then
-      drawStepsDetail()
-    elseif page == "PARTY" then
-      if partyActionSlot then drawPartyAction() else drawNormalParty() end
     else
-      drawTools()
+      displayRuntime.drawCompanionPage()
     end
-    if not startMenu and not learn and not naming and not battle and not choice and not levelStats
+    if not displayRuntime.nativeHandoff and not startMenu and not learn and not naming and not battle and not choice and not levelStats
         and not fieldPp and not fieldParty and not hgssSummary
         and not (pcKind and mode == "locked")
         and mode ~= "title" and mode ~= "active" then

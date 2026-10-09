@@ -57,3 +57,4 @@ tests/unified_summary_test.lua
 tests/party_storage_test.lua
 tests/unified_choice_test.lua
 tests/unified_naming_test.lua
+tests/unified_handoff_test.lua

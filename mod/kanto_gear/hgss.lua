@@ -5016,17 +5016,6 @@ return function(ui)
     end
   end
 
-  function H:pcTopOnly(model)
-    local colors = self.colors
-    self:panel(18, 48, 204, 132, false, nil, colors.blueLight)
-    self:pcStorageIcon(104, 62, model and model.kind)
-    box("fill", 34, 101, 172, 1, colors.band)
-    self:partyInfo(translate("FOLLOW TOP SCREEN"), 28, 116,
-      colors.green, 184, "center")
-    self:partyInfo(translate("INPUT STAYS ON TOP"), 28, 137,
-      colors.ink, 184, "center")
-  end
-
   function H:pcNoticeRows(count)
     local visible = math.max(1, math.min(4, count or 0))
     local lineHeight = visible == 4 and 13 or visible == 3 and 16 or 18
@@ -6251,9 +6240,7 @@ return function(ui)
         self:endPress(pressed)
       end
     else
-      self:panel(27, 145, 186, 40, false, nil, colors.greenLight)
-      self:partyInfo(self:fitPartyInfo(translate("FOLLOW TOP SCREEN"), 170),
-        35, 160, colors.green, 170, "center")
+      self:systemOverlay(0.48)
     end
   end
 

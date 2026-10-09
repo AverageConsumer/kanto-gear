@@ -124,7 +124,7 @@ local Field = require("src.core.game3.field")
 local originalLocked, handoffs, fallbackIndex, fallback = Field.locked, 0
 for i = 1, debug.getinfo(display.drawContents, "u").nups do
   local name, value = debug.getupvalue(display.drawContents, i)
-  if name == "drawTopSummaryControls" then fallbackIndex, fallback = i, value end
+  if name == "drawUnavailableMenu" then fallbackIndex, fallback = i, value end
 end
 debug.setupvalue(display.drawContents, assert(fallbackIndex), function(...)
   handoffs = handoffs + 1
@@ -141,7 +141,7 @@ T.eq(handoffs, 0, "ordinary field dialogue retains the companion rather than a m
 fieldMessage.reset()
 Stack.push("test-native-modal", {})
 display.gen3.syncScreens(); display.drawContents()
-T.eq(handoffs, 1, "unadapted native menus still show the handoff controls")
+T.eq(handoffs, 1, "unadapted native menus use the dimmed companion fallback")
 Stack.clear(); Field.locked = originalLocked
 display.gen3.syncScreens()
 debug.setupvalue(display.drawContents, fallbackIndex, fallback)
