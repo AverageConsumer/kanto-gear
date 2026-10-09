@@ -172,6 +172,11 @@ function Dex.model(view, Page, pokemon, drawPokemon, lines)
       compactActions = state.compactActions }
     if state.kind == "area" then
       model.area, model.region = state.area, state.region
+      if state.comparison then
+        model.combined = true
+        model.areaViewport = { x = 14, y = 94, width = 96, height = 80 }
+        model.comparison = Page.comparison(state.comparison, 130, 98, 96, 58)
+      end
       return model
     elseif state.kind == "cry" then
       model.playing, model.wave = state.playing, state.wave

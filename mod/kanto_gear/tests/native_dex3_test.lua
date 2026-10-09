@@ -267,7 +267,40 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       action(1)
       T.eq(Native.dataPage,2,"next data retains native area/size page")
       T.check(not profile.valid(),"old profile cannot activate after native data page changes")
-      tick("b"); tick("b")
+      local combined=view()
+      T.eq(combined.dexModel.view,"area","FRLG second data page has a common habitat layout")
+      T.check(combined.dexModel.combined,"native area and size remain available together")
+      T.eq(#combined.dexModel.comparison,2,"caught FRLG entry includes both genuine silhouettes")
+      T.eq(combined.dex.portrait(first),Pokemon.dexFrontPic(first,Dex.defaultPersonality(dex,first)).image,
+        "FRLG portrait uses the native Dex form and color resolver")
+      local entry=require("src.core.game3.pokedex_data").getEntry(first)
+      T.check(math.abs(combined.dexModel.comparison[1].scale/combined.dexModel.comparison[2].scale
+        - Native.silhouetteScale(entry.pokemonScale)/Native.silhouetteScale(entry.trainerScale))<1e-10,
+        "FRLG comparison preserves the actual ROM ratio and offsets")
+      T.eq(view().dex.area,combined.dex.area,"FRLG habitat metadata is reused while unchanged")
+      T.eq(view().dex.comparison,combined.dex.comparison,"FRLG does not rebuild silhouette metadata each poll")
+      T.eq(click(178,130),nil,"combined size artwork is static")
+      render("area_size")
+      T.eq(action(1),"start","combined cry uses the original FRLG audio handler")
+      T.eq(Native.dataPage,2,"cry retains the combined native page")
+      local gender=game.session.gender
+      game.session.gender="female"
+      local female=view()
+      T.eq(female.dex.comparison[2].img,require("src.ui.game3.pokedex_chrome").getTrainerPic("female"),
+        "FRLG size page follows the current player's actual trainer gender")
+      T.check(not combined.valid(),"changed trainer context invalidates stale combined targets")
+      render("area_size_female")
+      game.session.gender=gender
+      local pidgey=Pokemon.speciesFromNational(16)
+      Dex.setCaught(dex,pidgey);Native.selectedSpecies=pidgey
+      T.check(not view().dexModel.area.unknown,"actual FRLG wild species has native Kanto markers")
+      render("area_size_wild")
+      Native.selectedSpecies=first
+      T.eq(action(2),"b","Entry returns through native previous-data input")
+      T.eq(Native.dataPage,1,"Entry restores native FRLG data page one")
+      action(1)
+      T.eq(action(3),"a","Cancel closes through the native data-page action")
+      T.eq(Native.screen,"ordered_list","combined cancel restores the original native catalogue")
     end
     click(197,88); ready()
     local unknown = view()
@@ -276,6 +309,14 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.eq(unknown.dexModel.pokemon.weight,"--","seen-only entry hides weight")
     T.eq(#unknown.dexModel.pokemon.description,0,"seen-only entry hides owned description")
     T.eq(unknown.dexModel.pokemon.kind,"?????","seen-only Gen3 category remains hidden")
+    if not emerald then
+      action(1)
+      local hiddenArea=view()
+      T.eq(#hiddenArea.dexModel.comparison,0,"seen-only FRLG entry never reveals size silhouettes")
+      T.eq(hiddenArea.dexModel.pokemon.height,"--","combined page retains the native measurement restriction")
+      render("area_size_seen_only")
+      action(2)
+    end
     if emerald then
       T.eq(unknown.items[3].inert,true,"unowned size comparison is inert")
       T.eq(action(3),nil,"disabled size control sends no input")

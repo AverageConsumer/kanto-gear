@@ -1044,10 +1044,18 @@ return function(ui)
   function H:pokedexArea(model)
     local colors, G = self.colors, ui.graphics
     dexResearchHero(self, model, colors.green, translate(model.region or "AREA"), translate("AREA"))
-    self:panel(7, 76, 226, 104, false, nil, colors.greenLight)
+    if model.combined then
+      self:panel(8, 76, 108, 104, false, nil, colors.greenLight)
+      self:panel(124, 76, 108, 104, false, nil, colors.blueLight)
+      self:partyInfoCentered(translate("AREA"), 14, 80, 96, 10, colors.green)
+      self:partyInfoCentered(translate("SIZE"), 130, 80, 96, 10, colors.blue)
+      self:pokedexComparison(model)
+      if model.pokemon.caught then self:partyInfoCentered(model.pokemon.height or "--", 130, 164, 96, 10, colors.mutedInk)
+      else self:partyInfoCentered("--", 130, 117, 96, 20, colors.mutedInk) end
+    else self:panel(7, 76, 226, 104, false, nil, colors.greenLight) end
     local area = model.area
     if area and area.available then
-      local t = PokedexPage.areaTransform(area)
+      local t = PokedexPage.areaTransform(area, model.areaViewport)
       G.setScissor(t.x + area.x * t.scale, t.y + area.y * t.scale,
         area.width * t.scale, area.height * t.scale)
       G.push(); G.translate(t.x, t.y); G.scale(t.scale, t.scale)
@@ -1070,8 +1078,10 @@ return function(ui)
       G.setScissor()
     end
     if not area or not area.available or area.unknown then
-      self:panel(39, 116, 162, 24, false, nil, colors.surface)
-      self:partyInfoCentered(self:fitPartyInfo(translate("UNKNOWN AREA"), 150), 45, 116, 150, 24, colors.mutedInk)
+      local x, width = model.combined and 16 or 39, model.combined and 92 or 162
+      local y = model.combined and 122 or 116
+      self:panel(x, y, width, 24, false, nil, colors.surface)
+      self:partyInfoCentered(self:fitPartyInfo(translate("UNKNOWN AREA"), width - 8), x + 4, y, width - 8, 24, colors.mutedInk)
     end
     self:pokedexActions(model)
   end
@@ -1097,10 +1107,8 @@ return function(ui)
     self:pokedexActions(model)
   end
 
-  function H:pokedexSize(model)
+  function H:pokedexComparison(model)
     local colors, G = self.colors, ui.graphics
-    dexResearchHero(self, model, colors.blue, translate("SIZE"), model.pokemon.height or "--")
-    self:panel(7, 76, 226, 75, false, nil, colors.blueLight)
     if self.dexSilhouetteShader == nil then
       local ok, shader = pcall(G.newShader, [[vec4 effect(vec4 tint, Image image, vec2 uv, vec2 screen) {
         return vec4(tint.rgb, Texel(image, uv).a * tint.a);
@@ -1114,6 +1122,13 @@ return function(ui)
       if row.image then G.draw(row.image, row.x, row.y, 0, row.scale, row.scale, 32, 32) end
     end
     G.setShader(previous)
+  end
+
+  function H:pokedexSize(model)
+    local colors = self.colors
+    dexResearchHero(self, model, colors.blue, translate("SIZE"), model.pokemon.height or "--")
+    self:panel(7, 76, 226, 75, false, nil, colors.blueLight)
+    self:pokedexComparison(model)
     self:partyInfoCentered(self:fitPartyInfo(model.caption or "", 210), 15, 139, 210, 10, colors.mutedInk)
     self:pokedexActions(model)
   end

@@ -51,12 +51,13 @@ end
 
 -- Native habitat atlases use their own coordinate system; fit the full region,
 -- never a viewport around the current Pokemon or a subset of its markers.
-function Page.areaTransform(area)
-  -- These tile atlases have 16-pixel-aligned crops. Eighth steps keep both
-  -- visible edges centered on exact pixels in Gear's 1.5x canvas.
-  local scale = math.floor(math.min(212 / area.width, 90 / area.height) * 8) / 8
-  return { x = 120 - (area.x + area.width / 2) * scale,
-    y = 128 - (area.y + area.height / 2) * scale, scale = scale }
+function Page.areaTransform(area, viewport)
+  viewport = viewport or { x = 14, y = 83, width = 212, height = 90 }
+  -- Quantize the tile atlas scale so the visible region keeps balanced
+  -- edges on Gear's 1.5x canvas.
+  local scale = math.floor(math.min(viewport.width / area.width, viewport.height / area.height) * 8) / 8
+  return { x = viewport.x + viewport.width / 2 - (area.x + area.width / 2) * scale,
+    y = viewport.y + viewport.height / 2 - (area.y + area.height / 2) * scale, scale = scale }
 end
 
 function Page.pagerRect(direction, description)

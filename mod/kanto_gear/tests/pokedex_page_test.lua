@@ -69,6 +69,11 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       T.eq(edge*1.5,math.floor(edge*1.5),"atlas crop edges land on exact pixels in the 1.5x Gear canvas")
     end
   end
+  local atlas={x=0,y=0,width=96,height=72}
+  local t=Page.areaTransform(atlas,{x=14,y=94,width=96,height=80})
+  T.eq(t.scale,1,"small native FRLG atlas retains its original pixels")
+  T.eq(t.x,14,"FRLG atlas fits its column with equal visible side gaps")
+  T.eq(t.y,98,"FRLG atlas is centered below its label with equal top and bottom gaps")
   local area={view="area",compactActions=true,actions={{label="JOHTO",inert=true},{label="KANTO"},{label="ENTRY"}}}
   local x,y,w,h=Page.actionRect(2,3,true)
   T.eq(y,185,"habitat buttons leave the atlas's full content height")

@@ -178,6 +178,49 @@ local function describe(layer, game, previous)
           native.categoryPage, native.categorySlot = (native.categoryPage - 1 + direction) % state.pages + 1, 1
         end
       end
+    elseif native.screen == "data" and native.dataPage == 2 then
+      local sp = native.selectedSpecies
+      local owned, gender = Dex.isCaught(dex, sp), native.playerGender()
+      local personality = Dex.defaultPersonality(dex, sp)
+      Data.init()
+      local areaKey = table.concat({ tostring(dex), sp, tostring(owned), gender, tostring(personality), tostring(Data._speciesWildAreas) }, ":")
+      local cached = previous and previous.dex.areaKey == areaKey and previous.dex
+      local area, silhouettes = cached and cached.area, cached and cached.comparison
+      if not area then
+        local Chrome = require("src.ui.game3.pokedex_chrome")
+        local markers = {}
+        for _, key in ipairs(Data.getWildAreasForSpecies(sp)) do
+          if Data.getAreaMapKey(key) == "kanto" then
+            local marker = Data.getAreaMarker(key)
+            if marker then markers[#markers + 1] = marker end
+          end
+        end
+        area = { x = 0, y = 0, width = 96, height = 72, unknown = #markers == 0,
+          available = Chrome.getImage("map_kanto") ~= nil,
+          draw = function()
+            Chrome.drawMap("kanto", 0, 0)
+            for _, marker in ipairs(markers) do Chrome.drawAreaMarker(marker.shape, marker.x - 32, marker.y) end
+          end }
+        silhouettes = {}
+        if owned then
+          local entry = Data.getEntry(sp)
+          local pic, trainer = Pokemon.dexFrontPic(sp, personality), Chrome.getTrainerPic(gender)
+          local root = require("src.core.game3.cache_paths").CACHE_ROOT
+          for i, row in ipairs({ { img = pic and pic.image, x = 40, y = 104, y2 = entry.pokemonOffset or 0,
+              scale = 256 / native.silhouetteScale(entry.pokemonScale) },
+            { img = trainer, x = 80, y = 104, y2 = entry.trainerOffset or 0,
+              scale = 256 / native.silhouetteScale(entry.trainerScale) } }) do
+            local path = root .. "/" .. (i == 1 and "pokemon/front/" .. Pokemon.picSpecies(sp, personality)
+              or "trainers/front/" .. (gender == "female" and 136 or 135)) .. ".rgba"
+            row.bounds = bounds(row.img, path, Pokemon)
+            silhouettes[i] = row
+          end
+        end
+      end
+      state = { kind = "area", species = sp, owned = owned, area = area, areaKey = areaKey,
+        comparison = silhouettes, region = "KANTO", page = 2, compactActions = true,
+        signature = areaKey, actions = { { label = "CRY", key = "start" },
+          { label = "ENTRY", key = "b" }, { label = "CANCEL", key = "a" } } }
     elseif native.screen == "registration" or native.screen == "data" and native.dataPage == 1 then
       local sp = native._regSpecies or native.selectedSpecies
       local registration = native.screen == "registration"
@@ -292,7 +335,8 @@ local function describe(layer, game, previous)
       local s = native._s
       if s and s.caught then personality = s.caught.personality or 0 end
     end
-    local pic = Pokemon.frontPic(Pokemon.picSpecies(sp, personality), nil, false, personality, "dex")
+    local pic = layer.id == "pokedex" and Pokemon.dexFrontPic(sp, personality)
+      or Pokemon.frontPic(Pokemon.picSpecies(sp, personality), nil, false, personality, "dex")
     return pic and pic.image
   end
   return state
