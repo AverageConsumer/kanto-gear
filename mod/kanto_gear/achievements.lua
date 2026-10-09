@@ -68,7 +68,7 @@ function M.build(groups, read, context, checkpoint)
   local result = { areas = {}, byId = {}, goals = {}, earned = {}, total = 0, done = 0 }
   for _, group in ipairs(groups) do
     local area = { id = group.id, name = group.name, kind = group.kind,
-      maps = group.maps, sections = {}, done = 0, total = 0, evidence = false }
+      maps = group.maps, sections = {}, done = 0, total = 0, evidence = false, unknown = 0 }
     for _, id in ipairs(group.maps) do
       area.current = area.current or id == context.mapId
       area.evidence = area.evidence or id == context.mapId
@@ -79,11 +79,16 @@ function M.build(groups, read, context, checkpoint)
     local sections = sourceData.sections
     for category = 1, 3 do
       local section = { rows = {}, done = 0, total = 0, unavailable = 0,
-        optional = 0, untracked = 0, excluded = 0, repeatable = 0 }
+        optional = 0, untracked = 0, excluded = 0, repeatable = 0, unknown = 0 }
       for _, source in ipairs(sections[category].rows) do
         local row = {}
         for key, value in pairs(source) do row[key] = value end
         row.state = M.rowState(row, category, context)
+        -- A known find with no permanent collection flag is informational.
+        -- Missing source data is different: it cannot prove a complete area.
+        if row.unknown or category == 1 and row.state == "untracked" then
+          section.unknown = section.unknown + 1
+        end
         area.evidence = area.evidence or row.state == "done"
         if row.state == "excluded" or row.state == "optional" or row.state == "untracked" or row.state == "repeatable" then
           section[row.state] = section[row.state] + 1
@@ -95,6 +100,7 @@ function M.build(groups, read, context, checkpoint)
         section.rows[#section.rows + 1] = row
       end
       area.sections[category] = section
+      area.unknown = area.unknown + section.unknown
       area.done, area.total = area.done + section.done, area.total + section.total
     end
     area.fieldTotal, area.fieldDone = area.total, area.done
@@ -116,10 +122,10 @@ function M.build(groups, read, context, checkpoint)
       unknown = unknown + area.sections[i].untracked
       area.availableRemaining = area.availableRemaining - area.sections[i].unavailable
     end
-    local fieldComplete = area.fieldDone == area.fieldTotal and unknown == 0
+    local fieldComplete = area.fieldDone == area.fieldTotal and area.unknown == 0
     area.untracked = unknown
     area.tier = area.evidence and "bronze" or "none"
-    if area.evidence and fieldComplete and area.total > 0 then
+    if area.evidence and fieldComplete then
       area.tier = pokemon.done == pokemon.total and "gold" or "silver"
     end
     area.complete = area.tier == "gold"
@@ -177,11 +183,14 @@ function M.presentArea(area, mode, visible)
   out.sections = {}
   for category, source in ipairs(area.sections) do
     local section = { rows = {}, done = 0, total = 0, unavailable = 0,
-      optional = 0, untracked = 0, excluded = 0, repeatable = 0 }
+      optional = 0, untracked = 0, excluded = 0, repeatable = 0, unknown = 0 }
     for _, row in ipairs(source.rows) do
       if visible(row, category) then
         section.rows[#section.rows + 1] = row
         local state = row.state
+        if row.unknown or category == 1 and state == "untracked" then
+          section.unknown = section.unknown + 1
+        end
         if state == "optional" or state == "untracked" or state == "excluded" or state == "repeatable" then
           section[state] = section[state] + 1
         else

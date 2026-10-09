@@ -789,6 +789,18 @@ end
 
 local Area = {}
 
+function Area.pickupBounds(row, map)
+  -- Imported dimensions are 32px blocks, positions are 16px cells.
+  -- Preserve custom maps: only the actual current dimensions decide this.
+  if map and type(map.width) == "number" and type(map.height) == "number"
+      and type(row.x) == "number" and type(row.y) == "number"
+      and (row.x < 0 or row.y < 0 or row.x >= map.width * 2 or row.y >= map.height * 2) then
+    row.outsideMap, row.untracked, row.done, row.available = true, true, false, false
+    row.status = "NOT TRACKED"
+  end
+  return row
+end
+
 -- Gen 1 stores ordinary trainers on their object, but story encounters set
 -- wCurOpponent from map script instead.  Keep the small exceptional set here;
 -- object names are stable across Red, Blue, and Yellow manifests.
@@ -914,6 +926,11 @@ local function gen2FlagSet(world, event)
     and world:getFlag(event) == true or false
 end
 
+local function gen2PickupUnknown(world, event)
+  return type(event) == "number" and event >= 8 and event ~= 65535
+    and (not world or not world.getFlag or world:getFlag(event) == nil) or false
+end
+
 local function gen2ItemName(data, index)
   local def, id = gen2Definition(data and data.items, index)
   return def and def.name or id or tostring(index)
@@ -959,6 +976,7 @@ function Area.gen2Hidden(data, world, mapId)
         label = gen2ItemName(data, hidden.item),
         done = done, available = available, status = status,
         untracked = status == "NOT TRACKED",
+        unknown = gen2PickupUnknown(world, hidden.event),
         x = event.x, y = event.y, event = hidden.event,
       }
     end
@@ -993,6 +1011,9 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
   for _, mapId in ipairs(mapIds) do
     if checkpoint then checkpoint() end
     local map = data and data.gen2Maps and data.gen2Maps[mapId]
+    if not map then
+      rows[1][#rows[1] + 1] = { mapId = mapId, label = "NOT TRACKED", untracked = true, unknown = true }
+    end
     for _, obj in ipairs(map and map.objects or {}) do
       local trainer = obj.trainer or Area.gen2ScriptTrainer(data, obj)
       if trainer then
@@ -1012,6 +1033,7 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
           label = gen2ItemName(data, obj.itemball.item),
           done = done, available = available, status = status,
           untracked = status == "NOT TRACKED",
+          unknown = gen2PickupUnknown(world, obj.eventFlag),
           mapId = mapId, x = obj.x, y = obj.y, kind = "item", event = obj.eventFlag,
         }
       end
@@ -4099,6 +4121,11 @@ return function(mod)
     for _, id in ipairs(maps) do
       if checkpoint then checkpoint() end
       local map = data.maps and data.maps[id]
+      if not map then
+        sections[1].rows[#sections[1].rows + 1] = {
+          mapId = id, label = "NOT TRACKED", untracked = true, unknown = true,
+        }
+      end
       for _, obj in ipairs(map and map.objects or {}) do
         local key = id .. "_obj_" .. tostring(obj.index)
         local scripted = Area.gen1ScriptTrainer(id, obj)
@@ -4146,29 +4173,29 @@ return function(mod)
           end
         elseif obj.item and obj.item ~= "0" and obj.item ~= 0 then
           local item = data.items and data.items[obj.item]
-          sections[2].rows[#sections[2].rows + 1] = {
+          sections[2].rows[#sections[2].rows + 1] = Area.pickupBounds({
             label = item and item.name or obj.item,
             done = save.itemsTaken and save.itemsTaken[key] == true or false,
             mapId = id, x = obj.x, y = obj.y, kind = "item", itemId = obj.item,
-          }
+          }, map)
         end
       end
       for _, hidden in ipairs(field.hiddenItems and field.hiddenItems[id] or {}) do
         local item = data.items and data.items[hidden.item]
         local key = id .. "_" .. hidden.x .. "_" .. hidden.y
-        sections[3].rows[#sections[3].rows + 1] = {
+        sections[3].rows[#sections[3].rows + 1] = Area.pickupBounds({
           label = item and item.name or hidden.item,
           done = save.hiddenTaken and save.hiddenTaken[key] == true or false,
           mapId = id, x = hidden.x, y = hidden.y, kind = "hidden",
-        }
+        }, map)
       end
       for _, hidden in ipairs(field.hiddenCoins and field.hiddenCoins[id] or {}) do
         local key = id .. "_" .. hidden.x .. "_" .. hidden.y
-        sections[3].rows[#sections[3].rows + 1] = {
+        sections[3].rows[#sections[3].rows + 1] = Area.pickupBounds({
           label = THEME:format("%d COINS", hidden.coins),
           done = save.hiddenTaken and save.hiddenTaken[key] == true or false,
           mapId = id, x = hidden.x, y = hidden.y, kind = "hidden",
-        }
+        }, map)
       end
     end
     if not completion then displayRuntime.visibleAreaSections(sections) end
@@ -4401,6 +4428,7 @@ return function(mod)
     for _, item in ipairs(hidden) do
       local key = mapId .. "_" .. item.x .. "_" .. item.y
       if not taken[key]
+          and not Area.pickupBounds({ x = item.x, y = item.y }, game.data.maps[mapId]).outsideMap
           and Area.itemfinderNear(
             player.cellX, player.cellY, item.x, item.y) then
         out[#out + 1] = {
@@ -6303,7 +6331,7 @@ return function(mod)
       return Discovery.row(displayRuntime.discoveryMode(), row, row.kind == "hidden" and 3 or 2,
         displayRuntime.knownMap(row.mapId or id))
     end)
-    local mapItems = allItems
+    local mapItems = Discovery.filter(allItems, function(row) return not row.outsideMap end)
     for _, row in ipairs(wild) do
       local def = game.data.pokemon and game.data.pokemon[row.species] or {}
       local types = row.types or def.types or {}

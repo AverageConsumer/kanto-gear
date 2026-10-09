@@ -73,7 +73,7 @@ return function(H, G, translate, format)
     local status = translate(area.complete and "AREA COMPLETE" or "KEEP EXPLORING")
     if not area.complete and mode == "spoiler"
         and (area.total > 0 or (area.untracked or 0) > 0) then
-      status = area.remaining == 0 and (area.untracked or 0) > 0
+      status = area.remaining == 0 and (area.unknown or 0) > 0
         and translate("NOT TRACKED")
         or area.remaining > 0 and area.availableRemaining == 0 and translate("MISSED GOALS")
         or format("%d LEFT", area.remaining)
@@ -85,7 +85,7 @@ return function(H, G, translate, format)
       local section = area.sections[category]
       local known = mode ~= "vanilla" and (category ~= 3 or mode == "spoiler")
       local complete = known and section.total > 0 and section.done == section.total
-        and (section.untracked or 0) == 0
+        and (section.unknown or 0) == 0
       local cx = gridLeft + (category - 1) % 2 * (cellWidth + 4)
       local cy = y + 35 + math.floor((category - 1) / 2) * 22
       rect(cx, cy, cellWidth, 21, c.surface)
@@ -220,7 +220,7 @@ return function(H, G, translate, format)
         or area.tier == "silver" and "COMPLETE LOCAL POKEDEX"
         or area.tier == "bronze" and "FINISH AREA TASKS" or "KEEP EXPLORING"
       name(translate(nextGoal), 70, 40, 150, 20, accent)
-      label(model.mode == "spoiler" and (area.remaining == 0 and (area.untracked or 0) > 0
+      label(model.mode == "spoiler" and (area.remaining == 0 and (area.unknown or 0) > 0
           and translate("NOT TRACKED") or format("%d LEFT", area.remaining))
         or translate("YOUR JOURNEY"), 70, 65, 150, 12, quiet, true)
       local titles = { "TRAINERS", "ITEMS", "HIDDEN FINDS", "POKEMON" }

@@ -173,7 +173,8 @@ function M:catalog(mapId, checkpoint)
         elseif (command.op == "callstd" or command.op == "gotostd") and command.std == 1 then
           local row = base(obj)
           row.kind, row.itemId, row.event = "item", value, obj.flag
-          row.untracked = not self.adapter.data.items[value] or not obj.flag or obj.flag < 0x20 or obj.flag == 65535
+          row.unknown = not self.adapter.data.items[value]
+          row.untracked = row.unknown or not obj.flag or obj.flag < 0x20 or obj.flag == 65535
           if self.emerald and mapId:match("^EM_BATTLE_PYRAMID_SQUARE") then
             -- These templates receive random items for each challenge and have
             -- no permanent collection flag. Never count them as route pickups.
@@ -230,7 +231,8 @@ function M:catalog(mapId, checkpoint)
       row.kind, row.itemId, row.event = "hidden", bg.item, bg.flag
       row.underfoot = bg.underfoot
       row.repeatable = self.renewable[bg.flag] == true
-      row.untracked = not self.adapter.data.items[bg.item] or not bg.flag or bg.flag < 0x20
+      row.unknown = not self.adapter.data.items[bg.item]
+      row.untracked = row.unknown or not bg.flag or bg.flag < 0x20
       out[3][#out[3] + 1] = row
     elseif bg.scriptKey then scan(bg) end
   end

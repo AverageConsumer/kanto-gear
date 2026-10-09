@@ -385,6 +385,32 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.eq(display.achievements.data, nil, version .. " save loading cannot keep future progress")
   love.timer.getTime = clock
 
+  if not gen2 then
+    -- The retail Safari gate's Nugget is at (10,1), beyond its 8x6 cells.
+    -- Exercise the shared readers so it cannot become a radar/map target.
+    local readArea = assert(upvalue(display.achievementData, "areaData"))
+    maps.ROUTE_9.width, maps.ROUTE_9.height = 4, 3
+    maps.ROUTE_9.objects = {}
+    data.field.hiddenItems.ROUTE_9 = { { x = 10, y = 1, item = "POTION" } }
+    local row = readArea({ "ROUTE_9" }, true).sections[3].rows[1]
+    T.check(row.outsideMap and row.untracked and row.available == false and not row.done,
+      version .. " off-map find is explicitly untracked, never collected")
+    run.loader.events:emit("map.entered", { mapId = "ROUTE_9" })
+    world.map.id, world.player.cellX, world.player.cellY = "ROUTE_9", 7, 1
+    T.eq(album().byId.ROUTE_9.tier, "gold", version .. " unreachable find cannot prevent Gold")
+    local signals = assert(upvalue(display.finishScanFeedback, "radarSignals"))
+    T.eq(#signals(), 0, version .. " unreachable find cannot trigger Itemfinder")
+    local overview = { mapId = "ROUTE_9", rows = { "        " }, width = 8, height = 6 }
+    local explorer = display.explorerModel(overview)
+    for _, marker in ipairs(explorer.markers) do
+      T.check(marker.x ~= 10, version .. " no off-map marker")
+    end
+    maps.ROUTE_9.width = 6
+    row = readArea({ "ROUTE_9" }, true).sections[3].rows[1]
+    T.check(not row.outsideMap and not row.untracked,
+      version .. " resized custom map restores a genuinely reachable find")
+  end
+
   if gen2 then
     -- Issue 35: exercise the real readers, album and Itemfinder on each GSC
     -- adapter, using a different flag ID and item name than the retail Spule.
@@ -468,6 +494,28 @@ T.eq(progressFor({ event = 55, optional = true, status = "LOST" }).byId.TEST.tie
   "gold", "optional one-shot losses do not block gold")
 T.eq(progressFor({ event = 2, done = true }).byId.TEST.tier,
   "bronze", "unreliable completion cannot falsely award gold")
+
+local function areaFor(sections, pokemon, visited)
+  return Progress.build({ { id = "TEST", name = "TEST", maps = { "TEST" } } }, function()
+    return { sections = sections, pokemon = pokemon or {} }
+  end, { gen2 = true, mapId = visited and "TEST" or "ELSEWHERE", save = {},
+    flag = function() return false end }).byId.TEST
+end
+local empty = { { rows = {} }, { rows = {} }, { rows = {} } }
+T.eq(areaFor(empty, nil, true).tier, "gold", "visited area without objectives is complete")
+T.eq(areaFor(empty, nil, false), nil, "empty unvisited area earns nothing")
+local recurring = { { rows = {} }, { rows = {} },
+  { rows = { { untracked = true, event = 309, status = "NOT TRACKED" } } } }
+local finished = areaFor(recurring, nil, true)
+T.eq(finished.tier, "gold", "Moon Square style non-durable find cannot block Gold")
+T.eq(finished.sections[3].untracked, 1, "untracked find stays documented")
+T.eq(finished.sections[3].done, 0, "non-durable find is never given a false checkmark")
+T.eq(areaFor(recurring, { { species = "A", done = false } }, true).tier,
+  "silver", "uncaught local Pokemon still prevents Gold")
+T.eq(areaFor({ { rows = {} }, { rows = { { untracked = true, unknown = true } } },
+  { rows = {} } }, nil, true).tier, "bronze", "unknown item metadata still blocks completion")
+T.eq(areaFor({ { rows = { { untracked = true } } }, { rows = {} }, { rows = {} } },
+  nil, true).tier, "bronze", "missing source catalogue cannot award Gold")
 -- Deterministic workload: verify both bounded progress and exact parity with
 -- the existing synchronous rules, including goals ordering and every row.
 local groups = {}
