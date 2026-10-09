@@ -38,6 +38,26 @@ return function(T, display, H)
     Page.layout(rows,{1,3,5})
     T.same(rows[2].rect,{Page.rect(3)},"native compact rows map to actual move slots")
     T.same(rows[3].rect,{0,0,27,28},"native cancellation uses the shared header back button")
+    local prompt={mon={},newMove=model.moves[1],details=true,choices={"YES","NO"},
+      prompt={"Stop learning this move?"}}
+    local ok,err=pcall(Page.drawPrompt,H,prompt)
+    T.check(ok,"learning question renders in both themes: "..tostring(err))
+    T.eq(Page.promptHit(prompt,120,105),"new","prompt exposes new move information")
+    T.eq(Page.promptHit(prompt,120,140),nil,"question has no touch action")
+    T.eq(Page.promptHit(prompt,120,187),nil,"equal center gap has no touch action")
+    Page.promptLayout(rows)
+    for index=1,2 do
+      local x,y,w,h=Page.promptRect(index)
+      T.eq(Page.promptHit(prompt,x+w/2,y+h/2),index,"prompt touches match the native answer")
+      T.same(rows[index].rect,{x,y,w,h},"native answers share prompt hit geometry")
+      T.eq(Page.promptHit(prompt,x+w/2,y+h),nil,"prompt lower edge does not select")
+    end
+    prompt.enabled=false
+    T.eq(Page.promptHit(prompt,60,187),nil,"busy prompt cannot answer")
+    T.eq(Page.promptHit(prompt,120,105),nil,"busy prompt cannot open covered details")
+    prompt.enabled,prompt.choices=true,nil
+    T.eq(Page.promptHit(prompt,60,187),nil,"unready prompt cannot answer")
+    T.check(pcall(Page.drawPrompt,H,prompt),"unready prompt renders dimmed without answers")
   end
   H:setVariant(false)
 end

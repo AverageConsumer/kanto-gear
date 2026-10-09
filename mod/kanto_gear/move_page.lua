@@ -47,4 +47,48 @@ function Page.draw(H, model)
   end
 end
 
+function Page.promptRect(index)
+  return 6 + (index - 1) * 118, 164, 110, 46
+end
+
+function Page.promptLayout(items)
+  for index, item in ipairs(items) do item.rect = { Page.promptRect(index) } end
+end
+
+function Page.promptHit(model, x, y)
+  if model.enabled == false or not model.choices then return end
+  if model.details and x >= 6 and x < 234 and y >= 88 and y < 122 then return "new" end
+  for index in ipairs(model.choices) do
+    local ax, ay, w, h = Page.promptRect(index)
+    if x >= ax and x < ax + w and y >= ay and y < ay + h then return index end
+  end
+end
+
+function Page.drawPrompt(H, model)
+  local c, mon = H.colors, model.mon or {}
+  local enabled = model.enabled ~= false and model.choices ~= nil
+  H:panel(6, 33, 228, 51, false, nil, H:typeColor(mon.type))
+  H:partyPortrait(13, 36, false, false)
+  if model.drawPokemon then model.drawPokemon(14, 39, 34) end
+  H:partyName(mon.name or "", 57, 41, c.ink, 122)
+  H:partyInfo(mon.levelText or "", 186, 41, c.ink, 38, "right")
+  H:typeBadges(mon, 57, 64, false)
+  H:summaryMoveRow(model.newMove or {}, 6, 88, false, enabled and model.details == true, model.details == true)
+  H:partyType(H:fitPartyType(model.newLabel or "NEW", 48), 14, 90, c.amber, 48)
+  H:panel(6, 126, 228, 34, false, nil, c.greenLight)
+  local lines = model.prompt or {}
+  local firstY = 126 + math.floor((34 - math.min(3, #lines) * 10) / 2)
+  for index = 1, math.min(3, #lines) do
+    H:partyInfoCentered(H:fitPartyInfo(lines[index], 212), 14, firstY + (index - 1) * 10, 212, 10, c.ink)
+  end
+  for index, label in ipairs(model.choices or {}) do
+    local x, y, w, h = Page.promptRect(index)
+    local pressed = H:beginPress(x, y, w, h, enabled)
+    H:panel(x, y, w, h, false, nil, c.greenLight)
+    H:partyInfoCentered(H:fitPartyInfo(label, w - 16), x + 8, y, w - 16, h, c.ink)
+    H:endPress(pressed)
+  end
+  if not enabled then H:systemOverlay(0.48) end
+end
+
 return Page

@@ -126,6 +126,89 @@ return function(T, display, game, generation, run)
       T.eq(cancel,0,"native Gen2 replacement never calls cancellation")
     end
   end
+  -- Real TextBox/ChoiceBox callbacks for learn, stop, and retry prompts.
+  local savedSay, clock=game.say,love.timer.getTime
+  local now=100
+  love.timer.getTime=function() return now end
+  if generation==2 then game.say=require("src.core.Game2").say end
+  for _,style in ipairs({"hgss","hgss_dark"}) do
+    run.loader.modOptions.kanto_gear.theme_v3=style
+    run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3",value=style})
+    mon.moves={{id="FIX_MOVE_A",pp=0},{id="PP_FIX",pp=1},{id="FIX_MOVE_A",pp=5},{id="PP_FIX",pp=5}}
+    display.bag.pending={mon=mon,moveId=newId}
+    game.stack.states={game.world}
+    local completed,learned=0,nil
+    local function done(value) completed,learned=completed+1,value end
+    if generation==1 then
+      picker=require("src.ui.MoveLearnMenu").new(game,mon,newId,done)
+      picker.screenId="MoveLearnMenu";game.stack:push(picker);picker:enter()
+    else require("src.core.Game2").learnMoveOn(game,mon,newId,done) end
+    local function answer(index)
+      local box=game.stack:top()
+      T.check(box.isTextBox,"learning question is a real native TextBox")
+      box.done,box.pageIndex=true,#box.pages
+      box:update(1/60)
+      local choice=game.stack:top()
+      choice.screenId="ChoiceBox"
+      local learn=assert(display.learningChoiceContext(choice),"native prompt exposes the learning context")
+      local model=display.learningPromptModel(learn,choice,{"YES","NO"},nil,"index")
+      T.eq(model.newMove.name,"EMBER","prompt describes the actual new move")
+      T.check(#model.prompt>0,"prompt preserves the native question")
+      local ok,err=pcall(display.drawContents)
+      T.check(ok,"real legacy prompt renders in the shared page: "..tostring(err))
+      local x,y,w,h=display.MovePage.promptRect(index)
+      local before=#keys
+      display.tapLearningPrompt(learn,choice,{"YES","NO"},nil,"index",(x+w/2)/1.5,(y+h/2)/1.5)
+      T.eq(#keys,before,"new question initially blocks rapid confirmation")
+      now=now+1
+      display.tapLearningPrompt(learn,choice,{"YES","NO"},nil,"index",(x+w/2)/1.5,(y+h/2)/1.5)
+      T.eq(#keys,before+1,"ready learning question sends exactly one native input")
+      T.eq(choice.index,index,"touch selects the intended native answer")
+      display.tapLearningPrompt(learn,choice,{"YES","NO"},nil,"index",(x+w/2)/1.5,(y+h/2)/1.5)
+      T.eq(#keys,before+1,"repeated touch cannot confirm a question twice")
+      pressed="a";choice:update();pressed=nil
+      for _=1,30 do if game.stack:top()==choice then choice:update() end end
+    end
+    answer(2);answer(2);answer(2);answer(1)
+    T.eq(mon.moves[2].id,"PP_FIX","cancel and retry never replace a move")
+    local box=game.stack:top()
+    box.done=true;pressed="a";box:update();pressed=nil
+    T.eq(completed,1,"native cancelled learning finishes once")
+    T.eq(learned,false,"native cancelled learning reports false")
+  end
+  if generation==2 then
+    display.bag.pending=nil
+    local raw=require("src.ui.gen2.BattleState").new(game,{battle={party={mon}}})
+    raw.screenId,raw.slideFrame,raw.lowHealthAlarmDisabled="Gen2BattleState",1000,true
+    raw.pendingLearn={index=1,move=newId,moveName="EMBER"}
+    game.stack.states={game.world,raw}
+    raw:askStopLearning();raw.messageTimer=0
+    local learn=assert(display.learningChoiceContext(raw),"native Gen2 battle stop question has learning context")
+    T.eq(learn.mon,mon,"battle prompt uses the actual learning party member")
+    local model=display.learningPromptModel(learn,raw,{"YES","NO"},raw.message,"forgetChoice")
+    T.check(table.concat(model.prompt," "):lower():find("stop learning",1,true)~=nil,"battle stop question retains its native meaning")
+    local x,y,w,h=display.MovePage.promptRect(2)
+    display.tapLearningPrompt(learn,raw,{"YES","NO"},raw.message,"forgetChoice",(x+w/2)/1.5,(y+h/2)/1.5)
+    now=now+1
+    display.tapLearningPrompt(learn,raw,{"YES","NO"},raw.message,"forgetChoice",(x+w/2)/1.5,(y+h/2)/1.5)
+    T.eq(raw.forgetChoice,2,"battle touch selects NO in the native learning field")
+    pressed="a"
+    local phase=raw.phase
+    for _=1,180 do if raw.phase==phase then raw:update() end end
+    pressed=nil
+    T.check(raw.phase=="ask-forget" or raw.phase=="learn-intro","native battle NO retries learning")
+    raw.phase,raw.messageTimer,raw.messagePages="ask-forget",0,nil
+    learn=assert(display.learningChoiceContext(raw))
+    x,y,w,h=display.MovePage.promptRect(1)
+    display.tapLearningPrompt(learn,raw,{"YES","NO"},raw.message,"forgetChoice",(x+w/2)/1.5,(y+h/2)/1.5)
+    now=now+1
+    display.tapLearningPrompt(learn,raw,{"YES","NO"},raw.message,"forgetChoice",(x+w/2)/1.5,(y+h/2)/1.5)
+    pressed="a";phase=raw.phase
+    for _=1,180 do if raw.phase==phase then raw:update() end end
+    pressed=nil
+    T.eq(raw.phase,"choose-forget","native Gen2 battle YES opens replacement selection")
+  end
+  game.say,love.timer.getTime=savedSay,clock
   game.data.moves[newId]=oldDef
   api.input.tap, game.input, game.stack.states, display.bag.pending = oldTap, savedInput, savedStates, pending
   game.data.moves.FIX_MOVE_A, game.data.moves.PP_FIX = savedA,savedB

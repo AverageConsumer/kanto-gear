@@ -48,6 +48,39 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     end
     error("native learning flow did not reach expected screen")
   end
+  local function touchPrompt(index, consume)
+    sync()
+    local view = assert(display.startMenu(), "native learning question has a touch view")
+    T.check(view.learningPrompt ~= nil, "learning question carries Pokemon and new move")
+    T.eq(view.learningPrompt.newMoveId, display.gen3.Moves.constName(Learn._moveId), "prompt retains the native new move")
+    local model
+    local draw = display.MovePage.drawPrompt
+    display.MovePage.drawPrompt = function(H, value) model=value;return draw(H,value) end
+    display.drawContents(); display.MovePage.drawPrompt=draw
+    T.check(model and #model.prompt > 0, "learning question renders the native prompt")
+    local cursor=view.index
+    queued=nil
+    display.tapStartMenu(view,120/1.5,105/1.5)
+    T.check(up(display.syncCompanionDetails,"moveInfo")~=nil,"question opens local new-move details")
+    T.eq(view.index,cursor,"new-move inspection never changes the answer")
+    T.eq(queued,nil,"new-move inspection never confirms learning")
+    display.syncCompanionDetails();display.drawContents()
+    tap(10,10)
+    T.eq(up(display.syncCompanionDetails,"moveInfo"),nil,"back closes question details locally")
+    T.eq(queued,nil,"closing details never answers the question")
+    T.check(view.valid(),"question remains current after inspection")
+    local x,y,w,h=display.MovePage.promptRect(index)
+    queued=nil
+    display.tapStartMenu(view,(x+w/2)/1.5,(y+h/2)/1.5)
+    T.eq(queued,"a","learning answer forwards native confirm")
+    T.eq(view.index,index,"learning answer selects the matching native row")
+    consume(input(queued))
+    T.check(not view.valid(),"answered question invalidates its old touch targets")
+    queued=nil
+    display.tapStartMenu(view,(x+w/2)/1.5,(y+h/2)/1.5)
+    T.eq(queued,nil,"stale question cannot confirm a subsequent prompt")
+    return view
+  end
   local function touchRow(index)
     sync()
     local menu = display.startMenu()
@@ -84,7 +117,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
           pushMsg = Ui.push, askYesNo = Ui.askYesNo, askForget = Ui.askForget,
           onDone = function(value) completed, learned = completed + 1, value end })
         advanceUntil(function() return Choice.active end)
-        Choice.cursor = 1; Ui.handleInput(input("a"))
+        touchPrompt(1, Ui.handleInput)
         T.check(Summary.isOpen(), "native learning prompt opens replacement menu")
         if emerald then
           Screens.handleInput("summary", Summary, input(outcome == "retry" and "left" or "right"), game.session)
@@ -128,11 +161,10 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
         if outcome ~= "replace" then
           touchRow(5)
           advanceUntil(function() return Choice.active end)
-          Choice.cursor = outcome == "cancel" and 1 or 2
-          Ui.handleInput(input("a"))
+          touchPrompt(outcome == "cancel" and 1 or 2, Ui.handleInput)
           if outcome == "retry" then
             advanceUntil(function() return Choice.active end)
-            Choice.cursor = 1; Ui.handleInput(input("a"))
+            touchPrompt(1, Ui.handleInput)
             T.check(Summary.isOpen(), "declining stop reopens native learning flow")
           end
         end
@@ -150,6 +182,82 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       end
     end
   end
+  -- Field TMs use PartyMenu's private yes/no callback, not global Choice.
+  local Party, Bag = require("src.ui.game3.party_menu"), require("src.core.game3.bag")
+  local Items = display.gen3.Items
+  local tm = Items.toNumericId("TM45")
+  local beforeTm = Bag.get(game.session.bag,tm)
+  Bag.add(game.session.bag,tm,3)
+  local function partyInput(key) Screens.handleInput("party",Party,key,game.session) end
+  local function fieldUntil(predicate)
+    for _=1,40 do
+      if predicate() then sync();return end
+      if Party.mode=="message" then partyInput(input("a")) end
+    end
+    error("native field learning did not reach expected screen: "..tostring(Party.mode))
+  end
+  for _,style in ipairs({"hgss","hgss_dark"}) do
+    options.theme_v3=style
+    run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3",value=style})
+    for _,outcome in ipairs({"cancel","replace"}) do
+      Stack.clear(); Message.reset(); Learn.reset(); Choice.active=false
+      Battle._active, Battle._st=false,nil; Ui.reset({headless=true})
+      mon.moves,mon.pp,mon.maxPp,mon.ppBonusesPacked={15,33,45,10},{30,35,40,35},{30,35,40,35},0
+      local count=Bag.get(game.session.bag,tm)
+      display.gen3:refresh()
+      T.check(display.gen3Ui:openBagItem(tm,"USE"),"TM enters the real native target flow")
+      require("src.ui.game3.bag_menu").settle()
+      partyInput(input("a"))
+      fieldUntil(function() return Party.mode=="yesno" end)
+      local first=touchPrompt(2,partyInput)
+      T.eq(Party.mode,"yesno","declining learning opens stop question in the same native mode")
+      T.check(not first.valid(),"same-mode question change invalidates the previous callback")
+      T.eq(Bag.get(game.session.bag,tm),count,"declining the first prompt never consumes a TM")
+      if outcome=="cancel" then
+        touchPrompt(1,partyInput)
+        fieldUntil(function() return not Learn.busy() end)
+        T.eq(mon.moves[2],33,"cancelled field learning preserves moves")
+        T.eq(Bag.get(game.session.bag,tm),count,"cancelled field learning preserves the TM")
+      else
+        touchPrompt(2,partyInput)
+        touchPrompt(1,partyInput)
+        T.check(Summary.isOpen(),"field retry opens the same shared replacement page")
+        touchRow(2)
+        fieldUntil(function() return not Learn.busy() end)
+        T.eq(mon.moves[2],213,"native field replacement teaches Attract")
+        T.eq(Bag.get(game.session.bag,tm),count-1,"successful field learning consumes exactly one TM")
+      end
+      Party.close(); Summary.close(); require("src.ui.game3.bag_menu").close()
+    end
+  end
+  local Relearner=require("src.ui.game3.move_relearner")
+  -- Older Emerald caches lack native relearner dialogue; do not invent ROM text.
+  local relearnerText=require("src.core.game3.rom_text").has("gText_MonIsTryingToLearnMove")
+  for _,style in ipairs(relearnerText and {"hgss","hgss_dark"} or {}) do
+    options.theme_v3=style
+    run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3",value=style})
+    Stack.clear(); Message.reset(); Learn.reset()
+    mon.moves,mon.pp,mon.maxPp,mon.ppBonusesPacked={15,33,45,10},{30,35,40,35},{30,35,40,35},0
+    Relearner.show(mon,{session=game.session})
+    T.check(#Relearner.moves()>0,"native relearner fixture offers a real move")
+    Relearner.handleInput(input("a")); Relearner.handleInput(input("a"))
+    local function relearnUntil(predicate)
+      for _=1,40 do
+        if predicate() then sync();return end
+        if Relearner.state=="message" then Relearner.handleInput(input("a")) end
+      end
+      error("native relearning did not reach expected screen")
+    end
+    relearnUntil(function() return Relearner.state=="yesno" end)
+    touchPrompt(2,Relearner.handleInput)
+    relearnUntil(function() return Relearner.state=="yesno" end)
+    touchPrompt(1,Relearner.handleInput)
+    relearnUntil(function() return not Learn.busy() end)
+    T.eq(mon.moves[2],33,"cancelled relearning preserves moves")
+    Relearner.finish(false)
+  end
+  local remaining=Bag.get(game.session.bag,tm)
+  if remaining>beforeTm then Bag.remove(game.session.bag,tm,remaining-beforeTm) end
   mon.moves, mon.pp, mon.maxPp, mon.ppBonusesPacked = savedMoves, savedPp, savedMax, savedBonus
   Stack.clear(); Message.reset(); Learn.reset(); Ui.reset({ headless = true })
   Battle._active, Battle._st = false, nil

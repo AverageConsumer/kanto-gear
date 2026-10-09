@@ -6309,41 +6309,6 @@ return function(ui)
     self:endPress(pressed)
   end
 
-  function H:moveLearnPrompt(model)
-    local colors = self.colors
-    local mon = model.mon or {}
-    self:panel(6, 33, 228, 55, false, nil, self:typeColor(mon.type))
-    self:partyPortrait(13, 36, false, false)
-    if model.drawPokemon then model.drawPokemon(mon, 14, 39, 34) end
-    self:partyName(mon.name or translate("POKEMON"), 57, 41, colors.ink, 122)
-    self:partyInfo(mon.levelText or "L--", 186, 41,
-      colors.ink, 38, "right")
-    self:typeBadges(mon, 57, 64, false)
-
-    self:summaryMoveRow(model.newMove or {}, 6, 94, false,
-      model.details == true, model.details == true)
-    self:partyType(self:fitPartyType(translate("NEW"), 48),
-      14, 96, colors.amber, 48)
-    if model.choices then
-      for index, label in ipairs(model.choices) do
-        local x = index == 1 and 27 or 123
-        local selected = self.nativeFocus and model.choice == index
-        local pressed = self:beginPress(x, 145, 90, 40)
-        self:panel(x, 145, 90, 40, selected, nil, colors.greenLight)
-        self:partyInfo(translate(label), x + 7, 160,
-          selected and colors.ink or colors.green, 76, "center")
-        self:endPress(pressed)
-      end
-    else
-      self:systemOverlay(0.48)
-    end
-  end
-
-  function H:moveLearnChoiceHit(x, y)
-    if y < 145 or y >= 185 then return nil end
-    if x >= 27 and x < 117 then return 1 end
-    if x >= 123 and x < 213 then return 2 end
-  end
 
   function H:summaryMoves(mon, drawPortrait)
     self:summaryIdentity(mon, drawPortrait)

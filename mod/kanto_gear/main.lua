@@ -5086,7 +5086,7 @@ return function(mod)
   end
 
   function displayRuntime.drawStartMenu(top)
-    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel, top.nativePocket)
+    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt, top.nativePocket)
     local model = displayRuntime.startMenuModel(top)
     if battle and assist("catch_odds") then
       for _, entry in ipairs(model.entries) do
@@ -5110,6 +5110,11 @@ return function(mod)
           drawPokemon = function(x, y, size) hgssRuntime.summaryPortrait({ source = mon, species = mon.species }, x, y, size) end })
       elseif top.namingModel and not top.notice then
         THEME.hgss:naming(top.namingModel)
+      elseif top.learningPrompt then
+        local labels = {}
+        for index, row in ipairs(top.items) do labels[index] = THEME:menuActionLabel(row.label) end
+        displayRuntime.MovePage.drawPrompt(THEME.hgss,
+          displayRuntime.learningPromptModel(top.learningPrompt, top, labels, top.prompt))
       elseif top.moveSelection then
         displayRuntime.MovePage.draw(THEME.hgss, displayRuntime.moveSelectionModel(top.moveSelection))
       elseif top.choiceState then
@@ -5807,12 +5812,57 @@ return function(mod)
       top.choiceState and top.index or compat.choiceIndex(top, field))
   end
 
+  function displayRuntime.learningChoiceContext(top)
+    local learn = displayRuntime.moveLearnScreen()
+    if learn and not learn.selecting then return learn end
+    local raw = battleState()
+    local pending = raw and raw.pendingLearn
+    if top == raw and pending and (raw.phase == "ask-forget" or raw.phase == "stop-learning") then
+      local mon = raw.battle and raw.battle.party and raw.battle.party[pending.index]
+      if mon then return { mon = mon, newMoveId = pending.move } end
+    end
+  end
+
+  function displayRuntime.learningPromptModel(learn, choice, labels, prompt, field)
+    local mon = learn.mon
+    local def = game.data.pokemon[mon.species] or {}
+    local types = mon.types or def.types or {}
+    local choices = {}
+    for index, label in ipairs(labels or {}) do choices[index] = THEME:menuActionLabel(label) end
+    local question = choice and displayRuntime.choiceModel(choice, choices, prompt, field)
+    return { mon = { name = mon.nickname or mon.name or def.name or mon.species,
+        levelText = THEME:format("L%d", mon.level or 0), type = types[1], type2 = types[2] or types[1],
+        typeLabel = THEME:typeName(types[1], mod.content), type2Label = THEME:typeName(types[2] or types[1], mod.content) },
+      newMove = hgssRuntime.moveView(learn.newMoveId), newLabel = THEME:translate("NEW"),
+      details = assist("move_details"), choices = question and choices,
+      enabled = choice ~= nil, prompt = question and question.prompt,
+      drawPokemon = function(x, y, size)
+        drawSprite(mon.species, "front", x, y, size, size, nil, learn.rawMon or mon.source or mon)
+      end }
+  end
+
+  function displayRuntime.tapLearningPrompt(learn, choice, labels, prompt, field, x, y)
+    local model = displayRuntime.learningPromptModel(learn, choice, labels, prompt, field)
+    local action = displayRuntime.MovePage.promptHit(model, x * THEME.hgssScale, y * THEME.hgssScale)
+    if action == "new" then moveInfo, dirty = compat.moveInfoEntry(learn.newMoveId), true
+    elseif type(action) == "number" then displayRuntime.commitDialogueChoice(choice, field, action) end
+  end
+
   local function drawDialogueChoice(top, labels, prompt, field)
     header(THEME:translate("CHOOSE"))
     local selected = compat.choiceIndex(top, field)
     local rows, cols, left, topY, cellW, cellH, gap =
       compat.choiceGrid(top, field, #labels)
     if THEME.style == "hgss" then
+      local learn = displayRuntime.learningChoiceContext(top)
+      if learn then
+        header(THEME:translate("NEW MOVE"))
+        G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+        displayRuntime.MovePage.drawPrompt(THEME.hgss,
+          displayRuntime.learningPromptModel(learn, top, labels, prompt, field))
+        G.pop()
+        return
+      end
       local model = displayRuntime.choiceModel(top, labels, prompt, field)
       model.nudge = choiceNudgeUntil > love.timer.getTime()
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
@@ -10171,28 +10221,11 @@ return function(mod)
         return
       end
 
-      local monDef = game.data.pokemon[learn.mon.species] or {}
-      local types = learn.mon.types or monDef.types or {}
-      local mon = {
-        source = learn.mon, species = learn.mon.species,
-        name = learn.mon.nickname or monDef.name or learn.mon.species,
-        levelText = THEME:format("L%d", learn.mon.level or 0),
-        type = types[1], type2 = types[2] or types[1],
-        typeLabel = THEME:typeName(types[1], mod.content),
-        type2Label = THEME:typeName(types[2] or types[1], mod.content),
-      }
       header(THEME:translate("NEW MOVE"))
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:moveLearnPrompt({ mon = mon, newMove = newMove,
-        details = assist("move_details"),
-        choices = choice and { "YES", "NO" } or nil,
-        choice = choice and compat.choiceIndex(choice, choiceField) or nil,
-        drawPokemon = function(_, x, y, size)
-          drawSprite(learn.mon.species, "front", x, y, size, size,
-            nil, learn.mon.source or learn.mon)
-        end,
-      })
+      displayRuntime.MovePage.drawPrompt(THEME.hgss,
+        displayRuntime.learningPromptModel(learn, choice, { "YES", "NO" }, nil, choiceField))
       G.pop()
       return
     end
@@ -11215,7 +11248,7 @@ return function(mod)
       if learn.selecting then
         action, slot = displayRuntime.MovePage.hit(displayRuntime.learningMoveModel(learn), hx, hy)
         if type(action) == "number" then slot, action = action, "move" end
-      elseif inside(hx, hy, 6, 94, 228, 34) then action = "new" end
+      end
       local details = assist("move_details")
       if action == "new" and details then
         moveInfo = compat.moveInfoEntry(learn.newMoveId)
@@ -11694,6 +11727,16 @@ return function(mod)
       if index and displayRuntime.StartMenu.select(top, index) then press("a"); dirty = true end
       return
     end
+    if top.learningPrompt and THEME.style == "hgss" then
+      local labels = {}
+      for index, row in ipairs(top.items) do labels[index] = row.label end
+      local action = displayRuntime.MovePage.promptHit(
+        displayRuntime.learningPromptModel(top.learningPrompt, top, labels, top.prompt),
+        x * THEME.hgssScale, y * THEME.hgssScale)
+      if action == "new" then moveInfo, dirty = compat.moveInfoEntry(top.learningPrompt.newMoveId), true
+      elseif type(action) == "number" and displayRuntime.StartMenu.select(top, action) then press("a"); dirty = true end
+      return
+    end
     if top.moveSelection and THEME.style == "hgss" then
       local action, slot = displayRuntime.MovePage.hit(displayRuntime.moveSelectionModel(top.moveSelection),
         x * THEME.hgssScale, y * THEME.hgssScale)
@@ -12068,12 +12111,9 @@ return function(mod)
     local learnScreen = screenById("MoveLearnMenu")
       or screenById("Gen2MoveDeleter")
     local learn = displayRuntime.moveLearnScreen()
-    if learn and choice and learn.field and THEME.style == "hgss" then
-      local selected = THEME.hgss:moveLearnChoiceHit(
-        x * THEME.hgssScale, y * THEME.hgssScale)
-      if selected then
-        displayRuntime.commitDialogueChoice(choice, field, selected)
-      end
+    local learningChoice = choice and displayRuntime.learningChoiceContext(choice)
+    if learningChoice and THEME.style == "hgss" then
+      displayRuntime.tapLearningPrompt(learningChoice, choice, labels, nil, field, x, y)
       return
     elseif learn and not choice then
       tapLearn(learn, game.stack:top(), x, y)

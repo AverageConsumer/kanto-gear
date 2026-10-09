@@ -61,6 +61,14 @@ return function(T, display, H)
   moves.message=nil
   moves.enabled=false
   at(120,80,function() display.MovePage.draw(H,moves) end,0,"locked move chooser stays still")
+  local learn={mon={},newMove=moves.moves[1],details=true,choices={"YES","NO"},prompt={"Stop learning?"}}
+  at(60,187,function() display.MovePage.drawPrompt(H,learn) end,1,"learning answers respond")
+  at(120,105,function() display.MovePage.drawPrompt(H,learn) end,1,"learning move details respond")
+  at(120,140,function() display.MovePage.drawPrompt(H,learn) end,0,"learning question stays still")
+  at(120,50,function() display.MovePage.drawPrompt(H,learn) end,0,"learning Pokemon stays still")
+  learn.enabled=false
+  at(60,187,function() display.MovePage.drawPrompt(H,learn) end,0,"locked learning answers stay still")
+  at(120,105,function() display.MovePage.drawPrompt(H,learn) end,0,"covered learning details stay still")
   local app={id="notes",label="NOTES",icon="notes",category="UTILITY",state="soon"}
   at(60,85,function() H:storeAppCard(7,53,111,app,{}) end,0,
     "a disabled install action cannot bounce its containing card")

@@ -23,6 +23,17 @@ function UI:moveItem(raw, slot, name)
     right = tostring(move.pp or 0) .. "/" .. maxPp }
 end
 
+function UI:learningPrompt()
+  local learn = require("src.core.game3.battle.learn_move")
+  if learn and learn.busy() and learn.waitingChoice() and learn._mon and learn._moveId then
+    local mon, move = learn._mon, learn._moveId
+    return { mon = self.adapter:mon(mon), rawMon = mon,
+      newMoveId = self.adapter.Moves.constName(move),
+      valid = function() return learn.busy() and learn.waitingChoice()
+        and learn._mon == mon and learn._moveId == move end }
+  end
+end
+
 function UI:panel()
   local layer = self.Stack.top()
   return layer and layer.id
@@ -170,11 +181,15 @@ function UI:list(battle)
   local Message, Choice = self.Message, self.Choice
   if Choice.active and Choice.options then
     local key = Choice.options
+    local learning = Choice.kind == "yesno" and self:learningPrompt() or nil
+    local owner, move = learning and learning.rawMon, learning and learning.newMoveId
     local view = self.choiceView
-    if not view or view.options ~= key then
+    if not view or view.options ~= key or view.learningOwner ~= owner or view.learningMove ~= move then
       view = { screenId = "Gen3Menu", title = "CHOOSE ACTION", options = key,
+        learningOwner = owner, learningMove = move,
         nativeKey = tostring(key), choiceState = { page = 1 }, update = function() end,
-        valid = function() return Choice.active and Choice.options == key end }
+        valid = function() return Choice.active and Choice.options == key
+          and (not learning or learning.valid()) end }
       setmetatable(view, {
         __index = function(_, k) if k == "index" then return Choice.cursor end end,
         __newindex = function(t, k, v)
@@ -187,9 +202,14 @@ function UI:list(battle)
     view.items = labels(key)
     view.prompt = self.adapter:messageText()
     local model = self.choicePage.model(view.choiceState, key, nil, Choice.cursor)
+    view.learningPrompt = learning
+    view.title = view.learningPrompt and "NEW MOVE" or "CHOOSE ACTION"
     view.fixedLayout, view.touchWindow = true, { first = model.first, count = #model.entries }
-    for _, entry in ipairs(model.entries) do
-      view.items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
+    if view.learningPrompt then self.movePage.promptLayout(view.items)
+    else
+      for _, entry in ipairs(model.entries) do
+        view.items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
+      end
     end
     return view
   end
@@ -480,6 +500,8 @@ function UI:list(battle)
       end
       items[#items + 1], slots[#slots + 1] = { label = "CANCEL" }, native.mode == "choose_multi" and 8 or 7
       if native.mode == "use" then title = "USE ITEM ON" end
+    elseif native.mode == "yesno" then
+      items, field, prompt = labels({ "YES", "NO" }), "_yesNoCursor", native._yesNoPrompt
     elseif native.mode == "forget" and type(native._forgetMoves) == "table" then
       title, items, field = "CHOOSE MOVE", {}, "_forgetCursor"
       local raw = native._party and native._party[native.cursor]
@@ -542,12 +564,17 @@ function UI:list(battle)
   end
   if quantity then items, field = { { label = "CONFIRM" } }, nil end
   if not items or #items == 0 or not quantity and type((sale or native)[field]) ~= "number" then return nil end
+  local yesNoCallback = mode == "yesno" and (native._yesNoCallback or native._yesNoCb)
+  local yesNoPrompt = mode == "yesno" and (native._yesNoPrompt or native.prompt)
   local key = tostring(layer) .. ":" .. tostring(mode) .. ":" .. tostring(native.pocketIdx)
     .. ":" .. tostring(native.holdingMon)
     .. ":" .. tostring(saleState) .. ":" .. tostring(itemActionId) .. ":" .. tostring(actionOrder)
     .. ":" .. tostring(native._forgetMoves) .. ":" .. tostring(native._forgetCallback)
+    .. ":" .. tostring(yesNoCallback) .. ":" .. tostring(yesNoPrompt)
     .. ":" .. tostring(native._hmNotice) .. ":" .. tostring(native._confirmExit)
     .. ":" .. tostring(layer.id == "box_storage" and native._session.storage.currentBox)
+  local learningPrompt = (layer.id == "party" or layer.id == "move_relearner") and mode == "yesno"
+    and self:learningPrompt() or nil
   local view = self.view
   if not view or view.nativeKey ~= key then
     local owner = self
@@ -568,6 +595,9 @@ function UI:list(battle)
         and native._forgetMoves == forgetMoves and native._forgetCallback == forgetCallback
         and (not forgetMon or native._party[native.cursor or native._cursor] == forgetMon)
         and native._hmNotice == hmNotice and native._confirmExit == confirmExit
+        and (mode ~= "yesno" or (native._yesNoCallback or native._yesNoCb) == yesNoCallback
+          and (native._yesNoPrompt or native.prompt) == yesNoPrompt)
+        and (not learningPrompt or learningPrompt.valid())
         and (not sale or native._sell == sale and sale.state == saleState)
         and (layer.id ~= "box_storage" or not require("src.ui.game3.release_seq").isActive())
         and (preview or not native._hpAnim) and not native._pokedude and not native._statBoost
@@ -623,6 +653,8 @@ function UI:list(battle)
   if moveSelection then moveSelection.valid, moveSelection.message = view.valid, prompt end
   view.quantity = quantity
   view.prompt = prompt
+  view.learningPrompt = learningPrompt
+  if view.learningPrompt then view.title = "NEW MOVE" end
   view.nativeGrid, view.boxParty = grid, boxParty
   view.emptyTargets = boxParty and native.holdingMon ~= nil
   view.partyActions = layer.id == "party" and (native.mode == "action" or native.mode == "item_action")
@@ -634,7 +666,9 @@ function UI:list(battle)
   -- Every projection (including upper-screen ownership checks) retains the
   -- exact same draw/hit geometry; never leave a cached view with fresh bare rows.
   if not prompt or moveSelection then view.choiceState, view.touchWindow = nil, nil end
-  if moveSelection then
+  if view.learningPrompt then
+    self.movePage.promptLayout(items)
+  elseif moveSelection then
     self.movePage.layout(items, slots)
   elseif prompt then
     view.choiceState = view.choiceState or { page = 1 }

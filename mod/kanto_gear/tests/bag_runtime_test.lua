@@ -1,6 +1,7 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
+love.graphics.arc = love.graphics.arc or function() end
 local generation = tonumber(os.getenv("KANTO_GEAR_TEST_GEN")) or 2
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local run = T.sdk.loadMod(path, {

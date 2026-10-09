@@ -74,7 +74,7 @@ local function nativeCursorPresentation(theme, display)
     function() H:pcList({entries={entry}}) end,
     function() H:battleMimic({moves={move},index=1}) end,
     function() display.MovePage.draw(H,{moves={move},newMove=move,details=true}) end,
-    function() H:moveLearnPrompt({choices={"YES","NO"},choice=1}) end,
+    function() display.MovePage.drawPrompt(H,{choices={"YES","NO"},mon={}}) end,
     function() H:battleBag({title="BAG",items={{label="POTION",right="x2"}},index=1},{},{}) end,
   }) do
     local ok,err=pcall(draw)
