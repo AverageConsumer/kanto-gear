@@ -278,7 +278,7 @@ function UI:list(battle)
   if sale then
     title = "SELL"
     if sale.state == "qty" then quantity = { label = sale.name, qty = sale.qty,
-      itemId = sale.itemId, max = sale.owned, wrap = true }
+        itemId = sale.itemId, max = sale.owned, wrap = true, total = sale:total() }
     elseif sale.state == "confirm" then
       items, field, prompt = labels({ "YES", "NO" }), "yesNo", sale.name .. "\n" .. sale.text
     end
@@ -357,12 +357,13 @@ function UI:list(battle)
       items[#items + 1] = { label = "CANCEL" }
     elseif rse and mode == "qty" then
       quantity = { label = self.adapter.Items.displayName(native._itemId), qty = native.qty,
-        itemId = native._itemId, max = math.max(1, native._maxQty or 1), wrap = true }
+        itemId = native._itemId, max = math.max(1, native._maxQty or 1), wrap = true, total = native._totalCost }
     elseif rse and mode == "confirm" then
       items, field, prompt = labels({ "YES", "NO" }), "yesCursor", native._status
     elseif mode == "buy_qty" then
       local pending = native._pending
       quantity = { label = pending.name, qty = native.qty, itemId = pending.id,
+        total = (pending.price or 0) * native.qty,
         max = math.max(1, math.min(99, math.floor((tonumber(native._session.money) or 0)
           / math.max(1, pending.price or 0)))) }
     elseif mode == "buy_confirm" then items, field, prompt = labels({ "YES", "NO" }), "yesNoCursor", native._status end

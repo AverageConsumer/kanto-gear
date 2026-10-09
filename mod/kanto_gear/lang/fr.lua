@@ -871,4 +871,5 @@ return {
   ["SMART"] = "SMART",
   ["TOUGH"] = "TOUGH",
   ["LAST USED"] = false,
+  ["SOLD OUT"] = "ÉPUISÉ",
 }

@@ -42,7 +42,7 @@ function Menu.redrawKey(top)
     tostring(Menu.cursor(top) ~= nil), tostring(top.title), tostring(top.name),
     tostring(top.prompt), tostring(top.notice), tostring(top.canAdvance), tostring(top.recentBag and top.recentBag.id), tostring(top.recentBag and top.recentBag.count),
     tostring(quantity and quantity.label), tostring(quantity and quantity.qty),
-    tostring(quantity and quantity.max), tostring(stats and stats._page) }
+    tostring(quantity and quantity.max), tostring(quantity and quantity.total), tostring(stats and stats._page) }
   for i = first, first + count - 1 do
     local item = top.items[i]
     parts[#parts + 1] = tostring(item.label)
@@ -90,7 +90,8 @@ function Menu.hit(top, x, y)
   local step = top.recentBag and 30 or Menu.step
   local row = math.floor((y - topY) / step)
   if row >= 0 and row < count and y < topY + row * step + Menu.height then
-    return first + row
+    local index = first + row
+    if not top.items[index].inert then return index end
   end
 end
 

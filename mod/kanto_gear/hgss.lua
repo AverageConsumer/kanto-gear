@@ -5064,10 +5064,10 @@ return function(ui)
     self:battleItemIcon({ icon = model.icon or "item", itemSprite = model.itemSprite }, 24, 51,
       colors.amberLight)
     box("fill", 55, 41, 1, 36, colors.band)
-    self:partyName(self:fitPartyInfo(model.label or translate("ITEM"), 161),
-      64, 47, colors.ink, 161)
-    self:partyType(translate("QUANTITY"), 64, 64,
-      colors.green, 161)
+    self:partyInfoCentered(self:fitPartyInfo(model.label or translate("ITEM"), 161),
+      64, 44, 161, 16, colors.ink)
+    self:partyInfoCentered(model.total ~= nil and "¥" .. model.total or translate("QUANTITY"),
+      64, 61, 161, 16, colors.green)
 
     clipped(7, 91, 226, 48, colors.surface)
     local controls = {

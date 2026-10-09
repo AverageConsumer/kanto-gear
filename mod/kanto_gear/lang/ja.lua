@@ -821,4 +821,5 @@ return {
   ["NEED BADGE"] = "バッジひつよう",
   ["NO SPACE"] = "ひろさくない",
   ["LAST USED"] = false,
+  ["SOLD OUT"] = false,
 }

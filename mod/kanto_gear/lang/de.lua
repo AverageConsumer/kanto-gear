@@ -883,4 +883,5 @@ return {
   ["SMART"] = "KLUG",
   ["TOUGH"] = "STARK",
   ["LAST USED"] = "ZULETZT BENUTZT",
+  ["SOLD OUT"] = "AUSVERKAUFT",
 }

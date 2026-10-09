@@ -2422,6 +2422,8 @@ return function(mod)
     "@kanto_gear/storage_page.lua"))()
   displayRuntime.LegacyStorage = assert(load(mod:read("legacy_storage.lua"),
     "@kanto_gear/legacy_storage.lua"))()
+  displayRuntime.LegacyShop = assert(load(mod:read("legacy_shop.lua"),
+    "@kanto_gear/legacy_shop.lua"))()
   displayRuntime.RegionPage = assert(load(mod:read("region_map_page.lua"),
     "@kanto_gear/region_map_page.lua"))()
   displayRuntime.LegacyRegion = assert(load(mod:read("legacy_region.lua"),
@@ -4986,7 +4988,8 @@ return function(mod)
       if not view or view.owner ~= top or view.state ~= quantity then
         view = { screenId = "CompanionMenu", owner = top, state = quantity,
           nativeKey = tostring(top) .. ":quantity:" .. tostring(quantity),
-          title = "QUANTITY", index = 1, items = { { label = "CONFIRM" } }, update = function() end,
+          title = displayRuntime.LegacyShop.quantityTitle(game) or "QUANTITY",
+          index = 1, items = { { label = "CONFIRM" } }, update = function() end,
           valid = function() return game.stack:top() == top
             and (quantity == top or top.qtyState == quantity) end }
         displayRuntime.legacyQuantityView = view
@@ -5004,10 +5007,14 @@ return function(mod)
         or top.rows and top.rows[top.listIndex]
         or parent and parent.items and parent.items[parent.index]
       view.quantity = { label = row and (row.name or row.label),
-        qty = quantity.qty, max = quantity.max, wrap = true }
+        qty = quantity.qty, max = quantity.max, wrap = true,
+        total = quantity.unitPrice and quantity.qty * quantity.unitPrice }
       return view
     end
     displayRuntime.legacyQuantityView = nil
+    displayRuntime.legacyShopView = displayRuntime.LegacyShop.project(top, game,
+      function(label) return THEME:translate(label) end, displayRuntime.legacyShopView)
+    if displayRuntime.legacyShopView then return displayRuntime.legacyShopView end
     displayRuntime.legacyPcView = displayRuntime.LegacyPC.project(top,
       function(owner) return game.stack:top() == owner end,
       function(label) return THEME:translate(label) end, displayRuntime.legacyPcView)
