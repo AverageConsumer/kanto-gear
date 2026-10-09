@@ -24,6 +24,20 @@ return function(T, display, H)
   at(30, 40, function() H:startMenu(menu) end, 1, "usable menu entries respond")
   entry.disabled=true
   at(30, 40, function() H:nativeGrid(menu) end, 0, "empty inert storage slots stay still")
+  local quantity={label="POTION",qty=1,max=3}
+  at(40,110,function() H:pcQuantity(quantity) end,0,"clamped minus stays still at one")
+  T.eq(H:pcQuantityHit(40,110,quantity),nil,"clamped minus has no touch action at one")
+  at(190,110,function() H:pcQuantity(quantity) end,1,"quantity plus responds below its maximum")
+  quantity.qty=3
+  at(190,110,function() H:pcQuantity(quantity) end,0,"clamped plus stays still at its maximum")
+  T.eq(H:pcQuantityHit(190,110,quantity),nil,"clamped plus has no touch action at maximum")
+  quantity.wrap=true
+  at(190,110,function() H:pcQuantity(quantity) end,1,"native wrapping quantity still responds at maximum")
+  T.eq(H:pcQuantityHit(190,110,quantity),"plus","native wrapping retains its touch action")
+  quantity.qty,quantity.max=1,1
+  at(40,110,function() H:pcQuantity(quantity) end,0,"single-item wrapping minus stays still")
+  at(190,110,function() H:pcQuantity(quantity) end,0,"single-item wrapping plus stays still")
+  at(40,170,function() H:pcQuantity(quantity) end,1,"quantity confirmation remains available")
   local app={id="notes",label="NOTES",icon="notes",category="UTILITY",state="soon"}
   at(60,85,function() H:storeAppCard(7,53,111,app,{}) end,0,
     "a disabled install action cannot bounce its containing card")

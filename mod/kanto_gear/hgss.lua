@@ -3945,36 +3945,37 @@ return function(ui)
     end
   end
 
+  function H:partyInfoCentered(value, x, y, w, h, tint)
+    local advance, left, top, right, bottom = 0, math.huge, math.huge, -1, -1
+    for _, char in ipairs(glyphs(value)) do
+      local bounds = ui.smallFontMetrics and ui.smallFontMetrics[char]
+      if not bounds then left = math.huge; break end
+      if bounds.right >= 0 then
+        left, right = math.min(left, advance + bounds.left), math.max(right, advance + bounds.right)
+        top, bottom = math.min(top, bounds.top), math.max(bottom, bounds.bottom)
+      end
+      advance = advance + bounds.advance
+    end
+    if left < math.huge then
+      self:partyInfo(value, x + math.floor((w - (right - left + 1)) / 2) - left,
+        y + math.floor((h - (bottom - top + 1)) / 2) - top, tint or self.colors.ink)
+    else
+      self:partyInfo(value, x + 4, y + math.floor((h - 9) / 2) - 1, tint or self.colors.ink, w - 8, "center")
+    end
+  end
+
   function H:naming(model)
     local colors = self.colors
-    local function centered(value, x, y, w, h)
-      local advance, left, top, right, bottom = 0, math.huge, math.huge, -1, -1
-      for _, char in ipairs(glyphs(value)) do
-        local bounds = ui.smallFontMetrics and ui.smallFontMetrics[char]
-        if not bounds then left = math.huge; break end
-        if bounds.right >= 0 then
-          left, right = math.min(left, advance + bounds.left), math.max(right, advance + bounds.right)
-          top, bottom = math.min(top, bounds.top), math.max(bottom, bounds.bottom)
-        end
-        advance = advance + bounds.advance
-      end
-      if left < math.huge then
-        self:partyInfo(value, x + math.floor((w - (right - left + 1)) / 2) - left,
-          y + math.floor((h - (bottom - top + 1)) / 2) - top, colors.ink)
-      else
-        self:partyInfo(value, x + 4, y + math.floor((h - 9) / 2) - 1, colors.ink, w - 8, "center")
-      end
-    end
     self:panel(7, 34, 226, 29, false, nil, colors.greenLight)
     local shown = fitFont(model.name or "-", 210, partyNameFont)
-    centered(shown, 7, 34, 226, 29)
+    self:partyInfoCentered(shown, 7, 34, 226, 29)
     for _, entry in ipairs(model.entries or {}) do
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h, not entry.disabled)
       self:panel(x, y, w, h, self.nativeFocus and entry.selected, colors.greenLight,
         entry.action == "confirm" and colors.greenLight or entry.action == "delete" and colors.amberLight or colors.blueLight)
       local label = entry.action and translate(entry.label) or tostring(entry.label or "")
-      centered(self:fitPartyInfo(label, w - 8), x, y, w, h)
+      self:partyInfoCentered(self:fitPartyInfo(label, w - 8), x, y, w, h)
       self:endPress(pressed)
     end
   end
@@ -5090,7 +5091,7 @@ return function(ui)
     self:panel(7, 34, 226, 50, false, nil, colors.amberLight)
     clipped(17, 44, 30, 30, colors.bandLight)
     border(17, 44, 30, 30, colors.outline)
-    self:battleItemIcon({ icon = model.icon or "item" }, 24, 51,
+    self:battleItemIcon({ icon = model.icon or "item", itemSprite = model.itemSprite }, 24, 51,
       colors.amberLight)
     box("fill", 55, 41, 1, 36, colors.band)
     self:partyName(self:fitPartyInfo(model.label or translate("ITEM"), 161),
@@ -5100,15 +5101,16 @@ return function(ui)
 
     clipped(7, 91, 226, 48, colors.surface)
     local controls = {
-      { x = 7, label = "-" }, { x = 83, value = tostring(model.qty or 1) },
-      { x = 159, label = "+" },
+      { x = 7, label = "-", action = "minus" }, { x = 83, value = tostring(model.qty or 1) },
+      { x = 159, label = "+", action = "plus" },
     }
     for _, control in ipairs(controls) do
-      local interactive = control.label ~= nil
-      local pressed = interactive and self:beginPress(control.x, 91, 74, 48)
-      if interactive then self:panel(control.x, 91, 74, 48, false, nil, colors.blueLight) end
-      self:partyInfo(control.label or control.value, control.x + 1, 110,
-        colors.ink, 74, "center")
+      local interactive = control.action and self:pcQuantityEnabled(model, control.action)
+      local pressed = control.action and self:beginPress(control.x, 91, 74, 48, interactive)
+      if control.action then self:panel(control.x, 91, 74, 48, false, nil,
+        interactive and colors.blueLight or colors.bandLight) end
+      self:partyInfoCentered(control.label or control.value, control.x, 91, 74, 48,
+        control.action and not interactive and colors.mutedInk or colors.ink)
       if pressed then self:endPress(pressed) end
     end
     local buttons = {
@@ -5118,8 +5120,7 @@ return function(ui)
     for _, action in ipairs(buttons) do
       local pressed = self:beginPress(action.x, 146, 110, 64)
       self:panel(action.x, 146, 110, 64, false, nil, action.accent)
-      self:partyInfo(action.label, action.x, 171,
-        colors.ink, 110, "center")
+      self:partyInfoCentered(action.label, action.x, 146, 110, 64, colors.ink)
       self:endPress(pressed)
     end
   end
@@ -5170,10 +5171,18 @@ return function(ui)
         and y >= top and y < top + PC_LIST_HEIGHT then return row end
   end
 
-  function H:pcQuantityHit(x, y)
+  function H:pcQuantityEnabled(model, action)
+    if not model or action ~= "minus" and action ~= "plus" then return true end
+    local qty, minimum, maximum = model.qty or 1, model.min or 1, model.max
+    if model.wrap and maximum then return maximum > minimum end
+    if action == "minus" then return qty > minimum end
+    return not maximum or qty < maximum
+  end
+
+  function H:pcQuantityHit(x, y, model)
     if y >= 91 and y < 139 then
-      if x >= 7 and x < 81 then return "minus" end
-      if x >= 159 and x < 233 then return "plus" end
+      if x >= 7 and x < 81 and self:pcQuantityEnabled(model, "minus") then return "minus" end
+      if x >= 159 and x < 233 and self:pcQuantityEnabled(model, "plus") then return "plus" end
     elseif y >= 146 and y < 210 then
       if x >= 7 and x < 117 then return "confirm" end
       if x >= 123 and x < 233 then return "cancel" end

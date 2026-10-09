@@ -260,6 +260,14 @@ T.eq(#stack.states,1,"rejected item action creates no screen")
 T.check(display.performBagAction("POTION","toss"),"discard reaches the native quantity flow")
 T.eq(save.inventory.POTION,3,"opening discard never removes inventory")
 T.eq(display.recentItem.pending,nil,"discard cannot be observed as successful use")
+local quantityView=display.startMenu()
+T.check(quantityView and quantityView.quantity,"native bag quantity uses the shared companion page")
+T.eq(quantityView.quantity.max,3,"shared page exposes the native Gen1/2 stack limit")
+T.eq(quantityView.quantity.label,run.data.items.POTION.name,"quantity keeps the actual selected item name")
+T.eq(quantityView.quantity.wrap,true,"legacy native quantity preserves wrap at its ends")
+T.eq(H:pcQuantityHit(190,110,quantityView.quantity),"plus","native quantity has a lower-screen plus target")
+T.check(pcall(display.drawContents),"native bag quantity renders without a handoff")
+T.eq(display.nativeHandoff,false,"quantity stays usable on the companion screen")
 if generation==1 then
   local quantity=stack:top()
   T.eq(quantity.max,3,"native toss quantity uses the real stack")
@@ -275,6 +283,7 @@ else
   T.eq(save.inventory.POTION,1,"native confirmation discards exactly two items")
 end
 stack:clear();stack:push(world)
+T.eq(display.StartMenu.cursor(quantityView),nil,"a dismissed quantity page rejects stale touches")
 if generation==2 then
   T.check(display.performBagAction("POTION","give"),"give enters the original held-item flow")
   T.eq(stack:top().screenId,"Gen2PartyMenu","give opens the native Pokemon selection")
@@ -283,6 +292,12 @@ if generation==2 then
 end
 for _, dark in ipairs({false,true}) do
   H:setVariant(dark)
+  for _, wrap in ipairs({false,true}) do
+    local q={label="POTION",qty=1,max=1,wrap=wrap}
+    T.eq(H:pcQuantityHit(40,110,q),nil,"single-item minus never has an action")
+    T.eq(H:pcQuantityHit(190,110,q),nil,"single-item plus never has an action")
+    T.eq(H:pcQuantityHit(40,170,q),"confirm","single-item confirm remains usable")
+  end
   for count=1,5 do
     local actions={};for i=1,count do actions[i]={id=tostring(i),label="ACTION "..i} end
     local detail={detail={label="POTION",count=3,icon="medicine",lines={"LINE ONE","LINE TWO","LINE THREE"}},actions=actions,canUse=true}

@@ -269,7 +269,8 @@ function UI:list(battle)
   local pocket, partyLayout = false, false
   if sale then
     title = "SELL"
-    if sale.state == "qty" then quantity = { label = sale.name, qty = sale.qty }
+    if sale.state == "qty" then quantity = { label = sale.name, qty = sale.qty,
+      itemId = sale.itemId, max = sale.owned, wrap = true }
     elseif sale.state == "confirm" then
       items, field, prompt = labels({ "YES", "NO" }), "yesNo", sale.name .. "\n" .. sale.text
     end
@@ -328,10 +329,15 @@ function UI:list(battle)
     elseif mode == "buy" then
       items, field = {}, "cursor"
       for _, id in ipairs(native._items) do
-        items[#items + 1] = { label = self.adapter.Items.displayName(id), right = "¥" .. self.adapter.Items.info(id).price }
+        items[#items + 1] = { label = self.adapter.Items.displayName(id),
+          right = "¥" .. self.adapter.Items.info(id).price, itemId = id }
       end
       items[#items + 1] = { label = "CANCEL" }
-    elseif mode == "buy_qty" then quantity = { label = native._pending.name, qty = native.qty }
+    elseif mode == "buy_qty" then
+      local pending = native._pending
+      quantity = { label = pending.name, qty = native.qty, itemId = pending.id,
+        max = math.max(1, math.min(99, math.floor((tonumber(native._session.money) or 0)
+          / math.max(1, pending.price or 0)))) }
     elseif mode == "buy_confirm" then items, field, prompt = labels({ "YES", "NO" }), "yesNoCursor", native._status end
   elseif layer.id == "pc_menu" then
     title, field = "PC", "cursor"
@@ -353,7 +359,8 @@ function UI:list(battle)
     if mode == "list" or mode == "move" then
       items, field = {}, "row"
       for _, row in ipairs(native._session.storage.items) do
-        items[#items + 1] = { label = self.adapter.Items.displayName(row.id), right = "x" .. row.qty }
+        items[#items + 1] = { label = self.adapter.Items.displayName(row.id),
+          right = "x" .. row.qty, itemId = row.id }
       end
       items[#items + 1] = { label = "CANCEL" }
     elseif mode == "submenu" then
@@ -361,7 +368,8 @@ function UI:list(battle)
         RomText.plain("gFameCheckerText_Cancel") }), "subCursor"
     elseif mode == "qty" then
       local row = native._session.storage.items[native.scroll + native.row + 1]
-      quantity = row and { label = self.adapter.Items.displayName(row.id), qty = native.qty }
+      quantity = row and { label = self.adapter.Items.displayName(row.id), qty = native.qty,
+        itemId = row.id, max = row.qty, wrap = true }
     end
   elseif layer.id == "move_relearner" then
     title = "MOVES"
@@ -396,7 +404,9 @@ function UI:list(battle)
         RomText.box(self.adapter.profile.id == "emerald" and "gText_ConfirmTossItems"
           or "gText_ThrowAwayStrVar2OfThisItemQM", {
           stringVars = { self.adapter.Items.displayName(row.id), tostring(native.tossQty) } })
-    else quantity = row and { label = self.adapter.Items.displayName(row.id), qty = native.tossQty } end
+    else quantity = row and { label = self.adapter.Items.displayName(row.id), qty = native.tossQty,
+      itemId = row.id, max = mode == "deposit" and math.min(999, row.qty or 1) or row.qty,
+      wrap = mode == "deposit" or layer.id == "berry_pouch" } end
   elseif layer.id == "start" then
     title = "CHOOSE ACTION"
     if native._confirmExit then
@@ -540,6 +550,7 @@ function UI:list(battle)
     and not native._fromBerryCrush and not native.holdingMon
     and native._location ~= "shop" and native._location ~= "itempc"
     and native._location ~= "berry_tree" and native._location ~= "blender"
+  if quantity then quantity.itemSprite = self.adapter:itemIcon(quantity.itemId) end
   view.quantity = quantity
   view.prompt = prompt
   view.nativeGrid, view.boxParty = grid, boxParty

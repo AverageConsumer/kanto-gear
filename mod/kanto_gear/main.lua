@@ -4971,6 +4971,36 @@ return function(mod)
       return top
     end
     local top = game and game.stack and game.stack:top()
+    local quantity = top and (top.screenId == "Gen2PackMenu"
+      or top.screenId == "Gen2ItemPcMenu" or compat.isGen2()
+        and getmetatable(top) == require("src.ui.gen2.PackMenu")) and top.qtyState
+    if not quantity and top and getmetatable(top) == require("src.ui.QuantityBox") then quantity = top end
+    if quantity and type(quantity.qty) == "number" and type(quantity.max) == "number" then
+      local view = displayRuntime.legacyQuantityView
+      if not view or view.owner ~= top or view.state ~= quantity then
+        view = { screenId = "Gen3Menu", owner = top, state = quantity,
+          nativeKey = tostring(top) .. ":quantity:" .. tostring(quantity),
+          title = "QUANTITY", index = 1, items = { { label = "CONFIRM" } }, update = function() end,
+          valid = function() return game.stack:top() == top
+            and (quantity == top or top.qtyState == quantity) end }
+        displayRuntime.legacyQuantityView = view
+      end
+      local parent = screenById("BagMenu") or pcList()
+      if not parent then
+        for index = #(game.stack.states or {}), 1, -1 do
+          local candidate = game.stack.states[index]
+          if (candidate.kind == "bag" or candidate.itemBox
+              and getmetatable(candidate) == require("src.ui.ListMenu")) and type(candidate.items) == "table"
+              and type(candidate.index) == "number" then parent = candidate break end
+        end
+      end
+      local row = quantity.row or top.rows and top.rows[top.listIndex]
+        or parent and parent.items and parent.items[parent.index]
+      view.quantity = { label = row and (row.name or row.label),
+        qty = quantity.qty, max = quantity.max, wrap = true }
+      return view
+    end
+    displayRuntime.legacyQuantityView = nil
     return displayRuntime.StartMenu.cursor(top) and top or nil
   end
 
@@ -9865,7 +9895,7 @@ return function(mod)
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:pcQuantity({ label = item
         and (item.label or item.name) or THEME:translate("ITEM"),
-        qty = quantity.qty or 1, icon = "item" })
+        qty = quantity.qty or 1, max = quantity.max, wrap = true, icon = "item" })
       G.pop()
       return
     end
@@ -11839,7 +11869,8 @@ return function(mod)
     if quantity then
       if THEME.style == "hgss" then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
-        local action = THEME.hgss:pcQuantityHit(hx, hy)
+        local action = THEME.hgss:pcQuantityHit(hx, hy,
+          { qty = quantity.qty, max = quantity.max, wrap = true })
         if hy < 30 and hx < 27 then press("b")
         elseif action == "minus" then press("down")
         elseif action == "plus" then press("up")
@@ -12058,7 +12089,7 @@ return function(mod)
     end
     if top.quantity then
       local action
-      if THEME.style == "hgss" then action = THEME.hgss:pcQuantityHit(x * 1.5, y * 1.5)
+      if THEME.style == "hgss" then action = THEME.hgss:pcQuantityHit(x * 1.5, y * 1.5, top.quantity)
       else action = inside(x, y, 7, 61, 42, 28) and "minus" or inside(x, y, 111, 61, 42, 28) and "plus"
         or inside(x, y, 7, 99, 70, 37) and "confirm" or inside(x, y, 83, 99, 70, 37) and "cancel" end
       if y < HEADER and x < 24 then action = "cancel" end
