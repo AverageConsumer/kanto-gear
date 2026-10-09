@@ -93,6 +93,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     for _, row in ipairs(profile.items) do actions[#actions + 1] = row.label end
     if generation == 1 then
       T.eq(#actions, #game.stack:top().items, "Gen1 retains its native side actions")
+      T.eq(table.concat(profile.dexModel.pokemon.description," "),"FIRST NATIVE PAGE SECOND NATIVE PAGE",
+        "Gen1 native form-feed separates words in the common profile")
       local x, y, w, h = display.PokedexPage.actionRect(1, #actions)
       click(x + w / 2, y + h / 2)
       local pending = view()

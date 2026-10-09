@@ -10,6 +10,8 @@ end
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local Page = display.PokedexPage
   local theme = up(display.drawContents, "THEME")
+  T.eq(table.concat(theme:descriptionLines("FIRST\fSECOND\vTHIRD\nFOURTH",24,nil,210)," "),
+    "FIRST SECOND THIRD FOURTH", "native page and line controls preserve word boundaries")
   local compose
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
     if entry.owner == "kanto_gear" then compose = entry.callback end

@@ -1786,7 +1786,7 @@ end
 
 function THEME:descriptionLines(source, chars, limit, hgssWidth)
   source = tostring(source or ""):gsub("<PK><MN>", "PKMN")
-    :gsub("<[^>]+>", " "):gsub("[\r\n@]+", " ")
+    :gsub("<[^>]+>", " "):gsub("[%s@]+", " ")
   if self.style == "hgss" and hgssWidth then
     return self:wrapText(source, hgssWidth, limit,
       function(value) return self.hgss:partyInfoWidth(value) end)
