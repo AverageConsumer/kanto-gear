@@ -9554,9 +9554,11 @@ return function(mod)
 
   function displayRuntime.moveSelectionModel(menu)
     local moves = {}
+    local first, count, currentPage, pages = 1, 4
+    if menu.catalogue then first, count, currentPage, pages = displayRuntime.MovePage.window(#menu.items - 1, menu.cursor) end
     for index, row in ipairs(menu.items or {}) do
-      local slot = menu.slots and menu.slots[index] or index
-      if slot <= 4 then
+      local slot = menu.catalogue and index - first + 1 or menu.slots and menu.slots[index] or index
+      if slot >= 1 and slot <= count then
         local move = hgssRuntime.moveView(row.move)
         move.name, move.ppText = row.label, row.right or move.ppText
         move.available = not row.inert and row.enabled ~= false
@@ -9570,7 +9572,8 @@ return function(mod)
         or THEME:translate("CHOOSE MOVE"), enabled = menu.enabled ~= false
         and (not menu.valid or menu.valid()),
       newMove = menu.newMoveId and hgssRuntime.moveView(menu.newMoveId),
-      newLabel = THEME:translate("NEW"), details = menu.learning and assist("move_details"), message = menu.message }
+      newLabel = THEME:translate("NEW"), details = (menu.learning or menu.catalogue) and assist("move_details"),
+      message = menu.message, first = first, page = currentPage, pages = pages }
   end
 
   function displayRuntime.learningMoveModel(learn)
@@ -11721,15 +11724,20 @@ return function(mod)
       return
     end
     if top.moveSelection and THEME.style == "hgss" then
-      local action, slot = displayRuntime.MovePage.hit(displayRuntime.moveSelectionModel(top.moveSelection),
+      local model = displayRuntime.moveSelectionModel(top.moveSelection)
+      local action, slot = displayRuntime.MovePage.hit(model,
         x * THEME.hgssScale, y * THEME.hgssScale)
       if action == "back" then press("b")
+      elseif action == "previous" or action == "next" then
+        displayRuntime.StartMenu.select(top, model.first + (action == "next" and 4 or -4))
       elseif action == "new" then moveInfo = compat.moveInfoEntry(top.moveSelection.newMoveId)
       elseif action == "info" then
+        if top.moveSelection.catalogue then slot = model.first + slot - 1 end
         for index, row in ipairs(top.items) do
           if (top.nativeSlots and top.nativeSlots[index] or index) == slot then moveInfo = compat.moveInfoEntry(row.move); break end
         end
       elseif type(action) == "number" then
+        if top.moveSelection.catalogue then action = model.first + action - 1 end
         for index in ipairs(top.items) do
           if (top.nativeSlots and top.nativeSlots[index] or index) == action
               and displayRuntime.StartMenu.select(top, index) then press("a"); break end
@@ -12538,6 +12546,14 @@ return function(mod)
     local native = displayRuntime.startMenu()
     if native and not native.choiceState then
       local menu = displayRuntime.StartMenu
+      if native.moveSelection and native.moveSelection.catalogue then
+        local model = displayRuntime.moveSelectionModel(native.moveSelection)
+        local nextFirst = direction and model.first + direction * 4
+        if nextFirst and nextFirst >= 1 and nextFirst < #native.items then
+          menu.select(native, nextFirst); dirty = true
+        end
+        return true
+      end
       local first = not native.fixedLayout and not native.quantity and not native.notice and menu.window(native)
       if first and direction then
         local visible = native.recentBag and 4 or menu.visible

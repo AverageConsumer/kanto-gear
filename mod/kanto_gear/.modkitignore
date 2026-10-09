@@ -87,3 +87,4 @@ tests/safari_cases.lua
 tests/gen3_pokeblock_test.lua
 tests/gen3_save_test.lua
 tests/legacy_save_test.lua
+tests/gen3_relearner_test.lua

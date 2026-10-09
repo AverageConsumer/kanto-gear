@@ -471,6 +471,7 @@ function UI:list(battle)
       and require("src.ui.game3.rse.summary_menu").page(layer.mod) == 3 then return nil end
   local native, items, field, title, slots = layer.mod
   local quantity, prompt, grid, boxParty, moveSelection
+  local relearnMoves, relearnKey, relearnMon, relearnFirst
   local mode = nativeMode(layer)
   local sale = mode == "sell" and native._sell
   local saleState = sale and sale.state
@@ -663,8 +664,16 @@ function UI:list(battle)
     title = "MOVES"
     if mode == "list" then
       items, field = {}, "cursor"
-      for _, id in ipairs(native.moves()) do items[#items + 1] = { label = self.adapter.Pokemon.moveName(id) } end
+      relearnMoves, relearnMon = native.moves(), native._mon
+      relearnKey = table.concat(relearnMoves, "\31")
+      relearnFirst = self.movePage.window(#relearnMoves, native.cursor)
+      for _, id in ipairs(relearnMoves) do
+        local pp = self.adapter.Pokemon.movePp(id)
+        items[#items + 1] = { label = self.adapter.Pokemon.moveName(id),
+          move = { id = self.adapter.Moves.constName(id), pp = pp, maxPp = pp }, right = pp .. "/" .. pp }
+      end
       items[#items + 1] = { label = "CANCEL" }
+      moveSelection = { mon = self.adapter:mon(relearnMon), items = items, catalogue = true, cursor = native.cursor }
     elseif mode == "yesno" then
       items, field, prompt = labels({ "YES", "NO" }), "yesNoCursor", native.prompt
     end
@@ -793,6 +802,7 @@ function UI:list(battle)
     .. ":" .. tostring(yesNoCallback) .. ":" .. tostring(yesNoPrompt)
     .. ":" .. tostring(native._hmNotice) .. ":" .. tostring(native._confirmExit)
     .. ":" .. tostring(layer.id == "box_storage" and native._session.storage.currentBox)
+    .. ":" .. tostring(relearnKey) .. ":" .. tostring(relearnMon) .. ":" .. tostring(relearnFirst)
   local learningPrompt = (layer.id == "party" or layer.id == "move_relearner") and mode == "yesno"
     and self:learningPrompt() or nil
   local view = self.view
@@ -803,7 +813,8 @@ function UI:list(battle)
     local holding = native.holdingMon
     local storageBox = layer.id == "box_storage" and native._session.storage.currentBox
     local hmNotice, confirmExit = native._hmNotice, native._confirmExit
-    local forgetMoves, forgetCallback, forgetMon = native._forgetMoves, native._forgetCallback, moveSelection and native._party[native.cursor or native._cursor]
+    local forgetMoves, forgetCallback, forgetMon = native._forgetMoves, native._forgetCallback,
+      moveSelection and not relearnMoves and native._party[native.cursor or native._cursor]
     function view.valid(preview)
       return owner.Stack.top() == layer and native.open == true
         and nativeMode(layer) == mode and native.pocketIdx == pocketIdx
@@ -814,6 +825,8 @@ function UI:list(battle)
         and (not storageBox or mode == "pick_box" or native._session.storage.currentBox == storageBox)
         and native._forgetMoves == forgetMoves and native._forgetCallback == forgetCallback
         and (not forgetMon or native._party[native.cursor or native._cursor] == forgetMon)
+        and (not relearnMoves or native._mon == relearnMon and table.concat(native.moves(), "\31") == relearnKey
+          and owner.movePage.window(#native.moves(), native.cursor) == relearnFirst)
         and native._hmNotice == hmNotice and native._confirmExit == confirmExit
         and (mode ~= "yesno" or (native._yesNoCallback or native._yesNoCb) == yesNoCallback
           and (native._yesNoPrompt or native.prompt) == yesNoPrompt)
@@ -849,6 +862,7 @@ function UI:list(battle)
               native.row = v - 1 - native.scroll
             else
               native[field] = t.nativeSlots and t.nativeSlots[v] or v
+              if relearnMoves then native.scroll = math.max(0, v - 1) end
               if layer.id == "bag" and mode == "action" and owner.adapter.profile.id == "emerald" then
                 local st = require("src.ui.game3.rse.bag_menu")._st
                 for i, cell in ipairs(st.grid and st.grid.cells or {}) do
@@ -890,7 +904,10 @@ function UI:list(battle)
   if view.learningPrompt then
     self.movePage.promptLayout(items)
   elseif moveSelection then
-    self.movePage.layout(items, slots)
+    if moveSelection.catalogue then
+      local first, count = self.movePage.listLayout(items, native.cursor)
+      view.touchWindow = { first = first, count = count }
+    else self.movePage.layout(items, slots) end
   elseif prompt then
     view.choiceState = view.choiceState or { page = 1 }
     local names = {}
