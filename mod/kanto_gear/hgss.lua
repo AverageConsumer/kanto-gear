@@ -93,6 +93,7 @@ return function(ui)
   local H = {
     palette = lightPalette,
     colors = lightColors,
+    nativeFocus = ui.nativeFocus ~= false,
     backdropCenterY = BACKDROP_CENTER_Y,
     battleBagOffsetY = 8,
     battleActions = {
@@ -3745,7 +3746,8 @@ return function(ui)
     for _, entry in ipairs(model.entries) do
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h)
-      self:homeTile(x, y, w, h, entry.selected and c.green or c.blue, entry.selected)
+      local focused = self.nativeFocus and entry.selected
+      self:homeTile(x, y, w, h, focused and c.green or c.blue, focused)
       self:startMenuIcon(entry.kind, x + 9, y + 6)
       box("fill", x + 33, y + 5, 1, h - 10, c.band)
       local reserved = entry.right and 78 or 0
@@ -3791,8 +3793,9 @@ return function(ui)
     for _, entry in ipairs(model.entries or {}) do
       local x, y, w, h = legacyRect(entry)
       local pressed = self:beginPress(x, y, w, h)
+      local focused = self.nativeFocus and entry.selected
       self:homeTile(x, y, w, h,
-        entry.selected and colors.green or colors.blue, entry.selected)
+        focused and colors.green or colors.blue, focused)
       self:partyInfo(self:fitPartyInfo(entry.label, w - 16),
         x + 8, y + math.floor((h - 9) / 2), colors.ink,
         w - 16, "center")
@@ -3813,7 +3816,7 @@ return function(ui)
     for _, e in ipairs(model.entries) do
       local x, y, w, h = e.x, e.y, e.w, e.h
       local pressed = self:beginPress(x, y, w, h)
-      self:panel(x, y, w, h, e.selected, c.greenLight, c.blueLight)
+      self:panel(x, y, w, h, self.nativeFocus and e.selected, c.greenLight, c.blueLight)
       if e.rawMon and drawIcon then
         local size = math.min(h - 2, 32)
         local labelled = e.label ~= ""
@@ -3843,7 +3846,7 @@ return function(ui)
     for _, entry in ipairs(model.entries or {}) do
       local x, y, w, h = legacyRect(entry)
       local pressed = self:beginPress(x, y, w, h)
-      self:panel(x, y, w, h, entry.selected, colors.greenLight,
+      self:panel(x, y, w, h, self.nativeFocus and entry.selected, colors.greenLight,
         entry.action and colors.amberLight or colors.blueLight)
       local label = tostring(entry.label or "")
       self:partyInfo(self:fitPartyInfo(label, w - 8), x + 4,
@@ -4479,7 +4482,7 @@ return function(ui)
     local labels = { format("BALL x%d", model.balls or 0),
       translate("BAIT"), translate("ROCK"), translate("RUN") }
     for index = 1, 4 do
-      self:battleFullAction(model, index, model.index == index, labels)
+      self:battleFullAction(model, index, self.nativeFocus and model.index == index, labels)
     end
   end
 
@@ -4533,7 +4536,7 @@ return function(ui)
       { kind = "run", label = "RUN", color = "blue" },
     }
     for index, action in ipairs(actions) do
-      self:battleSafariAction(action, index, model.index == index)
+      self:battleSafariAction(action, index, self.nativeFocus and model.index == index)
     end
   end
 
@@ -4656,7 +4659,8 @@ return function(ui)
       local x, y, w, h = self:battleStandardPartyRect(slot, #party, cancel)
       local fainted = mon.statusId == "FNT"
       local pressed = self:beginPress(x, y, w, h)
-      self:partyPanel(x, y, w, h, selected == slot, fainted, selected == slot)
+      local focused = self.nativeFocus and selected == slot
+      self:partyPanel(x, y, w, h, focused, fainted, focused)
       local size = math.min(40, h - 4)
       drawPortrait(mon, x + 4 + math.floor((40 - size) / 2),
         y + math.floor((h - size) / 2), size, fainted)
@@ -4676,7 +4680,7 @@ return function(ui)
     if cancel then
       local x, y, w, h = self:battleStandardPartyRect(#party + 1, #party, true)
       local pressed = self:beginPress(x, y, w, h)
-      self:panel(x, y, w, h, selected == #party + 1, colors.greenLight)
+      self:panel(x, y, w, h, self.nativeFocus and selected == #party + 1, colors.greenLight)
       self:partyInfo(translate("CANCEL"), x, y + 3, colors.ink, w, "center")
       self:endPress(pressed)
     end
@@ -4691,7 +4695,7 @@ return function(ui)
     for slot = 1, math.min(4, #(model.moves or {})) do
       local move = model.moves[slot]
       self:summaryMoveRow(move, 6, 61 + (slot - 1) * 35,
-        model.index == slot, move.available ~= false, false)
+        self.nativeFocus and model.index == slot, move.available ~= false, false)
     end
   end
 
@@ -4935,14 +4939,14 @@ return function(ui)
       local pressed = self:beginPress(7, y, 226, height)
       self:panel(7, y, 226, height, false, nil,
         colors.blueLight, self.dark and colors.band or colors.silverDark)
-      if entry.selected then
+      if self.nativeFocus and entry.selected then
         clipped(9, y + 2, 222, height - 4,
           self:focusSurface(true, colors.surface, colors.blueLight))
       end
       self:partyName(entry.label or tostring(index),
         19, y + math.floor((height - 10) / 2), colors.ink, 184)
       self:detailChevron(216, y + math.floor(height / 2), colors.green)
-      if entry.selected then self:focusFrame(7, y, 226, height) end
+      if self.nativeFocus and entry.selected then self:focusFrame(7, y, 226, height) end
       self:endPress(pressed)
     end
   end
@@ -4967,7 +4971,7 @@ return function(ui)
       local pressed = self:beginPress(7, y, 226, PC_LIST_HEIGHT)
       self:panel(7, y, 226, PC_LIST_HEIGHT, false, nil, accent,
         self.dark and colors.band or colors.silverDark)
-      if entry.selected then
+      if self.nativeFocus and entry.selected then
         clipped(9, y + 2, 222, PC_LIST_HEIGHT - 4,
           self:focusSurface(true, colors.surface, accent))
       end
@@ -4988,10 +4992,10 @@ return function(ui)
         199 - left - rightWidth - (right and 6 or 0))
       if right then
         self:partyInfo(self:fitPartyInfo(right, rightWidth), 199 - rightWidth, y + 10,
-          entry.selected and colors.ink or colors.mutedInk, rightWidth, "right")
+          self.nativeFocus and entry.selected and colors.ink or colors.mutedInk, rightWidth, "right")
       end
       self:detailChevron(216, y + 14, colors.green)
-      if entry.selected then self:focusFrame(7, y, 226, PC_LIST_HEIGHT) end
+      if self.nativeFocus and entry.selected then self:focusFrame(7, y, 226, PC_LIST_HEIGHT) end
       self:endPress(pressed)
     end
   end
@@ -5513,7 +5517,7 @@ return function(ui)
     for row = 1, count do
       local index = first + row - 1
       self:battleBagRow(bag.items[index], index,
-        66 + (row - 1) * 33, bag.index == index,
+        66 + (row - 1) * 33, self.nativeFocus and bag.index == index,
         type(rowOffset) == "function" and rowOffset(row) or rowOffset)
     end
   end
@@ -6233,7 +6237,7 @@ return function(ui)
     for slot = 1, 4 do
       local move = model.moves and model.moves[slot] or {}
       self:summaryMoveRow(move, 6, 70 + (slot - 1) * 35,
-        model.index == slot, move.available ~= false,
+        self.nativeFocus and model.index == slot, move.available ~= false,
         details and move.available ~= false)
     end
   end
@@ -6256,7 +6260,7 @@ return function(ui)
     if model.choices then
       for index, label in ipairs(model.choices) do
         local x = index == 1 and 27 or 123
-        local selected = model.choice == index
+        local selected = self.nativeFocus and model.choice == index
         local pressed = self:beginPress(x, 145, 90, 40)
         self:panel(x, 145, 90, 40, selected, nil, colors.greenLight)
         self:partyInfo(translate(label), x + 7, 160,

@@ -2333,6 +2333,7 @@ return function(mod)
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
+    nativeFocus = false,
     smallFont = THEME.hgssSmallFont,
     largeFont = THEME.hgssLargeFont,
     translationFonts = THEME.translationFonts,
@@ -4874,13 +4875,14 @@ return function(mod)
         mon.species, mon.source = top.partyActions.species, top.partyActions
         THEME.hgss:partyBackdrop()
         THEME.hgss:partyCard(mon, 64, THEME.hgss:partyActionHeroY(#top.items), true, false,
-          hgssRuntime.summaryPortrait)
+          hgssRuntime.summaryPortrait, false)
         for slot, entry in ipairs(model.entries) do
           local label = THEME:menuActionLabel(({ SHIFT = "SWITCH", SUMMARY = "STATS" })[entry.label]
             or entry.label)
           local kind = entry.label == "SUMMARY" and "stats"
             or (entry.label == "CANCEL" or entry.label == "EXIT") and "cancel" or "switch"
-          THEME.hgss:actionRow(entry.x, entry.y, entry.w, entry.h, label, kind, 0, entry.selected)
+          THEME.hgss:actionRow(entry.x, entry.y, entry.w, entry.h, label, kind, 0,
+            THEME.hgss.nativeFocus and entry.selected)
         end
       elseif top.party then
         local views = {}
@@ -7538,7 +7540,7 @@ return function(mod)
           selectedSlot and selectedSlot == i
             or (not selectedSlot and mon and (mon.active
               or (activeSpecies and mon.species == activeSpecies))),
-          paged and not back)
+          paged and not back, partyMoveFrom ~= nil and selectedSlot == i)
       end
       G.pop()
       return
@@ -8944,7 +8946,7 @@ return function(mod)
           local label = THEME:menuActionLabel(action.item.label or tostring(action.index))
           THEME.hgss:actionRow(x, y, w, h, label,
             row == 1 and "switch" or row == 2 and "stats" or "cancel", 0,
-            selected == action.index)
+            THEME.hgss.nativeFocus and selected == action.index)
         end
         G.pop()
         return
@@ -8966,7 +8968,8 @@ return function(mod)
       ok, cancel = pcall(menu.isCancel, menu)
       if not ok then return end
     end
-    local selected = not cancel and menu.index or nil
+    local selected = (THEME.style ~= "hgss" or THEME.hgss.nativeFocus)
+      and not cancel and menu.index or nil
     local title = compat.battlePartyTitle(menu, cancel)
     if THEME.style == "hgss" then
       local list = battle.party or {}
@@ -10315,7 +10318,7 @@ return function(mod)
       drawBattleSummary(summary)
     elseif fieldParty then
       drawParty(fieldPartyData, fieldPartyTitle, true, nil,
-        fieldParty.index, false)
+        (THEME.style ~= "hgss" or THEME.hgss.nativeFocus) and fieldParty.index or nil, false)
     elseif displayRuntime.gen3 and mode == "locked"
         and top and top.nativeModal then
       -- Field scripts and warps only lock input; retain the companion page

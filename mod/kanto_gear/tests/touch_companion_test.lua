@@ -1,5 +1,6 @@
 -- Experimental companion contract: native UI and hardware input stay intact.
 local T = require("tests.modkit")
+love.graphics.arc = love.graphics.arc or function() end
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local gen = tonumber(os.getenv("KANTO_GEAR_TEST_GEN")) or 2
 local function up(fn, key, value, set)
@@ -53,6 +54,37 @@ local function hardware(run, display, game, scenes)
     end
   end
   game.input = original
+end
+
+local function nativeCursorPresentation(theme)
+  local H=theme.hgss
+  T.eq(H.nativeFocus,false,"companion presentation does not inherit hardware focus")
+  local frame,rounded=H.focusFrame,H.roundedFocusFrame
+  local frames=0
+  H.focusFrame=function() frames=frames+1 end
+  H.roundedFocusFrame=function() frames=frames+1 end
+  local entry={x=8,y=50,w=144,h=25,label="CHOICE",selected=true}
+  local move={name="TACKLE",type="NORMAL",available=true,ppText="10/10",powerText="40",accuracyText="100"}
+  for _,draw in ipairs({
+    function() H:startMenu({entries={entry},fixedLayout=true}) end,
+    function() H:choiceScreen({entries={entry}}) end,
+    function() H:naming({name="RED",entries={entry}}) end,
+    function() H:nativeGrid({entries={entry}}) end,
+    function() H:pcRoot({entries={entry}}) end,
+    function() H:pcList({entries={entry}}) end,
+    function() H:battleMimic({moves={move},index=1}) end,
+    function() H:moveLearnList({moves={move},index=1}) end,
+    function() H:moveLearnPrompt({choices={"YES","NO"},choice=1}) end,
+    function() H:battleBag({title="BAG",items={{label="POTION",right="x2"}},index=1},{},{}) end,
+  }) do
+    local ok,err=pcall(draw)
+    T.check(ok,"native touch menu renders: "..tostring(err))
+  end
+  T.eq(frames,0,"native cursor markers never appear on the touch pages")
+  T.eq(entry.selected,true,"presentation leaves the original selection facts intact")
+  H:panel(8,50,144,25,true)
+  T.eq(frames,1,"Gear-owned selections still have their visual feedback")
+  H.focusFrame,H.roundedFocusFrame=frame,rounded
 end
 
 if gen == 3 then
@@ -109,6 +141,7 @@ if gen == 3 then
     for _, style in ipairs({ "hgss", "hgss_dark" }) do
       run.loader.modOptions.kanto_gear.theme_v3 = style
       run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
+      nativeCursorPresentation(up(display.drawContents,"THEME"))
       hardware(run, display, game, scenes)
     end
     preservedHooks(run, { display.gen3:battleState(), Stack.top() or {} })
@@ -151,6 +184,7 @@ else
   for _, style in ipairs({ "hgss", "hgss_dark" }) do
     run.loader.modOptions.kanto_gear = { theme_v3 = style, info_level = "enhanced", ui_motion = false }
     run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
+    nativeCursorPresentation(theme)
     for _, saved in ipairs({ "standard", "gear", "full", "info" }) do
       run.loader.modOptions.kanto_gear.battle_view = saved
       hardware(run, display, game, {
