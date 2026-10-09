@@ -8,6 +8,10 @@ function Page.turn(state, direction)
 end
 
 function Page.tabRect(state, index)
+  if state.pages == 5 then
+    local edges = { 6, 50, 86, 134, 184, 236 }
+    return edges[index], 31, edges[index + 1] - edges[index] - 2, 19
+  end
   local left = 6 + math.floor((index - 1) * 230 / state.pages)
   local right = 6 + math.floor(index * 230 / state.pages) - 2
   return left, 31, right - left, 19
@@ -35,7 +39,6 @@ function Page.draw(H, state, mon, portrait, translate)
     local active = state.page == index
     local label = labels[index]
     if state.pages > 4 and index == 2 then label = "ATKS" end
-    if state.pages > 4 and index == 4 then label = "CONTEST" end
     H:tab(left, top, width, height, translate(mon.isEgg and "EGG"
       or index == state.hiddenPage and "DETAILS" or label), active)
   end

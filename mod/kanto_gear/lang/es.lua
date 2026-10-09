@@ -1,6 +1,5 @@
 return {
   ["ATKS"] = "ATQ.",
-  ["CONTEST"] = "CONCUR.",
   ["DETAILS"] = false,
   ["FRIENDSHIP"] = false,
   ["GENETICS AND TRAINING"] = false,
