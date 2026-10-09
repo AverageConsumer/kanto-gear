@@ -69,10 +69,13 @@ function Summary.redrawKey(state, game, native)
   local mon, parts = state.mon or {}, { tostring(state), tostring(state.page) }
   for _, key in ipairs({ "species", "nickname", "level", "hp", "maxHp", "status",
       "experience", "exp", "item", "ot", "otName", "otId", "nature", "ability",
-      "friendship", "happiness", "isEgg", "egg", "eggSteps", "eggCycles", "isBadEgg" }) do
+      "isEgg", "egg", "isBadEgg" }) do
     parts[#parts + 1] = tostring(mon[key])
   end
   if state.spoilers and (state.page == state.hiddenPage or Summary.isEgg(mon)) then
+    for _, key in ipairs({ "friendship", "happiness", "eggSteps", "eggCycles" }) do
+      parts[#parts + 1] = tostring(mon[key])
+    end
     for _, field in ipairs({ "dvs", "ivs", "statExp", "evs" }) do
       for _, key in ipairs({ "hp", "attack", "defense", "speed", "special", "atk", "def", "spe", "spa", "spd" }) do
         parts[#parts + 1] = tostring(mon[field] and mon[field][key])

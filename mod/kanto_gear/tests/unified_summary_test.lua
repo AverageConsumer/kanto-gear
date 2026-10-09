@@ -31,6 +31,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
     tap((x+w/2)/theme.hgssScale,(y+h/2)/theme.hgssScale)
   end
   for _,style in ipairs({"hgss","hgss_dark"}) do
+    run.loader.modOptions.kanto_gear.info_level="enhanced"
     run.loader.modOptions.kanto_gear.theme_v3=style
     run.loader.modOptions.kanto_gear.ui_motion=false
     run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3"})
