@@ -1,7 +1,14 @@
 -- Native alphabets supply the keys; every generation shares their touch layout.
 local Page = {}
 
-function Page.model(name, items)
+function Page.availability(model, count, limit)
+  for _, entry in ipairs(model.entries) do
+    entry.disabled = entry.action == "delete" and count == 0
+      or not entry.action and limit ~= nil and count >= limit
+  end
+end
+
+function Page.model(name, items, limit, count)
   local rows, columns, lastRow = {}, 1, 0
   for index, item in ipairs(items) do
     if not item.action then
@@ -11,7 +18,7 @@ function Page.model(name, items)
       lastRow = math.max(lastRow, item.row)
     end
   end
-  local model = { name = name, entries = {} }
+  local model = { name = name == "" and "-" or name, entries = {} }
   local keyWidth = math.max(1, math.floor((226 - (columns - 1) * 2) / columns))
   local step = math.floor(108 / math.max(1, lastRow))
   local top = 70 + math.floor((108 - (lastRow * step - 2)) / 2)
@@ -31,12 +38,14 @@ function Page.model(name, items)
         x = 7 + (action - 1) * 77, y = 184, w = 72, h = 29 }
     end
   end
+  Page.availability(model, count or #tostring(name or ""), limit)
   return model
 end
 
 function Page.hit(model, x, y)
   for _, entry in ipairs(model.entries) do
-    if x >= entry.x and x < entry.x + entry.w and y >= entry.y and y < entry.y + entry.h then return entry.index end
+    if not entry.disabled and x >= entry.x and x < entry.x + entry.w
+        and y >= entry.y and y < entry.y + entry.h then return entry.index end
   end
 end
 

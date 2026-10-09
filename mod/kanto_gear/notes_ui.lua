@@ -47,6 +47,12 @@ return function(H, G, translate)
   end
   function H:notes(state)
     local c, n = self.colors, state:note()
+    local touchEnabled = self.touchEnabled
+    if state.error then self.touchEnabled = false end
+    local draftLength = 0
+    if state.view == "edit" then
+      for _ in state.draft:gmatch("[%z\1-\127\194-\244][\128-\191]*") do draftLength = draftLength + 1 end
+    end
     state.hits = {}
     local function hit(x,y,w,h,action,value)
       state.hits[#state.hits+1] = {x=x,y=y,w=w,h=h,action=action,value=value}
@@ -55,7 +61,14 @@ return function(H, G, translate)
       self:partyInfo(self:fitPartyInfo(value,w),x+1,y+math.floor((h-7)/2)-2,tint or c.ink,w,"center")
     end
     local function button(value,x,y,w,h,action,arg,selected,raw)
-      local pressed = self:beginPress(x,y,w,h,action ~= nil)
+      local enabled = action ~= nil
+      if (action == "filter" or action == "view") and selected and state.page == 1
+          or action == "pen" and selected then enabled = false end
+      if action == "backspace" and state.cursor == 0 then enabled = false end
+      if action == "cursor" then
+        enabled = arg < 0 and state.cursor > 0 or arg > 0 and state.cursor < draftLength
+      end
+      local pressed = self:beginPress(x,y,w,h,enabled)
       self:panel(x,y,w,h,false,nil)
       if selected then
         G.setColor(c.green);G.rectangle("fill",x+2,y+1,w-4,h-2)
@@ -174,9 +187,11 @@ return function(H, G, translate)
     end
     if state.error then
       state.hits = {}
+      self.touchEnabled = touchEnabled
       self:systemOverlay(self.dark and 0.62 or 0.48,false)
       self:panel(7,153,226,38);label(translate(state.error),10,155,220,14,c.red)
       button("OK",83,173,74,15,"dismiss")
     end
+    self.touchEnabled = touchEnabled
   end
 end

@@ -116,12 +116,13 @@ return function(ui)
     self.dark = dark
   end
 
-  function H:setTouch(x, y)
+  function H:setTouch(x, y, enabled)
     self.touchX, self.touchY = tonumber(x), tonumber(y)
+    self.touchEnabled = enabled ~= false
   end
 
   function H:isPressed(x, y, w, h, enabled, scale)
-    if enabled == false or self.pressActive
+    if enabled == false or self.touchEnabled == false or self.pressActive
         or not self.touchX or not self.touchY then return false end
     scale = scale or 1.5
     local tx, ty = self.touchX * scale, self.touchY * scale
@@ -587,9 +588,10 @@ return function(ui)
   -- A selected tab describes the open page, independently of native focus.
   -- Center the label and optional detail arrow together, with the same inset
   -- above the active rail in both themes.
-  function H:tab(x, y, w, h, label, active, arrow)
+  function H:tab(x, y, w, h, label, active, arrow, enabled)
     local colors = self.colors
-    local pressed = self:beginPress(x, y, w, h)
+    if enabled == nil then enabled = not active end
+    local pressed = self:beginPress(x, y, w, h, enabled)
     self:panel(x, y, w, h, false, nil, active and colors.greenLight or nil)
     if active then
       box("fill", x + 4, y + h - 3, w - 8, 1, colors.green)
@@ -1633,7 +1635,8 @@ return function(ui)
     for index, tab in ipairs({ "app", "widget" }) do
       local x = index == 1 and 10 or 121
       local active = model.libraryKind == tab
-      local pressed = self:beginPress(x, 34, 108, 13)
+      local pressed = self:beginPress(x, 34, 108, 13,
+        not active or (model.libraryPage or 1) > 1)
       clipped(x, 34, 108, 13, active and colors.green or colors.band)
       border(x, 34, 108, 13, colors.outline)
       self:partyType(translate(tab == "app" and "APPS" or "WIDGETS"),
@@ -2806,7 +2809,7 @@ return function(ui)
         { "library", "MY APPS" },
       }) do
       local x, selected = 7 + (index - 1) * 76, active == item[1]
-      local pressed = self:beginPress(x, 195, 73, 18)
+      local pressed = self:beginPress(x, 195, 73, 18, not selected)
       clipped(x, 195, 73, 18, selected and colors.green or colors.surface)
       border(x, 195, 73, 18, colors.outline)
       self:partyType(translate(item[2]), x + 2, 199,
@@ -3399,13 +3402,13 @@ return function(ui)
       box("fill", 29, y + 2, 1, 12, colors.band)
       box("fill", 63, y + 2, 1, 12, colors.band)
       box("fill", 83, y + 2, 1, 12, colors.band)
-      local minusPressed = self:beginPress(11, y, 18, 16)
-      box("fill", 17, y + 7, 6, 2, colors.green)
+      local minusPressed = self:beginPress(11, y, 18, 16, zoom > 1)
+      box("fill", 17, y + 7, 6, 2, zoom > 1 and colors.green or colors.mutedInk)
       self:endPress(minusPressed)
       self:partyType(zoom .. "/3", 31, y + 2, colors.green, 31)
-      local plusPressed = self:beginPress(64, y, 18, 16)
-      box("fill", 70, y + 7, 6, 2, colors.green)
-      box("fill", 72, y + 5, 2, 6, colors.green)
+      local plusPressed = self:beginPress(64, y, 18, 16, zoom < 3)
+      box("fill", 70, y + 7, 6, 2, zoom < 3 and colors.green or colors.mutedInk)
+      box("fill", 72, y + 5, 2, 6, zoom < 3 and colors.green or colors.mutedInk)
       self:endPress(plusPressed)
     end
     local function mapProgress(y)
@@ -3499,7 +3502,8 @@ return function(ui)
 
     local function chip(x, y, width, label, active, arrow, translated)
       if not translated then label = translate(label) end
-      self:tab(x, y, width, 16, label, active, arrow)
+      self:tab(x, y, width, 16, label, active, arrow,
+        not active or (model.page or 1) > 1)
     end
     local function pager(x, y, width, page, pages)
       local pressed = self:beginPress(x, y, width, 16, pages > 1)
@@ -3694,8 +3698,8 @@ return function(ui)
       return "map_toggle"
     end
     if model.mapFull and y >= 53 and y < 69 then
-      if x >= 11 and x < 29 then return "zoom_out" end
-      if x >= 64 and x < 82 then return "zoom_in" end
+      if x >= 11 and x < 29 and (model.mapZoom or 1) > 1 then return "zoom_out" end
+      if x >= 64 and x < 82 and (model.mapZoom or 1) < 3 then return "zoom_in" end
       return nil
     end
     if model.canScan and model.player and mapFocus == model.player then
@@ -3843,7 +3847,7 @@ return function(ui)
     local c = self.colors
     for _, entry in ipairs(model.entries) do
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
-      local pressed = self:beginPress(x, y, w, h)
+      local pressed = self:beginPress(x, y, w, h, not entry.disabled)
       local focused = self.nativeFocus and entry.selected
       self:homeTile(x, y, w, h, focused and c.green or c.blue, focused)
       self:startMenuIcon(entry.kind, x + 9, y + 6)
@@ -3915,7 +3919,7 @@ return function(ui)
     end
     for _, e in ipairs(model.entries) do
       local x, y, w, h = e.x, e.y, e.w, e.h
-      local pressed = self:beginPress(x, y, w, h)
+      local pressed = self:beginPress(x, y, w, h, not e.disabled)
       self:panel(x, y, w, h, self.nativeFocus and e.selected, c.greenLight, c.blueLight)
       if e.rawMon and drawIcon then
         local size = math.min(h - 2, 32)
@@ -3961,7 +3965,7 @@ return function(ui)
     centered(shown, 7, 34, 226, 29)
     for _, entry in ipairs(model.entries or {}) do
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
-      local pressed = self:beginPress(x, y, w, h)
+      local pressed = self:beginPress(x, y, w, h, not entry.disabled)
       self:panel(x, y, w, h, self.nativeFocus and entry.selected, colors.greenLight,
         entry.action == "confirm" and colors.greenLight or entry.action == "delete" and colors.amberLight or colors.blueLight)
       local label = entry.action and translate(entry.label) or tostring(entry.label or "")
@@ -6058,10 +6062,11 @@ return function(ui)
     return 5 + col * 118, 32 + row * 58 + (col == 1 and 4 or 0)
   end
 
-  function H:partyCard(mon, x, y, selected, details, drawPortrait, focused, emptyTarget)
+  function H:partyCard(mon, x, y, selected, details, drawPortrait, focused, emptyTarget, interactive)
     local fainted = mon and (mon.statusId == "FNT"
       or mon.hp ~= nil and mon.hp <= 0)
-    local pressed = self:beginPress(x, y, 112, 56, mon ~= nil or emptyTarget)
+    local pressed = self:beginPress(x, y, 112, 56,
+      interactive ~= false and (mon ~= nil or emptyTarget))
     if focused == nil then focused = selected end
     self:partyPanel(x, y, 112, 56, selected, fainted, focused)
     if not mon then

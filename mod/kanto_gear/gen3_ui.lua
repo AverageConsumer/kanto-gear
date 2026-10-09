@@ -91,6 +91,7 @@ function UI:naming(layer)
   end
   view.name = state.name == "" and "-" or state.name
   view.namingModel.name = view.name
+  self.namingPage.availability(view.namingModel, #state.name, state.maxLen)
   view.notice, view.canAdvance = state.pcPages and state.pcPages[state.pcPage], true
   return view
 end

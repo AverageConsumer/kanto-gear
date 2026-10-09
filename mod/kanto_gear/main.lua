@@ -5027,7 +5027,7 @@ return function(mod)
         mon.species, mon.source = top.partyActions.species, top.partyActions
         THEME.hgss:partyBackdrop()
         THEME.hgss:partyCard(mon, 64, THEME.hgss:partyActionHeroY(#top.items), true, false,
-          hgssRuntime.summaryPortrait, false)
+          hgssRuntime.summaryPortrait, false, nil, false)
         for slot, entry in ipairs(model.entries) do
           local label = THEME:menuActionLabel(({ SHIFT = "SWITCH", SUMMARY = "STATS" })[entry.label]
             or entry.label)
@@ -5617,7 +5617,8 @@ return function(mod)
     items[#items + 1] = { label = top.lower and "ABC" or "abc", action = "case" }
     items[#items + 1] = { label = "DEL", action = "delete" }
     items[#items + 1] = { label = "OK", action = "confirm" }
-    return displayRuntime.NamingPage.model(name == "" and "-" or name, items), items
+    return displayRuntime.NamingPage.model(name, items, top.maxLen or top.maxLength,
+      gen2 and #name or #(top.glyphs or {})), items
   end
 
   local function drawNaming(top, grid)
@@ -7369,7 +7370,7 @@ return function(mod)
     }
   end
 
-  local function partyCard(mon, x, y, selected, details, focused)
+  local function partyCard(mon, x, y, selected, details, focused, interactive)
     if THEME.style == "hgss" then
       local source = mon and (mon.source or mon)
       local view = displayRuntime.partyView(mon)
@@ -7383,7 +7384,7 @@ return function(mod)
             compat.drawPokemonIcon(source, portraitX, portraitY, size,
               fainted and 0.48 or nil)
           end
-        end, focused)
+        end, focused, nil, interactive)
       return
     end
     box("fill", x, y, 75, 36, selected and DARK or MID)
@@ -7820,7 +7821,7 @@ return function(mod)
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:partyBackdrop()
       partyCard(mon, 64, THEME.hgss:partyActionHeroY(count)
-        + math.floor(offset / 2), true, false, false)
+        + math.floor(offset / 2), true, false, false, false)
       local x, y, w, h = THEME.hgss:partyActionRow(1, count)
       THEME.hgss:actionRow(x, y, w, h, THEME:translate("STATS"),
         "stats", offset)
@@ -9106,7 +9107,7 @@ return function(mod)
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
         THEME.hgss:partyBackdrop()
         partyCard(mon, 64, THEME.hgss:partyActionHeroY(#actions), true, false,
-          false)
+          false, false)
         for row, action in ipairs(actions) do
           local x, y, w, h = THEME.hgss:partyActionRow(row, #actions)
           local label = THEME:menuActionLabel(action.item.label or tostring(action.index))
@@ -10306,8 +10307,8 @@ return function(mod)
     end
   end
 
-  function displayRuntime.pressTouch(mode, choice, touch, owned)
-    if mode == "loading"
+  function displayRuntime.pressTouch(mode, choice, touch, owned, blocked)
+    if blocked or mode == "loading"
         or (mode == "textbox" and not choice and not owned)
         or (mode == "locked" and not owned) then
       return nil
@@ -10401,13 +10402,28 @@ return function(mod)
       or (compat.isScreen(top, "naming") and not naming)
     local levelStats = compat.levelUpMon(top)
       or displayRuntime.levelUp:fieldMon(top)
+    local pressTouch
     if THEME.style == "hgss" then
       local owned = learn or naming or levelStats or battle or fieldPp
         or fieldParty or hgssSummary or pcKind or startMenu
-      local pressTouch = displayRuntime.pressTouch(
-        mode, choice, touchDown, owned)
+      local battlePanel = screenContract(top, "party") or compat.battleBagMenu(top)
+        or screenContract(top, "pp") or hgssSummary
+      local battleLocked = battle and not startMenu and not moveInfo and not learn
+        and not choice and not battlePanel
+        and battle.prompt ~= "menu" and battle.prompt ~= "moves"
+        and battle.prompt ~= "safari" and battle.prompt ~= "mimic"
+        and battle.prompt ~= "forget"
+      local blocked = unsupportedSpecial or battleLocked or battle and battle.nativeUnsupported
+        or battle and top and top.isTextBox and not choice
+        or battle and top and top ~= battleState() and not top.isTextBox
+          and not startMenu and not battlePanel and not learn and not choice and not levelStats
+        or startMenu and (startMenu.notice or not displayRuntime.StartMenu.cursor(startMenu))
+        or learn and top and top.isTextBox and not choice
+        or partyActionSlot and THEME.hgss.partyActionClosing
+        or touchDown and not displayRuntime.touchGuard:allow(love.timer.getTime(), touchDown.epoch)
+      pressTouch = displayRuntime.pressTouch(mode, choice, touchDown, owned, blocked)
       THEME.hgss:setTouch(pressTouch and pressTouch.x,
-        pressTouch and pressTouch.y)
+        pressTouch and pressTouch.y, not pendingFly and not pendingAction)
       THEME.hgss:backdrop()
     end
     if startMenu then
@@ -10463,6 +10479,9 @@ return function(mod)
       end
     end
     if not learn and not battle and mode == "active" then
+      if THEME.style == "hgss" then
+        THEME.hgss:setTouch(pressTouch and pressTouch.x, pressTouch and pressTouch.y)
+      end
       if pendingFly then drawFlyPrompt()
       elseif pendingAction then drawActionPrompt() end
     end

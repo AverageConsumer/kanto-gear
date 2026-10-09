@@ -65,3 +65,4 @@ tests/settings_discovery_test.lua
 tests/summary_details_cases.lua
 tests/recent_item_cases.lua
 tests/recent_item_gen3_cases.lua
+tests/press_feedback_cases.lua

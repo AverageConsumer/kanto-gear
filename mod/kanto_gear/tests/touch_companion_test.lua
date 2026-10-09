@@ -143,6 +143,14 @@ if gen == 3 then
       run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
       nativeCursorPresentation(up(display.drawContents,"THEME"))
       hardware(run, display, game, scenes)
+      assert(loadfile(path .. "/tests/press_feedback_cases.lua"))()(T,display,up(display.drawContents,"THEME").hgss)
+      scenes[#scenes]()
+      local guard=display.syncTouchGuard(); guard.readyAt=0
+      up(display.drawContents,"touchDown",{x=80,y=60,epoch=guard.epoch},true)
+      display.drawContents()
+      T.eq(up(display.drawContents,"THEME").hgss.touchX,nil,
+        "native battle text never animates the commands beneath it")
+      up(display.drawContents,"touchDown",nil,true)
     end
     preservedHooks(run, { display.gen3:battleState(), Stack.top() or {} })
     for _, ref in ipairs(refs) do T.eq(ref[1][ref[2]], ref[3], "native handler remains intact after transitions") end
@@ -185,6 +193,7 @@ else
     run.loader.modOptions.kanto_gear = { theme_v3 = style, info_level = "enhanced", ui_motion = false }
     run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
     nativeCursorPresentation(theme)
+    assert(loadfile(path .. "/tests/press_feedback_cases.lua"))()(T,display,theme.hgss)
     for _, saved in ipairs({ "standard", "gear", "full", "info" }) do
       run.loader.modOptions.kanto_gear.battle_view = saved
       hardware(run, display, game, {
@@ -220,6 +229,16 @@ else
   for _, option in ipairs(theme.optionSchema) do
     T.check(option.key ~= "battle_view" and option.key ~= "trigger_tabs", "test exposes no legacy takeover options")
   end
+  stack.states={world,raw};state.prompt="advance";refresh()
+  local guard=display.syncTouchGuard();guard.readyAt=0
+  up(display.drawContents,"touchDown",{x=80,y=60,epoch=guard.epoch},true)
+  display.drawContents()
+  T.eq(theme.hgss.touchX,nil,"battle advance leaves the covered commands still")
+  state.prompt="menu";refresh();guard=display.syncTouchGuard();guard.readyAt=0
+  up(display.drawContents,"touchDown",{x=80,y=60,epoch=guard.epoch},true)
+  display.drawContents()
+  T.eq(theme.hgss.touchX,80,"live battle commands retain touch feedback")
+  up(display.drawContents,"touchDown",nil,true)
   run.release()
   T.finish("Touch companion Gen " .. gen)
 end
