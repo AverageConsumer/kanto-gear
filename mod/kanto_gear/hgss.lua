@@ -4008,7 +4008,7 @@ return function(ui)
       end
       self:partyType(self:fitPartyType(translate(row.label), width - 8),
         x + 4, y + 5, colors.green, width - 8)
-      local value = tostring(row.value or 0)
+      local value = row.value == nil and "--" or tostring(row.value)
       local delta = row.delta ~= nil and string.format("%+d", row.delta) or nil
       local valueWidth = self:partyInfoWidth(value)
       local deltaWidth = delta and self:partyInfoWidth(delta) or 0
@@ -4021,10 +4021,9 @@ return function(ui)
       end
     end
 
-    local pressed = self:beginPress(42, 170, 156, 34)
+    local pressed = self:beginPress(42, 170, 156, 34, model.enabled ~= false)
     self:homeTile(42, 170, 156, 34, colors.green, false)
-    self:partyInfo(translate("CONTINUE"), 50, 181,
-      colors.ink, 140, "center")
+    self:partyInfoCentered(translate("CONTINUE"), 50, 170, 140, 34, colors.ink)
     self:endPress(pressed)
   end
 

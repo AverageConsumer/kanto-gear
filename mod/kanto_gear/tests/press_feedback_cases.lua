@@ -69,6 +69,12 @@ return function(T, display, H)
   learn.enabled=false
   at(60,187,function() display.MovePage.drawPrompt(H,learn) end,0,"locked learning answers stay still")
   at(120,105,function() display.MovePage.drawPrompt(H,learn) end,0,"covered learning details stay still")
+  local growth={name="TESTMON",level="L5",rows={{label="MAX HP",value=20,delta=2}}}
+  at(120,187,function() H:levelUp(growth) end,1,"level-up continuation responds")
+  at(120,100,function() H:levelUp(growth) end,0,"level-up values stay still")
+  at(120,50,function() H:levelUp(growth) end,0,"level-up Pokemon stays still")
+  growth.enabled=false
+  at(120,187,function() H:levelUp(growth) end,0,"locked level-up continuation stays still")
   local app={id="notes",label="NOTES",icon="notes",category="UTILITY",state="soon"}
   at(60,85,function() H:storeAppCard(7,53,111,app,{}) end,0,
     "a disabled install action cannot bounce its containing card")

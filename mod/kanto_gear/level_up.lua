@@ -8,6 +8,25 @@ function LevelUp.new()
   return setmetatable({ snapshots = setmetatable({}, { __mode = "k" }) }, LevelUp)
 end
 
+-- One presentation contract for stored Gen 1/2 stats and native Gen 3 results.
+function LevelUp.model(mon, data, gain, stats)
+  stats = stats or mon.stats or {}
+  local def = data.pokemon[mon.species] or {}
+  local fields = { { "MAX HP", "hp" }, { "ATTACK", "attack" }, { "DEFENSE", "defense" } }
+  if stats.splitSpecial or stats.specialAttack ~= nil or stats.specialDefense ~= nil then
+    fields[#fields + 1], fields[#fields + 2] = { "SP. ATK", "specialAttack" }, { "SP. DEF", "specialDefense" }
+    fields[#fields + 1] = { "SPEED", "speed" }
+  else
+    fields[#fields + 1], fields[#fields + 2] = { "SPEED", "speed" }, { "SPECIAL", "special" }
+  end
+  local rows = {}
+  for _, field in ipairs(fields) do
+    rows[#rows + 1] = { label = field[1], value = stats[field[2]], delta = gain and gain.deltas[field[2]] }
+  end
+  return { name = mon.nickname or mon.name or def.name or mon.species or "POKEMON",
+    level = mon.level, from = gain and gain.from, type = (mon.types or def.types or {})[1], rows = rows }
+end
+
 function LevelUp:observe(mon, screen)
   if type(mon) ~= "table" then return false end
   if type(mon.stats) ~= "table" then

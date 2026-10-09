@@ -169,12 +169,24 @@ end
 function UI:list(battle)
   local stats = require("src.ui.game3.stat_growth")
   if stats.isOpen() then
-    local mon, page = stats._mon, stats._page
-    local key = tostring(mon) .. ":stats:" .. page
+    local mon, page, oldStats, newStats, callback = stats._mon, stats._page, stats._oldStats, stats._newStats, stats._onDone
+    local key = tostring(mon) .. ":stats:" .. page .. ":" .. tostring(oldStats) .. ":" .. tostring(newStats) .. ":" .. tostring(callback)
     if not self.statsView or self.statsView.nativeKey ~= key then
-      self.statsView = { screenId = "Gen3Menu", title = "BATTLE STATS", nativeKey = key,
+      local normalized = self.adapter:mon(mon)
+      self.statsView = { screenId = "Gen3Menu", title = "LEVEL UP", nativeKey = key,
         nativeStats = stats, items = labels({ "CONTINUE" }), index = 1, update = function() end,
-        valid = function() return stats.isOpen() and stats._mon == mon and stats._page == page end }
+        levelStats = { mon = { species = normalized.species, level = normalized.level, types = normalized.types,
+          name = self.adapter.Pokemon.displayMonName(mon) }, source = mon,
+          stats = { splitSpecial = true }, gain = { deltas = {} } },
+        valid = function() return stats.isOpen() and stats._mon == mon and stats._page == page
+          and stats._oldStats == oldStats and stats._newStats == newStats and stats._onDone == callback end }
+    end
+    local result = self.statsView.levelStats
+    local fields = { hp = "maxHp", attack = "atk", defense = "def", speed = "spe", specialAttack = "spa", specialDefense = "spd" }
+    for field, native in pairs(fields) do
+      local value, old = newStats and newStats[native], oldStats and oldStats[native]
+      result.stats[field] = value
+      result.gain.deltas[field] = type(value) == "number" and type(old) == "number" and value - old or nil
     end
     return self.statsView
   end

@@ -81,3 +81,4 @@ tests/legacy_bag_test.lua
 tests/item_page_cases.lua
 tests/move_page_cases.lua
 tests/pp_legacy_cases.lua
+tests/gen3_level_up_test.lua

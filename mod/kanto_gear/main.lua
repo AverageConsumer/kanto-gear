@@ -5086,7 +5086,7 @@ return function(mod)
   end
 
   function displayRuntime.drawStartMenu(top)
-    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt, top.nativePocket)
+    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt and not top.nativeStats, top.nativePocket)
     local model = displayRuntime.startMenuModel(top)
     if battle and assist("catch_odds") then
       for _, entry in ipairs(model.entries) do
@@ -5097,17 +5097,8 @@ return function(mod)
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       if top.nativeStats then
-        local native, rows = top.nativeStats, {}
-        local mon = displayRuntime.gen3:mon(native._mon)
-        local fields = { { "MAX HP", "maxHp" }, { "ATTACK", "atk" }, { "DEFENSE", "def" },
-          { "SP. ATK", "spa" }, { "SP. DEF", "spd" }, { "SPEED", "spe" } }
-        for _, field in ipairs(fields) do
-          local value, old = native._newStats[field[2]], native._oldStats[field[2]]
-          rows[#rows + 1] = { label = field[1], value = value, delta = native._page == 1 and value and old and value - old or nil }
-        end
-        THEME.hgss:levelUp({ name = displayRuntime.gen3.Pokemon.displayMonName(native._mon),
-          level = THEME:format("L%d", mon.level), type = mon.types[1], rows = rows,
-          drawPokemon = function(x, y, size) hgssRuntime.summaryPortrait({ source = mon, species = mon.species }, x, y, size) end })
+        local result = top.levelStats
+        THEME.hgss:levelUp(displayRuntime.levelUpModel(result.mon, result.gain, result.stats, result.source))
       elseif top.namingModel and not top.notice then
         THEME.hgss:naming(top.namingModel)
       elseif top.learningPrompt then
@@ -5905,56 +5896,33 @@ return function(mod)
     end
   end
 
-  local function drawLevelUpStats(mon)
-    local stats = mon.stats
-    local gain = displayRuntime.levelUp:get(mon)
-    local levelText = THEME:format("L%d", mon.level or 0)
-    if gain then
-      levelText = THEME:format("L%d", gain.from) .. " → " .. levelText
+  function displayRuntime.levelUpModel(mon, gain, stats, source)
+    local model = displayRuntime.LevelUp.model(mon, game.data, gain or displayRuntime.levelUp:get(mon), stats)
+    model.level = THEME:format("L%d", model.level or 0)
+    if model.from then model.level = THEME:format("L%d", model.from) .. " → " .. model.level end
+    model.drawPokemon = function(x, y, size)
+      drawSprite(mon.species, "front", x, y, size, size, nil, source or mon.source or mon)
     end
-    local def = game.data.pokemon[mon.species] or {}
+    return model
+  end
+
+  local function drawLevelUpStats(mon)
+    local model = displayRuntime.levelUpModel(mon)
     header(THEME:translate("LEVEL UP"))
-    centered(fit((mon.nickname or def.name or mon.species or "POKEMON")
-      .. "  " .. levelText, 24), 27, DARK, nil, true)
-    local splitSpecial = stats.specialAttack ~= nil
-      or stats.specialDefense ~= nil
-    local rows = splitSpecial and {
-      { "MAX HP", stats.hp, "hp" },
-      { "ATTACK", stats.attack, "attack" }, { "DEFENSE", stats.defense, "defense" },
-      { "SPCL.ATK", stats.specialAttack, "specialAttack" },
-      { "SPCL.DEF", stats.specialDefense, "specialDefense" },
-      { "SPEED", stats.speed, "speed" },
-    } or {
-      { "MAX HP", stats.hp, "hp" },
-      { "ATTACK", stats.attack, "attack" }, { "DEFENSE", stats.defense, "defense" },
-      { "SPEED", stats.speed, "speed" }, { "SPECIAL", stats.special, "special" },
-    }
     if THEME.style == "hgss" then
-      local modelRows = {}
-      for _, row in ipairs(rows) do
-        modelRows[#modelRows + 1] = { label = row[1], value = row[2],
-          delta = gain and gain.deltas[row[3]] }
-      end
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:levelUp({
-        name = mon.nickname or def.name or mon.species or "POKEMON",
-        level = levelText,
-        type = def.types and def.types[1], rows = modelRows,
-        drawPokemon = function(x, y, size)
-          drawSprite(mon.species, "front", x, y, size, size,
-            nil, mon.source or mon)
-        end,
-      })
+      THEME.hgss:levelUp(model)
       G.pop()
       return
     end
+    centered(fit(model.name .. "  " .. model.level, 24), 27, DARK, nil, true)
+    local splitSpecial = #model.rows == 6
     local firstY, step = 38, splitSpecial and 11 or 13
-    for i, row in ipairs(rows) do
+    for i, row in ipairs(model.rows) do
       local y = firstY + (i - 1) * step
-      text(THEME:translate(row[1]), 24, y, INK)
-      local delta = gain and gain.deltas[row[3]]
-      local value = tostring(row[2] or 0)
-      if delta ~= nil then value = value .. " " .. string.format("%+d", delta) end
+      text(THEME:translate(row.label), 24, y, INK)
+      local value = row.value == nil and "--" or tostring(row.value)
+      if row.delta ~= nil then value = value .. " " .. string.format("%+d", row.delta) end
       text(value, 154 - THEME:textWidth(value), y, DARK)
     end
     button(24, splitSpecial and 111 or 108, 112, 27,
@@ -11768,7 +11736,9 @@ return function(mod)
       return
     end
     if top.nativeStats then
-      if y >= HEADER then press("a"); dirty = true end
+      local hit = THEME.style == "hgss" and THEME.hgss:levelUpHit(x * THEME.hgssScale, y * THEME.hgssScale)
+        or THEME.style ~= "hgss" and y >= HEADER
+      if hit then press("a"); dirty = true end
       return
     end
     if top.quantity then
