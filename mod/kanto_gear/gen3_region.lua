@@ -153,8 +153,41 @@ function Region:resolve(target)
   return fresh
 end
 
+function Region:points(model)
+  -- Cache geometry only; native flags and landing variants remain live.
+  local region = self.Hoenn and "hoenn" or self:position()
+  self.pointCells = self.pointCells or {}
+  local cells = self.pointCells[model.key]
+  if not cells then
+    cells = {}
+    for y = 4, model.height - 1, 8 do
+      for x = 4, model.width - 1, 8 do
+        local id
+        if self.Hoenn then id = self.Hoenn.mapSecAt(math.floor(x / 8) + 1, math.floor(y / 8) + 2)
+        else
+          local cx, cy = math.floor((x - 8) / 8), math.floor((y - 16) / 8)
+          local layout = self.Extract.LAYOUTS[region]
+          id = layout and cx >= 0 and cx < 22 and cy >= 0 and cy < 15 and layout.map[cy][cx] or nil
+        end
+        if id and (self.adapter.Field.flyDestination(id)
+            or self.Hoenn and self.Hoenn.flyWarpDestination(self.adapter.session, id, 0)) then
+          cells[#cells + 1] = { x = x, y = y }
+        end
+      end
+    end
+    self.pointCells[model.key] = cells
+  end
+  local points = {}
+  for _, cell in ipairs(cells) do
+    local target = self:pick(region, cell.x, cell.y, true)
+    if target and target.flyPoint then points[#points + 1] = target end
+  end
+  return points
+end
+
 function Region:release()
   if self.quad and self.quad.release then self.quad:release() end
   self.quad = nil
+  self.pointCells = nil
 end
 return Region

@@ -3458,29 +3458,44 @@ return function(ui)
       border(12, 37, 216, 116, colors.outline)
       G.setScissor(14, 39, 212, 112)
       model.drawMap(14, 39, 212, 112)
+      local scale = math.min(212 / model.width, 112 / model.height)
+      local left = math.floor(14 + (212 - model.width * scale) / 2 + 0.5)
+      local top = math.floor(39 + (112 - model.height * scale) / 2 + 0.5)
       if model.fly and model.flyPoints then
-        local scale = math.min(212 / model.width, 112 / model.height)
-        local left = math.floor(14 + (212 - model.width * scale) / 2 + 0.5)
-        local top = math.floor(39 + (112 - model.height * scale) / 2 + 0.5)
         for _, point in ipairs(model.flyPoints) do
           local x, y = math.floor(left + point.x * scale + 0.5), math.floor(top + point.y * scale + 0.5)
           box("fill", x - 2, y - 2, 5, 5, colors.outline)
-          box("fill", x - 1, y - 1, 3, 3, colors.amberLight)
+          box("fill", x - 1, y - 1, 3, 3, point.flyable and colors.amberLight or colors.silver)
         end
       end
-      local x, y = math.floor(model.cursorX + 0.5), math.floor(model.cursorY + 0.5)
-      -- Symmetric brackets keep the selected map tile visible at the center.
-      for _, corner in ipairs({ {-1,-1}, {1,-1}, {-1,1}, {1,1} }) do
-        local sx, sy = corner[1], corner[2]
-        box("fill", x + (sx < 0 and -6 or 2), y + (sy < 0 and -6 or 4), 5, 3, colors.outline)
-        box("fill", x + (sx < 0 and -6 or 4), y + (sy < 0 and -6 or 2), 3, 5, colors.outline)
-        box("fill", x + (sx < 0 and -5 or 3), y + sy * 5, 3, 1, colors.white)
-        box("fill", x + sx * 5, y + (sy < 0 and -5 or 3), 1, 3, colors.white)
+      local function cursor(x, y)
+        x, y = math.floor(x + 0.5), math.floor(y + 0.5)
+        for _, corner in ipairs({ {-1,-1}, {1,-1}, {-1,1}, {1,1} }) do
+          local sx, sy = corner[1], corner[2]
+          box("fill", x + (sx < 0 and -6 or 2), y + (sy < 0 and -6 or 4), 5, 3, colors.outline)
+          box("fill", x + (sx < 0 and -6 or 4), y + (sy < 0 and -6 or 2), 3, 5, colors.outline)
+          box("fill", x + (sx < 0 and -5 or 3), y + sy * 5, 3, 1, colors.white)
+          box("fill", x + sx * 5, y + (sy < 0 and -5 or 3), 1, 3, colors.white)
+        end
       end
+      cursor(model.cursorX, model.cursorY)
       G.setScissor()
-      self:panel(12, 157, 216, 29, false, nil, colors.greenLight)
-      self:partyInfo(self:fitPartyInfo(model.area, 204), 18, 158, colors.ink, 204, "center")
-      self:partyType(self:fitPartyType(translate(model.status), 204), 18, 173, colors.green, 204)
+      if model.fly and model.preview then
+        local x, y, w, h = unpack(model.preview)
+        self:panel(x, y, w, h, false, nil, colors.blueLight)
+        G.setScissor(x + 2, y + 2, w - 4, h - 4)
+        local ax, ay = (model.cursorX - left) / scale, (model.cursorY - top) / scale
+        model.drawMap(x + w / 2 - ax * 2, y + h / 2 - ay * 2, model.width * 2, model.height * 2)
+        cursor(x + w / 2, y + h / 2)
+        G.setScissor()
+      end
+      local pressed = self:beginPress(12, 157, 216, 29, model.canFly == true)
+      self:panel(12, 157, 216, 29, false, nil, model.fly and colors.blueLight or colors.greenLight,
+        model.canFly and colors.blue or nil)
+      self:partyInfoCentered(self:fitPartyInfo(model.area, 204), 18, 158, 204, 13, colors.ink)
+      self:partyInfoCentered(self:fitPartyInfo(translate(model.status), 204), 18, 172, 204, 13,
+        model.canFly and colors.blue or colors.green)
+      self:endPress(pressed)
       self:tab(12, 190, 104, 18, translate("MAP"), not model.fly)
       self:tab(124, 190, 104, 18, translate("FLY"), model.fly)
       return

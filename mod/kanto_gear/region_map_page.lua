@@ -2,6 +2,7 @@
 -- the widget and the native map cursor are independent of this page.
 local Page = {}
 Page.viewport = { x = 14, y = 39, w = 212, h = 112 }
+Page.confirm = { x = 12, y = 157, w = 216, h = 29 }
 
 function Page.transform(model)
   local r = Page.viewport
@@ -13,7 +14,7 @@ end
 function Page.bind(state, model)
   if state.key ~= model.key then
     state.key, state.x, state.y = model.key, model.playerX, model.playerY
-    state.armed = nil
+    state.selected = false
   end
   state.x = math.max(0, math.min(model.width - 1, state.x or model.width / 2))
   state.y = math.max(0, math.min(model.height - 1, state.y or model.height / 2))
@@ -30,6 +31,16 @@ function Page.select(state, model, x, y)
   local left, top, scale = Page.transform(model)
   state.x = math.max(0, math.min(model.width - 1, (x - left) / scale))
   state.y = math.max(0, math.min(model.height - 1, (y - top) / scale))
+  if state.fly then
+    local best, distance
+    for _, point in ipairs(model.flyPoints or {}) do
+      local d = ((state.x - point.x) * scale)^2 + ((state.y - point.y) * scale)^2
+      if d <= 14^2 and (not distance or d < distance
+          or d == distance and Page.targetKey(point) < Page.targetKey(best)) then best, distance = point, d end
+    end
+    if best then state.x, state.y = best.x, best.y end
+  end
+  state.selected = true
   return model.pick(state.x, state.y, state.fly == true)
 end
 
@@ -42,28 +53,49 @@ function Page.targetKey(target)
     tostring(target.pos or 0) }, ":") or nil
 end
 
+function Page.confirmHit(x, y)
+  local r = Page.confirm
+  return x >= r.x and x < r.x + r.w and y >= r.y and y < r.y + r.h
+end
+
 function Page.tap(state, model, x, y, canFly)
   if y >= 190 and y < 208 and x >= 12 and x < 228 then
-    if x < 116 then state.fly = false elseif x >= 124 then state.fly = true else return end
-    state.armed = nil
+    local fly
+    if x < 116 then fly = false elseif x >= 124 then fly = true else return end
+    if (state.fly == true) == fly then return end
+    state.fly = fly
+    state.selected = false
     return "mode"
   end
-  if not Page.inside(model, x, y) then state.armed = nil; return end
-  local target = Page.select(state, model, x, y)
-  local key = Page.targetKey(target)
-  if state.fly and target and target.flyable and canFly then
-    if state.armed == key then state.armed = nil; return "fly", target end
-    state.armed = key
-  else state.armed = nil end
+  if Page.confirmHit(x, y) then
+    local target = Page.target(state, model)
+    if Page.ready(state, target, canFly) then return "fly", target end
+    return
+  end
+  if not Page.inside(model, x, y) then return end
+  Page.select(state, model, x, y)
   return "select"
+end
+
+function Page.ready(state, target, canFly)
+  return state.fly == true and state.selected == true and target ~= nil
+    and target.flyPoint == true and target.flyable == true and canFly == true
+end
+
+function Page.preview(x, y)
+  local left = math.max(14, math.min(162, math.floor(x - 32)))
+  local top = math.floor(y - 58)
+  if top < 30 then left, top = x < 120 and 162 or 14, 39 end
+  return left, top, 64, 40
 end
 
 function Page.status(state, target, canFly)
   if not state.fly then return "DRAG TO EXPLORE" end
+  if not state.selected then return "SELECT A DESTINATION" end
   if not target or not target.flyPoint then return "NOT A FLY DESTINATION" end
   if not target.flyable then return "NOT VISITED" end
   if not canFly then return "FLY UNAVAILABLE HERE" end
-  return "TAP AGAIN TO FLY"
+  return "FLY"
 end
 
 return Page

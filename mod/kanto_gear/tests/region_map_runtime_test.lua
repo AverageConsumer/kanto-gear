@@ -34,31 +34,57 @@ local function interaction(run, display)
     touch(("%s,%d,%d"):format(action,x,y),240,216)
   end
   local function settle() display.syncTouchGuard(); now=now+1 end
+  local fly,calls,received=display.flyRegionTarget,0
+  display.flyRegionTarget=function(selected)
+    calls=calls+1;received=selected
+    display.regionCursor.fly,display.regionCursor.selected=false,false
+    return true
+  end
   display.regionCursor.fly=true; settle()
   input("down",70,70); input("move",110,95); input("move",70,70); input("up",70,70)
-  T.eq(up(tap,"pendingFly"),nil,"drag returning to its origin cannot activate a destination")
-  T.eq(display.regionCursor.armed,Page.targetKey(target),"released drag selects a valid destination for the next tap")
-  settle(); input("tap",70,70)
-  T.eq(up(tap,"pendingFly"),target,"a deliberate subsequent tap opens confirmation")
-  display.syncTouchGuard()
-  T.check(not display.touchGuard:allow(now),"new confirmation rejects an immediate stray tap")
-  up(tap,"pendingFly",nil,true); display.regionCursor.armed=nil; settle()
-  input("down",70,70); input("move",110,95); input("cancel",110,95)
-  T.eq(display.regionCursor.armed,nil,"cancel disarms a dragged destination")
+  T.eq(calls,0,"drag returning to its origin never flies")
+  T.check(display.regionCursor.selected,"released drag retains the selected destination")
+  settle(); input("tap",70,70); input("tap",70,70)
+  T.eq(calls,0,"repeated map taps only select")
+  input("down",120,154); input("up",120,170)
+  T.eq(calls,0,"a gesture starting outside confirmation cannot activate it")
+  input("down",120,170); input("up",120,170)
+  T.eq(calls,1,"the separate button starts one flight")
+  T.eq(received,target,"the button preserves the selected destination")
+  T.eq(up(tap,"pendingFly"),nil,"the explicit button needs no second confirmation dialog")
+  T.check(not display.touchGuard:allow(now),"flight transition rejects an immediate stray tap")
+  display.regionCursor.fly=true; settle()
+  input("down",70,70); input("move",120,170); input("up",120,170)
+  T.eq(calls,1,"dragging off the map onto the button cannot fly")
+  settle(); input("down",70,70); input("move",110,95); input("cancel",110,95)
+  T.eq(display.regionCursor.selected,false,"cancel clears the tentative selection")
+  settle(); input("tap",120,170)
+  T.eq(calls,1,"cancelled selection cannot confirm")
   settle(); input("down",70,70)
   up(tap,"page","HOME",true); display.syncTouchGuard(); now=now+1
   input("up",70,70)
-  T.eq(up(tap,"pendingFly"),nil,"changing pages during a gesture cannot confirm")
+  T.eq(calls,1,"changing pages during a gesture cannot fly")
   up(tap,"page","MAP",true); settle(); display.regionCursor.fly=false
-  settle(); input("tap",70,70); input("tap",70,70)
-  T.eq(up(tap,"pendingFly"),nil,"browse taps cannot fly")
-  display.regionCursor.fly=true
+  settle(); input("tap",70,70); input("tap",120,170)
+  T.eq(calls,1,"browse taps cannot fly")
+  display.regionCursor.fly=true; settle(); input("tap",70,70)
+  target.flyable=false; input("tap",120,170)
+  T.eq(calls,1,"a revoked visit disables the button before dispatch")
+  target.flyable=true
   for _,style in ipairs({"hgss","hgss_dark"}) do
     run.loader.modOptions.kanto_gear.theme_v3=style
     run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3"})
+    settle(); input("down",70,70); input("move",110,110)
+    local theme=up(display.drawContents,"THEME").hgss
+    local original,shown=theme.regionMap
+    theme.regionMap=function(self,view) shown=view;return original(self,view) end
     local ok,err=pcall(display.drawContents)
-    T.check(ok,"common region page renders in "..style..": "..tostring(err))
+    theme.regionMap=original
+    T.check(ok,"common region page and magnifier render in "..style..": "..tostring(err))
+    T.check(shown and shown.preview,"held map pointer supplies its unobscured magnifier")
+    input("up",110,110)
   end
+  display.flyRegionTarget=fly
   display.regionMapModel=originalModel
   up(display.tapRegionMap,"canFly",canFly,true)
   up(tap,"page","HOME",true)
@@ -88,6 +114,19 @@ if tonumber(os.getenv("KANTO_GEAR_TEST_GEN"))==3 then
       end
     end end
     T.check(#targets>1,"all native landing points can be discovered without opening the map UI")
+    local points=region:points(model)
+    local cells=region.pointCells[model.key]
+    local covered={}
+    for _,point in ipairs(points) do
+      T.check(point.x>=0 and point.x<model.width and point.y>=0 and point.y<model.height,
+        "generous target centers remain inside the real native atlas")
+      covered[display.RegionPage.targetKey(point)]=true
+    end
+    for _,target in ipairs(targets) do
+      T.check(covered[display.RegionPage.targetKey(target)],"snapping retains every distinct native landing cell")
+    end
+    region:points(model)
+    T.eq(region.pointCells[model.key],cells,"pointer input reuses region geometry instead of rescanning the atlas")
     local oldBusy,oldMap,oldFly=bridge.Compat.worldBusy,bridge.Map.currentDef,a.Field.flyTo
     local oldMoves=a.session.party[1].moves
     local oldFlags={};for key,value in pairs(a:flagStore().flags) do oldFlags[key]=value end

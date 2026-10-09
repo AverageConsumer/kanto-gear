@@ -17,27 +17,42 @@ for _, size in ipairs({ {160,128}, {160,144}, {192,144}, {224,120} }) do
   T.check(math.abs(state.x - 30) < .001 and math.abs(state.y - 40) < .001, "touch inverts the actual draw transform")
   Page.tap(state,model,170,198,true)
   T.check(state.fly, "explicit mode switch enters Fly")
+  T.eq(Page.status(state,target,true),"SELECT A DESTINATION","entering Fly asks for an explicit selection")
+  T.eq(Page.tap(state,model,120,170,true),nil,"the initial player location cannot confirm itself")
   T.eq(Page.tap(state,model,x,y,true), "select", "first tap only selects a destination")
-  local action, selected = Page.tap(state,model,x,y,true)
-  T.eq(action,"fly", "second tap requests confirmation")
+  T.eq(Page.tap(state,model,x,y,true), "select", "repeated map taps never request flight")
+  T.eq(Page.tap(state,model,170,198,true),nil,"the current Fly tab is inert")
+  T.check(state.selected,"the current mode tab keeps the selected destination")
+  local action, selected = Page.tap(state,model,120,170,true)
+  T.eq(action,"fly", "the separate large button confirms")
   T.eq(selected,target,"confirmation retains destination identity")
-  T.eq(Page.tap(state,model,x,y,false),"select","unavailable move cannot confirm")
-  T.eq(state.armed,nil,"unavailable move clears old confirmation state")
+  T.eq(Page.tap(state,model,120,170,false),nil,"unavailable move cannot confirm")
   target.flyable=false
-  Page.tap(state,model,x,y,true); Page.tap(state,model,x,y,true)
-  T.eq(state.armed,nil,"unvisited city never arms")
+  T.eq(Page.tap(state,model,120,170,true),nil,"revoked visit status disables the selected destination")
   T.eq(Page.status(state,target,true),"NOT VISITED","unvisited city has a specific explanation")
   target.flyable=true
-  Page.tap(state,model,x,y,true)
-  Page.tap(state,model,left + 100*scale,y,true)
-  T.eq(state.armed,nil,"leaving a valid destination disarms it")
+  target.x,target.y=30,40
+  model.flyPoints={target}
+  Page.select(state,model,x+10,y)
+  T.eq(state.x,30,"Fly gives small destinations a generous touch radius")
+  T.eq(state.y,40,"snapping preserves the exact landing cell")
+  Page.select(state,model,left+100*scale,y)
+  T.eq(Page.target(state,model),nil,"distant empty map space does not become a town")
+  T.eq(Page.tap(state,model,120,170,true),nil,"empty map space cannot confirm")
   Page.tap(state,model,50,198,true)
   T.eq(state.fly,false,"map browsing is an explicit separate mode")
-  Page.tap(state,model,x,y,true); Page.tap(state,model,x,y,true)
-  T.eq(state.armed,nil,"browsing cannot initiate flight")
+  Page.select(state,model,x+10,y)
+  T.check(state.x>30,"browsing retains precise positions without Fly snapping")
+  T.eq(Page.tap(state,model,120,170,true),nil,"browsing cannot initiate flight")
   Page.select(state,model,-100,1000)
   T.eq(state.x,0,"drag clamps at the left edge")
   T.eq(state.y,model.height-1,"drag clamps at the bottom edge")
+end
+for _, pointer in ipairs({{14,39},{120,39},{226,151},{100,110}}) do
+  local x,y,w,h=Page.preview(pointer[1],pointer[2])
+  T.check(x>=14 and x+w<=226 and y>=30 and y+h<=151,"magnifier stays in the map region")
+  T.check(pointer[1]<x or pointer[1]>=x+w or pointer[2]<y or pointer[2]>=y+h,
+    "finger position never covers the magnifier center")
 end
 local FM = require("src.world.gen2.FieldMoves")
 local badge = FM.BADGE.FLY

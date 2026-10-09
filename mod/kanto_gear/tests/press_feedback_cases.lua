@@ -17,6 +17,12 @@ return function(T, display, H)
     "another tab still responds")
   at(30, 40, function() H:tab(7,33,70,18,"TAB",true,nil,true) end, 1,
     "a current tab may respond when it resets a later page")
+  local region = { interactive=true,fly=true,width=160,height=128,cursorX=100,cursorY=90,
+    area="TOWN",status="NOT VISITED",drawMap=function() end }
+  at(120,170,function() H:regionMap(region) end,0,"unavailable Fly confirmation stays still")
+  region.canFly,region.status=true,"FLY"
+  at(120,170,function() H:regionMap(region) end,1,"available Fly button responds across its full card")
+  at(120,90,function() H:regionMap(region) end,0,"map dragging has no decorative button animation")
   local entry = {label="ITEM",x=7,y=33,w=226,h=28,disabled=true}
   local menu = {entries={entry},total=1,first=1,last=1}
   at(30, 40, function() H:startMenu(menu) end, 0, "inert menu entries stay still")

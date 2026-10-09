@@ -6152,7 +6152,10 @@ return function(mod)
     local state, region = displayRuntime.regionCursor, compat.currentRegion() or "kanto"
     if displayRuntime.gen3 then
       local model = displayRuntime.homeRegionMap(true)
-      if model.width then displayRuntime.RegionPage.bind(state, model) end
+      if model.width then
+        displayRuntime.RegionPage.bind(state, model)
+        if state.fly then model.flyPoints = displayRuntime.gen3Region:points(model) end
+      end
       return model
     end
     local flight, eligible = displayRuntime.regionFlight(), {}
@@ -6190,10 +6193,22 @@ return function(mod)
     model.pick = function(x, y) return displayRuntime.LegacyRegion.pick(points, x, y) end
     model.flyPoints = {}
     for _, point in ipairs(points) do
-      if point.flyable then model.flyPoints[#model.flyPoints + 1] = point end
+      if point.flyPoint then model.flyPoints[#model.flyPoints + 1] = point end
     end
     displayRuntime.RegionPage.bind(state, model)
     return model
+  end
+
+  function displayRuntime.flyRegionTarget(target)
+    if not canFly() then return false end
+    local ok, err
+    if displayRuntime.gen3Field then
+      ok, err = displayRuntime.gen3Field:flyTo(target, displayRuntime.gen3Region)
+    elseif THEME.style == "hgss" or compat.isGen2() then ok, err = displayRuntime.regionFlight():fly(target)
+    else ok, err = mod.world:flyTo(target.id) end
+    if not ok then mod.log:warn("fly rejected: %s", tostring(err)) end
+    if ok then displayRuntime.regionCursor.fly, displayRuntime.regionCursor.selected = false, false end
+    return ok
   end
 
   function displayRuntime.tapRegionMap(x, y)
@@ -6201,7 +6216,7 @@ return function(mod)
     if not model.pick then return end
     local action, target = displayRuntime.RegionPage.tap(displayRuntime.regionCursor, model,
       x * THEME.hgssScale, y * THEME.hgssScale, canFly())
-    if action == "fly" then pendingFly = target end
+    if action == "fly" then displayRuntime.flyRegionTarget(target) end
     dirty = true
   end
 
@@ -6221,8 +6236,14 @@ return function(mod)
       if model.pick then
         local target = Page.target(state, model)
         model.area = target and target.name or THEME:translate("UNKNOWN AREA")
-        model.status = Page.status(state, target, canFly())
+        local available = canFly()
+        model.status = Page.status(state, target, available)
         model.interactive, model.fly = true, state.fly == true
+        model.canFly = Page.ready(state, target, available)
+        if touchDown and touchDown.mapModel and displayRuntime.touchGuard:allow(love.timer.getTime(), touchDown.epoch) then
+          model.preview = { Page.preview(touchDown.mapPointerX or touchDown.mapX,
+            touchDown.mapPointerY or touchDown.mapY) }
+        end
         local left, top, scale = Page.transform(model)
         model.cursorX, model.cursorY = left + state.x * scale, top + state.y * scale
       end
@@ -10787,7 +10808,7 @@ return function(mod)
     if rodId then
       useTool(action, { rod = rodId })
     elseif action.id == "fly" and THEME.style == "hgss" then
-      page, displayRuntime.regionCursor.fly, displayRuntime.regionCursor.armed = "MAP", true, nil
+      page, displayRuntime.regionCursor.fly, displayRuntime.regionCursor.selected = "MAP", true, false
     elseif action.id == "dig" or action.id == "teleport" then
       pendingAction = action
     elseif action.id == "fish" and #(action.rods or {}) > 1 then
@@ -12308,15 +12329,7 @@ return function(mod)
       if yes then
         local target = pendingFly
         pendingFly = nil
-        if canFly() then
-          local ok, err
-          if displayRuntime.gen3Field then
-            ok, err = displayRuntime.gen3Field:flyTo(target, displayRuntime.gen3Region)
-          elseif THEME.style == "hgss" or compat.isGen2() then ok, err = displayRuntime.regionFlight():fly(target)
-          else ok, err = mod.world:flyTo(target.id) end
-          if not ok then mod.log:warn("fly rejected: %s", tostring(err)) end
-          if ok then displayRuntime.regionCursor.fly = false end
-        end
+        displayRuntime.flyRegionTarget(target)
         dirty = true
       elseif no then
         pendingFly, dirty = nil, true
@@ -12929,6 +12942,8 @@ return function(mod)
         if model.pick and displayRuntime.RegionPage.inside(model, mapX, mapY) then
           touchDown.mapModel, touchDown.mapX, touchDown.mapY = model, mapX, mapY
           displayRuntime.RegionPage.select(displayRuntime.regionCursor, model, mapX, mapY)
+        elseif model.pick and displayRuntime.RegionPage.confirmHit(mapX, mapY) then
+          touchDown.mapConfirm = true
         end
       end
       if speed then holdTextSpeed(true) end
@@ -12936,10 +12951,7 @@ return function(mod)
     elseif (action == "move" or action == "moved") and x and touchDown then
       touchDown.currentX, touchDown.currentY = x, y
       if touchDown.mapModel then
-        if (mapX - touchDown.mapX)^2 + (mapY - touchDown.mapY)^2 >= 16 then
-          touchDown.mapMoved = true
-          displayRuntime.regionCursor.armed = nil
-        end
+        touchDown.mapPointerX, touchDown.mapPointerY = mapX, mapY
         displayRuntime.RegionPage.select(displayRuntime.regionCursor, touchDown.mapModel, mapX, mapY)
         dirty = true
       end
@@ -12947,7 +12959,7 @@ return function(mod)
       textSpeedReleasePending = false
       holdTextSpeed(false)
       touchDown = nil
-      displayRuntime.regionCursor.armed = nil
+      displayRuntime.regionCursor.selected = false
       dirty = true
     elseif action == "tap" and x then
       -- Some hosts report down/tap/up for one gesture. Only its up may commit.
@@ -12971,10 +12983,13 @@ return function(mod)
       end
       if down.mapModel then
         local state, Page = displayRuntime.regionCursor, displayRuntime.RegionPage
-        local target = Page.select(state, down.mapModel, mapX, mapY)
-        if down.mapMoved or (mapX - down.mapX)^2 + (mapY - down.mapY)^2 >= 16 then
-          state.armed = state.fly and target and target.flyable and canFly() and Page.targetKey(target) or nil
-        else
+        Page.select(state, down.mapModel, mapX, mapY)
+        return
+      end
+      if down.mapConfirm or page == "MAP" and THEME.style == "hgss"
+          and displayRuntime.RegionPage.confirmHit(mapX, mapY) then
+        if page == "MAP" and down.mapConfirm and displayRuntime.RegionPage.confirmHit(mapX, mapY)
+            and math.abs(dx) < 12 and math.abs(dy) < 12 then
           displayRuntime.dispatchTouchTap(tap, x, y)
         end
         return
