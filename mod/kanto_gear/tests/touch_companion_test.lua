@@ -172,6 +172,11 @@ else
       T.check(up(display.syncCompanionDetails, "moveInfo") ~= nil, "touch opens local attack details")
       T.eq(raw.moveIndex, 2, "inspecting another attack never changes the original cursor")
       T.eq(#tapped, before, "opening Gear details sends no native input")
+      local originalInfo, rendered = theme.hgss.battleMoveInfo
+      theme.hgss.battleMoveInfo = function(_, info) rendered = info end
+      display.drawContents()
+      T.eq(rendered.ppText, "0/10", "details show the inspected move, independently of native focus")
+      theme.hgss.battleMoveInfo = originalInfo
       hardware(run, display, game, { function() end })
       T.check(up(display.syncCompanionDetails, "moveInfo") ~= nil, "hardware does not dismiss details in an unchanged context")
       state.prompt = "menu"; refresh()

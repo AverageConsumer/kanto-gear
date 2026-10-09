@@ -7678,7 +7678,7 @@ return function(mod)
     }
   end
 
-  function hgssRuntime.battleMon()
+  function hgssRuntime.battleMon(detailMove)
     local player = battle and battle.player or {}
     local def = game.data.pokemon[player.species] or {}
     local view = {
@@ -7696,6 +7696,7 @@ return function(mod)
     for slot = 1, 4 do
       local move = (battle.moves or {})[slot] or {}
       view.moves[slot] = hgssRuntime.moveView(move)
+      if detailMove == move then view.moveIndex = slot end
     end
     return view
   end
@@ -8889,13 +8890,14 @@ return function(mod)
     local entry = compat.moveInfoEntry(source)
     if entry and view.moves and view.moves[index] then
       entry.maxPp = view.moves[index].maxPp or entry.maxPp
+      entry.summarySlot = index
     end
     return entry, view
   end
 
   local function drawMoveInfo(move)
     if THEME.style == "hgss" and battle and battle.prompt == "moves" then
-      local mon = hgssRuntime.battleMon()
+      local mon = hgssRuntime.battleMon(move)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       local progress = hgssRuntime.progress("battle_move_info")
       local closing = hgssRuntime.progress("battle_move_info_close")
@@ -8929,7 +8931,7 @@ return function(mod)
         header(THEME:translate("CONTEST MOVES"), true)
         G.push()
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-        THEME.hgss:summaryContestInfo(mon.moves[summary.moveIndex or 1])
+        THEME.hgss:summaryContestInfo(mon.moves[move.summarySlot or 1])
         G.pop()
         return
       end
