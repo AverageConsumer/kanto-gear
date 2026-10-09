@@ -95,6 +95,10 @@ T.check(display.explorerModel(overview) ~= model, "encounter and progress snapsh
 model = display.explorer.renderModel
 display.explorer.scanFrame = 1
 T.check(display.explorerModel(overview) ~= model, "scanning bypasses the motion cache")
+
+display.explorer.scanFrame = value(display.advanceExplorerScan, "RADAR_FRAMES")
+model = display.explorerModel(overview)
+T.eq(display.explorerModel(overview), model, "completed scans reuse the model instead of rebuilding every map frame")
 display.explorer.scanFrame = nil
 model = display.explorer.renderModel
 T.check(display.explorerModel(overview) ~= model, "ending a scan clears its cached overlay")
@@ -158,8 +162,10 @@ for _, mode in ipairs({ "quality", "performance" }) do
       state.key = theme.hgss:homeMotionKey(homeModel, display.localMapPosition())
     end
   end
-  T.eq(count, mode == "quality" and 300 or 50,
-    mode .. " mode applies the selected update budget to Home widgets")
+  T.eq(count, 300, mode .. " keeps Home widgets smooth at 30 Hz")
+  display.updateMapRefresh(10) -- Finish the player's final movement sample.
+  state.key = theme.hgss:homeMotionKey(homeModel, display.localMapPosition())
+  T.eq(display.updateMapRefresh(10.1), false, mode .. " widget requests no redraw while stationary")
 end
 world.player.px = 700
 display.home.editing = true
@@ -181,7 +187,7 @@ for frame = 0, 599 do
     state.key = theme.hgss:explorerMotionKey(model, display.localMapPosition())
   end
 end
-T.eq(performanceFrames, 50, "Explorer shares the five-Hz performance mode")
+T.eq(performanceFrames, 300, "Explorer keeps the same 30-Hz motion in performance mode")
 now = 200
 local widgets = display.homeWidgetData({ party = true })
 T.eq(display.homeWidgetData({ party = true }), widgets,

@@ -208,6 +208,43 @@ T.eq(display.motion.started, nil, "disabled transitions show the destination dir
 theme.motionEnabled = false; theme:endPartyAction(22)
 T.check(theme:partyActionClosed(22), "disabled transitions also close party actions immediately")
 theme.motionEnabled = true
+run.loader.modOptions.kanto_gear.ui_motion = true
+display.optionsChanged({ mod = "kanto_gear", key = "ui_motion", value = true })
+page("HOME"); now = 22.1; draw(); page("BAG"); now = 22.2; draw()
+T.check(display.motion.started ~= nil, "quality permits transitions before profile changes")
+runtime.beginAnimation("party_swap_commit")
+theme:beginPartyAction(now)
+theme:endPartyAction(now + .01)
+run.loader.modOptions.kanto_gear.map_motion = "performance"
+display.optionsChanged({ mod = "kanto_gear", key = "map_motion", value = "performance" })
+T.eq(display.motion.started, nil, "performance cancels an already running page transition")
+T.eq(runtime.animation, nil, "performance cancels an already queued special animation")
+T.eq(theme.motionEnabled, false, "performance suppresses theme animation")
+T.check(not theme:partyActionAnimating(now + .02), "performance immediately settles an in-flight party action")
+T.check(theme:partyActionClosed(now + .02), "disabling animation cannot leave a closing action stuck")
+T.eq(run.loader.modOptions.kanto_gear.ui_motion, true, "profile preserves the user's quality transition preference")
+local before = allocations
+page("PARTY"); now = 22.3; draw()
+T.eq(display.motion.started, nil, "performance app navigation shows the destination immediately")
+T.eq(allocations, before, "performance navigation allocates no transition canvases")
+runtime.beginAnimation("battle_moves")
+T.eq(runtime.animation, nil, "performance also suppresses battle animations")
+T.same({ theme:battleContinueMotion(22.4) }, { theme:battleContinueMotion(23.4) },
+  "continue arrow stays visible and stationary")
+T.eq(display.optionVisible(display.optionRow("ui_motion")), false,
+  "performance hides its overridden transition control")
+run.loader.modOptions.kanto_gear.map_motion = "quality"
+display.optionsChanged({ mod = "kanto_gear", key = "map_motion", value = "quality" })
+T.eq(theme.motionEnabled, true, "returning to quality restores the saved preference")
+T.eq(display.optionVisible(display.optionRow("ui_motion")), true, "quality restores the transition control")
+run.loader.modOptions.kanto_gear.ui_motion = false
+display.optionsChanged({ mod = "kanto_gear", key = "ui_motion", value = false })
+run.loader.modOptions.kanto_gear.map_motion = "performance"
+display.optionsChanged({ mod = "kanto_gear", key = "map_motion", value = "performance" })
+run.loader.modOptions.kanto_gear.map_motion = "quality"
+display.optionsChanged({ mod = "kanto_gear", key = "map_motion", value = "quality" })
+T.eq(theme.motionEnabled, false, "an explicit Off preference also survives profile round trips")
+theme.motionEnabled = true
 local cards = {}
 theme:partySwapCommitTransition(function(slot, x, y) cards[slot] = { x, y } end, 1, 6, 1)
 local x, y = theme:partyPosition(6)

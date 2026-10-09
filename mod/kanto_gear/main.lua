@@ -2089,7 +2089,7 @@ return function(mod)
       type = "toggle", default = true, visible_if = {
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
       } },
-    { key = "map_motion", label = "MAP MOTION", type = "choice",
+    { key = "map_motion", label = "PRESENTATION", type = "choice",
       default = "quality", choices = {
         { "QUALITY", "quality" }, { "PERFORMANCE", "performance" },
       }, visible_if = {
@@ -2580,7 +2580,7 @@ return function(mod)
     { id = "appearance", label = "APPEARANCE",
       detail = "LANGUAGE, THEME AND CLOCK",
       accent = "blue", keys = {
-        "language", "theme_v3", "clock_source", "clock_format", "ui_motion", "map_motion" } },
+        "language", "theme_v3", "clock_source", "clock_format", "map_motion", "ui_motion" } },
     { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
       accent = "green", keys = { "display_mode", "fullscreen_start",
         "combined_layout", "combined_primary", "secondary_size",
@@ -2611,6 +2611,7 @@ return function(mod)
   end
 
   function displayRuntime.optionVisible(row)
+    if row and row.key == "ui_motion" and mod.options:get("map_motion") == "performance" then return false end
     if row and (row.key == "overlay_corner" or row.key == "overlay_button")
         and mod.options:get("combined_layout") ~= "overlay" then return false end
     local condition = row and row.visible_if
@@ -2883,8 +2884,12 @@ return function(mod)
     return THEME.style == "hgss" and currentBattleUIMode() == "standard"
   end
 
+  function displayRuntime.motionEnabled()
+    return mod.options:get("ui_motion") ~= false and mod.options:get("map_motion") ~= "performance"
+  end
+
   function hgssRuntime.beginAnimation(kind, data)
-    if THEME.style ~= "hgss" or mod.options:get("ui_motion") == false then
+    if THEME.style ~= "hgss" or not displayRuntime.motionEnabled() then
       hgssRuntime.animation = nil
       return
     end
@@ -3379,7 +3384,7 @@ return function(mod)
       page = "LOCAL"
     end
     THEME.hgss:setVariant(theme == "hgss_dark" or autoDark)
-    THEME.hgss.motionEnabled = mod.options:get("ui_motion") ~= false
+    THEME.hgss.motionEnabled = displayRuntime.motionEnabled()
     if not hgss then hgssRuntime.animation = nil end
     local scale = THEME.style == "hgss" and THEME.hgssScale or 1
     local width, height = WIDTH * scale, HEIGHT * scale
@@ -4902,7 +4907,7 @@ return function(mod)
   function displayRuntime.advanceExplorerScan(now)
     local explorer = displayRuntime.explorer
     if not explorer.scanFrame or explorer.scanFrame >= RADAR_FRAMES then return end
-    local frame = math.min(RADAR_FRAMES,
+    local frame = not displayRuntime.motionEnabled() and RADAR_FRAMES or math.min(RADAR_FRAMES,
       math.floor(math.max(0, now - explorer.scanStarted) / 0.05))
     if frame == explorer.scanFrame then return end
     explorer.scanFrame, dirty = frame, true
@@ -5312,7 +5317,7 @@ return function(mod)
     motion.navigation = navigation
     local direct = page == "NOTES" and (displayRuntime.notes.view == "draw"
       or displayRuntime.notes.view == "edit")
-    if not key or mod.options:get("ui_motion") == false or direct then
+    if not key or not displayRuntime.motionEnabled() or direct then
       motion.key, motion.started, motion.cached = nil, nil, nil
       return
     end
@@ -6206,7 +6211,7 @@ return function(mod)
     local home = page == "HOME"
     if home and (displayRuntime.home.editing or displayRuntime.home.library) then return false end
     if now + 0.000001 < state.nextAt or readbackPending then return false end
-    local rate = mod.options:get("map_motion") == "performance" and 5 or 30
+    local rate = 30
     -- Keep the update phase instead of drifting when a host frame
     -- arrives just before the deadline. Missed ticks never cause catch-up work.
     state.nextAt = state.nextAt
@@ -6258,7 +6263,7 @@ return function(mod)
       displayRuntime.fruitTrees.stateKey(game.save, cached.fruits) }, ":")
     if explorer.renderModel and explorer.renderData == cached
         and explorer.renderOverview == overview and explorer.renderKey == renderKey
-        and not explorer.scanFrame then
+        and (not explorer.scanFrame or explorer.scanFrame >= RADAR_FRAMES) then
       explorer.renderModel.player = displayRuntime.localMapPosition(id)
       return explorer.renderModel
     end
@@ -13260,11 +13265,11 @@ return function(mod)
           page, displayRuntime.home.activeApp = "MAP", nil
         end
       end
-      if payload.key == "ui_motion" then
+      if payload.key == "ui_motion" or payload.key == "map_motion" then
         hgssRuntime.animation = nil
-        displayRuntime.motion.started = nil
+        displayRuntime.motion.key, displayRuntime.motion.started, displayRuntime.motion.cached = nil, nil, nil
         if THEME.hgss then
-          THEME.hgss.motionEnabled = payload.value ~= false
+          THEME.hgss.motionEnabled = displayRuntime.motionEnabled()
         end
       end
       if payload.key == "display_mode"
@@ -13937,7 +13942,7 @@ return function(mod)
         tostring(fieldChoice and fieldChoice.kind),
         tostring(fieldChoice and fieldChoice.source
           and fieldChoice.source.slot) }, ":")
-      if THEME.style == "hgss" and battle and battle.prompt == "advance" then
+      if THEME.style == "hgss" and displayRuntime.motionEnabled() and battle and battle.prompt == "advance" then
         screenKey = screenKey .. ":" .. math.floor(now * 4)
       end
       if page == "LOCAL" and mod.world and mod.world.current then

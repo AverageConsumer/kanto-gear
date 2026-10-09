@@ -4066,7 +4066,7 @@ return function(ui)
   end
 
   function H:partyActionAnimating(now)
-    return self.partyActionStarted
+    return self.motionEnabled ~= false and self.partyActionStarted
       and now - self.partyActionStarted < 0.14
   end
 
@@ -4083,7 +4083,7 @@ return function(ui)
 
   function H:partyActionClosed(now)
     return self.partyActionClosing
-      and now - self.partyActionStarted >= 0.14
+      and (self.motionEnabled == false or now - self.partyActionStarted >= 0.14)
   end
 
   function H:focusFrame(x, y, w, h)
@@ -4282,6 +4282,7 @@ return function(ui)
     "HGSS battle message shares the screen center")
 
   function H:battleContinueMotion(now)
+    if self.motionEnabled == false then return 0, 5 end
     local phase = (1 - math.cos((tonumber(now) or 0) * math.pi)) / 2
     local bob = math.floor(phase + 0.5)
     return bob, bob == 0 and 5 or 9
@@ -5206,7 +5207,7 @@ return function(ui)
 
   function H:titleBoot(model, now)
     local G, colors = ui.graphics, self.colors
-    local phase = math.floor((tonumber(now) or 0) * 2) % 3
+    local phase = self.motionEnabled == false and 0 or math.floor((tonumber(now) or 0) * 2) % 3
 
     self:panel(10, 9, 220, 153, false, nil, colors.blueLight)
     box("fill", 15, 14, 70, 3, colors.redLight)
@@ -5276,7 +5277,7 @@ return function(ui)
     self:panel(45, 72, 150, 72, false, nil, colors.blueLight)
     self:partyInfo(translate(label or "LOADING AREA"), 55, 91,
       colors.ink, 130, "center")
-    local phase = math.floor((tonumber(now) or 0) * 3) % 3
+    local phase = self.motionEnabled == false and 0 or math.floor((tonumber(now) or 0) * 3) % 3
     local groupLeft = 107
     for index = 0, 2 do
       local tint = index == phase and colors.greenLight or colors.band

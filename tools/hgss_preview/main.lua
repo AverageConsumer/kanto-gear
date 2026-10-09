@@ -1980,7 +1980,7 @@ function love.load()
         { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
         { label = "CLOCK FORMAT", value = "SYSTEM" },
         { label = "TRANSITIONS", value = "ON" },
-        { label = "MAP MOTION", value = os.getenv("KANTO_GEAR_PREVIEW_MAP_MODE")
+        { label = "PRESENTATION", value = os.getenv("KANTO_GEAR_PREVIEW_MAP_MODE")
             == "performance" and "PERFORMANCE" or "QUALITY" },
       } })
   elseif settingsBattle then
