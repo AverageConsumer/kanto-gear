@@ -75,7 +75,9 @@ for _, style in ipairs({ "hgss", "hgss_dark" }) do
     local ok, err = pcall(display.drawContents)
     T.check(ok, "common naming renders: " .. tostring(err))
     for _, entry in ipairs(m.entries) do
-      T.eq(display.NamingPage.hit(m, entry.x + entry.w / 2, entry.y + entry.h / 2), entry.index, "same naming draw/hit geometry")
+      local expected = not entry.disabled and entry.index or nil
+      T.eq(display.NamingPage.hit(m, entry.x + entry.w / 2, entry.y + entry.h / 2), expected,
+        "naming hit geometry respects current key availability")
       T.check(entry.y >= 70 and entry.y + entry.h <= 213, "keys fit below the name and within the screen")
       if entry.action then
         T.eq(entry.y, 184, "all generations put actions on the same row")

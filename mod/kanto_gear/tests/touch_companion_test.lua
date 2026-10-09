@@ -151,6 +151,13 @@ if gen == 3 then
       T.eq(up(display.drawContents,"THEME").hgss.touchX,nil,
         "native battle text never animates the commands beneath it")
       up(display.drawContents,"touchDown",nil,true)
+      scenes[1]()
+      guard=display.syncTouchGuard();guard.readyAt=0
+      up(display.drawContents,"touchDown",{x=80,y=60,epoch=guard.epoch},true)
+      display.drawContents()
+      T.eq(up(display.drawContents,"THEME").hgss.touchX,80,
+        "native Gen3 command selection retains press feedback")
+      up(display.drawContents,"touchDown",nil,true)
     end
     preservedHooks(run, { display.gen3:battleState(), Stack.top() or {} })
     for _, ref in ipairs(refs) do T.eq(ref[1][ref[2]], ref[3], "native handler remains intact after transitions") end

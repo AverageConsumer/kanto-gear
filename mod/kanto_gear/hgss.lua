@@ -2394,12 +2394,12 @@ return function(ui)
     self:endPress(pressed)
   end
 
-  function H:storePreview(app, x, y, w, h)
+  function H:storePreview(app, x, y, w, h, interactive)
     local G, colors = ui.graphics, self.colors
     local quiet = colors.mutedInk
     app = type(app) == "table" and app or { id = app }
     local id, preview = app.id, app.preview or {}
-    local pressed = self:beginPress(x, y, w, h)
+    local pressed = self:beginPress(x, y, w, h, interactive ~= false)
     if self:shadowVisible() then
       clipped(x + 1, y + 2, w, h, colors.shadow)
     end
@@ -2755,7 +2755,8 @@ return function(ui)
 
   function H:storeAppCard(x, y, w, app, icons)
     local G, colors = ui.graphics, self.colors
-    local pressed = self:beginPress(x, y, w, 42)
+    local blocked = app.state == "soon" and self:isPressed(x + 36, y + 28, 43, 11)
+    local pressed = self:beginPress(x, y, w, 42, not blocked)
     if self:shadowVisible() then
       color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 42, 4, 4)
     end
@@ -2784,7 +2785,8 @@ return function(ui)
 
   function H:storeInstalledRow(x, y, w, app, icons)
     local G, colors = ui.graphics, self.colors
-    local pressed = self:beginPress(x, y, w, 30)
+    local blocked = app.state == "soon" and self:isPressed(x + w - 54, y + 9, 44, 11)
+    local pressed = self:beginPress(x, y, w, 30, not blocked)
     if self:shadowVisible() then
       color(colors.shadow); G.rectangle("fill", x + 1, y + 2, w, 30, 4, 4)
     end
@@ -2831,7 +2833,8 @@ return function(ui)
   function H:storeToday(model)
     local G, colors, icons = ui.graphics, self.colors, homeIcons(self)
     local featured = model.featured or {}
-    local pressed = self:beginPress(7, 32, 226, 89)
+    local blocked = featured.state == "soon" and self:isPressed(57, 83, 56, 15)
+    local pressed = self:beginPress(7, 32, 226, 89, not blocked)
     if self:shadowVisible() then
       color(colors.shadow); G.rectangle("fill", 8, 35, 226, 89, 5, 5)
     end
@@ -2925,7 +2928,7 @@ return function(ui)
     if app.removable then
       self:storeMiniAction(175, 61, 43, "REMOVE", "soon", true)
     end
-    self:storePreview(app, 7, 90, 226, 73)
+    self:storePreview(app, 7, 90, 226, 73, false)
     clipped(7, 168, 226, 39, colors.surface)
     border(7, 168, 226, 39, colors.outline)
     local lines = app.description or {}

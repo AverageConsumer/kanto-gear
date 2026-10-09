@@ -24,6 +24,13 @@ return function(T, display, H)
   at(30, 40, function() H:startMenu(menu) end, 1, "usable menu entries respond")
   entry.disabled=true
   at(30, 40, function() H:nativeGrid(menu) end, 0, "empty inert storage slots stay still")
+  local app={id="notes",label="NOTES",icon="notes",category="UTILITY",state="soon"}
+  at(60,85,function() H:storeAppCard(7,53,111,app,{}) end,0,
+    "a disabled install action cannot bounce its containing card")
+  at(20,65,function() H:storeAppCard(7,53,111,app,{}) end,1,
+    "the same card still responds where it opens details")
+  at(40,120,function() H:storePreview(app,7,90,226,73,false) end,0,
+    "static store detail previews stay still")
   local keys={{label="A",row=1,col=1},{label="DEL",action="delete"},{label="OK",action="confirm"}}
   local naming=display.NamingPage.model("",keys,7,0)
   local delete=naming.entries[2]
