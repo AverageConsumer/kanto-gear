@@ -3854,15 +3854,15 @@ return function(ui)
       local focused = self.nativeFocus and entry.selected
       self:homeTile(x, y, w, h, focused and c.green or c.blue, focused)
       if entry.itemSprite then
-        self:battleItemIcon(entry, x + 12, y + math.floor((h - 17) / 2), c.amberLight)
+        self:battleItemIcon(entry, x + 8, y + math.floor((h - 17) / 2), c.amberLight)
       else self:startMenuIcon(entry.kind, x + 9, y + 6) end
       box("fill", x + 33, y + 5, 1, h - 10, c.band)
       local reserved = entry.right and 78 or 0
-      self:partyInfo(self:fitPartyInfo(entry.label, w - 52 - reserved), x + 40,
-        y + math.floor((h - 9) / 2), entry.disabled and c.mutedInk or c.ink, w - 52 - reserved, "center")
+      self:partyInfoCentered(self:fitPartyInfo(entry.label, w - 52 - reserved), x + 40,
+        y, w - 52 - reserved, h, entry.disabled and c.mutedInk or c.ink)
       if entry.right then
-        self:partyInfo(self:fitPartyInfo(entry.right, 72), x + w - 80,
-          y + math.floor((h - 9) / 2), c.ink, 72, "center")
+        self:partyInfoCentered(self:fitPartyInfo(entry.right, 72), x + w - 80,
+          y, 72, h, c.ink)
       end
       self:endPress(pressed)
     end

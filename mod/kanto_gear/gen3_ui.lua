@@ -25,6 +25,13 @@ local function labels(items)
   return out
 end
 
+local function nativeMode(layer)
+  local native = layer.mod
+  -- Emerald retains mode=buy throughout list, quantity, confirmation and receipt.
+  if layer.id == "shop" and native._rse then return native.state end
+  return native.mode or native.state or native._mode
+end
+
 -- Fallback for hosts without extracted naming pages (FRLG). Newer hosts
 -- supply state.pages, including Emerald's extra blank cells. Those cells
 -- determine where the native three-button column starts.
@@ -217,7 +224,7 @@ function UI:list(battle)
       and require("src.ui.game3.rse.summary_menu").page(layer.mod) == 3 then return nil end
   local native, items, field, title, slots = layer.mod
   local quantity, prompt, grid, boxParty
-  local mode = native.mode or native.state or native._mode
+  local mode = nativeMode(layer)
   local sale = mode == "sell" and native._sell
   local saleState = sale and sale.state
   local RomText = require("src.core.game3.rom_text")
@@ -230,7 +237,7 @@ function UI:list(battle)
     if native.mode == "message" and layer.id == "party" then return native._messageText end
     if native.mode == "message" and native.messageText then return native.messageText end
     if layer.id == "pc_menu" and mode == "msg" then return native._status end
-    if layer.id == "shop" and mode == "buy_msg" then return native._status end
+    if layer.id == "shop" and (mode == "buy_msg" or mode == "msg") then return native._status end
     if layer.id == "box_storage" and mode == "message" then return native._status end
     if layer.id == "item_pc" then
       if mode == "result" then return native.resultText end
@@ -259,7 +266,7 @@ function UI:list(battle)
           item_pc = "ITEMS", shop = "BUY", move_relearner = "MOVES" })[layer.id] or "BAG", index = 1,
         items = { { label = "CONTINUE" } }, update = function() end,
         valid = function(preview) return self.Stack.top() == layer and native.open
-          and (native.mode or native.state or native._mode) == noticeMode
+          and nativeMode(layer) == noticeMode
           and (not sale or native._sell == sale and sale.state == saleState)
           and (preview or ready()) and noticeText() == notice end }
       self.noticeView = view
@@ -323,16 +330,43 @@ function UI:list(battle)
     end
   elseif layer.id == "shop" then
     title = "BUY"
+    local rse = native._rse
+    local decoration = rse and native._martType ~= rse.MART_NORMAL
     if mode == "root" then
       items, field = {}, "cursor"
-      for i in ipairs(native.ROOT) do items[i] = { label = RomText.at("sShopMenuActions_BuySellQuit", i - 1) } end
-    elseif mode == "buy" then
-      items, field = {}, "cursor"
+      if rse then
+        local keys = decoration and { "gText_ShopBuy", "gText_ShopQuit" }
+          or { "gText_ShopBuy", "gText_ShopSell", "gText_ShopQuit" }
+        for i, key in ipairs(keys) do items[i] = { label = RomText.plain(key) } end
+      else
+        for i in ipairs(native.ROOT) do items[i] = { label = RomText.at("sShopMenuActions_BuySellQuit", i - 1) } end
+      end
+    elseif mode == "buy" or rse and mode == "list" then
+      items, field = {}, rse and "row" or "cursor"
+      local discounted = false
+      if rse and not decoration then
+        local Tv, Rse = require("src.core.game3.rse.tv"), require("src.core.game3.rse.init")
+        -- The native mart applies Slateport's TV sale only when its hook permits it.
+        discounted = Tv.isPokeNewsActive(native._session, 1, function(kind)
+          return Rse.call("tv", "shouldApplyPokeNews", "ShouldApplyPokeNewsEffect", nil, kind) == true
+        end)
+      end
       for _, id in ipairs(native._items) do
-        items[#items + 1] = { label = self.adapter.Items.displayName(id),
-          right = "¥" .. self.adapter.Items.info(id).price, itemId = id }
+        if decoration then
+          local info = require("src.core.game3.rse.decoration_inventory").info(id)
+          items[#items + 1] = { label = info and info.name or tostring(id), right = "¥" .. (info and info.price or 0) }
+        else
+          local price = math.max(0, math.floor(tonumber(self.adapter.Items.info(id).price) or 0))
+          items[#items + 1] = { label = self.adapter.Items.displayName(id),
+            right = "¥" .. (discounted and math.floor(price / 2) or price), itemId = id }
+        end
       end
       items[#items + 1] = { label = "CANCEL" }
+    elseif rse and mode == "qty" then
+      quantity = { label = self.adapter.Items.displayName(native._itemId), qty = native.qty,
+        itemId = native._itemId, max = math.max(1, native._maxQty or 1), wrap = true }
+    elseif rse and mode == "confirm" then
+      items, field, prompt = labels({ "YES", "NO" }), "yesCursor", native._status
     elseif mode == "buy_qty" then
       local pending = native._pending
       quantity = { label = pending.name, qty = native.qty, itemId = pending.id,
@@ -498,7 +532,7 @@ function UI:list(battle)
     local hmNotice, confirmExit = native._hmNotice, native._confirmExit
     function view.valid(preview)
       return owner.Stack.top() == layer and native.open == true
-        and (native.mode or native.state or native._mode) == mode and native.pocketIdx == pocketIdx
+        and nativeMode(layer) == mode and native.pocketIdx == pocketIdx
         and native.holdingMon == holding
         and native._hmNotice == hmNotice and native._confirmExit == confirmExit
         and (not sale or native._sell == sale and sale.state == saleState)
@@ -515,7 +549,7 @@ function UI:list(battle)
         if quantity then return 1 end
         if sale then return sale[field] end
         if layer.id == "box_storage" and mode == "pick_box" then return native._session.storage.currentBox end
-        if layer.id == "item_pc" and field == "row" then return native.scroll + native.row + 1 end
+        if field == "row" then return native.scroll + native.row + 1 end
         local value = native[field]
         if not t.nativeSlots then return value end
         for i, slot in ipairs(t.nativeSlots) do if slot == value then return i end end
@@ -525,8 +559,8 @@ function UI:list(battle)
           if t.valid() and field then
             if sale then sale[field] = v
             elseif layer.id == "box_storage" and mode == "pick_box" then native._session.storage.currentBox = v
-            elseif layer.id == "item_pc" and field == "row" then
-              native.scroll = math.max(0, math.min(v - 1, #t.items - 6))
+            elseif field == "row" then
+              native.scroll = math.max(0, math.min(v - 1, #t.items - (layer.id == "shop" and 8 or 6)))
               native.row = v - 1 - native.scroll
             else
               native[field] = t.nativeSlots and t.nativeSlots[v] or v
@@ -550,7 +584,7 @@ function UI:list(battle)
     and not native._fromBerryCrush and not native.holdingMon
     and native._location ~= "shop" and native._location ~= "itempc"
     and native._location ~= "berry_tree" and native._location ~= "blender"
-  if quantity then quantity.itemSprite = self.adapter:itemIcon(quantity.itemId) end
+  if quantity and quantity.itemId then quantity.itemSprite = self.adapter:itemIcon(quantity.itemId) end
   view.quantity = quantity
   view.prompt = prompt
   view.nativeGrid, view.boxParty = grid, boxParty
