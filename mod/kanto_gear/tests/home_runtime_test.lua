@@ -37,8 +37,8 @@ T.eq(optionByKey.ui_motion and optionByKey.ui_motion.default, true,
   "Silph Link motion is an explicit opt-out setting")
 T.eq(optionByKey.info_level and optionByKey.info_level.reset_default, "enhanced",
   "research resets to the canonical 3.0 default")
-T.eq(optionByKey.battle_view and optionByKey.battle_view.reset_default, "standard",
-  "battle view resets independently of migrated startup state")
+T.eq(optionByKey.battle_view, nil,
+  "the companion does not expose the retired battle takeover setting")
 T.check(optionByKey.ui_motion.visible_if.one_of
     and optionByKey.local_map.visible_if.not_one_of,
   "HGSS transitions and the legacy area map are mutually exclusive options")
@@ -282,6 +282,9 @@ do
   T.eq(display.settingsModel().rows[1].action, "home_help",
     "System settings exposes the explanation above the reset actions")
   display.tapSettings(30, 50)
+  T.eq(display.settingsModel().option, "home_help",
+    "Home help opens its explanation before the explicit action")
+  display.tapSettings(120, theme.hgss:settingsChoiceTop(display.settingsModel()) + 11)
   T.check(page() == "HOME" and home.help and not home.editing,
     "Show me reopens the hint with one tap without resetting Home")
   T.eq(#home.layout.tiles, initialTiles, "replaying help preserves every Home tile")
@@ -624,8 +627,12 @@ love.timer.getTime = realTime
 T.check(catalog.packages.settings.fixed
     and catalog.surfaces.settings_app.package == "settings",
   "Silph Link Settings is a fixed OS app with its own Home icon")
+display.settings.direct, display.settings.choicePage = true, 2
 T.check(display.openHomeApp("settings"), "Settings opens from Home")
 T.eq(page(), "SETTINGS", "Settings owns a real Silph Link page")
+T.eq(display.settings.option, nil, "reopening Settings clears its previous explanation")
+T.eq(display.settings.direct, nil, "reopening Settings clears direct-navigation state")
+T.eq(display.settings.choicePage, 1, "reopening Settings resets its choice pager")
 local settings = display.settingsModel()
 T.eq(#settings.categories, 6,
   "Settings groups the existing options into six readable sections")
@@ -677,13 +684,25 @@ T.check(display.cycleSetting(mapMotionRow, 1), "map movement mode can be changed
 T.eq(run.loader.modOptions.kanto_gear.map_motion, "performance", "Settings saves the performance mode")
 display.cycleSetting(mapMotionRow, 1)
 T.eq(run.loader.modOptions.kanto_gear.map_motion, "quality", "Settings can restore quality mode")
-local originalLanguage = run.loader.modOptions.kanto_gear.language or "en"
+api.options:set("language", "en")
 display.tapSettings(220, 62)
-T.check(run.loader.modOptions.kanto_gear.language ~= originalLanguage,
-  "the visible right value arrow advances the option")
-display.tapSettings(20, 62)
-T.eq(run.loader.modOptions.kanto_gear.language, originalLanguage,
-  "the visible left value arrow reverses the option")
+T.eq(display.settingsModel().option, "language",
+  "the visible setting row opens its explanation and choices")
+T.eq(run.loader.modOptions.kanto_gear.language, "en",
+  "opening an explanation does not change the setting")
+display.tapSettings(120, 62)
+T.eq(run.loader.modOptions.kanto_gear.language, "en",
+  "the explanation itself cannot change the setting")
+local choiceTop = theme.hgss:settingsChoiceTop(display.settingsModel())
+display.tapSettings(120, choiceTop + 36)
+T.eq(run.loader.modOptions.kanto_gear.language, "de",
+  "an explicit language choice changes the live setting")
+display.tapSettings(120, choiceTop + 11)
+T.eq(run.loader.modOptions.kanto_gear.language, "en",
+  "the English choice restores the original language")
+display.tapSettings(10, 10)
+T.eq(display.settings.option, nil,
+  "Back from an explanation returns to the category")
 display.tapSettings(152, 200)
 T.eq(display.settings.page, 2, "the bottom next arrow opens the second Settings page")
 display.tapSettings(88, 200)
@@ -719,7 +738,7 @@ T.eq(theme.hgss.partyActionStarted, nil,
 T.check(display.cycleSetting(motionRow, 1),
   "UI motion can be restored without restarting")
 run.loader.modOptions.kanto_gear.info_level = "spoiler"
-run.loader.modOptions.kanto_gear.battle_view = "full"
+run.loader.modOptions.kanto_gear.ui_motion = false
 run.loader.modOptions.kanto_gear.display_mode = "combined"
 run.loader.modOptions.kanto_gear.combined_layout = "side"
 display.runSettingsAction("reset_options")
@@ -732,8 +751,8 @@ T.eq(run.loader.modOptions.kanto_gear.caught_icon, true,
   "resetting options returns to the Silph Link default theme")
 T.eq(run.loader.modOptions.kanto_gear.info_level, "enhanced",
   "resetting options does not preserve a migrated research mode")
-T.eq(run.loader.modOptions.kanto_gear.battle_view, "standard",
-  "resetting options restores the standard battle view")
+T.eq(run.loader.modOptions.kanto_gear.ui_motion, true,
+  "resetting options restores UI motion")
 T.eq(run.loader.modOptions.kanto_gear.display_mode, "separate",
   "resetting options restores the canonical display mode")
 T.eq(run.loader.modOptions.kanto_gear.combined_layout, "auto",

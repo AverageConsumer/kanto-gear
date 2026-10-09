@@ -10793,6 +10793,8 @@ return function(mod)
     if id == "settings" then
       displayRuntime.settings.category, displayRuntime.settings.page,
         displayRuntime.settings.confirm = nil, 1, nil
+      displayRuntime.settings.option, displayRuntime.settings.direct,
+        displayRuntime.settings.choicePage = nil, nil, 1
       page, dirty = "SETTINGS", true
       return true
     end
