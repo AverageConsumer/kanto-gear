@@ -58,3 +58,4 @@ tests/party_storage_test.lua
 tests/unified_choice_test.lua
 tests/unified_naming_test.lua
 tests/unified_handoff_test.lua
+tests/gen3_field_test.lua

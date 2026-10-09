@@ -625,6 +625,7 @@ THEME.fieldTools = { widgets = {
   { key = "dig", action = "dig", move = "DIG", icon = "dig", gen = "both" },
   { key = "teleport", action = "teleport", move = "TELEPORT",
     icon = "teleport", gen = "both" },
+  { key = "fly", action = "fly", move = "FLY", icon = "teleport", gen = 3 },
   { key = "softboiled", action = "softboiled", move = "SOFTBOILED",
     icon = "softboiled", gen = 1 },
   { key = "squirtbottle", action = "squirtbottle", item = "SQUIRTBOTTLE",
@@ -3597,8 +3598,9 @@ return function(mod)
 
   local function refreshTools()
     local nextTools, unavailable = {}, nil
-    if mod.world and mod.world.availableFieldActions then
-      nextTools, unavailable = mod.world:availableFieldActions()
+    local world = displayRuntime.gen3Field or mod.world
+    if world and world.availableFieldActions then
+      nextTools, unavailable = world:availableFieldActions()
     end
     if unavailable == "world is busy" then return end
     local keys = {}
@@ -10611,7 +10613,8 @@ return function(mod)
   end
 
   local function useTool(action, opts)
-    local ok, err = mod.world:useFieldAction(action.id, opts)
+    local world = displayRuntime.gen3Field or mod.world
+    local ok, err = world:useFieldAction(action.id, opts)
     if not ok then mod.log:warn("field action %s rejected: %s",
       tostring(action.id), tostring(err)) end
     displayRuntime.perf:call("tools", refreshTools)
@@ -12909,6 +12912,7 @@ return function(mod)
     game = payload.game
     displayRuntime.sourceGame = game
     displayRuntime.gen3 = nil
+    displayRuntime.gen3Field = nil
     displayRuntime.gen3Progress = nil
     displayRuntime.gen3Ui = nil
     displayRuntime.gen3PollAt = nil
@@ -12919,6 +12923,7 @@ return function(mod)
         return displayRuntime.primaryTouch(action, x, y)
       end)
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
+      displayRuntime.gen3Field = assert(load(mod:read("gen3_field.lua"), "@kanto_gear/gen3_field.lua"))().new(displayRuntime.gen3, mod.world)
       displayRuntime.gen3Progress = assert(load(mod:read("gen3_progress.lua"), "@kanto_gear/gen3_progress.lua"))().new(displayRuntime.gen3)
       displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage)
       game = displayRuntime.gen3:gameView()
