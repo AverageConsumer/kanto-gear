@@ -16,12 +16,13 @@ return function(ui)
     disabledInk = { 0.38, 0.45, 0.40, 1 },
     outline = { 0.08, 0.14, 0.12, 1 },
     statusInk = { 0.08, 0.14, 0.12, 1 },
-    shadow = { 0.08, 0.14, 0.12, 0.28 },
+    shadow = { 0.08, 0.14, 0.12, 0.18 },
+    frame = { 0.30, 0.44, 0.37, 1 },
     highlight = { 0.97, 0.99, 0.99, 1 },
     white = { 0.97, 0.99, 0.99, 1 },
     silver = { 0.82, 0.86, 0.83, 1 },
     silverDark = { 0.40, 0.48, 0.43, 1 },
-    surface = { 0.95, 0.97, 0.94, 1 },
+    surface = { 0.97, 0.985, 0.96, 1 },
     red = { 0.72, 0.15, 0.14, 1 },
     redLight = { 0.94, 0.42, 0.34, 1 },
     green = { 0.16, 0.42, 0.23, 1 },
@@ -43,9 +44,9 @@ return function(ui)
     selected = { 0.91, 0.31, 0.25, 1 },
     selectedDark = { 0.59, 0.12, 0.11, 1 },
     fainted = { 0.25, 0.33, 0.28, 1 },
-    partyBg = { 0.90, 0.95, 0.91, 1 },
+    partyBg = { 0.925, 0.955, 0.94, 1 },
     partyBand = { 0.86, 0.93, 0.88, 1 },
-    partyEmboss = { 0.73, 0.85, 0.78, 1 },
+    partyEmboss = { 0.82, 0.90, 0.85, 1 },
   }
   local darkColors = {
     bg = { 0.055, 0.085, 0.09, 1 },
@@ -56,12 +57,13 @@ return function(ui)
     disabledInk = { 0.52, 0.61, 0.56, 1 },
     outline = { 0.02, 0.035, 0.03, 1 },
     statusInk = { 0.04, 0.07, 0.06, 1 },
-    shadow = { 0.00, 0.01, 0.01, 0.50 },
+    shadow = { 0.00, 0.01, 0.01, 0.36 },
+    frame = { 0.27, 0.43, 0.37, 1 },
     highlight = { 0.18, 0.30, 0.25, 1 },
     white = { 0.96, 0.99, 0.98, 1 },
     silver = { 0.68, 0.76, 0.72, 1 },
     silverDark = { 0.20, 0.27, 0.25, 1 },
-    surface = { 0.07, 0.115, 0.105, 1 },
+    surface = { 0.075, 0.13, 0.115, 1 },
     red = { 0.68, 0.13, 0.15, 1 },
     redLight = { 0.96, 0.39, 0.34, 1 },
     green = { 0.25, 0.73, 0.45, 1 },
@@ -85,7 +87,7 @@ return function(ui)
     fainted = { 0.105, 0.15, 0.135, 1 },
     partyBg = { 0.035, 0.06, 0.06, 1 },
     partyBand = { 0.055, 0.105, 0.095, 1 },
-    partyEmboss = { 0.10, 0.19, 0.16, 1 },
+    partyEmboss = { 0.075, 0.145, 0.125, 1 },
   }
   local BACKDROP_CENTER_Y = 121
   local H = {
@@ -573,12 +575,33 @@ return function(ui)
       self.dark and 0.15 or 0.10) or colors.surface
     clipped(x, y, w, h,
       self:focusSurface(selected, base, focusAccent))
-    border(x, y, w, h, edge or colors.ink)
+    border(x, y, w, h, edge or colors.frame)
     if baseAccent then
       box("fill", x + 5, y + 2, w - 10, 1,
         mixed(colors.highlight, baseAccent, 0.20))
     end
     if selected then self:focusFrame(x, y, w, h) end
+  end
+
+  -- A selected tab describes the open page, independently of native focus.
+  -- Center the label and optional detail arrow together, with the same inset
+  -- above the active rail in both themes.
+  function H:tab(x, y, w, h, label, active, arrow)
+    local colors = self.colors
+    local pressed = self:beginPress(x, y, w, h)
+    self:panel(x, y, w, h, false, nil, active and colors.greenLight or nil)
+    if active then
+      box("fill", x + 4, y + h - 3, w - 8, 1, colors.green)
+    end
+    local arrowWidth, gap = arrow and 4 or 0, arrow and 3 or 0
+    local shown = self:fitPartyType(label, w - 8 - arrowWidth - gap)
+    local textWidth = fontWidth(partyTypeFont, shown)
+    local left = x + math.floor((w - textWidth - gap - arrowWidth) / 2)
+    local top = y + math.floor((h - partyTypeFont:getHeight()) / 2)
+    local tint = active and colors.ink or colors.green
+    self:partyType(shown, left, top, tint, textWidth)
+    if arrow then self:detailChevron(left + textWidth + gap, y + math.floor((h - 4) / 2), tint) end
+    self:endPress(pressed)
   end
 
   function H:homeTile(x, y, w, h, accent, selected)
@@ -589,7 +612,7 @@ return function(ui)
     end
     color(mixed(colors.surface, accent, self.dark and 0.13 or 0.08))
     G.rectangle("fill", x, y, w, h, 5, 5)
-    color(colors.outline)
+    color(colors.frame)
     G.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1, 5, 5)
     box("fill", x + 5, y + 2, w - 10, 1,
       mixed(colors.highlight, accent, 0.18))
@@ -3376,19 +3399,8 @@ return function(ui)
     if model.mapFull then return end
 
     local function chip(x, y, width, label, active, arrow, translated)
-      local pressed = self:beginPress(x, y, width, 16)
-      self:panel(x, y, width, 16, false)
-      if active then box("fill", x + 2, y + 2, width - 4, 12, colors.band) end
       if not translated then label = translate(label) end
-      local arrowWidth, gap = arrow and 4 or 0, arrow and 3 or 0
-      local shown = self:fitPartyType(label, width - 6 - arrowWidth - gap)
-      local textWidth = fontWidth(partyTypeFont, shown)
-      local groupWidth = textWidth + gap + arrowWidth
-      local left = x + math.floor((width - groupWidth) / 2)
-      local tint = active and colors.ink or colors.green
-      self:partyType(shown, left, y + 2, tint, textWidth)
-      if arrow then self:detailChevron(left + textWidth + gap, y + 6, tint) end
-      self:endPress(pressed)
+      self:tab(x, y, width, 16, label, active, arrow)
     end
     local function pager(x, y, width, page, pages)
       local pressed = self:beginPress(x, y, width, 16, pages > 1)

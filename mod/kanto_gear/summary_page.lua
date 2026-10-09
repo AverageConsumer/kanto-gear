@@ -33,9 +33,7 @@ function Page.draw(H, state, mon, portrait, translate)
   for index = 1, state.pages do
     local left, top, width, height = Page.tabRect(state, index)
     local active = state.page == index
-    H:panel(left, top, width, height, active, nil, c.greenLight)
-    H:partyType(H:fitPartyType(translate(labels[index]), width - 6),
-      left + 3, top + 5, active and c.ink or c.green, width - 6)
+    H:tab(left, top, width, height, translate(labels[index]), active)
   end
   H:panel(6, 54, 228, 24, false, nil, H:typeColor(mon.type))
   portrait(mon, 11, 55, 20, false)
