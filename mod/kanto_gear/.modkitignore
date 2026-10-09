@@ -59,3 +59,5 @@ tests/unified_choice_test.lua
 tests/unified_naming_test.lua
 tests/unified_handoff_test.lua
 tests/gen3_field_test.lua
+tests/region_map_test.lua
+tests/region_map_runtime_test.lua
