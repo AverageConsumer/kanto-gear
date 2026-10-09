@@ -3840,19 +3840,34 @@ return function(ui)
 
   function H:naming(model)
     local colors = self.colors
-    self:panel(28, 33, 184, 18, false, nil, colors.greenLight)
-    local shown = fitFont(model.name or "-", 168, partyNameFont)
-    self:partyName(shown,
-      36 + math.floor((168 - fontWidth(partyNameFont, shown)) / 2 + 0.5),
-      38, colors.ink, 168)
+    local function centered(value, x, y, w, h)
+      local advance, left, top, right, bottom = 0, math.huge, math.huge, -1, -1
+      for _, char in ipairs(glyphs(value)) do
+        local bounds = ui.smallFontMetrics and ui.smallFontMetrics[char]
+        if not bounds then left = math.huge; break end
+        if bounds.right >= 0 then
+          left, right = math.min(left, advance + bounds.left), math.max(right, advance + bounds.right)
+          top, bottom = math.min(top, bounds.top), math.max(bottom, bounds.bottom)
+        end
+        advance = advance + bounds.advance
+      end
+      if left < math.huge then
+        self:partyInfo(value, x + math.floor((w - (right - left + 1)) / 2) - left,
+          y + math.floor((h - (bottom - top + 1)) / 2) - top, colors.ink)
+      else
+        self:partyInfo(value, x + 4, y + math.floor((h - 9) / 2) - 1, colors.ink, w - 8, "center")
+      end
+    end
+    self:panel(7, 34, 226, 29, false, nil, colors.greenLight)
+    local shown = fitFont(model.name or "-", 210, partyNameFont)
+    centered(shown, 7, 34, 226, 29)
     for _, entry in ipairs(model.entries or {}) do
-      local x, y, w, h = legacyRect(entry)
+      local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h)
       self:panel(x, y, w, h, self.nativeFocus and entry.selected, colors.greenLight,
-        entry.action and colors.amberLight or colors.blueLight)
-      local label = tostring(entry.label or "")
-      self:partyInfo(self:fitPartyInfo(label, w - 8), x + 4,
-        y + math.floor((h - 9) / 2), colors.ink, w - 8, "center")
+        entry.action == "confirm" and colors.greenLight or entry.action == "delete" and colors.amberLight or colors.blueLight)
+      local label = entry.action and translate(entry.label) or tostring(entry.label or "")
+      centered(self:fitPartyInfo(label, w - 8), x, y, w, h)
       self:endPress(pressed)
     end
   end

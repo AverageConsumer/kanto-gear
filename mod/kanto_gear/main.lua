@@ -2305,10 +2305,15 @@ return function(mod)
         "@kanto_gear/hgss_font_glyphs.lua"))()
       local function imageFont(name)
         local data = L.filesystem.newFileData(mod:read(name), name)
-        return G.newImageFont(L.image.newImageData(data), fontGlyphs)
+        local image = L.image.newImageData(data)
+        local metrics
+        if name == "hgss_small_font.png" then
+          metrics = assert(load(mod:read("font_metrics.lua"), "@kanto_gear/font_metrics.lua"))()(image, glyphList(fontGlyphs))
+        end
+        return G.newImageFont(image, fontGlyphs), metrics
       end
       THEME.hgssFont = imageFont("hgss_font.png")
-      THEME.hgssSmallFont = imageFont("hgss_small_font.png")
+      THEME.hgssSmallFont, THEME.hgssSmallMetrics = imageFont("hgss_small_font.png")
       THEME.hgssLargeFont = imageFont("hgss_large_font.png")
     end
   end
@@ -2332,6 +2337,8 @@ return function(mod)
 
   displayRuntime.ChoicePage = assert(load(mod:read("choice_page.lua"),
     "@kanto_gear/choice_page.lua"))()
+  displayRuntime.NamingPage = assert(load(mod:read("naming_page.lua"),
+    "@kanto_gear/naming_page.lua"))()
   displayRuntime.PartyPage = assert(load(mod:read("party_page.lua"),
     "@kanto_gear/party_page.lua"))()
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
@@ -2339,6 +2346,7 @@ return function(mod)
     glyphs = glyphList, color = color, font = THEME.hgssFont,
     nativeFocus = false, partyPage = displayRuntime.PartyPage,
     smallFont = THEME.hgssSmallFont,
+    smallFontMetrics = THEME.hgssSmallMetrics,
     largeFont = THEME.hgssLargeFont,
     translationFonts = THEME.translationFonts,
     translate = function(value) return THEME:translate(value) end,
@@ -4805,7 +4813,7 @@ return function(mod)
   end
 
   function displayRuntime.drawStartMenu(top)
-    header(THEME:translate(top.title or "CHOOSE ACTION"), true, top.nativePocket)
+    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel, top.nativePocket)
     local model = displayRuntime.startMenuModel(top)
     if battle and assist("catch_odds") then
       for _, entry in ipairs(model.entries) do
@@ -4827,6 +4835,8 @@ return function(mod)
         THEME.hgss:levelUp({ name = displayRuntime.gen3.Pokemon.displayMonName(native._mon),
           level = THEME:format("L%d", mon.level), type = mon.types[1], rows = rows,
           drawPokemon = function(x, y, size) hgssRuntime.summaryPortrait({ source = mon, species = mon.species }, x, y, size) end })
+      elseif top.namingModel and not top.notice then
+        THEME.hgss:naming(top.namingModel)
       elseif top.choiceState then
         local labels = {}
         for index, item in ipairs(top.items) do labels[index] = THEME:menuActionLabel(item.label) end
@@ -5438,31 +5448,43 @@ return function(mod)
     if pressed then THEME.hgss:endPress(pressed) end
   end
 
+  function displayRuntime.namingModel(top, grid)
+    local gen2 = top.screenId == "Gen2NamingScreen"
+    local name = gen2 and top.text or table.concat(top.glyphs or {})
+    local items = {}
+    local caseRow = #grid
+    if not gen2 then
+      for row, cells in ipairs(grid) do
+        if #cells == 1 and (cells[1] == "lower case" or cells[1] == "UPPER CASE"
+            or cells[1] == "lower" or cells[1] == "UPPER") then caseRow = row end
+      end
+    end
+    local displayRow = 0
+    for row, cells in ipairs(grid) do
+      if row ~= caseRow then
+        displayRow = displayRow + 1
+        for col, char in ipairs(cells) do
+          if gen2 or char ~= "ED" then
+            items[#items + 1] = { label = char == " " and "_" or char:gsub("<PK>", "PK"):gsub("<MN>", "MN"),
+              row = displayRow, col = col, nativeRow = row }
+          end
+        end
+      end
+    end
+    items[#items + 1] = { label = top.lower and "ABC" or "abc", action = "case" }
+    items[#items + 1] = { label = "DEL", action = "delete" }
+    items[#items + 1] = { label = "OK", action = "confirm" }
+    return displayRuntime.NamingPage.model(name == "" and "-" or name, items), items
+  end
+
   local function drawNaming(top, grid)
     header(THEME:translate("NAME INPUT"))
     local gen2 = top.screenId == "Gen2NamingScreen"
     local name = gen2 and top.text or table.concat(top.glyphs or {})
     name = name == "" and "-" or name
     if THEME.style == "hgss" then
-      local entries = {}
-      for row, cells in ipairs(grid) do
-        local y = 36 + (row - 1) * 17
-        for col, label in ipairs(cells) do
-          local left = 3 + math.floor((col - 1) * 154 / #cells)
-          local right = 3 + math.floor(col * 154 / #cells)
-          local shown = label == "lower case" and THEME:translate("LOWER")
-            or label == "UPPER CASE" and THEME:translate("UPPER") or label
-          local selected = gen2 and top.row == row - 1
-              and (row < #grid and top.col == col - 1
-                or row == #grid and math.floor(top.col / 3) + 1 == col)
-            or not gen2 and top.row == row and top.col == col
-          entries[#entries + 1] = { x = left, y = y, w = right - left,
-            h = 15, label = shown, selected = selected,
-            action = row == #grid }
-        end
-      end
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:naming({ name = name, entries = entries })
+      THEME.hgss:naming(displayRuntime.namingModel(top, grid))
       G.pop()
       return
     end
@@ -11647,6 +11669,11 @@ return function(mod)
 
   function displayRuntime.tapStartMenu(top, x, y)
     if not displayRuntime.StartMenu.cursor(top) then return end
+    if top.namingModel and not top.notice and THEME.style == "hgss" then
+      local index = displayRuntime.NamingPage.hit(top.namingModel, x * THEME.hgssScale, y * THEME.hgssScale)
+      if index and displayRuntime.StartMenu.select(top, index) then press("a"); dirty = true end
+      return
+    end
     if top.choiceState and THEME.style == "hgss" then
       local labels = {}
       for index, item in ipairs(top.items) do labels[index] = item.label end
@@ -11762,6 +11789,26 @@ return function(mod)
   end
 
   local function tapNaming(top, grid, x, y)
+    if THEME.style == "hgss" then
+      local model, items = displayRuntime.namingModel(top, grid)
+      local index = displayRuntime.NamingPage.hit(model, x * THEME.hgssScale, y * THEME.hgssScale)
+      local item = index and items[index]
+      if not item then return end
+      if item.action == "case" then press("select")
+      elseif item.action == "delete" then press("b")
+      elseif item.action == "confirm" then
+        if top.screenId == "Gen2NamingScreen" then
+          top.row, top.col = #grid - 1, 6
+          press("a")
+        else press("start") end
+      else
+        local offset = top.screenId == "Gen2NamingScreen" and 1 or 0
+        top.row, top.col = item.nativeRow - offset, item.col - offset
+        press("a")
+      end
+      dirty = true
+      return
+    end
     local row, col = namingCell(x, y, grid)
     if not row then return end
     if top.screenId == "Gen2NamingScreen" then
@@ -12620,6 +12667,7 @@ return function(mod)
     local nativeMenu = displayRuntime.gen3Ui and displayRuntime.startMenu()
     local key = table.concat({ tostring(top), text and "text" or tostring(top and top.phase),
       tostring(top and top.submenu), tostring(top and top.page),
+      tostring(top and top.lower),
       tostring(top and top.kind), tostring(top and top.mode),
       tostring(top and top.activeBattler), tostring(nativeMenu and nativeMenu.nativeKey),
       tostring(top and top.picking), tostring(top and top.qtyState),
@@ -12876,7 +12924,7 @@ return function(mod)
       end)
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
       displayRuntime.gen3Progress = assert(load(mod:read("gen3_progress.lua"), "@kanto_gear/gen3_progress.lua"))().new(displayRuntime.gen3)
-      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage)
+      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage)
       game = displayRuntime.gen3:gameView()
     end
     displayRuntime.homeCatalog.packages.achievements.available = true

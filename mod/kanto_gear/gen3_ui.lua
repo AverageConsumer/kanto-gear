@@ -3,8 +3,8 @@
 local UI = {}
 UI.__index = UI
 
-function UI.new(adapter, layout, choicePage)
-  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, Stack = require("src.ui.game3.stack"),
+function UI.new(adapter, layout, choicePage, namingPage)
+  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, Stack = require("src.ui.game3.stack"),
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
 end
 
@@ -46,7 +46,7 @@ function UI:naming(layer)
   local key = tostring(layer) .. ":" .. tostring(state) .. ":" .. state.page .. ":" .. tostring(state.pcPage)
   local view = self.namingView
   if not view or view.nativeKey ~= key then
-    local columns, pageIndex, pcPages, pcPage = math.max(#page[1], #page[3]), state.page, state.pcPages, state.pcPage
+    local pageIndex, pcPages, pcPage = state.page, state.pcPages, state.pcPage
     view = { screenId = "Gen3Menu", title = state.title, nativeKey = key, update = function() end,
       fixedLayout = true, nativeGrid = true, items = {} }
     function view.valid(preview)
@@ -57,14 +57,15 @@ function UI:naming(layer)
     end
     for row, chars in ipairs(page) do
       for col, char in ipairs(chars) do
-        local left, right = 7 + math.floor((col - 1) * 176 / columns), 7 + math.floor(col * 176 / columns)
-        view.items[#view.items + 1] = { label = char == " " and "_" or char, row = row, col = col,
-          rect = { left, 75 + (row - 1) * 32, right - left - 2, 29 } }
+        view.items[#view.items + 1] = { label = char == " " and "_" or char, row = row, col = col }
       end
     end
-    for i, label in ipairs({ ({ "abc", "123", "ABC" })[state.page], "BACK", "OK" }) do
-      view.items[#view.items + 1] = { label = label, btn = i,
-        rect = { 190, 75 + (i - 1) * 47, 43, 44 } }
+    for i, label in ipairs({ ({ "abc", "123", "ABC" })[state.page], "DEL", "OK" }) do
+      view.items[#view.items + 1] = { label = label, btn = i, action = ({ "case", "delete", "confirm" })[i] }
+    end
+    view.namingModel = self.namingPage.model("", view.items)
+    for _, entry in ipairs(view.namingModel.entries) do
+      view.items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
     end
     setmetatable(view, {
       __index = function(t, k)
@@ -89,6 +90,7 @@ function UI:naming(layer)
     self.namingView = view
   end
   view.name = state.name == "" and "-" or state.name
+  view.namingModel.name = view.name
   view.notice, view.canAdvance = state.pcPages and state.pcPages[state.pcPage], true
   return view
 end
