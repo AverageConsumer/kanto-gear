@@ -6850,7 +6850,10 @@ return function(mod)
         return compat.drawMapActor(row.actor or row, x, y, scale, feet)
       end,
       drawPokemon = function(row, x, y, size, uncaught)
-        if row.isEgg then return compat.drawPokemonIcon(row, x, y, size) end
+        if row.isEgg then
+          if displayRuntime.gen3 then return drawSprite(row.species, "front", x, y, size, size, nil, row, true) end
+          return compat.drawPokemonIcon(row, x, y, size)
+        end
         drawSprite(row.species, "front", x, y, size, size,
           uncaught and { 0.52, 0.52, 0.52, 1 } or nil)
       end,

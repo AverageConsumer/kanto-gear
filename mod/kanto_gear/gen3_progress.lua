@@ -215,6 +215,185 @@ function M:trades(scripts, key, rows, vars, checkpoint)
   return {}, true
 end
 
+-- A read-only path check for native Pokemon rewards. VAR_RESULT matters: a full
+-- party may send a gift to the PC, while a failed delivery must never earn a stamp.
+local giftPresentation = {}
+for op in ("lock lockall release releaseall faceplayer showmonpic hidemonpic applymovement waitmovement "
+    .. "removeobject showmoneybox hidemoneybox updatemoneybox playfanfare waitfanfare message "
+    .. "waitmessage loadword fadescreen waitstate textcolor bufferspeciesname bufferboxname"):gmatch("%S+") do
+  giftPresentation[op] = true
+end
+local giftFlow = { ["return"] = true, ["end"] = true, goto_if = true, ["goto"] = true, call = true, call_if = true }
+
+local function pokemonPath(scripts, key, gift, receipt, options, checkpoint)
+  local pending = { { key = key, index = 1, vars = {}, flags = { [receipt] = 0 } } }
+  local seen, count, found = {}, 0, false
+  while #pending > 0 do
+    local at = table.remove(pending)
+    local parts = { tostring(at.key), at.index, at.given and 1 or 0, tostring(at.compare),
+      at.stack and at.stack.signature or "" }
+    for _, field in ipairs({ "vars", "flags" }) do
+      for _, id in ipairs(sortedKeys(at[field])) do parts[#parts + 1] = field .. id .. "=" .. at[field][id] end
+    end
+    local signature = table.concat(parts, ":")
+    local ancestor = at.path
+    while ancestor do
+      if ancestor.signature == signature then return nil end
+      ancestor = ancestor.parent
+    end
+    if not seen[signature] then
+      seen[signature], count = true, count + 1
+      if count > 4096 then return nil end
+      if checkpoint and count % 32 == 0 then checkpoint() end
+      local list = scripts[at.key]
+      if not list then return nil end
+      local row = list[at.index]
+      local function push(target, index, stack)
+        pending[#pending + 1] = { key = target, index = index, stack = stack,
+          vars = copy(at.vars), flags = copy(at.flags), given = at.given, compare = at.compare,
+          path = { signature = signature, parent = at.path } }
+      end
+      local function terminal()
+        local written = at.flags[receipt] == 1
+        if written ~= (at.given == true) then return false end
+        found = found or written
+        return true
+      end
+      if not row then
+        if not terminal() then return nil end
+      else
+        local op, a, b = row.op, row.var or row.flag or row[1], row.value or row[2]
+        if row.opaque or op == "unknown" then return nil end
+        local function value(id)
+          if type(id) ~= "number" then return nil end
+          if id < 0x4000 then return id end
+          return at.vars[id]
+        end
+        local again = false
+        if row == gift then
+          if options.live then return true end
+          at.given, at.vars[0x800D] = options.result ~= 2, options.result
+        elseif op == "givemon" or op == "giveegg" then return nil
+        elseif op == "setvar" then at.vars[a] = b
+        elseif op == "setorcopyvar" or op == "copyvar" then at.vars[a] = value(b)
+        elseif op == "addvar" or op == "subvar" then
+          at.vars[a] = at.vars[a] and b and (at.vars[a] + (op == "addvar" and b or -b)) % 65536
+        elseif op == "getpartysize" then at.vars[0x800D] = options.party
+        elseif op == "checkplayergender" then at.vars[0x800D] = options.gender or 0
+        elseif op == "checkmoney" then
+          at.vars[0x800D] = (options.money or math.huge) >= (row[1] or 0) and 1 or 0
+        elseif op == "compare_var_to_value" or op == "compare_var_to_var" then
+          local lhs, rhs = value(a), op == "compare_var_to_var" and value(b) or b
+          at.compare = lhs and rhs and (lhs < rhs and 0 or lhs == rhs and 1 or 2) or nil
+        elseif op == "checkflag" then
+          local v = at.flags[a]
+          if v == nil and options.flag then v = options.flag(a) and 1 or 0 end
+          if v == nil then
+            -- Keep repeated checks of an unknown flag consistent on each path.
+            at.flags[a], at.compare = 0, 0; push(at.key, at.index + 1, at.stack)
+            at.flags[a], at.compare = 1, 1; push(at.key, at.index + 1, at.stack)
+            again = true
+          else at.compare = v end
+        elseif op == "setflag" or op == "clearflag" then at.flags[a] = op == "setflag" and 1 or 0
+        elseif op == "callstd" and (row.std or row[1]) == 5 then
+          at.vars[0x800D] = 0; push(at.key, at.index + 1, at.stack)
+          at.vars[0x800D] = 1; push(at.key, at.index + 1, at.stack)
+          again = true
+        elseif op == "special" or op == "specialvar" then
+          local id = op == "specialvar" and row[2] or row.id or row[1]
+          local dest = op == "specialvar" and row[1] or 0x800D
+          if options.firered and id == 391 then at.vars[dest] = 0 -- not Quest Log playback
+          elseif options.firered and id == 392 then -- stop recording; no result
+          elseif options.firered and id == 230 then at.vars[dest] = options.friendship or 6
+          elseif at.given and (options.firered and (id == 158 or id == 358 or id == 357
+              or id == 394 or id == 436 or id == 371)
+              or not options.firered and (id == 161 or id == 486 or id == 488 or id == 487)) then
+            at.vars[dest] = nil -- naming/PC text/post-gift friendship; no receipt writes
+          else return nil end
+        elseif op == "trainerbattle" then
+          -- Receiving a reward after an unfinished battle is not a ready NPC offer.
+          if not terminal() then return nil end
+          again = true
+        elseif op == "removemoney" and at.given then
+        elseif (op == "callstd" or op == "gotostd") and (row.std or row[1]) == 4 then
+        elseif row.opaque or not (giftPresentation[op] or giftFlow[op]) then return nil end
+        if not again then
+          local branch, c = nil, at.compare
+          if c ~= nil then
+            local cond = row.cond or row[1]
+            if cond == 0 then branch = c == 0 elseif cond == 1 then branch = c == 1
+            elseif cond == 2 then branch = c == 2 elseif cond == 3 then branch = c <= 1
+            elseif cond == 4 then branch = c >= 1 elseif cond == 5 then branch = c ~= 1 end
+          end
+          if options.live and (op == "goto_if" or op == "call_if") and branch == nil then return nil end
+          if op == "return" then
+            if at.stack then push(at.stack.key, at.stack.index, at.stack.parent)
+            elseif not terminal() then return nil end
+          elseif op == "goto" then push(row.target, 1, at.stack)
+          elseif op == "goto_if" then
+            if branch ~= false then push(row.target, 1, at.stack) end
+            if branch ~= true then push(at.key, at.index + 1, at.stack) end
+          elseif op == "call" or op == "call_if" then
+            if op == "call_if" and branch ~= true then push(at.key, at.index + 1, at.stack) end
+            if op == "call" or branch ~= false then
+              local depth = at.stack and at.stack.depth + 1 or 1
+              if depth > 20 then return nil end
+              push(row.target, 1, { key = at.key, index = at.index + 1, parent = at.stack,
+                depth = depth, signature = signature })
+            end
+          elseif op == "end" or op == "gotostd" then
+            if not terminal() then return nil end
+          else push(at.key, at.index + 1, at.stack) end
+        end
+      end
+    end
+  end
+  return found
+end
+
+function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
+  local written, checked, cleared, commands, removed, out = {}, {}, {}, {}, false, {}
+  for _, row in ipairs(rows) do
+    local flag = row.flag or row[1]
+    if row.op == "setflag" then written[flag] = true
+    elseif row.op == "checkflag" then checked[flag] = true
+    elseif row.op == "clearflag" then cleared[flag] = true
+    elseif row.op == "removeobject" and (row.localId or row[1]) == obj.localId
+        and obj.flag and obj.flag >= 0x20 then removed = true
+    elseif row.op == "givemon" or row.op == "giveegg" then commands[#commands + 1] = row end
+  end
+  -- shortcut: variable/species choices and repeated fossil/casino rewards keep
+  -- their existing catch goals until a unique durable receipt can be proven.
+  for _, command in ipairs(commands) do
+    local species = type(command[1]) == "number" and command[1] or nil
+    if species and species >= 0x4000 then
+      local choices = sortedKeys(vars[species]); species = #choices == 1 and choices[1] or nil
+    end
+    if species and self.adapter.data.pokemon[species] then
+      for _, receipt in ipairs(sortedKeys(written)) do
+        if type(receipt) == "number" and receipt >= 0x20 and receipt ~= 65535 and not cleared[receipt]
+            and not self.initiallyHidden[receipt] and (checked[receipt] or removed) then
+          local success = { party = 1, result = 0, firered = not self.emerald }
+          local failure = { party = 6, result = 2, firered = not self.emerald }
+          local pc = { party = 6, result = 1, firered = not self.emerald }
+          if pokemonPath(scripts, key, command, receipt, success, checkpoint) == true
+              and pokemonPath(scripts, key, command, receipt, failure, checkpoint) == false then
+            local isEgg = command.op == "giveegg"
+            local box = not isEgg and pokemonPath(scripts, key, command, receipt, pc, checkpoint) == true
+            local cost
+            for _, r in ipairs(rows) do if r.op == "checkmoney" then cost = r[1] end end
+            out[#out + 1] = { species = species, level = not isEgg and command[2] or nil,
+              event = receipt, isEgg = isEgg or nil, toPC = box or nil, cost = cost,
+              command = command, scriptKey = key }
+            break
+          end
+        end
+      end
+    end
+  end
+  return out
+end
+
 function M:bundle()
   -- The field engine owns/loads the bundle. Boot and missing extraction must
   -- yield unknown objectives, not a permanently cached empty catalogue.
@@ -260,6 +439,17 @@ function M:catalog(mapId, checkpoint)
     if checkpoint then checkpoint() end
     local rows, vars, missing = M.scan(bundle.scripts, obj.scriptKey, checkpoint)
     local hasTrainer, hasMon, hasItem = false, false, false
+    local proven = {}
+    for _, offer in ipairs(objectSource and self:pokemonGifts(bundle.scripts, obj.scriptKey, rows, vars, obj, checkpoint) or {}) do
+      local key = tostring(offer.event) .. ":pokemon:" .. offer.species
+      proven[offer.command] = true
+      if not gifts[key] then
+        local row = base(obj)
+        for k, v in pairs(offer) do row[k] = v end
+        row.id, row.kind, row.gift = mapId .. "_gift_" .. key, "pokemon", true
+        gifts[key], out[4][#out[4] + 1] = row, row
+      end
+    end
     if objectSource then
       local offers, unknown = self:trades(bundle.scripts, obj.scriptKey, rows, vars, checkpoint)
       missing = missing or unknown
@@ -309,7 +499,8 @@ function M:catalog(mapId, checkpoint)
       elseif command.op == "setwildbattle" or command.op == "givemon" or command.op == "giveegg" then
         hasMon = true
         local species = command[1]
-        if type(species) == "number" and species < 0x4000 then mon(species, obj)
+        if proven[command] then -- receipt-based objective above
+        elseif type(species) == "number" and species < 0x4000 then mon(species, obj)
         elseif vars[species] then
           for _, candidate in ipairs(sortedKeys(vars[species])) do mon(candidate, obj) end
         else
@@ -409,6 +600,15 @@ function M:catalog(mapId, checkpoint)
     -- Tower opponents are generated per challenge, without route defeat flags.
     out[1][#out[1] + 1] = { label = "TRAINERS", mapId = mapId, repeatable = true }
   end
+  -- A battle callback and its retry NPC can reference the same gift command.
+  for i = #out[4], 1, -1 do
+    local row = out[4][i]
+    if not row.gift then
+      for _, reward in ipairs(out[4]) do
+        if reward.gift and not reward.trade and reward.species == row.species then table.remove(out[4], i); break end
+      end
+    end
+  end
   table.sort(out[4], function(a, b) return a.species < b.species end)
   self.maps[mapId], self.builds = out, self.builds + 1
   return out
@@ -480,6 +680,24 @@ function M:rows(mapIds, checkpoint)
               and reaches(self.source.scripts, row.scriptKey, row.command, row.event, 0, false, checkpoint, flag) == true
             row.status = row.done and "RECORDED" or row.available and "READY" or "LATER"
           end
+          if category == 4 and row.gift and not row.trade then
+            local session = adapter.session or {}
+            local party = #(session.party or {})
+            row.label = row.isEgg and "EGG" or adapter.data.pokemon[row.species].name
+            row.order = row.isEgg and 0 or adapter.data.pokemon[row.species].dex
+            row.noRoom = party >= 6 and (not row.toPC
+              or not require("src.core.game3.storage").findOpenSlot(session.storage)) or nil
+            local lead
+            for _, mon in ipairs(session.party or {}) do if not adapter.Pokemon.isEgg(mon) then lead = mon; break end end
+            local friendship = lead and adapter.Pokemon.friendshipOf(lead) or 0
+            local score = friendship == 255 and 6 or friendship >= 200 and 5 or friendship >= 150 and 4
+              or friendship >= 100 and 3 or friendship >= 50 and 2 or friendship > 0 and 1 or 0
+            row.available = not row.done and row.available ~= false and not row.noRoom
+              and pokemonPath(self.source.scripts, row.scriptKey, row.command, row.event,
+                { live = true, party = party, money = session.money or 0, gender = session.gender,
+                  friendship = score, flag = flag, firered = not self.emerald }, checkpoint) == true
+            row.status = row.done and "RECORDED" or row.available and "READY" or "LATER"
+          end
           out[category][#out[category] + 1] = row
         end
       end
@@ -533,7 +751,16 @@ function M:pokemon(mapIds, checkpoint)
     end
   end
   for _, species in ipairs(sortedKeys(bySpecies)) do goal({ species }) end
-  for _, row in ipairs(self:rows(mapIds, checkpoint)[4]) do out[#out + 1] = row end
+  local choices = {}
+  for _, row in ipairs(self:rows(mapIds, checkpoint)[4]) do
+    local existing = not row.trade and choices[row.event]
+    if existing then
+      existing.label = existing.label .. " / " .. row.label
+    else
+      out[#out + 1] = row
+      if not row.trade then choices[row.event] = row end
+    end
+  end
   table.sort(out, function(a, b) return a.order < b.order end)
   return out
 end
