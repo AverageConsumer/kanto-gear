@@ -1,0 +1,176 @@
+local T = require("tests.modkit")
+love.graphics.arc = love.graphics.arc or function() end
+local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
+local Gifts = dofile(root .. "/gen2_gifts.lua")
+local Progress = dofile(root .. "/achievements.lua")
+local function up(fn, key)
+  for i = 1, debug.getinfo(fn, "u").nups do
+    local name, value = debug.getupvalue(fn, i)
+    if name == key then return value end
+  end
+  error("missing upvalue " .. key)
+end
+local function gift(event, op, species)
+  return { { op = "checkevent", event = event }, { op = "iftrue", script = "END" },
+    { op = "readvar", var = 1 }, { op = "ifequal", value = 6, script = "END" },
+    { op = op, species = species, level = 20 }, { op = "setevent", event = event }, { op = "end" } }
+end
+local data = { gen2Scripts = { END = { { op = "end" } }, GIFT = gift(40, "givepoke", 133) },
+  gen2Maps = {}, gen2InitialEvents = { flags = {} }, pokemon = {
+    EEVEE = { index = 133, name = "EEVEE", type = "NORMAL" }, TOGEPI = { index = 175, name = "TOGEPI" },
+    DODRIO = { index = 85, name = "DODRIO" }, DRAGONAIR = { index = 148, name = "DRAGONAIR" } },
+  gen2EventTables = { trades = { { give = "DRAGONAIR", get = "DODRIO", gender = "TRADE_GENDER_FEMALE" } } } }
+local policy = Gifts.new(data)
+T.eq(#policy:catalog("GIFT"), 1, "party-room guard and receipt prove a literal Pokémon gift")
+T.eq(policy:catalog("GIFT")[1].speciesIndex, 133, "gift preserves the actual species operand")
+T.eq(policy:catalog("GIFT")[1].level, 20, "gift preserves its level")
+data.gen2Scripts.UNGUARDED = { { op = "checkevent", event = 41 }, { op = "iftrue", script = "END" },
+  { op = "givepoke", species = 133, level = 20 }, { op = "setevent", event = 41 }, { op = "end" } }
+T.eq(#policy:catalog("UNGUARDED"), 0, "unconditional receipt after a full-party failure is rejected")
+data.gen2Scripts.UNCHECKED = { { op = "readvar", var = 1 }, { op = "ifequal", value = 6, script = "END" },
+  { op = "givepoke", species = 133, level = 20 }, { op = "setevent", event = 46 }, { op = "end" } }
+T.eq(policy:catalog("UNCHECKED")[1].event, 46, "NPC visibility can gate a gift whose receipt is not checked locally")
+data.gen2Scripts.STORY = { { op = "setevent", event = 47 }, { op = "readvar", var = 1 },
+  { op = "ifequal", value = 6, script = "END" }, { op = "givepoke", species = 133, level = 20 }, { op = "end" } }
+T.eq(#policy:catalog("STORY"), 0, "story flag written before a gift cannot prove acquisition")
+data.gen2Scripts.EGG = { { op = "checkevent", event = 42 }, { op = "iftrue", script = "END" },
+  { op = "giveegg", args = { 175, 5 } }, { op = "iffalse", script = "END" },
+  { op = "setevent", event = 42 }, { op = "end" } }
+T.eq(policy:catalog("EGG")[1].isEgg, true, "giveegg's success result can prove receipt")
+data.gen2Scripts.BAD_EGG = { { op = "checkevent", event = 43 }, { op = "iftrue", script = "END" },
+  { op = "giveegg", args = { 175, 5 } }, { op = "setevent", event = 43 }, { op = "end" } }
+T.eq(#policy:catalog("BAD_EGG"), 0, "failed egg delivery cannot become a receipt")
+data.gen2Scripts.TRADE = { { op = "trade", trade = 0 }, { op = "end" } }
+T.eq(policy:catalog("TRADE")[1].tradeId, 0, "zero-based trade ID is valid")
+data.gen2Scripts.BAD_TRADE = { { op = "sjump", script = "END" }, { op = "trade", trade = 0 } }
+T.eq(#policy:catalog("BAD_TRADE"), 0, "unreachable trades do not create objectives")
+data.gen2Scripts.INVALID = gift(44, "givepoke", 255)
+T.eq(#policy:catalog("INVALID"), 0, "memory/sentinel species cannot invent a gift")
+data.gen2Scripts.WRONG_LEVEL = gift(45, "givepoke", 133)
+data.gen2Scripts.WRONG_LEVEL[5].level = 101
+T.eq(#policy:catalog("WRONG_LEVEL"), 0, "invalid gift level is rejected")
+
+local run = T.sdk.loadMod(root, { generation = 2, data = T.fixtures.fresh() })
+T.eq(run.mod and run.mod.state, "loaded", "Gen2 companion loads Pokémon reward integration")
+local input
+for _, entry in ipairs(run.loader.hooks.chains["input.step"]) do
+  if entry.owner == "kanto_gear" then input = entry.callback end
+end
+local display = up(input, "displayRuntime")
+local Area = up(up(display.achievementData, "areaData"), "Area")
+local flags, save = {}, { party = {}, tradeFlags = {}, pokedex = { caught = { EEVEE = true } } }
+local world = { getFlag = function(_, event) return flags[event] == true end }
+data.gen2Maps.TEST = { objects = { { index = 1, x = 2, y = 3, scriptKey = "GIFT", eventFlag = 65535 },
+  { index = 2, x = 4, y = 5, scriptKey = "TRADE", eventFlag = 65535 },
+  { index = 3, x = 6, y = 7, scriptKey = "EGG", eventFlag = 65535 } } }
+local function rows() return Area.gen2Rows(data, save, world, { "TEST" }) end
+T.eq(#rows()[2], 0, "Pokémon rewards do not inflate item totals")
+T.eq(#rows()[4], 3, "gift, trade and egg belong to the Pokémon section")
+T.eq(rows()[4][1].done, false, "caught elsewhere is not proof of this gift")
+T.eq(rows()[4][1].trade, false, "ordinary gift is never labeled as a trade")
+T.eq(rows()[4][1].available, true, "gift with free party space is available")
+T.eq(rows()[4][3].label, "EGG", "egg contents are concealed in the shared source model")
+T.eq(rows()[4][3].isEgg, true, "egg portrait carries its actual kind")
+for i = 1, 6 do save.party[i] = {} end
+T.eq(rows()[4][1].noRoom, true, "full party blocks a Pokémon gift even with empty PC boxes")
+T.eq(rows()[4][1].available, false, "full-party gift is absent from HERE NOW")
+T.eq(rows()[4][3].available, false, "full-party egg is also unavailable")
+save.party = { { species = "DRAGONAIR", gender = "male" } }
+T.eq(rows()[4][2].available, false, "wrong gender does not unlock a trade")
+save.party[1].gender = "female"
+T.eq(rows()[4][2].available, true, "matching species and gender unlock the trade")
+save.party[1].isEgg = true
+T.eq(rows()[4][2].available, false, "an egg cannot satisfy the requested trade partner")
+save.party = {}
+flags[40], save.tradeFlags[0] = true, true
+T.eq(rows()[4][1].done, true, "released Pokémon remains received via its event")
+T.eq(rows()[4][2].done, true, "released trade remains complete via native tradeFlags")
+T.eq(save.party[1], nil, "read-only catalogue never gives or trades Pokémon")
+local function album()
+  return Progress.build({ { id = "TEST", maps = { "TEST" } } }, function()
+    local r = rows()
+    return { sections = { { rows = r[1] }, { rows = r[2] }, { rows = r[3] } }, pokemon = r[4] }
+  end, { gen2 = true, save = save, mapId = "TEST", flag = function(event) return world:getFlag(event) end }).byId.TEST
+end
+T.eq(album().sections[4].untracked, 0, "native trade flags are durable without an event flag")
+T.eq(album().sections[4].done, 2, "gift event and trade flag count separately")
+T.eq(album().tier, "silver", "unreceived egg prevents gold")
+flags[42] = true
+T.eq(album().tier, "gold", "receiving every NPC offer completes the Pokémon section")
+save.tradeFlags[0] = nil
+T.eq(album().tier, "silver", "older save restores the uncompleted trade")
+flags[40], flags[42] = nil, nil
+world.getFlag = function() return nil end
+T.eq(rows()[4][1].untracked, true, "unreadable gift event cannot establish collection")
+T.eq(rows()[4][1].available, false, "unreadable receipt is not advertised as immediately obtainable")
+world.getFlag = function(_, event) return flags[event] == true end
+data.gen2EventTables.trades[1] = { give = "EEVEE", get = "TOGEPI" }
+T.eq(rows()[4][2].species, "TOGEPI", "edition/mod trade data replaces cached species")
+T.eq(rows()[4][2].needsSpecies, "EEVEE", "requested species follows the active trade table")
+
+local game = { data = run.data, save = { generation = 2, version = require("src.core.GameVersion").get(), player = {},
+  party = {}, inventory = {}, pokedex = {}, flags = {} } }
+game.data.pokemon.DRAGONAIR, game.data.pokemon.DODRIO = data.pokemon.DRAGONAIR, data.pokemon.DODRIO
+run.loader.events:emit("game.ready", { game = game })
+run.loader.modOptions.kanto_gear = { info_level = "spoiler", theme_v3 = "hgss" }
+local api = up(display.saveHome, "mod")
+api.world = { current = function() return { mapId = "TEST", x = 1, y = 1 } end,
+  mapActors = function() return { { id = "TEST_obj_2", x = 7, y = 8, visible = true } } end }
+display.knownMap = function() return true end
+display.explorerMethods = function() return {} end
+display.explorerWildRows = function() return {} end
+local explorer, assist = display.explorer, up(display.explorerModel, "assist")
+local trade = { id = "TEST_trade", actorId = "TEST_obj_2", mapId = "TEST", index = 2, x = 4, y = 5,
+  label = "DODRIO", species = "DODRIO", kind = "pokemon", gift = true, trade = true,
+  needsSpecies = "DRAGONAIR", needsGender = "TRADE_GENDER_FEMALE", available = true }
+explorer.data = { mapId = "TEST", at = love.timer.getTime(), guideEnabled = assist("guide"),
+  areaEnabled = assist("area"), fruits = {}, guide = { rows = {}, caught = 0 },
+  area = { pokemon = { trade }, sections = { { rows = {} }, { rows = {} }, { rows = {} } } } }
+local overview = { mapId = "TEST", width = 12, height = 12, rows = {}, markers = {} }
+for i = 1, 12 do overview.rows[i] = string.rep(".", 12) end
+local function model() explorer.renderModel = nil; return display.explorerModel(overview) end
+T.eq(model().rows[1].needsSpeciesName, "DRAGONAIR", "trade detail resolves the requested species")
+T.eq(model().rows[1].needsGender, "TRADE_GENDER_FEMALE", "trade detail retains its separate gender icon")
+T.eq(model().markers[1].kind, "pokemon", "Gen2 NPC marker opens Pokémon details")
+T.eq(model().markers[1].x, 7, "trade marker follows the current NPC position")
+trade.available = false
+T.eq(#model().rows, 0, "HERE NOW hides unavailable Gen2 trades")
+explorer.filters.wildScope = "ROUTE"
+T.eq(#model().rows, 1, "WHOLE ROUTE retains future trade information in Spoiler mode")
+
+game.data.gen2Maps, game.data.gen2Scripts = data.gen2Maps, data.gen2Scripts
+game.data.gen2EventTables, game.data.gen2InitialEvents = data.gen2EventTables, data.gen2InitialEvents
+game.data.pokemon.EEVEE, game.data.pokemon.TOGEPI = data.pokemon.EEVEE, data.pokemon.TOGEPI
+api.world.getFlag = world.getFlag
+local area = up(display.achievementData, "areaData")({ "TEST" }, true)
+T.eq(#(area.pokemon or {}), 3, "shared area data forwards all Gen2 rewards to Explorer and Stamps")
+
+local native = os.getenv("KANTO_GEAR_NATIVE_GEN2")
+if native then
+  local imported = { gen2Scripts = dofile(native .. "/scripts.lua"), gen2Maps = dofile(native .. "/maps.lua"),
+    gen2InitialEvents = dofile(native .. "/initial_events.lua"), pokemon = dofile(native .. "/pokemon.lua"),
+    items = dofile(native .. "/items.lua"), gen2EventTables = dofile(native .. "/events.lua") }
+  local count, trades, entries = 0, 0, {}
+  for id in pairs(imported.gen2Maps) do
+    for _, row in ipairs(Area.gen2Rows(imported, {}, world, { id })[4]) do
+      if row.trade then trades = trades + 1 else count = count + 1 end
+      entries[id .. ":" .. row.species] = row
+    end
+  end
+  T.eq(entries["BILLS_FAMILYS_HOUSE:EEVEE"].event, 79, "native Bill gift uses its receipt event")
+  T.eq(entries["MOUNT_MORTAR_B1F:TYROGUE"].event, 97, "native Kiyo reward is tracked after battle")
+  T.eq(entries["MOUNT_MORTAR_B1F:TYROGUE"].available, false, "Kiyo's undefeated battle is not an immediate gift")
+  flags[1193] = true
+  local kiyo = Area.gen2Rows(imported, {}, world, { "MOUNT_MORTAR_B1F" })[4][1]
+  T.eq(kiyo.available, true, "Kiyo's defeated battle unlocks the pending gift")
+  T.eq(entries["VIOLET_POKECENTER_1F:TOGEPI"].event, 45, "egg uses its received flag rather than the separate refusal flag")
+  T.eq(entries["VIOLET_POKECENTER_1F:TOGEPI"].label, "EGG", "native Togepi egg does not leak its contents")
+  T.eq(entries["DRAGON_SHRINE:DRATINI"].event, 189, "native shrine reward uses a durable receipt")
+  T.eq(entries["ROUTE_35_GOLDENROD_GATE:SPEAROW"].loan, true, "Kenya is identified as a loan")
+  T.eq(entries["BLACKTHORN_EMYS_HOUSE:DODRIO"].needsGender, "TRADE_GENDER_FEMALE", "native gender restriction is preserved")
+  T.eq(entries["DAY_CARE:TOGEPI"], nil, "random Odd Egg does not invent a fixed species")
+  T.eq(count, 5, "Crystal has four proven gifts/eggs plus the Kenya loan")
+  T.eq(trades, 7, "Crystal uses all seven actual trade rows rather than an old six-trade constant")
+  print("GEN2_NATIVE_REWARDS", count, trades)
+end
+T.finish("Kanto Gear Gen2 Pokémon gifts and trades")

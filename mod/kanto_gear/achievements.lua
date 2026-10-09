@@ -43,7 +43,7 @@ function M.rowState(row, category, context)
   if row.missed or row.status == "MISSED" then return "unavailable" end
   if row.status == "LOST" then return "unavailable" end
   -- A temporary or missing flag is not durable proof, even while it is set.
-  if context.gen2 and (row.event == nil or row.event == 65535
+  if context.gen2 and row.tradeId == nil and (row.event == nil or row.event == 65535
       or type(row.event) == "number" and row.event < 8) then return "untracked" end
   if row.done then return "done" end
   local id, flags = row.mapId or "", context.save.flags or {}

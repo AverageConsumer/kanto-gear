@@ -1015,7 +1015,8 @@ function Area.gen2ScriptTrainer(data, obj)
 end
 
 function Area.gen2Rows(data, save, world, mapIds, checkpoint)
-  local rows = { {}, {}, {} }
+  local rows = { {}, {}, {}, {} }
+  local Trades = data.gen2EventTables and require("src.core.gen2.NpcTrade")
   if Area.Gifts and (Area.giftData ~= data or Area.giftScripts ~= data.gen2Scripts
       or Area.giftInitial ~= data.gen2InitialEvents or Area.giftMaps ~= data.gen2Maps) then
     Area.giftPolicy = Area.Gifts.new(data, checkpoint)
@@ -1054,28 +1055,55 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
       end
       for _, gift in ipairs(Area.Gifts and not obj.itemball
           and Area.giftPolicy:catalog(obj.scriptKey, checkpoint) or {}) do
-        local key = gift.event .. ":" .. gift.itemId
-        local hidden = obj.eventFlag ~= 65535 and gen2FlagSet(world, obj.eventFlag)
-        if not gifts[key] or gifts[key].mapVisible == false and not hidden then
-          local done = gen2FlagSet(world, gift.event)
-          local row = {
-            id = mapId .. "_gift_" .. key,
-            actorId = string.format("%s_obj_%d", mapId, obj.index or 0),
-            mapId = mapId, index = obj.index or 0, x = obj.x, y = obj.y,
-            spriteId = obj.sprite, palette = obj.palette, hideEvent = obj.eventFlag,
-            kind = "item", gift = true, itemId = gift.itemId, event = gift.event,
-            label = gen2ItemName(data, gift.itemId), done = done,
-            repeatable = gift.repeatable, available = not done and not hidden,
-            mapVisible = not hidden, unknown = gen2PickupUnknown(world, gift.event),
-            status = not done and hidden and "LATER" or nil,
-          }
-          if row.unknown then row.untracked, row.status = true, "NOT TRACKED" end
-          if gifts[key] then
-            for i, previous in ipairs(rows[2]) do
-              if previous == gifts[key] then rows[2][i] = row; break end
+        local trade = gift.tradeId ~= nil and Trades and Trades.row(data.gen2EventTables, gift.tradeId) or nil
+        local def, species
+        if gift.speciesIndex then def, species = gen2Definition(data.pokemon, gift.speciesIndex) end
+        if trade then species, def = trade.get, data.pokemon and data.pokemon[trade.get] end
+        if gift.itemId or def then
+          local key = gift.tradeId ~= nil and "trade:" .. gift.tradeId
+            or gift.event .. ":" .. tostring(species or gift.itemId)
+          local hidden = obj.eventFlag ~= 65535 and gen2FlagSet(world, obj.eventFlag)
+          if not gifts[key] or gifts[key].mapVisible == false and not hidden then
+            local done = trade and Trades.done(save, gift.tradeId) or gen2FlagSet(world, gift.event)
+            local available = not done and not hidden
+            if species and available then
+              available = Area.giftPolicy:available(gift, save, world, checkpoint)
+              if trade then
+                local partner = false
+                for _, mon in ipairs(save.party or {}) do
+                  if not mon.isEgg and Trades.check(trade, mon) == nil then partner = true; break end
+                end
+                available = available and partner
+              end
             end
-          else rows[2][#rows[2] + 1] = row end
-          gifts[key] = row
+            local row = {
+              id = mapId .. "_gift_" .. key,
+              actorId = string.format("%s_obj_%d", mapId, obj.index or 0),
+              mapId = mapId, index = obj.index or 0, x = obj.x, y = obj.y,
+              spriteId = obj.sprite, palette = obj.palette, hideEvent = obj.eventFlag,
+              kind = species and "pokemon" or "item", gift = true, itemId = gift.itemId, event = gift.event,
+              label = gift.isEgg and "EGG" or def and (def.name or species) or gen2ItemName(data, gift.itemId), done = done,
+              species = species, level = gift.level, order = def and def.index or 0, isEgg = gift.isEgg,
+              loan = mapId == "ROUTE_35_GOLDENROD_GATE" and species == "SPEAROW"
+                and gift.command and (gift.command.trainer or (gift.command.args or {})[4]) == 1 or nil,
+              trade = trade ~= nil, tradeId = gift.tradeId, needsSpecies = trade and trade.give,
+              needsGender = trade and trade.gender, noRoom = species ~= nil and not trade and not done and not hidden and #(save.party or {}) >= 6,
+              repeatable = gift.repeatable, available = available,
+              mapVisible = not hidden, unknown = gen2PickupUnknown(world, gift.event),
+              status = not done and not available and "LATER" or nil,
+            }
+            if row.unknown then
+              row.untracked, row.status = true, "NOT TRACKED"
+              if species then row.available = false end
+            end
+            local list = species and rows[4] or rows[2]
+            if gifts[key] then
+              for i, previous in ipairs(list) do
+                if previous == gifts[key] then list[i] = row; break end
+              end
+            else list[#list + 1] = row end
+            gifts[key] = row
+          end
         end
       end
     end
@@ -4227,7 +4255,7 @@ return function(mod)
       if not completion then displayRuntime.visibleAreaSections(sections) end
       local screens = checklistPages(sections)
       return { name = areaName(mapId), screens = screens, pages = #screens,
-        sections = sections, remaining = Area.remaining(sections) }
+        sections = sections, pokemon = rows[4], remaining = Area.remaining(sections) }
     end
     local pokemon = {}
     local showFuture = completion or assist("spoilers")
@@ -6576,7 +6604,7 @@ return function(mod)
           and displayRuntime.fruitTrees.rows(game.data, id) or {},
         guide = guideEnabled and guideData()
           or { rows = {}, caught = 0, time = "DAY", timed = false },
-        area = (areaEnabled or guideEnabled and not compat.isGen2() and not displayRuntime.gen3) and areaData({ id }, true)
+        area = (areaEnabled or guideEnabled and not displayRuntime.gen3) and areaData({ id }, true)
           or { sections = { { rows = {} }, { rows = {} }, { rows = {} } } },
       }
       explorer.data = cached
@@ -6684,8 +6712,8 @@ return function(mod)
       if row.species then
         if filters.wildScope == "ROUTE" or row.available and row.mapVisible ~= false
             and not row.outsideMap and not row.done and not row.excluded then
-          row.key, row.name, row.caught = row.id, row.label, row.done
-          row.method = row.trade and "NPC TRADE" or row.cost and "NPC OFFER" or "NPC GIFT"
+          row.key, row.name, row.caught = row.id, row.isEgg and THEME:translate("EGG") or row.label, row.done
+          row.method = row.trade and "NPC TRADE" or row.loan and "NPC LOAN" or row.cost and "NPC OFFER" or "NPC GIFT"
           row.needsSpeciesName = row.needsSpecies and ((game.data.pokemon[row.needsSpecies] or {}).name or row.needsSpecies)
           row.best, row.matches, row.detailPages = nil, {}, 1
           gifts[#gifts + 1] = row
@@ -6819,6 +6847,7 @@ return function(mod)
         return compat.drawMapActor(row.actor or row, x, y, scale, feet)
       end,
       drawPokemon = function(row, x, y, size, uncaught)
+        if row.isEgg then return compat.drawPokemonIcon(row, x, y, size) end
         drawSprite(row.species, "front", x, y, size, size,
           uncaught and { 0.52, 0.52, 0.52, 1 } or nil)
       end,

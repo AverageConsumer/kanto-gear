@@ -12,9 +12,17 @@ local function list(data, key)
   return type(key) == "table" and key or (data.gen2Scripts or {})[key]
 end
 
+local function sameGift(row, gift)
+  -- Native NPCs duplicate a reward in the first visit and later retry branches.
+  if row == gift then return true end
+  if not row or row.op ~= gift.op or (gift.op ~= "givepoke" and gift.op ~= "giveegg") then return false end
+  return (row.species or (row.args or {})[1]) == (gift.species or (gift.args or {})[1])
+    and (row.level or (row.args or {})[2]) == (gift.level or (gift.args or {})[2])
+end
+
 -- Follow real call/return edges: Gen 2's `end` returns from a scall, while
 -- an iftrue/iffalse is a tail jump, not a call that resumes the next command.
-local function reaches(data, key, gift, event, value, proof, checkpoint)
+local function reaches(data, key, gift, event, value, proof, checkpoint, partyCount, failed, save, world)
   local pending, seen, count = { { key = key, index = 1, value = value } }, {}, 0
   while #pending > 0 do
     local at = table.remove(pending)
@@ -27,11 +35,14 @@ local function reaches(data, key, gift, event, value, proof, checkpoint)
       local commands = list(data, at.key)
       if type(commands) ~= "table" then return nil end
       local row = commands[at.index]
-      if row == gift then
+      if sameGift(row, gift) then
         if not proof then return true end
         at.given = true
       end
-      if row and row.op == "setevent" and row.event == event and at.given then return true end
+      if row and row.op == "setevent" and row.event == event and proof then
+        if not at.given then return nil end
+        return true
+      end
       local valueNow = at.value
       if row and row.event == event and (row.op == "setevent" or row.op == "clearevent") then
         valueNow = row.op == "setevent" and 1 or 0
@@ -43,7 +54,7 @@ local function reaches(data, key, gift, event, value, proof, checkpoint)
       local op = row and row.op
       if not row or endings[op] then
         if at.stack then push(at.stack.key, at.stack.index, at.stack.parent) end
-      elseif op == "endall" then -- Ends the whole script rather than a subroutine.
+      elseif op == "endall" or save and op == "startbattle" then
       elseif jumps[op] then push(row.script, 1, at.stack)
       elseif calls[op] then
         local depth = at.stack and at.stack.depth + 1 or 1
@@ -52,13 +63,34 @@ local function reaches(data, key, gift, event, value, proof, checkpoint)
           parent = at.stack, depth = depth, signature = signature })
       elseif branches[op] then
         local take, previous = nil, commands[at.index - 1]
-        if previous and previous.op == "checkevent" and previous.event == event then
-          if op == "iftrue" then take = valueNow ~= 0
-          elseif op == "iffalse" then take = valueNow == 0
-          elseif op == "ifequal" then take = valueNow == row.value
-          elseif op == "ifnotequal" then take = valueNow ~= row.value
-          elseif op == "ifgreater" then take = valueNow > row.value
-          elseif op == "ifless" then take = valueNow < row.value end
+        local variable
+        if previous and previous.op == "checkevent" then
+          if previous.event == event then variable = valueNow
+          elseif world and world.getFlag then
+            local set = world:getFlag(previous.event)
+            if set ~= nil then variable = set and 1 or 0 end
+            if set == nil and save then return nil end
+          elseif save then return nil
+          end
+        elseif previous and previous.op == "readvar" and (previous.var or (previous.args or {})[1]) == 1 then
+          variable = partyCount
+        elseif sameGift(previous, gift) and gift.op == "giveegg" and failed ~= nil then
+          variable = failed and 0 or 2
+        elseif save and previous and previous.op == "checkpoke" then
+          variable = 0
+          local species = previous.species or (previous.args or {})[1]
+          for _, mon in ipairs(save.party or {}) do
+            local def = data.pokemon and data.pokemon[mon.species]
+            if not mon.isEgg and def and def.index == species then variable = 1; break end
+          end
+        elseif save and previous and previous.op == "yesorno" then variable = 1 end
+        if variable ~= nil then
+          if op == "iftrue" then take = variable ~= 0
+          elseif op == "iffalse" then take = variable == 0
+          elseif op == "ifequal" then take = variable == row.value
+          elseif op == "ifnotequal" then take = variable ~= row.value
+          elseif op == "ifgreater" then take = variable > row.value
+          elseif op == "ifless" then take = variable < row.value end
         end
         if take ~= false then push(row.script, 1, at.stack) end
         if take ~= true then push(at.key, at.index + 1, at.stack) end
@@ -109,32 +141,52 @@ function M.new(data, checkpoint)
     end
     walk(key)
     local candidates = {}
-    for event in pairs(checked) do
+    for event in pairs(written) do
       if type(event) == "number" and event >= 8 and event ~= 65535
-          and written[event] and not reset[event] and not initial[event] then
+          and not reset[event] and not initial[event] then
         candidates[#candidates + 1] = event
       end
     end
     table.sort(candidates)
     local added = {}
-    -- shortcut: only literal items with a provable receipt event; memory-based
-    -- prizes and gifts using engine flags need a separate durable proof.
+    -- shortcut: literal gifts with durable receipt events; opaque specials and
+    -- random eggs need their own acquisition proof before joining the album.
     for _, command in ipairs(commands) do
       local item = gifts[command.op] and (command.item or (command.args or {})[1])
-      if type(item) == "number" and item > 0 and item < 255 then
+      local pokemon = command.op == "givepoke" or command.op == "giveegg"
+      local species = pokemon and (command.species or (command.args or {})[1])
+      local level = pokemon and (command.level or (command.args or {})[2])
+      local literal = pokemon and species or item
+      if type(literal) == "number" and literal % 1 == 0 and literal > 0 and literal < 255
+          and (not pokemon or type(level) == "number" and level % 1 == 0 and level >= 1 and level <= 100) then
         for _, event in ipairs(candidates) do
-          local id = event .. ":" .. item
-          if not added[id] and reaches(data, key, command, event, 1, false, yield) == false
-              and reaches(data, key, command, event, 0, true, yield) == true then
-            rewards[#rewards + 1] = { itemId = item, event = event, repeatable = cleared[event] or nil }
+          local id = event .. ":" .. (pokemon and "pokemon:" or "item:") .. literal
+          if not added[id] and (pokemon or checked[event])
+              and (pokemon or reaches(data, key, command, event, 1, false, yield) == false)
+              and reaches(data, key, command, event, 0, true, yield, pokemon and 0 or nil, false) == true
+              and (not pokemon or reaches(data, key, command, event, 0, true, yield, 6, true) == false) then
+            rewards[#rewards + 1] = { itemId = item or nil, speciesIndex = species or nil, level = level or nil,
+              isEgg = command.op == "giveegg" or nil, event = event, repeatable = cleared[event] or nil,
+              command = pokemon and command or nil, key = pokemon and key or nil }
             added[id] = true
             break
           end
+        end
+      elseif command.op == "trade" then
+        local id = command.trade or (command.args or {})[1]
+        if type(id) == "number" and id % 1 == 0 and id >= 0 and id < 255 and not added["trade:" .. id]
+            and reaches(data, key, command, nil, 0, false, yield) == true then
+          rewards[#rewards + 1] = { tradeId = id, command = command, key = key }
+          added["trade:" .. id] = true
         end
       end
     end
     cache[key] = rewards
     return rewards
+  end, available = function(_, gift, save, world, yield)
+    if gift.speciesIndex and #(save.party or {}) >= 6 then return false end
+    return reaches(data, gift.key, gift.command, gift.event, 0, false, yield,
+      #(save.party or {}), false, save, world) == true
   end }
 end
 

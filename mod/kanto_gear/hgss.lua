@@ -3721,14 +3721,20 @@ return function(ui)
         selected.gift and textWidth or nil, selected.gift and "center" or nil)
       self:partyInfo(status, textX, 122, colors.green,
         selected.gift and textWidth or nil, selected.gift and "center" or nil)
-      self:typeBadges(selected, badgeX, 136, false)
+      if not selected.isEgg then self:typeBadges(selected, badgeX, 136, false) end
       if selected.gift then
         self:panel(12, 150, 216, 53, false, nil, wildAccent)
         self:partyType(self:fitPartyType(translate(selected.method), 202), 19, 155, colors.green, 202)
         local requirement = selected.needsSpeciesName and string.format(translate("BRING %s"), selected.needsSpeciesName)
           or selected.cost and "$" .. tostring(selected.cost) or translate("TALK TO NPC")
-        self:partyInfo(self:fitPartyInfo(requirement, 202), 19, 169, colors.ink, 202, "center")
-        self:partyType(selected.level and "L" .. tostring(selected.level) or translate("TALK TO NPC"),
+        local gender = selected.needsGender == "TRADE_GENDER_FEMALE" and "female"
+          or selected.needsGender == "TRADE_GENDER_MALE" and "male"
+        requirement = self:fitPartyInfo(requirement, gender and 188 or 202)
+        local width = gender and self:partyInfoWidth(requirement) or 202
+        local left = gender and 19 + math.floor((202 - width - 14) / 2) or 19
+        self:partyInfo(requirement, left, 169, colors.ink, width, "center")
+        if gender then self:genderIcon(gender, left + width + 4, 169) end
+        self:partyType(selected.isEgg and translate("EGG") or selected.level and "L" .. tostring(selected.level) or translate("TALK TO NPC"),
           19, 190, colors.green, 202)
         return
       end
@@ -3877,7 +3883,7 @@ return function(ui)
           model.drawPokemon(row, x + 1, baseY + 4, 32, uncaught)
         end
         if row.gift then
-          self:partyType(translate(row.trade and "TRADE" or row.cost and "OFFER" or "GIFT"),
+          self:partyType(translate(row.trade and "TRADE" or row.loan and "LOAN" or row.cost and "OFFER" or "GIFT"),
             x - 9, baseY + 36, row.available and colors.ink or colors.mutedInk, 52)
         elseif row.best then
           local odds = tostring(row.best.chance or 0) .. "%"

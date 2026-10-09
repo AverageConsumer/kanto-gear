@@ -1,5 +1,7 @@
 return {
   ["NPC TRADE"] = false,
+  ["NPC LOAN"] = false,
+  ["LOAN"] = false,
   ["NEED SPACE"] = false,
   ["NPC OFFER"] = false,
   ["GIFT"] = false,
