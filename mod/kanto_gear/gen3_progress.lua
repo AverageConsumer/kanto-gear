@@ -65,7 +65,7 @@ end
 
 -- Prove a one-time reward from its control flow. A story flag elsewhere in an
 -- NPC's script is not evidence that this particular item was received.
-local function reaches(scripts, key, gift, flag, value, requireProof, checkpoint)
+local function reaches(scripts, key, gift, flag, value, requireProof, checkpoint, liveFlag)
   local pending, seen, count = { { key = key, index = 1, value = value } }, {}, 0
   while #pending > 0 do
     local at = table.remove(pending)
@@ -94,14 +94,18 @@ local function reaches(scripts, key, gift, flag, value, requireProof, checkpoint
         end
         local op, branch = row.op, nil
         local previous = list[at.index - 1]
-        if previous and previous.op == "checkflag" and (previous.flag or previous[1]) == flag then
+        if previous and previous.op == "checkflag" then
+          local checked = previous.flag or previous[1]
+          local result = checked == flag and valueNow or liveFlag and (liveFlag(checked) and 1 or 0)
           local cond = row.cond or row[1]
-          if cond == 0 then branch = valueNow == 0
-          elseif cond == 1 then branch = valueNow == 1
-          elseif cond == 2 then branch = false
-          elseif cond == 3 then branch = true
-          elseif cond == 4 then branch = valueNow ~= 0
-          elseif cond == 5 then branch = valueNow ~= 1 end
+          if result ~= nil then
+            if cond == 0 then branch = result == 0
+            elseif cond == 1 then branch = result == 1
+            elseif cond == 2 then branch = false
+            elseif cond == 3 then branch = true
+            elseif cond == 4 then branch = result ~= 0
+            elseif cond == 5 then branch = result ~= 1 end
+          end
         end
         if op == "return" then
           if at.stack then push(at.stack.key, at.stack.index, at.stack.parent) end
@@ -176,6 +180,41 @@ function M.gifts(scripts, key, rows, initiallyHidden, checkpoint)
   return out
 end
 
+-- Identify the actual trade scene and its receipt, not the species-info helper.
+function M:trades(scripts, key, rows, vars, checkpoint)
+  local ids, scenes, checked, written, cleared = sortedKeys(vars[0x8008]), {}, {}, {}, {}
+  local sceneId = self.emerald and self.constants:special("DoInGameTradeScene") or 254
+  for _, row in ipairs(rows) do
+    local flag = row.flag or row[1]
+    if row.op == "checkflag" then checked[flag] = true
+    elseif row.op == "setflag" then written[flag] = true
+    elseif row.op == "clearflag" then cleared[flag] = true
+    elseif row.op == "special" and (row.id or row[1]) == sceneId then scenes[#scenes + 1] = row end
+  end
+  if #scenes == 0 then return {} end
+  -- Multiple IDs through one opaque helper cannot establish which receipt belongs to which offer.
+  if #ids ~= 1 then return {}, true end
+  local entry = require("src.core.game3.scripting.natives_trade").entry(ids[1])
+  if not entry or not self.adapter.data.pokemon[entry.species]
+      or not self.adapter.data.pokemon[entry.requestedSpecies] then return {}, true end
+  local candidates = {}
+  for flag in pairs(checked) do
+    if type(flag) == "number" and flag >= 0x20 and flag ~= 65535 and written[flag]
+        and not cleared[flag] and not self.initiallyHidden[flag] then candidates[#candidates + 1] = flag end
+  end
+  table.sort(candidates)
+  for _, flag in ipairs(candidates) do
+    for _, scene in ipairs(scenes) do
+      if reaches(scripts, key, scene, flag, 1, false, checkpoint) == false
+          and reaches(scripts, key, scene, flag, 0, true, checkpoint) == true then
+        return { { tradeId = ids[1], species = entry.species, needsSpecies = entry.requestedSpecies,
+          event = flag, command = scene, scriptKey = key } }
+      end
+    end
+  end
+  return {}, true
+end
+
 function M:bundle()
   -- The field engine owns/loads the bundle. Boot and missing extraction must
   -- yield unknown objectives, not a permanently cached empty catalogue.
@@ -221,6 +260,17 @@ function M:catalog(mapId, checkpoint)
     if checkpoint then checkpoint() end
     local rows, vars, missing = M.scan(bundle.scripts, obj.scriptKey, checkpoint)
     local hasTrainer, hasMon, hasItem = false, false, false
+    if objectSource then
+      local offers, unknown = self:trades(bundle.scripts, obj.scriptKey, rows, vars, checkpoint)
+      missing = missing or unknown
+      for _, offer in ipairs(offers) do
+        local row = base(obj)
+        for k, v in pairs(offer) do row[k] = v end
+        row.id = mapId .. "_trade_" .. offer.tradeId
+        row.kind, row.gift, row.trade = "pokemon", true, true
+        out[4][#out[4] + 1] = row
+      end
+    end
     for _, gift in ipairs(objectSource
         and M.gifts(bundle.scripts, obj.scriptKey, rows, self.initiallyHidden, checkpoint) or {}) do
       local key = tostring(gift.event) .. ":" .. gift.itemId
@@ -279,14 +329,7 @@ function M:catalog(mapId, checkpoint)
         for _, nat in ipairs({ 252, 255, 258 }) do mon(self.adapter.Pokemon.speciesFromNational(nat), obj) end
       elseif command.op == "specialvar" and command[2] == (self.emerald
           and self.constants:special("GetInGameTradeSpeciesInfo") or 252) then
-        -- FRLG's trade helper copies the selected trade (VAR_0x8008) into
-        -- VAR_0x8004 before GetInGameTradeSpeciesInfo overwrites VAR_RESULT.
-        local Trade = require("src.core.game3.scripting.natives_trade")
-        for _, id in ipairs(sortedKeys(vars[0x8008])) do
-          local entry = Trade.entry(id)
-          if entry then mon(entry.species, obj); hasMon = true end
-        end
-        if not hasMon then missing = true end
+        hasMon = true -- The proven offer is a separate receipt-based objective above.
       end
     end
     -- Ground pickups use Std_FindItem and their object's durable flag.
@@ -392,38 +435,53 @@ function M:completionKey()
 end
 
 function M:rows(mapIds, checkpoint)
-  local out, adapter = { {}, {}, {} }, self.adapter
+  local out, adapter = { {}, {}, {}, {} }, self.adapter
   local store, Flags = adapter:flagStore(), adapter.Flags
   local function flag(id) return Flags.getFlag(store, nil, id) == true end
   for _, id in ipairs(mapIds) do
     local catalog = self:catalog(id, checkpoint)
-    for category = 1, 3 do
+    for category = 1, 4 do
       for _, source in ipairs(catalog[category]) do
-        local row = copy(source)
-        row.done = row.event and flag(row.event) or false
-        if row.flags then
-          for event in pairs(row.flags) do row.done = row.done or flag(event) end
-          if row.league then row.done = row.done or flag("FLAG_SYS_GAME_CLEAR") end
-          if row.rival then row.label = adapter.session and adapter.session.rivalName or row.label end
-        elseif row.ownedKey then
-          row.done = self:ownsKey(row.itemId)
+        if category ~= 4 or source.gift then
+          local row = copy(source)
+          row.done = row.event and flag(row.event) or false
+          if row.flags then
+            for event in pairs(row.flags) do row.done = row.done or flag(event) end
+            if row.league then row.done = row.done or flag("FLAG_SYS_GAME_CLEAR") end
+            if row.rival then row.label = adapter.session and adapter.session.rivalName or row.label end
+          elseif row.ownedKey then
+            row.done = self:ownsKey(row.itemId)
+          end
+          if row.itemId then row.label = (adapter.data.items[row.itemId] or {}).name or "ITEMS" end
+          row.excluded = row.alternative and not row.done and flag(row.alternative) or nil
+          if row.repeatable then
+            row.available, row.done = not flag(row.event), false
+            row.status = (category == 1 or not row.event) and "REPEATABLE" or row.available and "READY" or "RENEWABLE"
+          elseif row.untracked then row.status = "NOT TRACKED"
+          elseif row.excluded then row.status = "ALTERNATIVE CHOICE"
+          elseif not row.done and id:match("^FR_SSANNE_") and flag("FLAG_HIDE_SS_ANNE") then
+            row.missed, row.available, row.status = true, false, "MISSED"
+          elseif not row.done and row.hideEvent and row.hideEvent >= 0x20 and flag(row.hideEvent) then
+            row.available = false
+            if row.flags and not self.initiallyHidden[row.hideEvent] then
+              row.missed, row.status = true, "MISSED"
+            else row.status = "LATER" end
+          end
+          if row.trade then
+            row.label = adapter.data.pokemon[row.species].name
+            row.order = adapter.data.pokemon[row.species].dex
+            local partner
+            for _, mon in ipairs(adapter.session and adapter.session.party or {}) do
+              if not adapter.Pokemon.isEgg(mon) and adapter.Pokemon.speciesOf(mon) == row.needsSpecies then
+                partner = mon; break
+              end
+            end
+            row.available = not row.done and row.available ~= false and partner ~= nil
+              and reaches(self.source.scripts, row.scriptKey, row.command, row.event, 0, false, checkpoint, flag) == true
+            row.status = row.done and "RECORDED" or row.available and "READY" or "LATER"
+          end
+          out[category][#out[category] + 1] = row
         end
-        if row.itemId then row.label = (adapter.data.items[row.itemId] or {}).name or "ITEMS" end
-        row.excluded = row.alternative and not row.done and flag(row.alternative) or nil
-        if row.repeatable then
-          row.available, row.done = not flag(row.event), false
-          row.status = (category == 1 or not row.event) and "REPEATABLE" or row.available and "READY" or "RENEWABLE"
-        elseif row.untracked then row.status = "NOT TRACKED"
-        elseif row.excluded then row.status = "ALTERNATIVE CHOICE"
-        elseif not row.done and id:match("^FR_SSANNE_") and flag("FLAG_HIDE_SS_ANNE") then
-          row.missed, row.available, row.status = true, false, "MISSED"
-        elseif not row.done and row.hideEvent and row.hideEvent >= 0x20 and flag(row.hideEvent) then
-          row.available = false
-          if row.flags and not self.initiallyHidden[row.hideEvent] then
-            row.missed, row.status = true, "MISSED"
-          else row.status = "LATER" end
-        end
-        out[category][#out[category] + 1] = row
       end
     end
   end
@@ -434,7 +492,9 @@ function M:pokemon(mapIds, checkpoint)
   local adapter, bySpecies = self.adapter, {}
   for _, id in ipairs(mapIds) do
     for _, row in ipairs(adapter:encounters(id)) do bySpecies[row.species] = { species = row.species, mapId = id } end
-    for _, row in ipairs(self:catalog(id, checkpoint)[4]) do bySpecies[row.species] = row end
+    for _, row in ipairs(self:catalog(id, checkpoint)[4]) do
+      if not row.gift then bySpecies[row.species] = row end
+    end
   end
   local caught, out = adapter.save and adapter.save.pokedex.caught or {}, {}
   local function goal(ids)
@@ -473,6 +533,7 @@ function M:pokemon(mapIds, checkpoint)
     end
   end
   for _, species in ipairs(sortedKeys(bySpecies)) do goal({ species }) end
+  for _, row in ipairs(self:rows(mapIds, checkpoint)[4]) do out[#out + 1] = row end
   table.sort(out, function(a, b) return a.order < b.order end)
   return out
 end

@@ -4250,7 +4250,7 @@ return function(mod)
       if not completion then displayRuntime.visibleAreaSections(sections) end
       local screens = checklistPages(sections)
       return { name = areaName(mapId), screens = screens, pages = #screens,
-        sections = sections, remaining = Area.remaining(sections) }
+        sections = sections, pokemon = rows[4], remaining = Area.remaining(sections) }
     end
     if compat.isGen2() then
       local rows = Area.gen2Rows(data, save, mod.world, maps, checkpoint)
@@ -6607,7 +6607,7 @@ return function(mod)
           and displayRuntime.fruitTrees.rows(game.data, id) or {},
         guide = guideEnabled and guideData()
           or { rows = {}, caught = 0, time = "DAY", timed = false },
-        area = (areaEnabled or guideEnabled and not displayRuntime.gen3) and areaData({ id }, true)
+        area = (areaEnabled or guideEnabled) and areaData({ id }, true)
           or { sections = { { rows = {} }, { rows = {} }, { rows = {} } } },
       }
       explorer.data = cached

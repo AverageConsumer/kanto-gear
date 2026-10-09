@@ -99,3 +99,4 @@ tests/gen2_gifts_test.lua
 tests/gen1_gifts_test.lua
 tests/gen1_rewards_test.lua
 tests/gen2_rewards_test.lua
+tests/gen3_trades_test.lua
