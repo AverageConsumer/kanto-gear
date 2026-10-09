@@ -298,15 +298,20 @@ function UI:list(battle)
       title = selected and self.adapter.Pokemon.displayMonName(selected) or box.name
     elseif mode == "party_drawer" then
       items, slots, field, grid, boxParty = {}, {}, "partyCursor", true, true
-      -- Empty party slots are real destinations while holding a boxed Pokémon.
+      -- The common team page keeps native slot identity, including empty targets.
       for slot = 1, 6 do
-        local mon = self.adapter:mon(native._session.party[slot])
-        items[#items + 1], slots[#slots + 1] = { label = mon and (mon.nickname
-          or self.adapter.Pokemon.displayMonName(native._session.party[slot])) or "-",
-          rawMon = native._session.party[slot],
-          rect = slot == 1 and { 7, 34, 72, 151 } or { 85, 34 + (slot - 2) * 31, 148, 27 } }, slot
+        local source = native._session.party[slot]
+        local picked = source and source == native.holdingMon and native.holdingSource
+          and native.holdingSource.loc == "party" and native.holdingSource.slot == slot
+        if picked then source = nil end
+        local mon = self.adapter:mon(source)
+        items[#items + 1], slots[#slots + 1] = {
+          label = mon and (mon.nickname or self.adapter.Pokemon.displayMonName(source)) or "-",
+          rawMon = source, mon = mon, inert = not mon and not native.holdingMon,
+          rect = { self.layout:partySelectionRect(slot, 6, true) },
+        }, slot
       end
-      items[7], slots[7] = { label = "CANCEL", rect = { 7, 191, 226, 22 } }, 7
+      items[7], slots[7] = { label = "CANCEL", rect = { self.layout:partySelectionRect(7, 6, true) } }, 7
     elseif mode == "action_menu" then items, field = labels(native._activeActions), "actionCursor"
     elseif mode == "box_menu" then items, field = labels({ "SWITCH BOX", "WALLPAPER", "CANCEL" }), "boxMenuCursor"
     elseif mode == "pick_box" then
@@ -492,6 +497,7 @@ function UI:list(battle)
         and (preview or not native._hpAnim) and not native._pokedude and not native._statBoost
         and (preview or not native._fx and not (native._slide and native._slide.active))
         and (preview or not native._fading)
+        and (preview or not native.isPresentationBusy or not native.isPresentationBusy())
         and (preview or not native._switch and not native._exit and not native._open)
     end
     setmetatable(view, {
@@ -532,6 +538,7 @@ function UI:list(battle)
   view.quantity = quantity
   view.prompt = prompt
   view.nativeGrid, view.boxParty = grid, boxParty
+  view.emptyTargets = boxParty and native.holdingMon ~= nil
   view.partyActions = layer.id == "party" and (native.mode == "action" or native.mode == "item_action")
     and #items <= 3 and self.adapter:mon(native._party and native._party[native.cursor]) or nil
   view.fixedLayout, view.party = grid or prompt ~= nil or partyLayout or view.partyActions ~= nil, partyLayout and native or nil

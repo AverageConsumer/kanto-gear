@@ -58,7 +58,7 @@ end
 function Menu.select(top, index)
   local cursor = Menu.cursor(top)
   if not cursor or type(index) ~= "number" or index % 1 ~= 0
-      or index < 1 or index > #top.items then return false end
+      or index < 1 or index > #top.items or top.items[index].inert then return false end
   cursor.index = index
   if type(cursor.clampScroll) == "function" then cursor:clampScroll() end
   if type(cursor.ensureVisible) == "function" then cursor:ensureVisible() end
@@ -72,7 +72,7 @@ function Menu.hit(top, x, y)
   if top.fixedLayout then
     for index, item in ipairs(top.items) do
       local r = item.rect
-      if r and x >= r[1] and x < r[1] + r[3] and y >= r[2] and y < r[2] + r[4] then return index end
+      if r and not item.inert and x >= r[1] and x < r[1] + r[3] and y >= r[2] and y < r[2] + r[4] then return index end
     end
     return nil
   end
@@ -107,7 +107,7 @@ function Menu.model(top)
     local r = item.rect or { Menu.x, Menu.y + (row - 1) * Menu.step, Menu.width, Menu.height }
     entries[row] = { label = Menu.label(item), right = item.right, catchChance = item.catchChance, selected = index == selected,
       kind = item.value or item.id or kinds[item.label],
-      rawMon = item.rawMon, disabled = top.screenId == "Gen2StartMenu" and item.disabled,
+      rawMon = item.rawMon, disabled = item.inert or top.screenId == "Gen2StartMenu" and item.disabled,
       x = r[1], y = r[2], w = r[3], h = r[4] }
   end
   return { entries = entries, first = first, last = first + count - 1, total = #top.items,

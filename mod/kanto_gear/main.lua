@@ -4845,6 +4845,17 @@ return function(mod)
           G.pop(); header(THEME:translate(top.title), true)
           return
         end
+      elseif top.boxParty then
+        local views = {}
+        for slot, item in ipairs(top.items) do
+          if item.mon then
+            local view = displayRuntime.partyView(item.mon)
+            view.species, view.source = item.mon.species, item.mon
+            views[slot] = view
+          end
+        end
+        THEME.hgss:partyBackdrop()
+        THEME.hgss:partySelection(views, hgssRuntime.summaryPortrait, top.emptyTargets)
       elseif top.nativeGrid then
         model.name = top.name
         for _, e in ipairs(model.entries) do

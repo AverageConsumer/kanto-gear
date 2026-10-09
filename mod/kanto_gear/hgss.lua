@@ -4640,9 +4640,9 @@ return function(ui)
     return ui.partyPage.hit(self, x, y, count, cancel)
   end
 
-  function H:partySelection(party, drawPortrait)
+  function H:partySelection(party, drawPortrait, emptyTargets)
     ui.partyPage.draw(self, { party = party }, function(slot, x, y, selected, details, focused)
-      self:partyCard(party[slot], x, y, selected, details, drawPortrait, focused)
+      self:partyCard(party[slot], x, y, selected, details, drawPortrait, focused, emptyTargets)
     end)
   end
 
@@ -5926,14 +5926,20 @@ return function(ui)
     return 5 + col * 118, 32 + row * 58 + (col == 1 and 4 or 0)
   end
 
-  function H:partyCard(mon, x, y, selected, details, drawPortrait, focused)
+  function H:partyCard(mon, x, y, selected, details, drawPortrait, focused, emptyTarget)
     local fainted = mon and (mon.statusId == "FNT"
       or mon.hp ~= nil and mon.hp <= 0)
-    local pressed = self:beginPress(x, y, 112, 56, mon ~= nil)
+    local pressed = self:beginPress(x, y, 112, 56, mon ~= nil or emptyTarget)
     if focused == nil then focused = selected end
     self:partyPanel(x, y, 112, 56, selected, fainted, focused)
     if not mon then
-      self:label("-", x, y + 18, self.colors.ink, 112, "center")
+      if emptyTarget then
+        self:panel(x, y, 112, 56, false, nil, self.colors.blueLight)
+      end
+      local markX = x + math.floor((112 - 7) / 2)
+      local markY = y + math.floor((56 - (emptyTarget and 7 or 1)) / 2)
+      box("fill", markX, markY + (emptyTarget and 3 or 0), 7, 1, self.colors.ink)
+      if emptyTarget then box("fill", markX + 3, markY, 1, 7, self.colors.ink) end
       self:endPress(pressed)
       return
     end
