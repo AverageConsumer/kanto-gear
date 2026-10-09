@@ -131,7 +131,11 @@ function Gen3:drawBadge(g, index, cx, cy, owned)
   if self.profile.id == "emerald" then
     local m = Kit.manifest("rse/trainer_card")
     image = m and m.badges and Kit.image(m.badges.png)
-  else image = Kit.rgbaImage("data/generated/gba/trainer_card/badges.rgba", 128, 16) end
+  else
+    local root = require("src.import.gba.extract_island1").CACHE_ROOT
+    local folder = require("src.import.gba.trainer_card_extract").CACHE_SUB
+    image = Kit.rgbaImage(root .. "/" .. folder .. "/badges.rgba", 128, 16)
+  end
   if not image then return false end
   if not self.badgeAtlas or self.badgeAtlas.image ~= image then
     local w, h = image:getDimensions()
