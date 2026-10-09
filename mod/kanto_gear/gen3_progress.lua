@@ -231,6 +231,7 @@ local function pokemonPath(scripts, key, gift, receipt, options, checkpoint)
     vars = variable and { [variable] = receipt.value - 1 } or {},
     flags = not variable and { [receipt] = 0 } or {} } }
   if variable and options.var then pending[1].vars[variable] = options.var(variable) end
+  if not variable and options.live and options.flag then pending[1].flags[receipt] = options.flag(receipt) and 1 or 0 end
   local seen, count, found = {}, 0, false
   while #pending > 0 do
     local at = table.remove(pending)
@@ -356,7 +357,7 @@ local function pokemonPath(scripts, key, gift, receipt, options, checkpoint)
   return found
 end
 
-function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
+function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint, mapId)
   local written, checked, cleared, commands, removed, out = {}, {}, {}, {}, false, {}
   local starterVar = self.emerald and self.constants:var("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE")
   local starterChecked, starterWritten = false, false
@@ -382,8 +383,10 @@ function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
   end
   -- This native state is permanent after a successful Johto starter delivery.
   if starterChecked and starterWritten then receipts[#receipts + 1] = { var = starterVar, value = 6 } end
-  -- shortcut: repeated fossil/casino rewards retain their catch goals until a
-  -- distinct receipt can be proven; temporary variables are never receipts.
+  local fossilFlag = self.emerald and mapId == "EM_RUSTBORO_CITY_DEVON_CORP_2F"
+    and self.constants:flag("FLAG_RECEIVED_REVIVED_FOSSIL_MON")
+  -- shortcut: rewards without a distinct receipt retain caught goals; temporary
+  -- variables are never receipts. Add receipt types only when persistence is proven.
   local keys = { key }
   for _, row in ipairs(rows) do
     if row.target then keys[#keys + 1] = row.target end
@@ -402,10 +405,11 @@ function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
       local choices = sortedKeys(vars[species]); species = #choices == 1 and choices[1] or nil
     end
     if species and self.adapter.data.pokemon[species] then
+      local previous = #out
+      local success = { party = 1, result = 0, firered = not self.emerald }
+      local failure = { party = 6, result = 2, firered = not self.emerald }
+      local pc = { party = 6, result = 1, firered = not self.emerald }
       for _, receipt in ipairs(receipts) do
-        local success = { party = 1, result = 0, firered = not self.emerald }
-        local failure = { party = 6, result = 2, firered = not self.emerald }
-        local pc = { party = 6, result = 1, firered = not self.emerald }
         local proofKey = key
         local proof = pokemonPath(scripts, key, command, receipt, success, checkpoint)
         if proof == nil and written[receipt] == 1 and localKey
@@ -432,6 +436,17 @@ function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint)
             command = command, scriptKey = key }
           break
         end
+      end
+      -- Emerald only records a shared delivery flag; completion stays a caught goal.
+      if #out == previous and fossilFlag and localKey and command.op == "givemon"
+          and (species == self.adapter.Pokemon.speciesFromNational(345)
+            or species == self.adapter.Pokemon.speciesFromNational(347))
+          and reaches(scripts, key, command, fossilFlag, 0, false, checkpoint) == true
+          and pokemonPath(scripts, localKey, command, fossilFlag, success, checkpoint) == true
+          and pokemonPath(scripts, localKey, command, fossilFlag, failure, checkpoint) == false then
+        out[#out + 1] = { species = species, level = command[2], catchGoal = true,
+          deliveryFlag = fossilFlag, toPC = pokemonPath(scripts, localKey, command, fossilFlag, pc, checkpoint) == true,
+          command = command, scriptKey = key }
       end
     end
   end
@@ -487,8 +502,8 @@ function M:catalog(mapId, checkpoint)
     local rows, vars, missing = M.scan(bundle.scripts, obj.scriptKey, checkpoint)
     local hasTrainer, hasMon, hasItem = false, false, false
     local proven = {}
-    for _, offer in ipairs(objectSource and self:pokemonGifts(bundle.scripts, obj.scriptKey, rows, vars, obj, checkpoint) or {}) do
-      local receipt = offer.event or ("var:" .. offer.receiptVar .. ":" .. offer.receiptValue)
+    for _, offer in ipairs(objectSource and self:pokemonGifts(bundle.scripts, obj.scriptKey, rows, vars, obj, checkpoint, mapId) or {}) do
+      local receipt = offer.catchGoal and "caught" or offer.event or ("var:" .. offer.receiptVar .. ":" .. offer.receiptValue)
       local key = tostring(receipt) .. ":pokemon:" .. offer.species
       proven[offer.command] = true
       if not gifts[key] then
@@ -704,6 +719,7 @@ function M:rows(mapIds, checkpoint)
           local row = copy(source)
           row.done = row.event and flag(row.event) or false
           if row.receiptVar then row.done = Flags.getVar(store, nil, row.receiptVar) >= row.receiptValue end
+          if row.catchGoal then row.done = adapter.save.pokedex.caught[row.species] == true end
           if row.flags then
             for event in pairs(row.flags) do row.done = row.done or flag(event) end
             if row.league then row.done = row.done or flag("FLAG_SYS_GAME_CLEAR") end
@@ -754,11 +770,11 @@ function M:rows(mapIds, checkpoint)
               or friendship >= 100 and 3 or friendship >= 50 and 2 or friendship > 0 and 1 or 0
             row.available = not row.done and not row.excluded and row.available ~= false and not row.noRoom
               and pokemonPath(self.source.scripts, row.scriptKey, row.command,
-                row.event or { var = row.receiptVar, value = row.receiptValue },
+                row.event or row.deliveryFlag or { var = row.receiptVar, value = row.receiptValue },
                 { live = true, party = party, money = session.money or 0, gender = session.gender,
                   friendship = score, flag = flag, var = function(v) return Flags.getVar(store, nil, v) end,
                   firered = not self.emerald }, checkpoint) == true
-            row.status = row.done and "RECORDED" or row.available and "READY" or "LATER"
+            row.status = row.done and (row.catchGoal and "CAUGHT" or "RECORDED") or row.available and "READY" or "LATER"
           end
           out[category][#out[category] + 1] = row
         end
@@ -770,12 +786,14 @@ end
 
 function M:pokemon(mapIds, checkpoint)
   local adapter, bySpecies = self.adapter, {}
+  local rewards = self:rows(mapIds, checkpoint)[4]
   for _, id in ipairs(mapIds) do
     for _, row in ipairs(adapter:encounters(id)) do bySpecies[row.species] = { species = row.species, mapId = id } end
     for _, row in ipairs(self:catalog(id, checkpoint)[4]) do
       if not row.gift then bySpecies[row.species] = row end
     end
   end
+  for _, row in ipairs(rewards) do if row.catchGoal then bySpecies[row.species] = row end end
   local caught, out = adapter.save and adapter.save.pokedex.caught or {}, {}
   local function goal(ids)
     local row, names, done = nil, {}, false
@@ -814,12 +832,12 @@ function M:pokemon(mapIds, checkpoint)
   end
   for _, species in ipairs(sortedKeys(bySpecies)) do goal({ species }) end
   local choices = {}
-  for _, row in ipairs(self:rows(mapIds, checkpoint)[4]) do
+  for _, row in ipairs(rewards) do
     local receipt = row.event or (row.receiptVar and "var:" .. row.receiptVar .. ":" .. row.receiptValue)
     if row.alternative and not (adapter.Flags.getFlag(adapter:flagStore(), nil, 626)
         and adapter.Flags.getFlag(adapter:flagStore(), nil, 627)) then receipt = "fossil-choice" end
     local existing = not row.trade and choices[receipt]
-    if row.excluded then -- The other Mt. Moon fossil is unobtainable in this save.
+    if row.catchGoal or row.excluded then -- Caught goals are already included above; unchosen fossils are unobtainable.
     elseif existing then
       existing.label = existing.label .. " / " .. row.label
       existing.done = existing.done or row.done

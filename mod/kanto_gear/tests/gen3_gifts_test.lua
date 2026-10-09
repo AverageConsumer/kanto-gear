@@ -49,7 +49,7 @@ for id in pairs(raw.data.maps) do
   for _, r in ipairs(model:catalog(id)[4]) do if r.gift and not r.trade then all = all + 1 end end
 end
 check(Json.encode(Schema.toSaveTable(session)) == before, "catalogue cannot give Pokemon or advance RNG")
-check(all == (edition == "emerald" and 6 or 9), "all proven gifts and eggs, without speculative fossil receipts: " .. all)
+check(all == (edition == "emerald" and 8 or 9), "all proven gifts and current fossil offers: " .. all)
 for _, e in ipairs(expected) do
   local map, receipt, species, egg = unpack(e)
   flag(receipt, false)
@@ -217,11 +217,33 @@ if edition ~= "emerald" then
 else
   local map = "EM_RUSTBORO_CITY_DEVON_CORP_2F"
   check(#model:pokemon({ map }) == 2, "Emerald keeps both fossil species as separate catch goals")
-  check(#model:rows({ map })[4] == 0, "shared Emerald flag cannot prove either unique fossil receipt")
+  for _, row in ipairs(model:rows({ map })[4]) do
+    check(row.catchGoal and row.deliveryFlag == 267 and not row.event and not row.receiptVar,
+      "shared fossil flag proves delivery contract, never a unique receipt")
+    check(row.level == 20 and row.toPC, "Emerald fossils retain native level and PC delivery")
+    fossils[#fossils + 1] = row
+  end
+  check(#fossils == 2, "both native fossil offers are catalogued")
+  session.party = { { species = 1, level = 5 } }
+  for stage = 0, 2 do
+    for kind = 1, 2 do
+      Flags.setVar(session, nil, 0x40C4, stage)
+      Flags.setVar(session, nil, 0x40C5, kind)
+      local ready = 0
+      for _, row in ipairs(model:rows({ map })[4]) do
+        if row.available then
+          ready = ready + 1
+          check(row.species == ({ 388, 390 })[kind], "only the currently revived Emerald species is ready")
+        end
+      end
+      check(ready == (stage == 2 and 1 or 0), "idle or working Emerald fossil is not ready")
+    end
+  end
   flag(267, true)
   for _, goal in ipairs(model:pokemon({ map })) do check(not goal.done, "one shared receipt cannot complete both Emerald species") end
   adapter.save.pokedex.caught[388] = true
   for _, goal in ipairs(model:pokemon({ map })) do check(goal.done == (goal.species == 388), "Emerald fossils retain separate honest caught goals") end
+  adapter.save.pokedex.caught[388] = nil
   flag(267, false)
 end
 -- A failed delivery must never be mistaken for a valid receipt.
@@ -334,25 +356,33 @@ do
     local event, object = Space.bundle.events[map]
     for _, o in ipairs(event.objects) do if o.localId == source.index then object = o end end
     check(object ~= nil, "gift is attached to its actual native NPC")
-    for scenario = 1, 3 do
+    for scenario = 1, (source.catchGoal and 6 or 3) do
+      local capacity = (scenario - 1) % 3 + 1
       if map == "FR_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM" then
         for _, id in ipairs({ 748, 749, 750, 626, 627 }) do flag(id, false) end
         Flags.setVar(session, nil, 0x406A, 2)
         Flags.setVar(session, nil, 0x4069, ({ [138] = 1, [140] = 2, [142] = 3 })[source.species])
         if source.choiceEvent then flag(source.choiceEvent, true) end
       end
+      if source.catchGoal then
+        Flags.setVar(session, nil, 0x40C4, 2)
+        Flags.setVar(session, nil, 0x40C5, source.species == 388 and 1 or 2)
+        flag(source.deliveryFlag, scenario > 3)
+        session.dex.caught[source.species], session.dex.owned[source.species] = nil, nil
+      end
       if source.receiptVar then Flags.setVar(session, nil, source.receiptVar, source.receiptValue - 1)
-      else flag(receipt, false) end
+      elseif receipt then flag(receipt, false) end
       if source.hideEvent and source.hideEvent >= 0x20 then flag(source.hideEvent, false) end
       if receipt == 730 then flag(731, false) end
       session.party = { { species = 1, level = 5, friendship = 255 } }
-      if scenario > 1 then for i = 2, 6 do session.party[i] = { species = 1, level = 5 } end end
+      if capacity > 1 then for i = 2, 6 do session.party[i] = { species = 1, level = 5 } end end
       for _, box in ipairs(session.storage.boxes) do
         box.mons = {}
-        if scenario == 3 then for slot = 1, 30 do box.mons[slot] = { species = 1 } end end
+        if capacity == 3 then for slot = 1, 30 do box.mons[slot] = { species = 1 } end end
       end
       session.money = 500
-      local expectedDone = scenario == 1 or scenario == 2 and not egg
+      adapter:refresh()
+      local expectedDone = capacity == 1 or capacity == 2 and not egg
       for _, row in ipairs(model:rows({ map })[4]) do
         if row.id == source.id then check(row.available == expectedDone, "availability predicts native capacity result") end
       end
@@ -387,20 +417,33 @@ do
       for _ = 1, 500 do if not vm:isRunning() then break end; vm:tick() end
       check(not vm:isRunning(), "native gift script finishes: " .. map .. " " .. Json.encode(vm.ctx.pc))
       check((deliveries == 1) == expectedDone, "native delivery agrees with capacity contract")
-      local actualDone = source.receiptVar and Flags.getVar(session, nil, source.receiptVar) >= source.receiptValue
+      adapter:refresh()
+      local actualDone = source.catchGoal and adapter.save.pokedex.caught[source.species]
+        or source.receiptVar and Flags.getVar(session, nil, source.receiptVar) >= source.receiptValue
         or receipt and Flags.getFlag(session, nil, receipt) or false
-      check(actualDone == expectedDone, "native receipt written only on successful delivery")
+      check((actualDone == true) == expectedDone, "native receipt written only on successful delivery")
       local projected
       for _, row in ipairs(model:rows({ map })[4]) do if row.id == source.id then projected = row end end
       check(projected and projected.done == expectedDone, "model agrees with actual native VM outcome")
       if expectedDone then check(received == source.species, "native VM gives the catalogued species") end
+      if source.catchGoal then
+        check(Flags.getFlag(session, nil, source.deliveryFlag) == (scenario > 3 or expectedDone),
+          "second fossil delivery does not require a fresh shared flag; failure preserves existing flag")
+        check(Flags.getVar(session, nil, 0x40C4) == (expectedDone and 0 or 2), "only successful revival resets native stage")
+        check(projected.status == (expectedDone and "CAUGHT" or "LATER"), "fossil status never claims a unique receipt")
+        local restored = Schema.fromSaveTable(Schema.toSaveTable(session))
+        check((restored.dex.caught[source.species] == true) == expectedDone, "fossil caught goal survives native save roundtrip")
+      end
     end
   end
   Space.active = false
   for _, box in ipairs(session.storage.boxes) do box.mons = {} end
   for _, e in ipairs(expected) do flag(e[2], false) end
-  for _, source in ipairs(fossils) do flag(source.event, false) end
-  if #fossils > 0 then
+  for _, source in ipairs(fossils) do
+    if source.event then flag(source.event, false)
+    else session.dex.caught[source.species], session.dex.owned[source.species] = nil, nil end
+  end
+  if edition ~= "emerald" and #fossils > 0 then
     flag(626, false); flag(627, false)
     Flags.setVar(session, nil, 0x406A, 0)
   end
@@ -484,7 +527,7 @@ if #johto > 0 then
   if os.getenv("KANTO_GEAR_PREVIEW_JOHTO") ~= "1" then offer = original; session.map = offer.map end
   display.gen3:refresh()
 end
-if #fossils > 0 then
+if edition ~= "emerald" and #fossils > 0 then
   local original = offer
   offer = { map = fossils[1].mapId, source = fossils[1] }
   session.map, overview.mapId = offer.map, offer.map
@@ -502,6 +545,39 @@ if #fossils > 0 then
   check(#explorerModel().rows == 0, "recorded laboratory receipt leaves HERE NOW")
   flag(fossils[1].event, false)
   if os.getenv("KANTO_GEAR_PREVIEW_FOSSIL") ~= "1" then offer = original; session.map = offer.map end
+  display.gen3:refresh()
+end
+if edition == "emerald" then
+  local original = offer
+  offer = { map = fossils[1].mapId, source = fossils[1] }
+  session.map, overview.mapId = offer.map, offer.map
+  explorer.filters.wildScope = "HERE"
+  for _, source in ipairs(fossils) do session.dex.caught[source.species], session.dex.owned[source.species] = nil, nil end
+  for _, shared in ipairs({ false, true }) do
+    flag(267, shared)
+    for kind = 1, 2 do
+      Flags.setVar(session, nil, 0x40C5, kind)
+      for stage = 0, 2 do
+        Flags.setVar(session, nil, 0x40C4, stage)
+        display.gen3:refresh()
+        local rows = explorerModel().rows
+        check(#rows == (stage == 2 and 1 or 0), "Emerald HERE NOW respects revival stage even after first shared receipt")
+        if stage == 2 then check(rows[1].species == ({ 388, 390 })[kind] and rows[1].catchGoal,
+          "Explorer presents the actual ready fossil as a caught goal") end
+      end
+    end
+  end
+  require("src.core.game3.dex").setCaught(session.dex, 390)
+  display.gen3:refresh()
+  check(#explorerModel().rows == 0, "caught fossil leaves immediate hunting offers")
+  explorer.filters.wildScope = "ROUTE"
+  local rows = explorerModel().rows
+  check(#rows == 2, "WHOLE ROUTE retains both separate Emerald fossil goals")
+  for _, row in ipairs(rows) do check(row.done == (row.species == 390), "catching one fossil does not complete the other") end
+  session.dex.caught[390], session.dex.owned[390] = nil, nil
+  if os.getenv("KANTO_GEAR_PREVIEW_FOSSIL") == "1" then
+    for _, source in ipairs(fossils) do if source.species == 390 then offer.source = source end end
+  else offer = original; session.map = offer.map end
   display.gen3:refresh()
 end
 if _G.KANTO_GEAR_RENDER_CAPTURE then _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, offer) end

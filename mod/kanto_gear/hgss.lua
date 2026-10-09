@@ -3703,7 +3703,8 @@ return function(ui)
       local wildAccent = self:typeColor(selected.type)
       self:panel(7, 99, 226, 111, false, nil, wildAccent)
       local status = selected.gift and (selected.excluded and "ALTERNATIVE CHOICE"
-        or selected.done and "RECORDED" or selected.noRoom and "NEED SPACE" or selected.status or "OPEN")
+        or selected.done and (selected.catchGoal and "CAUGHT" or "RECORDED")
+        or selected.noRoom and "NEED SPACE" or selected.status or "OPEN")
         or selected.caught and "CAUGHT" or "NOT CAUGHT"
       local name = self:fitPartyInfo(selected.name, selected.gift and 140 or 100)
       status = self:fitPartyInfo(translate(status), selected.gift and 140 or 100)
