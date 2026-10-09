@@ -61,3 +61,4 @@ tests/unified_handoff_test.lua
 tests/gen3_field_test.lua
 tests/region_map_test.lua
 tests/region_map_runtime_test.lua
+tests/settings_discovery_test.lua

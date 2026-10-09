@@ -279,7 +279,7 @@ return function(H, G, translate, format)
         self:panel(6, 61, 228, 149, false)
         name(translate(model.mode == "spoiler" and "NOTHING HERE"
           or "ONLY RECORDED FINDS ARE SHOWN"), 22, 91, 196, 44, quiet)
-        name(translate("SPOILER MODE SHOWS OPEN LOCATIONS"), 22, 143, 196, 38, quiet)
+        name(translate("REVEAL MORE IN EXPLORATION SETTINGS"), 22, 143, 196, 38, quiet)
       end
     elseif view == "location" and model.location then
       local row = model.location

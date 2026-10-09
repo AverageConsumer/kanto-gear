@@ -1,0 +1,41 @@
+-- Explanations are shared by the touch settings and the native mod menu.
+local Info = {}
+Info.help = {
+  language = "Language of Kanto Gear. Game translations are separate mods.",
+  theme_v3 = "Choose a light or dark companion. Auto follows the time of day.",
+  clock_source = "Choose the game clock or your device clock. Games without a clock use device time.",
+  clock_format = "Show 12-hour or 24-hour time. System follows your device preference.",
+  ui_motion = "Short transitions between companion pages. Turn off for immediate changes.",
+  map_motion = "Quality updates moving maps up to 30 times a second. Performance uses 5. Map detail stays the same.",
+  info_level = "Controls what Gear reveals in Explorer, the Pokedex and Stamps. Battle helpers are separate.",
+  local_map = "Show the area map in older themes. Discovery is controlled separately.",
+  display_mode = "Separate uses a second window or display. Combined puts both views in one window. Fullscreen switches between them.",
+  fullscreen_start = "Choose which view appears first in fullscreen mode.",
+  auto_battle_screen = "Show Gear for battle choices, then return to the game for battle text and animations.",
+  combined_layout = "Auto fits the window. Stacked puts Gear below the game; side by side puts it beside the game. Overlay uses a small corner view.",
+  combined_primary = "Choose which view gets the larger area in the combined layout.",
+  secondary_size = "Size of the smaller view. Auto adapts to the window dimensions.",
+  bottom_safe_area = "Reserve empty space below both views for device controls or a gesture bar.",
+  overlay_corner = "Place the smaller overlay view in this corner of the game window.",
+  overlay_button = "Optional shortcut to hide or show the corner overlay.",
+  display_target = "Choose the display used by Gear. Auto uses the host's available second display.",
+  screen_swap = "Let the host's Y shortcut exchange the game and Gear views.",
+  caught_icon = "Mark wild opponents you have already caught. Uses the current save's Pokedex.",
+  type_hints = "Show type effectiveness for your attacks. Does not change which Pokemon or areas are revealed.",
+  move_details = "Show attack power, accuracy and effect details in battle and move inspection.",
+  catch_odds = "Show estimated catch chances for Poke Balls. Estimates are not a guarantee.",
+  keyboard_layout = "Choose the order of letters on Gear's touch keyboard. QWERTY puts Y in the top row; QWERTZ puts Z there.",
+  ui_haptics = "Brief vibration for accepted touches on devices that support it.",
+  home_help = "Show how to add, move and remove apps and widgets on Home.",
+  reset_home = "Restore the initial Home layout and installed apps. Notes and game progress are kept. Tap Reset twice to confirm.",
+  reset_options = "Restore Gear's default settings, including discovery and battle helpers. Notes and game saves are kept. Tap Reset twice to confirm.",
+}
+Info.discovery = {
+  purist = "Known Pokemon only; completed trainers and collected items. Habitats stay within visited maps. Hidden items appear after an Itemfinder scan or collection. Stamps show recorded progress.",
+  enhanced = "All wild Pokemon, available trainers and visible items on visited maps. Hidden items appear after an Itemfinder scan or collection. Unvisited habitats and future story tasks stay hidden.",
+  spoiler = "Reveal every Pokemon and habitat, future tasks and all hidden item locations. Stamps show complete checklists. This reveals information ahead of your journey.",
+}
+function Info.description(key, value)
+  return key == "info_level" and Info.discovery[value] or Info.help[key]
+end
+return Info

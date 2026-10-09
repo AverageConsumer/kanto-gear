@@ -573,22 +573,6 @@ local function pcListKind(state)
   end
 end
 
-local function assistEnabled(profile, custom)
-  if profile == "purist" then return false end
-  if profile == "enhanced" then return true end
-  return custom == true
-end
-
-function THEME:researchMode(value)
-  if value == "purist" or value == "vanilla" then return "vanilla" end
-  if value == "spoiler" then return "spoiler" end
-  return value == "legacy" and "legacy" or "enhanced"
-end
-assert(THEME:researchMode("purist") == "vanilla"
-    and THEME:researchMode("enhanced") == "enhanced"
-    and THEME:researchMode("spoiler") == "spoiler",
-  "research modes preserve old saves and expose the spoiler boundary")
-
 local function savedSteps(value)
   return math.max(0, math.floor(tonumber(value) or 0))
 end
@@ -1158,17 +1142,6 @@ local function localMapMode(value)
   return "off"
 end
 
-function THEME:spoilerAssist(level, localMap)
-  local mode = self:researchMode(level)
-  return mode == "spoiler" or (mode == "legacy"
-    and localMapMode(localMap) == "enhanced")
-end
-assert(THEME:spoilerAssist("spoiler", false)
-    and THEME:spoilerAssist("legacy", "enhanced")
-    and not THEME:spoilerAssist("vanilla", "enhanced")
-    and not THEME:spoilerAssist("enhanced", "enhanced"),
-  "explicit research modes override the legacy area-map setting")
-
 local function localMapGrid(overview)
   if overview.tileDetailRows then
     return overview.tileDetailRows, overview.tileDetailWidth,
@@ -1455,9 +1428,6 @@ do
     and not pcListKind({ kind = "pc_box_withdraw" })
     and not pcListKind({ kind = "bag" }), "PC touch list identity")
 end
-assert(not assistEnabled("purist", true)
-       and assistEnabled("enhanced", false)
-       and assistEnabled("custom", true), "assist profiles")
 assert(battleUIMode("standard", true) == "standard"
        and battleUIMode("gear", false) == "gear"
        and battleUIMode("full", false) == "full"
@@ -2019,6 +1989,8 @@ end
 
 return function(mod)
   THEME:installOptionFallback(mod)
+  local Discovery = assert(load(mod:read("discovery.lua"), "@kanto_gear/discovery.lua"))()
+  local SettingsInfo = assert(load(mod:read("settings_info.lua"), "@kanto_gear/settings_info.lua"))()
 
   THEME.i18n = assert(load(mod:read("i18n.lua"),
     "@kanto_gear/i18n.lua"))().new(function(language)
@@ -2041,17 +2013,26 @@ return function(mod)
 
   THEME.storedTheme = mod.options:get("theme_v3")
   local infoDefault = mod.options:get("info_level")
+  local migrateInfo = infoDefault == "legacy" or infoDefault == "vanilla"
+    or infoDefault == nil and mod.options:get("profile") == "custom"
   if infoDefault == nil then
     local legacyProfile = mod.options:get("profile")
     infoDefault = legacyProfile == "custom" and "legacy"
       or legacyProfile == "purist" and "purist" or "enhanced"
   end
+  infoDefault = Discovery.mode(infoDefault, mod.options:get("local_map"))
+  if infoDefault == "vanilla" then infoDefault = "purist" end
   local infoChoices = {
-    { "VANILLA", "purist" }, { "ENHANCED", "enhanced" },
-    { "SPOILERS", "spoiler" },
+    { "DISCOVER", "purist" }, { "ROUTE GUIDE", "enhanced" },
+    { "SHOW EVERYTHING", "spoiler" },
   }
-  if infoDefault == "legacy" then
-    infoChoices[#infoChoices + 1] = { "SAVED CUSTOM", "legacy" }
+  local helperStored = {}
+  local function helperDefault(key)
+    local saved = mod.options:get(key)
+    helperStored[key] = saved
+    if saved ~= nil then return saved == true end
+    local old = mod.options:get("info_level") or mod.options:get("profile")
+    return old ~= "purist" and old ~= "vanilla" and old ~= "legacy" and old ~= "custom"
   end
 
   THEME.displayModeDefault, THEME.combinedLayoutDefault = THEME:displayDefaults(
@@ -2076,7 +2057,7 @@ return function(mod)
       } },
     { key = "clock_source", label = "CLOCK SOURCE", type = "choice",
       default = "game", choices = {
-        { "GAME (GEN 2)", "game" }, { "DEVICE", "system" },
+        { "GAME CLOCK", "game" }, { "DEVICE", "system" },
       } },
     { key = "clock_format", label = "CLOCK FORMAT", type = "choice",
       default = "system", choices = {
@@ -2092,11 +2073,11 @@ return function(mod)
       }, visible_if = {
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
       } },
-    { key = "info_level", label = "INFO", type = "choice",
+    { key = "info_level", label = "DISCOVERY", type = "choice",
       default = infoDefault, reset_default = "enhanced", choices = infoChoices },
     { key = "local_map", label = "AREA MAP",
       type = "choice", default = false, choices = {
-        { "OFF", false }, { "MAP", true }, { "ENHANCED", "enhanced" },
+        { "OFF", false }, { "MAP", true },
       }, visible_if = {
         key = "theme_v3", not_one_of = { "hgss", "hgss_dark", "hgss_auto" },
       } },
@@ -2172,6 +2153,12 @@ return function(mod)
       type = "toggle", default = false, visible_if = {
         key = "display_mode", not_equals = "fullscreen",
       } },
+    { key = "type_hints", label = "TYPE MATCHUPS", type = "toggle",
+      default = helperDefault("type_hints"), reset_default = true },
+    { key = "move_details", label = "ATTACK DETAILS", type = "toggle",
+      default = helperDefault("move_details"), reset_default = true },
+    { key = "catch_odds", label = "CATCH CHANCES", type = "toggle",
+      default = helperDefault("catch_odds"), reset_default = true },
     { key = "caught_icon", label = "CAUGHT ICON",
       type = "toggle", default = true },
     { key = "keyboard_layout", label = "KEYBOARD", type = "choice",
@@ -2183,6 +2170,22 @@ return function(mod)
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
       } },
   })
+
+  for _, row in ipairs(THEME.optionSchema) do
+    row.description = SettingsInfo.help[row.key]
+    if (row.key == "type_hints" or row.key == "move_details" or row.key == "catch_odds")
+        and helperStored[row.key] == nil and mod.options.set then
+      -- Materialize inherited choices once. Changing discovery must not change
+      -- the helper defaults again on the next launch.
+      mod.options:set(row.key, row.default)
+    end
+  end
+  if migrateInfo and mod.options.set then
+    mod.options:set("info_level", infoDefault)
+  end
+  if mod.options:get("local_map") == "enhanced" and mod.options.set then
+    mod.options:set("local_map", true)
+  end
 
   mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
     local out = next(game, items)
@@ -2198,17 +2201,17 @@ return function(mod)
     })
   end)
 
-  local displayRuntime
+  local displayRuntime, dirty, compat
   local function assist(key)
-    local level = mod.options:get("info_level")
     if key == "spoilers" then
-      return THEME:spoilerAssist(level, mod.options:get("local_map"))
+      return Discovery.mode(mod.options:get("info_level"), mod.options:get("local_map")) == "spoiler"
     end
-    if level == "legacy" then
-      return assistEnabled("custom", mod.options:get(key))
+    if key == "type_hints" or key == "move_details" or key == "catch_odds" then
+      return mod.options:get(key) == true
     end
-    return THEME:researchMode(level) ~= "vanilla"
+    return true
   end
+
   local function currentBattleUIMode()
     -- Experimental companion build: one lower layout; native UI stays intact.
     return "full"
@@ -2553,7 +2556,7 @@ return function(mod)
   displayRuntime.settings = { page = 1 }
   displayRuntime.settingsCategories = {
     { id = "appearance", label = "APPEARANCE",
-      detail = "THEME AND TRANSITIONS",
+      detail = "LANGUAGE, THEME AND CLOCK",
       accent = "blue", keys = {
         "language", "theme_v3", "clock_source", "clock_format", "ui_motion", "map_motion" } },
     { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
@@ -2561,9 +2564,9 @@ return function(mod)
         "combined_layout", "combined_primary", "secondary_size",
         "bottom_safe_area", "overlay_corner", "overlay_button",
         "display_target", "screen_swap" } },
-    { id = "battle", label = "BATTLE", detail = "HUD AND BATTLE INFO",
-      accent = "red", keys = { "auto_battle_screen", "caught_icon" } },
-    { id = "research", label = "RESEARCH", detail = "VANILLA TO SPOILERS",
+    { id = "battle", label = "BATTLE", detail = "SEPARATE BATTLE HELPERS",
+      accent = "red", keys = { "auto_battle_screen", "caught_icon", "type_hints", "move_details", "catch_odds" } },
+    { id = "research", label = "EXPLORATION", detail = "WHAT GEAR REVEALS",
       accent = "amber", keys = { "info_level" } },
     { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS",
       accent = "blue", keys = { "ui_haptics", "keyboard_layout" } },
@@ -2586,6 +2589,8 @@ return function(mod)
   end
 
   function displayRuntime.optionVisible(row)
+    if row and (row.key == "overlay_corner" or row.key == "overlay_button")
+        and mod.options:get("combined_layout") ~= "overlay" then return false end
     local condition = row and row.visible_if
     if not condition then return true end
     local value = mod.options:get(condition.key)
@@ -2625,6 +2630,27 @@ return function(mod)
 
   function displayRuntime.settingsModel()
     local state = displayRuntime.settings
+    if state.option then
+      local row = displayRuntime.optionRow(state.option)
+      if not row and SettingsInfo.help[state.option] then
+        row = { key = state.option, type = "action", label = state.option == "home_help" and "CUSTOMIZE HOME"
+          or state.option == "reset_home" and "RESET HOME" or "RESET OPTIONS" }
+      end
+      if row and displayRuntime.optionVisible(row) then
+        local choices = row.type == "action" and {
+          { row.key == "home_help" and "SHOW ME" or state.confirm == row.key and "TAP AGAIN" or "RESET", true } }
+          or row.type == "toggle" and { { "OFF", false }, { "ON", true } }
+          or displayRuntime.optionChoices(row)
+        local pages = math.max(1, math.ceil(#choices / 4))
+        state.choicePage = math.max(1, math.min(pages, state.choicePage or 1))
+        return { category = "option", option = row.key, label = row.label,
+          accent = displayRuntime.settingsCategories[state.category].accent,
+          description = SettingsInfo.description(row.key, mod.options:get(row.key)),
+          choices = choices, value = mod.options:get(row.key), source = row,
+          page = state.choicePage, pages = pages }
+      end
+      state.option = nil
+    end
     if not state.category then
       return { categories = displayRuntime.settingsCategories }
     end
@@ -2635,13 +2661,14 @@ return function(mod)
       if row and displayRuntime.optionVisible(row) then
         rows[#rows + 1] = { key = key, label = row.label,
           value = displayRuntime.optionValueLabel(row), source = row,
-          enabled = type(mod.options.set) == "function" }
+          enabled = type(mod.options.set) == "function", description = SettingsInfo.help[key] }
       end
     end
     for _, action in ipairs(category.actions or {}) do
       rows[#rows + 1] = { action = action,
         label = action == "home_help" and "CUSTOMIZE HOME"
           or action == "reset_home" and "RESET HOME" or "RESET OPTIONS",
+        description = SettingsInfo.help[action],
         value = action == "home_help" and "SHOW ME"
           or state.confirm == action and "TAP AGAIN" or "RESET" }
     end
@@ -2655,7 +2682,8 @@ return function(mod)
     displayRuntime.requestPageMotion(direction)
     local state, model = displayRuntime.settings, displayRuntime.settingsModel()
     if not model.category or model.pages <= 1 then return false end
-    state.page = ((state.page - 1 + direction) % model.pages) + 1
+    if model.option then state.choicePage = ((state.choicePage - 1 + direction) % model.pages) + 1
+    else state.page = ((state.page - 1 + direction) % model.pages) + 1 end
     state.confirm, dirty = nil, true
     return true
   end
@@ -2722,7 +2750,7 @@ return function(mod)
   local game
   local companion
   local active = false
-  local dirty = true
+  dirty = true
   local readbackPending = false
   local gameReadbackPending = false
   local gameReadbackCanvas
@@ -2781,6 +2809,28 @@ return function(mod)
   local displayReady = false
   local nextPresentAttempt = 0
   local themeKey = nil
+
+  function displayRuntime.discoveryMode()
+    return Discovery.mode(mod.options:get("info_level"), mod.options:get("local_map"))
+  end
+  function displayRuntime.knownMap(id)
+    return Discovery.map(displayRuntime.discoveryMode(), id, mapId,
+      mod.save:get("achievement_visits", {}), game and game.save)
+  end
+  function displayRuntime.knownSpecies(species)
+    local save = game and game.save or {}
+    return Discovery.species(displayRuntime.discoveryMode(), species,
+      save.pokedex and save.pokedex.seen, compat.caughtDex(save))
+  end
+  function displayRuntime.visibleAreaSections(sections)
+    for category, section in ipairs(sections) do
+      section.rows = Discovery.filter(section.rows, function(row)
+        return Discovery.row(displayRuntime.discoveryMode(), row, category,
+          displayRuntime.knownMap(row.mapId or mapId))
+      end)
+    end
+    return sections
+  end
 
   -- Feedback belongs to accepted actions, never drawing, pointer-down or focus.
   -- Use the host's device vibration path without changing its touchpad settings.
@@ -2879,7 +2929,7 @@ return function(mod)
       and hgssRuntime.fullRootDirection(4, "up") == 2,
     "HGSS Full Gear navigation follows its visible two-by-two action grid")
 
-  local compat = { screens = {
+  compat = { screens = {
     party = { PartyMenu = true, Gen2PartyMenu = true },
     summary = { SummaryMenu = true, Gen2SummaryMenu = true, Gen3SummaryMenu = true },
     bag = { BagMenu = true, Gen2PackMenu = true },
@@ -3807,7 +3857,9 @@ return function(mod)
       end
       addEncounters(rows, bySpecies, selected, method, cumulative, context)
     end
-    for _, id in ipairs(mapIds or areaMaps(mapId)) do
+    local maps = mapIds or areaMaps(mapId)
+    if not completion then maps = Discovery.filter(maps, displayRuntime.knownMap) end
+    for _, id in ipairs(maps) do
       if checkpoint then checkpoint() end
       local encounter = data.encounters and data.encounters[id]
       local buckets = data.constants and data.constants.encounterBuckets
@@ -3958,6 +4010,9 @@ return function(mod)
       end
     end
 
+    if not completion then
+      rows = Discovery.filter(rows, function(row) return displayRuntime.knownSpecies(row.species) end)
+    end
     local ownedDex = compat.caughtDex(game.save)
     local areaCaught, currentTime = 0, compat.timePeriod(game.world) or "DAY"
     for order, row in ipairs(rows) do
@@ -4027,6 +4082,7 @@ return function(mod)
     if displayRuntime.gen3 then
       local rows = displayRuntime.gen3Progress:rows(maps, checkpoint)
       for index = 1, 3 do sections[index].rows = rows[index] end
+      if not completion then displayRuntime.visibleAreaSections(sections) end
       local screens = checklistPages(sections)
       return { name = areaName(mapId), screens = screens, pages = #screens,
         sections = sections, remaining = Area.remaining(sections) }
@@ -4034,6 +4090,7 @@ return function(mod)
     if compat.isGen2() then
       local rows = Area.gen2Rows(data, save, mod.world, maps, checkpoint)
       for index = 1, 3 do sections[index].rows = rows[index] end
+      if not completion then displayRuntime.visibleAreaSections(sections) end
       local screens = checklistPages(sections)
       return { name = areaName(mapId), screens = screens, pages = #screens,
         sections = sections, remaining = Area.remaining(sections) }
@@ -4114,6 +4171,7 @@ return function(mod)
         }
       end
     end
+    if not completion then displayRuntime.visibleAreaSections(sections) end
     local screens = checklistPages(sections)
     return { name = areaName(mapId), screens = screens, pages = #screens,
       sections = sections, remaining = Area.remaining(sections) }
@@ -4217,19 +4275,36 @@ return function(mod)
   end
 
   function displayRuntime.currentAchievement()
-    local mode = THEME:researchMode(mod.options:get("info_level"))
-    if mode == "legacy" then mode = assist("spoilers") and "spoiler" or "vanilla" end
-    return { area = displayRuntime.perf:call("stamps_current", displayRuntime.achievementData, true).areas[1], mode = mode }
+    local mode = displayRuntime.discoveryMode()
+    local area = displayRuntime.perf:call("stamps_current", displayRuntime.achievementData, true).areas[1]
+    return { area = area and displayRuntime.presentAchievement(area), mode = mode }
+  end
+
+  function displayRuntime.presentAchievement(area)
+    return displayRuntime.Achievements.presentArea(area, displayRuntime.discoveryMode(), function(row, category)
+      if category == 4 then
+        return displayRuntime.knownMap(row.mapId) and displayRuntime.knownSpecies(row.species)
+      end
+      return Discovery.row(displayRuntime.discoveryMode(), row, category, displayRuntime.knownMap(row.mapId))
+    end)
   end
 
   function displayRuntime.achievementModel()
     local state, Progress = displayRuntime.achievements, displayRuntime.Achievements
-    local mode = THEME:researchMode(mod.options:get("info_level"))
-    if mode == "legacy" then mode = assist("spoilers") and "spoiler" or "vanilla" end
+    local mode = displayRuntime.discoveryMode()
     local data = displayRuntime.achievementData()
     if not data then return { loading = true, view = state.view, mode = mode, pages = 1 } end
-    local areas, goals, earned = Progress.visible(data, mode)
-    local area = state.selected and data.byId[state.selected]
+    if state.presentSource ~= data or state.presentMode ~= mode then
+      local presented = { areas = {}, goals = {}, earned = {}, byId = {} }
+      for _, area in ipairs(data.areas) do presented.byId[area.id] = displayRuntime.presentAchievement(area) end
+      for _, key in ipairs({ "areas", "goals", "earned" }) do
+        for _, area in ipairs(data[key]) do presented[key][#presented[key] + 1] = presented.byId[area.id] end
+      end
+      state.presentSource, state.presentMode, state.presented = data, mode, presented
+    end
+    local presented = state.presented
+    local areas, goals, earned = Progress.visible(presented, mode)
+    local area = state.selected and presented.byId[state.selected]
     if area and mode ~= "spoiler" and not area.evidence then area = nil end
     if not area and state.view ~= "album" and state.view ~= "goals" then state.view = "album" end
     if mode ~= "spoiler" and state.view == "location" then state.view, state.location = "detail", nil end
@@ -5076,6 +5151,8 @@ return function(mod)
       page == "STORE" and tostring((home.storePages or {})[home.storeView or "today"]) or "",
       page == "SETTINGS" and tostring(displayRuntime.settings.category) or "",
       page == "SETTINGS" and tostring(displayRuntime.settings.page) or "",
+      page == "SETTINGS" and tostring(displayRuntime.settings.option) or "",
+      page == "SETTINGS" and tostring(displayRuntime.settings.choicePage) or "",
       page == "SETTINGS" and tostring(displayRuntime.settings.confirm) or "",
       page == "NOTES" and tostring(displayRuntime.notes.view) or "",
       page == "NOTES" and tostring(displayRuntime.notes.selected) or "",
@@ -5127,7 +5204,9 @@ return function(mod)
     elseif page == "SETTINGS" then
       local settings = displayRuntime.settings
       if settings.category and not settings.confirm then
-        region(tostring(settings.category), settings.page, 34, 193)
+        region(tostring(settings.category) .. ":" .. tostring(settings.option),
+          settings.option and settings.choicePage or settings.page,
+          settings.option and 101 or 34, settings.option and 201 or 193)
       end
     elseif page == "NOTES" then
       local notes = displayRuntime.notes
@@ -6136,7 +6215,7 @@ return function(mod)
           and displayRuntime.fruitTrees.rows(game.data, id) or {},
         guide = guideEnabled and guideData()
           or { rows = {}, caught = 0, time = "DAY", timed = false },
-        area = areaEnabled and areaData({ id })
+        area = areaEnabled and areaData({ id }, true)
           or { sections = { { rows = {} }, { rows = {} }, { rows = {} } } },
       }
       explorer.data = cached
@@ -6157,7 +6236,9 @@ return function(mod)
     end
     local sections = area.sections or { { rows = {} }, { rows = {} },
       { rows = {} } }
-    local allTrainers, allItems, wild = sections[1].rows, {}, {}
+    local allTrainers, allItems, wild = Discovery.filter(sections[1].rows, function(row)
+      return Discovery.row(displayRuntime.discoveryMode(), row, 1, displayRuntime.knownMap(row.mapId or id))
+    end), {}, {}
     for _, row in ipairs(sections[2].rows) do allItems[#allItems + 1] = row end
     for _, row in ipairs(sections[3].rows) do allItems[#allItems + 1] = row end
 
@@ -6191,7 +6272,7 @@ return function(mod)
       explorer.scanMapId, explorer.scanFrame, explorer.scanRevealed =
         id, nil, {}
     end
-    local pos = mod.world:current()
+    local pos = mod.world and mod.world:current()
     local scanProgress = explorer.scanFrame
       and math.min(1, explorer.scanFrame / RADAR_FRAMES) or nil
     for _, row in ipairs(allItems) do
@@ -6218,12 +6299,11 @@ return function(mod)
           and not row.scanned
         and "USE ITEMFINDER" or "MARKED ON MAP")
     end
-    local mapItems = {}
-    for _, row in ipairs(allItems) do
-      if enhanced or row.kind ~= "hidden" or row.done or row.scanned then
-        mapItems[#mapItems + 1] = row
-      end
-    end
+    allItems = Discovery.filter(allItems, function(row)
+      return Discovery.row(displayRuntime.discoveryMode(), row, row.kind == "hidden" and 3 or 2,
+        displayRuntime.knownMap(row.mapId or id))
+    end)
+    local mapItems = allItems
     for _, row in ipairs(wild) do
       local def = game.data.pokemon and game.data.pokemon[row.species] or {}
       local types = row.types or def.types or {}
@@ -6285,6 +6365,7 @@ return function(mod)
     local function progress(rows_)
       local done = 0
       for _, row in ipairs(rows_) do if row.done then done = done + 1 end end
+      if displayRuntime.discoveryMode() == "vanilla" then return tostring(done) end
       return THEME:format("%d/%d", done, #rows_)
     end
     local rows_, width, height, density = localMapGrid(overview)
@@ -6320,6 +6401,7 @@ return function(mod)
       scanProgress = scanProgress,
       showMapStats = areaEnabled,
       guideEnabled = guideEnabled, areaEnabled = areaEnabled,
+      emptyHint = displayRuntime.discoveryMode() == "vanilla" and "NO KNOWN POKEMON HERE" or nil,
       itemsText = progress(mapItems),
       trainersText = progress(allTrainers),
       wildScope = filters.wildScope,
@@ -8245,8 +8327,10 @@ return function(mod)
         local owned = caught[species] == true
         entries[#entries + 1] = {
           species = species, dex = displayRuntime.gen3 and displayRuntime.gen3:dexNumber(species) or tonumber(def.dex),
-          name = def.name or tostring(species):gsub("_", " "),
+          name = displayRuntime.knownSpecies(species)
+            and (def.name or tostring(species):gsub("_", " ")) or "???",
           seen = owned or seen[species] == true, caught = owned,
+          revealed = displayRuntime.knownSpecies(species),
           habitat = habitats[species],
         }
         if owned then caughtCount = caughtCount + 1 end
@@ -8309,7 +8393,9 @@ return function(mod)
     local methods = displayRuntime.gen3 and displayRuntime.gen3:habitatMethods()
       or displayRuntime.Habitats.methods(save, game.data.items or {}, surfBadge)
     local plan = displayRuntime.Habitats.plan(
-      selected.habitat and selected.habitat.appearances or {}, mapId, period, visited, methods)
+      Discovery.filter(selected.habitat and selected.habitat.appearances, function(row)
+        return displayRuntime.knownMap(row.mapId)
+      end), mapId, period, visited, methods)
     plan.source, plan.map, plan.period, plan.refreshAt = selected, mapId, period, now + 0.5
     state.habitatPlan = plan
     if not cached or cached.signature ~= plan.signature then dirty = true end
@@ -8326,6 +8412,7 @@ return function(mod)
     local selected = dex.bySpecies[state.selected] or dex.entries[1]
     if selected then state.selected = selected.species end
     local function drawPokemon(row, x, y, size)
+      if row.revealed == false then return false end
       local tint
       if not row.caught then
         tint = row.seen and THEME.hgss.colors.silver
@@ -8346,9 +8433,9 @@ return function(mod)
         page = state.page, pages = pages, entries = entries,
         drawPokemon = drawPokemon }
     end
-    if not selected then
-      return { view = "index", region = "POKEDEX", caught = 0,
-        total = 0, page = 1, pages = 1, entries = {} }
+    if not selected or selected.revealed == false then
+      state.view = "index"
+      return displayRuntime.pokedexModel()
     end
     local def = game.data.pokemon[selected.species] or {}
     local info = compat.enemyInfo({ species = selected.species,
@@ -8381,7 +8468,9 @@ return function(mod)
       stats[#stats + 1], bst = { label = keys[1], value = value }, bst + value
     end
     local moves = displayRuntime.pokedexMoveRows(def)
-    local habitat = selected.habitat and selected.habitat.appearances or {}
+    local habitat = Discovery.filter(selected.habitat and selected.habitat.appearances, function(row)
+      return displayRuntime.knownMap(row.mapId)
+    end)
     local areas = {}
     for _, appearance in ipairs(habitat) do areas[appearance.mapId] = true end
     local areaCount = 0
@@ -8454,6 +8543,7 @@ return function(mod)
     local entries = displayRuntime.pokedexData().entries
     if #entries == 0 then return false end
     index = (index - 1) % #entries + 1
+    if entries[index].revealed == false then return false end
     displayRuntime.pokedex.selected = entries[index].species
     displayRuntime.pokedex.view = "profile"
     displayRuntime.pokedex.habitatPage = 1
@@ -8470,8 +8560,11 @@ return function(mod)
     elseif state.view == "profile" or state.view == "stats" then
       local view = state.view
       local selected = displayRuntime.pokedexData().bySpecies[state.selected]
-      displayRuntime.selectPokedexSpecies((selected and selected.index or 1)
-        + direction)
+      local entries = displayRuntime.pokedexData().entries
+      for offset = 1, #entries do
+        local index = ((selected and selected.index or 1) - 1 + direction * offset) % #entries + 1
+        if displayRuntime.selectPokedexSpecies(index) then break end
+      end
       state.view = view
     elseif state.view == "moves" then
       state.movePage = (state.movePage - 1 + direction) % model.pages + 1
@@ -11033,21 +11126,34 @@ return function(mod)
   function displayRuntime.tapSettings(x, y)
     local state = displayRuntime.settings
     local model = displayRuntime.settingsModel()
-    local action, index, direction = THEME.hgss:settingsHit(x, y, model)
-    if action == "back" then
-      if state.category then
-        state.category, state.page, state.confirm = nil, 1, nil
-      else
-        page, displayRuntime.home.activeApp = "HOME", nil
+    local action, index = THEME.hgss:settingsHit(x, y, model)
+    local function open(row)
+      state.option, state.choicePage = row.action or row.key, 1
+      if not row.action then
+        for i, choice in ipairs(displayRuntime.optionChoices(row.source)) do
+          if choice[2] == mod.options:get(row.key) then state.choicePage = math.ceil(i / 4) end
+        end
       end
+    end
+    if action == "back" then
+      if state.option then
+        state.option, state.confirm = nil, nil
+        if state.direct then state.category, state.direct, state.page = nil, nil, 1 end
+      elseif state.category then
+        state.category, state.page, state.confirm = nil, 1, nil
+      else page, displayRuntime.home.activeApp = "HOME", nil end
     elseif action == "category" then
       state.category, state.page, state.confirm = index, 1, nil
+      local rows = displayRuntime.settingsModel().rows
+      if #rows == 1 and not rows[1].action then open(rows[1]); state.direct = true end
     elseif action == "prev" or action == "next" then
       displayRuntime.cycleSettingsPage(action == "next" and 1 or -1)
+    elseif action == "choice" then
+      local choice = model.choices[index]
+      if model.source.type == "action" then displayRuntime.runSettingsAction(model.option)
+      elseif choice and mod.options.set then mod.options:set(model.option, choice[2]) end
     elseif action == "row" then
-      local row = model.rows[index]
-      if row.action then displayRuntime.runSettingsAction(row.action)
-      else displayRuntime.cycleSetting(row, direction) end
+      open(model.rows[index])
     end
     dirty = true
   end
@@ -13171,6 +13277,15 @@ return function(mod)
       end
       if not assist("item_radar") then radarOpen = false end
       displayRuntime.explorer.data = nil
+      if payload.key == "info_level" then
+        displayRuntime.pokedex.data, displayRuntime.pokedex.habitatPlan = nil, nil
+        displayRuntime.pokedex.view = "index"
+        displayRuntime.explorer.selected, displayRuntime.explorer.scanRevealed = nil, {}
+        displayRuntime.achievements.selected, displayRuntime.achievements.location = nil, nil
+        displayRuntime.achievements.view = "album"
+        displayRuntime.guideDetail = nil
+        radarOpen = false
+      end
       dirty = true
     end
   end

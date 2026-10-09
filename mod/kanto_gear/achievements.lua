@@ -168,6 +168,34 @@ function M.begin(groups, read, context, clock)
   end }
 end
 
+-- Present only disclosed tasks; keep the original tier earned from the complete
+-- save data. Filtering must never accidentally award a gold stamp.
+function M.presentArea(area, mode, visible)
+  if mode == "spoiler" then return area end
+  local out = {}
+  for key, value in pairs(area) do out[key] = value end
+  out.sections = {}
+  for category, source in ipairs(area.sections) do
+    local section = { rows = {}, done = 0, total = 0, unavailable = 0,
+      optional = 0, untracked = 0, excluded = 0, repeatable = 0 }
+    for _, row in ipairs(source.rows) do
+      if visible(row, category) then
+        section.rows[#section.rows + 1] = row
+        local state = row.state
+        if state == "optional" or state == "untracked" or state == "excluded" or state == "repeatable" then
+          section[state] = section[state] + 1
+        else
+          section.total = section.total + 1
+          if state == "done" then section.done = section.done + 1 end
+          if state == "unavailable" then section.unavailable = section.unavailable + 1 end
+        end
+      end
+    end
+    out.sections[category] = section
+  end
+  return out
+end
+
 function M.visible(result, mode)
   local areas, goals, earned = {}, {}, {}
   for _, area in ipairs(result.areas) do
@@ -188,7 +216,7 @@ end
 function M.visibleRows(area, category, mode)
   local rows = {}
   for _, row in ipairs(area.sections[category].rows) do
-    if mode == "spoiler" or row.state == "done" then rows[#rows + 1] = row end
+    if mode ~= "vanilla" or row.state == "done" then rows[#rows + 1] = row end
   end
   table.sort(rows, function(a, b)
     local order = { open = 1, later = 2, optional = 3, done = 4,

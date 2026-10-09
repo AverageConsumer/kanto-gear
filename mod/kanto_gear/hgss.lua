@@ -899,7 +899,7 @@ return function(ui)
         model.drawPokemon(entry, left + 26, top + 8, 20, not entry.caught)
       end
       if entry.caught then self:battleTeamBall(left + 63, top + 8, true) end
-      self:partyType(self:fitPartyType(entry.name or "---", 66),
+      self:partyType(self:fitPartyType(entry.revealed == false and "???" or entry.name or "---", 66),
         left + 3, top + 29, entry.caught and colors.ink or quiet, 66)
       self:endPress(pressed)
     end
@@ -2176,6 +2176,40 @@ return function(ui)
     end
   end
 
+  function H:settingsHelpLines(value)
+    local lines, buffer, space = {}, {}, nil
+    local function emit(chars)
+      local line = table.concat(chars):gsub("^%s+", ""):gsub("%s+$", "")
+      if line ~= "" then lines[#lines + 1] = line end
+    end
+    for _, char in ipairs(glyphs(displayText(value))) do
+      if char == "\n" then emit(buffer); buffer, space = {}, nil
+      else
+        while #buffer > 0 and fontWidth(partyTypeFont, table.concat(buffer) .. char) > 210 do
+          if space then
+            local tail, head = {}, {}
+            for index, glyph in ipairs(buffer) do
+              if index < space then head[#head + 1] = glyph
+              elseif index > space then tail[#tail + 1] = glyph end
+            end
+            emit(head); buffer = tail
+          else emit(buffer); buffer = {} end
+          space = nil
+        end
+        buffer[#buffer + 1] = char
+        if char == " " then space = #buffer end
+      end
+    end
+    emit(buffer)
+    return lines
+  end
+
+  function H:settingsChoiceTop(model)
+    local count = math.min(4, #model.choices - (model.page - 1) * 4)
+    local height = math.max(0, count * 25 - 3)
+    return 101 + math.floor(((model.pages > 1 and 97 or 110) - height) / 2)
+  end
+
   function H:settings(model)
     local colors = self.colors
     model = model or {}
@@ -2193,6 +2227,30 @@ return function(ui)
           colors.mutedInk, 188)
         self:detailChevron(221, y + 10, colors.ink, true)
         self:endPress(pressed)
+      end
+      return
+    end
+
+    if model.option then
+      self:panel(7, 34, 226, 62, false, nil, colors.surface)
+      local lines = self:settingsHelpLines(translate(model.description or ""))
+      local top = 33 + math.floor((62 - #lines * 9) / 2)
+      for index, line in ipairs(lines) do
+        self:partyType(line, 15, top + (index - 1) * 9, colors.ink, 210)
+      end
+      local first = (model.page - 1) * 4 + 1
+      for visible = 0, 3 do
+        local choice = model.choices[first + visible]
+        if choice then
+          local y, selected = self:settingsChoiceTop(model) + visible * 25, choice[2] == model.value
+          self:tab(7, y, 226, 22, translate(choice[1]), selected)
+        end
+      end
+      if model.pages > 1 then
+        self:panel(72, 202, 96, 12, false, nil, colors.greenLight)
+        self:pageChevron(88, 208, false)
+        self:partyType(model.page .. "/" .. model.pages, 104, 203, colors.ink, 32)
+        self:pageChevron(152, 208, true)
       end
       return
     end
@@ -2219,12 +2277,7 @@ return function(ui)
         else
           self:partyType(self:fitPartyType(value, 176), 32, y + 21, valueInk, 176)
         end
-        if row.action then
-          self:detailChevron(220, y + 22, ink)
-        elseif row.enabled ~= false then
-          self:pageChevron(20, y + 26, false, false)
-          self:pageChevron(220, y + 26, true, false)
-        end
+        self:detailChevron(220, y + 22, ink, true)
         self:endPress(pressed)
       end
     end
@@ -2244,6 +2297,18 @@ return function(ui)
       if x >= 7 and x < 233 and index >= 1
           and index <= #(model.categories or {}) and y >= top and y < top + 26
           then return "category", index end
+      return
+    end
+    if model.option then
+      if model.pages > 1 and y >= 202 and y < 214 then
+        if x >= 72 and x < 104 then return "prev" end
+        if x >= 136 and x < 168 then return "next" end
+      end
+      local top = self:settingsChoiceTop(model)
+      local visible = math.floor((y - top) / 25)
+      local index = (model.page - 1) * 4 + visible + 1
+      if x >= 7 and x < 233 and visible >= 0 and visible < 4
+          and y < top + 22 + visible * 25 and model.choices[index] then return "choice", index end
       return
     end
     if (model.pages or 1) > 1 and y >= 194 and y < 211 then
@@ -3608,8 +3673,8 @@ return function(ui)
         self:endPress(pressed)
       end
       if #model.rows == 0 then
-        self:partyInfo(translate(model.wildScope == "ROUTE"
-          and "NO WILD ENCOUNTERS" or "NOTHING HERE NOW"), 7, 180,
+        self:partyInfo(translate(model.emptyHint or (model.wildScope == "ROUTE"
+          and "NO WILD ENCOUNTERS" or "NOTHING HERE NOW")), 7, 180,
           colors.green, 226, "center")
       end
       return

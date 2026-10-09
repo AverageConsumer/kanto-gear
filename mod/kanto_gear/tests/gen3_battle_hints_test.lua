@@ -32,6 +32,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   for _, dex in ipairs({ 130, 19, 16, 43, 41, 25 }) do Party.giveMon(foes, Pokemon.speciesFromNational(dex), 20) end
   local mon = game.session.party[1]
   mon.moves, mon.pp = { 85, 53, 89, 237 }, { 15, 15, 10, 15 }
+  local api = up(display.saveHome, "mod")
   local options = run.loader.modOptions.kanto_gear
   options.info_level, options.ui_motion = "enhanced", false
   Stack.clear(); Message.reset()
@@ -45,9 +46,9 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.eq(moves[2].effectiveness, 5, "Fire has 1/2 base matchup against Water/Flying")
   T.eq(moves[3].effectiveness, 0, "Ground has zero base matchup against Flying")
   T.eq(moves[4].effectiveness, nil, "variable-type move does not advertise its placeholder type matchup")
-  options.info_level = "purist"
-  T.eq(hgss.battleMon().moves[1].effectiveness, nil, "Purist hides type hints")
-  options.info_level = "enhanced"
+  api.options:set("type_hints", false)
+  T.eq(hgss.battleMon().moves[1].effectiveness, nil, "Independent type helper can be disabled")
+  api.options:set("type_hints", true)
   st.double, st.battlers = true, { [0] = st.player, [1] = st.enemy,
     [3] = State.makeBattler(foes.party[4], "enemy", { id = 3, partyIndex = 4 }) }
   sync()
@@ -105,9 +106,9 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       theme.hgss.startMenu = function(self, view) model = view; return draw(self, view) end
       display.drawContents()
       T.check(model.entries[1].right:find("%%") ~= nil, "catch probability appears beside ball quantity")
-      options.info_level = "purist"; display.drawContents()
-      T.check(not model.entries[1].right:find("%%"), "Purist bag hides catch probability")
-      options.info_level = "enhanced"
+      api.options:set("catch_odds", false); display.drawContents()
+      T.check(not model.entries[1].right:find("%%"), "Independent catch helper hides catch probability")
+      api.options:set("catch_odds", true)
       theme.hgss.startMenu = draw
       NativeBag.close(); Stack.clear()
     end
