@@ -920,10 +920,19 @@ return function(ui)
       .. tostring(model.total or 0), 112, 37, colors.ink, 112, "right")
     local fraction = math.max(0, math.min(1,
       (tonumber(model.caught) or 0) / math.max(1, tonumber(model.total) or 1)))
-    border(12, 53, 212, 5, colors.outline)
-    box("fill", 13, 54, 210, 3, colors.silverDark)
-    box("fill", 13, 54, math.floor(210 * fraction + 0.5), 3,
-      colors.redLight)
+    if model.tools then
+      for index, tool in ipairs(model.tools) do
+        local x, y, w, h = PokedexPage.toolRect(index)
+        local pressed = self:beginPress(x, y, w, h, model.canUse ~= false)
+        self:panel(x, y, w, h, false, nil, colors.redLight)
+        self:partyInfoCentered(self:fitPartyInfo(translate(tool.label), w - 8), x + 4, y, w - 8, h, colors.ink)
+        self:endPress(pressed)
+      end
+    else
+      border(12, 53, 212, 5, colors.outline)
+      box("fill", 13, 54, 210, 3, colors.silverDark)
+      box("fill", 13, 54, math.floor(210 * fraction + 0.5), 3, colors.redLight)
+    end
 
     for index, entry in ipairs(model.entries or {}) do
       local left, top, width, height = PokedexPage.entryRect(index)
@@ -985,6 +994,16 @@ return function(ui)
       self:partyInfoCentered(model.descriptionPage .. "/" .. model.descriptionPages, 100, 141, 40, 8, colors.green)
     end
 
+    if model.actions then
+      for index, action in ipairs(model.actions) do
+        local x, y, w, h = PokedexPage.actionRect(index, #model.actions)
+        local pressed = self:beginPress(x, y, w, h, model.canUse ~= false and not action.inert)
+        self:homeTile(x, y, w, h, colors.red, false)
+        self:partyInfoCentered(self:fitPartyInfo(translate(action.label), w - 10), x + 5, y, w - 10, h, colors.ink)
+        self:endPress(pressed)
+      end
+      return
+    end
     local cards = {
       { "STATS", model.statsText or translate("BASE POWER"), colors.blue },
       { "HABITAT", model.habitatText or translate("WHERE TO FIND"), colors.green },

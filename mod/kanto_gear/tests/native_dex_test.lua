@@ -1,0 +1,200 @@
+local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
+local T = require("tests.modkit")
+local generation = assert(tonumber(arg[1]))
+local function up(fn, key)
+  for i = 1, debug.getinfo(fn, "u").nups do
+    local name, value = debug.getupvalue(fn, i)
+    if name == key then return value end
+  end
+end
+_G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
+  local Native = require(generation == 2 and "src.ui.gen2.PokedexMenu" or "src.ui.PokedexMenu")
+  local api, theme = up(display.saveHome, "mod"), up(display.drawContents, "THEME")
+  local originalTap, oldInput = api.input.tap, game.input
+  local compose
+  for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
+    if entry.owner == "kanto_gear" then compose = entry.callback end
+  end
+  local tap = up(up(compose, "touchEvent"), "tap")
+  local queued, closed = nil, 0
+  api.input.tap = function(_, target, key) T.eq(target, game, "Dex input retains its game identity"); queued = key end
+  local function tick(key)
+    game.input = { wasPressed = function(_, k) return k == key end, isDown = function() return false end }
+    game.stack:top():update(1 / 60)
+  end
+  local function view()
+    return assert(display.startMenu(), "native Dex has a companion projection")
+  end
+  local function click(x, y)
+    queued = nil; tap(x / 1.5, y / 1.5)
+    if queued then tick(queued) end
+    return queued
+  end
+  local oldPokemon, oldDex, oldGen2 = game.data.pokemon, game.save.pokedex, game.data.gen2Pokedex
+  local oldSize, oldText = game.data.constants.dexSize, game.data.text.DEX_TEXT
+  local pokemon, entries, order = {}, {}, {}
+  for i = 1, 14 do
+    local id = "DEX_FIX_" .. i
+    order[i] = id
+    pokemon[id] = { id = id, dex = i, name = "MON " .. i, types = { "NORMAL" },
+      baseStats = { hp = 20, attack = 30, defense = 40, special = 50, speed = 60 },
+      dexEntry = { kind = "TEST", heightFt = 1, heightIn = 2, weight = 120, text = "DEX_TEXT" } }
+    entries[id] = { dex = i, kind = "TEST", height = 102, weight = 120,
+      text = "FIRST<NEXT>NATIVE<NEXT>PAGE", text2 = "SECOND<NEXT>NATIVE<NEXT>PAGE" }
+  end
+  game.data.pokemon = pokemon
+  game.data.text.DEX_TEXT = "FIRST\nNATIVE\nPAGE\fSECOND\nNATIVE\nPAGE"
+  game.data.gen2Pokedex = { entries = entries, newOrder = order, alphabeticalOrder = order }
+  game.save.pokedex = { seen = {}, owned = {}, caught = {} }
+  for i, id in ipairs(order) do
+    game.save.pokedex.seen[id] = i ~= 2
+    game.save.pokedex.owned[id], game.save.pokedex.caught[id] = i == 1, i == 1
+  end
+  game.data.constants.dexSize = 14
+  for _, style in ipairs({ "hgss", "hgss_dark" }) do
+    run.loader.modOptions.kanto_gear.theme_v3 = style
+    run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3", value = style })
+    game.stack.states = { game.world }
+    local native = Native.new(game, { onClose = function() game.stack:pop(); closed = closed + 1 end,
+      onCancel = function() closed = closed + 1 end })
+    game.stack:push(native)
+    local list = view()
+    T.eq(list.dexModel.view, "index", "native catalogue uses the shared nine-card page")
+    T.eq(#list.dexModel.entries, 9, "first native window has nine actual rows")
+    T.eq(list.dexModel.total, 14, "native catalogue boundary is preserved")
+    T.eq(list.dexModel.caught, 1, "native ownership count is preserved")
+    T.eq(list.dexModel.entries[2].revealed, false, "unknown entries remain hidden")
+    local key = display.StartMenu.redrawKey(list)
+    T.eq(display.StartMenu.redrawKey(view()), key, "unchanged native Dex reuses its canvas")
+    T.eq(view().dex.entries,list.dex.entries,"unchanged catalogue reuses its projected rows")
+    T.check(pcall(display.drawContents), "native index renders in " .. style)
+    if generation == 2 then
+      local original, species = native.picFor, {}
+      native.picFor = function(self,id) species[#species+1]=id; return original(self,id) end
+      display.drawContents()
+      native.picFor = original
+      T.eq(species[1],order[1],"native Dex art resolver retains first-seen Unown/form hooks")
+      T.eq(#species,8,"unknown entries never ask the native art resolver for a portrait")
+    end
+    if _G.KANTO_GEAR_NATIVE_DEX_RENDER then _G.KANTO_GEAR_NATIVE_DEX_RENDER(display, style, "index") end
+    T.eq(click(120, 88), nil, "unknown native Pokemon cannot activate")
+    T.eq(native.index, 1, "unknown touch cannot move native focus")
+    T.eq(click(130, 13), nil, "touch pagination does not queue hardware input")
+    T.eq(native.index, 10, "forward pagination synchronizes the actual native cursor")
+    T.check(not list.valid(), "old list page rejects delayed touches")
+    T.eq(view().dexModel.page, 2, "second window follows native focus")
+    display.pageChoice(-1)
+    T.eq(native.index, 1, "reverse swipe restores the actual first native row")
+    click(43, 88)
+    local profile = view()
+    T.eq(profile.dexModel.pokemon.species, order[1], "native selection preserves the exact species")
+    T.eq(profile.dexModel.view, "profile", "native profile uses the shared renderer")
+    local actions = {}
+    for _, row in ipairs(profile.items) do actions[#actions + 1] = row.label end
+    if generation == 1 then
+      T.eq(#actions, #game.stack:top().items, "Gen1 retains its native side actions")
+      local x, y, w, h = display.PokedexPage.actionRect(1, #actions)
+      click(x + w / 2, y + h / 2)
+      local pending = view()
+      T.eq(display.StartMenu.cursor(pending), nil, "entry input waits for native portrait/cry")
+      T.check(display.StartMenu.cursor(pending, true), "waiting entry remains drawable")
+      T.eq(click(120, 182), nil, "waiting entry cannot queue a confirmation")
+      for _ = 1, 40 do tick() end
+      profile = view()
+      T.check(not pending.valid(), "waiting view cannot activate after readiness changes")
+      T.eq(#profile.items, 1, "Gen1 entry exposes only its native Continue action")
+    else
+      T.same(actions, { "PAGE", "AREA", "CRY", "PRNT" }, "Gen2 retains all four native profile actions")
+      T.eq(native.page, 1, "Gen2 starts on native description page one")
+      local x,y,w,h = display.PokedexPage.actionRect(1,4)
+      click(x+w/2,y+h/2)
+      T.eq(native.page, 2, "Page action changes the actual cart description page")
+      T.check(not profile.valid(), "old profile page rejects delayed touches")
+      T.eq(table.concat(view().dexModel.pokemon.description, " "), "SECOND NATIVE PAGE", "page two displays its own native text")
+      click(x+w/2,y+h/2)
+      T.eq(native.page, 1, "Page action returns to the first native page")
+      x,y,w,h = display.PokedexPage.actionRect(3,4)
+      click(x+w/2,y+h/2)
+      T.eq(native.view, "entry", "Cry stays on the original entry")
+    end
+    profile = view()
+    T.check(pcall(display.drawContents), "native profile renders in " .. style)
+    if _G.KANTO_GEAR_NATIVE_DEX_RENDER then _G.KANTO_GEAR_NATIVE_DEX_RENDER(display, style, "profile") end
+    T.check(profile.dexModel.pokemon.height ~= "--", "owned entry retains its actual measurement")
+    if generation == 1 then
+      click(120, 183)
+      T.eq(game.stack:top().page, 2, "Continue advances the actual native Gen1 page")
+      T.eq(table.concat(view().dexModel.pokemon.description, " "), "SECOND NATIVE PAGE.", "Gen1 page two retains native text and terminator")
+      click(120, 183)
+      T.eq(game.stack:top(), native, "Continue closes the final native entry page")
+    else
+      click(10,13)
+      T.eq(native.view, "list", "Back returns to the native catalogue")
+      click(43,88)
+      click(10,13)
+      click(60,56)
+      T.eq(native.view, "option", "visible Option action opens native sort choices")
+      T.eq(#view().items, #native:optionRows(), "locked Unown option is not fabricated")
+      click(120,77)
+      T.eq(native:mode(), "OLD", "sort choice executes the actual native option")
+      T.eq(native.view, "list", "native sort returns to its catalogue")
+      click(170,56)
+      T.eq(native.view, "search", "visible Search action opens the native filter")
+      local search = view()
+      if _G.KANTO_GEAR_NATIVE_DEX_RENDER then _G.KANTO_GEAR_NATIVE_DEX_RENDER(display, style, "search") end
+      T.eq(search.items[1].right, native:searchTypeName(1), "search displays the actual selected type")
+      local before = native.searchType[1]
+      click(120,45)
+      T.check(native.searchType[1] ~= before, "touch cycles the native type criterion")
+      T.check(not search.valid(), "old search criterion rejects delayed touches")
+      click(10,13)
+      T.eq(native.view, "list", "search cancel returns to the original catalogue")
+    end
+    -- Uncaught information stays hidden even when Gear's spoiler option is enabled.
+    native.index = 3
+    if native.ensureVisible then native:ensureVisible() else native:syncScroll() end
+    tick("a")
+    local hidden = view().dexModel.pokemon
+    T.eq(hidden.height, "--", "native seen-only entry hides measurements")
+    T.eq(#hidden.description, 0, "native seen-only entry hides description")
+    T.eq(game.save.pokedex.owned[order[3]], false, "projection never grants ownership")
+  end
+  for count = 1, 5 do
+    local model = { view = "profile", actions = {} }
+    for i = 1, count do model.actions[i] = { label = "ACTION" } end
+    for i = 1, count do
+      local x,y,w,h = display.PokedexPage.actionRect(i,count)
+      local hit, index = display.PokedexPage.hit(model,x+w/2,y+h/2)
+      T.eq(hit,"action","native action geometry accepts the visible button")
+      T.eq(index,i,"native action geometry identifies its exact slot")
+      T.eq(display.PokedexPage.hit(model,x-1,y+h/2),nil,"native action gap stays inert")
+    end
+  end
+  game.stack.states = { game.world }
+  local done = 0
+  if generation == 1 then
+    local Entry = require("src.ui.DexEntryMenu")
+    local entry = Entry.new(game, { species = order[3], forceOwned = true }, function() done = done + 1 end)
+    game.stack:push(entry)
+    for _ = 1, 40 do tick() end
+    T.check(view().dexModel.pokemon.height ~= "--", "scripted preview honors native forceOwned")
+    T.check(#view().dexModel.pokemon.description > 0, "scripted preview keeps its native description")
+    click(120,183);click(120,183)
+  else
+    local entry = Native.new(game,{ entrySpecies = order[1], newEntry = true,
+      onClose = function() game.stack:pop(); done = done + 1 end })
+    game.stack:push(entry)
+    T.eq(#view().items,1,"new registration only offers its native Continue action")
+    click(120,183)
+    T.eq(entry.page,2,"registration advances its actual second description page")
+    click(120,183)
+  end
+  T.eq(done,1,"final registration/preview page runs the original completion callback once")
+  T.eq(game.stack:top(),game.world,"completed entry restores the native world")
+  T.eq(game.save.pokedex.owned[order[3]],false,"scripted preview does not mutate ownership")
+  game.data.pokemon, game.save.pokedex, game.data.gen2Pokedex = oldPokemon, oldDex, oldGen2
+  game.data.constants.dexSize, game.data.text.DEX_TEXT = oldSize, oldText
+  game.input, api.input.tap = oldInput, originalTap
+end
+dofile(path .. "/tests/legacy_bag_test.lua")
+T.finish("Native Dex Gen " .. generation)

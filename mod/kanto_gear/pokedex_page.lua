@@ -10,6 +10,22 @@ function Page.cardRect(index)
   return 7 + (index - 1) * 77, 156, 72, 54
 end
 
+function Page.actionRect(index, count)
+  local columns = count <= 3 and count or count == 4 and 2 or 3
+  local rows = math.ceil(count / columns)
+  local gap = columns == 2 and 4 or 5
+  local width, height = math.floor((226 - (columns - 1) * gap) / columns), rows == 1 and 54 or 25
+  local row = math.floor((index - 1) / columns)
+  local visible = math.min(columns, count - row * columns)
+  gap = visible == 2 and 4 or gap
+  local left = math.floor((240 - (visible * width + (visible - 1) * gap)) / 2)
+  return left + (index - 1) % columns * (width + gap), 156 + row * 29, width, height
+end
+
+function Page.toolRect(index)
+  return 7 + (index - 1) * 115, 49, 111, 15
+end
+
 function Page.pagerRect(direction, description)
   return direction < 0 and 82 or 140, description and 140 or 199, 18, description and 11 or 12
 end
@@ -118,10 +134,19 @@ function Page.hit(model, x, y)
       if inside(x, y, Page.pagerRect(-1, true)) then return "description_prev" end
       if inside(x, y, Page.pagerRect(1, true)) then return "description_next" end
     end
-    for index, action in ipairs(Page.cards) do
-      if inside(x, y, Page.cardRect(index)) then return action end
+    if model.actions then
+      for index, action in ipairs(model.actions) do
+        if not action.inert and inside(x, y, Page.actionRect(index, #model.actions)) then return "action", index end
+      end
+    else
+      for index, action in ipairs(Page.cards) do
+        if inside(x, y, Page.cardRect(index)) then return action end
+      end
     end
   elseif model.view == "index" then
+    for index in ipairs(model.tools or {}) do
+      if inside(x, y, Page.toolRect(index)) then return "tool", index end
+    end
     for index, entry in ipairs(model.entries) do
       if entry.revealed ~= false and inside(x, y, Page.entryRect(index)) then return "species", index end
     end

@@ -2373,6 +2373,7 @@ return function(mod)
   displayRuntime.MovePage = assert(load(mod:read("move_page.lua"), "@kanto_gear/move_page.lua"))()
   displayRuntime.ItemPage = assert(load(mod:read("item_page.lua"), "@kanto_gear/item_page.lua"))()
   displayRuntime.PokedexPage = assert(load(mod:read("pokedex_page.lua"), "@kanto_gear/pokedex_page.lua"))()
+  displayRuntime.NativeDex = assert(load(mod:read("native_dex.lua"), "@kanto_gear/native_dex.lua"))()
   displayRuntime.SafariPage = assert(load(mod:read("safari_page.lua"), "@kanto_gear/safari_page.lua"))()
   THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
     graphics = G, box = box, text = text, fit = fit,
@@ -4570,7 +4571,7 @@ return function(mod)
     end
     local path, trueColor = PokemonSprites.path(
       game and game.data, species, side,
-      { kind = "summary", mon = mon })
+      { kind = mon and mon.spriteKind or "summary", mon = mon })
     if not path then return nil end
     local key = side .. ":" .. path
     if spriteCache[key] == nil then
@@ -4589,7 +4590,7 @@ return function(mod)
   local function drawSprite(species, side, x, y, maxW, maxH, tint,
                             mon, quiet, brightness)
     local image = mon and mon.presentationSprite
-    local trueColor = image ~= nil
+    local trueColor = image ~= nil and mon.presentationTrueColor ~= false
     mon = mon and (mon.source or mon)
     if not image then image, trueColor = sprite(species, side, mon) end
     if not image then
@@ -5027,6 +5028,24 @@ return function(mod)
   function displayRuntime.startMenu()
     local nativeTop = displayRuntime.gen3Ui and require("src.ui.game3.stack").top()
       or game and game.stack and game.stack:top()
+    displayRuntime.nativeDexView = THEME.style == "hgss" and displayRuntime.NativeDex.project(nativeTop, game,
+      displayRuntime.gen3Ui and 3 or compat.isGen2() and 2 or 1, displayRuntime.nativeDexView)
+    if displayRuntime.nativeDexView then
+      local view = displayRuntime.nativeDexView
+      view.dexModel = displayRuntime.NativeDex.model(view, displayRuntime.PokedexPage,
+        displayRuntime.pokedexPokemon, function(row, x, y, size)
+          if row.revealed == false then return false end
+          local native, portrait = view.owner, { spriteKind = "dex" }
+          if native.picFor then
+            portrait.presentationSprite, portrait.presentationTrueColor = native:picFor(row.species)
+          elseif native.species == row.species and native.sprite then
+            portrait.presentationSprite, portrait.presentationTrueColor = native.sprite, native.spriteTrueColor == true
+          end
+          return drawSprite(row.species, "front", x, y, size, size, nil, portrait, true)
+        end, function(value) return THEME:descriptionLines(value, 24, nil, 210) end)
+      if view.dexModel then view.items[1].right = displayRuntime.NativeDex.redrawKey(view.dexModel) end
+      return view
+    end
     displayRuntime.nativeTrainerView = THEME.style == "hgss" and displayRuntime.TrainerPage.project(nativeTop, game,
       displayRuntime.gen3Ui and 3 or compat.isGen2() and 2 or 1, displayRuntime.nativeTrainerView)
     if displayRuntime.nativeTrainerView then
@@ -5118,7 +5137,8 @@ return function(mod)
   end
 
   function displayRuntime.drawStartMenu(top)
-    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt and not top.nativeStats, top.nativePocket or top.trainer and top.trainer.pages > 1)
+    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt and not top.nativeStats,
+      top.nativePocket or top.trainer and top.trainer.pages > 1 or top.dexModel and top.dexModel.canCycle)
     local model = displayRuntime.startMenuModel(top)
     if battle and assist("catch_odds") then
       for _, entry in ipairs(model.entries) do
@@ -5128,7 +5148,9 @@ return function(mod)
     end
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if top.trainerModel then
+      if top.dexModel then
+        THEME.hgss:pokedex(top.dexModel)
+      elseif top.trainerModel then
         THEME.hgss:trainer(top.trainerModel)
       elseif top.optionsModel then
         displayRuntime.NativeOptions.draw(THEME.hgss, top.optionsModel)
@@ -8661,6 +8683,19 @@ return function(mod)
     return plan
   end
 
+  function displayRuntime.pokedexPokemon(species, name)
+    local info = compat.enemyInfo({ species = species, name = name }, game.data, game.save)
+    info.type = info.types[1] or "NORMAL"
+    info.type2 = info.types[2] or info.type
+    info.typeLabel = THEME:typeName(info.type, mod.content)
+    info.type2Label = THEME:typeName(info.type2, mod.content)
+    info.kind = info.kind or THEME:translate("UNKNOWN")
+    info.height, info.weight = info.heightValue or "--", info.weightValue or "--"
+    if info.descriptionText then info.description = THEME:descriptionLines(info.descriptionText, 24, nil, 210) end
+    if #info.description == 0 then info.description = { THEME:translate("NO RESEARCH DATA AVAILABLE.") } end
+    return info
+  end
+
   function displayRuntime.pokedexModel()
     local state, dex = displayRuntime.pokedex, displayRuntime.pokedexData()
     if not state.selected and dex.entries[1] then
@@ -8689,21 +8724,8 @@ return function(mod)
       return displayRuntime.pokedexModel()
     end
     local def = game.data.pokemon[selected.species] or {}
-    local info = compat.enemyInfo({ species = selected.species,
-      name = selected.name }, game.data, game.save)
-    info.index, info.type = selected.index, info.types[1] or "NORMAL"
-    info.type2 = info.types[2] or info.type
-    info.typeLabel = THEME:typeName(info.type, mod.content)
-    info.type2Label = THEME:typeName(info.type2, mod.content)
-    info.kind = info.kind or THEME:translate("UNKNOWN")
-    info.height = info.heightValue or "--"
-    info.weight = info.weightValue or "--"
-    if info.descriptionText then
-      info.description = THEME:descriptionLines(info.descriptionText, 24, nil, 210)
-    end
-    if #info.description == 0 then
-      info.description = { THEME:translate("NO RESEARCH DATA AVAILABLE.") }
-    end
+    local info = displayRuntime.pokedexPokemon(selected.species, selected.name)
+    info.index = selected.index
     local stats, bst = displayRuntime.PokedexPage.stats(def.baseStats or {}, compat.isGen2() or displayRuntime.gen3 ~= nil)
     local moves = displayRuntime.pokedexMoveRows(def)
     local habitat = Discovery.filter(selected.habitat and selected.habitat.appearances, function(row)
@@ -11688,6 +11710,20 @@ return function(mod)
 
   function displayRuntime.tapStartMenu(top, x, y)
     if not displayRuntime.StartMenu.cursor(top) then return end
+    if top.dexModel and THEME.style == "hgss" then
+      local action, index = displayRuntime.PokedexPage.hit(top.dexModel, x * THEME.hgssScale, y * THEME.hgssScale)
+      if action == "back" then press("b")
+      elseif action == "tool" then press(top.dexModel.tools[index].key)
+      elseif action == "action" and displayRuntime.StartMenu.select(top, index) then press("a")
+      elseif action == "species" and displayRuntime.StartMenu.select(top, top.dexModel.entries[index].index) then press("a")
+      elseif action == "prev" or action == "next" then
+        displayRuntime.NativeDex.page(top, action == "next" and 1 or -1)
+      elseif action == "description_prev" or action == "description_next" then
+        displayRuntime.PokedexPage.cycleDescription(top, top.dexModel, action == "description_next" and 1 or -1)
+      end
+      if action then dirty = true end
+      return
+    end
     if top.trainer and THEME.style == "hgss" then
       local action = displayRuntime.TrainerPage.hit(x * THEME.hgssScale, y * THEME.hgssScale, top.trainer.pages)
       local key = action == "back" and "b" or type(action) == "number" and top.nextKey(action)
@@ -12557,6 +12593,10 @@ return function(mod)
     local native = displayRuntime.startMenu()
     if native and not native.choiceState then
       local menu = displayRuntime.StartMenu
+      if native.dexModel then
+        if direction and displayRuntime.NativeDex.page(native, direction) then dirty = true end
+        return true
+      end
       if native.trainer then
         if direction and menu.cursor(native) then
           local key = native.nextKey(direction)
