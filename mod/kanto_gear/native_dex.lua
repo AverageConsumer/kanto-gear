@@ -46,6 +46,25 @@ local function describe(top, game, generation, previous)
         signature = areaKey .. ":" .. tostring(unlocked), region = region:upper(), compactActions = true,
         actions = { { label = "JOHTO", key = "left", inert = region == "johto" },
           { label = "KANTO", key = "right", inert = region == "kanto" or not unlocked }, { label = "ENTRY", key = "b" } } }
+    elseif top.view == "unown" then
+      local Unown = require("src.core.gen2.Unown")
+      local forms = top:unownDex()
+      return { kind = "forms", rows = forms, signature = table.concat(forms, ","),
+        region = require("src.core.Strings")(top.OPTION_MODES[4].label), caught = #forms,
+        cursor = function() return (top.unownIndex or 0) + 1 end,
+        select = function(index) top.unownIndex = index - 1 end,
+        portrait = function(_, letter)
+          local path = Unown.formSprite(top.pokemon, letter, false)
+          if not path then return end
+          local trueColor
+          path, trueColor = require("src.pokemon.Sprites").pic(path,
+            { species = Unown.SPECIES, side = "front", kind = "dex", letter = letter, data = game.data })
+          if top.picCache[path] == nil then
+            local ok, image = pcall(require("src.render.Assets").image, path)
+            top.picCache[path] = ok and image or false
+          end
+          return top.picCache[path] or nil, trueColor
+        end }
     elseif top.view == "option" then
       local rows = {}
       for _, row in ipairs(top:optionRows()) do rows[#rows + 1] = { label = require("src.core.Strings")(row.label) } end
@@ -74,6 +93,29 @@ local function describe(top, game, generation, previous)
     return { kind = "profile", species = top.species, owned = owned and not waiting and not crying,
       page = top.page, description = pages[top.page] or "", waiting = waiting, crying = crying,
       actions = { { label = "CONTINUE" } } }
+  elseif getmetatable(top) == require("src.ui.TownMap") and top.nestSpecies then
+    local areaKey = tostring(top) .. ":" .. tostring(top.bg) .. ":" .. tostring(top.nests)
+    local area = previous and previous.dex.areaKey == areaKey and previous.dex.area
+    if not area then
+      local markers = {}
+      for _, loc in ipairs(top.nests or {}) do
+        if loc.x and loc.y then markers[#markers + 1] = { x = loc.x * 8 + 20, y = loc.y * 8 + 12 } end
+      end
+      local bg = top.bg
+      area = { x = 0, y = 8, width = 160, height = 136, markers = markers,
+        available = top.mode == "grid" and bg ~= nil, unknown = #markers == 0,
+        draw = function()
+          love.graphics.setColor(1, 1, 1, 1)
+          for i, tile in ipairs(bg.map) do
+            love.graphics.draw(bg.img, bg.quads[tile], (i - 1) % 20 * 8, math.floor((i - 1) / 20) * 8)
+          end
+        end }
+      local loc = top.playerLoc
+      if #markers > 0 and loc and loc.x and loc.y then area.player = { x = loc.x * 8 + 20, y = loc.y * 8 + 12 } end
+    end
+    return { kind = "area", species = top.nestSpecies, owned = (game.save.pokedex.owned or {})[top.nestSpecies],
+      area = area, areaKey = areaKey, signature = areaKey, region = "KANTO", compactActions = true,
+      actions = { { label = "ENTRY", key = "b" } } }
   elseif getmetatable(top) == require("src.ui.Menu") then
     local parent = game.stack.states[#game.stack.states - 1]
     if parent and getmetatable(parent) == require("src.ui.PokedexMenu") and parent.hollowIndex then
@@ -90,8 +132,8 @@ local function key(top, state)
   return table.concat({ tostring(top), state.kind, tostring(state.species), tostring(state.page),
     tostring(state.owned), tostring(state.waiting), tostring(state.crying), tostring(state.description),
     tostring(state.search1), tostring(state.search2), tostring(state.notice), tostring(state.signature),
-    state.kind == "index" and tostring(state.rows) or "",
-    state.kind == "index" and tostring(math.floor(((state.cursor and state.cursor() or top[state.field]) - 1) / 9)) or "" }, ":")
+    (state.kind == "index" or state.kind == "forms") and tostring(state.rows) or "",
+    (state.kind == "index" or state.kind == "forms") and tostring(math.floor(((state.cursor and state.cursor() or top[state.field]) - 1) / 9)) or "" }, ":")
 end
 
 function Dex.project(top, game, generation, previous)
@@ -101,7 +143,7 @@ function Dex.project(top, game, generation, previous)
   local view = previous
   if not view or view.nativeKey ~= nativeKey then
     view = { screenId = "CompanionMenu", title = state.title or "POKEDEX", nativeKey = nativeKey,
-      owner = top, fixedLayout = state.fixedLayout or state.actions ~= nil or state.kind == "index", back = state.back, update = function() end }
+      owner = top, fixedLayout = state.fixedLayout or state.actions ~= nil or state.kind == "index" or state.kind == "forms", back = state.back, update = function() end }
     view.valid = function(preview)
       if generation == 3 then
         if require("src.ui.game3.stack").top() ~= top then return false end
@@ -123,7 +165,15 @@ function Dex.project(top, game, generation, previous)
       else rawset(t, name, value) end
     end })
   end
-  if state.kind == "index" and view.dex then
+  if state.kind == "forms" then
+    local Unown = require("src.core.gen2.Unown")
+    state.entries, view.items = {}, {}
+    for i, letter in ipairs(state.rows) do
+      state.entries[i] = { index = i, species = Unown.SPECIES, letter = letter,
+        name = Unown.word(letter), seen = true, caught = true, revealed = true, selected = view.index == i }
+      view.items[i] = { label = Unown.name(letter) or "?" }
+    end
+  elseif state.kind == "index" and view.dex then
     state.entries, state.caught = view.dex.entries, view.dex.caught
   elseif state.kind == "index" then
     if generation == 2 then local _, caught = top:totals(); state.caught = caught end
@@ -153,12 +203,12 @@ end
 
 function Dex.model(view, Page, pokemon, drawPokemon, lines)
   local state = view.dex
-  if state.kind == "index" then
+  if state.kind == "index" or state.kind == "forms" then
     local number = math.max(1, math.ceil(view.index / 9))
     local entries, page, pages = Page.window(state.entries, number, 9)
     if state.number then page, pages = state.number, state.pages end
-    return { view = "index", entries = entries, page = page, pages = pages, canCycle = pages > 1,
-      total = #state.entries, caught = state.caught, region = state.region, tools = state.tools,
+    return { view = "index", forms = state.kind == "forms", entries = entries, page = page, pages = pages, canCycle = pages > 1,
+      total = state.kind == "forms" and 26 or #state.entries, caught = state.caught, region = state.region, tools = state.tools,
       drawPokemon = drawPokemon, canUse = view.valid() }
   elseif state.kind == "profile" or state.kind == "cry" or state.kind == "size" or state.kind == "area" then
     local info = pokemon(state.species)
@@ -190,7 +240,7 @@ function Dex.model(view, Page, pokemon, drawPokemon, lines)
 end
 
 function Dex.page(view, direction)
-  if not view.valid() or view.dex.kind ~= "index" or direction ~= 1 and direction ~= -1 then return false end
+  if not view.valid() or view.dex.kind ~= "index" and view.dex.kind ~= "forms" or direction ~= 1 and direction ~= -1 then return false end
   if view.dex.cycle then
     if view.dex.pages <= 1 then return false end
     view.dex.cycle(direction); return true
@@ -217,6 +267,7 @@ function Dex.redrawKey(model)
   for _, line in ipairs(mon.description or {}) do parts[#parts + 1] = line end
   for _, row in ipairs(model.entries or {}) do
     parts[#parts + 1] = tostring(row.species) .. tostring(row.name) .. tostring(row.revealed) .. tostring(row.caught)
+      .. tostring(row.letter) .. tostring(row.selected)
   end
   return table.concat(parts, "\31")
 end

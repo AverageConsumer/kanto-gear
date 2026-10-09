@@ -280,6 +280,17 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   H:setTouch((x+w/2)/1.5,(y+h/2)/1.5,true)
   H:pokedexActions({actions={{label="CRY"},{label="SIZE",inert=true}}})
   T.eq(presses,0,"static and disabled pager regions never animate")
+  local forms={view="index",forms=true,caught=1,total=26,entries={
+    {species="UNOWN",name="ANGRY",letter=1,revealed=true,caught=true,selected=true} }}
+  local x,y,w,h=Page.entryRect(1,1)
+  H:setTouch((x+w/2)/1.5,(y+h/2)/1.5,true)
+  H:pokedex(forms)
+  T.eq(Page.hit(forms,x+w/2,y+h/2),nil,"selected Unown form has no redundant touch action")
+  T.eq(presses,0,"selected Unown form never animates")
+  forms.entries[1].selected=false
+  H:pokedex(forms)
+  T.eq(Page.hit(forms,x+w/2,y+h/2),"species","another Unown form is selectable")
+  T.eq(presses,1,"another Unown form keeps touch feedback")
   H.beginPress=begin;H:setTouch(nil,nil,true)
   local stats, bst = Page.stats({ hp=10, attack=20, defense=30, special=40, speed=50 }, false)
   T.eq(#stats, 5, "Gen1 has one Special stat")

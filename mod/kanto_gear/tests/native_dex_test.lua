@@ -95,6 +95,57 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       T.eq(#actions, #game.stack:top().items, "Gen1 retains its native side actions")
       T.eq(table.concat(profile.dexModel.pokemon.description," "),"FIRST NATIVE PAGE SECOND NATIVE PAGE",
         "Gen1 native form-feed separates words in the common profile")
+      local oldTownMap, oldEncounters = game.data.field.townMap, game.data.encounters
+      game.data.field.townMap = { background = oldTownMap and oldTownMap.background, locations = {
+        AREA_FIX_1 = { name = "ROUTE 1", x = 3, y = 4 },
+        AREA_FIX_2 = { name = "ROUTE 1", x = 3, y = 4 },
+        AREA_FIX_3 = { name = "ROUTE 2", x = 5, y = 8 },
+        AREA_FIX_SKIP = { name = "UNKNOWN", x = 9, y = 1 } } }
+      game.data.encounters = {}
+      for _, id in ipairs({ "AREA_FIX_1", "AREA_FIX_2", "AREA_FIX_3", "AREA_FIX_SKIP" }) do
+        game.data.encounters[id] = { grass = { slots = { { species = order[1] } } } }
+      end
+      local x,y,w,h = display.PokedexPage.actionRect(3,#actions)
+      click(x+w/2,y+h/2)
+      local area, atlas = view(), game.stack:top()
+      T.eq(area.dexModel.view,"area","Gen1 native nests use the shared habitat page")
+      T.eq(#area.dexModel.area.markers,2,"native nests retain deduplication and excluded map cells")
+      local coords = {}
+      for _, mark in ipairs(area.dexModel.area.markers) do coords[mark.x..":"..mark.y] = true end
+      T.check(coords["44:44"] and coords["60:76"],"Gen1 markers use the center of the native nest icon")
+      T.eq(view().dexModel.area,area.dexModel.area,"unchanged native nest data reuses its projection")
+      local stable = display.StartMenu.redrawKey(area)
+      for _=1,40 do tick() end
+      T.eq(display.StartMenu.redrawKey(view()),stable,"native nest blinking does not redraw the companion atlas")
+      T.eq(click(120,128),nil,"Gen1 habitat artwork has no hidden action")
+      T.check(pcall(display.drawContents),"Gen1 native habitat renders in "..style)
+      if _G.KANTO_GEAR_NATIVE_DEX_RENDER then _G.KANTO_GEAR_NATIVE_DEX_RENDER(display,style,"area") end
+      local oldBg, drawn = atlas.bg, 0
+      atlas.bg = { img = {}, quads = { [0] = {} }, map = {} }
+      for i=1,360 do atlas.bg.map[i] = 0 end
+      local oldDraw = love.graphics.draw
+      love.graphics.draw = function(img,quad,tx,ty)
+        T.eq(img,atlas.bg.img,"native habitat retains its original texture")
+        T.eq(quad,atlas.bg.quads[0],"native habitat retains its original tile")
+        T.eq(tx,(drawn%20)*8,"native habitat tile column is unchanged")
+        T.eq(ty,math.floor(drawn/20)*8,"native habitat tile row is unchanged")
+        drawn=drawn+1
+      end
+      view().dexModel.area.draw()
+      love.graphics.draw, atlas.bg = oldDraw, oldBg
+      T.eq(drawn,360,"Gen1 atlas draws the complete native tilemap")
+      atlas.nests={}
+      T.eq(view().dexModel.area.unknown,true,"empty native nests show unknown instead of inventing locations")
+      atlas.bg=nil
+      T.eq(view().dexModel.area.available,false,"missing native artwork stays unavailable")
+      x,y,w,h=display.PokedexPage.actionRect(1,1,true)
+      T.eq(click(x+w/2,y+h/2),"b","Gen1 Entry follows the native map close handler")
+      T.eq(game.stack:top(),native,"Gen1 habitat returns to its catalogue")
+      T.check(not area.valid(),"closed native area rejects delayed touch input")
+      game.data.field.townMap,game.data.encounters=oldTownMap,oldEncounters
+      local plain = require("src.ui.TownMap").new(game)
+      T.eq(display.NativeDex.project(plain,game,1),nil,"normal and Fly maps are not mistaken for Dex nests")
+      click(43,88)
       local x, y, w, h = display.PokedexPage.actionRect(1, #actions)
       click(x + w / 2, y + h / 2)
       local pending = view()
@@ -208,6 +259,66 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       T.check(not search.valid(), "old search criterion rejects delayed touches")
       click(10,13)
       T.eq(native.view, "list", "search cancel returns to the original catalogue")
+      local Unown = require("src.core.gen2.Unown")
+      local oldFlags,oldForms = game.save.engineFlags,game.save.unownDex
+      game.save.engineFlags = { [Unown.ENGINE_UNOWN_DEX] = true }
+      game.save.unownDex = { 26,1,3,7,9,11,15,17,19,21,23,25 }
+      pokemon.UNOWN = oldPokemon.UNOWN or { id="UNOWN",name="UNOWN",types={"PSYCHIC"} }
+      click(60,56)
+      click(120,139)
+      local forms=view()
+      T.eq(native.view,"unown","unlocked native option opens actual Unown mode")
+      T.eq(forms.dexModel.forms,true,"Unown forms use the common touch grid")
+      T.eq(forms.dexModel.entries[1].letter,26,"form catalogue retains catching order, not alphabet order")
+      T.eq(forms.dexModel.entries[1].name,Unown.word(26),"form cards retain their native words")
+      T.eq(forms.dexModel.caught,12,"Unown counter counts caught forms")
+      T.eq(forms.dexModel.total,26,"Unown counter uses the full Gen2 alphabet")
+      local Sprites,Assets=require("src.pokemon.Sprites"),require("src.render.Assets")
+      local oldPic,oldImage=Sprites.pic,Assets.image
+      local oldArt=pokemon.UNOWN.letters
+      pokemon.UNOWN.letters={ Z={spriteFront="test-unown-z.png"}, A={spriteFront="test-unown-a.png"} }
+      local requested={}
+      Sprites.pic=function(path,ctx)
+        requested[#requested+1]={path=path,letter=ctx.letter,kind=ctx.kind}
+        return path..".hooked",true
+      end
+      Assets.image=function(path) return {path=path} end
+      local z,tc=forms.dex.portrait("UNOWN",26)
+      local a=forms.dex.portrait("UNOWN",1)
+      T.eq(z.path,"test-unown-z.png.hooked","form portrait uses the exact form and preserves sprite mod hooks")
+      T.eq(a.path,"test-unown-a.png.hooked","different forms cannot share the species portrait")
+      T.eq(requested[1].letter,26,"sprite hook receives the actual letter")
+      T.eq(requested[1].kind,"dex","form portrait retains its native sprite context")
+      T.eq(tc,true,"true-color form hook retains its palette contract")
+      Sprites.pic,Assets.image=oldPic,oldImage
+      native.picCache["test-unown-z.png.hooked"],native.picCache["test-unown-a.png.hooked"]=nil,nil
+      pokemon.UNOWN.letters=oldArt
+      local stable=display.StartMenu.redrawKey(forms)
+      T.eq(display.StartMenu.redrawKey(view()),stable,"unchanged forms keep their canvas")
+      T.eq(click(43,88),nil,"current form is inert")
+      T.eq(click(120,88),nil,"form selection does not send A, which would exit Unown mode")
+      T.eq(native.unownIndex,1,"form touch synchronizes the zero-based native cursor")
+      T.eq(native.view,"unown","selecting a form leaves the native form page open")
+      T.check(display.StartMenu.redrawKey(view())~=stable,"selected form refreshes the selected border")
+      T.check(pcall(display.drawContents),"Unown forms render in "..style)
+      if _G.KANTO_GEAR_NATIVE_DEX_RENDER then _G.KANTO_GEAR_NATIVE_DEX_RENDER(display,style,"forms") end
+      display.pageChoice(1)
+      T.eq(native.unownIndex,9,"pagination keeps the actual native form cursor in its visible page")
+      T.eq(#view().dexModel.entries,3,"last form page has only the caught entries")
+      T.check(not forms.valid(),"old form page rejects delayed touches")
+      tick("right")
+      T.eq(view().dexModel.entries[2].selected,true,"hardware input and companion highlight stay synchronized")
+      game.save.unownDex={}
+      native.unownIndex=0
+      local empty=view()
+      T.eq(#empty.dexModel.entries,0,"empty unlocked form mode invents no caught form")
+      T.eq(empty.dexModel.canCycle,false,"empty form mode has no pagination")
+      T.check(pcall(display.drawContents),"empty form mode stays drawable")
+      click(10,13)
+      T.eq(native.view,"option","Back uses the actual native form return route")
+      click(10,13)
+      game.save.engineFlags,game.save.unownDex=oldFlags,oldForms
+      pokemon.UNOWN=nil
     end
     -- Uncaught information stays hidden even when Gear's spoiler option is enabled.
     native.index = 3

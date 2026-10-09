@@ -936,13 +936,15 @@ return function(ui)
 
     for index, entry in ipairs(model.entries or {}) do
       local left, top, width, height = PokedexPage.entryRect(index, #model.entries)
-      local pressed = self:beginPress(left, top, width, height, entry.revealed ~= false and model.canUse ~= false)
+      local pressed = self:beginPress(left, top, width, height,
+        entry.revealed ~= false and model.canUse ~= false and not (model.forms and entry.selected))
       local entryAccent = entry.caught and colors.greenLight
         or entry.seen and colors.blueLight or colors.silverDark
       self:panel(left, top, width, height, entry.selected, colors.redLight,
         entryAccent)
-      self:partyInfoCentered(("%03d"):format(tonumber(entry.dex) or 0), left + 2, top + 2, 24, 8, quiet)
-      color(entry.caught and colors.bandLight
+      self:partyInfoCentered(entry.letter and string.char(64 + entry.letter)
+        or ("%03d"):format(tonumber(entry.dex) or 0), left + 2, top + 2, 24, 8, quiet)
+      color(model.forms and colors.silver or entry.caught and colors.bandLight
         or mixed(colors.surface, colors.redLight, self.dark and 0.18 or 0.10))
       G.circle("fill", left + 36, top + 18, 11)
       color(colors.outline); G.circle("line", left + 36, top + 18, 11)

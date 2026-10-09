@@ -1,4 +1,5 @@
 return {
+  ["UNOWN MODE"] = false,
   ["YOUR SIDE"] = false,
   ["CHOOSE TARGET"] = false,
   ["EVOLUTION"] = false,

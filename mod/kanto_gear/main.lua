@@ -5046,7 +5046,9 @@ return function(mod)
           if row.revealed == false then return false end
           local native, portrait = view.owner, { spriteKind = "dex" }
           if view.dex.portrait then
-            portrait.presentationSprite, portrait.presentationTrueColor = view.dex.portrait(row.species), true
+            portrait.presentationSprite, portrait.presentationTrueColor = view.dex.portrait(row.species, row.letter)
+            if portrait.presentationTrueColor == nil then portrait.presentationTrueColor = true end
+            if row.letter and not portrait.presentationSprite then return false end
           elseif native.picFor then
             portrait.presentationSprite, portrait.presentationTrueColor = native:picFor(row.species)
           elseif native.species == row.species and native.sprite then
@@ -11786,7 +11788,8 @@ return function(mod)
       if action == "back" then press("b")
       elseif action == "tool" then press(top.dexModel.tools[index].key)
       elseif action == "action" and displayRuntime.StartMenu.select(top, index) then press(top.actionKey(index))
-      elseif action == "species" and displayRuntime.StartMenu.select(top, top.dexModel.entries[index].index) then press("a")
+      elseif action == "species" and displayRuntime.StartMenu.select(top, top.dexModel.entries[index].index) then
+        if not top.dexModel.forms then press("a") end
       elseif action == "prev" or action == "next" then
         displayRuntime.NativeDex.page(top, action == "next" and 1 or -1)
       elseif action == "description_prev" or action == "description_next" then

@@ -184,7 +184,8 @@ function Page.hit(model, x, y)
       if inside(x, y, Page.toolRect(index)) then return "tool", index end
     end
     for index, entry in ipairs(model.entries) do
-      if entry.revealed ~= false and inside(x, y, Page.entryRect(index, #model.entries)) then return "species", index end
+      if entry.revealed ~= false and not (model.forms and entry.selected)
+          and inside(x, y, Page.entryRect(index, #model.entries)) then return "species", index end
     end
   end
   if model.canCycle and (model.view == "index" or model.view == "moves" or model.view == "habitat" or model.view == "evolutions") then
