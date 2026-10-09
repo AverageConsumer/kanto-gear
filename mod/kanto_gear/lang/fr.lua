@@ -872,4 +872,5 @@ return {
   ["TOUGH"] = "TOUGH",
   ["LAST USED"] = false,
   ["SOLD OUT"] = "ÉPUISÉ",
+  ["NO RECORDS YET"] = "AUCUN RECORD",
 }

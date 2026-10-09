@@ -822,4 +822,5 @@ return {
   ["NO SPACE"] = "ひろさくない",
   ["LAST USED"] = false,
   ["SOLD OUT"] = false,
+  ["NO RECORDS YET"] = false,
 }

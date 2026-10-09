@@ -125,6 +125,42 @@ function Gen3:itemIcon(id)
   return cached
 end
 
+function Gen3:drawBadge(g, index, cx, cy, owned)
+  local Kit = require("src.ui.game3.rse.scene_kit")
+  local image
+  if self.profile.id == "emerald" then
+    local m = Kit.manifest("rse/trainer_card")
+    image = m and m.badges and Kit.image(m.badges.png)
+  else image = Kit.rgbaImage("data/generated/gba/trainer_card/badges.rgba", 128, 16) end
+  if not image then return false end
+  if not self.badgeAtlas or self.badgeAtlas.image ~= image then
+    local w, h = image:getDimensions()
+    local quads = {}
+    for i = 1, 8 do quads[i] = love.graphics.newQuad((i - 1) * 16, 0, 16, 16, w, h) end
+    self.badgeAtlas = { image = image, quads = quads }
+  end
+  g.setColor(1, 1, 1, owned and 1 or 0.25)
+  g.draw(image, self.badgeAtlas.quads[index], cx - 7, cy - 7, 0, 0.875, 0.875)
+  return true
+end
+
+function Gen3:trainerCardData(native)
+  local session = self.session
+  local card = native.cardData(session)
+  if self.profile.id == "emerald" and native.backTextsRse then
+    -- The host exports the FRLG gatherer; these extra RSE records live in the session.
+    local function stat(id, key, cap)
+      local stats = session.gameStats
+      local value = type(stats) == "table" and (stats[id] or stats[key]) or session[key]
+      return math.min(cap, math.max(0, math.floor(tonumber(value) or 0)))
+    end
+    card.pokeblocksWithFriends = stat(34, "pokeblocksWithFriends", 65535)
+    card.contestsWithFriends = stat(35, "contestsWithFriends", 999)
+    card.frontierBP = tonumber((session.frontier or {}).cardBattlePoints) or 0
+  end
+  return card
+end
+
 function Gen3:types(source)
   local out = {}
   for _, id in ipairs(source or {}) do

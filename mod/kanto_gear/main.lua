@@ -2420,6 +2420,9 @@ return function(mod)
     "@kanto_gear/touch_guard.lua"))().new()
   displayRuntime.StartMenu = assert(load(mod:read("start_menu.lua"),
     "@kanto_gear/start_menu.lua"))()
+  displayRuntime.TrainerPage = assert(load(mod:read("trainer_page.lua"),
+    "@kanto_gear/trainer_page.lua"))()
+  displayRuntime.trainerPage = 1
   displayRuntime.NativeOptions = assert(load(mod:read("native_options.lua"),
     "@kanto_gear/native_options.lua"))()
   displayRuntime.LegacyPC = assert(load(mod:read("legacy_pc.lua"),
@@ -3570,11 +3573,11 @@ return function(mod)
     }
   end
 
-  function displayRuntime.trainerSummary()
+  function displayRuntime.trainerSummary(shownRegion)
     local save, player = game.save or {}, game.save and game.save.player or {}
     local elapsed = math.max(0, math.floor(compat.playSeconds(save)))
     local dex = displayRuntime.pokedexData()
-    local region = (compat.currentRegion() or "kanto"):upper()
+    local region = (shownRegion or compat.currentRegion() or "kanto"):upper()
     local held, badges = player.badges or {}, {}
     if displayRuntime.gen3 then
       for index = 1, 8 do badges[index] = displayRuntime.gen3:badge(index) end
@@ -3594,6 +3597,16 @@ return function(mod)
     for _, owned in ipairs(badges) do
       if owned then badgeCount = badgeCount + 1 end
     end
+    local totalCount, totalBadges = badgeCount, #badges
+    if compat.isGen2() then
+      totalCount, totalBadges = 0, 16
+      for _, name in ipairs({ "johto", "kanto" }) do
+        local flags = name == "kanto" and (player.kantoBadges or {}) or (player.badges or {})
+        for index, id in ipairs(THEME.gen2Badges[name]) do
+          if flags[id] or flags[index] then totalCount = totalCount + 1 end
+        end
+      end
+    end
     local money = tonumber(player.money or save.money) or 0
     local moneyShort = money >= 1000000
       and THEME:format("¥%.1fM", money / 1000000)
@@ -3608,7 +3621,7 @@ return function(mod)
         math.floor(elapsed / 60) % 60),
       pokedex = THEME:format("%d/%d", dex.caught or 0, dex.total or 0),
       badgeOwned = badges, badgeCount = badgeCount,
-      badgeTotal = #badges,
+      badgeTotal = #badges, badgeText = THEME:format("%d/%d", totalCount, totalBadges), badgeRegion = region,
     }
   end
 
@@ -5013,6 +5026,14 @@ return function(mod)
   function displayRuntime.startMenu()
     local nativeTop = displayRuntime.gen3Ui and require("src.ui.game3.stack").top()
       or game and game.stack and game.stack:top()
+    displayRuntime.nativeTrainerView = THEME.style == "hgss" and displayRuntime.TrainerPage.project(nativeTop, game,
+      displayRuntime.gen3Ui and 3 or compat.isGen2() and 2 or 1, displayRuntime.nativeTrainerView)
+    if displayRuntime.nativeTrainerView then
+      local view = displayRuntime.nativeTrainerView
+      view.trainerModel = displayRuntime.trainerModel(view.trainer)
+      view.items[1].right = displayRuntime.TrainerPage.key(view.trainerModel)
+      return view
+    end
     displayRuntime.nativeOptionsView = THEME.style == "hgss" and displayRuntime.NativeOptions.project(nativeTop, game,
       displayRuntime.gen3Ui and 3 or compat.isGen2() and 2 or 1, displayRuntime.nativeOptionsView)
     if displayRuntime.nativeOptionsView then return displayRuntime.nativeOptionsView end
@@ -5096,7 +5117,7 @@ return function(mod)
   end
 
   function displayRuntime.drawStartMenu(top)
-    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt and not top.nativeStats, top.nativePocket)
+    header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt and not top.nativeStats, top.nativePocket or top.trainer and top.trainer.pages > 1)
     local model = displayRuntime.startMenuModel(top)
     if battle and assist("catch_odds") then
       for _, entry in ipairs(model.entries) do
@@ -5106,7 +5127,9 @@ return function(mod)
     end
     if THEME.style == "hgss" then
       G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if top.optionsModel then
+      if top.trainerModel then
+        THEME.hgss:trainer(top.trainerModel)
+      elseif top.optionsModel then
         displayRuntime.NativeOptions.draw(THEME.hgss, top.optionsModel)
       elseif top.nativeStats then
         local result = top.levelStats
@@ -6987,7 +7010,78 @@ return function(mod)
     return true
   end
 
+  function displayRuntime.trainerModel(context)
+    context = context or {}
+    local model = displayRuntime.trainerSummary(context.region)
+    model.kind = context.kind or "front"
+    model.drawPlayer = function(x, y, scale)
+      compat.drawMapMarker(x, displayRuntime.gen3 and y - 3 or y,
+        displayRuntime.gen3 and 1 or scale, false, "down")
+    end
+    local badgeIds = compat.isGen2() and THEME.gen2Badges[model.badgeRegion:lower()]
+      or game.data.constants and game.data.constants.badges or {}
+    model.badgeNames = {}
+    for index = 1, 8 do
+      local badge = displayRuntime.gen3 and displayRuntime.gen3.flagDefinitions.BADGES[index] or badgeIds[index]
+      model.badgeNames[index] = THEME:translate(type(badge) == "table" and (badge.name or badge.id) or badge or "--")
+    end
+    if spriteCache.__badges == nil then
+      local ok, card = false, nil
+      if not compat.isGen2() and not displayRuntime.gen3 then
+        ok, card = pcall(require("src.ui.Screens").build, game, compat.screenName("trainerCard", false))
+      end
+      spriteCache.__badges = ok and card and card.badges or false
+    end
+    model.drawBadge = function(index, cx, cy, owned)
+      if displayRuntime.gen3 then return displayRuntime.gen3:drawBadge(G, index, cx, cy, owned) end
+      if compat.isGen2() then return compat.drawGen2Badge(badgeIds[index], cx - 6, cy - 6, owned, 0.75) end
+      local asset = spriteCache.__badges
+      local quad = asset and asset.quads and asset.quads[index - 1]
+      if not quad then return false end
+      local _, _, w, h = quad:getViewport()
+      local scale = math.min(1, 14 / math.max(w, h))
+      local palette = PaletteFX.pal(game.data, "MEWMON")
+      local function paint()
+        local tint = palette and { 1, 1, 1 } or owned and INK or DARK
+        G.setColor(tint[1], tint[2], tint[3], owned and 1 or 0.28)
+        G.draw(asset.img, quad, cx - w * scale / 2, cy - h * scale / 2, 0, scale, scale)
+      end
+      local gbc = require("src.render.GbcPalette")
+      if palette and gbc.available() then gbc.with(palette, paint) else paint() end
+      return true
+    end
+    if displayRuntime.gen3 and model.kind == "records" then
+      local native = context.native or require("src.ui.game3.trainer_card")
+      local card = context.card or displayRuntime.gen3:trainerCardData(native)
+      model.records = displayRuntime.TrainerPage.records(native, card,
+        displayRuntime.gen3.profile.id == "emerald" and native.backTextsRse ~= nil)
+    end
+    return model
+  end
+
+  function displayRuntime.trainerContext()
+    local number, pages = displayRuntime.trainerPage or 1, 1
+    if displayRuntime.gen3 then pages = 2
+    elseif compat.isGen2() then pages = next(game.save.player.kantoBadges or {}) and 3 or 2 end
+    number = math.max(1, math.min(number, pages))
+    return displayRuntime.TrainerPage.context(displayRuntime.gen3 and 3 or compat.isGen2() and 2 or 1, number, pages)
+  end
+
+  function displayRuntime.cycleTrainer(direction)
+    local context = displayRuntime.trainerContext()
+    displayRuntime.trainerPage = (context.number - 1 + direction) % context.pages + 1
+    dirty = true
+  end
+
   local function drawTrainer()
+    if THEME.style == "hgss" then
+      local context = displayRuntime.trainerContext()
+      header(THEME:translate("TRAINER"), true, context.pages > 1)
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      THEME.hgss:trainer(displayRuntime.trainerModel(context))
+      G.pop()
+      return
+    end
     local save = game.save or {}
     local player = save.player or {}
     local ownedDex = compat.caughtDex(save)
@@ -7064,62 +7158,6 @@ return function(mod)
     header(THEME:translate("TRAINER"), THEME.style == "hgss"
       and displayRuntime.home.activeApp ~= nil,
       THEME.style ~= "hgss")
-    if THEME.style == "hgss" then
-      local badgeOwned = {}
-      for index, badge in ipairs(shownBadges) do
-        badgeOwned[index] = not not ownsBadge(badge, index)
-      end
-      local dexSize = displayRuntime.gen3 and dexTotal or game.data.constants and game.data.constants.dexSize
-        or dexTotal
-      local region = (compat.currentRegion() or "kanto"):upper()
-      local model = {
-        name = player.name or (compat.isGen2() and "GOLD" or "RED"),
-        region = region,
-        idText = THEME:format("ID %05d", player.id or 0),
-        badgeText = THEME:format("%d/%d", badgeCount, #badges),
-        badgeRegion = region,
-        badgeOwned = badgeOwned,
-        money = THEME:format("¥%d", player.money or save.money or 0),
-        time = ("%d:%02d"):format(math.floor(elapsed / 3600),
-          math.floor(elapsed / 60) % 60),
-        pokedex = THEME:format("%d/%d", owned, dexSize),
-        drawPlayer = function(x, y, scale)
-          compat.drawMapMarker(x, displayRuntime.gen3 and y - 3 or y,
-            displayRuntime.gen3 and 1 or scale, false, "down")
-        end,
-      }
-      model.drawBadge = function(index, cx, cy, badgeOwned_)
-        local badge = shownBadges[index]
-        if compat.isGen2() then
-          return badge and compat.drawGen2Badge(
-            badge.id, cx - 6, cy - 6, badgeOwned_, 0.75) or false
-        end
-        local quad = badgeAsset and badgeAsset.quads
-          and badgeAsset.quads[index - 1]
-        if not quad then return false end
-        local _, _, width, height = quad:getViewport()
-        local scale = math.min(1, 14 / math.max(width, height))
-        local function paint()
-          if gen1BadgeColors then G.setColor(1, 1, 1, badgeOwned_ and 1 or 0.28)
-          else
-            local tint = badgeOwned_ and INK or DARK
-            G.setColor(tint[1], tint[2], tint[3], badgeOwned_ and 1 or 0.25)
-          end
-          G.draw(badgeAsset.img, quad, cx - width * scale / 2,
-            cy - height * scale / 2, 0, scale, scale)
-        end
-        local gbc = require("src.render.GbcPalette")
-        if gen1BadgeColors and gbc.available() then
-          gbc.with(gen1BadgeColors, paint)
-        else paint() end
-        return true
-      end
-      G.push()
-      G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:trainer(model)
-      G.pop()
-      return
-    end
     box("fill", 4, 22, 152, 50, MID)
     outline(4, 22, 152, 50, INK)
     text(fit(player.name or "RED", 12), 8, 27, INK)
@@ -10835,6 +10873,8 @@ return function(mod)
       displayRuntime.pokedex.habitatPage = 1
       displayRuntime.pokedex.movePage = 1
       displayRuntime.pokedex.data = nil
+    elseif id == "trainer" then
+      displayRuntime.trainerPage = 1
     elseif id == "bag" then
       displayRuntime.bag.page, displayRuntime.bag.detail = 1, nil
       displayRuntime.bag.message = nil
@@ -11712,6 +11752,12 @@ return function(mod)
 
   function displayRuntime.tapStartMenu(top, x, y)
     if not displayRuntime.StartMenu.cursor(top) then return end
+    if top.trainer and THEME.style == "hgss" then
+      local action = displayRuntime.TrainerPage.hit(x * THEME.hgssScale, y * THEME.hgssScale, top.trainer.pages)
+      local key = action == "back" and "b" or type(action) == "number" and top.nextKey(action)
+      if key then press(key); dirty = true end
+      return
+    end
     if top.optionsModel and THEME.style == "hgss" then
       local action, key = displayRuntime.NativeOptions.hit(top.optionsModel, x * THEME.hgssScale, y * THEME.hgssScale)
       if action == "back" then press("b")
@@ -12367,6 +12413,13 @@ return function(mod)
       end
       return
     end
+    if THEME.style == "hgss" and page == "TRAINER" then
+      local context = displayRuntime.trainerContext()
+      local action = displayRuntime.TrainerPage.hit(x * THEME.hgssScale, y * THEME.hgssScale, context.pages)
+      if action == "back" then page, displayRuntime.home.activeApp, dirty = "HOME", nil, true
+      elseif type(action) == "number" then displayRuntime.cycleTrainer(action) end
+      return
+    end
     if THEME.style == "hgss" and displayRuntime.home.activeApp
         and y < HEADER and x < 22
         and not (page == "LOCAL" and (displayRuntime.explorer.selected
@@ -12564,6 +12617,13 @@ return function(mod)
     local native = displayRuntime.startMenu()
     if native and not native.choiceState then
       local menu = displayRuntime.StartMenu
+      if native.trainer then
+        if direction and menu.cursor(native) then
+          local key = native.nextKey(direction)
+          if key then press(key); dirty = true end
+        end
+        return true
+      end
       if native.optionsModel then
         local nextFirst = direction and native.optionsModel.first + direction * 4
         if nextFirst and nextFirst >= 1 and nextFirst < #native.items then menu.select(native, nextFirst); dirty = true end
@@ -12633,6 +12693,10 @@ return function(mod)
         state.view, state.page = state.view == "album" and "goals" or "album", 1
         dirty = true
       else displayRuntime.cycleAchievements(dx < 0 and 1 or -1) end
+      return
+    end
+    if THEME.style == "hgss" and page == "TRAINER" then
+      displayRuntime.cycleTrainer(dx < 0 and 1 or -1)
       return
     end
     if THEME.style == "hgss" and page == "BAG" then

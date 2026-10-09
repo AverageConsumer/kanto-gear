@@ -789,18 +789,51 @@ return function(ui)
     if model.drawPlayer then model.drawPlayer(34, 63, 2) end
 
     local name = trainerFit(trainerNameFont, model.name, 158)
-    fontText(trainerNameFont, name, 64, 38, colors.ink)
-    local region = self:fitPartyType(model.region or "KANTO", 72)
-    self:partyType(region, 65, 56, blue, 72)
+    fontText(trainerNameFont, name, 64, 38, colors.ink, 158, "center")
+    local region = self:fitPartyType(model.region or "KANTO", 158)
+    self:partyType(region, 64, 56, blue, 158)
     clipped(64, 68, 76, 13, colors.bandLight)
     border(64, 68, 76, 13, colors.blue)
-    self:partyType(self:fitPartyType(model.idText or "ID -----", 72),
-      66, 69, colors.ink, 72)
+    self:partyInfoCentered(self:fitPartyInfo(model.idText or "ID -----", 72),
+      64, 68, 76, 13, colors.ink)
     clipped(145, 68, 76, 13,
       mixed(colors.surface, colors.amberLight, self.dark and 0.20 or 0.12))
     border(145, 68, 76, 13, colors.amber)
-    self:partyType(self:fitPartyType(model.badgeText or "0/8", 72),
-      147, 69, colors.ink, 72)
+    self:partyInfoCentered(model.badgeText or "0/8", 145, 68, 76, 13, colors.ink)
+
+    if model.kind == "records" then
+      self:homeTile(7, 92, 226, 119, colors.blue, false)
+      if #model.records == 0 then
+        self:partyInfoCentered(self:fitPartyInfo(translate("NO RECORDS YET"), 208), 13, 92, 214, 119, quiet)
+      end
+      local top = 92 + math.floor((119 - (#model.records * 19 - 2)) / 2)
+      for index, row in ipairs(model.records) do
+        local y = top + (index - 1) * 19
+        if index > 1 then box("fill", 13, y - 2, 214, 1, colors.band) end
+        self:partyType(self:fitPartyType(row.label, 119), 13, y + 4, quiet, 119)
+        self:partyInfoCentered(self:fitPartyInfo(row.value, 95), 132, y, 95, 17, colors.ink)
+      end
+      return
+    end
+    if model.kind == "badges" then
+      for index = 1, 8 do
+        local x, y = 7 + ((index - 1) % 4) * 58, 92 + math.floor((index - 1) / 4) * 62
+        self:homeTile(x, y, 52, 57, colors.amber, false)
+        local cx, cy = x + 26, y + 21
+        color(model.badgeOwned[index] and colors.bandLight or colors.silverDark)
+        G.circle("fill", cx, cy, 14)
+        color(colors.outline); G.circle("line", cx, cy, 14)
+        local drawn = model.drawBadge and model.drawBadge(index, cx, cy, model.badgeOwned[index])
+        if not drawn then
+          color(model.badgeOwned[index] and colors.amberLight or colors.silver)
+          G.circle("fill", cx, cy, 4)
+          color(colors.outline); G.circle("line", cx, cy, 4)
+        end
+        self:partyType(self:fitPartyType(model.badgeNames[index], 46), x + 3, y + 41,
+          model.badgeOwned[index] and amber or quiet, 46)
+      end
+      return
+    end
 
     self:homeTile(7, 92, 226, 54, colors.amber, false)
     self:partyType(self:fitPartyType(translate("BADGES"), 100),

@@ -884,4 +884,5 @@ return {
   ["TOUGH"] = "STARK",
   ["LAST USED"] = "ZULETZT BENUTZT",
   ["SOLD OUT"] = "AUSVERKAUFT",
+  ["NO RECORDS YET"] = "NOCH KEINE REKORDE",
 }
