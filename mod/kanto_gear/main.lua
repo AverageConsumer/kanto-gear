@@ -3281,6 +3281,9 @@ return function(mod)
 
   function compat.drawMapActor(actor, x, y, scale, feetAnchored, tint)
     if not actor then return false end
+    if displayRuntime.gen3 then
+      return displayRuntime.gen3:drawActor(G, actor, x, y, scale, feetAnchored, tint)
+    end
     return compat.drawMapSprite(actor.spriteId,
       actor.id or "kanto-gear-actor", { palette = actor.palette },
       x, y, scale, feetAnchored, actor.facing, tint)
@@ -6325,7 +6328,8 @@ return function(mod)
     local actorById = {}
     for _, actor in ipairs(actors or {}) do actorById[actor.id] = actor end
     for _, row in ipairs(allTrainers) do
-      local actor = actorById[row.id]
+      local actor = displayRuntime.gen3 and displayRuntime.gen3:mapActor(row) or actorById[row.id]
+      row.mapVisible = not actor or actor.visible ~= false
       if actor then
         row.actor = actor
         row.x, row.y, row.facing = actor.x, actor.y, actor.facing
@@ -6425,7 +6429,7 @@ return function(mod)
       end
     end
     for _, row in ipairs(allTrainers) do
-      if row.x ~= nil and row.y ~= nil then
+      if row.mapVisible ~= false and row.x ~= nil and row.y ~= nil then
         local marker = { kind = "trainer", x = row.x, y = row.y,
           actor = row.actor or row,
           state = row.missed and "missed" or row.done and "beaten" or "open",
@@ -6483,11 +6487,11 @@ return function(mod)
         compat.drawMapMarker(x, y, tileSize / 16, true, player.facing)
       end,
       drawTrainer = function(marker, x, y, tileSize)
-        compat.drawMapActor(marker.actor, x, y, tileSize / 16, true,
+        return compat.drawMapActor(marker.actor, x, y, tileSize / 16, true,
           marker.state ~= "open" and { 0.45, 0.45, 0.45, 1 } or nil)
       end,
       drawActor = function(row, x, y, scale, feet)
-        compat.drawMapActor(row.actor or row, x, y, scale, feet)
+        return compat.drawMapActor(row.actor or row, x, y, scale, feet)
       end,
       drawPokemon = function(row, x, y, size, uncaught)
         drawSprite(row.species, "front", x, y, size, size,

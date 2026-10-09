@@ -46,6 +46,10 @@ for id in pairs(raw.data.maps) do
     totals[category] = totals[category] + #catalog[category]
     for _, row in ipairs(catalog[category]) do
       if row.untracked then unknown[#unknown + 1] = id .. ":" .. tostring(row.index) .. ":" .. tostring(row.label) end
+      if category == 1 and row.index then
+        local obj = find(Space.bundle.events[id].objects or {}, function(obj) return obj.localId == row.index end)
+        check(obj ~= nil and row.graphicsId == (obj.graphicsId or obj.graphics), "trainer carries native object graphics in " .. id)
+      end
       if category ~= 1 or not row.untracked then
         check(not row.itemId or adapter.data.items[row.itemId] ~= nil, "valid item in " .. id)
         check(not row.species or adapter.data.pokemon[row.species] ~= nil, "valid species in " .. id)

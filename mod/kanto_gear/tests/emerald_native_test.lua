@@ -76,6 +76,14 @@ for id in pairs(maps) do
   for category = 1, 4 do
     objectives[category] = objectives[category] + #rows[category]
     for _, row in ipairs(rows[category]) do
+      if category == 1 and row.index then
+        local object
+        for _, obj in ipairs(adapter.Space.bundle.events[id].objects or {}) do
+          if obj.localId == row.index then object = obj break end
+        end
+        check(object ~= nil and row.graphicsId == (object.graphicsId or object.graphics),
+          "trainer carries native object graphics " .. id)
+      end
       if row.untracked then unknown[#unknown+1] = id .. ":" .. tostring(row.label) end
       check(not row.species or adapter.data.pokemon[row.species] ~= nil, "known scripted species " .. id)
       check(not row.itemId or row.untracked or adapter.data.items[row.itemId] ~= nil, "known item " .. id)

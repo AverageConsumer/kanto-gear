@@ -90,7 +90,8 @@ function M:catalog(mapId, checkpoint)
   local function base(obj)
     return { mapId = mapId, x = obj.x, y = obj.y, index = obj.localId,
       id = mapId .. "_obj_" .. tostring(obj.localId), spriteId = obj.sprite,
-      hideEvent = obj.flag }
+      graphicsId = obj.graphicsId or obj.graphics, graphicsVar = obj.graphicsVar,
+      facing = obj.facing, hideEvent = obj.flag }
   end
   local function mon(species, obj)
     if mapId == "FR_POKEMON_TOWER_6F" and species == 105 then return end -- uncatchable ghost

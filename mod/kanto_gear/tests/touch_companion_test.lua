@@ -145,6 +145,7 @@ if gen == 3 then
       hardware(run, display, game, scenes)
       assert(loadfile(path .. "/tests/press_feedback_cases.lua"))()(T,display,up(display.drawContents,"THEME").hgss)
       assert(loadfile(path .. "/tests/sprite_runtime_cases.lua"))()(T,display,up(hook(run,"input.step"),"hgssRuntime"),gen,up)
+      assert(loadfile(path .. "/tests/trainer_markers_cases.lua"))()(T,display,up(hook(run,"input.step"),"hgssRuntime"),gen,up)
       scenes[#scenes]()
       local guard=display.syncTouchGuard(); guard.readyAt=0
       up(display.drawContents,"touchDown",{x=80,y=60,epoch=guard.epoch},true)

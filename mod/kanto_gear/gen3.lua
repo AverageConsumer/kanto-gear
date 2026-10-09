@@ -69,6 +69,37 @@ function Gen3:drawPlayer(g, x, y, scale, feet, facing)
   return true
 end
 
+-- Native object graphics use numeric IDs, not the Gen 1/2 SPRITE_* registry.
+function Gen3:mapActor(row)
+  local objects = require("src.core.game3.objects")
+  local live = objects._mapId == row.mapId and row.index ~= nil
+    and objects.find(row.index) or nil
+  if live and live.foreignMap then live = nil end
+  local flag = tonumber(row.hideEvent)
+  local visible = not (flag and flag ~= 0 and flag ~= 0xFFFF
+    and self.Flags.getFlag(self:flagStore(), nil, flag))
+  if live then visible = live.visible ~= false and not live.hidden and not live.invisible end
+  return { id = row.id, mapId = row.mapId, index = row.index,
+    x = live and live.cellX or row.x, y = live and live.cellY or row.y,
+    graphicsId = live and live.graphicsId or self.Space.resolveObjectGraphicsId(row),
+    facing = live and live.facing or row.facing or "down", visible = visible }
+end
+
+function Gen3:drawActor(g, actor, x, y, scale, feet, tint)
+  local sprites = require("src.core.game3.ow_sprites")
+  local spr = actor.graphicsId ~= nil and sprites.getDraw(actor.graphicsId)
+  if not spr then return false end
+  local frame, flip = sprites.pose(spr, actor.facing or "down", false, false)
+  local quad = spr.quads[frame]
+  if not quad then return false end
+  scale = scale or 1
+  if tint then g.setColor(unpack(tint)) else g.setColor(1, 1, 1, 1) end
+  g.draw(spr.image, quad, x + (flip and 0.5 or -0.5) * spr.width * scale,
+    y - (feet and spr.height or spr.height / 2) * scale,
+    0, flip and -scale or scale, scale)
+  return true
+end
+
 function Gen3:types(source)
   local out = {}
   for _, id in ipairs(source or {}) do
