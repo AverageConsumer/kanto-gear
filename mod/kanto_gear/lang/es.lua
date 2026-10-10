@@ -1,4 +1,8 @@
 return {
+  ["SHOW INSIDE"] = "VER INTERIOR",
+  ["SHOW ENTRANCE"] = "VER ENTRADA",
+  ["ENTRANCE"] = "ENTRADA",
+  ["ROOF"] = "AZOTEA",
   ["NPC TRADE"] = false,
   ["NPC LOAN"] = false,
   ["LOAN"] = false,

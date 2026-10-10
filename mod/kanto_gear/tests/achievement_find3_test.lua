@@ -78,6 +78,35 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       entries = { { label = "DYNAMIC TRAINER", mapId = id, state = "repeatable" } } })
     T.eq(theme.hgss:achievementsHit(120, 70), nil, "no fabricated position or feedback: " .. mode)
   end
+  local indoor = emerald and "EM_ROUTE119_WEATHER_INSTITUTE_2F" or "FR_SILPH_CO_7F"
+  local outside = emerald and "EM_ROUTE119" or "FR_SAFFRON_CITY"
+  local row = { label = emerald and "CASTFORM" or "LAPRAS", mapId = indoor, x = 2, y = 3, gift = true }
+  theme.hgss:achievements({ view = "finds", mode = "spoiler", entries = { row } })
+  display.tapAchievements(120, 70)
+  T.eq(state.locationPoint.mapId, outside, "native multi-floor gift shows outdoor entrance first")
+  T.eq(state.location, row, "native original gift coordinates retained")
+  display.drawAchievements()
+  T.eq(theme.hgss:achievementsHit(120, 155), "location_scope", "native entrance has inside action")
+  display.tapAchievements(120, 155)
+  T.eq(state.locationPoint.mapId, indoor, "native inside action selects exact gift floor")
+  T.eq(state.locationPoint.x, 2, "native inside action preserves NPC position")
+  display.drawAchievements()
+  display.tapAchievements(120, 155)
+  T.eq(state.locationPoint.mapId, outside, "native entrance action returns outside")
+  display.drawAchievements()
+  display.tapAchievements(12, 12)
+  T.eq(state.view, "finds", "native location returns to original list")
+  local tradeCount = 0
+  for map in pairs(game.data.maps) do
+    for _, offer in ipairs(display.gen3Progress:catalog(map)[4]) do
+      if offer.trade then
+        tradeCount = tradeCount + 1
+        local entrance = display.LocationPreview.entrance(game.data.maps, offer, 3)
+        T.check(entrance ~= nil, "native NPC trade has an outdoor entrance: " .. map)
+      end
+    end
+  end
+  T.eq(tradeCount, emerald and 4 or 9, "all edition-specific NPC trades checked for entrances")
 end
 dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald"
   and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))

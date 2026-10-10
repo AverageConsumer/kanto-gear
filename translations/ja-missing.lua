@@ -2,6 +2,11 @@
 -- RENEWABLE: hidden items which can respawn; excluded from permanent stamps.
 -- REPEATABLE: repeatable Trainer Tower challenges; excluded from route totals.
 return {
+  -- Find location: switch between the outdoor doorway and the exact indoor tile.
+  ["SHOW INSIDE"] = false,
+  ["SHOW ENTRANCE"] = false,
+  ["ENTRANCE"] = false,
+  ["ROOF"] = false,
   -- Pokémon's innate nature and ability (names/descriptions come from the game).
   ["NATURE"] = false,
   ["ABILITY"] = false,

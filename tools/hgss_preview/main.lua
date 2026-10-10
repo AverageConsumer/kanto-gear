@@ -199,9 +199,9 @@ function love.load()
   local pressX, pressY = tostring(
     os.getenv("KANTO_GEAR_PREVIEW_PRESS") or ""):match("^(%d+),(%d+)$")
   if pressX then theme:setTouch(tonumber(pressX), tonumber(pressY)) end
-  -- Legacy battle/party assertions predate the companion pages. Silph scenes
-  -- exercise their own shipped renderer and do not depend on those screens.
-  if screen:sub(1,3) ~= "pss" then
+  -- Legacy battle/party assertions predate the companion pages. Silph and
+  -- Stamps scenes exercise their own renderer without those removed screens.
+  if screen:sub(1,3) ~= "pss" and not achievements then
   assert(theme.backdropCenterY == 121,
     "every HGSS Pokeball backdrop shares the Party screen center")
   local blueFocus = theme:focusSurface(true, theme.colors.surface,

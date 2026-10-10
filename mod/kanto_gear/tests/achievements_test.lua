@@ -192,6 +192,36 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   display.drawAchievements()
   display.tapAchievements(12, 12)
   T.eq(display.achievements.view, "finds", version .. " back returns to the find list")
+  -- A remote five-floor gift/trade uses the building's outdoor doorway first.
+  maps.ROUTE_2.outdoor, maps.ROUTE_2.warps = true, { { x = 7, y = 8, destMap = "FLOOR_1" } }
+  for floor = 1, 5 do
+    maps["FLOOR_" .. floor] = { id = "FLOOR_" .. floor, width = 10, height = 10,
+      tileset = "TEST", blocks = maps.ROUTE_2.blocks,
+      warps = { { x = 1, y = 1, destMap = floor < 5 and "FLOOR_" .. (floor + 1) or "LAST_MAP" } } }
+  end
+  local find = { label = "NPC TRADE", gift = true, trade = true, mapId = "FLOOR_5", x = 4, y = 5 }
+  theme.hgss:achievements({ view = "finds", mode = "spoiler", entries = { find } })
+  display.tapAchievements(120, 70)
+  local state = display.achievements
+  T.eq(state.location, find, version .. " selected source remains the exact indoor find")
+  T.eq(state.locationPoint.mapId, "ROUTE_2", version .. " building entrance shown first")
+  T.eq(state.locationPoint.x, 7, version .. " entrance uses warp coordinates")
+  display.drawAchievements()
+  T.eq(theme.hgss:achievementsHit(120, 155), "location_scope", version .. " entrance offers inside button")
+  display.tapAchievements(120, 155)
+  T.eq(state.locationPoint, find, version .. " inside button shows exact original find")
+  T.eq(state.locationMap, "FLOOR_5", version .. " inside button loads correct floor")
+  display.drawAchievements()
+  display.tapAchievements(12, 12)
+  T.eq(state.view, "location", version .. " back from inside returns to entrance")
+  T.eq(state.locationPoint, state.locationEntrance, version .. " back restores outdoor door")
+  display.drawAchievements()
+  display.tapAchievements(12, 12)
+  T.eq(state.view, "finds", version .. " second back restores original list")
+  T.eq(state.locationEntrance, nil, version .. " leave clears old entrance")
+  T.eq(game.stack:top(), world, version .. " floor preview never enters live maps")
+  maps.ROUTE_2.outdoor, maps.ROUTE_2.warps = nil, nil
+  for floor = 1, 5 do maps["FLOOR_" .. floor] = nil end
   for _, mode in ipairs({ "vanilla", "enhanced" }) do
     run.loader.modOptions.kanto_gear.info_level = mode
     T.eq(#display.achievementModel().entries, 0, version .. " " .. mode .. " hides unfound hidden items")

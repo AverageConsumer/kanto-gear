@@ -2554,6 +2554,8 @@ return function(mod)
     "@kanto_gear/home_layout.lua"))()
   displayRuntime.Achievements = assert(load(mod:read("achievements.lua"),
     "@kanto_gear/achievements.lua"))()
+  displayRuntime.LocationPreview = assert(load(mod:read("location_preview.lua"),
+    "@kanto_gear/location_preview.lua"))()
   Area.Pickups = assert(load(mod:read("pickup_state.lua"),
     "@kanto_gear/pickup_state.lua"))()
   Area.pickupData = nil
@@ -4546,9 +4548,11 @@ return function(mod)
     local area = state.selected and presented.byId[state.selected]
     if area and mode ~= "spoiler" and not area.evidence then area = nil end
     if not area and state.view ~= "album" and state.view ~= "goals" then state.view = "album" end
-    if mode ~= "spoiler" and state.view == "location" then state.view, state.location = "detail", nil end
+    if mode ~= "spoiler" and state.view == "location" then
+      state.view, state.location, state.locationEntrance, state.locationPoint = "detail", nil, nil, nil
+    end
     if state.view == "location" and state.location then
-      displayRuntime.loadAchievementLocation(state.location)
+      displayRuntime.loadAchievementLocation(state.locationPoint or state.location)
     end
     if state.view == "habitat" and state.habitat then
       if not displayRuntime.knownSpecies(state.habitat.species) then
@@ -4579,7 +4583,11 @@ return function(mod)
       goal = goals[1], earned = earned, entries = shown, mode = mode,
       category = state.category, canExplore = area and area.current and assist("guide"),
       location = state.location,
-      section = state.location and displayRuntime.sectionName(state.location.mapId) or "",
+      locationPoint = state.locationPoint or state.location,
+      entrance = state.locationEntrance,
+      inside = state.locationPoint == state.location,
+      locationFloor = state.location and displayRuntime.LocationPreview.floor((state.locationPoint or state.location).mapId),
+      section = state.location and displayRuntime.sectionName((state.locationPoint or state.location).mapId) or "",
       drawLocation = state.location and (state.locationImage or state.locationRenderer)
         and function(x, y, w, h) displayRuntime.drawAchievementLocation(x, y, w, h) end or nil }
   end
@@ -4601,7 +4609,10 @@ return function(mod)
     local state = displayRuntime.achievements
     if y < 30 and x < 35 then
       if state.view == "habitat" then state.view, state.habitat = "finds", nil
-      elseif state.view == "location" then state.view, state.location = "finds", nil
+      elseif state.view == "location" then
+        if state.locationEntrance and state.locationPoint == state.location then
+          state.locationPoint = state.locationEntrance
+        else state.view, state.location, state.locationEntrance, state.locationPoint = "finds", nil, nil, nil end
       elseif state.view == "finds" then state.view, state.page = "detail", 1
       elseif state.view == "detail" then
         state.view, state.selected, state.page = state.parent or "album", nil, state.parentPage or 1
@@ -4639,7 +4650,15 @@ return function(mod)
     elseif action == "page" then displayRuntime.cycleAchievements(value)
     elseif action == "locate" and displayRuntime.achievementModel().mode == "spoiler" then
       state.location, state.view = value, "location"
-      displayRuntime.loadAchievementLocation(value)
+      state.locationEntrance = displayRuntime.LocationPreview.entrance(
+        compat.isGen2() and game.data.gen2Maps or game.data.maps, value,
+        displayRuntime.gen3 and 3 or compat.isGen2() and 2 or 1, mapId)
+      state.locationPoint = state.locationEntrance or value
+      displayRuntime.loadAchievementLocation(state.locationPoint)
+    elseif action == "location_scope" and state.view == "location" and state.locationEntrance
+        and displayRuntime.achievementModel().mode == "spoiler" then
+      state.locationPoint = state.locationPoint == state.location and state.locationEntrance or state.location
+      displayRuntime.loadAchievementLocation(state.locationPoint)
     elseif action == "habitat" and displayRuntime.knownSpecies(value.species) then
       local area = displayRuntime.achievementModel().area
       if area then
@@ -7159,7 +7178,7 @@ return function(mod)
 
   function displayRuntime.drawAchievementLocation(x, y, w, h)
     local state = displayRuntime.achievements
-    local image, row, renderer = state.locationImage, state.location, state.locationRenderer
+    local image, row, renderer = state.locationImage, state.locationPoint or state.location, state.locationRenderer
     if not (image or renderer) or not row then return end
     local iw, ih
     if renderer then iw, ih = renderer.width, renderer.height else iw, ih = image:getDimensions() end
@@ -7173,10 +7192,13 @@ return function(mod)
     G.setScissor(sx, sy, right - sx, bottom - sy)
     G.setColor(1, 1, 1, 1)
     if renderer then renderer:draw(left, top, scale) else G.draw(image, left, top, 0, scale, scale) end
-    local mx, my = math.floor(left + px * scale), math.floor(top + py * scale)
-    G.setColor(.08, .14, .12, 1); G.rectangle("fill", mx - 4, my - 4, 9, 9)
-    G.setColor(1, .77, .21, 1); G.rectangle("fill", mx - 3, my - 3, 7, 7)
-    G.setColor(.08, .14, .12, 1); G.rectangle("fill", mx - 1, my - 1, 3, 3)
+    for _, point in ipairs(row.points or { row }) do
+      local mx = math.floor(left + (point.x + .5) * state.locationDensity * scale)
+      local my = math.floor(top + (point.y + .5) * state.locationDensity * scale)
+      G.setColor(.08, .14, .12, 1); G.rectangle("fill", mx - 4, my - 4, 9, 9)
+      G.setColor(1, .77, .21, 1); G.rectangle("fill", mx - 3, my - 3, 7, 7)
+      G.setColor(.08, .14, .12, 1); G.rectangle("fill", mx - 1, my - 1, 3, 3)
+    end
     G.pop()
   end
 

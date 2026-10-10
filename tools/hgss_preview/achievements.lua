@@ -11,6 +11,7 @@ return function(theme, screen, gen1, translate, drawPokemon)
         { done = 1, total = 1 }, { done = 5, total = 6 } } }
   end
   local view = screen == "achievements_habitat" and "habitat"
+    or screen:find("location", 1, true) and "location"
     or screen:find("detail", 1, true) and "detail"
     or screen == "achievements_stamps" and "album"
     or (screen == "achievements_finds" or screen == "achievements_bonus" or screen:find("pokemon", 1, true)) and "finds"
@@ -52,10 +53,26 @@ return function(theme, screen, gen1, translate, drawPokemon)
     areas[2].sections[3].untracked = 1
     areas[2].sections[4].done = 6
   end
+  local inside = screen == "achievements_location_inside"
+  local entrance = screen ~= "achievements_location_outdoor" and { mapId = "CITY", x = 7, y = 9 } or nil
+  local location = { label = "NPC TRADE", mapId = "HOUSE_5F", x = 3, y = 4 }
   theme:headerBar(view == "detail" and areas[2].name or translate("ACHIEVEMENTS"), true, false)
   theme:headerClock("20:04", "NITE", 139, 72, 6)
   theme:battery(214, 8, 4, nil, true, theme.colors.ink, theme.colors.greenLight)
   theme:achievements({ loading = screen == "achievements_loading", view = view, mode = "spoiler", goal = areas[2], area = areas[2],
+    location = location, locationPoint = inside and location or entrance or location,
+    entrance = entrance, inside = inside, locationFloor = inside and "5F" or nil,
+    section = gen1 and "CELADON CITY" or "GOLDENROD CITY",
+    drawLocation = function(x, y, w, h)
+      love.graphics.setScissor(x, y, w, h)
+      love.graphics.setColor(unpack(theme.colors.surface)); love.graphics.rectangle("fill", x, y, w, h)
+      local left, top = math.floor(x + w / 2), math.floor(y + h / 2)
+      love.graphics.setColor(unpack(theme.colors.green)); love.graphics.rectangle("fill", left - 52, top - 35, 104, 70)
+      love.graphics.setColor(unpack(theme.colors.band)); love.graphics.rectangle("fill", left - 48, top - 31, 96, 62)
+      love.graphics.setColor(unpack(theme.colors.amber)); love.graphics.rectangle("fill", left - 3, top - 3, 7, 7)
+      love.graphics.setColor(unpack(theme.colors.ink)); love.graphics.rectangle("fill", left - 1, top - 1, 3, 3)
+      love.graphics.setScissor()
+    end,
     entries = entries, earned = { areas[1], areas[4] }, page = 1,
     category = screen:find("pokemon", 1, true) and 4 or 1,
     habitat = { pokemon = { name = "SLOWPOKE", type = "WATER", type2 = "PSYCHIC" },

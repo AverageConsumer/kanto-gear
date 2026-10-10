@@ -289,15 +289,26 @@ return function(H, G, translate, format)
     elseif view == "habitat" and model.habitat then
       self:pokedexHabitat(model.habitat)
     elseif view == "location" and model.location then
-      local row = model.location
-      self:panel(6, 34, 228, 129, false)
-      if model.drawLocation then model.drawLocation(10, 38, 220, 121)
+      local row, point = model.location, model.locationPoint or model.location
+      local height = model.entrance and 105 or 129
+      self:panel(6, 34, 228, height, false)
+      if model.drawLocation then model.drawLocation(10, 38, 220, height - 8)
       else name(translate("MAP PREVIEW UNAVAILABLE"), 16, 65, 208, 60, quiet) end
+      if model.entrance then
+        card(6, 145, 228, 21, "location_scope", nil, function()
+          self:partyInfoCentered(self:fitPartyInfo(
+            translate(model.inside and "SHOW ENTRANCE" or "SHOW INSIDE"), 216),
+            12, 145, 216, 21, accent)
+        end)
+      end
       self:panel(6, 172, 228, 38, false)
       name(row.label, 12, 175, 216, 17)
       local status = row.state == "later" and "LATER"
         or row.state == "unavailable" and "NO LONGER AVAILABLE"
-      label(model.section .. "  " .. (status and translate(status) or format("TILE %d, %d", row.x, row.y)),
+      local floor = model.locationFloor == "ROOF" and translate("ROOF") or model.locationFloor
+      label(model.section .. (floor and "  " .. floor or "")
+        .. "  " .. (model.entrance and not model.inside and translate("ENTRANCE")
+        or status and translate(status) or format("TILE %d, %d", point.x, point.y)),
         12, 196, 216, 10, quiet, true)
     end
   end
