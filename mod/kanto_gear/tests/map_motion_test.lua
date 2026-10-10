@@ -323,15 +323,16 @@ for _, dark in ipairs({ false, true }) do
         if density == 1 then scales[zoom] = size end
         T.eq(size, scales[zoom], "source terrain resolution never changes zoom")
         if zoom == 1 then
-          T.check(w * size <= layout.innerW and h * size <= layout.innerH,
+          T.check(w * size <= layout.innerW + 1e-9 and h * size <= layout.innerH + 1e-9,
             "overview includes the entire area, even beyond 222 walking cells")
-          T.check(size <= 8, "overview does not inflate small rooms")
+          T.check(math.abs(w * size - layout.innerW) < 1e-9
+              or math.abs(h * size - layout.innerH) < 1e-9,
+            "overview fills at least one viewport axis without a size cap or rounding loss")
         else
-          local columns = layout.innerW / size
-          T.check(zoom == 2 and columns >= 16 and columns <= 20
-              or zoom == 3 and columns >= 12 and columns <= 15,
-            "nearby and detail retain useful walking context on every map shape")
-          T.check(size > scales[zoom - 1], "every zoom step visibly enlarges the map")
+          T.check(size >= 12, "close views keep large routes readable")
+          T.check(zoom == 2 and size >= scales[1] * 1.5
+              or zoom == 3 and size == scales[2] * 2,
+            "nearby visibly crops the overview and detail doubles nearby scale")
         end
         T.check(math.abs(layout.left + w * size / 2 - (frame.x + frame.w / 2)) <= 0.5
             and math.abs(layout.top + h * size / 2 - (frame.y + frame.h / 2)) <= 0.5,

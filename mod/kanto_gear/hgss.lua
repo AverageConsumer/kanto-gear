@@ -3224,15 +3224,14 @@ return function(ui)
   end
 
   local function mapTileSize(baseWidth, baseHeight, innerW, innerH, opts)
-    -- Walking cells keep the same size across maps and compact viewports.
-    -- Only the overview fits the whole area; multiplying that fit made all
-    -- three levels tiny on large routes and enormous inside small rooms.
     if not opts.full then return 8 end
     local zoom = math.max(1, math.min(3, tonumber(opts.zoom) or 1))
-    if zoom == 2 then return 12 end
-    if zoom == 3 then return 16 end
-    local fit = math.min(8, innerW / baseWidth, innerH / baseHeight)
-    return fit >= 1 and math.floor(fit) or fit
+    local fit = math.min(innerW / baseWidth, innerH / baseHeight)
+    if zoom == 1 then return fit end
+    -- Keep large-route surroundings readable and separate both close views
+    -- even when a small room already fills the overview.
+    local nearby = math.max(12, fit * 1.5)
+    return zoom == 2 and nearby or nearby * 2
   end
 
   local function explorerMapFocus(model)
