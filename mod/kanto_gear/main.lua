@@ -14305,6 +14305,10 @@ return function(mod)
       -- Native battle text owns its animation upstairs; the dim companion
       -- needs no blinking arrow or periodic text redraw downstairs.
       if page == "LOCAL" and mod.world and mod.world.current then
+        if THEME.style ~= "hgss" then
+          local pos = mod.world:current()
+          screenKey = screenKey .. ":" .. tostring(pos and pos.facing)
+        end
         screenKey = screenKey .. ":" .. displayRuntime.fruitTrees.stateKey(game.save,
             displayRuntime.explorer.data and displayRuntime.explorer.data.fruits)
       end
