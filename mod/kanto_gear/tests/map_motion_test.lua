@@ -86,7 +86,7 @@ local model = display.explorerModel(overview)
 now = 0.1
 world.player.px = 40
 T.eq(display.explorerModel(overview), model, "motion reuses the entire Explorer data model")
-T.eq(model.player.x, 2.5, "cached data still receives the latest visual position")
+T.eq(model.player.x, 2.25, "Explorer keeps its opening position")
 display.explorer.filters.wildScope = "ROUTE"
 T.check(display.explorerModel(overview) ~= model, "changing scope invalidates the model immediately")
 model = display.explorer.renderModel
@@ -114,19 +114,19 @@ for frame = 0, 599 do
     state.key = theme.hgss:explorerMotionKey(model, display.localMapPosition())
   end
 end
-T.eq(frames, 300, "ten seconds of continuous walking produce 30 updates per second without debounce starvation")
+T.eq(frames, 0, "walking causes no Explorer map refreshes")
 world.player.px = 631
 state.key = theme.hgss:explorerMotionKey(model, display.localMapPosition())
 T.eq(display.updateMapRefresh(10), false, "standing still requests no render")
 world.player.px = 631.01
 T.eq(display.updateMapRefresh(10.1), false, "subpixel changes that render identically request no render")
 world.player.facing = "left"
-T.eq(display.updateMapRefresh(10.2), true, "turning in place refreshes the marker")
+T.eq(display.updateMapRefresh(10.2), false, "turning leaves the Explorer snapshot unchanged")
 value(display.updateMapRefresh, "readbackPending", true, true)
 world.player.px = 640
 T.eq(display.updateMapRefresh(11), false, "slow readback cannot queue another map frame")
 value(display.updateMapRefresh, "readbackPending", false, true)
-T.eq(display.updateMapRefresh(11.1), true, "readback completion allows the latest position")
+T.eq(display.updateMapRefresh(11.1), false, "readback completion does not animate the snapshot")
 state.key = theme.hgss:explorerMotionKey(model, display.localMapPosition())
 T.eq(display.updateMapRefresh(100), false, "a long pause causes no catch-up renders")
 world.player.px = 650
@@ -145,6 +145,44 @@ world.map.id = "FIX_ROUTE"
 model.mapFull, model.mapZoom = true, 3
 T.check(theme.hgss:explorerMotionKey(model, display.localMapPosition()) ~= state.key,
   "motion sampling follows fullscreen zoom geometry")
+local snapshot = display.explorer.mapSnapshot
+T.eq(display.explorerModel(overview).player.x, 2.25, "model rebuilds preserve the original camera/player")
+display.clearExplorerSnapshot()
+T.eq(display.explorerModel(overview).player.x, world.player.px / 16, "reopening takes a fresh position")
+T.check(display.explorer.mapSnapshot ~= snapshot, "reopening replaces the snapshot")
+local nextMap = { mapId = "NEXT_MAP", width = 40, height = 36, rows = rows, markers = {} }
+world.map.id = "NEXT_MAP"
+T.eq(display.explorerModel(nextMap).player.mapId, "NEXT_MAP", "area change takes a fresh snapshot")
+world.map.id = "FIX_ROUTE"
+display.clearExplorerSnapshot()
+do
+  local oldActors = api.world.mapActors
+  local actor = { id = "TRAINER", x = 4, y = 6, facing = "right", visible = true }
+  api.world.mapActors = function() return { actor } end
+  local options = run.loader.modOptions.kanto_gear or {}
+  run.loader.modOptions.kanto_gear = options
+  local oldMode = options.info_level
+  options.info_level = "spoiler"
+  local assist = value(display.explorerModel, "assist")
+  display.explorer.data = { mapId = overview.mapId, at = now,
+    guideEnabled = assist("guide"), areaEnabled = assist("area"), fruits = {},
+    guide = { rows = {}, caught = 0 }, area = { sections = {
+      { rows = { { id = actor.id, index = 1, mapId = overview.mapId, x = 1, y = 2 } } },
+      { rows = {} }, { rows = {} } } } }
+  display.explorer.renderModel = nil
+  local captured = display.explorerModel(overview)
+  T.eq(captured.markers[1].x, 4, "legacy trainer captures live position")
+  actor.x, actor.y, actor.facing = 9, 10, "left"
+  display.explorer.renderModel = nil
+  local rebuilt = display.explorerModel(overview)
+  T.eq(rebuilt.markers[1].x, 4, "legacy moving trainer keeps its captured position")
+  T.eq(rebuilt.markers[1].actor.facing, "right", "legacy actor direction is copied, not shared")
+  display.clearExplorerSnapshot()
+  T.eq(display.explorerModel(overview).markers[1].x, 9, "legacy trainer refreshes on reopening")
+  api.world.mapActors, options.info_level = oldActors, oldMode
+  display.clearExplorerSnapshot()
+  display.explorer.data = nil
+end
 local homeModel = { page = 1, overview = overview,
   tiles = { { widget = "explorer", column = 1, row = 1, columns = 7 } } }
 display.home.page, state.homeModel = 1, homeModel
@@ -167,6 +205,14 @@ for _, mode in ipairs({ "quality", "performance" }) do
   state.key = theme.hgss:homeMotionKey(homeModel, display.localMapPosition())
   T.eq(display.updateMapRefresh(10.1), false, mode .. " widget requests no redraw while stationary")
 end
+world.player.facing = "up"
+state.nextAt = 0
+T.eq(display.updateMapRefresh(10.2), true, "live widget still refreshes turns")
+value(display.updateMapRefresh, "readbackPending", true, true)
+world.player.px = 640
+T.eq(display.updateMapRefresh(11), false, "live widget respects pending readback")
+value(display.updateMapRefresh, "readbackPending", false, true)
+T.eq(display.updateMapRefresh(11.1), true, "live widget resumes with latest position")
 world.player.px = 700
 display.home.editing = true
 T.eq(display.updateMapRefresh(11), false, "Home editing suspends map animation")
@@ -187,7 +233,7 @@ for frame = 0, 599 do
     state.key = theme.hgss:explorerMotionKey(model, display.localMapPosition())
   end
 end
-T.eq(performanceFrames, 300, "Explorer keeps the same 30-Hz motion in performance mode")
+T.eq(performanceFrames, 0, "Explorer stays static in performance mode too")
 now = 200
 local widgets = display.homeWidgetData({ party = true })
 T.eq(display.homeWidgetData({ party = true }), widgets,
@@ -377,6 +423,31 @@ for _, dark in ipairs({ false, true }) do
       end
     end
   end
+end
+-- A frozen viewport is rasterized once; unrelated redraws only blit it.
+do
+  local draws = 0
+  local map = { mapId = "CACHE", width = 40, height = 36, rows = rows,
+    drawTerrain = function() draws = draws + 1 end }
+  local snapshot = {}
+  local opts = { snapshot = snapshot, cacheKey = "initial", player = { x = 2, y = 3 }, zoom = 2 }
+  local target = love.graphics.newCanvas(240, 216)
+  love.graphics.setCanvas(target)
+  theme.hgss:mapOverview(map, 7, 53, 226, 84, opts)
+  local canvas = snapshot.canvas
+  for _ = 1, 30 do theme.hgss:mapOverview(map, 7, 53, 226, 84, opts) end
+  T.eq(draws, 1, "unchanged snapshot renders terrain once across 31 redraws")
+  T.eq(snapshot.canvas, canvas, "snapshot reuses its small viewport canvas")
+  T.eq(canvas:getWidth(), 227, "cache allocates viewport plus shadow, never world width")
+  T.eq(love.graphics.getCanvas(), target, "snapshot rendering restores the host target")
+  opts.cacheKey, opts.zoom = "zoom", 3
+  theme.hgss:mapOverview(map, 7, 53, 226, 84, opts)
+  T.eq(draws, 2, "intentional zoom change redraws the map once")
+  T.check(canvas.released, "replaced map cache is released")
+  display.explorer.mapSnapshot = snapshot
+  display.clearExplorerSnapshot()
+  T.check(snapshot.canvas.released, "closing/reopening releases the viewport cache")
+  love.graphics.setCanvas()
 end
 run.release()
 T.finish("Kanto Gear map motion")

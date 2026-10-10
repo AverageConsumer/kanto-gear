@@ -3434,7 +3434,16 @@ return function(mod)
       + (tonumber(value.seconds) or 0)
   end
 
-  local function invalidateLocalMap()
+  function displayRuntime.clearExplorerSnapshot()
+    local snapshot = displayRuntime.explorer.mapSnapshot
+    if not snapshot then return end
+    if snapshot.canvas then snapshot.canvas:release() end
+    displayRuntime.explorer.mapSnapshot = nil
+    displayRuntime.explorer.renderModel = nil
+  end
+
+  local function invalidateLocalMap(preserveSnapshot)
+    if not preserveSnapshot then displayRuntime.clearExplorerSnapshot() end
     if displayRuntime.nativeMap then displayRuntime.nativeMap:release() end
     if localMapImage and localMapImage.release then localMapImage:release() end
     localMap, localMapImage = nil, nil
@@ -3536,7 +3545,7 @@ return function(mod)
     end
     readbackPending, displayReady = false, false
     usePalette(themePalette(theme), hgss and THEME.hgss.colors.partyBg)
-    invalidateLocalMap()
+    invalidateLocalMap(true)
     themeKey, dirty = key, true
   end
 
@@ -6621,10 +6630,9 @@ return function(mod)
 
   function displayRuntime.updateMapRefresh(now)
     local state = displayRuntime.mapRefresh
-    if (page ~= "LOCAL" and page ~= "HOME") or THEME.style ~= "hgss"
+    if page ~= "HOME" or THEME.style ~= "hgss"
         or displayRuntime.overlayHidden then return false end
-    local home = page == "HOME"
-    if home and (displayRuntime.home.editing or displayRuntime.home.library) then return false end
+    if displayRuntime.home.editing or displayRuntime.home.library then return false end
     if now + 0.000001 < state.nextAt or readbackPending then return false end
     local rate = 30
     -- Keep the update phase instead of drifting when a host frame
@@ -6634,12 +6642,11 @@ return function(mod)
     if screenState() ~= "active" or battle or moveInfo or fieldChoice or radarOpen then
       return false
     end
-    local model = home and state.homeModel or displayRuntime.explorer.renderModel
-    if home and (not state.homeModel or model.page ~= displayRuntime.home.page) then return false end
+    local model = state.homeModel
+    if not model or model.page ~= displayRuntime.home.page then return false end
     local pos = displayRuntime.localMapPosition()
-    if not model or not model.overview or not pos or pos.mapId ~= model.overview.mapId then return false end
-    local key = home and THEME.hgss:homeMotionKey(model, pos)
-      or not home and THEME.hgss:explorerMotionKey(model, pos)
+    if not model.overview or not pos or pos.mapId ~= model.overview.mapId then return false end
+    local key = THEME.hgss:homeMotionKey(model, pos)
     local terrain = model.overview.drawTerrain and displayRuntime.nativeMap
     local revision = terrain and terrain:revision() or ""
     if not key or (key == state.key and revision == (state.terrainRevision or "")) then return false end
@@ -6650,6 +6657,16 @@ return function(mod)
   function displayRuntime.explorerModel(overview)
     local explorer = displayRuntime.explorer
     local now, id = love.timer.getTime(), overview.mapId or mapId
+    local snapshot
+    if page == "LOCAL" then
+      snapshot = explorer.mapSnapshot
+      if not snapshot or snapshot.mapId ~= id then
+        displayRuntime.clearExplorerSnapshot()
+        snapshot = { mapId = id, player = displayRuntime.localMapPosition(id), actors = {} }
+        explorer.mapSnapshot = snapshot
+      end
+    end
+    local player = snapshot and snapshot.player or displayRuntime.localMapPosition(id)
     local guideEnabled, areaEnabled = assist("guide"), assist("area")
     local cached = explorer.data
     -- ponytail: a half-second snapshot avoids rebuilding encounter tables on
@@ -6679,7 +6696,8 @@ return function(mod)
     if explorer.renderModel and explorer.renderData == cached
         and explorer.renderOverview == overview and explorer.renderKey == renderKey
         and (not explorer.scanFrame or explorer.scanFrame >= RADAR_FRAMES) then
-      explorer.renderModel.player = displayRuntime.localMapPosition(id)
+      explorer.renderModel.player = player
+      explorer.renderModel.mapSnapshot = snapshot
       return explorer.renderModel
     end
     local sections = area.sections or { { rows = {} }, { rows = {} },
@@ -6696,23 +6714,50 @@ return function(mod)
     wild = displayRuntime.explorerWildRows(guide, id, filters.wildScope,
       displayRuntime.explorerMethods())
 
-    local actors = mod.world and mod.world.mapActors
+    local actors = (not snapshot or not snapshot.actorById) and mod.world and mod.world.mapActors
       and mod.world:mapActors() or {}
-    local actorById = {}
-    for _, actor in ipairs(actors or {}) do actorById[actor.id] = actor end
+    local actorById = snapshot and snapshot.actorById or {}
+    for _, actor in ipairs(actors or {}) do
+      local copy = actor
+      if snapshot then
+        copy = {}
+        for k, v in pairs(actor) do copy[k] = v end
+      end
+      actorById[actor.id] = copy
+    end
+    if snapshot then snapshot.actorById = actorById end
+    local function mapActor(row, actorId, kind)
+      local key = table.concat({ kind, tostring(row.id), tostring(row.index),
+        tostring(actorId), tostring(row.label) }, ":")
+      if snapshot and snapshot.actors[key] then return snapshot.actors[key] end
+      local actor = displayRuntime.gen3 and displayRuntime.gen3:mapActor(row)
+        or actorById[actorId]
+      if actor and not snapshot then return actor end
+      local captured = {}
+      for k, v in pairs(actor or row) do
+        if type(v) ~= "table" and type(v) ~= "function" and type(v) ~= "userdata" then captured[k] = v end
+      end
+      if not actor and mod.world and mod.world.npc and row.index ~= nil
+          and not displayRuntime.gen3 then
+        local handle = mod.world:npc(row.mapId, row.index)
+        if handle and type(handle.position) == "function" then
+          local x, y = handle:position()
+          if x ~= nil and y ~= nil then captured.x, captured.y = x, y end
+        end
+      end
+      if snapshot then snapshot.actors[key] = captured end
+      return captured
+    end
+    if snapshot then
+      for _, row in ipairs(sections[1].rows or {}) do mapActor(row, row.id, "trainer") end
+    end
     for _, row in ipairs(allTrainers) do
-      local actor = displayRuntime.gen3 and displayRuntime.gen3:mapActor(row) or actorById[row.id]
+      local actor = mapActor(row, row.id, "trainer")
       row.mapVisible = not actor or actor.visible ~= false
       if actor then
         row.actor = actor
         row.x, row.y, row.facing = actor.x, actor.y, actor.facing
         row.spriteId, row.palette = actor.spriteId, actor.palette
-      elseif mod.world and mod.world.npc and row.index ~= nil then
-        local handle = mod.world:npc(row.mapId, row.index)
-        if handle and type(handle.position) == "function" then
-          local x, y = handle:position()
-          if x ~= nil and y ~= nil then row.x, row.y = x, y end
-        end
       end
       row.key = "trainer:" .. tostring(row.id or row.label)
     end
@@ -6722,21 +6767,15 @@ return function(mod)
       explorer.scanMapId, explorer.scanFrame, explorer.scanRevealed =
         id, nil, {}
     end
-    local pos = mod.world and mod.world:current()
+    local pos = player
     local scanProgress = explorer.scanFrame
       and math.min(1, explorer.scanFrame / RADAR_FRAMES) or nil
     for _, row in ipairs(allItems) do
       if row.gift then
-        row.actor = displayRuntime.gen3 and displayRuntime.gen3:mapActor(row) or actorById[row.actorId]
+        row.actor = mapActor(row, row.actorId, "gift")
         if row.actor then
           row.mapVisible = row.actor.visible ~= false
           row.x, row.y = row.actor.x, row.actor.y
-        elseif not displayRuntime.gen3 and mod.world and mod.world.npc and row.index ~= nil then
-          local handle = mod.world:npc(row.mapId, row.index)
-          if handle and type(handle.position) == "function" then
-            local x, y = handle:position()
-            if x ~= nil and y ~= nil then row.x, row.y = x, y end
-          end
         end
       end
       row.key = table.concat({ "item", tostring(row.kind), tostring(row.x),
@@ -6868,6 +6907,16 @@ return function(mod)
         detailRows[#detailRows + 1] = selected.matches[index]
       end
     end
+    local mapCacheKeys
+    if snapshot then
+      mapCacheKeys = { tostring(themeKey), tostring(explorer.mapFull),
+        tostring(explorer.mapZoom), tostring(selectedMarker and selectedMarker.source.key) }
+      for _, marker in ipairs(markers) do
+        mapCacheKeys[#mapCacheKeys + 1] = table.concat({ marker.kind, tostring(marker.x),
+          tostring(marker.y), tostring(marker.state), tostring(marker.found),
+          tostring(marker.scanned), tostring(marker.picked) }, ":")
+      end
+    end
     local model = {
       view = view, selected = selected, rows = rows,
       total = #source, page = explorer.page, pages = pages, perPage = perPage,
@@ -6877,7 +6926,7 @@ return function(mod)
       region = (compat.currentRegion() or "kanto"):upper(),
       overview = overview,
       image = loadLocalMapImage(overview, rows_, width, height, density),
-      player = displayRuntime.localMapPosition(id),
+      player = player, mapSnapshot = snapshot, mapCacheKey = mapCacheKeys and table.concat(mapCacheKeys, "/"),
       markers = markers, selectedMarker = selectedMarker,
       mapFull = explorer.mapFull == true,
       mapZoom = explorer.mapZoom or 1,
@@ -6981,9 +7030,10 @@ return function(mod)
   -- Host session teardown also drops subscriptions when returning to the launcher.
   -- A weak reference keeps its process-wide release registry from retaining Gear.
   do
-    local weak = setmetatable({ displayRuntime.pss }, { __mode = "v" })
+    local weak = setmetatable({ displayRuntime.pss, displayRuntime }, { __mode = "v" })
     require("src.render.Assets").register({ release = function()
       if weak[1] then weak[1]:close() end
+      if weak[2] then weak[2].clearExplorerSnapshot() end
     end })
   end
   function displayRuntime.drawPss()
@@ -10590,6 +10640,7 @@ return function(mod)
   end
 
   displayRuntime.drawContents = function()
+    if page ~= "LOCAL" then displayRuntime.clearExplorerSnapshot() end
     displayRuntime.backgroundDim = 0
     displayRuntime.nativeHandoff = false
     G.setCanvas(canvas)
@@ -11068,6 +11119,7 @@ return function(mod)
   end
 
   function displayRuntime.openHomeApp(id)
+    displayRuntime.clearExplorerSnapshot()
     local home = displayRuntime.home
     home.editing, home.library, home.addSlot = false, false, nil
     home.swapSource = nil
@@ -13334,6 +13386,7 @@ return function(mod)
   end
 
   mod.events:on("game.ready", function(payload)
+    displayRuntime.clearExplorerSnapshot()
     displayRuntime.pss:close()
     displayRuntime.localSummary, displayRuntime.nativeSummary = nil, nil
     displayRuntime.touchChoice = nil
@@ -13977,7 +14030,7 @@ return function(mod)
   for _, event in ipairs({ "world.block_replaced", "map.reloaded" }) do
     mod.events:on(event, function(payload)
       if not payload or not payload.mapId or payload.mapId == mapId then
-        invalidateLocalMap()
+        invalidateLocalMap(true)
         dirty = true
       end
     end)
@@ -14252,9 +14305,7 @@ return function(mod)
       -- Native battle text owns its animation upstairs; the dim companion
       -- needs no blinking arrow or periodic text redraw downstairs.
       if page == "LOCAL" and mod.world and mod.world.current then
-        local pos = mod.world:current()
-        screenKey = screenKey .. ":" .. tostring(pos and pos.facing)
-          .. ":" .. displayRuntime.fruitTrees.stateKey(game.save,
+        screenKey = screenKey .. ":" .. displayRuntime.fruitTrees.stateKey(game.save,
             displayRuntime.explorer.data and displayRuntime.explorer.data.fruits)
       end
       if screenKey ~= lastScreenKey or mode == "transition" then
