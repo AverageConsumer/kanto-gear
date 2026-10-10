@@ -243,6 +243,13 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   display.tapAchievements(149, 205)
   T.eq(display.achievements.habitatPage, 2, version .. " habitat pager advances")
   T.eq(display.achievements.page, 1, version .. " habitat paging preserves the find page")
+  appearances[#appearances + 1] = { mapId = "UNVISITED_FIXTURE", section = "SECRET FLOOR",
+    method = "WALK", chance = 10, minLevel = 5, maxLevel = 10 }
+  display.pokedex.habitatPlan = nil
+  local all = display.pokedexHabitatPlan(display.achievements.habitat)
+  run.loader.modOptions.kanto_gear.info_level = "enhanced"
+  local known = display.pokedexHabitatPlan(display.achievements.habitat)
+  T.eq(#known.rows, #all.rows - 1, version .. " reducing spoilers immediately filters cached unknown floors")
   run.loader.modOptions.kanto_gear.info_level = "vanilla"
   T.eq(display.achievementModel().view, "finds", version .. " reducing spoilers closes unknown species details")
   run.loader.modOptions.kanto_gear.info_level = "spoiler"
