@@ -522,12 +522,13 @@ T.eq(Progress.rowState({ status = "LATER" }, 1, context), "later", "future story
 context.gen2 = true
 T.eq(Progress.rowState({ event = 2 }, 1, context), "untracked", "temporary flag is not called optional")
 T.eq(Progress.rowState({ event = 2, done = true }, 1, context), "untracked", "temporary flag cannot prove a win")
-T.eq(Progress.rowState({ event = 55, hideEvent = 99 }, 1, context), "unavailable", "disappeared regular trainer stays missed")
+T.eq(Progress.rowState({ event = 55, hideEvent = 99 }, 1, context), "later", "hidden trainer may return on another day or story phase")
+T.eq(Progress.rowState({ event = 55, hideEvent = 99, missable = true }, 1, context), "unavailable", "proven disappearing trainer stays missed")
 T.eq(Progress.rowState({ event = 55, scripted = true }, 1, context), "open", "scripted gym leader counts normally")
 T.eq(Progress.rowState({ event = 55, done = true, scripted = true }, 1, context), "done", "gym leader's durable flag is authoritative")
 T.eq(Progress.rowState({ event = 55, done = true, hideEvent = 99 }, 1, context), "done", "automatic gym trainer completion remains valid")
 T.eq(Progress.rowState({ event = 65535 }, 2, context), "untracked", "unknown item state stays explicit")
-T.eq(Progress.rowState({ optional = true, status = "LOST" }, 1, context), "optional", "one-shot loss cannot block a stamp")
+T.eq(Progress.rowState({ optional = true, status = "LOST" }, 1, context), "unavailable", "bonus loss retains its actual outcome")
 local function progressFor(row)
   return Progress.build({ { id = "TEST", name = "TEST", maps = { "TEST" } } }, function()
     return { sections = { { rows = { row } }, { rows = {} }, { rows = {} } },
@@ -535,12 +536,16 @@ local function progressFor(row)
   end, { gen2 = true, mapId = "TEST", save = {}, flag = function() return false end })
 end
 local missed = progressFor({ event = 55, missed = true })
-T.eq(missed.byId.TEST.tier, "bronze", "missed required trainer cannot silently award gold")
+T.eq(missed.byId.TEST.tier, "gold", "permanently missed trainer is a bonus rather than a Gold lock")
+T.eq(missed.byId.TEST.sections[1].rows[1].state, "unavailable", "Gold never fabricates a victory")
+T.eq(missed.byId.TEST.sections[1].bonusMissed, 1, "missed bonus remains documented")
 T.eq(#missed.goals, 0, "permanently missed goals do not send the player back")
 T.eq(progressFor({ event = 55, optional = true, status = "LOST" }).byId.TEST.tier,
   "gold", "optional one-shot losses do not block gold")
 T.eq(progressFor({ event = 2, done = true }).byId.TEST.tier,
   "bronze", "unreliable completion cannot falsely award gold")
+T.eq(progressFor({ optional = true }).byId.TEST.tier,
+  "gold", "CANLOSE bonus without a durable win flag cannot block Gold")
 
 local function areaFor(sections, pokemon, visited)
   return Progress.build({ { id = "TEST", name = "TEST", maps = { "TEST" } } }, function()
@@ -563,6 +568,59 @@ T.eq(areaFor({ { rows = {} }, { rows = { { untracked = true, unknown = true } } 
   { rows = {} } }, nil, true).tier, "bronze", "unknown item metadata still blocks completion")
 T.eq(areaFor({ { rows = { { untracked = true } } }, { rows = {} }, { rows = {} } },
   nil, true).tier, "bronze", "missing source catalogue cannot award Gold")
+-- Obligations and actual outcomes must agree across every category/generation.
+for _, gen in ipairs({ 1, 2, 3 }) do
+  for category = 1, 4 do
+    for _, outcome in ipairs({ "open", "done", "missed" }) do
+      local source = { event = 55, mapId = "TEST", missable = true,
+        done = outcome ~= "open", missed = outcome == "missed", gift = category == 4 }
+      local rows = { { rows = {} }, { rows = {} }, { rows = {} } }
+      local mons = {}
+      if category == 4 then mons[1] = source else rows[category].rows[1] = source end
+      local area = Progress.build({ { id = "TEST", maps = { "TEST" } } }, function()
+        return { sections = rows, pokemon = mons }
+      end, { gen2 = gen == 2, gen3 = gen == 3, save = {}, mapId = "TEST" }).byId.TEST
+      local section = area.sections[category]
+      T.eq(area.tier, "gold", "Gen " .. gen .. " bonus cannot lock category " .. category)
+      T.eq(section.total, 0, "bonus excluded from required denominator")
+      T.eq(section.optional, 1, "bonus remains in its own denominator")
+      T.eq(section.bonusDone, outcome == "done" and 1 or 0, "only genuine completion earns a bonus check")
+      T.eq(section.rows[1].state, outcome == "missed" and "unavailable" or outcome, "bonus preserves outcome")
+      T.eq(section.rows[1].done, outcome == "done", "missed is never exposed as done to privacy/UI callers")
+      local shown = Progress.presentArea(area, "enhanced", function() return true end).sections[category]
+      T.eq(shown.total, section.total, "filtered denominator uses the same rules")
+      T.eq(shown.bonusDone, section.bonusDone, "filtered bonus progress uses the same rules")
+      T.eq(source.bonus, nil, "source catalogue remains read-only")
+    end
+  end
+end
+local function choiceArea(rows, gen)
+  return Progress.build({ { id = "TEST", maps = { "TEST" } } }, function()
+    return { sections = { { rows = {} }, { rows = rows }, { rows = {} } } }
+  end, { gen2 = gen == 2, gen3 = gen == 3, save = {}, mapId = "TEST" }).byId.TEST
+end
+for _, gen in ipairs({ 1, 2, 3 }) do
+  local choices = { { mapId = "TEST", gift = true, event = 55, itemId = "A" },
+    { mapId = "TEST", gift = true, event = 55, itemId = "B" } }
+  T.eq(choiceArea(choices, gen).sections[2].total, 1, "shared reward receipt requires one choice in Gen " .. gen)
+  T.eq(choiceArea(choices, gen).tier, "bronze", "choice still must be made")
+  choices[2].done = true
+  T.eq(choiceArea(choices, gen).sections[2].done, 1, "either choice completes the shared goal")
+  T.eq(choiceArea(choices, gen).tier, "gold", "unchosen alternative does not lock Gold")
+  choices[1].done = true
+  T.eq(choiceArea(choices, gen).sections[2].done, 1, "shared receipts never overcount")
+  choices[2].event = 56
+  T.eq(choiceArea(choices, gen).sections[2].total, 2, "independent receipts remain independent")
+  choices[2].done = false
+  T.eq(choiceArea(choices, gen).tier, "bronze", "normal unfinished reward still blocks Gold")
+end
+local ship = choiceArea({ { mapId = "SS_ANNE_1F", done = false } }, 1)
+T.eq(ship.sections[2].optional, 1, "ship pickup is a bonus even before departure")
+T.eq(ship.sections[2].rows[1].state, "open", "uncollected ship pickup is not prematurely missed")
+T.eq(choiceArea({ { mapId = "SS_ANNE_1F", required = true } }, 1).tier,
+  "bronze", "mandatory story reward on the ship remains required")
+T.eq(Progress.rowState({ event = 55, hideEvent = 99, missable = true, missedAfter = 100 }, 1, context),
+  "later", "initial story hiding is not proof of a missed battle")
 -- Deterministic workload: verify both bounded progress and exact parity with
 -- the existing synchronous rules, including goals ordering and every row.
 local groups = {}

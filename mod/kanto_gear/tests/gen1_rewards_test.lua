@@ -94,6 +94,7 @@ T.eq(album(dojoRows()).sections[4].excluded, 1, "alternative remains documented 
 T.eq(album(dojoRows()).tier, "gold", "chosen Dojo prize allows gold without collecting both")
 save.flags.EVENT_GOT_HITMONLEE = nil
 T.eq(album(dojoRows()).tier, "silver", "unreceived gifts prevent gold even without wild encounters")
+T.eq(album(dojoRows()).sections[4].total, 1, "Dojo requires one reward even before making the choice")
 local states = { { species = "EEVEE", gift = true, order = 133, mapId = "TEST", status = "LATER" },
   { species = "EEVEE", gift = true, order = 133, mapId = "TEST", excluded = true },
   { species = "EEVEE", done = true, order = 133, mapId = "TEST" } }

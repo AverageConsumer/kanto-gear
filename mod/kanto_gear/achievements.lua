@@ -39,11 +39,10 @@ function M.rowState(row, category, context)
   if row.untracked then return "untracked" end
   if row.repeatable then return "repeatable" end
   if row.excluded then return "excluded" end
-  if row.optional then return "optional" end
   if row.missed or row.status == "MISSED" then return "unavailable" end
   if row.status == "LOST" then return "unavailable" end
   -- A temporary or missing flag is not durable proof, even while it is set.
-  if context.gen2 and row.tradeId == nil and (row.event == nil or row.event == 65535
+  if context.gen2 and (category ~= 4 or row.gift) and not row.catchGoal and row.tradeId == nil and (row.event == nil or row.event == 65535
       or type(row.event) == "number" and row.event < 8) then return "untracked" end
   if row.done then return "done" end
   local id, flags = row.mapId or "", context.save.flags or {}
@@ -58,10 +57,67 @@ function M.rowState(row, category, context)
     end
   elseif context.gen2 and category == 1 then
     if row.hideEvent and row.hideEvent ~= 65535 and context.flag(row.hideEvent) then
-      return "unavailable"
+      return row.missable and (not row.missedAfter or context.flag(row.missedAfter)) and "unavailable" or "later"
     end
   end
   return row.status == "LATER" and "later" or "open"
+end
+
+-- Outcome and obligation are independent: a missed bonus is never a win.
+-- Keep every source row (and its location), but count an either/or reward once.
+local function prepare(source, category, context)
+  local row = {}
+  for key, value in pairs(source) do row[key] = value end
+  row.state = M.rowState(row, category, context)
+  row.done = row.state == "done"
+  row.bonus = row.optional or row.missable or row.state == "unavailable" or false
+  local id = row.mapId or ""
+  if row.gift and not row.trade and not row.catchGoal and row.event ~= nil then
+    row.choiceGroup = row.choiceGroup or (id .. ":receipt:" .. tostring(row.event))
+  end
+  if row.alternative and row.event and (category == 2 or not context.gen3) then
+    local a, b = tostring(row.event), tostring(row.alternative)
+    if b < a then a, b = b, a end
+    row.choiceGroup = id .. ":choice:" .. a .. ":" .. b
+  end
+  if not context.gen2 and not context.gen3 then
+    if not row.required and (id:match("^SS_ANNE_")
+        or category == 1 and id:match("^SILPH_CO_")) then row.bonus = true end
+    if category == 2 and id == "MT_MOON_B2F"
+        and (row.itemId == "DOME_FOSSIL" or row.itemId == "HELIX_FOSSIL") then
+      row.choiceGroup = id .. ":fossil"
+    end
+  end
+  return row
+end
+
+local function count(section, category)
+  local choices = {}
+  for _, row in ipairs(section.rows) do
+    local state = row.state
+    if row.unknown or category == 1 and state == "untracked" and not row.bonus then section.unknown = section.unknown + 1 end
+    if state == "untracked" or state == "repeatable" or state == "excluded" then
+      section[state] = section[state] + 1
+    elseif row.bonus then
+      section.optional = section.optional + 1
+      if state == "done" then section.bonusDone = section.bonusDone + 1 end
+      if state == "unavailable" then section.bonusMissed = section.bonusMissed + 1 end
+    else
+      local key = row.choiceGroup
+      if not key then
+        section.total = section.total + 1
+        if state == "done" then section.done = section.done + 1 end
+      else
+        if choices[key] == nil then section.total, choices[key] = section.total + 1, false end
+        if state == "done" and not choices[key] then section.done, choices[key] = section.done + 1, true end
+      end
+    end
+  end
+end
+
+local function section(rows)
+  return { rows = rows or {}, done = 0, total = 0, unavailable = 0, optional = 0,
+    bonusDone = 0, bonusMissed = 0, untracked = 0, excluded = 0, repeatable = 0, unknown = 0 }
 end
 
 function M.build(groups, read, context, checkpoint)
@@ -78,48 +134,26 @@ function M.build(groups, read, context, checkpoint)
     local sourceData = read(group.maps, checkpoint)
     local sections = sourceData.sections
     for category = 1, 3 do
-      local section = { rows = {}, done = 0, total = 0, unavailable = 0,
-        optional = 0, untracked = 0, excluded = 0, repeatable = 0, unknown = 0 }
+      local section = section()
       for _, source in ipairs(sections[category].rows) do
-        local row = {}
-        for key, value in pairs(source) do row[key] = value end
-        row.state = M.rowState(row, category, context)
-        -- A known find with no permanent collection flag is informational.
-        -- Missing source data is different: it cannot prove a complete area.
-        if row.unknown or category == 1 and row.state == "untracked" then
-          section.unknown = section.unknown + 1
-        end
+        local row = prepare(source, category, context)
         area.evidence = area.evidence or row.state == "done"
-        if row.state == "excluded" or row.state == "optional" or row.state == "untracked" or row.state == "repeatable" then
-          section[row.state] = section[row.state] + 1
-        else
-          section.total = section.total + 1
-          if row.state == "done" then section.done = section.done + 1 end
-          if row.state == "unavailable" then section.unavailable = section.unavailable + 1 end
-        end
         section.rows[#section.rows + 1] = row
       end
+      count(section, category)
       area.sections[category] = section
       area.unknown = area.unknown + section.unknown
       area.done, area.total = area.done + section.done, area.total + section.total
     end
     area.fieldTotal, area.fieldDone = area.total, area.done
-    local pokemon = { rows = {}, total = 0, done = 0, unavailable = 0,
-      excluded = 0, untracked = 0, repeatable = 0, optional = 0 }
+    local pokemon = section()
     for _, source in ipairs(sourceData.pokemon or {}) do
-      local row = {}
-      for key, value in pairs(source) do row[key] = value end
-      row.state = row.gift and M.rowState(row, 4, context) or row.done and "done" or "open"
+      local row = prepare(source, 4, context)
       pokemon.rows[#pokemon.rows + 1] = row
-      if row.state == "excluded" or row.state == "untracked" or row.state == "repeatable" or row.state == "optional" then
-        pokemon[row.state] = pokemon[row.state] + 1
-      else
-        pokemon.total = pokemon.total + 1
-        if row.state == "done" then pokemon.done = pokemon.done + 1 end
-        if row.state == "unavailable" then pokemon.unavailable = pokemon.unavailable + 1 end
-      end
       area.evidence = area.evidence or row.gift and row.state == "done"
     end
+    count(pokemon, 4)
+    area.unknown = area.unknown + pokemon.unknown
     area.sections[4] = pokemon
     area.total, area.done = area.total + pokemon.total, area.done + pokemon.done
     area.remaining = area.total - area.done
@@ -189,24 +223,13 @@ function M.presentArea(area, mode, visible)
   for key, value in pairs(area) do out[key] = value end
   out.sections = {}
   for category, source in ipairs(area.sections) do
-    local section = { rows = {}, done = 0, total = 0, unavailable = 0,
-      optional = 0, untracked = 0, excluded = 0, repeatable = 0, unknown = 0 }
+    local section = section()
     for _, row in ipairs(source.rows) do
       if visible(row, category) then
         section.rows[#section.rows + 1] = row
-        local state = row.state
-        if row.unknown or category == 1 and state == "untracked" then
-          section.unknown = section.unknown + 1
-        end
-        if state == "optional" or state == "untracked" or state == "excluded" or state == "repeatable" then
-          section[state] = section[state] + 1
-        else
-          section.total = section.total + 1
-          if state == "done" then section.done = section.done + 1 end
-          if state == "unavailable" then section.unavailable = section.unavailable + 1 end
-        end
       end
     end
+    count(section, category)
     out.sections[category] = section
   end
   return out

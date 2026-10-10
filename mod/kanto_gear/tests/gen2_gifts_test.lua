@@ -160,7 +160,8 @@ if native then
   T.eq(events["ROUTE_32_POKECENTER_1F:58"], 23, "native Old Rod uses its own received event")
   T.eq(events["ROUTE_30_BERRY_HOUSE:173"], 39, "native Berry gift remains received after consumption")
   T.eq(events["GOLDENROD_GAME_CORNER:216"], nil, "repeatable purchased prizes are not NPC gifts")
-  T.eq(counts, 80, "complete native Crystal catalogue has 80 deduplicated NPC gifts")
+  local expected = require("src.core.GameVersion").get() == "crystal" and 80 or 74
+  T.eq(counts, expected, "complete native edition catalogue has its deduplicated NPC gifts")
   print("GEN2_NATIVE_GIFTS", counts)
 end
 T.finish("Kanto Gear Gen2 NPC gifts")

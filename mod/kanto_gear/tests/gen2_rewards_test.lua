@@ -188,6 +188,29 @@ if native then
     gen2InitialEvents = dofile(native .. "/initial_events.lua"), pokemon = dofile(native .. "/pokemon.lua"),
     items = dofile(native .. "/items.lua"), gen2EventTables = dofile(native .. "/events.lua"),
     gen2Constants = dofile(native .. "/constants.lua") }
+  local function trainers(id) return Area.gen2Rows(imported, {}, world, { id })[1] end
+  local tower = trainers("RADIO_TOWER_2F")[1]
+  T.eq(tower.missable, true, "native Rocket population is a bonus before disappearing")
+  flags[1742] = true
+  T.eq(Progress.rowState(tower, 1, { gen2 = true, save = {}, flag = function(id) return flags[id] == true end }),
+    "later", "initially hidden Radio Tower population is not prematurely called missed")
+  flags[1393] = true
+  T.eq(Progress.rowState(tower, 1, { gen2 = true, save = {}, flag = function(id) return flags[id] == true end }),
+    "unavailable", "cleared takeover plus hidden population proves a missed encounter")
+  flags[1742], flags[1393] = nil, nil
+  local ship = trainers("FAST_SHIP_CABINS_SE_SSE_CAPTAINS_CABIN")
+  local first, weekly = 0, 0
+  for _, row in ipairs(ship) do
+    if row.hideEvent == 1849 then T.eq(row.missable, true, "first-voyage trainer is a bonus"); first = first + 1 end
+    if row.hideEvent == 1850 or row.hideEvent == 1851 then
+      T.eq(row.repeatable, true, "weekly trainer's actual flag reset cannot create a permanent goal")
+      weekly = weekly + 1
+    end
+  end
+  T.check(first > 0 and weekly > 0, "native ship exercises both one-time and resettable populations")
+  for _, row in ipairs(trainers("CERULEAN_GYM")) do
+    T.eq(row.missable, nil, "initially closed Gym is required rather than a missable population")
+  end
   local count, trades, entries = 0, 0, {}
   for id in pairs(imported.gen2Maps) do
     for _, row in ipairs(Area.gen2Rows(imported, {}, world, { id })[4]) do

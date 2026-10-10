@@ -514,7 +514,7 @@ function M:catalog(mapId, checkpoint)
       graphicsId = obj.graphicsId or obj.graphics, graphicsVar = obj.graphicsVar,
       facing = obj.facing, hideEvent = obj.flag }
   end
-  local function mon(species, obj, giftCommand)
+  local function mon(species, obj, giftCommand, missable)
     if mapId == "FR_POKEMON_TOWER_6F" and species == 105 then return end -- uncatchable ghost
     if not self.adapter.data.pokemon[species] then
       out[1][#out[1] + 1] = { label = "POKEMON", mapId = mapId, untracked = true }
@@ -526,6 +526,7 @@ function M:catalog(mapId, checkpoint)
     end
     local row = base(obj)
     row.species, row.giftCommand = species, giftCommand
+    row.missable = missable or nil
     pokemon[species], out[4][#out[4] + 1] = row, row
   end
   local function scan(obj, objectSource)
@@ -589,6 +590,9 @@ function M:catalog(mapId, checkpoint)
             row.id = mapId .. "_trainer_" .. key
             row.label = def and ((def.className or "") .. " " .. (def.name or "")):gsub("^%s+", "") or "TRAINERS"
             row.rival, row.league, row.optional = rival, league, not self.emerald and typ == 9
+            row.required = not row.optional and (rival or league or def and (not self.emerald and def.class == 83
+              or self.emerald and (def.class == self.constants:id("trainer_classes", "TRAINER_CLASS_AQUA_LEADER")
+                or def.class == self.constants:id("trainer_classes", "TRAINER_CLASS_MAGMA_LEADER")))) or nil
             row.flags, row.untracked = {}, not def or type(id) ~= "number"
             trainers[key], out[1][#out[1] + 1] = row, row
           end
@@ -599,10 +603,10 @@ function M:catalog(mapId, checkpoint)
         local species = command[1]
         if proven[command] then -- receipt-based objective above
         elseif type(species) == "number" and species < 0x4000 then
-          mon(species, obj, command.op ~= "setwildbattle" and command or nil)
+          mon(species, obj, command.op ~= "setwildbattle" and command or nil, command.op == "setwildbattle")
         elseif vars[species] then
           for _, candidate in ipairs(sortedKeys(vars[species])) do
-            mon(candidate, obj, command.op ~= "setwildbattle" and command or nil)
+            mon(candidate, obj, command.op ~= "setwildbattle" and command or nil, command.op == "setwildbattle")
           end
         else
           out[1][#out[1] + 1] = { label = "POKEMON", mapId = mapId, untracked = true }
@@ -615,7 +619,7 @@ function M:catalog(mapId, checkpoint)
           if r.op == "setvar" and (r.var or r[1]) == 0x8004 then species = r.value or r[2] end
         end
         hasMon = true
-        mon(species, obj)
+        mon(species, obj, nil, true)
       elseif self.emerald and command.op == "special" and command.id == self.constants:special("ChooseStarter") then
         hasMon = true
         for _, nat in ipairs({ 252, 255, 258 }) do mon(self.adapter.Pokemon.speciesFromNational(nat), obj) end
@@ -655,6 +659,33 @@ function M:catalog(mapId, checkpoint)
         row.kind, row.itemId = "item", obj.flag == 47 and 358 or 357
         row.event, row.alternative = obj.flag == 47 and 626 or 627, obj.flag == 47 and 627 or 626
         out[2][#out[2] + 1], hasItem = row, true
+      end
+      if self.emerald then
+        local C = self.constants
+        local root, claw = C:flag("FLAG_CHOSE_ROOT_FOSSIL"), C:flag("FLAG_CHOSE_CLAW_FOSSIL")
+        local items = vars[0x8000] or {}
+        -- The collapse hides both fossils. Their individual choice flags,
+        -- rather than the hide flags, prove which reward was selected.
+        if mapId == "EM_MIRAGE_TOWER_4F" and (
+            obj.flag == C:flag("FLAG_HIDE_MIRAGE_TOWER_ROOT_FOSSIL") and items[286]
+            or obj.flag == C:flag("FLAG_HIDE_MIRAGE_TOWER_CLAW_FOSSIL") and items[287]) then
+          local isRoot = items[286] == true
+          local row = base(obj)
+          row.kind, row.itemId = "item", isRoot and 286 or 287
+          row.event, row.alternative = isRoot and root or claw, isRoot and claw or root
+          out[2][#out[2] + 1], hasItem = row, true
+        elseif mapId == "EM_DESERT_UNDERPASS" and obj.flag == C:flag("FLAG_HIDE_DESERT_UNDERPASS_FOSSIL")
+            and items[286] and items[287] then
+          for _, item in ipairs({ 286, 287 }) do
+            local row = base(obj)
+            row.id, row.kind, row.itemId, row.event = row.id .. "_" .. item, "item", item, obj.flag
+            row.needsChoice, row.otherChoice = item == 286 and claw or root, item == 286 and root or claw
+            row.unlockVar, row.unlockValue = C:var("VAR_MIRAGE_TOWER_STATE"), 2
+            row.choiceGroup = mapId .. ":remaining-fossil"
+            out[2][#out[2] + 1] = row
+          end
+          hasItem = true
+        end
       end
       local decorativeBall = self.emerald and (
         obj.flag == self.constants:flag("FLAG_HIDE_CONTEST_POKE_BALL")
@@ -696,6 +727,12 @@ function M:catalog(mapId, checkpoint)
       out[3][#out[3] + 1] = row
     elseif bg.scriptKey then scan(bg) end
   end
+  if self.emerald then
+    for _, row in ipairs(out[1]) do
+      local name = (self.constants.flags.byId.FLAG_ or {})[row.hideEvent] or ""
+      if row.flags and not row.required and (name:find("AQUA") or name:find("MAGMA")) then row.missable = true end
+    end
+  end
   if mapId:match("^FR_TRAINER_TOWER_%dF$") or mapId:match("^EM_TRAINER_HILL_")
       or mapId:match("^EM_BATTLE_FRONTIER_BATTLE_") or mapId:match("^EM_BATTLE_PYRAMID_SQUARE") then
     -- Tower opponents are generated per challenge, without route defeat flags.
@@ -731,8 +768,11 @@ end
 function M:completionKey()
   -- Native variable and Bag/PC writes need not emit flag.changed.
   if self.emerald then
-    return self.adapter.Flags.getVar(self.adapter:flagStore(), nil,
-      self.constants:var("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE")) >= 6 and 1 or 0
+    local function reached(name, value)
+      return self.adapter.Flags.getVar(self.adapter:flagStore(), nil, self.constants:var(name)) >= value
+    end
+    return (reached("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE", 6) and 1 or 0)
+      + (reached("VAR_MIRAGE_TOWER_STATE", 2) and 2 or 0)
   end
   -- These hidden, non-consumable keys require actual ownership.
   return (self:ownsKey(356) and 1 or 0) + (self:ownsKey(359) and 2 or 0)
@@ -748,6 +788,9 @@ function M:rows(mapIds, checkpoint)
       for _, source in ipairs(catalog[category]) do
         if category ~= 4 or source.gift then
           local row = copy(source)
+          if id:match("^FR_SSANNE_") and row.itemId == 339 then row.required = true end -- HM01 is needed before departure.
+          if not row.required and (id:match("^FR_SSANNE_")
+              or category == 1 and id:match("^FR_SILPH_CO_")) then row.missable = true end
           row.done = row.event and flag(row.event) or false
           if row.receiptVar then row.done = Flags.getVar(store, nil, row.receiptVar) >= row.receiptValue end
           if row.catchGoal then row.done = adapter.save.pokedex.caught[row.species] == true end
@@ -761,6 +804,12 @@ function M:rows(mapIds, checkpoint)
           if row.itemId then row.label = (adapter.data.items[row.itemId] or {}).name or "ITEMS" end
           row.excluded = row.alternative and not row.done and flag(row.alternative)
             and not (row.choiceEvent and flag(row.choiceEvent)) or nil
+          if row.needsChoice then
+            local unlocked = Flags.getVar(store, nil, row.unlockVar) >= row.unlockValue
+            row.done = row.done and unlocked and flag(row.needsChoice)
+            row.excluded = flag(row.otherChoice)
+            if not unlocked or not flag(row.needsChoice) then row.available, row.status = false, "LATER" end
+          end
           if row.repeatable then
             row.available, row.done = not flag(row.event), false
             row.status = (category == 1 or not row.event) and "REPEATABLE" or row.available and "READY" or "RENEWABLE"
@@ -824,7 +873,7 @@ function M:pokemon(mapIds, checkpoint)
       bySpecies[row.species] = { species = row.species, mapId = id, wild = true }
     end
     for _, row in ipairs(self:catalog(id, checkpoint)[4]) do
-      if not row.gift then bySpecies[row.species] = row end
+      if not row.gift and not (bySpecies[row.species] and bySpecies[row.species].wild) then bySpecies[row.species] = row end
     end
   end
   for _, row in ipairs(rewards) do if row.catchGoal then bySpecies[row.species] = row end end

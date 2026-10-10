@@ -50,7 +50,7 @@ function M.new(data)
     if not gate or initial[gate] or cleared[gate] or written[event]
         or unsafeClear[event] then guards[event] = false end
   end
-  return { state = function(_, world, event)
+  return { resettable = cleared, state = function(_, world, event)
     local value
     if event ~= nil and world and world.getFlag then value = world:getFlag(event) end
     local available = value == false

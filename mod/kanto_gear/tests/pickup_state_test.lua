@@ -46,7 +46,8 @@ state(ITEM,false,false,"LATER","older pre-quest save, same policy cache")
 flags = {[MOON]=true}
 local moon = state(MOON,false,false,"NOT TRACKED","map-entry Moon Stone reset")
 eq(area(moon).tier,"none","resettable flag cannot grant a stamp")
-eq(area(moon,true).tier,"bronze","ambiguous pickup cannot complete an area")
+eq(area(moon,true).tier,"gold","known recurring pickup without durable proof cannot lock Gold")
+eq(area(moon,true).sections[3].done,0,"recurring pickup never receives a false collection check")
 flags[MOON]=false
 state(MOON,false,true,"NOT TRACKED","Moon Stone spawned by dance")
 flags[MOON]=true

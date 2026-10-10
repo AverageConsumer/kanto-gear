@@ -13,7 +13,7 @@ return function(theme, screen, gen1, translate, drawPokemon)
   local view = screen == "achievements_habitat" and "habitat"
     or screen:find("detail", 1, true) and "detail"
     or screen == "achievements_stamps" and "album"
-    or (screen == "achievements_finds" or screen:find("pokemon", 1, true)) and "finds"
+    or (screen == "achievements_finds" or screen == "achievements_bonus" or screen:find("pokemon", 1, true)) and "finds"
     or screen == "achievements_empty" and "album" or "goals"
   local entries = screen == "achievements_empty" and {} or areas
   if view == "finds" then
@@ -26,6 +26,16 @@ return function(theme, screen, gen1, translate, drawPokemon)
     entries = { { label = "SLOWPOKE", species = "SLOWPOKE", state = "open", wild = true },
       { label = "MAGIKARP", species = "MAGIKARP", state = "done", done = true, wild = true },
       { label = "GYARADOS", species = "GYARADOS", state = "done", done = true, wild = true } }
+  end
+  if screen == "achievements_bonus" then
+    entries = { { label = "RIVAL", state = "done", done = true, bonus = true },
+      { label = "ROCKET GRUNT", state = "unavailable", bonus = true },
+      { label = "SUPER POTION", state = "open", bonus = true, mapId = names[2], x = 5, y = 1 },
+      { label = "HYPER POTION", state = "excluded" } }
+  elseif screen == "achievements_detail_bonus" then
+    areas[2].sections[1].optional, areas[2].sections[1].bonusDone = 12, 8
+    areas[2].sections[2].optional, areas[2].sections[2].bonusDone = 3, 0
+    areas[2].sections[4].optional, areas[2].sections[4].bonusDone = 2, 1
   end
   if screen == "achievements_detail_bronze" then
     areas[2].tier, areas[2].sections[3].done = "bronze", 0

@@ -145,11 +145,53 @@ local function aquaTier()
 end
 local electrode = P.speciesFromNational(101)
 local oldCaught = adapter.save.pokedex.caught[electrode]
-check(aquaTier() == "silver", "Aqua Hideout waits for its species, not a particular encounter")
+check(aquaTier() == "gold", "missable Electrode encounter cannot lock Aqua Hideout below Gold")
+local bonus = Progress:pokemon(aqua)[1]
+check(bonus.species == electrode and bonus.missable and not bonus.done, "uncaught Aqua encounter stays an honest bonus")
 adapter.save.pokedex.caught[electrode] = true
 check(aquaTier() == "gold", "an Electrode obtained elsewhere completes Aqua Hideout species goal")
+check(Progress:pokemon(aqua)[1].done, "global caught flag records the actual bonus completion")
 adapter.save.pokedex.caught[electrode] = oldCaught
-check(aquaTier() == "silver", "loading an older dex reverses the stamp")
+check(aquaTier() == "gold", "older dex restores the uncaught bonus without blocking Gold")
+check(not Progress:pokemon(aqua)[1].done, "older dex also restores the unfinished bonus")
+local voltorb = P.speciesFromNational(100)
+for _, row in ipairs(Progress:pokemon({ "EM_NEW_MAUVILLE_INSIDE" })) do
+  if row.species == voltorb then check(row.wild and not row.missable, "renewable local encounters override static bonus classification") end
+end
+local function itemSection(id)
+  return Achievements.build({ { id = id, maps = { id } } }, function(ids)
+    local rows = Progress:rows(ids)
+    return { sections = { { rows = {} }, { rows = rows[2] }, { rows = {} } } }
+  end, { gen3 = true, save = adapter.save, mapId = id }).areas[1].sections[2]
+end
+local rootFlag, clawFlag = C:flag("FLAG_CHOSE_ROOT_FOSSIL"), C:flag("FLAG_CHOSE_CLAW_FOSSIL")
+local underpass = C:flag("FLAG_HIDE_DESERT_UNDERPASS_FOSSIL")
+local mirage = C:var("VAR_MIRAGE_TOWER_STATE")
+check(itemSection("EM_MIRAGE_TOWER_4F").total == 1, "Trugturm's two fossils form one required choice")
+check(itemSection("EM_MIRAGE_TOWER_4F").done == 0, "unmade fossil choice remains pending")
+for _, selected in ipairs({ rootFlag, clawFlag }) do
+  Flags.setFlag(s, nil, rootFlag, selected == rootFlag)
+  Flags.setFlag(s, nil, clawFlag, selected == clawFlag)
+  Flags.setFlag(s, nil, C:flag("FLAG_HIDE_MIRAGE_TOWER_ROOT_FOSSIL"), true)
+  Flags.setFlag(s, nil, C:flag("FLAG_HIDE_MIRAGE_TOWER_CLAW_FOSSIL"), true)
+  local tower = itemSection("EM_MIRAGE_TOWER_4F")
+  check(tower.total == 1 and tower.done == 1 and tower.excluded == 1, "either fossil completes exactly one tower goal; both hide flags never prove both received")
+  Flags.setFlag(s, nil, underpass, true)
+  Flags.setVar(s, nil, mirage, 1)
+  check(itemSection("EM_DESERT_UNDERPASS").done == 0, "seeded hide flag before collapse is not proof of receiving the second fossil")
+  Flags.setVar(s, nil, mirage, 2)
+  Flags.setFlag(s, nil, underpass, false)
+  local second = itemSection("EM_DESERT_UNDERPASS")
+  check(second.total == 1 and second.done == 0 and second.excluded == 1, "the other fossil is a separate obtainable postgame goal: " .. second.total .. "/" .. second.done .. "/" .. second.excluded .. "/" .. second.optional)
+  Flags.setFlag(s, nil, underpass, true)
+  check(itemSection("EM_DESERT_UNDERPASS").done == 1, "actual second pickup completes that independent goal")
+  Flags.setFlag(s, nil, underpass, false)
+  check(itemSection("EM_DESERT_UNDERPASS").done == 0, "older save reverses second fossil completion")
+end
+for _, flag in ipairs({rootFlag, clawFlag, underpass, C:flag("FLAG_HIDE_MIRAGE_TOWER_ROOT_FOSSIL"), C:flag("FLAG_HIDE_MIRAGE_TOWER_CLAW_FOSSIL")}) do
+  Flags.setFlag(s, nil, flag, false)
+end
+Flags.setVar(s, nil, mirage, 0)
 local pickup = assert(Progress:rows({"EM_ROUTE102"})[2][1])
 check(not pickup.done and pickup.event >= 0x20, "real route pickup flag")
 s.flags[pickup.event] = true

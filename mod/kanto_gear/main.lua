@@ -1043,6 +1043,19 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
     for _, obj in ipairs(objects) do
       local trainer = obj.trainer or Area.gen2ScriptTrainer(data, obj)
       if trainer then
+        -- Story populations disappear; weekday/ship variants and a closed Gym
+        -- can return. Radio Tower is also hidden before the takeover begins.
+        local missable = obj.eventFlag == 1742 and (mapId:match("^RADIO_TOWER_")
+            or mapId:match("^GOLDENROD_UNDERGROUND_"))
+          or obj.eventFlag == 1754 and mapId:match("^TEAM_ROCKET_BASE_")
+          or obj.eventFlag == 1788 and mapId == "SLOWPOKE_WELL_B1F"
+          or obj.eventFlag == 1964 and mapId == "WISE_TRIOS_ROOM"
+          or obj.eventFlag == 1849 and mapId:match("^FAST_SHIP_")
+        local repeatable
+        if mapId:match("^FAST_SHIP_") then
+          Area.gen2PickupState(data, world, trainer.event)
+          repeatable = Area.pickupPolicy and Area.pickupPolicy.resettable[trainer.event] or nil
+        end
         rows[1][#rows[1] + 1] = {
           label = gen2TrainerName(data, save, trainer),
           done = gen2FlagSet(world, trainer.event),
@@ -1052,6 +1065,9 @@ function Area.gen2Rows(data, save, world, mapIds, checkpoint)
           event = trainer.event, hideEvent = obj.eventFlag,
           scripted = obj.trainer == nil,
           optional = trainer.optional,
+          repeatable = repeatable,
+          missable = missable and (obj.trainer ~= nil or trainer.optional) and true or nil,
+          missedAfter = missable and (obj.eventFlag == 1742 and 1393 or obj.eventFlag == 1964 and 821) or nil,
         }
       elseif obj.itemball and obj.itemball.item ~= 0 then
         local done, available, status = Area.gen2PickupState(data, world, obj.eventFlag)
@@ -2652,7 +2668,7 @@ return function(mod)
     { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
       category = "ADVENTURE", target = "ACHIEVEMENTS",
       description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
-        "REVISIT AREAS AND FINISH EXPLORING.", "YOUR ADVENTURE, ONE STAMP AT A TIME." } },
+        "REVISIT AREAS AND FINISH EXPLORING.", "BONUSES DO NOT BLOCK GOLD." } },
     { id = "explorer", icon = "explorer", label = "EXPLORER",
       category = "ADVENTURE", target = "LOCAL", fixed = true,
       description = { "EXPLORE THE AREA AROUND YOU.",
@@ -4329,6 +4345,7 @@ return function(mod)
               id = key, mapId = id, index = obj.index,
               x = obj.x, y = obj.y,
               spriteId = obj.sprite,
+              required = scripted and not scripted.optional or obj.trainerClass == "OPP_GIOVANNI",
               optional = scripted and scripted.optional or id == "OAKS_LAB"
                 and obj.index == 1 and obj.trainerClass == "OPP_RIVAL1",
             }

@@ -268,6 +268,8 @@ function M.new()
             label = item.name or species or gift.itemId, species = species, level = gift.level,
             order = item.index or 0, trade = trade ~= nil, needsSpecies = trade and trade.give, cost = gift.cost, coinCost = gift.coinCost, catchGoal = gift.catchGoal,
             done = done, excluded = excluded, noRoom = noRoom, available = available, mapVisible = visible,
+            alternative = gift.alternative,
+            required = gift.itemId == "HM_CUT" or nil,
             status = gift.catchGoal and done and "CAUGHT" or not done and not available and "LATER" or nil }
           if added[id] then
             for i, old in ipairs(out) do if old == added[id] then out[i] = row; break end end

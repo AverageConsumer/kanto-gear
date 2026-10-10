@@ -180,6 +180,14 @@ flag(Flags.trainerFlagId(142), false)
 check(#rows("FR_ROUTE_22", 1) == 2, "early and late rivals are separate; starter variants are not")
 check(find(rows("FR_ROUTE_22", 1), function(r) return r.optional end) ~= nil, "one-shot early rival optional")
 check(#rows("FR_OAKS_LAB", 1) == 1 and rows("FR_OAKS_LAB", 1)[1].optional, "tutorial rival optional once")
+local silphBoss, silphGuard = false, false
+for _, row in ipairs(rows("FR_SILPH_CO_11F", 1)) do
+  if row.required then
+    silphBoss = true
+    check(not row.missable, "mandatory Silph boss remains required")
+  elseif row.missable then silphGuard = true end
+end
+check(silphBoss and silphGuard, "native Silph boss and missable guards are distinguished")
 check(#rows("FR_POKEMON_LEAGUE_CHAMPIONS_ROOM", 1) == 1, "champion variants/rematch share one objective")
 flag("FLAG_SYS_GAME_CLEAR")
 check(rows("FR_POKEMON_LEAGUE_CHAMPIONS_ROOM", 1)[1].done, "past champion win survives native rematch reset")
@@ -187,10 +195,12 @@ flag("FLAG_SYS_GAME_CLEAR", false)
 
 local fossil = rows("FR_MT_MOON_B2F", 2)
 check(#fossil == 6, "four item balls plus both fossil choices")
+check(stamp({ "FR_MT_MOON_B2F" }).sections[2].total == 5, "four pickups and one fossil choice before selection")
 flag(626)
 fossil = rows("FR_MT_MOON_B2F", 2)
 check(find(fossil, function(r) return r.itemId == 358 end).done, "chosen dome fossil complete")
 check(find(fossil, function(r) return r.itemId == 357 end).excluded, "unchosen helix is excluded")
+check(stamp({ "FR_MT_MOON_B2F" }).sections[2].total == 5, "fossil denominator is stable after selection")
 flag(626, false)
 for _, row in ipairs(rows("FR_ROCKET_HIDEOUT_B4F", 2)) do
   if row.ownedKey then check(not row.done, "initially hidden key item not falsely collected") end

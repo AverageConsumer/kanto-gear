@@ -245,7 +245,7 @@ return function(H, G, translate, format)
             or tostring(section.done) .. " / " .. tostring(section.total)
           if model.mode == "spoiler" then
             if (section.untracked or 0) > 0 then counts = counts .. "  +" .. format("%d UNTRACKED", section.untracked)
-            elseif (section.optional or 0) > 0 then counts = counts .. "  +" .. format("%d OPTIONAL", section.optional)
+            elseif (section.optional or 0) > 0 then counts = counts .. "  +" .. format("%d/%d BONUS", section.bonusDone or 0, section.optional)
             elseif (section.unavailable or 0) > 0 then counts = counts .. "  " .. tostring(section.unavailable) .. " " .. translate("MISSED") end
           end
           label(counts, 49, top + 14, 153, 10, accent, false, "left")
@@ -262,11 +262,14 @@ return function(H, G, translate, format)
           or row.wild and "habitat" or nil
         card(6, top, 228, 32, action, row, function()
           name(row.isEgg and translate("EGG") or row.label, 13, top + 2, 171, 19)
-          label(translate(row.species and (not row.gift or row.catchGoal) and (row.done and "CAUGHT" or "NOT CAUGHT")
+          local status = translate(row.state == "unavailable" and "NO LONGER AVAILABLE"
+            or row.species and (not row.gift or row.catchGoal) and (row.state == "done" and "CAUGHT" or "NOT CAUGHT")
             or ({ done = "RECORDED", open = row.trade and "NPC TRADE" or row.loan and "NPC LOAN" or (row.cost or row.coinCost) and "NPC OFFER" or row.gift and "NPC GIFT" or "NOT YET", later = "LATER",
             optional = "OPTIONAL", unavailable = "NO LONGER AVAILABLE",
             untracked = "NOT TRACKED", excluded = "ALTERNATIVE CHOICE",
-            repeatable = row.kind == "hidden" and "RENEWABLE" or "REPEATABLE" })[row.state]),
+            repeatable = row.kind == "hidden" and "RENEWABLE" or "REPEATABLE" })[row.state])
+          if row.bonus then status = translate("BONUS") .. ": " .. status end
+          label(status,
             13, top + 20, 195, 9, row.state == "done" and accent or quiet, true)
           if action then self:detailChevron(214, top + 12, accent, true) end
         end)
