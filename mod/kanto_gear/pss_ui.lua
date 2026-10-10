@@ -4,7 +4,7 @@ return function(H, G, tr, fmt)
   local places = { launcher = "RECOMP MENU", game = "IN GAME", union = "UNION ROOM", direct = "DIRECT CORNER" }
   local shortVersions = { red = "R", blue = "B", yellow = "Y", gold = "G",
     silver = "S", crystal = "C", firered = "FR", leafgreen = "LG", emerald = "EM" }
-  local statuses = { idle = "AVAILABLE", busy = "NOT AVAILABLE", trading = "TRADING",
+  local statuses = { idle = "ONLINE", busy = "NOT AVAILABLE", trading = "TRADING",
     battling = "BATTLING", chatting = "CHATTING", recruiting = "RECRUITING", waiting = "WAITING" }
   local states = { offline = "OFFLINE", online = "ONLINE", connecting = "CONNECTING",
     reconnecting = "RECONNECTING", ticket = "CONNECTING", error = "CONNECTION FAILED",
@@ -19,6 +19,13 @@ return function(H, G, tr, fmt)
       self:partyInfo(shown, left + math.floor((width - self:partyInfoWidth(shown)) / 2), top, tint)
     end
     local online = state.state == "online"
+    if state.incoming then
+      centered(tr(state.incoming.mode == "trade" and "TRADE INVITATION" or "BATTLE INVITATION"),
+        x + 6, y + 30, w - 12, c.green)
+      centered(state.incoming.from and state.incoming.from.name or tr("YOUR TRAINER"),
+        x + 6, y + 52, w - 12, c.ink)
+      return
+    end
     if not online or #state.rows == 0 then
       centered(tr(states[state.state] or "OFFLINE"), x + 6, y + 32, w - 12,
         online and c.green or c.mutedInk)
@@ -39,9 +46,9 @@ return function(H, G, tr, fmt)
       local row = state.rows[i]
       local rowY = top + (i - 1) * 16
       centered(row.name, x + 67, rowY + 2, 74, c.ink)
-      local status = row.where == "launcher" and "IN MENU" or statuses[row.status] or "ONLINE"
+      local status = row.ready and "READY" or row.where == "launcher" and "IN MENU" or statuses[row.status] or "ONLINE"
       self:partyType(self:fitPartyType(tr(status), w - 151), x + 145, rowY + 2,
-        row.status == "idle" and c.green or c.mutedInk, w - 151)
+        row.ready and c.green or c.mutedInk, w - 151)
     end
   end
   function H:pss(state)
@@ -51,7 +58,7 @@ return function(H, G, tr, fmt)
       state.hits[#state.hits+1]={x=x,y=y,w=w,h=h,action=action,value=value}
     end
     local function label(text,x,y,w,h,tint)
-      self:partyInfo(self:fitPartyInfo(text,w-4),x+1,y+math.floor((h-7)/2)-2,tint or c.ink,w,"center")
+      self:partyInfoCentered(self:fitPartyInfo(text,w-4),x,y,w,h,tint or c.ink)
     end
     local function button(text,x,y,w,h,action,value)
       local pressed=self:beginPress(x,y,w,h,action~=nil)
@@ -65,24 +72,53 @@ return function(H, G, tr, fmt)
       G.rectangle("fill",cx-5,y+8,10,6)
       G.setColor(c.surface);G.rectangle("fill",cx-1,y+11,2,3)
     end
+    if state.incoming then
+      local inv = state.incoming
+      self:panel(7,33,226,110)
+      person(120,45,c.blue)
+      label(inv.from and inv.from.name or tr("YOUR TRAINER"),15,67,210,20)
+      label(tr(inv.mode == "trade" and "TRADE INVITATION" or "BATTLE INVITATION"),15,92,210,18,c.green)
+      label(tr(state.canAccept and "ACCEPT TO OPEN LINK SETUP" or "FINISH YOUR CURRENT ACTION"),15,118,210,16,c.mutedInk)
+      button("DECLINE",7,154,109,28,"decline",inv.id)
+      button("ACCEPT",124,154,109,28,state.canAccept and "accept" or nil,inv.id)
+      label(tr("SILPH CONNECT"),7,190,226,21,c.mutedInk)
+      return
+    end
+    if state.pending or state.activity then
+      local pending = state.pending or state.activity
+      self:panel(7,33,226,145)
+      person(120,48,c.blue)
+      label(pending.peer and pending.peer.name or tr("YOUR TRAINER"),15,72,210,20)
+      label(tr(pending.mode == "trade" and "TRADE" or "BATTLE"),15,99,210,18,c.green)
+      label(tr(state.activity and "LINK SESSION OPEN" or pending.room
+        and "FINISH YOUR CURRENT ACTION" or "INVITATION SENT"),15,127,210,18,c.mutedInk)
+      label(tr("YOU CAN KEEP PLAYING"),7,190,226,21,c.mutedInk)
+      return
+    end
     if state.selected then
       local row=state.selectedRow
-      self:panel(7,33,226,143)
-      person(120,46,row and c.blue or c.disabledInk)
+      self:panel(7,33,226,110)
+      person(120,43,row and c.blue or c.disabledInk)
       label(row and row.name or tr(state.state == "online" and "PLAYER LEFT"
-        or states[state.state] or "OFFLINE"),15,67,210,20)
+        or states[state.state] or "OFFLINE"),15,62,210,20)
       if row then
-        label(tr(versions[row.version] or "UNKNOWN GAME"),15,93,210,15,c.green)
-        label(tr(places[row.where] or "ONLINE"),15,114,210,15,c.mutedInk)
-        label(tr(statuses[row.status] or "ONLINE"),15,135,210,15,c.mutedInk)
+        label(tr(versions[row.version] or "UNKNOWN GAME"),15,85,210,15,c.green)
+        label(tr(row.ready and "READY" or statuses[row.status] or "ONLINE"),15,102,210,15,
+          row.ready and c.green or c.mutedInk)
       end
+      local available = row and row.canInvite
+      local reason = state.notice or (not state.session and "HOST UPDATE NEEDED"
+        or not state.ready and "SET YOUR STATUS TO READY" or not available and "PLAYER NOT READY")
+      if reason then label(tr(reason),12,121,216,16,c.mutedInk) end
+      button("BATTLE",7,154,109,28,available and "battle" or nil)
+      button("TRADE",124,154,109,28,available and "trade" or nil)
       button("BACK",7,188,226,23,"back")
       return
     end
     self:panel(7,33,226,32)
     label(state.name or tr("YOUR TRAINER"),10,34,132,14)
-    label(tr(states[state.state] or "OFFLINE"),10,48,132,14,
-      state.state=="online" and c.green or c.mutedInk)
+    label(tr(state.ready and "READY" or states[state.state] or "OFFLINE"),10,48,132,14,
+      state.ready and c.green or c.mutedInk)
     local pending=state.state=="connecting" or state.state=="reconnecting" or state.state=="ticket"
     local action
     if state.state~="unavailable" and not pending and not state.inUse then
@@ -90,10 +126,13 @@ return function(H, G, tr, fmt)
     end
     button(state.inUse and "IN USE" or state.state=="online" and "DISCONNECT"
       or pending and "WAITING" or "CONNECT",147,37,82,24,action)
-    label(tr("PASSERSBY"),7,70,110,12,c.green)
-    label(fmt("%d VISIBLE",#state.rows),123,70,110,12,c.mutedInk)
+    local readyAction = state.state == "online" and state.session and not state.inUse
+      and not state.onlineUnavailable and "ready" or nil
+    local readyLabel = state.notice or state.enabled and (state.ready and "GO BUSY" or "FINISH YOUR CURRENT ACTION")
+      or state.session and "GO READY" or "HOST UPDATE NEEDED"
+    button(readyLabel,7,70,226,18,readyAction)
     if #state.rows==0 then
-      self:panel(7,87,226,93)
+      self:panel(7,94,226,93)
       person(120,100,c.disabledInk)
       local message=state.error and "CONNECTION FAILED" or state.state=="online" and "NO PLAYERS VISIBLE"
         or pending and "CONNECTING" or state.state=="unavailable" and "HOST UPDATE NEEDED"
@@ -104,12 +143,15 @@ return function(H, G, tr, fmt)
     for i=1,6 do
       local row=state.rows[(state.page-1)*6+i]
       if row then
-        local x=7+((i-1)%3)*77;local y=87+math.floor((i-1)/3)*49
+        local x=7+((i-1)%3)*77;local y=94+math.floor((i-1)/3)*47
+        local pressed=self:beginPress(x,y,72,44,true)
         self:panel(x,y,72,44)
-        person(x+12,y+6,c.blue)
+        person(x+12,y+6,row.ready and c.green or c.blue)
         label(shortVersions[row.version] or "?",x+23,y+3,45,13,c.green)
-        label(tr(row.where == "launcher" and "IN MENU" or places[row.where] or "ONLINE"),x+23,y+16,45,10,c.mutedInk)
+        label(tr(row.ready and "READY" or row.where == "launcher" and "IN MENU" or "ONLINE"),
+          x+23,y+16,45,10,row.ready and c.green or c.mutedInk)
         label(row.name,x+3,y+29,66,12)
+        self:endPress(pressed)
         hit(x,y,72,44,"player",row.id)
       end
     end

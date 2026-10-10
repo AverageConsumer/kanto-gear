@@ -2660,7 +2660,7 @@ return function(mod)
     { id = "pss", icon = "pss", label = "SILPH CONNECT",
       category = "ONLINE", target = "PSS", featured = true, new = true,
       description = { "ONLINE PLAYER DISPLAY.",
-        "SEE WHO IS ONLINE AND PLAYING.", "PREVIEW: VIEWING ONLY." } },
+        "SEE WHO IS ONLINE AND PLAYING.", "INVITES REQUIRE RECOMP SUPPORT." } },
     { id = "notes", icon = "notes", label = "NOTES",
       category = "TRAINER TOOL", target = "NOTES", featured = true,
       description = { "PLAN ROUTES AND REMINDERS.",
@@ -7035,6 +7035,12 @@ return function(mod)
     leave = function() page, displayRuntime.home.activeApp, dirty = "HOME", nil, true end,
   })
   displayRuntime.pss = displayRuntime.Pss.new({
+    session = function(client)
+      local Session = assert(load(mod:read("pss_session.lua"), "@kanto_gear/pss_session.lua"))()
+      return Session.new(displayRuntime.sourceGame or game, function()
+        return displayRuntime.pss.ctx.identity()
+      end, client)
+    end,
     resolve = function()
       return require("src.online.Client"), require("src.online.Connect")
     end,
@@ -12315,7 +12321,10 @@ return function(mod)
       displayRuntime.cycleAchievements(direction)
       return
     elseif THEME.style == "hgss" and page == "PSS" then
-      if not displayRuntime.pss.selected then displayRuntime.pss:action("page", direction) end
+      local pss = displayRuntime.pss
+      if not (pss.selected or pss.incoming or pss.pending or pss.activity) then
+        pss:action("page", direction)
+      end
       dirty = true
       return
     elseif THEME.style == "hgss" and page == "BAG" then
@@ -13756,6 +13765,7 @@ return function(mod)
     if stepGame == displayRuntime.sourceGame then displayRuntime.observeBagInput() end
     local result = next(stepGame, dt)
     if stepGame == displayRuntime.sourceGame then
+      displayRuntime.pss:step()
       if displayRuntime.recentItem:poll(game.save) then dirty = true end
       displayRuntime.syncCompanionDetails()
       displayRuntime.updateAutoBattleScreen()

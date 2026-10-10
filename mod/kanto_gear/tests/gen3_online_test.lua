@@ -1,4 +1,6 @@
--- Real imported FR/LG data + actual Gear loader. No public-server connection.
+-- Real imported data + actual Gear loader. No public-server connection.
+-- The current host blocks mods with permissions/hooks even when their link
+-- fingerprint is unchanged. Never manufacture a vanilla online profile.
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
 local Handshake = require("src.link.Handshake")
@@ -34,9 +36,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw)
       label .. " full uncached link surface equals vanilla")
     for _, ruleset in ipairs({ "g3_link", "g3_single", "g3_double", "g3_multi" }) do
       local profile, reason = ArenaData.liveProfile3(raw, ruleset)
-      T.check(profile ~= nil, label .. " admitted for " .. ruleset .. ": " .. tostring(reason))
-      T.eq(profile and profile.fingerprint, baseline.fingerprint,
-        label .. " " .. ruleset .. " fingerprint equals vanilla")
+      T.eq(profile, nil, label .. " respects native mod gate for " .. ruleset)
+      T.eq(reason, "mods", label .. " " .. ruleset .. " explains the host restriction")
     end
   end
   for _, language in ipairs({ "en", "de", "es", "fr", "ja" }) do
@@ -64,6 +65,14 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw)
   run.loader.content.growth_rates = registry
   compatible("restored Gear")
 
+  local Client = require("src.online.Client")
+  local Session = assert(loadfile(path .. "/pss_session.lua"))()
+  local service = Session.new(raw, function() return display.pss.ctx.identity() end, Client)
+  T.eq(service:profileValid(), false, "Silph Connect preserves the real permission gate")
+  T.eq(service.notice, "RECOMP BLOCKS UI MODS", "gate is explained in the app")
+  T.eq(require("src.online.union.Caps").empty(require("src.online.union.Caps").compute(service:context())),
+    true, "restricted UI mod never advertises battle/trade capabilities")
+
   local B = require("src.core.game3.battle")
   local Ui = require("src.core.game3.battle.ui")
   local State = require("src.core.game3.battle.state")
@@ -80,34 +89,17 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw)
     if entry.owner == "kanto_gear" then refresh = upvalue(entry.callback, "refreshBattle") end
   end
   assert(refresh)
-  -- Simulate a ready secondary display, so a hidden display cannot mask ownership bugs.
-  local owns, restore = display.gen3Presentation.owns, {}
-  for i = 1, debug.getinfo(owns, "u").nups do
-    local name, value = debug.getupvalue(owns, i)
-    if name == "active" or name == "displayReady" or name == "hasDisplay" then
-      restore[#restore + 1] = { i, value }
-      debug.setupvalue(owns, i, name == "hasDisplay" and function() return true end or true)
-    end
-  end
   for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
     run.loader.modOptions.kanto_gear.battle_view = mode
     display.gen3.syncScreens(); refresh()
     T.check(upvalue(refresh, "battle").nativeUnsupported, mode .. " recognizes a link battle")
-    for _, kind in ipairs({ "panel", "hud", "navigation", "partyNavigation" }) do
-      T.check(not owns(kind), mode .. " leaves native online " .. kind .. " intact")
-    end
     Ui._mode, Ui._menuIndex = "menu", 1
     Ui.handleInput({ wasPressed = function(_, key) return key == "right" end })
     T.eq(Ui._menuIndex, 2, mode .. " preserves native online D-pad order")
     T.check(pcall(display.drawContents), mode .. " renders native online handoff")
   end
-  st.link = false
-  display.gen3.syncScreens(); refresh()
-  for _, kind in ipairs({ "panel", "hud", "navigation" }) do
-    T.check(owns(kind), "Full Gear regains offline " .. kind .. " ownership")
-  end
-  for _, entry in ipairs(restore) do debug.setupvalue(owns, entry[1], entry[2]) end
   B._active, B._st = false, nil
   Stack.clear()
 end
-dofile(path .. "/tests/gen3_runtime_test.lua")
+dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald"
+  and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))

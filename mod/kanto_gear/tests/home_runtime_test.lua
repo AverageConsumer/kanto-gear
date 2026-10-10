@@ -802,6 +802,15 @@ T.check(display.pokedexHabitatPlan(otherSave) ~= updated,
   "a rebuilt dex never reuses a previous save's cached plan")
 love.timer.getTime = originalTime
 assert(loadfile(path .. "/tests/pss_runtime_cases.lua"))()(T, display, tap)
+display.pss:open()
+local priorMods = game.mods
+game.mods = run.loader
+if display.pss.session then
+  T.eq(display.pss.session:profileValid(), false, "Gen 2 respects the real online permission gate")
+  T.eq(display.pss.session.notice, "RECOMP BLOCKS UI MODS", "Gen 2 explains restricted online actions")
+else T.check(not pcall(require,"src.online.union.Room"),"older host has a read-only online browser") end
+game.mods = priorMods
+display.pss:close()
 do
   -- Actual compose hook, local relay, and hidden Gear: no public connection.
   local Client, Connect = require("src.online.Client"), require("src.online.Connect")

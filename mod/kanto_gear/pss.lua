@@ -1,7 +1,8 @@
--- Passive lobby browser over Recomp's shared online client. The host pumps it.
+-- Lobby and invitations over Recomp's shared online client. The host pumps it.
 local Pss = {}
 Pss.__index = Pss
-local events = { "state", "lobby", "room", "plaza", "upgrade_required" }
+local events = { "state", "lobby", "room", "plaza", "upgrade_required",
+  "invite_in", "invite_sent", "invite_closed" }
 local function clean(value)
   return tostring(value or ""):gsub("[%z\1-\31\127]", " ")
 end
@@ -26,6 +27,11 @@ function Pss:open()
     end
     self.client, self.connect = client, connect
   end
+  if self.ctx.session and not self.sessionProbed then
+    self.sessionProbed = true
+    local ok, session = pcall(self.ctx.session, self.client)
+    if ok then self.session = session end
+  end
   if not self.listener then
     self.listener = function() self.stale = true end
     for _, event in ipairs(events) do self.client.on(event, self.listener) end
@@ -39,6 +45,8 @@ function Pss:close()
     for _, event in ipairs(events) do self.client.off(event, self.listener) end
     self.listener = nil
   end
+  if self.session then self.session:close() end
+  self.session, self.sessionProbed = nil, nil
 end
 -- Observe throughout gameplay, even with the app hidden. The host owns all
 -- transport work; this only samples local state and consumes event invalidation.
@@ -48,6 +56,7 @@ function Pss:tick(now)
   return self:refresh()
 end
 function Pss:busy()
+  if self.session then return self.session:blocked() end
   local c = self.client
   local presence = call(c, "presence") or {}
   return call(c, "room") ~= nil or call(c, "tournament") ~= nil
@@ -56,6 +65,19 @@ function Pss:busy()
 end
 function Pss:refresh()
   if not self.client then return end
+  local session = self.session
+  if session then
+    session:tick()
+    if session.revision ~= self.sessionRevision then
+      self.sessionRevision, self.stale = session.revision, true
+    end
+    self.ready, self.enabled = session.ready, session.enabled
+    self.incoming, self.pending, self.activity = session.incoming, session.pending, session.activity
+    if self.incoming then self.selected = nil end
+    self.canAccept = session.ready and session.incoming and session:peerCapable(session.incoming.fromId) or false
+    self.onlineUnavailable = session.unavailable
+    self.notice = session.notice
+  end
   local state = call(self.connect, "state") or call(self.client, "state") or "offline"
   if state == "online" then self.localError = nil end
   local err = self.localError or call(self.connect, "error")
@@ -74,11 +96,24 @@ function Pss:refresh()
         seen[entry.id] = true
         rows[#rows + 1] = { id = entry.id, name = clean(entry.name),
           version = clean(entry.version or (entry.profile or {}).version),
-          where = clean(entry.where), status = clean(entry.status) }
+          where = clean(entry.where), status = clean(entry.status),
+          ready = session and session:peerReady(entry.id) or false,
+          canInvite = session and session:canInvite(entry.id) or false }
+      end
+    end
+  end
+  -- Shared plaza members may arrive before the lobby delta.
+  if state == "online" and session and session:ownsPlaza() then
+    for id, peer in pairs(session.peers) do
+      if not seen[id] then
+        rows[#rows + 1] = { id = id, name = clean(peer.name), version = peer.game,
+          where = "union", status = peer.status, ready = session:peerReady(id),
+          canInvite = session:canInvite(id) }
       end
     end
   end
   table.sort(rows, function(a, b)
+    if a.ready ~= b.ready then return a.ready end
     if a.name ~= b.name then return a.name < b.name end
     return tostring(a.id) < tostring(b.id)
   end)
@@ -101,8 +136,16 @@ function Pss:action(action, value)
       presence = { where = "game", status = "busy",
         engine = identity.generation, version = identity.version } })
     self.localError = not ok and (err or "CONNECTION FAILED") or nil
+    if ok and self.session then self.session:enable(true) end
   elseif action == "disconnect" and self.client and not self:busy() then
+    if self.session then self.session:close(); self.session.enabled = false end
     call(self.connect, "disconnect"); self.localError = nil
+  elseif action == "ready" and self.session and self.state == "online" then
+    self.session:enable(not self.session.enabled)
+  elseif (action == "battle" or action == "trade") and self.session then
+    if self.session:invite(self.selected, action) then self.selected = nil end
+  elseif (action == "accept" or action == "decline") and self.session then
+    self.session:reply(value, action == "accept")
   elseif action == "page" then
     self.page = math.max(1, math.min(self.pages or 1, self.page + value))
   elseif action == "player" then self.selected = value
@@ -110,6 +153,9 @@ function Pss:action(action, value)
   end
   self.stale = true
   self:refresh()
+end
+function Pss:step()
+  if self.listener and self.session then self.session:step() end
 end
 function Pss:hit(x, y)
   for _, hit in ipairs(self.hits or {}) do

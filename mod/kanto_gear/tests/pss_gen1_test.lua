@@ -4,7 +4,7 @@ local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
 local run = T.sdk.loadMod(path, { generation=1 })
 T.eq(run.mod and run.mod.state,"loaded","Gen 1 loads PSS build")
 local world={map={id="PALLET_TOWN"}}
-local game={generation=1,data=run.data,world=world,
+local game={generation=1,data=run.data,world=world,mods=run.loader,
   save={generation=1,player={name="RED",id=7,map="PALLET_TOWN"},party={},inventory={},
     boxes={},pokedex={seen={},caught={}}},
   stack={states={world},top=function() return world end}}
@@ -22,6 +22,11 @@ assert(loadfile(path .. "/tests/pss_runtime_cases.lua"))()(T,assert(display))
 T.eq(display.pss.ctx.identity().generation,1,"Gen 1 identity stays Gen 1")
 T.eq(display.pss.ctx.identity().name,"RED","Gen 1 uses the current trainer name")
 display.pss:open()
+if pcall(require,"src.online.union.Room") then
+  T.check(display.pss.session ~= nil, "current host exposes the remote session service")
+  T.eq(display.pss.session:profileValid(), false, "Gen 1 respects the native online capability gate")
+  T.eq(display.pss.session.notice,"RECOMP BLOCKS UI MODS","Gen 1 shows the host restriction honestly")
+else T.eq(display.pss.session,nil,"older host keeps the read-only browser") end
 require("src.render.Assets").releaseSession()
 T.check(display.pss.listener==nil,"host session teardown removes PSS listeners")
 T.eq(#run.errors,0,"Gen 1 runtime has no errors")

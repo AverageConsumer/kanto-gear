@@ -26,6 +26,7 @@ for _, identity in ipairs({
   {name="GOLD", version="crystal", generation=2},
   {name="RED", version="firered", generation=3},
   {name="LEAF", version="leafgreen", generation=3},
+  {name="MAY", version="emerald", generation=3},
 }) do
   Client.reset(); Connect.reset()
   local relay = Relay.new()

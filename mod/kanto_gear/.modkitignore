@@ -13,6 +13,8 @@ tests/gen3_online_test.lua
 tests/pss_gen1_test.lua
 tests/pss_runtime_cases.lua
 tests/pss_test.lua
+tests/pss_session_test.lua
+tests/pss_localization_test.lua
 tests/native_map_test.lua
 tests/gen3_presentation_test.lua
 tests/gen3_progress_test.lua

@@ -159,10 +159,14 @@ function love.load()
       root .. "/mod/kanto_gear/" .. name, name))
     local result = love.graphics.newImageFont(data, fontGlyphs)
     result:setFilter("nearest", "nearest")
-    return result
+    local metrics
+    if name == "hgss_small_font.png" then
+      metrics = assert(loadfile(root .. "/mod/kanto_gear/font_metrics.lua"))()(data,glyphs(fontGlyphs))
+    end
+    return result, metrics
   end
   local font = imageFont("hgss_font.png")
-  local smallFont = imageFont("hgss_small_font.png")
+  local smallFont, smallMetrics = imageFont("hgss_small_font.png")
   local largeFont = imageFont("hgss_large_font.png")
   local translationFonts = assert(loadfile(root .. "/mod/kanto_gear/translation_fonts.lua"))().new(
     love.graphics, function(message) error(message) end,
@@ -170,14 +174,17 @@ function love.load()
   if i18n:language() == "ja" then
     local font = assert(translationFonts:loadFont(translationFonts.bundled.ja, 1))
     for key, value in pairs(i18n.catalogs.ja) do
-      assert(font:hasGlyphs((value:gsub("%c", ""))), "Japanese font lacks glyphs for " .. key)
+      if type(value) == "string" then
+        assert(font:hasGlyphs((value:gsub("%c", ""))), "Japanese font lacks glyphs for " .. key)
+      end
     end
   end
   local theme = chunk()({
     graphics = love.graphics, box = box, text = text,
     pokedexPage = assert(loadfile(root .. "/mod/kanto_gear/pokedex_page.lua"))(),
+    partyPage = assert(loadfile(root .. "/mod/kanto_gear/party_page.lua"))(),
     fit = fit, glyphs = glyphs, color = color, font = font,
-    smallFont = smallFont, largeFont = largeFont,
+    smallFont = smallFont, smallFontMetrics = smallMetrics, largeFont = largeFont,
     translate = translate, format = format,
     translationFonts = translationFonts,
   })
@@ -192,6 +199,9 @@ function love.load()
   local pressX, pressY = tostring(
     os.getenv("KANTO_GEAR_PREVIEW_PRESS") or ""):match("^(%d+),(%d+)$")
   if pressX then theme:setTouch(tonumber(pressX), tonumber(pressY)) end
+  -- Legacy battle/party assertions predate the companion pages. Silph scenes
+  -- exercise their own shipped renderer and do not depend on those screens.
+  if screen:sub(1,3) ~= "pss" then
   assert(theme.backdropCenterY == 121,
     "every HGSS Pokeball backdrop shares the Party screen center")
   local blueFocus = theme:focusSurface(true, theme.colors.surface,
@@ -381,6 +391,7 @@ function love.load()
     and theme:partyActionOffset(2.14) == 0
     and theme:partyActionClosed(2.14), "party action close animation bounds")
   theme:beginPartyAction(3)
+  end
   local sprites = {}
   for slot, id in ipairs(species) do
     local data = love.image.newImageData("local/" .. id .. ".png")
@@ -1576,12 +1587,14 @@ function love.load()
     }})
   elseif pssScreen then
     assert(loadfile(root .. "/mod/kanto_gear/pss_ui.lua"))()(theme, love.graphics, translate, format)
-    local state = { name = "RED#123", state = "online", page = 1, pages = 2, rows = {} }
+    local state = { name = "RED#123", state = "online", page = 1, pages = 2, rows = {},
+      ready = true, enabled = true, session = {} }
     local names = { "AverageConsumer", "Theeohn", "RED", "コトネ", "BLUE#018", "SILVER", "LEAF" }
     local versions = { "firered", "crystal", "red", "gold", "blue", "silver", "leafgreen" }
     for i, name in ipairs(names) do
       state.rows[i] = { id = tostring(i), name = name, version = versions[i],
-        where = i == 1 and "launcher" or "game", status = i == 2 and "battling" or "busy" }
+        where = i == 1 and "launcher" or "game", status = i == 2 and "battling" or "busy",
+        ready = i > 2, canInvite = i > 2 }
     end
     if screen:sub(1, 10) == "pss-widget" then
       local mode = screen:sub(12)
@@ -1595,7 +1608,16 @@ function love.load()
         {id="store_app",kind="app",icon="store",accent="green",label="STORE",column=7,row=2,columns=3},
       }})
     else
-    if screen == "pss-detail" then state.selected, state.selectedRow = "1", state.rows[1]
+    if screen == "pss-detail" or screen == "pss-ready" then
+      local index = screen == "pss-ready" and 3 or 1
+      state.selected, state.selectedRow = tostring(index), state.rows[index]
+    elseif screen == "pss-invite" or screen == "pss-invite-busy" then
+      state.incoming = {id="preview",mode="trade",from=state.rows[3]}
+      state.canAccept = screen == "pss-invite"
+    elseif screen == "pss-pending" then state.pending = {mode="battle",peer=state.rows[3]}
+    elseif screen == "pss-blocked" then
+      state.notice, state.onlineUnavailable, state.enabled, state.ready = "RECOMP BLOCKS UI MODS", true, false, false
+      for _,row in ipairs(state.rows) do row.ready,row.canInvite=false,false end
     elseif screen ~= "pss" then
       state.rows, state.pages = {}, 1
       state.state = screen:sub(5)
