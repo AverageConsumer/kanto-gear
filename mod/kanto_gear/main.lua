@@ -6630,9 +6630,10 @@ return function(mod)
 
   function displayRuntime.updateMapRefresh(now)
     local state = displayRuntime.mapRefresh
-    if page ~= "HOME" or THEME.style ~= "hgss"
+    if (page ~= "LOCAL" and page ~= "HOME") or THEME.style ~= "hgss"
         or displayRuntime.overlayHidden then return false end
-    if displayRuntime.home.editing or displayRuntime.home.library then return false end
+    local home = page == "HOME"
+    if home and (displayRuntime.home.editing or displayRuntime.home.library) then return false end
     if now + 0.000001 < state.nextAt or readbackPending then return false end
     local rate = 30
     -- Keep the update phase instead of drifting when a host frame
@@ -6642,11 +6643,12 @@ return function(mod)
     if screenState() ~= "active" or battle or moveInfo or fieldChoice or radarOpen then
       return false
     end
-    local model = state.homeModel
-    if not model or model.page ~= displayRuntime.home.page then return false end
+    local model = home and state.homeModel or displayRuntime.explorer.renderModel
+    if not model or home and (not state.homeModel or model.page ~= displayRuntime.home.page) then return false end
     local pos = displayRuntime.localMapPosition()
     if not model.overview or not pos or pos.mapId ~= model.overview.mapId then return false end
-    local key = THEME.hgss:homeMotionKey(model, pos)
+    local key = home and THEME.hgss:homeMotionKey(model, pos)
+      or not home and THEME.hgss:explorerMotionKey(model, pos)
     local terrain = model.overview.drawTerrain and displayRuntime.nativeMap
     local revision = terrain and terrain:revision() or ""
     if not key or (key == state.key and revision == (state.terrainRevision or "")) then return false end
@@ -6662,11 +6664,11 @@ return function(mod)
       snapshot = explorer.mapSnapshot
       if not snapshot or snapshot.mapId ~= id then
         displayRuntime.clearExplorerSnapshot()
-        snapshot = { mapId = id, player = displayRuntime.localMapPosition(id), actors = {} }
+        snapshot = { mapId = id, actors = {} }
         explorer.mapSnapshot = snapshot
       end
     end
-    local player = snapshot and snapshot.player or displayRuntime.localMapPosition(id)
+    local player = displayRuntime.localMapPosition(id)
     local guideEnabled, areaEnabled = assist("guide"), assist("area")
     local cached = explorer.data
     -- ponytail: a half-second snapshot avoids rebuilding encounter tables on

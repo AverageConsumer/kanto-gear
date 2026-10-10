@@ -3317,12 +3317,18 @@ return function(ui)
     local G, colors = ui.graphics, self.colors
     local snapshot = opts.snapshot
     if snapshot then
-      local key = table.concat({ tostring(opts.cacheKey), x, y, w, h }, ":")
+      local layout = mapLayout(overview, x, y, w, h, opts)
+      if not layout then return nil end
+      local key = table.concat({ tostring(opts.cacheKey), x, y, w, h,
+        layout.left, layout.top, layout.tileSize }, ":")
       if not snapshot.canvas or snapshot.canvasKey ~= key then
-        if snapshot.canvas then snapshot.canvas:release() end
-        -- Keep the panel's one-pixel shadow inside the cached viewport.
-        snapshot.canvas = G.newCanvas(w + 1, h + 1)
-        snapshot.canvas:setFilter("nearest", "nearest")
+        if not snapshot.canvas or snapshot.canvas:getWidth() ~= w + 1
+            or snapshot.canvas:getHeight() ~= h + 1 then
+          if snapshot.canvas then snapshot.canvas:release() end
+          -- Keep the panel's one-pixel shadow inside the cached viewport.
+          snapshot.canvas = G.newCanvas(w + 1, h + 1)
+          snapshot.canvas:setFilter("nearest", "nearest")
+        end
         local previous = G.getCanvas()
         G.push("all")
         G.setCanvas(snapshot.canvas)
@@ -3330,6 +3336,8 @@ return function(ui)
         G.setBlendMode("alpha"); G.clear(0, 0, 0, 0)
         local live = {}
         for k, v in pairs(opts) do if k ~= "snapshot" then live[k] = v end end
+        -- Player motion must not rebake a stationary camera's terrain/NPC layer.
+        live.drawPlayer = nil
         local ok, err = pcall(self.mapOverview, self, overview, 0, 0, w, h, live)
         G.setCanvas(previous)
         G.pop()
@@ -3340,8 +3348,17 @@ return function(ui)
       G.setBlendMode("alpha", "premultiplied")
       color({ 1, 1, 1, 1 })
       G.draw(snapshot.canvas, x, y)
+      local player = opts.player
+      if opts.drawPlayer and player and player.x ~= nil and player.y ~= nil then
+        G.setBlendMode("alpha")
+        G.setScissor(layout.innerX, layout.innerY, layout.innerW, layout.innerH)
+        opts.drawPlayer(player,
+          math.floor(layout.left + (player.x + 0.5) * layout.tileSize + 0.5),
+          math.floor(layout.top + player.y * layout.tileSize + 0.5) + layout.tileSize,
+          layout.tileSize)
+      end
       G.pop()
-      return mapLayout(overview, x, y, w, h, opts)
+      return layout
     end
     self:panel(x, y, w, h, false)
     local layout = mapLayout(overview, x, y, w, h, opts)

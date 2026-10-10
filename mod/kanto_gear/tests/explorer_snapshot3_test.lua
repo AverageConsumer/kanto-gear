@@ -54,11 +54,11 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.eq(model.player.x, 2, "snapshot captures player")
   T.eq(#model.markers, 2, "snapshot includes trainer and gift NPC")
   for _, marker in ipairs(model.markers) do T.eq(marker.x, 4, "snapshot captures live NPC") end
-  x, live.cellX, live.cellY, live.facing = 15, 17, 18, "left"
+  x, live.cellX, live.cellY, live.facing = 2.5, 17, 18, "left"
   rows() -- Simulate progress-data expiry with brand new source rows.
   model = display.explorerModel(overview)
   T.eq(model.mapSnapshot, snapshot, "data refresh retains spatial snapshot")
-  T.eq(model.player.x, 2, "player/camera do not follow gameplay")
+  T.eq(model.player.x, 2.5, "player follows gameplay while NPC positions remain fixed")
   for _, marker in ipairs(model.markers) do
     T.eq(marker.x, 4, "moving NPC keeps its captured hit position")
     T.eq(marker.actor.facing, "right", "NPC direction is frozen too")
@@ -94,14 +94,14 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.check(canvas.released, "reopening releases previous viewport")
   rows()
   model = display.explorerModel(overview)
-  T.eq(model.player.x, 15, "reopening captures current player")
+  T.eq(model.player.x, 2.5, "reopening keeps the current player")
   T.eq(model.markers[2].x, 17, "reopening captures current NPC")
   display.openHomeApp("settings")
   display.drawContents()
   T.eq(display.explorer.mapSnapshot, nil, "leaving Explorer discards snapshot")
   rows()
   T.eq(display.explorerModel(overview).mapSnapshot, nil, "widget models stay live outside Explorer")
-  T.eq(display.explorerModel(overview).player.x, 15, "widget uses current player")
+  T.eq(display.explorerModel(overview).player.x, 2.5, "widget uses current player")
   display.localMapPosition = oldPosition
   objects.find, objects._mapId = oldFind, oldMap
 end
