@@ -28,6 +28,13 @@ local Json = require("src.import.canonical_json")
 local checks = 0
 local function check(ok, why) assert(ok, why); checks = checks + 1 end
 local function flag(id, v) Flags.setFlag(session, nil, id, v == true) end
+local function same(a,b)
+  if type(a)~=type(b) then return false end
+  if type(a)~="table" then return a==b end
+  for key,value in pairs(a) do if not same(value,b[key]) then return false end end
+  for key in pairs(b) do if a[key]==nil then return false end end
+  return true
+end
 local function reward(map, receipt)
   for _, r in ipairs(model:rows({ map })[4]) do if r.event == receipt then return r end end
   error("missing reward " .. map .. ":" .. receipt)
@@ -669,6 +676,13 @@ if edition ~= "emerald" then
   explorer.filters.wildScope = "HERE"
   if os.getenv("KANTO_GEAR_PREVIEW_CASINO") ~= "1" then offer = original; session.map = offer.map end
   display.gen3:refresh()
+end
+-- Reusing the already-read rewards must preserve every completion field,
+-- including starters, fossils, trade offers and alternative gift receipts.
+for mapId in pairs(adapter.data.maps) do
+  local rewards = model:rows({mapId})[4]
+  check(same(model:pokemon({mapId},nil,rewards),model:pokemon({mapId})),
+    "reused reward rows exactly match a fresh native read in "..mapId)
 end
 if _G.KANTO_GEAR_RENDER_CAPTURE then _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, offer) end
 print("GEN3_NATIVE_GIFTS", edition, all)

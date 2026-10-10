@@ -120,8 +120,38 @@ local function section(rows)
     bonusDone = 0, bonusMissed = 0, untracked = 0, excluded = 0, repeatable = 0, unknown = 0 }
 end
 
+local function tier(area)
+  local fieldComplete = area.fieldDone == area.fieldTotal and area.unknown == 0
+  area.tier = area.evidence and "bronze" or "none"
+  if area.evidence and fieldComplete then
+    local pokemon = area.sections[4]
+    area.tier = pokemon.done == pokemon.total and "gold" or "silver"
+  end
+  area.complete = area.tier == "gold"
+end
+
+local function include(result, area)
+  if area.total > 0 or #area.sections[1].rows > 0 or #area.sections[2].rows > 0
+      or #area.sections[3].rows > 0 or area.evidence then
+    result.areas[#result.areas + 1], result.byId[area.id] = area, area
+    result.total = result.total + 1
+    if area.tier ~= "none" then result.earned[#result.earned + 1] = area end
+    if area.complete then result.done = result.done + 1
+    elseif area.evidence and area.availableRemaining > 0 then result.goals[#result.goals + 1] = area end
+  end
+end
+
+local function sortGoals(result)
+  table.sort(result.goals, function(a, b)
+    if a.remaining ~= b.remaining then return a.remaining < b.remaining end
+    if a.current ~= b.current then return a.current == true end
+    return a.id < b.id
+  end)
+  return result
+end
+
 function M.build(groups, read, context, checkpoint)
-  local result = { areas = {}, byId = {}, goals = {}, earned = {}, total = 0, done = 0 }
+  local result = { areas = {}, allAreas = {}, byId = {}, goals = {}, earned = {}, total = 0, done = 0 }
   for _, group in ipairs(groups) do
     local area = { id = group.id, name = group.name, kind = group.kind,
       maps = group.maps, sections = {}, done = 0, total = 0, evidence = false, unknown = 0 }
@@ -137,6 +167,7 @@ function M.build(groups, read, context, checkpoint)
       local section = section()
       for _, source in ipairs(sections[category].rows) do
         local row = prepare(source, category, context)
+        area.progressEvidence = area.progressEvidence or row.state == "done"
         area.evidence = area.evidence or row.state == "done"
         section.rows[#section.rows + 1] = row
       end
@@ -150,6 +181,7 @@ function M.build(groups, read, context, checkpoint)
     for _, source in ipairs(sourceData.pokemon or {}) do
       local row = prepare(source, 4, context)
       pokemon.rows[#pokemon.rows + 1] = row
+      area.progressEvidence = area.progressEvidence or row.gift and row.state == "done"
       area.evidence = area.evidence or row.gift and row.state == "done"
     end
     count(pokemon, 4)
@@ -163,34 +195,30 @@ function M.build(groups, read, context, checkpoint)
       unknown = unknown + area.sections[i].untracked
       area.availableRemaining = area.availableRemaining - area.sections[i].unavailable
     end
-    local fieldComplete = area.fieldDone == area.fieldTotal and area.unknown == 0
     area.untracked = unknown
-    area.tier = area.evidence and "bronze" or "none"
-    if area.evidence and fieldComplete then
-      area.tier = pokemon.done == pokemon.total and "gold" or "silver"
-    end
-    area.complete = area.tier == "gold"
-    if area.total > 0 or #area.sections[1].rows > 0 or #area.sections[2].rows > 0
-        or #area.sections[3].rows > 0 or area.evidence then
-      result.areas[#result.areas + 1], result.byId[area.id] = area, area
-      result.total = result.total + 1
-      if area.tier ~= "none" then
-        result.earned[#result.earned + 1] = area
-      end
-      if area.complete then
-        result.done = result.done + 1
-      elseif area.evidence and area.availableRemaining > 0 then
-        result.goals[#result.goals + 1] = area
-      end
-    end
+    tier(area)
+    result.allAreas[#result.allAreas + 1] = area
+    include(result, area)
     if checkpoint then checkpoint() end
   end
-  table.sort(result.goals, function(a, b)
-    if a.remaining ~= b.remaining then return a.remaining < b.remaining end
-    if a.current ~= b.current then return a.current == true end
-    return a.id < b.id
-  end)
-  return result
+  return sortGoals(result)
+end
+
+-- Location/visit changes do not change collected items, trainers or the Dex.
+-- Keep those evaluated rows, including empty places first visited after loading.
+function M.relocate(data, context)
+  local result = { areas = {}, allAreas = data.allAreas, byId = {}, goals = {}, earned = {}, total = 0, done = 0 }
+  for _, area in ipairs(data.allAreas) do
+    area.current, area.evidence = false, area.progressEvidence == true
+    for _, id in ipairs(area.maps) do
+      area.current = area.current or id == context.mapId
+      area.evidence = area.evidence or id == context.mapId
+        or (context.visited or {})[id] == true or (context.save.visited or {})[id] == true
+    end
+    tier(area)
+    include(result, area)
+  end
+  return sortGoals(result)
 end
 
 -- Keep the same completion rules for synchronous callers and the staged album.
@@ -199,7 +227,9 @@ function M.begin(groups, read, context, clock)
   local deadline, checkpoints
   local function checkpoint()
     checkpoints = checkpoints + 1
-    if checkpoints >= 32 or clock() >= deadline then coroutine.yield() end
+    -- The time budget is primary. This cap only guards a stalled/coarse clock;
+    -- cheap script checkpoints must not turn milliseconds into seconds of waiting.
+    if checkpoints >= 256 or clock() >= deadline then coroutine.yield() end
   end
   local worker = coroutine.create(function()
     return M.build(groups, read, context, checkpoint)

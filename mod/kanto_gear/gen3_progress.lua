@@ -865,9 +865,9 @@ function M:rows(mapIds, checkpoint)
   return out
 end
 
-function M:pokemon(mapIds, checkpoint)
+function M:pokemon(mapIds, checkpoint, rewards)
   local adapter, bySpecies = self.adapter, {}
-  local rewards = self:rows(mapIds, checkpoint)[4]
+  rewards = rewards or self:rows(mapIds, checkpoint)[4]
   for _, id in ipairs(mapIds) do
     for _, row in ipairs(adapter:encounters(id)) do
       bySpecies[row.species] = { species = row.species, mapId = id, wild = true }

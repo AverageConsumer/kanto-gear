@@ -4444,6 +4444,12 @@ return function(mod)
     if state.job and (state.jobMap ~= mapId or state.jobSave ~= game.save) then
       state.job, state.stale = nil, true
     end
+    if not currentOnly and state.contextDirty and state.data and not state.stale then
+      local visited = mod.save:get("achievement_visits", {})
+      state.data = Progress.relocate(state.data, { mapId = mapId, save = game.save,
+        visited = type(visited) == "table" and visited or {} })
+      state.contextDirty = false
+    end
     local current = state.currentData
     if currentOnly and current and current.mapId == mapId and current.save == game.save then
       return current.data
@@ -4472,7 +4478,7 @@ return function(mod)
         local result = areaData(maps, true, checkpoint)
         if checkpoint then checkpoint() end
         if displayRuntime.gen3Progress then
-          result.pokemon = displayRuntime.gen3Progress:pokemon(maps, checkpoint)
+          result.pokemon = displayRuntime.gen3Progress:pokemon(maps, checkpoint, result.pokemon)
           return result
         end
         local species = state.species[maps[1]]
@@ -4505,6 +4511,7 @@ return function(mod)
       local result = state.job:step(0.001)
       if result then
         state.data, state.stale, state.job = result, false, nil
+        state.contextDirty = false
         dirty = true
       end
     end
@@ -13630,7 +13637,11 @@ return function(mod)
     displayRuntime.pokedex.data = nil
     guidePage, displayRuntime.guideDetail, areaPage = 1, nil, 1
     radarOpen = false
-    displayRuntime.achievements.stale, displayRuntime.achievements.job = true, nil
+    local stamps = displayRuntime.achievements
+    stamps.currentData, stamps.contextDirty = nil, true
+    if stamps.job and stamps.jobMap ~= mapId then
+      stamps.stale, stamps.job = true, nil
+    end
     local visited = mod.save:get("achievement_visits", {})
     if type(visited) ~= "table" then visited = {} end
     if type(mapId) == "string" and not visited[mapId] then
@@ -14140,7 +14151,10 @@ return function(mod)
   end, 1000)
 
   for _, event in ipairs({ "flag.changed", "world.interacted", "world.object_toggled", "battle.ended", "pokemon.caught" }) do
-    mod.events:on(event, function()
+    mod.events:on(event, function(payload)
+      -- All three engines report an A press into empty space as "none".
+      -- No interaction occurred, so neither progress nor map rows changed.
+      if event == "world.interacted" and payload and payload.kind == "none" then return end
       displayRuntime.explorer.data = nil
       displayRuntime.achievements.stale, displayRuntime.achievements.job = true, nil
       displayRuntime.achievements.currentData = nil

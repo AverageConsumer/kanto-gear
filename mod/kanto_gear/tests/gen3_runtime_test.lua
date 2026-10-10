@@ -636,6 +636,16 @@ do
   T.eq(current.sections[2].done, 1, "current widget updates immediately after pickup")
   local result = album()
   T.eq(result.byId[current.id].sections[2].done, 1, "album agrees with current widget")
+  session.map = "FR_ROUTE_3"
+  run.loader.events:emit("map.entered", {game=raw,mapId=session.map})
+  local relocated = display.achievementData()
+  T.check(relocated ~= nil, "native map changes reuse a completed album immediately")
+  T.eq(relocated.byId[current.id].sections, result.byId[current.id].sections,
+    "native map changes keep evaluated objective rows")
+  T.eq(display.achievements.job, nil, "native relocation does not schedule a loading job")
+  session.map = "FR_ROUTE_2"
+  run.loader.events:emit("map.entered", {game=raw,mapId=session.map})
+  T.eq(display.achievementData().byId[current.id].current, true, "native return updates the current stamp")
   local theme = upvalue(display.drawContents, "THEME")
   for _, variant in ipairs({ "hgss", "hgss_dark" }) do
     run.loader.modOptions.kanto_gear.theme_v3 = variant

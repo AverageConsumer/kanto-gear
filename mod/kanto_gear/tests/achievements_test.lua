@@ -155,8 +155,23 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.eq(area.tier, "bronze", version .. " visited area earns bronze")
   T.eq(area.sections[2].rows[1].label, "POTION " .. version:upper(), version .. " retains game item names")
   T.eq(album(), result, version .. " idle redraw reuses progress snapshot")
+  run.loader.events:emit("world.interacted", {kind="none"})
+  T.eq(display.achievementData(), result, version .. " empty A presses retain the completed album")
   for i = 1, 20 do run.loader.events:emit("world.stepped", { mapId = "ROUTE_2" }) end
   T.eq(album(), result, version .. " walking does not rebuild all areas")
+  local oldVisits = {}
+  for id, value in pairs(mod.save:get("achievement_visits", {})) do oldVisits[id] = value end
+  run.loader.events:emit("map.entered", { mapId = "ROUTE_3" })
+  T.eq(display.achievements.stale, false, version .. " a completed album survives a location change")
+  local relocated = display.achievementData()
+  T.eq(relocated.byId.ROUTE_2.sections, result.byId.ROUTE_2.sections,
+    version .. " moving keeps evaluated progress rows")
+  T.eq(relocated.byId.ROUTE_3.current, true, version .. " moving updates the current place immediately")
+  T.eq(relocated.byId.ROUTE_2.current, false, version .. " the previous place is no longer current")
+  mod.save:set("achievement_visits", oldVisits)
+  run.loader.events:emit("map.entered", { mapId = "ROUTE_2" })
+  result = display.achievementData()
+  T.eq(display.achievements.job, nil, version .. " returning needs no album loading job")
   T.eq(display.achievementModel().goal.id, "ROUTE_2", version .. " recommends current almost-finished area")
   display.drawAchievements()
   local action, value = theme.hgss:achievementsHit(120, 100)
@@ -449,6 +464,8 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   T.eq(display.achievementData(false, true), nil, version .. " partial runtime build yields")
   local partial = display.achievements.job
   T.check(partial ~= nil, version .. " unfinished work remains resumable")
+  run.loader.events:emit("world.interacted", {kind="none"})
+  T.eq(display.achievements.job, partial, version .. " empty A presses cannot restart loading")
   T.eq(display.achievementModel().loading, true, version .. " old totals stay hidden during refresh")
   local oldView = display.achievements.view
   display.tapAchievements(120, 100)
@@ -685,8 +702,27 @@ T.check(same(expected, actual), "staged result exactly matches every synchronous
 T.check(slices > 30, "work is spread across frames")
 T.eq(job:step(0.001), actual, "finished job reuses its result")
 T.eq(reads, 100, "no area is skipped or repeated")
-local frozen = Progress.begin(groups, read, ctx, function() return 0 end)
+local coarseGroups = {}
+for i = 1, 400 do coarseGroups[i] = { id = tostring(i), name = tostring(i), maps = { tostring(i) } } end
+local frozen = Progress.begin(coarseGroups, read, ctx, function() return 0 end)
 reads = 0
 T.eq(frozen:step(0.001), nil, "checkpoint cap prevents an unbounded slice with a coarse clock")
-T.eq(reads, 32, "coarse clock still yields after a fixed number of groups")
+T.eq(reads, 256, "coarse clock still yields after a bounded number of checkpoints")
+-- Relocation is exactly a fresh build for the same progress and new visits,
+-- including empty places previously omitted from the album and goal tie-breaks.
+local places = { {id="A", name="A", maps={"A"}}, {id="B",name="B",maps={"B"}},
+  {id="EMPTY",name="EMPTY",maps={"EMPTY"}}, {id="DONE",name="DONE",maps={"DONE"}} }
+local function placeRows(ids)
+  return {sections={ {rows=ids[1]=="EMPTY" and {} or {{mapId=ids[1],done=ids[1]=="DONE"}}},
+    {rows={}}, {rows={}} },pokemon={} }
+end
+local cached = Progress.build(places, placeRows, {save={},mapId="A",visited={A=true,B=true}})
+T.eq(cached.byId.EMPTY, nil, "unvisited empty place is initially omitted")
+for _, context in ipairs({ {save={},mapId="B",visited={A=true,B=true}},
+    {save={},mapId="EMPTY",visited={A=true,B=true,EMPTY=true}},
+    {save={},mapId="UNKNOWN",visited={}} }) do
+  cached = Progress.relocate(cached,context)
+  T.check(same(cached,Progress.build(places,placeRows,context)),
+    "relocated album exactly matches a fresh build at "..context.mapId)
+end
 T.finish("Kanto Gear achievements RBY/GSC")
