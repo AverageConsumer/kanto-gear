@@ -452,15 +452,18 @@ function Gen3:locations()
       local entry = require("src.ui.game3.rse.mapsec").entry(def.regionMapSectionId)
       info = entry and { resolved = true, rawName = entry.name }
     else info = sections.getInfo(def.regionMapSectionId, id, def.floorNum) end
-    out[id] = { name = info and info.resolved and info.rawName
+    local name = info and info.resolved and info.rawName
+    local named = type(name) == "string" and name:find("%S") ~= nil
+    out[id] = { name = named and name
       or id:gsub("^FR_", ""):gsub("^EM_", ""):gsub("_", " "), section = def.regionMapSectionId }
     -- Localized names are labels, never progress identity. Keep gyms/dojo
     -- separate from city houses; combine dungeon floors and route segments.
     local facility = id:match("_GYM$") and "GYM" or id:match("_DOJO$") and "DOJO"
-    out[id].progressGroup = facility and id or "gen3:" .. tostring(def.regionMapSectionId or id)
+    -- The unnamed map section is shared by unrelated ships, link rooms and facilities.
+    out[id].progressGroup = facility and id or named and "gen3:" .. tostring(def.regionMapSectionId or id) or id
     out[id].progressKind = id:match("FOREST$") and "forest"
       or def.mapType == 4 and "cave" or "route"
-    if facility then out[id].name = out[id].name .. " " .. facility end
+    if facility and named then out[id].name = out[id].name .. " " .. facility end
   end
   self.locationCache = out
   return out

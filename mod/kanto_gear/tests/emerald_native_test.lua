@@ -53,6 +53,15 @@ check(regional[1] == P.speciesFromNational(252) and regional[202] == P.speciesFr
 check(adapter:dexNumber(1) == nil, "Bulbasaur is not in Hoenn Dex")
 check(adapter.data.pokemon[410].baseStats.attack == 95, "Emerald Deoxys form")
 check(adapter:locations().EM_LITTLEROOT_TOWN.name == "LITTLEROOT TOWN", "Hoenn location names")
+local locations = adapter:locations()
+for id, location in pairs(locations) do
+  check(location.name:find("%S") ~= nil, "every Hoenn location has a visible name: " .. id)
+end
+check(locations.EM_SS_TIDAL_CORRIDOR.name == "SS TIDAL CORRIDOR", "unnamed sections use a readable map name")
+check(locations.EM_SS_TIDAL_CORRIDOR.progressGroup ~= locations.EM_BATTLE_PYRAMID_SQUARE01.progressGroup,
+  "shared unnamed section never merges unrelated locations")
+check(locations.EM_AQUA_HIDEOUT_1F.progressGroup == locations.EM_AQUA_HIDEOUT_B1F.progressGroup,
+  "named dungeon floors retain their shared stamp")
 for i = 1, 8 do
   local badge = adapter.flagDefinitions.BADGES[i]
   check(not adapter:badge(i), "unearned badge")
@@ -126,6 +135,21 @@ for _,row in ipairs(Progress:rows({"EM_BATTLE_PYRAMID_SQUARE01"})[2]) do
   check(row.repeatable and not row.untracked and not row.done, "Pyramid pickups are repeatable")
 end
 check(Json.encode(Schema.toSaveTable(s)) == before, "read models leave native save unchanged")
+-- Local species goals accept acquisition anywhere, including evolution.
+local Achievements = dofile(root .. "/achievements.lua")
+local aqua = adapter:areaMaps("EM_AQUA_HIDEOUT_1F")
+local function aquaTier()
+  return Achievements.build({ { id = aqua[1], maps = aqua, name = "AQUA HIDEOUT" } }, function(ids)
+    return { sections = { { rows = {} }, { rows = {} }, { rows = {} } }, pokemon = Progress:pokemon(ids) }
+  end, { gen3 = true, save = adapter.save, mapId = aqua[1] }).areas[1].tier
+end
+local electrode = P.speciesFromNational(101)
+local oldCaught = adapter.save.pokedex.caught[electrode]
+check(aquaTier() == "silver", "Aqua Hideout waits for its species, not a particular encounter")
+adapter.save.pokedex.caught[electrode] = true
+check(aquaTier() == "gold", "an Electrode obtained elsewhere completes Aqua Hideout species goal")
+adapter.save.pokedex.caught[electrode] = oldCaught
+check(aquaTier() == "silver", "loading an older dex reverses the stamp")
 local pickup = assert(Progress:rows({"EM_ROUTE102"})[2][1])
 check(not pickup.done and pickup.event >= 0x20, "real route pickup flag")
 s.flags[pickup.event] = true
