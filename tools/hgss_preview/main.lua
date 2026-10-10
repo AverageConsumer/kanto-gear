@@ -1472,7 +1472,7 @@ function love.load()
     description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
       "REVISIT AREAS AND FINISH EXPLORING.", "YOUR ADVENTURE, ONE STAMP AT A TIME." } }
   table.insert(storeCatalog, 1, { id = "pss", icon = "pss", label = "SILPH CONNECT",
-    category = "ONLINE", action = "GET", state = "get", new = true,
+    category = "ONLINE", action = "GET", state = "get",
     description = { "ONLINE PLAYER DISPLAY.",
       "SEE WHO IS ONLINE AND PLAYING.", "PREVIEW: VIEWING ONLY." } })
   for _, app in ipairs(storeCatalog) do

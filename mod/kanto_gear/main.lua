@@ -2660,7 +2660,7 @@ return function(mod)
   end
   displayRuntime.storeCatalog = {
     { id = "pss", icon = "pss", label = "SILPH CONNECT",
-      category = "ONLINE", target = "PSS", featured = true, new = true,
+      category = "ONLINE", target = "PSS", featured = true,
       description = { "ONLINE PLAYER DISPLAY.",
         "SEE WHO IS ONLINE AND PLAYING.", "INVITES REQUIRE RECOMP SUPPORT." } },
     { id = "notes", icon = "notes", label = "NOTES",
