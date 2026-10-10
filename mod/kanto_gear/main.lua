@@ -2511,13 +2511,13 @@ return function(mod)
       and THEME.hgss:partySlot(82, 101, 5) == nil,
     "HGSS party hitboxes follow staggered cards")
 
-  -- Timings are enabled for this diagnostic test build only.
+  -- Public builds keep optional wall-time diagnostics disabled.
   displayRuntime.perf = assert(load(mod:read("performance.lua"),
     "@kanto_gear/performance.lua"))().new(
       function() return love.timer.getTime() end,
       function(line) mod.log:info("%s", line) end, false)
   if displayRuntime.perf.enabled then
-    mod.log:info("KGPROF v=1 kind=build version=3.2.7-test.1 units=ms timing=wall nested=true")
+    mod.log:info("KGPROF v=1 kind=build version=%s units=ms timing=wall nested=true", mod.version or "unknown")
   end
   displayRuntime.LevelUp = assert(load(mod:read("level_up.lua"),
     "@kanto_gear/level_up.lua"))()
@@ -3471,12 +3471,38 @@ return function(mod)
       displayRuntime.explorer.mapZoom = nil, 1, nil, false, 1
   end
 
+  displayRuntime.displayBridge = {}
   local function hasDisplay()
     if inlineDisplay() then
       return THEME:displayMode(mod.options) ~= "fullscreen"
         or displayRuntime.gearPrimary()
     end
-    return (companion and companion.detected and companion.detected()) or false
+    if not (companion and companion.detected) then return false end
+    local state, now = displayRuntime.displayBridge, love.timer.getTime()
+    -- Discovery crosses JNI and reads Android system settings. Share one
+    -- result across input/draw hooks; this never throttles image submissions.
+    if state.owner ~= companion or state.probe ~= companion.detected
+        or not state.checkedAt or now < state.checkedAt or now >= state.checkAt then
+      state.owner, state.probe = companion, companion.detected
+      state.detected = not not displayRuntime.perf:call("display_detect", companion.detected)
+      state.checkedAt, state.checkAt = now, now + 0.05
+    end
+    return state.detected
+  end
+
+  function displayRuntime.syncDisplayBridge(now, inline)
+    if not (companion and companion.setEnabled) then return end
+    local state, enabled = displayRuntime.displayBridge, active and not inline
+    if state.enabledOwner ~= companion or state.enable ~= companion.setEnabled
+        or state.enabled ~= enabled
+        or enabled and (state.detected == false or not displayReady)
+          and now >= (state.retryAt or 0) then
+      -- Android posts UI-thread work for every enable call, even unchanged ones.
+      -- Keep a slow recovery attempt for older hosts/missing presentations.
+      displayRuntime.perf:call("display_enable", companion.setEnabled, enabled)
+      state.enabledOwner, state.enable, state.enabled = companion, companion.setEnabled, enabled
+      state.retryAt, state.checkedAt = now + 1, nil
+    end
   end
 
   local function companionMoveGrid(state)
@@ -13737,6 +13763,7 @@ return function(mod)
   end
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
+    local measured = displayRuntime.perf:start()
     if stepGame == displayRuntime.sourceGame then displayRuntime.syncCompanionDetails() end
     if stepGame == displayRuntime.sourceGame and displayRuntime.levelUp:scan(game.save,
         game.stack and game.stack:top()) then dirty = true end
@@ -13763,7 +13790,9 @@ return function(mod)
     end
     if closingPanel then hgssRuntime.beginAnimation(closingPanel) end
     if stepGame == displayRuntime.sourceGame then displayRuntime.observeBagInput() end
+    local downstream = displayRuntime.perf:start()
     local result = next(stepGame, dt)
+    local excluded = displayRuntime.perf:elapsed(downstream)
     if stepGame == displayRuntime.sourceGame then
       displayRuntime.pss:step()
       if displayRuntime.recentItem:poll(game.save) then dirty = true end
@@ -13782,6 +13811,7 @@ return function(mod)
       -- Otherwise the next 50ms poll can restart the same transition.
       displayRuntime.perf:call("battle_snapshot", refreshBattle)
     end
+    displayRuntime.perf:finish("gear_input", measured, excluded)
     return result
   end, 1000)
 
@@ -14132,7 +14162,7 @@ return function(mod)
     if displayRuntime.gen3 then
       local now = love.timer.getTime()
       if now >= (displayRuntime.gen3PollAt or 0) then
-        displayRuntime.gen3:refresh()
+        displayRuntime.perf:call("gen3_refresh", displayRuntime.gen3.refresh, displayRuntime.gen3)
         displayRuntime.gen3PollAt = now + 0.05
       end
       displayRuntime.gen3.syncScreens()
@@ -14157,9 +14187,7 @@ return function(mod)
     end
     local inline = inlineDisplay()
     companion = context and context.secondScreen
-    if companion and companion.setEnabled then
-      companion.setEnabled(active and not inline)
-    end
+    displayRuntime.syncDisplayBridge(love.timer.getTime(), inline)
     local downstream = displayRuntime.perf:start()
     local handled = next(renderer, context)
     local excluded = displayRuntime.perf:elapsed(downstream)
@@ -14217,6 +14245,7 @@ return function(mod)
       displayRuntime.perf:call("stamps_album", displayRuntime.achievementData, false, true)
     end
     if now >= nextPoll then
+      local pollStarted = displayRuntime.perf:start()
       nextPoll = now + 0.05
       refreshTheme()
       displayRuntime.perf:call("battle_snapshot", refreshBattle)
@@ -14344,6 +14373,7 @@ return function(mod)
       if screenKey ~= lastScreenKey or mode == "transition" then
         lastScreenKey, dirty = screenKey, true
       end
+      displayRuntime.perf:finish("screen_poll", pollStarted)
     end
     if THEME.style == "hgss"
         and THEME.hgss:partyActionAnimating(now) then dirty = true end
@@ -14360,7 +14390,7 @@ return function(mod)
     end
     if displayRuntime.motion.started then dirty = true end
     displayRuntime.updateStepRefresh(now)
-    displayRuntime.updateMapRefresh(now)
+    displayRuntime.perf:call("map_refresh", displayRuntime.updateMapRefresh, now)
     if now >= nextClock then
       local title = screenState() == "title"
       nextClock = now + (title and 0.5

@@ -90,13 +90,19 @@ compose(function() end, {}, context)
 T.eq(advances, 2, "leaving Stamps pauses album work")
 up(compose, "page", "ACHIEVEMENTS")
 connected = false
+now = now + 0.051 -- Hardware discovery has a shared 50ms cache.
 compose(function() end, {}, context)
 T.eq(advances, 2, "disconnected display pauses album work")
 connected = true
+now = now + 0.051
 game.stack.states[2] = { isTextBox = true }
 compose(function() end, {}, context)
 T.eq(advances, 2, "game dialogue pauses hidden album work")
 game.stack.states[2] = nil
 compose(function() end, {}, context)
 T.eq(advances, 3, "returning to visible Stamps resumes the same job")
+local input = hook("input.step")
+input(function() now = now + 0.010; return sentinel end, game, 1 / 60)
+T.check(metrics.gear_input.n > 0, "diagnostics include work in the input hook")
+T.check(metrics.gear_input.max < 0.0001, "host simulation time is excluded from Gear input")
 T.finish("Kanto Gear performance runtime Gen " .. generation)

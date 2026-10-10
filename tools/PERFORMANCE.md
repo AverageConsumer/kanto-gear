@@ -1,8 +1,8 @@
 # Performance diagnostics
 
-The public `3.2.3` build disables the recorder. For a diagnostic test build,
+Public builds disable the recorder. For a diagnostic test build,
 enable it at the `Performance.new` call in `main.lua` and update its build
-marker. Disable it again before a public release. It sends `KGPROF`
+marker (the loaded manifest supplies its version). Disable it again before a public release. It sends `KGPROF`
 records to the existing host log; it does not upload data or write recordings
 into the save. Context contains generation, Gear page, native screen kind,
 theme, output path, map motion setting, and map ID. No note text or player names
@@ -32,6 +32,12 @@ are marked mixed, and each metric retains the context of its maximum.
 - `gear_compose` excludes its downstream host/mod hook chain but includes
   nested Gear scopes. `gear_draw` includes any data work it triggers. Never
   sum overlapping scope means to estimate frame cost.
+- `gear_input` covers Gear work before and after native input simulation,
+  excluding downstream host/mod time. `screen_poll` covers the 50ms UI poll;
+  `gen3_refresh` isolates its native save projection. These scopes overlap.
+- `display_enable` and `display_detect` isolate secondary-display lifecycle
+  and discovery calls. `map_refresh` measures movement invalidation checks,
+  not terrain painting or GPU execution.
 - `readback_request`, `readback_poll`, `readback_sync`, and `present` separate
   transfer submission, readback completion/copy, the legacy blocking fallback,
   and the secondary-display bridge. Successful `present` calls count RGBA
@@ -54,6 +60,35 @@ A Gear-disabled baseline needs host/system tracing because disabling the mod
 also removes its recorder. Likewise, use Android frame timelines or GPU traces
 to confirm physical presentation misses and GPU stalls. Lua measurements alone
 cannot certify uninterrupted gameplay or a GPU performance improvement.
+
+## Persistent secondary-display lifecycle
+
+The previous compose hook called `SecondScreen.setEnabled` on every frame,
+including repeated false calls in combined-window mode. In official Recomp
+v0.3.74, Android's `GameActivity.setSecondaryEnabled` posts a UI-thread task
+for each call. Enabled tasks read system settings, check display listeners
+and attempt rebinding; disabled tasks repeat teardown. This is independent
+of the currently open Gear app. Repeated discovery also reads Android settings.
+
+Gear now enables/disables only when the bridge or desired state changes.
+Missing displays or unsuccessful presentation retain a bounded one-second
+recovery attempt. Discovery results are shared across hooks for 50ms; image
+submission, map updates, touch handling and drawing retain their existing rates.
+Normal Android resume/hotplug listeners remain owned by Recomp.
+
+The deterministic SDK idle workload (601 frames over ten simulated seconds)
+recorded 601 enable calls and 1202 discovery calls before, versus one enable
+call and 187 discovery calls after. Both produced three image readbacks and
+three submissions. These are host-crossing counts, not measured Android FPS
+or a guarantee that all stutter has been removed. The test also covers failed
+presentation, disconnect/reconnect, inline output and replacement bridges.
+
+For device comparison use system traces with the same host, save, location,
+render settings and refresh rate. Compare unchanged old Gear, Gear disabled,
+and the fixed Gear build; repeat walking after idle. Inspect the main game's
+surface separately from the secondary UI and retain CPU scheduling, graphics
+waits, temperatures and long frame intervals. A Lua/mock benchmark cannot
+replace this comparison.
 
 ## Staged Stamps album
 

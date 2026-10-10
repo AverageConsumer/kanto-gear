@@ -105,3 +105,4 @@ tests/gen1_rewards_test.lua
 tests/gen2_rewards_test.lua
 tests/gen3_trades_test.lua
 tests/gen3_gifts_test.lua
+tests/display_idle_test.lua
