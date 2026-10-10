@@ -189,6 +189,9 @@ function love.load()
     translationFonts = translationFonts,
   })
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  if os.getenv("KANTO_GEAR_PREVIEW_MAP_PARITY") == "1" then
+    assert(loadfile(root .. "/tools/hgss_preview/map_parity.lua"))()(theme)
+  end
   assert(loadfile(root .. "/mod/kanto_gear/achievements_ui.lua"))()(
     theme, love.graphics, translate, format)
   theme:setTouch(20, 20)
@@ -200,8 +203,9 @@ function love.load()
     os.getenv("KANTO_GEAR_PREVIEW_PRESS") or ""):match("^(%d+),(%d+)$")
   if pressX then theme:setTouch(tonumber(pressX), tonumber(pressY)) end
   -- Legacy battle/party assertions predate the companion pages. Silph and
-  -- Stamps scenes exercise their own renderer without those removed screens.
-  if screen:sub(1,3) ~= "pss" and not achievements then
+  -- Stamps and map scenes exercise their own renderer without those screens.
+  if screen:sub(1,3) ~= "pss" and not achievements and not homePreview
+      and screen:sub(1,8) ~= "explorer" then
   assert(theme.backdropCenterY == 121,
     "every HGSS Pokeball backdrop shares the Party screen center")
   local blueFocus = theme:focusSurface(true, theme.colors.surface,
@@ -1121,9 +1125,9 @@ function love.load()
         "Explorer only reveals hidden-item markers in spoiler mode")
       if explorerMap then
         assert(theme:explorerHit(20 * sx, 61 * sx,
-            explorerModel) == "zoom_out"
+            explorerModel) == (explorerModel.mapZoom > 1 and "zoom_out" or nil)
           and theme:explorerHit(73 * sx, 61 * sx,
-            explorerModel) == "zoom_in"
+            explorerModel) == (explorerModel.mapZoom < 3 and "zoom_in" or nil)
           and theme:explorerHit(120 * sx, 61 * sx,
             explorerModel) == nil
           and theme:explorerHit(210 * sx, 61 * sx,

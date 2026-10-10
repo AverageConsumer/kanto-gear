@@ -1830,7 +1830,14 @@ return function(ui)
     local explorerAccent = mixed(colors.party, colors.greenLight, 0.45)
     self:homeWidgetHeader(x, y, w, "EXPLORER", explorerAccent,
       mixed(explorerAccent, colors.white, 0.30), model.editing)
+    self:homeExplorerMap(model, tile)
+  end
+
+  function H:homeExplorerMap(model, tile, retained)
+    local colors = self.colors
+    local x, y, w, h = self:homeRect(tile)
     self:mapOverview(model.overview, x + 5, y + 22, w - 10, h - 27, {
+      retainFrame = retained,
       image = model.image, player = model.player, markers = model.markers,
       drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
     })
@@ -3338,6 +3345,7 @@ return function(ui)
         for k, v in pairs(opts) do if k ~= "snapshot" then live[k] = v end end
         -- Player motion must not rebake a stationary camera's terrain/NPC layer.
         live.drawPlayer = nil
+        live.retainFrame = nil
         local ok, err = pcall(self.mapOverview, self, overview, 0, 0, w, h, live)
         G.setCanvas(previous)
         G.pop()
@@ -3345,6 +3353,9 @@ return function(ui)
         snapshot.canvasKey = key
       end
       G.push("all")
+      if opts.retainFrame then
+        G.setScissor(layout.innerX, layout.innerY, layout.innerW, layout.innerH)
+      end
       G.setBlendMode("alpha", "premultiplied")
       color({ 1, 1, 1, 1 })
       G.draw(snapshot.canvas, x, y)
@@ -3360,7 +3371,7 @@ return function(ui)
       G.pop()
       return layout
     end
-    self:panel(x, y, w, h, false)
+    if not opts.retainFrame then self:panel(x, y, w, h, false) end
     local layout = mapLayout(overview, x, y, w, h, opts)
     if not layout then return nil end
     local rows, width, height, density = layout.rows, layout.width,
@@ -3598,9 +3609,58 @@ return function(ui)
       picked and colors.surface or colors.white)
   end
 
+  -- Movement repaints only the opaque map panel on the retained page canvas.
+  function H:explorerMap(model, retained)
+    local colors, mapFocus = self.colors, explorerMapFocus(model)
+    local mapX, mapW = 7, 226
+    local mapY = model.mapFull and 72 or 53
+    local mapH = model.mapFull and 138
+      or model.view == "wild" and model.selected and 42 or 84
+    self:mapOverview(model.overview, mapX, mapY, mapW, mapH, {
+      retainFrame = retained,
+      snapshot = model.mapSnapshot, cacheKey = model.mapCacheKey,
+      image = model.image, player = model.player, markers = model.markers,
+      focus = mapFocus,
+      selected = model.selectedMarker, drawPlayer = model.drawPlayer,
+      drawTrainer = model.drawTrainer, full = model.mapFull,
+      zoom = model.mapZoom,
+    })
+    if model.canScan and model.player and mapFocus == model.player then
+      local layout = mapLayout(model.overview, mapX, mapY, mapW, mapH, {
+        full = model.mapFull, player = model.player, focus = mapFocus,
+        zoom = model.mapZoom,
+      })
+      if layout then
+        local G = ui.graphics
+        local px = layout.left + (model.player.x + 0.5) * layout.tileSize
+        local py = layout.top + (model.player.y + 0.5) * layout.tileSize
+        local cue = math.max(6, math.floor(layout.tileSize * 0.75))
+        G.setScissor(layout.innerX, layout.innerY, layout.innerW, layout.innerH)
+        color(colors.greenLight)
+        G.circle("line", px, py, cue)
+        if model.scanProgress and model.scanProgress < 1 then
+          G.circle("line", px, py,
+            math.max(cue + 2, layout.tileSize * math.sqrt(41)
+              * model.scanProgress))
+        elseif model.scanHint then
+          local label = translate("SCAN")
+          local width = math.max(24, fontWidth(partyTypeFont, label) + 8)
+          local left = math.max(layout.innerX + 2,
+            math.min(layout.innerX + layout.innerW - width - 2,
+              math.floor(px - width / 2)))
+          local top = math.max(layout.innerY + 2, math.floor(py - cue - 13))
+          clipped(left, top, width, 10, colors.surface)
+          border(left, top, width, 10, colors.outline)
+          self:partyType(label, left, top - 1, colors.ink, width)
+          box("fill", math.floor(px) - 1, top + 10, 3, 2, colors.outline)
+        end
+        G.setScissor()
+      end
+    end
+  end
+
   function H:explorer(model)
     local colors, view, selected = self.colors, model.view, model.selected
-    local mapFocus = explorerMapFocus(model)
     local function mapToggle(x, y, collapse)
       local pressed = self:beginPress(x, y, 19, 14)
       self:panel(x, y, 19, 14, false)
@@ -3677,56 +3737,12 @@ return function(ui)
       160, 35, colors.green, 36, "center")
     mapToggle(207, 34, model.mapFull)
 
-    local mapX, mapW = 7, 226
-    local mapY = model.mapFull and 72 or 53
-    local mapH = model.mapFull and 138
-      or view == "wild" and (selected and 42 or 84)
-      or 84
     if model.mapFull then
       self:panel(7, 53, 226, 16, false, nil, colors.greenLight)
       zoomControls(53, model.mapZoom or 1)
       mapProgress(53)
     end
-    self:mapOverview(model.overview, mapX, mapY, mapW, mapH, {
-      snapshot = model.mapSnapshot, cacheKey = model.mapCacheKey,
-      image = model.image, player = model.player, markers = model.markers,
-      focus = mapFocus,
-      selected = model.selectedMarker, drawPlayer = model.drawPlayer,
-      drawTrainer = model.drawTrainer, full = model.mapFull,
-      zoom = model.mapZoom,
-    })
-    if model.canScan and model.player and mapFocus == model.player then
-      local layout = mapLayout(model.overview, mapX, mapY, mapW, mapH, {
-        full = model.mapFull, player = model.player, focus = mapFocus,
-        zoom = model.mapZoom,
-      })
-      if layout then
-        local G = ui.graphics
-        local px = layout.left + (model.player.x + 0.5) * layout.tileSize
-        local py = layout.top + (model.player.y + 0.5) * layout.tileSize
-        local cue = math.max(6, math.floor(layout.tileSize * 0.75))
-        G.setScissor(layout.innerX, layout.innerY, layout.innerW, layout.innerH)
-        color(colors.greenLight)
-        G.circle("line", px, py, cue)
-        if model.scanProgress and model.scanProgress < 1 then
-          G.circle("line", px, py,
-            math.max(cue + 2, layout.tileSize * math.sqrt(41)
-              * model.scanProgress))
-        elseif model.scanHint then
-          local label = translate("SCAN")
-          local width = math.max(24, fontWidth(partyTypeFont, label) + 8)
-          local left = math.max(layout.innerX + 2,
-            math.min(layout.innerX + layout.innerW - width - 2,
-              math.floor(px - width / 2)))
-          local top = math.max(layout.innerY + 2, math.floor(py - cue - 13))
-          clipped(left, top, width, 10, colors.surface)
-          border(left, top, width, 10, colors.outline)
-          self:partyType(label, left, top - 1, colors.ink, width)
-          box("fill", math.floor(px) - 1, top + 10, 3, 2, colors.outline)
-        end
-        G.setScissor()
-      end
-    end
+    self:explorerMap(model)
     if model.mapFull then return end
 
     local function chip(x, y, width, label, active, arrow, translated)

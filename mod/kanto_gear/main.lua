@@ -6718,6 +6718,45 @@ return function(mod)
     return true
   end
 
+  function displayRuntime.drawMapRefresh()
+    local state, now = displayRuntime.mapRefresh, love.timer.getTime()
+    local only = state.only
+    state.only = false
+    -- Only a movement-only invalidation may reuse the existing page pixels.
+    -- Periodic data updates, input, overlays and transitions still paint fully.
+    if not only or state.paintedPage ~= page or THEME.style ~= "hgss"
+        or not state.paintedAt or now - state.paintedAt >= 0.5
+        or touchDown or hgssRuntime.animation or displayRuntime.motion.started
+        or pendingFly or pendingAction or moveInfo or fieldChoice or radarOpen
+        or (displayRuntime.backgroundDim or 0) > 0 or displayRuntime.nativeHandoff
+        or screenState() ~= "active" then return false end
+    local home = page == "HOME"
+    local model = home and state.homeModel or displayRuntime.explorer.renderModel
+    local data = displayRuntime.explorer.data
+    if not model or not data or now - data.at >= 0.5 then return false end
+    if home and (displayRuntime.home.editing or displayRuntime.home.library
+        or model.help or not displayRuntime.home.widgetCache) then return false end
+    local pos = displayRuntime.localMapPosition(model.overview.mapId)
+    if not pos then return false end
+    model.player = pos
+    G.setCanvas(canvas)
+    G.origin(); G.setScissor(); G.setShader()
+    G.setBlendMode("alpha"); G.setLineWidth(1)
+    if home then
+      for _, tile in ipairs(model.tiles or {}) do
+        if tile.widget == "explorer" then THEME.hgss:homeExplorerMap(model, tile, true) end
+      end
+    else
+      THEME.hgss:explorerMap(model, true)
+    end
+    G.setCanvas()
+    state.key = home and THEME.hgss:homeMotionKey(model, pos)
+      or THEME.hgss:explorerMotionKey(model, pos)
+    state.terrainRevision = model.overview.drawTerrain
+      and displayRuntime.nativeMap and displayRuntime.nativeMap:revision() or ""
+    return true
+  end
+
   function displayRuntime.explorerModel(overview)
     local explorer = displayRuntime.explorer
     local now, id = love.timer.getTime(), overview.mapId or mapId
@@ -7219,6 +7258,8 @@ return function(mod)
       else
         local model = displayRuntime.explorerModel(overview)
         THEME.hgss:explorer(model)
+        displayRuntime.mapRefresh.paintedPage = page
+        displayRuntime.mapRefresh.paintedAt = love.timer.getTime()
         displayRuntime.mapRefresh.key = THEME.hgss:explorerMotionKey(model, model.player)
         displayRuntime.mapRefresh.terrainRevision = model.overview.drawTerrain
           and displayRuntime.nativeMap and displayRuntime.nativeMap:revision() or ""
@@ -8137,6 +8178,8 @@ return function(mod)
     if home.editing and not home.library then THEME.hgss:homeEditDone() end
     G.pop()
     displayRuntime.mapRefresh.homeModel = model
+    displayRuntime.mapRefresh.paintedPage = page
+    displayRuntime.mapRefresh.paintedAt = love.timer.getTime()
     displayRuntime.mapRefresh.key = THEME.hgss:homeMotionKey(model, model.player)
     displayRuntime.mapRefresh.terrainRevision = model.overview and model.overview.drawTerrain
       and displayRuntime.nativeMap and displayRuntime.nativeMap:revision() or ""
@@ -10713,6 +10756,8 @@ return function(mod)
   end
 
   displayRuntime.drawContents = function()
+    displayRuntime.mapRefresh.paintedPage = nil
+    displayRuntime.mapRefresh.only = false
     if page ~= "LOCAL" then displayRuntime.clearExplorerSnapshot() end
     displayRuntime.backgroundDim = 0
     displayRuntime.nativeHandoff = false
@@ -10849,7 +10894,7 @@ return function(mod)
       local motion = displayRuntime.motion
       local cached = motion.direction and motion.cached and motion.started
         and love.timer.getTime() - motion.started < motion.duration
-      if not cached then displayRuntime.drawContents() end
+      if not cached and not displayRuntime.drawMapRefresh() then displayRuntime.drawContents() end
       displayRuntime.applyMotion()
     end)
     -- A failed nested draw skips its own pops. Restore our entire scope before
@@ -10860,7 +10905,10 @@ return function(mod)
       G.pop()
     end
     displayRuntime.perf:finish("gear_draw", measured)
-    if not ok then error(err, 0) end
+    if not ok then
+      displayRuntime.mapRefresh.paintedPage = nil
+      error(err, 0)
+    end
   end
 
   local function pumpDisplay()
@@ -12475,7 +12523,8 @@ return function(mod)
       end
     end
     local js = love and love.joystick
-    if js and js.getJoysticks then
+    if (swapEnabled or overlayEnabled and overlayButton ~= "f7")
+        and js and js.getJoysticks then
       local ok, pads = pcall(js.getJoysticks)
       if ok then
         for _, pad in ipairs(pads or {}) do
@@ -14412,7 +14461,6 @@ return function(mod)
     end
     if displayRuntime.motion.started then dirty = true end
     displayRuntime.updateStepRefresh(now)
-    displayRuntime.perf:call("map_refresh", displayRuntime.updateMapRefresh, now)
     if now >= nextClock then
       local title = screenState() == "title"
       nextClock = now + (title and 0.5
@@ -14439,7 +14487,15 @@ return function(mod)
       holdTextSpeed(false)
     end
     if displayAvailable and not displayReady then dirty = true end
-    if not inline and bottomOnHandheld() then
+    local fullPaint = dirty
+    displayRuntime.mapRefresh.only = displayRuntime.perf:call(
+      "map_refresh", displayRuntime.updateMapRefresh, now) and not fullPaint
+    if inline and displayRuntime.mapRefresh.only then
+      -- The window was already composed by next(). Update its retained texture
+      -- now, before another input tick can invalidate this movement-only hint.
+      draw()
+      dirty = false
+    elseif not inline and bottomOnHandheld() then
       if dirty or readbackPending then pumpDisplay() end
     elseif not inline and (dirty or readbackPending)
         and (readbackPending or displayAvailable
