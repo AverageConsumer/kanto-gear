@@ -295,7 +295,7 @@ T.love.timer.getTime = time
 -- Cover the room/route shapes that previously made all three levels useless.
 for _, dark in ipairs({ false, true }) do
   theme.hgss:setVariant(dark)
-  for _, dimensions in ipairs({ { 6, 6 }, { 10, 8 }, { 42, 18 },
+  for _, dimensions in ipairs({ { 6, 6 }, { 10, 8 }, { 20, 12 }, { 28, 16 }, { 42, 18 },
       { 10, 100 }, { 100, 10 }, { 120, 120 }, { 512, 512 } }) do
     local w, h = unpack(dimensions)
     local camera = { mapId = "ZOOM", x = (w - 1) / 2, y = (h - 1) / 2 }
@@ -329,10 +329,20 @@ for _, dark in ipairs({ false, true }) do
               or math.abs(h * size - layout.innerH) < 1e-9,
             "overview fills at least one viewport axis without a size cap or rounding loss")
         else
-          T.check(size >= 12, "close views keep large routes readable")
-          T.check(zoom == 2 and size >= scales[1] * 1.5
-              or zoom == 3 and size == scales[2] * 2,
-            "nearby visibly crops the overview and detail doubles nearby scale")
+          T.check(size >= 6, "intermediate view keeps item markers readable")
+          local detail = math.max(12, scales[1] * 1.5)
+          if zoom == 2 then
+            T.check(size > scales[1] and size < detail,
+              "intermediate view stays between overview and detail on every map shape")
+            T.check(detail / size >= math.sqrt(1.5) - 1e-9,
+              "intermediate view shows meaningfully more area than detail")
+            if scales[1] <= 6 then
+              T.check(layout.innerW / size >= 24 and layout.innerW / size <= 37,
+                "route overview shows a broad readable neighborhood")
+            end
+          else
+            T.eq(size, detail, "detail preserves beta 57's useful second zoom level")
+          end
         end
         T.check(math.abs(layout.left + w * size / 2 - (frame.x + frame.w / 2)) <= 0.5
             and math.abs(layout.top + h * size / 2 - (frame.y + frame.h / 2)) <= 0.5,
@@ -340,7 +350,7 @@ for _, dark in ipairs({ false, true }) do
         T.eq(theme.hgss:mapMarkerAt(layout.left + (marker.x + .5) * size,
             layout.top + (marker.y + .5) * size, map, frame, opts), 1,
           "touch selects the marker at its drawn position at every zoom")
-        T.check(math.abs(playerDraw[1] - (layout.left + (camera.x + .5) * size)) <= 1,
+        T.check(math.abs(playerDraw[1] - (layout.left + (camera.x + .5) * size)) <= 0.5 + 1e-9,
           "player anchor remains aligned with terrain")
         for _, edge in ipairs({ { 0, 0 }, { w - 1, h - 1 } }) do
           camera.x, camera.y = unpack(edge)

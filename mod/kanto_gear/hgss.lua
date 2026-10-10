@@ -3228,10 +3228,9 @@ return function(ui)
     local zoom = math.max(1, math.min(3, tonumber(opts.zoom) or 1))
     local fit = math.min(innerW / baseWidth, innerH / baseHeight)
     if zoom == 1 then return fit end
-    -- Keep large-route surroundings readable and separate both close views
-    -- even when a small room already fills the overview.
-    local nearby = math.max(12, fit * 1.5)
-    return zoom == 2 and nearby or nearby * 2
+    local detail = math.max(12, fit * 1.5)
+    -- Split the useful range evenly, while keeping overview markers readable.
+    return zoom == 2 and math.max(6, math.sqrt(fit * detail)) or detail
   end
 
   local function explorerMapFocus(model)
@@ -3349,7 +3348,9 @@ return function(ui)
     local tileSize = layout.tileSize
     local function tile(marker)
       return math.floor(left + marker.x * tileSize + 0.5),
-        math.floor(top + marker.y * tileSize + 0.5)
+        math.floor(top + marker.y * tileSize + 0.5),
+        math.floor(left + (marker.x + 0.5) * tileSize + 0.5),
+        math.floor(top + (marker.y + 0.5) * tileSize + 0.5)
     end
     local function tileFrame(tx, ty, tint)
       box("fill", tx - 1, ty - 1, tileSize + 2, 1, tint)
@@ -3360,9 +3361,7 @@ return function(ui)
     local markers = opts.markers or overview.markers or {}
     for index, marker in ipairs(markers) do
       if mapMarkerVisible(marker, opts.visible) then
-        local mx, my = tile(marker)
-        local anchorX = mx + math.floor(tileSize / 2)
-        local anchorY = my + math.floor(tileSize / 2)
+        local mx, my, anchorX, anchorY = tile(marker)
         if opts.selected == marker or opts.selected == index then
           tileFrame(mx, my, marker.kind == "trainer" and colors.blueLight
             or colors.amberLight)
@@ -3441,8 +3440,7 @@ return function(ui)
     end
 
     if focus.x ~= nil and focus.y ~= nil then
-      local px, py = tile(focus)
-      local anchorX = px + math.floor(tileSize / 2)
+      local _, py, anchorX = tile(focus)
       if opts.drawPlayer then
         opts.drawPlayer(focus, anchorX, py + tileSize, tileSize)
       end
