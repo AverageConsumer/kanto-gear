@@ -165,6 +165,16 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   display.tapAchievements(120, 100)
   display.drawAchievements()
   T.eq(display.achievements.view, "detail", version .. " area detail opens")
+  display.tapAchievements(120, 105)
+  display.drawAchievements()
+  T.eq(theme.hgss:achievementsHit(120, 70), "locate", version .. " trainer card offers its known position")
+  display.tapAchievements(120, 70)
+  T.eq(display.achievements.location.x, 2, version .. " trainer uses object x coordinate")
+  T.eq(display.achievements.location.y, 3, version .. " trainer uses object y coordinate")
+  display.drawAchievements()
+  display.tapAchievements(12, 12)
+  display.tapAchievements(12, 12)
+  display.drawAchievements()
   display.tapAchievements(120, 166)
   display.drawAchievements()
   T.eq(display.achievements.view, "finds", version .. " hidden list opens")
@@ -212,6 +222,36 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   display.drawAchievements()
   T.eq(display.achievements.category, 4, version .. " fourth category opens Pokemon progress")
   T.eq(display.achievementModel().entries[1].state, "open", version .. " uncaught Pokemon is an open goal")
+  T.eq(theme.hgss:achievementsHit(120, 70), "habitat", version .. " wild species card has direct details")
+  display.tapAchievements(120, 70)
+  local habitat = display.achievementModel().habitat
+  T.eq(display.achievements.view, "habitat", version .. " species tap stays in Stamps")
+  T.eq(habitat.pokemon.species, "FIXMON_A", version .. " opens the tapped species")
+  T.eq(habitat.rows[1].area, "ROUTE 2", version .. " details stay within the selected area")
+  T.eq(habitat.rows[1].method, "WALK", version .. " shows the encounter method")
+  T.eq(habitat.rows[1].levels, "L3", version .. " shows encounter levels")
+  T.check(habitat.rows[1].chance > 0, version .. " shows actual encounter odds")
+  T.eq(game.stack:top(), world, version .. " habitat browsing leaves the game alone")
+  -- More than three conditions must paginate independently from the find list.
+  local appearances = display.achievements.habitat.habitat.appearances
+  for _, method in ipairs({ "OLD", "GOOD", "SUPER" }) do
+    appearances[#appearances + 1] = { mapId = "ROUTE_2", section = "ROUTE 2",
+      method = method, chance = 10, minLevel = 5, maxLevel = 10 }
+  end
+  display.pokedex.habitatPlan = nil
+  display.drawAchievements()
+  display.tapAchievements(149, 205)
+  T.eq(display.achievements.habitatPage, 2, version .. " habitat pager advances")
+  T.eq(display.achievements.page, 1, version .. " habitat paging preserves the find page")
+  run.loader.modOptions.kanto_gear.info_level = "vanilla"
+  T.eq(display.achievementModel().view, "finds", version .. " reducing spoilers closes unknown species details")
+  run.loader.modOptions.kanto_gear.info_level = "spoiler"
+  display.drawAchievements()
+  display.tapAchievements(120, 70)
+  display.drawAchievements()
+  display.tapAchievements(12, 12)
+  T.eq(display.achievements.view, "finds", version .. " habitat back returns to the Pokemon list")
+  display.drawAchievements()
   display.tapAchievements(120, 200)
   T.eq(display.home.activeApp, "explorer", version .. " Pokemon progress opens Explorer without game navigation")
   T.eq(display.explorer.filters.wildScope, "ROUTE", version .. " Explorer shows the whole area")

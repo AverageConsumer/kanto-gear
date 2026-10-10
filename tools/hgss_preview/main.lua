@@ -175,6 +175,7 @@ function love.load()
   end
   local theme = chunk()({
     graphics = love.graphics, box = box, text = text,
+    pokedexPage = assert(loadfile(root .. "/mod/kanto_gear/pokedex_page.lua"))(),
     fit = fit, glyphs = glyphs, color = color, font = font,
     smallFont = smallFont, largeFont = largeFont,
     translate = translate, format = format,
@@ -1604,7 +1605,7 @@ function love.load()
     end
   elseif achievements then
     assert(loadfile(root .. "/tools/hgss_preview/achievements.lua"))()(
-      theme, screen, gen1, translate)
+      theme, screen, gen1, translate, function(_, x, y, size) drawPortrait(1, x, y, size, false) end)
   elseif legacyPpMoves then
     theme:pcList({ summary = translate("CHOOSE MOVE"), entries = {
       { kind = "move", label = "SURF", right = "PP 12/15", selected = true },

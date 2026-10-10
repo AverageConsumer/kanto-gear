@@ -4430,7 +4430,7 @@ return function(mod)
         for _, row in ipairs(species) do
           result.pokemon[#result.pokemon + 1] = { species = row.species,
             label = (game.data.pokemon[row.species] or {}).name or row.name,
-            order = row.order, done = caught[row.species] == true,
+            order = row.order, done = caught[row.species] == true, wild = true,
             mapId = row.appearances[1] and row.appearances[1].mapId,
           }
         end
@@ -4498,9 +4498,25 @@ return function(mod)
     if state.view == "location" and state.location then
       displayRuntime.loadAchievementLocation(state.location)
     end
-    local entries = state.view == "finds" and area
+    if state.view == "habitat" and state.habitat then
+      if not displayRuntime.knownSpecies(state.habitat.species) then
+        state.view, state.habitat = "finds", nil
+      else
+        local plan = displayRuntime.pokedexHabitatPlan(state.habitat)
+        local rows, current, pages = displayRuntime.PokedexPage.window(plan.rows, state.habitatPage, 3)
+        state.habitatPage = current
+        local info = displayRuntime.pokedexPokemon(state.habitat.species, state.habitat.label)
+        return { view = "habitat", area = area, mode = mode, pages = pages,
+          habitat = { pokemon = info, page = current, pages = pages,
+            summary = THEME:format("NO.%03d", tonumber(info.dex) or 0),
+            matchText = area.name, rows = displayRuntime.habitatRows(rows),
+            drawPokemon = displayRuntime.drawAchievementPokemon } }
+      end
+    end
+    local entries = (state.view == "finds" or state.view == "location") and area
       and Progress.visibleRows(area, state.category, mode) or areas
-    local size = state.view == "finds" and (state.category == 4 and 3 or 4) or 6
+    local size = (state.view == "finds" or state.view == "location")
+      and (state.category == 4 and 3 or 4) or 6
     local pages = math.max(1, math.ceil(#entries / size))
     state.page = math.max(1, math.min(state.page or 1, pages))
     local shown = {}
@@ -4517,9 +4533,13 @@ return function(mod)
   end
 
   function displayRuntime.cycleAchievements(direction)
-    displayRuntime.requestPageMotion(direction)
     local state, model = displayRuntime.achievements, displayRuntime.achievementModel()
-    if state.view == "album" or state.view == "finds" then
+    if state.view ~= "goals" and (model.pages <= 1
+        or state.view ~= "habitat" and state.view ~= "album" and state.view ~= "finds") then return end
+    displayRuntime.requestPageMotion(direction)
+    if state.view == "habitat" then
+      state.habitatPage = (state.habitatPage - 1 + direction) % model.pages + 1
+    elseif state.view == "album" or state.view == "finds" then
       state.page = (state.page - 1 + direction) % model.pages + 1
     elseif state.view == "goals" then state.view, state.page = "album", 1 end
     dirty = true
@@ -4528,7 +4548,8 @@ return function(mod)
   function displayRuntime.tapAchievements(x, y)
     local state = displayRuntime.achievements
     if y < 30 and x < 35 then
-      if state.view == "location" then state.view, state.location = "finds", nil
+      if state.view == "habitat" then state.view, state.habitat = "finds", nil
+      elseif state.view == "location" then state.view, state.location = "finds", nil
       elseif state.view == "finds" then state.view, state.page = "detail", 1
       elseif state.view == "detail" then
         state.view, state.selected, state.page = state.parent or "album", nil, state.parentPage or 1
@@ -4537,6 +4558,17 @@ return function(mod)
       return
     end
     if displayRuntime.achievements.stale then return end
+    if state.view == "habitat" then
+      local model = displayRuntime.achievementModel().habitat
+      if model then
+        model.view, model.canCycle = "habitat", model.pages > 1
+        local action = displayRuntime.PokedexPage.hit(model, x, y)
+        if action == "prev" or action == "next" then
+          displayRuntime.cycleAchievements(action == "next" and 1 or -1)
+        end
+      end
+      return
+    end
     local action, value = THEME.hgss:achievementsHit(x, y)
     if action == "view" then state.view, state.page, state.selected = value, 1, nil
     elseif action == "area" then
@@ -4556,6 +4588,17 @@ return function(mod)
     elseif action == "locate" and displayRuntime.achievementModel().mode == "spoiler" then
       state.location, state.view = value, "location"
       displayRuntime.loadAchievementLocation(value)
+    elseif action == "habitat" and displayRuntime.knownSpecies(value.species) then
+      local area = displayRuntime.achievementModel().area
+      if area then
+        for _, row in ipairs(guideData(area.maps, true).rows) do
+          if row.species == value.species then
+            state.habitat = { species = value.species, label = value.label, habitat = row }
+            state.view, state.habitatPage = "habitat", 1
+            break
+          end
+        end
+      end
     end
     dirty = true
   end
@@ -5509,6 +5552,7 @@ return function(mod)
       page == "ACHIEVEMENTS" and tostring(displayRuntime.achievements.view) or "",
       page == "ACHIEVEMENTS" and tostring(displayRuntime.achievements.selected) or "",
       page == "ACHIEVEMENTS" and tostring(displayRuntime.achievements.page) or "",
+      page == "ACHIEVEMENTS" and tostring(displayRuntime.achievements.habitatPage) or "",
       page == "BAG" and tostring(displayRuntime.bag.pocket) or "",
       page == "BAG" and tostring(displayRuntime.bag.page) or "",
       page == "BAG" and tostring(displayRuntime.bag.detail) or "",
@@ -5582,6 +5626,9 @@ return function(mod)
       elseif stamps.view == "finds" then
         region(tostring(stamps.selected) .. ":" .. tostring(stamps.category),
           stamps.page, 56, stamps.category == 4 and 189 or 211)
+      elseif stamps.view == "habitat" then
+        region("habitat:" .. tostring(stamps.selected) .. ":" .. tostring(stamps.habitat.species),
+          stamps.habitatPage, 86, 197)
       end
     elseif page == "LOCAL" then
       local explorer = displayRuntime.explorer
@@ -8841,9 +8888,10 @@ return function(mod)
 
   function displayRuntime.pokedexHabitatPlan(selected)
     local state, now = displayRuntime.pokedex, love.timer.getTime()
+    local mode = displayRuntime.discoveryMode()
     local period = compat.timePeriod(game.world) or "DAY"
     local cached = state.habitatPlan
-    if cached and cached.source == selected and cached.map == mapId
+    if cached and cached.source == selected and cached.map == mapId and cached.mode == mode
         and cached.period == period and now < cached.refreshAt then return cached end
     local save = game.save or {}
     local surfBadge = compat.isGen2() and THEME.fieldTools.gen2Badge(save, "FOG")
@@ -8856,10 +8904,14 @@ return function(mod)
       Discovery.filter(selected.habitat and selected.habitat.appearances, function(row)
         return displayRuntime.knownMap(row.mapId)
       end), mapId, period, visited, methods)
-    plan.source, plan.map, plan.period, plan.refreshAt = selected, mapId, period, now + 0.5
+    plan.source, plan.map, plan.period, plan.refreshAt, plan.mode = selected, mapId, period, now + 0.5, mode
     state.habitatPlan = plan
     if not cached or cached.signature ~= plan.signature then dirty = true end
     return plan
+  end
+
+  function displayRuntime.drawAchievementPokemon(mon, x, y, size)
+    return drawSprite(mon.species, "front", x, y, size, size, nil, nil, true)
   end
 
   function displayRuntime.pokedexPokemon(species, name)
@@ -8973,7 +9025,12 @@ return function(mod)
       and THEME:format("%d AREAS", areaCount) or THEME:translate("NO WILD AREA")
     common.matchText = plan.count > 0 and THEME:format("%d MATCHING AREAS", plan.count)
       or THEME:translate("NO MATCHING AREA KNOWN")
-    common.rows = {}
+    common.rows = displayRuntime.habitatRows(plannedRows)
+    return displayRuntime.PokedexPage.controls(common, dex)
+  end
+
+  function displayRuntime.habitatRows(plannedRows)
+    local rows = {}
     for _, planned in ipairs(plannedRows) do
       local appearance = planned.appearance
       local area = areaName(appearance.mapId)
@@ -8982,7 +9039,7 @@ return function(mod)
           and not area:upper():find(section:upper(), 1, true) then
         area = area .. " - " .. section
       end
-      common.rows[#common.rows + 1] = {
+      rows[#rows + 1] = {
         area = area, current = planned.current, matches = planned.matches,
         status = planned.status == "ONLY %s"
           and THEME:format("ONLY %s", THEME:translate(planned.period))
@@ -8995,7 +9052,7 @@ return function(mod)
             appearance.maxLevel or 0),
       }
     end
-    return displayRuntime.PokedexPage.controls(common, dex)
+    return rows
   end
 
   function displayRuntime.selectPokedexSpecies(index)
@@ -14097,6 +14154,9 @@ return function(mod)
           and not battle and mode == "active" then
         local selected = displayRuntime.pokedexData().bySpecies[displayRuntime.pokedex.selected]
         if selected then displayRuntime.pokedexHabitatPlan(selected) end
+      elseif page == "ACHIEVEMENTS" and displayRuntime.achievements.view == "habitat"
+          and displayRuntime.achievements.habitat and not battle and mode == "active" then
+        displayRuntime.pokedexHabitatPlan(displayRuntime.achievements.habitat)
       end
       if displayRuntime.perf.enabled then
         displayRuntime.perf:setContext(string.format(

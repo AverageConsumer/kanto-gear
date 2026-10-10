@@ -256,9 +256,11 @@ return function(H, G, translate, format)
       pager(34)
       for i, row in ipairs(model.entries or {}) do
         local top = 58 + (i - 1) * 36
-        local canLocate = model.mode == "spoiler" and row.x ~= nil and row.y ~= nil
-          and row.state ~= "unavailable" and row.state ~= "later"
-        card(6, top, 228, 32, canLocate and "locate" or nil, row, function()
+        local canLocate = model.mode == "spoiler" and row.mapId ~= nil
+          and row.x ~= nil and row.y ~= nil
+        local action = canLocate and "locate"
+          or row.wild and "habitat" or nil
+        card(6, top, 228, 32, action, row, function()
           name(row.isEgg and translate("EGG") or row.label, 13, top + 2, 171, 19)
           label(translate(row.species and (not row.gift or row.catchGoal) and (row.done and "CAUGHT" or "NOT CAUGHT")
             or ({ done = "RECORDED", open = row.trade and "NPC TRADE" or row.loan and "NPC LOAN" or (row.cost or row.coinCost) and "NPC OFFER" or row.gift and "NPC GIFT" or "NOT YET", later = "LATER",
@@ -266,7 +268,7 @@ return function(H, G, translate, format)
             untracked = "NOT TRACKED", excluded = "ALTERNATIVE CHOICE",
             repeatable = row.kind == "hidden" and "RENEWABLE" or "REPEATABLE" })[row.state]),
             13, top + 20, 195, 9, row.state == "done" and accent or quiet, true)
-          if canLocate then self:detailChevron(214, top + 12, accent, true) end
+          if action then self:detailChevron(214, top + 12, accent, true) end
         end)
       end
       if model.category == 4 and #(model.entries or {}) > 0 then
@@ -281,6 +283,8 @@ return function(H, G, translate, format)
           or "ONLY RECORDED FINDS ARE SHOWN"), 22, 91, 196, 44, quiet)
         name(translate("REVEAL MORE IN EXPLORATION SETTINGS"), 22, 143, 196, 38, quiet)
       end
+    elseif view == "habitat" and model.habitat then
+      self:pokedexHabitat(model.habitat)
     elseif view == "location" and model.location then
       local row = model.location
       self:panel(6, 34, 228, 129, false)
@@ -288,7 +292,9 @@ return function(H, G, translate, format)
       else name(translate("MAP PREVIEW UNAVAILABLE"), 16, 65, 208, 60, quiet) end
       self:panel(6, 172, 228, 38, false)
       name(row.label, 12, 175, 216, 17)
-      label(model.section .. "  " .. format("TILE %d, %d", row.x, row.y),
+      local status = row.state == "later" and "LATER"
+        or row.state == "unavailable" and "NO LONGER AVAILABLE"
+      label(model.section .. "  " .. (status and translate(status) or format("TILE %d, %d", row.x, row.y)),
         12, 196, 216, 10, quiet, true)
     end
   end
