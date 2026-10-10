@@ -90,6 +90,12 @@ return function(T, display, runtime, gen, up)
   T.eq(model.markers[1].x, 4, "model uses the running NPC position")
   T.eq(model.drawTrainer(model.markers[1], 50, 80, 8), true, "shared callback draws a native trainer")
   T.eq(fetched, 106, "compat renderer delegates Gen 3 trainer graphics")
+  explorer.data.mapOnly = true -- Retain the injected native discovery fixture.
+  local widget = display.explorerModel(overview, true)
+  T.eq(#widget.markers, 1, "lean Home model retains the native trainer")
+  T.eq(widget.markers[1].x, model.markers[1].x, "lean Home model keeps the live trainer position")
+  T.eq(widget.drawTrainer(widget.markers[1], 50, 80, 8), true, "lean Home model draws the native trainer")
+  explorer.data.mapOnly = nil
   live.hidden = true; explorer.renderModel = nil
   T.eq(#display.explorerModel(overview).markers, 0, "hidden trainers have neither visible markers nor map hit targets")
   live.hidden = nil
@@ -103,6 +109,12 @@ return function(T, display, runtime, gen, up)
   T.eq(model.markers[1].x, 4, "gift marker follows the running NPC")
   T.eq(row.location, "TALK TO NPC", "gift detail explains how to collect the reward")
   T.eq(model.drawTrainer(model.markers[1],50,80,8),true,"gift uses the native NPC sprite")
+  explorer.data.mapOnly = true
+  widget = display.explorerModel(overview, true)
+  T.eq(#widget.markers, 1, "lean Home model retains the native NPC gift")
+  T.eq(widget.markers[1].gift, true, "lean Home model preserves the gift marker kind")
+  T.eq(widget.markers[1].x, model.markers[1].x, "lean Home model keeps the live gift position")
+  explorer.data.mapOnly = nil
   live.hidden = true; explorer.renderModel = nil
   T.eq(#display.explorerModel(overview).markers,0,"hidden gift NPC has no map marker or hit target")
   for key in pairs(explorer) do explorer[key] = nil end

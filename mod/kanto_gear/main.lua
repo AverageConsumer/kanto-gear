@@ -6757,7 +6757,7 @@ return function(mod)
     return true
   end
 
-  function displayRuntime.explorerModel(overview)
+  function displayRuntime.explorerModel(overview, mapOnly)
     local explorer = displayRuntime.explorer
     local now, id = love.timer.getTime(), overview.mapId or mapId
     local snapshot
@@ -6776,12 +6776,14 @@ return function(mod)
     -- every player step; invalidate immediately if live mutation needs it.
     if not cached or cached.mapId ~= id or now - cached.at >= 0.5
         or cached.guideEnabled ~= guideEnabled
-        or cached.areaEnabled ~= areaEnabled then
+        or cached.areaEnabled ~= areaEnabled
+        or (cached.mapOnly == true) ~= (mapOnly == true) then
       cached = { mapId = id, at = now,
+        mapOnly = mapOnly == true,
         guideEnabled = guideEnabled, areaEnabled = areaEnabled,
         fruits = areaEnabled and compat.isGen2()
           and displayRuntime.fruitTrees.rows(game.data, id) or {},
-        guide = guideEnabled and guideData()
+        guide = guideEnabled and not mapOnly and guideData()
           or { rows = {}, caught = 0, time = "DAY", timed = false },
         area = (areaEnabled or guideEnabled) and areaData({ id }, true)
           or { sections = { { rows = {} }, { rows = {} }, { rows = {} } } },
@@ -6794,7 +6796,7 @@ return function(mod)
     local renderKey = table.concat({ tostring(explorer.view), tostring(explorer.selected),
       tostring(explorer.page), tostring(explorer.detailPage or 1), tostring(explorer.mapFull),
       tostring(explorer.mapZoom), tostring(explorer.filters.wildScope), tostring(explorer.scanFrame),
-      tostring(assist("spoilers")), tostring(assist("item_radar")), tostring(themeKey),
+      tostring(assist("spoilers")), tostring(assist("item_radar")), tostring(themeKey), tostring(mapOnly == true),
       displayRuntime.fruitTrees.stateKey(game.save, cached.fruits) }, ":")
     if explorer.renderModel and explorer.renderData == cached
         and explorer.renderOverview == overview and explorer.renderKey == renderKey
@@ -6814,8 +6816,12 @@ return function(mod)
 
     local filters = explorer.filters
     filters.wildScope = filters.wildScope == "ROUTE" and "ROUTE" or "HERE"
-    wild = displayRuntime.explorerWildRows(guide, id, filters.wildScope,
-      displayRuntime.explorerMethods())
+    -- Home needs terrain and discovery markers, never the encounter list or
+    -- its field-tool checks, sorting and translated type labels.
+    if not mapOnly then
+      wild = displayRuntime.explorerWildRows(guide, id, filters.wildScope,
+        displayRuntime.explorerMethods())
+    end
 
     local actors = (not snapshot or not snapshot.actorById) and mod.world and mod.world.mapActors
       and mod.world:mapActors() or {}
@@ -6952,7 +6958,7 @@ return function(mod)
     for _, row in ipairs(source) do
       if row.key == explorer.selected then selected = row break end
     end
-    if explorer.selected and not selected then explorer.selected = nil end
+    if not mapOnly and explorer.selected and not selected then explorer.selected = nil end
 
     local markers, selectedMarker = {}, nil
     for _, marker in ipairs(overview.markers or {}) do
@@ -8132,7 +8138,9 @@ return function(mod)
           nil, nil, true)
       end,
     }
-    home.widgetCache = { key = key, at = now, save = game.save, model = model }
+    home.widgetCache = { key = key, at = now, save = game.save, model = model,
+      stepSensitive = needed.party or needed.team or needed.steps
+        or needed.trainer or needed.achievements or needed.tool }
     return model
   end
 
@@ -8152,7 +8160,7 @@ return function(mod)
     local overview = needed.explorer
       and displayRuntime.perf:call("home_map", loadLocalMap) or nil
     local explorer = overview
-      and displayRuntime.perf:call("home_explorer", displayRuntime.explorerModel, overview) or {}
+      and displayRuntime.perf:call("home_explorer", displayRuntime.explorerModel, overview, true) or {}
     local model = {
       page = home.page, pages = pages, tiles = tiles, slots = slots,
       help = displayRuntime.homeHelpActive(), editing = home.editing,
@@ -14146,7 +14154,10 @@ return function(mod)
   end
 
   mod.events:on("world.stepped", function(payload)
-    displayRuntime.home.widgetCache = nil
+    -- Walking can change poison HP, eggs, tools and step/progress widgets.
+    -- A map-only Home must not rebuild unrelated widgets on every cell.
+    local cache = displayRuntime.home.widgetCache
+    if cache and cache.stepSensitive then displayRuntime.home.widgetCache = nil end
     steps = steps + 1
     mod.save:set("steps", steps)
     mapId = payload.mapId or mapId

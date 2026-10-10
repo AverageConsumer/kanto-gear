@@ -69,6 +69,9 @@ local function walk(page)
   local beforeFull, beforePartial = full, partial
   for i = 1, 600 do
     now = now + 1 / 60; world.player.px = 36 + i
+    if page == "HOME" and i % 12 == 0 then
+      run.loader.events:emit("world.stepped", { mapId = "PALLET_TOWN" })
+    end
     frame()
   end
   local painted = full - beforeFull + partial - beforePartial
@@ -125,13 +128,64 @@ game.stack.states[2] = nil
 now = now + .51
 state.only = true
 T.eq(drawMap(), false, "expired models return to the complete painter")
+do
+  local model = display.explorerModel
+  local oldGuide, oldArea = up(model, "guideData"), up(model, "areaData")
+  local oldWild, oldMethods, oldKnown = display.explorerWildRows, display.explorerMethods, display.knownMap
+  local guideCalls, wildCalls, methodCalls = 0, 0, 0
+  up(model, "guideData", function() guideCalls = guideCalls + 1; return {rows={},caught=0} end)
+  up(model, "areaData", function()
+    return { sections = {
+      { rows = { {id="trainer",label="TRAINER",x=2,y=3,done=false} } },
+      { rows = { {id="item",kind="item",label="POTION",x=4,y=5,done=true},
+        {id="gift",kind="item",gift=true,label="GIFT",x=6,y=7,available=true} } },
+      { rows = { {id="hidden",kind="hidden",label="HIDDEN",x=8,y=9,done=false} } },
+    }, pokemon = { {id="pokemon",kind="pokemon",gift=true,species=1,
+      label="BULBASAUR",x=10,y=11,available=true} } }
+  end)
+  display.explorerWildRows = function() wildCalls = wildCalls + 1; return {} end
+  display.explorerMethods = function() methodCalls = methodCalls + 1; return {} end
+  display.knownMap = function() return true end
+  opts.info_level = "spoiler"
+  up(compose, "page", "HOME")
+  display.explorer.data, display.explorer.renderModel = nil, nil
+  local fullModel = model(overview)
+  local beforeGuide, beforeWild, beforeMethods = guideCalls, wildCalls, methodCalls
+  display.explorer.selected = "keep-my-selection"
+  local mapModel = model(overview, true)
+  T.eq(guideCalls, beforeGuide, "Home skips encounter-table construction")
+  T.eq(wildCalls, beforeWild, "Home skips encounter sorting and filtering")
+  T.eq(methodCalls, beforeMethods, "Home skips unused field-tool availability queries")
+  T.eq(display.explorer.selected, "keep-my-selection", "Home preserves the Explorer selection")
+  T.eq(#mapModel.markers, 5, "Home retains trainers, ground/hidden items and both gift kinds")
+  T.eq(#mapModel.markers, #fullModel.markers, "Home and Explorer expose the same markers")
+  for index, marker in ipairs(fullModel.markers) do
+    local actual = mapModel.markers[index]
+    for _, key in ipairs({"kind", "x", "y", "found", "state", "gift", "scanned"}) do
+      T.eq(actual[key], marker[key], "Home preserves marker " .. index .. " " .. key)
+    end
+  end
+  model(overview)
+  T.eq(guideCalls, beforeGuide + 1, "opening Explorer reconstructs its full encounter data immediately")
+  T.eq(wildCalls, beforeWild + 1, "opening Explorer restores its encounter list")
+  up(model, "guideData", oldGuide); up(model, "areaData", oldArea)
+  display.explorerWildRows, display.explorerMethods, display.knownMap = oldWild, oldMethods, oldKnown
+  display.explorer.data, display.explorer.renderModel, display.explorer.selected = nil, nil, nil
+end
 display.home.layout = { tiles = { { id = "explorer_widget", page = 1, column = 1, row = 1 } } }
 display.home.page, display.home.helpSeen, display.home.help = 1, true, false
 walk("HOME")
 local before = full
 run.loader.events:emit("world.stepped", { mapId = "PALLET_TOWN" })
 world.player.px = world.player.px + 8; now = now + .04; frame()
-T.eq(full, before + 1, "step-driven Home data changes appear on the next map update")
+T.eq(full, before, "walking does not invalidate step-independent Home widgets")
+for _, widget in ipairs({ "party", "team", "steps", "trainer", "achievements", "tool" }) do
+  display.homeWidgetData({ explorer = true, [widget] = true })
+  run.loader.events:emit("world.stepped", { mapId = "PALLET_TOWN" })
+  T.eq(display.home.widgetCache, nil, widget .. " still invalidates after a step")
+end
+now = now + .04; world.player.px = world.player.px + 8; frame()
+T.eq(full, before + 1, "step-sensitive widgets still trigger a complete refresh")
 run.loader.events:emit("screen.pushed", {})
 fullNext("native screen invalidation clears retained pixels")
 opts.display_mode, opts.combined_layout = "combined", "side"

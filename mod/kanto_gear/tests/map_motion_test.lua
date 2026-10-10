@@ -258,6 +258,9 @@ world.player.px, state.nextAt = 48, 0
 T.eq(display.updateMapRefresh(201), true, "the real Home widget requests its next movement frame")
 widgets = display.home.widgetCache
 run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
+T.eq(display.home.widgetCache, widgets, "walking retains a map-only Home snapshot")
+display.homeWidgetData({ explorer = true, party = true })
+run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
 T.eq(display.home.widgetCache, nil, "step-driven HP and party changes invalidate the widget snapshot")
 -- Exercise the shipped draw path and host stack events: overlays must not
 -- allocate a new terrain image or unexpectedly close the user's map view.
