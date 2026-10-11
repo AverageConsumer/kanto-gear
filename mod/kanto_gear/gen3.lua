@@ -538,6 +538,7 @@ function Gen3:gameView()
       stack.states[1] = world
       local battle = self:battleState()
       if battle then stack.states[#stack.states + 1] = battle end
+      local callOpen = false
       for _, layer in ipairs(require("src.ui.game3.stack")._layers) do
         local state = layers[layer]
         if not state then
@@ -564,9 +565,23 @@ function Gen3:gameView()
           or layer.mod.mode == "item_action" and layer.mod.itemActionCursor
           or layer.mod.cursor or layer.mod._cursor)
         state.pocketIndex = layer.mod and layer.mod.pocketIdx
+        if layer.id == "rse_match_call_window" then
+          -- Match Call owns its printer instead of using Message. Keep native
+          -- page waits and hang-up input, without advancing through its slides.
+          callOpen = true
+          local call = layer.mod and layer.mod._s
+          local printer = call and call.printer
+          state.phase, state.page = call and call.state, printer
+          state.isTextBox = printer ~= nil and (state.phase == 5 or state.phase == 6)
+          state.done = not printer or not printer:isActive()
+          state.waiting = state.isTextBox and (printer.state == "wait"
+            or printer.state == "clear" or printer.state == "scroll_start"
+            or state.phase == 6 and state.done)
+          state.choice = state.done and not state.waiting
+        end
         stack.states[#stack.states + 1] = state
       end
-      if self.Message.isOpen() and not self.Choice.active then
+      if self.Message.isOpen() and not self.Choice.active and not callOpen then
         text.page = self.Message._page
         -- Script messages stay visible until closemessage, but their earlier
         -- pages and an armed waitbuttonpress still accept native A input.
