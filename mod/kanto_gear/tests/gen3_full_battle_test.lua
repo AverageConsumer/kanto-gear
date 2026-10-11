@@ -250,6 +250,49 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       Party.handleInput({wasPressed=function(_,key) return key=="right" end})
       T.eq(Party.cursor,2,"owned team navigation reaches the adjacent card")
       Party.close();Stack.clear();Ui.openMenu(0)
+      -- Shared summary tabs and read-only move details belong to the lower
+      -- screen, even when a controller supplies its edge during pollPads.
+      local Summary=require("src.ui.game3.summary_menu")
+      Summary.openMenu(game.session.party,1,{session=game.session})
+      for _=1,120 do Summary.update(1/60) end
+      display.gen3.syncScreens();refresh()
+      local oldInput=game.input
+      local Input=require("src.core.Input")
+      local input=setmetatable({}, {__index=Input})
+      input:reset()
+      local key
+      input.pollPads=function(self)
+        if key then self.pressQueue[#self.pressQueue+1]=key;key=nil end
+      end
+      game.input=input
+      local state=display.summaryContext()
+      T.check(state~=nil,"native battle summary has a shared lower projection")
+      T.check(state.hardwareFocus,"native battle summary owns hardware focus")
+      T.eq(display.sourceGame,game,"summary test uses the source game's input")
+      local function summaryEdge(pressed)
+        input:reset();key=pressed
+        inputHook(function() end,game,.016);input:step()
+      end
+      state.page=1;summaryEdge("right")
+      T.eq(state.page,2,"Gen3 controller changes the visible summary tab")
+      T.check(not input:wasPressed("right"),"summary navigation never also changes the native tab")
+      local first=state.moveIndex or 1
+      summaryEdge("down")
+      T.check(state.mon.moves[state.moveIndex]~=nil,"summary cursor selects an existing move")
+      options.info_level="enhanced"
+      summaryEdge("a")
+      T.check(up(tap,"moveInfo")~=nil,"summary A opens read-only move details")
+      summaryEdge("b")
+      T.eq(up(tap,"moveInfo"),nil,"controller B closes only the lower details")
+      T.check(not input:wasPressed("b"),"controller B does not leak through the details")
+      state.page=1;summaryEdge("left")
+      T.eq(state.page,state.pages,"Gen3 summary wraps backwards across all supported tabs")
+      summaryEdge("right")
+      T.eq(state.page,1,"Gen3 summary wraps forwards")
+      summaryEdge("b")
+      T.check(input:wasPressed("b"),"closing the summary reaches its native owner")
+      game.input=oldInput;display.bindBattleInput(game)
+      Summary.close();Stack.clear();Ui.openMenu(0);display.gen3.syncScreens();refresh()
       -- The original action list is vertical; the lower item card has two
       -- columns. Navigate and confirm the actual native cursor, not a copy.
       local NativeBag=require("src.core.game3.bag")

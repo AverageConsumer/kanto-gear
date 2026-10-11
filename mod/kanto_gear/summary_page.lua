@@ -96,7 +96,8 @@ function Page.draw(H, state, mon, portrait, translate)
       local move = mon.moves[slot] or {}
       local y, interactive = 82 + (slot - 1) * 32, move.available and mon.moveDetails
       local pressed = H:beginPress(6, y, 228, 29, interactive)
-      H:panel(6, y, 228, 29, false, H:typeColor(move.type), H:typeColor(move.type))
+      H:panel(6, y, 228, 29, state.hardwareFocus and (state.moveIndex or 1) == slot,
+        H:typeColor(move.type), H:typeColor(move.type))
       H:moveTypeBadge(move, 14, y + 10)
       H:partyName(move.name or "-", 70, y + 3, c.ink, 88)
       H:partyInfo(move.ppLabel or translate("PP"), 157, y + 3, c.green)

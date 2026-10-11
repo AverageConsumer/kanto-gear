@@ -8250,29 +8250,36 @@ return function(mod)
     button(84, 91, 58, 27, THEME:translate("NO"), false)
   end
 
+  function displayRuntime.partyExpProgress(mon)
+    local source = mon.source or mon
+    local level = source.level or mon.level or 1
+    if compat.partyEgg(source) then return 0 end
+    if level >= 100 then return 1 end
+    if displayRuntime.gen3 then
+      return displayRuntime.gen3.Summary.expProgress(source,
+        displayRuntime.gen3.Pokemon.growthRate(source.species)).progressPercent
+    end
+    local experience = compat.isGen2() and source.experience or source.exp
+    if experience == nil then return mon.expProgress or 0 end
+    local def = game.data.pokemon[source.species] or {}
+    local growth = mod.content.growth_rates:get(def.growthRate or "MEDIUM_FAST")
+    if not (growth and growth.expForLevel) then return 0 end
+    return progressRatio(experience, math.max(0, growth.expForLevel(level)),
+      math.max(0, growth.expForLevel(level + 1)))
+  end
+
   local function partyData()
     local out = {}
     for i, mon in ipairs(game and game.save and game.save.party or {}) do
       local def = game.data.pokemon[mon.species] or {}
       local level = mon.level or 1
-      local growth = def.growthRate
-        and mod.content.growth_rates:get(def.growthRate)
-        or mod.content.growth_rates:get("MEDIUM_FAST")
-      local currentExp = growth and growth.expForLevel
-        and math.max(0, growth.expForLevel(level)) or 0
-      local nextExp = level < 100
-        and growth and growth.expForLevel
-        and math.max(0, growth.expForLevel(level + 1)) or currentExp
-      local nativeExp = displayRuntime.gen3 and displayRuntime.gen3.Summary.expProgress(mon,
-        displayRuntime.gen3.Pokemon.growthRate(mon.species))
       out[i] = {
         slot = i, species = mon.species, source = mon,
         name = mon.nickname or (def and def.name) or mon.species,
         level = level, hp = mon.hp,
         maxHp = mon.stats and mon.stats.hp or mon.hp,
         status = mon.status, gender = mon.gender,
-        expProgress = nativeExp and nativeExp.progressPercent or (level >= 100 and 1
-          or progressRatio(mon.exp, currentExp, nextExp)),
+        expProgress = displayRuntime.partyExpProgress(mon),
       }
     end
     return out
@@ -8308,9 +8315,7 @@ return function(mod)
       egg = isEgg,
       gender = mon.gender == "M" and "male" or mon.gender == "F" and "female" or mon.gender,
       hp = mon.hp, maxHp = maxHp,
-      expProgress = mon.expProgress or displayRuntime.gen3
-        and displayRuntime.gen3.Summary.expProgress(source,
-          displayRuntime.gen3.Pokemon.growthRate(mon.species)).progressPercent,
+      expProgress = mon.expProgress or displayRuntime.partyExpProgress(mon),
       statusId = not isEgg and ((mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content)) or nil,
       type = type1, type2 = type2,
@@ -10471,6 +10476,11 @@ return function(mod)
       state.owner = native
       displayRuntime.nativeSummary = state
     end
+    state.hardwareFocus = battle and not battle.nativeInputLocked and
+      (displayRuntime.gen3 and displayRuntime.gen3Presentation
+        and displayRuntime.gen3Presentation.owns("menu")
+        or bottomOwnsBattleUI(customBattleLayout(), active,
+          hasDisplay(), displayReady, battleState(), battle)) or false
     return compat.summary.configure(state, assist("spoilers"))
   end
 
@@ -11496,6 +11506,11 @@ return function(mod)
         and top.page or nil
       -- Snapshot reads never redirect the original game cursor.
       prepareBattleSnapshot(nil, nextBattle, raw, game.data, false)
+      for index, mon in ipairs(nextBattle.party or {}) do
+        local source = (game.save.party or {})[mon.slot or index]
+        if not mon.source and source and source.species == mon.species then mon.source = source end
+        mon.expProgress = displayRuntime.partyExpProgress(mon)
+      end
       attachBattleArtSprites(raw, nextBattle)
       if battleChoice(top) and not nextBattle.message
           and raw and type(raw.visibleText) == "function" then
@@ -11539,6 +11554,12 @@ return function(mod)
           ~= (nextBattle.player and nextBattle.player.presentationSprite)
         or (battle.enemy and battle.enemy.presentationSprite)
           ~= (nextBattle.enemy and nextBattle.enemy.presentationSprite)))
+    if battle and nextBattle then
+      for index, mon in ipairs(nextBattle.party or {}) do
+        local before = battle.party and battle.party[index]
+        if not before or before.expProgress ~= mon.expProgress then changed = true end
+      end
+    end
     if battle and nextBattle and nextBattle.double then
       for i, mon in ipairs(nextBattle.battlers or {}) do
         local before = battle.battlers and battle.battlers[i]
@@ -11689,7 +11710,7 @@ return function(mod)
       end
     end
     -- Gen 1's original Back advances first; explicitly closing its native menu
-    -- uses the existing second-page close path. Hardware remains untouched.
+    -- uses the existing second-page close path.
     local native = summary.owner or summary
     if native.screenId == "SummaryMenu" and key == "b" then native.page = 2 end
     press(key)
@@ -14086,6 +14107,7 @@ return function(mod)
     game = payload.game
     displayRuntime.sourceGame = game
     displayRuntime.gen3 = nil
+    displayRuntime.bindBattleInput(game)
     displayRuntime.gen3Field = nil
     displayRuntime.gen3Progress = nil
     displayRuntime.gen3Ui = nil
@@ -14334,6 +14356,34 @@ return function(mod)
   end)
   mod.events:on("mod.kanto_gear.options_changed", displayRuntime.optionsChanged)
 
+  -- Input.step polls controllers after the mod input hook. Remap after that
+  -- poll, before queued edges become pressed buttons, so every device agrees.
+  function displayRuntime.bindBattleInput(sourceGame)
+    local previous = displayRuntime.battleInput
+    local input = sourceGame.input
+    if previous and previous.input == input and previous.game == sourceGame then return end
+    if previous then
+      previous.enabled = false
+      if previous.input.pollPads == previous.fn then previous.input.pollPads = previous.original end
+    end
+    displayRuntime.battleInput = nil
+    if not input or type(input.pollPads) ~= "function" then return end
+    local patch = { input = input, game = sourceGame, original = input.pollPads, enabled = true }
+    patch.fn = function(self, ...)
+      local result = patch.original(self, ...)
+      if patch.enabled and self == sourceGame.input then
+        if not displayRuntime.filterBattleDetailsInput(sourceGame) then
+          displayRuntime.remapBattleSummaryInput(sourceGame)
+          hgssRuntime.remapBattleRootInput(sourceGame)
+          hgssRuntime.remapLearningInput(sourceGame)
+        end
+      end
+      return result
+    end
+    input.pollPads = patch.fn
+    displayRuntime.battleInput = patch
+  end
+
   function hgssRuntime.remapBattleRootInput(stepGame)
     if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss"
         or displayRuntime.gen3 or not customBattleLayout() or not battle then return end
@@ -14343,11 +14393,19 @@ return function(mod)
     if not raw or type(queue) ~= "table"
         or not bottomOwnsBattleUI(customBattleLayout(), active,
           hasDisplay(), displayReady, raw, battle) then return end
-    if battle.prompt ~= "menu" or top ~= raw or raw.tutorial or raw.demo then return end
+    local mimic = battle.prompt == "mimic"
+    if not (battle.prompt == "menu" or mimic) or top ~= raw or raw.tutorial or raw.demo then return end
     for i = 1, #queue do
-      local current = raw.menuIndex or battle.menuIndex or 1
+      local current = mimic and (raw.mimicIndex or 1) or raw.menuIndex or battle.menuIndex or 1
       local target
-      if fullBottomBattleUI() then
+      if mimic then
+        local count = #(raw.mimicMoves or battle.mimicMoves or {})
+        if count > 0 then
+          if queue[i] == "up" or queue[i] == "down" then
+            target = (current - 1 + (queue[i] == "up" and -1 or 1)) % count + 1
+          elseif queue[i] == "left" or queue[i] == "right" then target = current end
+        end
+      elseif fullBottomBattleUI() then
         target = hgssRuntime.fullRootDirection(current, queue[i])
       else
         target = hgssRuntime.rootDirection(current, queue[i])
@@ -14358,7 +14416,8 @@ return function(mod)
             table.remove(queue, key)
           end
         end
-        raw.menuIndex, battle.menuIndex = target, target
+        if mimic then raw.mimicIndex, battle.mimicIndex = target, target
+        else raw.menuIndex, battle.menuIndex = target, target end
         dirty = true
         return true
       end
@@ -14498,23 +14557,73 @@ return function(mod)
     end
   end
 
+  function displayRuntime.filterBattleDetailsInput(stepGame)
+    if stepGame ~= displayRuntime.sourceGame or not customBattleLayout() or not moveInfo
+        or not battle or not battleState() or battle.nativeUnsupported
+        or not active or not hasDisplay() or not displayReady then return false end
+    local queue = stepGame.input and stepGame.input.pressQueue
+    local cancel = false
+    for i = queue and #queue or 0, 1, -1 do
+      cancel = cancel or queue[i] == "b"
+      table.remove(queue, i)
+    end
+    if cancel then back() end
+    return true
+  end
+
+  function displayRuntime.remapBattleSummaryInput(stepGame)
+    if stepGame ~= displayRuntime.sourceGame or not battle or not customBattleLayout()
+        or THEME.style ~= "hgss" then return end
+    local state = displayRuntime.summaryContext()
+    local queue = stepGame.input and stepGame.input.pressQueue
+    if not state or not state.hardwareFocus or type(queue) ~= "table" then return end
+    -- B still closes the real summary. Gen 1 otherwise advances to page two.
+    for _, key in ipairs(queue) do
+      if key == "b" then
+        if state.owner.screenId == "SummaryMenu" then state.owner.page = 2 end
+        return
+      end
+    end
+    local key
+    for _, candidate in ipairs(queue) do
+      if candidate == "left" or candidate == "right" or candidate == "up"
+          or candidate == "down" then key = candidate; break end
+      if candidate == "a" then key = candidate end
+    end
+    if not key then return end
+    local moves = state.page ~= state.hiddenPage and (state.page == 2 or state.page == 4)
+    if key == "left" or key == "right" then
+      displayRuntime.SummaryPage.turn(state, key == "left" and -1 or 1)
+    elseif moves and (key == "up" or key == "down") then
+      local current = state.moveIndex or 1
+      for offset = 1, 4 do
+        local index = (current - 1 + offset * (key == "up" and -1 or 1)) % 4 + 1
+        if hgssRuntime.summaryMove(state, index) then state.moveIndex = index; break end
+      end
+    elseif moves and key == "a" and (assist("move_details") or state.page == 4) then
+      moveInfo = hgssRuntime.summaryMove(state, state.moveIndex or 1)
+    end
+    for i = #queue, 1, -1 do
+      local button = queue[i]
+      if button == "a" or button == "left" or button == "right"
+          or button == "up" or button == "down" then table.remove(queue, i) end
+    end
+    dirty = true
+    return true
+  end
+
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
     local measured = displayRuntime.perf:start()
     if stepGame == displayRuntime.sourceGame then displayRuntime.syncCompanionDetails() end
     if stepGame == displayRuntime.sourceGame and displayRuntime.levelUp:scan(game.save,
         game.stack and game.stack:top()) then dirty = true end
-    hgssRuntime.remapBattleRootInput(stepGame)
-    hgssRuntime.remapLearningInput(stepGame)
-    if stepGame == displayRuntime.sourceGame and customBattleLayout() and moveInfo
-        and battle and battleState() and not battle.nativeUnsupported
-        and active and hasDisplay() and displayReady then
-      local queue = stepGame.input and stepGame.input.pressQueue or {}
-      local cancel = false
-      for i = #queue, 1, -1 do
-        cancel = cancel or queue[i] == "b"
-        table.remove(queue, i)
+    if stepGame == displayRuntime.sourceGame then displayRuntime.bindBattleInput(stepGame) end
+    if not displayRuntime.battleInput then
+      if not displayRuntime.filterBattleDetailsInput(stepGame) then
+        displayRuntime.remapBattleSummaryInput(stepGame)
+        hgssRuntime.remapBattleRootInput(stepGame)
+        hgssRuntime.remapLearningInput(stepGame)
       end
-      if cancel then back() end
     end
     local openingPanel = hgssRuntime.openingBattlePanel(stepGame)
     local closingPanel = hgssRuntime.closingBattlePanel(stepGame)

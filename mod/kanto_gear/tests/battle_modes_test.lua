@@ -12,7 +12,16 @@ local function up(fn, key, value, set)
   end
   error("missing upvalue " .. key)
 end
-local run = T.sdk.loadMod(path, { generation = gen, data = T.fixtures.load() })
+local data = T.fixtures.load()
+if gen == 2 then
+  -- The generic SDK fixture omits Gen 2's extracted growth coefficients.
+  data.pokemon.growthRates = {
+    MEDIUM_FAST = { numerator = 1, denominator = 1 },
+    MEDIUM_SLOW = { numerator = 6, denominator = 5, squared = -15, linear = 100, constant = 140 },
+    FAST = { numerator = 4, denominator = 5 }, SLOW = { numerator = 5, denominator = 4 },
+  }
+end
+local run = T.sdk.loadMod(path, { generation = gen, data = data })
 T.eq(run.mod.state, "loaded", "battle modes load")
 local function hook(name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
@@ -133,6 +142,139 @@ for _, style in ipairs({ "hgss", "hgss_dark" }) do
     T.eq(call("battle.status_hud_visible", raw, true), true, "swapping away from Gear restores native HP")
     display.autoBattle.shown = nil
   end
+end
+-- Real Input.step polls pads AFTER input.step hooks. Keyboard and pad edges
+-- must still select the same semantic command without a second native move.
+do
+  local Input = require("src.core.Input")
+  local input = setmetatable({}, { __index = Input })
+  input:reset()
+  local lateKey
+  input.pollPads = function(self)
+    if lateKey then self.pressQueue[#self.pressQueue + 1] = lateKey; lateKey = nil end
+  end
+  local originalPoll = input.pollPads
+  game.input = input
+  stack.states = { world, raw }; raw.phase = "menu"; raw.kind = nil
+  snapshot.prompt = "menu"
+  for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
+    options.battle_view = mode
+    local owns = mode == "gear" or mode == "full"
+    for index = 1, 4 do
+      for _, key in ipairs({ "left", "right", "up", "down" }) do
+        for _, source in ipairs({ "keyboard", "controller" }) do
+          raw.menuIndex = index; refresh()
+          input:reset()
+          if source == "keyboard" then input.pressQueue = { key } else lateKey = key end
+          step(function() end, game, .016)
+          input:step()
+          local expected = owns and (mode == "full" and runtime.fullRootDirection(index, key)
+            or runtime.rootDirection(index, key)) or index
+          T.eq(raw.menuIndex, expected, mode .. " " .. source .. " follows the visible root")
+          T.eq(input:wasPressed(key), not owns, mode .. " has one navigation authority")
+        end
+      end
+    end
+  end
+  stack.states = { world, raw }; raw.phase = "mimicSelect"
+  raw.mimicMoves = { "FIX_MOVE_A", "FIX_MOVE_A", "FIX_MOVE_A", "FIX_MOVE_A" }
+  snapshot.prompt = "mimic"
+  for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
+    options.battle_view = mode
+    local owns = mode == "gear" or mode == "full"
+    for _, key in ipairs({ "left", "right", "up", "down" }) do
+      raw.mimicIndex = 1; refresh(); input:reset(); lateKey = key
+      step(function() end, game, .016); input:step()
+      local expected = key == "down" and 2 or key == "up" and 4 or 1
+      T.eq(raw.mimicIndex, owns and expected or 1, mode .. " Mimic follows its visible vertical list")
+      T.eq(input:wasPressed(key), not owns, "Mimic has one input authority")
+    end
+  end
+  raw.mimicMoves, raw.phase, snapshot.prompt = nil, "menu", "menu"
+  mon.moves = { { id = "FIX_MOVE_A", pp = 10 }, { id = "FIX_MOVE_A", pp = 5 } }
+  local summary = { screenId = gen == 2 and "Gen2SummaryMenu" or "SummaryMenu",
+    mon = mon, page = 1, expToNext = function() return 100 end,
+    itemName = function() end, otName = function() return "RED" end,
+    otId = function() return 7 end }
+  local function edge(key)
+    input:reset(); lateKey = key
+    step(function() end, game, .016); input:step()
+  end
+  for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
+    options.battle_view = mode
+    options.info_level = "enhanced"
+    stack.states = { world, raw, summary }; refresh()
+    display.nativeSummary = nil
+    local state = display.summaryContext()
+    local owns = mode == "gear" or mode == "full"
+    edge("right")
+    T.eq(state.page, owns and 2 or 1, mode .. " controller turns the visible summary tab")
+    T.eq(input:wasPressed("right"), not owns, mode .. " summary retains one input authority")
+    if owns then
+      edge("down")
+      T.eq(state.moveIndex, 2, "summary D-pad selects a real move")
+      edge("a")
+      T.check(up(display.filterBattleDetailsInput, "moveInfo") ~= nil, "A opens the selected move details")
+      T.check(not input:wasPressed("a"), "details do not open the native move editor")
+      edge("b")
+      T.eq(up(display.filterBattleDetailsInput, "moveInfo"), nil, "controller B closes only the details")
+      T.check(not input:wasPressed("b"), "detail close never dismisses the team summary")
+      T.eq(state.page, 2, "detail return retains the visible tab")
+      edge("left"); edge("left")
+      T.eq(state.page, state.pages, "summary tabs wrap backwards")
+      edge("right")
+      T.eq(state.page, 1, "summary tabs wrap forwards")
+      edge("b")
+      T.check(input:wasPressed("b"), "summary close goes to the native owner")
+      if gen == 1 then T.eq(summary.page, 2, "Gen 1 B closes instead of changing the hidden page") end
+    end
+  end
+  stack.states = { world, raw }
+  local patchedPoll = input.pollPads
+  display.bindBattleInput({ input = {}, generation = gen })
+  T.eq(input.pollPads, originalPoll, "rebinding restores the previous input object")
+  T.check(patchedPoll ~= originalPoll, "real controller polling was wrapped")
+end
+
+-- Legacy battle snapshots omit EXP; recover it from the current save slot,
+-- use each species' growth curve, and invalidate a cached team when EXP changes.
+do
+  local def = game.data.pokemon[mon.species]
+  local savedGrowth = def.growthRate
+  for _, growthId in ipairs({ "MEDIUM_FAST", "MEDIUM_SLOW", "FAST", "SLOW" }) do
+    def.growthRate = growthId
+    local growth = api.content.growth_rates:get(growthId)
+    T.check(growth and growth.expForLevel, growthId .. " is available")
+    if growth and growth.expForLevel then
+      local first, last = growth.expForLevel(10), growth.expForLevel(11)
+      mon.level = 10
+      mon.exp, mon.experience = math.floor((first + last) / 2), math.floor((first + last) / 2)
+      snapshot.party = { { slot = 1, species = mon.species, level = 10, hp = 20, maxHp = 30 } }
+      refresh()
+      local card = display.partyView(up(refresh, "battle").party[1])
+      local expected = (mon.exp - first) / (last - first)
+      T.eq(card.expProgress, expected, growthId .. " battle party uses the real accumulated EXP")
+      T.eq(display.partyExpProgress(mon), expected, "field and battle EXP agree")
+    end
+  end
+  mon.level = 100
+  T.eq(display.partyExpProgress(mon), 1, "level 100 has a full EXP bar")
+  mon.level, mon.isEgg = 10, true
+  T.eq(display.partyExpProgress(mon), 0, "eggs never expose hatchling EXP")
+  mon.isEgg, def.growthRate = nil, "MEDIUM_FAST"
+  mon.exp, mon.experience = 1100, 1100
+  local originalSnapshot = api.battle.snapshot
+  api.battle.snapshot = function()
+    return { prompt = "party", revision = 17, party = {
+      { slot = 1, species = mon.species, level = mon.level, hp = mon.hp, maxHp = mon.maxHp } } }
+  end
+  refresh()
+  up(refresh, "dirty", false, true)
+  mon.exp, mon.experience = mon.exp + 10, mon.experience + 10
+  refresh()
+  T.check(up(refresh, "dirty"), "EXP gain redraws a cached party even without a battle revision")
+  def.growthRate = savedGrowth
+  api.battle.snapshot = originalSnapshot
 end
 run.release()
 T.finish("Battle modes Gen " .. gen)
