@@ -242,23 +242,21 @@ return function(H, ui, K)
   end
 
   function H:loadingOverlay(label, now)
+    -- The Silph emblem is the spinner: its three link nodes light in turn
+    -- while the track runs underneath, like the boot screen in miniature.
     local colors = self.colors
     self:systemOverlay(0.58, false)
-    self:v4MessageWindow(45, 72, 150, 72)
-    self:partyInfo(translate(label or "LOADING AREA"), 55, 86, colors.ink, 130, "center")
+    self:v4MessageWindow(40, 58, 160, 96)
+    local tt = self.motionEnabled == false and 0 or (tonumber(now) or self:clock())
+    local active = self.motionEnabled == false and 0 or floor(tt / 0.3) % 3
+    self:silphEmblem(120, 92, 44, { active = active })
+    self:partyInfo(translate(label or "LOADING AREA"), 50, 119, colors.ink, 140, "center")
     -- indeterminate progress track
     local hot = cg(self) and self.tok.acc.M or colors.green
-    R(70, 102, 100, 4, colors.outline); R(71, 103, 98, 2, colors.bandLight)
-    local tt = self.motionEnabled == false and 0 or (tonumber(now) or self:clock())
+    R(70, 135, 100, 4, colors.outline); R(71, 136, 98, 2, colors.bandLight)
     local sx = 71 + floor(((tt / 1.2) % 1) * 128) - 30
     local l, r = math.max(71, sx), math.min(169, sx + 30)
-    if r > l then R(l, 103, r - l, 2, hot) end
-    local t = self.motionEnabled == false and 0 or (tonumber(now) or self:clock())
-    for index = 0, 2 do
-      local hop = self.motionEnabled == false and 0
-        or math.max(0, math.floor(math.sin((t * 6) - index * 0.9) * 4 + 0.5))
-      self:v4MiniBall(106 + index * 11, 121 - hop, "ok")
-    end
+    if r > l then R(l, 136, r - l, 2, hot) end
     self:wantAmbient(0.2, 1 / 15)
   end
 

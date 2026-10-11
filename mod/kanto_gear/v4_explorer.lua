@@ -879,12 +879,25 @@ return function(H, ui, K)
       local state = translate(model.ready and "SCAN COMPLETE" or "SCANNING")
       self:partyInfo(state, lx + lw - 4 - self:partyInfoWidth(state), ly + 2, lcdOn)
     end)
+    -- LCD readout: how many signals, as the Pokétch dowsing app shows it
     local count = #(model.signals or {})
-    local status = not model.ready and translate("SEARCHING...")
-      or count == 0 and translate("NO SIGNAL") or string.format("SIGNALS %d", count)
-    self:partyInfo(self:fitPartyInfo(status, 200), 20, 176, WHITE, 200, "center")
-    self:partyType(self:fitPartyType(translate("TAP TO SCAN AGAIN"), 200), 20, 192,
-      self.dark and colors.silver or hex("e0e8f0"), 200)
+    self:withoutShadow(function()
+      local bx, by = lx + 5, ly + lh - 14
+      R(bx, by + 2, 9, 9, lcdOn); R(bx + 1, by + 3, 7, 7, lcdBg); R(bx + 3, by + 5, 3, 3, lcdOn)
+      local status = not model.ready and translate("SEARCHING...")
+        or count == 0 and translate("NO SIGNAL") or ("× " .. count)
+      self:partyInfo(self:fitPartyInfo(status, 150), bx + 13, by, lcdOn)
+    end)
+    -- the whole device rescans; the key under the screen says so
+    local key = K.rampOf(cg(self) and tok.acc.M or hex("3ea04c"))
+    local kx, ky, kw, kh = 50, 178, 140, 26
+    local off = self:v4Button(kx, ky, kw, kh, key, { radius = 6, lip = 3, chamfer = 5 })
+    local label = self:fitPartyInfo(translate("TAP TO SCAN AGAIN"), kw - 30)
+    local tw = self:partyInfoWidth(label)
+    local gx = kx + floor((kw - tw - 14) / 2)
+    RING(gx, ky + 6 + off, 10, 1, WHITE); P(gx + 4, ky + 10 + off, WHITE); P(gx + 5, ky + 10 + off, WHITE)
+    R(gx + 5, ky + 7 + off, 1, 4, WHITE)
+    self:partyInfo(label, gx + 14, ky + 6 + off, WHITE)
     if not model.ready then self:wantAmbient(0.3, 1 / 20) end
     self:endPress(pressed)
   end

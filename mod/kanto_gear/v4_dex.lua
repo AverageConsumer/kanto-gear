@@ -472,6 +472,18 @@ return function(H, ui, K)
       local x = x0 + floor(i * w0 / 15 + 0.5)
       points[#points + 1] = { x, y }
     end
+    -- body of the wave: columns filled from the zero line, so the
+    -- cry reads as a sound shape, not just a trace
+    local fill = mix(LCD_BG, LCD_INK, 0.24)
+    for i = 2, #points do
+      local ax, ay, bx, by = points[i - 1][1], points[i - 1][2], points[i][1], points[i][2]
+      for x = ax, bx - 1 do
+        if x % 3 ~= 2 then
+          local y = floor(ay + (by - ay) * (x - ax) / max(1, bx - ax) + 0.5)
+          if y < mid then R(x, y, 1, mid - y, fill) elseif y > mid then R(x, mid + 1, 1, y - mid, fill) end
+        end
+      end
+    end
     G.setLineStyle("rough")
     G.setLineWidth(2)
     G.setColor(LCD_INK[1], LCD_INK[2], LCD_INK[3], 1)

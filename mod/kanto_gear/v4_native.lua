@@ -428,10 +428,22 @@ return function(H, ui, K)
         hit(7, y, 226, 26, "open", entry.index)
       end
     end
-    if #list < 3 and state.page == 1 then
-      -- a pencil doodle on the free part of the pad
-      local ink = mix(paper, c.blue, self.dark and 0.45 or 0.32)
-      RING(188, 124, 30, 1, ink); R(189, 138, 28, 2, ink); CIRC(198, 134, 10, paper); RING(198, 134, 10, 1, ink)
+    if #list > 0 and #list < 3 and state.page == 1 then
+      -- the next free line of the pad is a dashed sticky: tap it to write
+      local y = 59 + #list * 31
+      local ink = mix(paper, c.blue, self.dark and 0.5 or 0.38)
+      local pressed = self:beginPress(11, y, 218, 26)
+      for dx = 14, 224, 6 do R(dx, y, 3, 1, ink); R(dx, y + 25, 3, 1, ink) end
+      for dy = y + 3, y + 22, 6 do R(11, dy, 1, 3, ink); R(228, dy, 1, 3, ink) end
+      -- same language as an empty Home slot: a dashed outline and a plus
+      CIRC(113, y + 6, 15, ink); CIRC(114, y + 7, 13, paper)
+      R(117, y + 13, 7, 1, ink); R(120, y + 10, 1, 7, ink)
+      self:endPress(pressed)
+      hit(11, y, 218, 26, "new")
+      if #list == 1 then
+        -- a pencil doodle on the rest of the pad
+        RING(188, 128, 30, 1, ink); R(189, 142, 28, 2, ink); CIRC(198, 138, 10, paper); RING(198, 138, 10, 1, ink)
+      end
     end
     if #list == 0 then
       ART(PENCIL, 116, 88, { o = c.outline, ["#"] = amber, w = WHITE })
@@ -567,14 +579,19 @@ return function(H, ui, K)
       end
       self:wantAmbient(0.3, 0.15)
     end
+    local noteBottom
     if note then
-      R(15, 92, 210, 1, c.band)
-      local a, b = self:splitPartyInfo(note, 204)
-      self:partyInfo(a, 18, 97, c.mutedInk, 204, "center")
-      if b then self:partyInfo(b, 18, 108, c.mutedInk, 204, "center") end
+      -- the reason sits right under the name so the link picture below
+      -- gets the room to be drawn at full size
+      local a, b = self:splitPartyInfo(note, 156)
+      local ny = waiting and 84 or 76
+      R(66, ny - 3, 158, 1, c.band)
+      self:partyInfo(a, 66, ny, c.mutedInk, 156)
+      if b then self:partyInfo(b, 66, ny + 11, c.mutedInk, 156) end
+      noteBottom = ny + (b and 22 or 11)
     end
     -- link illustration: two DS-style devices, signal pips running between
-    local top, bottom = note and 118 or 96, 33 + height - 5
+    local top, bottom = note and noteBottom + 2 or 96, 33 + height - 5
     local room = bottom - top
     local scale = room >= 36 and 2 or 1
     local DEV = { ".oooooooo.", "o########o", "o#wwwwww#o", "o#wwwwww#o", "o########o",
