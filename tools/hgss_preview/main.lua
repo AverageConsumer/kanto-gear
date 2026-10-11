@@ -473,6 +473,7 @@ function love.load()
   local battleRoot = screen == "battle_root"
   local battleParty = screen == "battle_party" or screen == "battle_item_target"
   local battleFull = screen == "battle_full" or screen == "battle_full_message"
+    or screen == "battle_full_moves" or screen == "battle_full_safari" or screen == "battle_opponents"
   local battleMessage = screen == "battle_message"
   local battlePartyTransition = screen == "battle_party_transition"
   local battlePartyMenu = screen == "battle_party_menu"
@@ -2752,7 +2753,26 @@ function love.load()
       if subject == player then drawPortrait(slot, x, y, size, fainted)
       else drawPortrait(gen1 and 4 or 2, x, y, size, fainted) end
     end
-    if screen == "battle_full_message" then
+    if screen == "battle_full_moves" then
+      theme:battleFullStatuses(player, enemy, portrait, playerTeam, enemyTeam)
+      for _, move in ipairs(mon.moves) do move.available = true end
+      mon.moves[4].disabled, mon.moves[4].disabledLabel = true, "NO PP"
+      mon.details = true
+      theme:battleFullMoves(mon)
+    elseif screen == "battle_full_safari" then
+      theme:battleFullStatuses(player, enemy, portrait, playerTeam, enemyTeam)
+      theme:battleFullSafari({ index = 1, actions = {
+        { kind = "ball", label = "BALL", detail = "×23", color = "red", enabled = true },
+        { kind = "bait", label = "BAIT", color = "amber", enabled = true },
+        { kind = "rock", label = "ROCK", color = "blue", enabled = true },
+        { kind = "run", label = "RUN", color = "green", enabled = true } } })
+    elseif screen == "battle_opponents" then
+      local e2 = {}
+      for k, v in pairs(enemy) do e2[k] = v end
+      enemy.side, enemy.id = "enemy", 1
+      e2.side, e2.id, e2.name, e2.statusId, e2.statusLabel = "enemy", 3, "SPEAROW", nil, nil
+      theme:enemyInfoOpponents({ enemy, e2 }, portrait)
+    elseif screen == "battle_full_message" then
       theme:battleFullStatuses(player, enemy, portrait, playerTeam, enemyTeam)
       theme:battleFullMessage({ "THE ATTACK WAS", "SUPER EFFECTIVE!" }, true, nil, 0)
     else

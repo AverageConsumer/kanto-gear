@@ -432,4 +432,115 @@ return function(H, ui, K)
     end
     self:endPress(pressed)
   end
+
+  ---------------------------------------------------------------------------
+  -- Full Gear battle: status cards, move keys, Safari keys; double-battle
+  -- opponent picker reuses the status card.
+  ---------------------------------------------------------------------------
+  function H:battleStatusCard(mon, x, y, w, player, drawPortrait)
+    if not mon then return end
+    local colors = self.colors
+    local accent = player and hex("3ea04c") or hex("d84838")
+    if cg(self) then accent = player and hex("1ea5d8") or hex("e05a48") end
+    local fainted = mon.statusId == "FNT" or (mon.hp or 0) <= 0
+    self:v4Window(x, y, w, 78)
+    -- header plate
+    local a = K.rampOf(accent)
+    if cg(self) then CH(x + 2, y + 2, w - 4, 16, 3, a.M); CHrows(x + 2, y + 2, w - 4, 16, 3, 0, 7, a.L)
+    else RR(x + 2, y + 2, w - 4, 16, 3, a.D); RR(x + 2, y + 2, w - 4, 14, 3, a.M)
+      RRrows(x + 2, y + 2, w - 4, 14, 3, 0, 6, a.L); R(x + 5, y + 2, w - 10, 1, a.Hi) end
+    local level = mon.levelText or "L--"
+    local levelWidth = self:partyInfoWidth(level)
+    local nameWidth = w - levelWidth - 19 - (mon.caught and 10 or 0)
+    self:partyName(mon.name or translate("POKEMON"), x + 7, y + 4, WHITE, nameWidth)
+    if mon.caught then self:v4MiniBall(x + w - levelWidth - 17, y + 6, "ok") end
+    self:partyInfo(level, x + w - levelWidth - 7, y + 4, WHITE)
+    self:v4Seat(x + 4, y + 21, 52, fainted)
+    drawPortrait(mon, x + 5, y + 22, 50, fainted)
+    local infoX, infoW = x + 62, w - 69
+    if mon.statusId then self:v4StatusPill(mon.statusId, infoX, y + 24) end
+    if not player and not mon.statusId and mon.statusLabel and mon.statusLabel ~= "" then
+      self:partyInfo(mon.statusLabel, infoX + 26, y + 22, colors.mutedInk, max(0, infoW - 26), "right")
+    end
+    self:v4HpBar(infoX, y + 44, infoW, mon.hp, mon.maxHp)
+    if player then self:partyInfo(mon.hpText or "--/--", infoX, y + 56, colors.ink, infoW, "right") end
+  end
+
+  function H:enemyInfoOpponents(battlers, drawPortrait)
+    for _, mon in ipairs(battlers or {}) do
+      if mon.side == "enemy" then
+        local y = mon.id == 1 and 40 or 125
+        local pressed = self:beginPress(6, y, 228, 78, not mon.absent)
+        if mon.absent then
+          self:v4Window(6, y, 228, 78, { fill = self.colors.bandLight })
+          self:partyInfo("--", 6, y + 33, self.colors.disabledInk, 228, "center")
+        else
+          self:battleStatusCard(mon, 6, y, 228, false, drawPortrait)
+          ART({ "#..", "##.", "###", "##.", "#.." }, 222, y + 64, { ["#"] = self.colors.mutedInk })
+        end
+        self:endPress(pressed)
+      end
+    end
+  end
+
+  function H:battleFullMoves(mon)
+    local c = self.colors
+    for slot, rect in ipairs(self.fullBattleActions) do
+      local move = mon.moves[slot]
+      if move and move.available then
+        local x, y, w, h = rect.x, rect.y, rect.w, rect.h
+        local pressed = self:beginPress(x, y, w, h, not move.disabled)
+        local tone = move.disabled and c.silverDark or self:typeColor(move.type)
+        local a = K.rampOf(tone)
+        self:v4Button(x, y, w, h, a, { radius = 5, lip = 4, chamfer = 5 })
+        local ink = move.disabled and c.disabledInk or WHITE
+        self:partyName(move.name, x + 7, y + 4, ink, w - 29)
+        if move.disabled then
+          self:partyInfo(move.disabledLabel or "", x + 7, y + 22, WHITE)
+        else
+          RR(x + 6, y + 23, 44, 11, 2, a.D)
+          self:partyInfo(self:fitPartyInfo(move.typeLabel or move.type or "", 40), x + 6, y + 21, WHITE, 44, "center")
+        end
+        self:partyInfo(move.ppText or "", x + w - 49, y + 21, ink, 42, "right")
+        if self.nativeFocus and mon.moveIndex == slot and not move.disabled then self:focusFrame(x, y, w, h) end
+        self:endPress(pressed)
+        if mon.details then
+          local infoPressed = self:beginPress(x + w - 20, y, 20, 22)
+          ART({ "#..", "##.", "###", "##.", "#.." }, x + w - 12, y + 7, { ["#"] = WHITE })
+          self:endPress(infoPressed)
+        end
+      end
+    end
+  end
+
+  function H:battleFullSafari(model)
+    local c = self.colors
+    for index, action in ipairs(model.actions) do
+      local rect = self.fullBattleActions[index]
+      local pressed = self:beginPress(rect.x, rect.y, rect.w, rect.h, action.enabled)
+      self:battleActionPanel(rect.x, rect.y, rect.w, rect.h, action.color,
+        self.nativeFocus and model.index == index)
+      local spec = SAFARI[action.kind]
+      local label = translate(action.label) .. (action.detail and " " .. action.detail or "")
+      local lx = rect.x
+      if spec then
+        local pal = { o = c.outline }
+        for k, v in pairs(spec.pal) do pal[k] = hex(v) end
+        ART(spec.art, rect.x + 10, rect.y + floor((rect.h - #spec.art) / 2) - 2, pal)
+        lx = rect.x + 22
+      elseif action.kind == "ball" then
+        self:battleTeamBall(rect.x + 16, rect.y + floor(rect.h / 2) - 2, true)
+        lx = rect.x + 22
+      elseif self.battleRunnerIcon then
+        local G = ui.graphics
+        G.push(); G.translate(rect.x + 16, rect.y + floor(rect.h / 2) - 2); G.scale(0.5, 0.5)
+        self:battleRunnerIcon(0, 0)
+        G.pop()
+        lx = rect.x + 22
+      end
+      self:partyInfoCentered(self:fitPartyInfo(label, rect.w - 12 - (lx - rect.x)),
+        lx, rect.y, rect.w - (lx - rect.x), rect.h - 4, action.enabled and WHITE or c.disabledInk)
+      self:endPress(pressed)
+    end
+  end
 end
