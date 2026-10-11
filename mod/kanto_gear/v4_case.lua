@@ -236,6 +236,8 @@ return function(H, ui, K)
     return a
   end
   function H:v4Caps(fn) return scoped("caps", fn) end
+  -- The lettering a label would get, for callers that cut it up themselves.
+  function H:v4Cased(value) return shown(value) end
   function H:v4Prose(fn, names) return scoped("prose", fn, names) end
 
   function H:partyInfo(value, ...) return base.partyInfo(self, shown(value, true), ...) end

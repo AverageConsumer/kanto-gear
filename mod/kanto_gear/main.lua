@@ -3920,6 +3920,14 @@ return function(mod)
         end
       end
     end
+    -- The Itemfinder lives in the Field Kit too: its card opens the radar.
+    if assist("item_radar") and not assist("spoilers")
+        and ((save and save.inventory or {}).ITEMFINDER or 0) > 0 then
+      result[#result + 1] = {
+        id = "itemfinder", icon = "itemfinder", radar = true, ready = true,
+        label = THEME:translate("ITEM RADAR"),
+      }
+    end
     -- Keep the familiar order within each group, and use the same model for
     -- drawing and touch resolution as availability changes with the context.
     local ordered = {}
@@ -13607,6 +13615,9 @@ return function(mod)
           local direction = action == "next" and 1 or -1
           displayRuntime.requestPageMotion(direction)
           tools.page = ((tools.page or 1) - 1 + direction) % pages + 1
+          dirty = true
+        elseif action == "action" and actions[index].radar then
+          radarOpen, radarFrame, radarStarted = true, 0, love.timer.getTime()
           dirty = true
         elseif action == "action" then
           displayRuntime.activateTool(actions[index].action)

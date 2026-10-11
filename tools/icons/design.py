@@ -372,6 +372,22 @@ def squirtbottle():
     return c
 
 @reg
+def itemfinder():
+    c=C()
+    # handheld finder: antenna with a lit tip, body, round radar screen with a blip
+    c.flat(c.mask_line(15,8,18,4,1),'#384858')
+    c.fill(c.mask_circle(19,3.6,2.1),'#f8d040',shade=False)
+    c.fill(c.mask_rrect(4,7,15,15,3),'#e86838')
+    c.fill(c.mask_circle(11.5,13.5,5.2),'#2f5f48',shade=False)
+    c.flat(c.mask_ring(11.5,13.5,3.2,0.8),'#58b878')
+    c.flat(c.mask_line(11.5,13.5,15,10.5,1),'#a8f0b8')
+    c.flat({(13,15),(14,15),(13,16),(14,16)},'#f8f070')
+    c.fill(c.mask_rect(7,19,3,2),'#384858',shade=False)
+    c.fill(c.mask_rect(13,19,3,2),'#384858',shade=False)
+    c.outer_outline()
+    return c
+
+@reg
 def runner():
     c=C()
     c.fill(c.mask_circle(14,4,2.6),'#f8f8f8')

@@ -1651,6 +1651,7 @@ function love.load()
   local toolActions = gen1 and {
     { id = "bicycle", icon = "bicycle", label = "BICYCLE", ready = true },
     { id = "fish", icon = "fish", label = "FISH", ready = true },
+    { id = "itemfinder", icon = "itemfinder", label = "ITEM RADAR", ready = true },
     { id = "cut", icon = "cut", label = "CUT", ready = false },
     { id = "surf", icon = "surf", label = "SURF", ready = true },
     { id = "dig", icon = "dig", label = "DIG", ready = false },
@@ -1660,6 +1661,7 @@ function love.load()
   } or {
     { id = "bicycle", icon = "bicycle", label = "BICYCLE", ready = true },
     { id = "fish", icon = "fish", label = "FISH", ready = true },
+    { id = "itemfinder", icon = "itemfinder", label = "ITEM RADAR", ready = true },
     { id = "cut", icon = "cut", label = "CUT", ready = false },
     { id = "surf", icon = "surf", label = "SURF", ready = true },
     { id = "headbutt", icon = "headbutt", label = "HEADBUTT", ready = false },

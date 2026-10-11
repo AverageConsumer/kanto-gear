@@ -981,7 +981,17 @@ return function(H, ui, K)
     local a, b = label, nil
     if self:partyInfoWidth(label) > infoW then a, b = self:splitPartyInfo(label, infoW) end
     local nameInk = ready and colors.ink or colors.mutedInk
-    if b then
+    if b and not label:find("%s") and self.v4Cased then
+      -- one long word breaks with a hyphen and keeps its own lettering
+      -- ("Buscaob-/jetos", not "Buscao/Bjetos")
+      local word = self:v4Cased(label)
+      self:v4Caps(function()
+        local first, rest = self:splitPartyInfo(word, infoW - 4)
+        if rest and not first:find("%-$") then first = first .. "-" end
+        self:partyInfo(first, infoLeft, y + 22, nameInk, infoW, "center")
+        self:partyInfo(self:fitPartyInfo(rest or "", infoW), infoLeft, y + 33, nameInk, infoW, "center")
+      end)
+    elseif b then
       self:partyInfo(a, infoLeft, y + 22, nameInk, infoW, "center")
       self:partyInfo(b, infoLeft, y + 33, nameInk, infoW, "center")
     else
