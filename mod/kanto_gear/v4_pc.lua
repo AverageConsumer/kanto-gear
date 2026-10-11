@@ -68,12 +68,12 @@ return function(H, ui, K)
     local lines = model and model.lines or { "..." }
     if #lines == 0 then lines = { "..." } end
     local y, lineHeight, visible = self:pcNoticeRows(#lines)
-    self:v4Prose(function()
-      for index = 1, visible do
-        self:partyInfo(self:fitPartyInfo(lines[index], 184), 28, y, colors.ink, 184, "center")
-        y = y + lineHeight
-      end
-    end)
+    -- the PC is talking: its words use the message-window face, like
+    -- every other line the game says
+    for index = 1, visible do
+      self:label(self:fitLabel(lines[index], 184), 28, y - 1, colors.ink, 184, "center")
+      y = y + lineHeight
+    end
     self:v4AdvanceArrow(116, 163)
     self:endPress(pressed)
     self.pressOffsetY = offsetY
