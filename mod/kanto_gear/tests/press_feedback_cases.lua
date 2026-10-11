@@ -17,6 +17,32 @@ return function(T, display, H)
     "another tab still responds")
   at(30, 40, function() H:tab(7,33,70,18,"TAB",true,nil,true) end, 1,
     "a current tab may respond when it resets a later page")
+  if H.v4SettingsTabs then
+    local model = { category = "battle", tabs = { { id = "battle", label = "BATTLE" } }, tab = 1,
+      label = "BATTLE", accent = "red", page = 1, pages = 1, selected = "caught_icon",
+      rows = { { key = "caught_icon", label = "CAUGHT ICON", raw = true,
+        choices = { { "OFF", false }, { "ON", true } }, info = "TEST" } } }
+    at(200, 80, function() H:settings(model) end, 0,
+      "the selected inline option cannot animate its containing switch")
+    at(140, 80, function() H:settings(model) end, 1,
+      "an inline option that changes the value responds")
+    local partyInfo, helpLines, clock = H.partyInfo, H.settingsHelpLines, H.clock
+    local frozen, motion, now, rendered = H.frozenTime, H.motionEnabled, 0
+    H.frozenTime, H.motionEnabled, H.v4HelpKey = nil, true, nil
+    H.clock = function() return now end
+    H.settingsHelpLines = function() return { "日本語" } end
+    H.partyInfo = function(self, text, x, y, ...)
+      if y >= 168 then rendered = text end
+      return partyInfo(self, text, x, y, ...)
+    end
+    H:setTouch()
+    H:settings(model)
+    now = 0.02
+    H:settings(model)
+    T.eq(rendered, "日", "typewriter reveals whole Japanese glyphs")
+    H.partyInfo, H.settingsHelpLines, H.clock = partyInfo, helpLines, clock
+    H.frozenTime, H.motionEnabled = frozen, motion
+  end
   local region = { interactive=true,fly=true,width=160,height=128,cursorX=100,cursorY=90,
     area="TOWN",status="NOT VISITED",drawMap=function() end }
   at(120,170,function() H:regionMap(region) end,0,"unavailable Fly confirmation stays still")
