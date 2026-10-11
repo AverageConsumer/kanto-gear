@@ -37,8 +37,10 @@ T.eq(optionByKey.ui_motion and optionByKey.ui_motion.default, true,
   "Silph Link motion is an explicit opt-out setting")
 T.eq(optionByKey.info_level and optionByKey.info_level.reset_default, "enhanced",
   "research resets to the canonical 3.0 default")
-T.eq(optionByKey.battle_view, nil,
-  "the companion does not expose the retired battle takeover setting")
+T.eq(optionByKey.battle_view.default, "standard",
+  "the optional battle modes preserve Companion as the default")
+T.eq(#optionByKey.battle_view.choices, 4,
+  "all four battle views remain available alongside the v4 themes")
 T.check(optionByKey.ui_motion.visible_if.one_of
     and optionByKey.local_map.visible_if.not_one_of,
   "HGSS transitions and the legacy area map are mutually exclusive options")
