@@ -305,7 +305,7 @@ return function(H, ui, K)
   -- dowsing/radar apps. The rail sits beside the map, never over it, so
   -- movement-only repaints (retained) never touch it.
   local NOW_H = 15
-  local function nowLayout(self, model, tile)
+  function H:homeExplorerRect(model, tile)
     local x, y, w, h = self:homeRect(tile)
     local mx, my, mw, mh = x + 5, y + 22, w - 10, h - 27
     if model.nowRows and mh >= 44 then
@@ -351,7 +351,7 @@ return function(H, ui, K)
   end
 
   function H:homeExplorerMap(model, tile, retained)
-    local mx, my, mw, mh, rail = nowLayout(self, model, tile)
+    local mx, my, mw, mh, rail = self:homeExplorerRect(model, tile)
     -- Movement-only repaints keep the frame pixels from the last full paint;
     -- redrawing chrome (or its translucent shade) here made the edge flicker.
     if retained then

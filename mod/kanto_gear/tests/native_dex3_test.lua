@@ -8,6 +8,8 @@ local function up(fn, key)
   end
 end
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
+  -- The headless SDK omits this standard LÖVE primitive used by the trace.
+  love.graphics.setLineStyle = love.graphics.setLineStyle or function() end
   local hoenn = display.gen3.hoenn
   local rs = display.gen3.rs
   -- Native RSE scenes read LÖVE's mounted cache; the headless SDK needs the same files exposed.

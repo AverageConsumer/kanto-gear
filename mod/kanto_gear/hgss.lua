@@ -1836,10 +1836,16 @@ return function(ui)
     self:homeExplorerMap(model, tile)
   end
 
+  function H:homeExplorerRect(model, tile)
+    local x, y, w, h = self:homeRect(tile)
+    return x + 5, y + 22, w - 10, h - 27
+  end
+
   function H:homeExplorerMap(model, tile, retained)
     local colors = self.colors
     local x, y, w, h = self:homeRect(tile)
-    self:mapOverview(model.overview, x + 5, y + 22, w - 10, h - 27, {
+    local mx, my, mw, mh = self:homeExplorerRect(model, tile)
+    self:mapOverview(model.overview, mx, my, mw, mh, {
       retainFrame = retained,
       image = model.image, player = model.player, markers = model.markers,
       drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
@@ -3313,9 +3319,9 @@ return function(ui)
     local keys = {}
     for _, tile in ipairs(model.tiles or {}) do
       if tile.widget == "explorer" then
-        local x, y, w, h = self:homeRect(tile)
+        local x, y, w, h = self:homeExplorerRect(model, tile)
         local key = mapMotionKey(mapLayout(model.overview,
-          x + 5, y + 22, w - 10, h - 27, { player = player }), player)
+          x, y, w, h, { player = player }), player)
         if key then keys[#keys + 1] = key end
       end
     end
