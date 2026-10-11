@@ -1500,6 +1500,7 @@ return function(ui)
   end
 
   local function homeIcons(theme)
+    if theme.v4HomeIcons then return theme:v4HomeIcons() end
     return {
       bag = {
         left = 1, top = 1, right = 24, bottom = 25,

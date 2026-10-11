@@ -22,6 +22,7 @@ return function(H, ui, K)
   }
   local function iconId(icon)
     if type(icon) ~= "table" then return nil end
+    if icon.id then return icon.id end
     return SIGNATURES[table.concat({ icon.left or 0, icon.top or 0,
       icon.right or 0, icon.bottom or 0 }, ",")]
   end
@@ -374,6 +375,36 @@ return function(H, ui, K)
     })
     R(mx, my, mw, 1, { 0, 0, 0, 0.28 }); R(mx, my, 1, mh, { 0, 0, 0, 0.2 })
     if rail then self:homeNowRail(model, mx, my + mh + 2, mw) end
+  end
+
+  -- Trainer widget: card icon at 1:1, name + region, badge row, money/time.
+  function H:homeTrainer(model, tile, selected)
+    local colors = self.colors
+    local trainer = model.trainer or {}
+    local x, y, w, h = self:homeRect(tile)
+    self:homeTile(x, y, w, h, colors.blueLight, selected)
+    self:homeWidgetHeader(x, y, w, "TRAINER", colors.blue, colors.blueLight, model.editing)
+    self:v4Icon("trainer", x + 5, y + 21)
+    local infoX, infoW = x + 32, w - 37
+    self:partyInfo(self:fitPartyInfo(trainer.name or "---", infoW), infoX, y + 21, colors.ink)
+    local badgeText = (trainer.region or "KANTO") .. " " .. (trainer.badgeCount or 0) .. "/" .. (trainer.badgeTotal or 0)
+    self:partyInfo(self:fitPartyInfo(badgeText, infoW), infoX, y + 32, cg(self) and self.tok.acc.M or colors.blue)
+    local total = math.max(1, trainer.badgeTotal or 8)
+    local bw = w - 12
+    for index = 1, total do
+      local cx = x + 6 + floor((index - 0.5) * bw / total)
+      local owned = trainer.badgeOwned and trainer.badgeOwned[index]
+      CIRC(cx - 3, y + 48, 7, colors.outline)
+      CIRC(cx - 2, y + 49, 5, owned and hex("f8c838") or (self.dark and hex("3a4450") or hex("d0d6cc")))
+      if owned then P(cx - 1, y + 50, hex("fff4c0")) end
+    end
+    local half = floor((w - 13) / 2)
+    for i, v in ipairs({ { trainer.moneyShort or trainer.money or "¥0", colors.amberLight }, { trainer.time or "0:00", colors.blueLight } }) do
+      local bx = i == 1 and x + 5 or x + w - 5 - half
+      if cg(self) then CH(bx, y + 60, half, 15, 3, colors.outline); CH(bx + 1, y + 61, half - 2, 13, 2, mix(colors.surface, v[2], self.dark and 0.22 or 0.16))
+      else RR(bx, y + 60, half, 15, 4, colors.outline); RR(bx + 1, y + 61, half - 2, 13, 3, mix(colors.surface, v[2], self.dark and 0.22 or 0.16)) end
+      self:partyInfo(self:fitPartyInfo(v[1], half - 6), bx + 3, y + 62, colors.ink, half - 6, "center")
+    end
   end
 
   function H:homeParty(model, tile, selected)

@@ -808,7 +808,10 @@ return function(H, ui, K)
         CIRC(11, y + 2, 22, colors.outline)
         CIRC(12, y + 3, 20, mix(colors.surface, accent, self.dark and 0.35 or 0.22))
         local glyph = CAT_GLYPH[tostring(category.label)]
-        if glyph then glyph(12, y + 3, accent, mix(accent, colors.surface, 0.45)) end
+        local artName = "c_" .. tostring(category.label):lower()
+        if artName == "c_exploration" then artName = "c_research" end
+        if self.v4HasIcon and self:v4HasIcon(artName) then self:v4Icon(artName, 14, y + 5)
+        elseif glyph then glyph(12, y + 3, accent, mix(accent, colors.surface, 0.45)) end
         self:partyInfo(self:fitPartyInfo(translate(category.label), 170), 39, y + 2, colors.ink)
         self:partyInfo(self:fitPartyInfo(translate(category.detail), 170), 39, y + 12, colors.mutedInk)
         ART({ "#..", "##.", "###", "##.", "#.." }, 219, y + 10, { ["#"] = colors.mutedInk })
@@ -1103,7 +1106,17 @@ return function(H, ui, K)
       if active then self:v4Button(x, TAB_Y, TAB_STEP - 2, TAB_H, K.rampOf(accent), { radius = 4, lip = 3, chamfer = 4 })
       else self:v4Key(x, TAB_Y, TAB_STEP - 2, TAB_H) end
       local glyph = CAT_GLYPH[tostring(cat.label)] or CAT_GLYPH[tostring(cat.id):upper()]
-      if glyph then
+      local artName = "c_" .. tostring(cat.label):lower()
+      if artName == "c_exploration" then artName = "c_research" end
+      if self.v4HasIcon and not self:v4HasIcon(artName) then artName = "c_" .. tostring(cat.id):lower() end
+      if self.v4HasIcon and self:v4HasIcon(artName) then
+        local hop = 0
+        if active then
+          local e = self:v4Enter("settings_tab", i, 0.24)
+          if e < 1 then hop = -floor(math.sin(e * math.pi) * 3 + 0.5) end
+        end
+        self:v4Icon(artName, x + floor((TAB_STEP - 2 - 16) / 2), TAB_Y + floor((TAB_H - 16) / 2) - (active and 1 or 0) + hop)
+      elseif glyph then
         local G = ui.graphics
         local hop = 0
         if active then
