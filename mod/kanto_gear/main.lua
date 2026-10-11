@@ -3256,8 +3256,10 @@ return function(mod)
     if currentGame and currentGame.save
         and currentGame.save.generation == 2 then
       period = gameClock and compat.timePeriod(currentGame.world) or nil
-      period = period or compat.systemTimePeriod(timestamp)
     end
+    -- Every game shows the period of the time it displays: Gen 2's own
+    -- MORN/DAY/NITE, otherwise the same boundaries applied to the clock shown.
+    period = period or compat.systemTimePeriod(timestamp)
     return timestamp, period
   end
 
@@ -5287,7 +5289,7 @@ return function(mod)
       THEME.hgss:headerClock(clock, period, 139, 72, 6)
       G.pop()
     else
-      if period then clock = clock .. " " .. period:sub(1, 1) end
+      if period and compat.isGen2() then clock = clock .. " " .. period:sub(1, 1) end
       put(clock, 117 - halfWidth(clock), 6)
     end
     battery(143, foreground)
