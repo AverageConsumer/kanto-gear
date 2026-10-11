@@ -1022,13 +1022,32 @@ return function(H, ui, K)
     G.pop()
     return w
   end
+  local pgIconBounds = {}
+  local function pgIcon(self, icon, x, y, w, h)
+    local bounds = pgIconBounds[icon]
+    if not bounds then
+      local spec = K.iconArt[icon]
+      if not spec then return end
+      local left, top, right, bottom = 24, 24, -1, -1
+      for j, row in ipairs(spec.rows) do
+        for i = 1, #row do
+          if row:sub(i, i) ~= "." then
+            left, top, right, bottom = min(left, i - 1), min(top, j - 1), max(right, i - 1), max(bottom, j - 1)
+          end
+        end
+      end
+      bounds = { left, top, right - left + 1, bottom - top + 1 }
+      pgIconBounds[icon] = bounds
+    end
+    self:v4Icon(icon, x + floor((w - bounds[3]) / 2) - bounds[1], y + floor((h - bounds[4]) / 2) - bounds[2])
+  end
   local function seatIcon(self, icon, x, y, d, accent, lit)
     local c = self.colors
     CIRC(x, y, d, c.outline)
     CIRC(x + 1, y + 1, d - 2, lit and mix(WHITE, accent, 0.18) or mix(c.surface, accent, self.dark and 0.3 or 0.16))
     K.CIRCrows(x + 1, y + 1, d - 2, floor((d - 2) / 2), d - 2,
       lit and mix(WHITE, accent, 0.3) or mix(c.surface, accent, self.dark and 0.42 or 0.26))
-    if self:v4HasIcon(icon) then self:v4Icon(icon, x + floor((d - 24) / 2), y + floor((d - 24) / 2)) end
+    pgIcon(self, icon, x, y, d, d)
   end
   local function litText(self, lit, value, x, y, ink, w, align)
     if lit then self:withoutShadow(self.partyInfo, self, value, x, y, WHITE, w, align)
@@ -1092,12 +1111,12 @@ return function(H, ui, K)
       local off = 0
       if lit then off = self:v4Button(x, y, w, h, K.rampOf(accent), { radius = 5, lip = 3, chamfer = 4 })
       else self:v4Window(x, y, w, h, { radius = 4, fill = m.busy and c.bandLight or nil }) end
-      local iconY = y + floor((h - (lit and 3 or 0) - 24) / 2) + off
+      local faceH = h - (lit and 3 or 0)
       if w >= 100 then
-        self:v4Icon(card.icon, x + 8, iconY)
+        pgIcon(self, card.icon, x + 6, y + off, 28, faceH)
         litText(self, lit, self:fitPartyInfo(card.label, w - 42), x + 36, y + 6 + off, c.ink, w - 42)
       else
-        self:v4Icon(card.icon, x + floor((w - 24) / 2), iconY)
+        pgIcon(self, card.icon, x, y + off, w, faceH)
       end
       self:endPress(pressed)
     end
@@ -1137,7 +1156,7 @@ return function(H, ui, K)
             local off = 0
             if lit then off = self:v4Button(x, y, w, h, K.rampOf(accent), { radius = 5, lip = 3, chamfer = 4 })
             else self:v4Window(x, y, w, h, { radius = 4 }) end
-            self:v4Icon("pg_phone", x + 4, y + floor((h - (lit and 3 or 0) - 24) / 2) + off)
+            pgIcon(self, "pg_phone", x + 2, y + off, 28, h - (lit and 3 or 0))
             local nameW = row.class and 104 or 186
             litText(self, lit, self:fitPartyInfo(row.name, nameW), x + 32, y + 6 + off, c.ink, nameW)
             if row.class then
@@ -1196,8 +1215,8 @@ return function(H, ui, K)
       self:withoutShadow(function()
         self:partyInfo(self:fitPartyInfo(radio.name or "- - -", 140), 50, 89, radio.name and on or ghost, 140, "center")
       end)
-      arrowKey(self, 7, 62, 34, 44, DOWN)
-      arrowKey(self, 199, 62, 34, 44, UP)
+      arrowKey(self, 7, 62, 34, 44, DOWN, radio.canTuneDown)
+      arrowKey(self, 199, 62, 34, 44, UP, radio.canTuneUp)
       for i, row in ipairs(radio.stations) do
         local x, y, w, h = Page.stationRect(i)
         if y + h <= 214 then

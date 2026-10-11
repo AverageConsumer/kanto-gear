@@ -146,6 +146,11 @@ return function(T, display, H)
   state.cursor=1
   at(45,78,function() H:notes(state) end,0,"the right text cursor stays still at its boundary")
   at(160,198,function() H:notes(state) end,1,"backspace responds when it can delete")
+  local PG = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/pokegear_page.lua"))()
+  local pg = { mode="card", card="radio", cards={}, radio={frequency="20.5",canTuneUp=false,stations={}} }
+  at(210,80,function() H:pokegearScreen(pg,PG) end,0,"radio tuning stays still at its upper boundary")
+  pg.radio.canTuneUp=true
+  at(210,80,function() H:pokegearScreen(pg,PG) end,1,"radio tuning responds when it can move")
   state.error="TEXT LIMIT REACHED"
   at(20,100,function() H:notes(state) end,0,"Notes errors block the covered keyboard's animation")
   at(100,180,function() H:notes(state) end,1,"the error dismiss button still responds")

@@ -234,6 +234,20 @@ T.eq(display.Home.removePackage(removalAudit, catalog, "bag"), 2,
 T.eq(#removalAudit.tiles, 0,
   "no orphaned app surface remains after package removal")
 local api = upvalue(display.saveHome, "mod")
+do
+  local options = run.loader.modOptions.kanto_gear
+  local oldLevel, oldInventory = options.info_level, game.save.inventory
+  local function radar()
+    for _, row in ipairs(display.toolModels()) do if row.radar then return row end end
+  end
+  options.info_level, game.save.inventory = "enhanced", { ITEMFINDER = 1 }
+  T.check(radar() and radar().ready, "owned Itemfinder exposes the radar in Field Kit")
+  game.save.inventory = {}
+  T.eq(radar(), nil, "missing Itemfinder cannot expose a radar action")
+  game.save.inventory, options.info_level = { ITEMFINDER = 1 }, "spoiler"
+  T.eq(radar(), nil, "spoiler mode does not offer the redundant radar")
+  options.info_level, game.save.inventory = oldLevel, oldInventory
+end
 local durableHome
 local function copy(value)
   if type(value) ~= "table" then return value end

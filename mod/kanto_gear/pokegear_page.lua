@@ -77,6 +77,7 @@ local function radioModel(native)
   local now = native:currentStation() or {}
   local radio = native.radio
   return { stations = stations, frequency = mhz(now.frequency),
+    canTuneDown = current > 0, canTuneUp = current < 80,
     name = radio and radio.stationName and strings(radio.stationName) or now.name and strings(now.name) or nil,
     top = radio and radio.top or "", bottom = radio and radio.bottom or "" }
 end
@@ -91,7 +92,8 @@ end
 
 -- What changes the picture; sampled by the 50ms poll through items[1].right.
 local function key(m)
-  local parts = { m.mode, tostring(m.card), tostring(m.phonePage) }
+  local parts = { m.mode, tostring(m.card), tostring(m.cardIndex), tostring(m.phonePage) }
+  for _, card in ipairs(m.cards) do parts[#parts + 1] = card.id end
   if m.clock then parts[#parts + 1] = m.clock.hour .. ":" .. m.clock.minute .. m.clock.day end
   if m.phone then
     for _, row in ipairs(m.phone.rows) do parts[#parts + 1] = row.slot .. tostring(row.selected) .. row.name end
@@ -166,11 +168,12 @@ function Page.tiles(count)
 end
 function Page.tabs(count)
   local out, w = {}, math.floor((226 - (count - 1) * 4) / math.max(1, count))
-  for i = 1, count do out[i] = { 7 + (i - 1) * (w + 4), 32, w, 24 } end
+  local left = math.floor((240 - (count * w + (count - 1) * 4)) / 2)
+  for i = 1, count do out[i] = { left + (i - 1) * (w + 4), 32, w, 28 } end
   return out
 end
 Page.BODY = 60
-function Page.phoneRow(i) return 7, Page.BODY + 2 + (i - 1) * 29, 226, 26 end
+function Page.phoneRow(i) return 7, Page.BODY + 2 + (i - 1) * 30, 226, 28 end
 Page.PHONE_PAGE = 4
 function Page.stationRect(i)
   local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
@@ -222,8 +225,8 @@ function Page.hit(m, x, y)
       if x >= 90 and x < 114 then return "phone_next" end
     end
   elseif m.radio then
-    if inside(x, y, 7, 62, 34, 44) then return "tune", "down" end
-    if inside(x, y, 199, 62, 34, 44) then return "tune", "up" end
+    if m.radio.canTuneDown ~= false and inside(x, y, 7, 62, 34, 44) then return "tune", "down" end
+    if m.radio.canTuneUp ~= false and inside(x, y, 199, 62, 34, 44) then return "tune", "up" end
     for i, row in ipairs(m.radio.stations) do
       local rx, ry, rw, rh = Page.stationRect(i)
       if ry + rh <= 214 and inside(x, y, rx, ry, rw, rh) then return "station", row end
@@ -237,7 +240,7 @@ end
 -- Moves the device the way its own buttons would. `press` queues a button.
 function Page.apply(view, action, arg, press)
   local native = view.native
-  if not native then return false end
+  if not native or not view.valid() then return false end
   if action == "back" then press("b")
   elseif action == "open" then
     native.cardIndex, native.mode = arg.index, "card"

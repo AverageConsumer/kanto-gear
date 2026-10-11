@@ -50,6 +50,16 @@ T.eq(view.pokegearModel.mode, "strip", "card strip first")
 T.eq(#view.pokegearModel.cards, 4, "every owned card")
 T.check(view.valid(), "valid while on top")
 T.eq(view.title, "POKéGEAR", "title from the native string")
+local stripKey = view.items[1].right
+native.cardIndex = 2
+view = Page.project(native, game, view)
+T.check(view.items[1].right ~= stripKey, "D-pad strip selection requests a repaint")
+native.cardIndex = 1
+for count = 1, 4 do
+  local tabs = Page.tabs(count)
+  T.check(math.abs(tabs[1][1] - (240 - tabs[count][1] - tabs[count][3])) <= 1,
+    "the whole tab group has equal outer margins")
+end
 
 -- strip: a tile opens its card
 local tiles = Page.tiles(4)
@@ -77,6 +87,12 @@ action, arg = Page.hit(m, 210, 80)
 T.eq(action, "tune", "fine tuning key")
 Page.apply(view, action, arg, press)
 T.eq(pressed[#pressed], "up", "right key tunes up")
+native.tuningKnob = 80
+view = Page.project(native, game, view)
+T.eq(Page.hit(view.pokegearModel, 210, 80), nil, "upper radio boundary has no touch action")
+native.tuningKnob = 0
+view = Page.project(native, game, view)
+T.eq(Page.hit(view.pokegearModel, 20, 80), nil, "lower radio boundary has no touch action")
 
 -- tabs: leaving the radio stops the show first
 local tabs = Page.tabs(4)
@@ -141,6 +157,7 @@ T.eq(pressed[#pressed], "up", "right key steps up")
 T.eq(Page.hit(m, 5, 5), "back", "header back")
 top = {}
 T.check(not view.valid(), "a screen over the gear hands control back")
+T.eq(Page.apply(view, "back", nil, press), false, "covered device rejects stale touch actions")
 T.eq(Page.project(native, game, view), nil, "no projection under another screen")
 top = native
 native.fly = { {} }
