@@ -235,20 +235,7 @@ return function(H, ui, K)
     if ui.dimBackground then ui.dimBackground(alpha or 0.5) end
     K.setc({ 0, 0, 0, alpha or 0.5 })
     ui.graphics.rectangle("fill", 0, 0, 240, 216)
-    if not prompt then return end
-    -- the game talks on the top screen: a continue plate points there
-    local colors = self.colors
-    local tw = self:partyInfoWidth(translate("TAP TO GO ON"))
-    local w = tw + 40
-    local x = 120 - floor(w / 2)
-    self:v4MessageWindow(x, 164, w, 34)
-    local DS = { "ooooooo", "o#####o", "o#####o", "ooooooo", ".......", "ooooooo", "o.....o", "o.....o", "ooooooo" }
-    local hot = cg(self) and self.tok.acc.M or colors.green
-    ART(DS, x + 9, 176, { o = colors.outline, ["#"] = hot })
-    local b = (self.motionEnabled ~= false and floor(self:clock() / 0.4) % 2 == 0) and 1 or 0
-    self:wantAmbient(0.4)
-    ART({ "..#..", ".###.", "#####" }, x + 10, 170 - b, { ["#"] = hot })
-    self:partyInfo(translate("TAP TO GO ON"), x + 22, 175, colors.ink)
+    if prompt then self:v4AdvanceArrow(116, 180) end
   end
 
   function H:loadingOverlay(label, now)
