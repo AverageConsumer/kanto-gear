@@ -5120,6 +5120,29 @@ return function(ui)
     end
   end
 
+  function H:enemyInfoOpponentHit(x, y)
+    if x < 6 or x >= 234 then return end
+    if y >= 40 and y < 118 then return 1 end
+    if y >= 125 and y < 203 then return 3 end
+  end
+
+  function H:enemyInfoOpponents(battlers, drawPortrait)
+    for _, mon in ipairs(battlers or {}) do
+      if mon.side == "enemy" then
+        local y = mon.id == 1 and 40 or 125
+        local pressed = self:beginPress(6, y, 228, 78, not mon.absent)
+        if mon.absent then
+          self:panel(6, y, 228, 78, false, nil, self.colors.silverDark)
+          self:partyInfo("--", 6, y + 35, self.colors.disabledInk, 228, "center")
+        else
+          self:battleStatusCard(mon, 6, y, 228, false, drawPortrait)
+          self:detailChevron(222, y + 40, self.colors.green)
+        end
+        self:endPress(pressed)
+      end
+    end
+  end
+
   function H:enemyInfoOverview(model)
     local colors = self.colors
     local mon = model.pokemon or {}
@@ -5999,6 +6022,51 @@ return function(ui)
       local move = mon.moves[slot]
       self:battleMoveCard(move, 6 + column * 116,
         33 + row * 85, mon.moveIndex == slot, self:moveHasStab(mon, move))
+    end
+  end
+
+  function H:battleFullMoveHit(x, y)
+    for slot, rect in ipairs(self.fullBattleActions) do
+      if x >= rect.x and x < rect.x + rect.w and y >= rect.y and y < rect.y + rect.h then
+        return slot, x >= rect.x + rect.w - 20 and y < rect.y + 22
+      end
+    end
+  end
+
+  function H:battleFullMoves(mon)
+    local c = self.colors
+    for slot, rect in ipairs(self.fullBattleActions) do
+      local move = mon.moves[slot]
+      if move and move.available then
+        local x, y, w, h = rect.x, rect.y, rect.w, rect.h
+        local pressed = self:beginPress(x, y, w, h, not move.disabled)
+        self:panel(x, y, w, h, self.nativeFocus and mon.moveIndex == slot and not move.disabled,
+          self:typeColor(move.type), move.disabled and c.band or self:typeColor(move.type))
+        local ink = move.disabled and c.disabledInk or c.ink
+        self:partyName(move.name, x + 7, y + 7, ink, w - 29)
+        self:partyInfo(move.disabled and move.disabledLabel or move.typeLabel,
+          x + 7, y + 26, move.disabled and c.red or c.green, 53)
+        self:partyInfo(move.ppText, x + w - 49, y + 26, ink, 42, "right")
+        self:endPress(pressed)
+        if mon.details then
+          local infoPressed = self:beginPress(x + w - 20, y, 20, 22)
+          self:detailChevron(x + w - 13, y + 11, c.green)
+          self:endPress(infoPressed)
+        end
+      end
+    end
+  end
+
+  function H:battleFullSafari(model)
+    for index, action in ipairs(model.actions) do
+      local rect, c = self.fullBattleActions[index], self.colors
+      local pressed = self:beginPress(rect.x, rect.y, rect.w, rect.h, action.enabled)
+      self:battleActionPanel(rect.x, rect.y, rect.w, rect.h, action.color,
+        self.nativeFocus and model.index == index)
+      local label = translate(action.label) .. (action.detail and " " .. action.detail or "")
+      self:partyInfoCentered(self:fitPartyInfo(label, rect.w - 12),
+        rect.x, rect.y, rect.w, rect.h, action.enabled and c.ink or c.disabledInk)
+      self:endPress(pressed)
     end
   end
 

@@ -2287,6 +2287,11 @@ return function(mod)
       default = helperDefault("move_details"), reset_default = true },
     { key = "catch_odds", label = "CATCH CHANCES", type = "toggle",
       default = helperDefault("catch_odds"), reset_default = true },
+    { key = "battle_view", label = "BATTLE VIEW", type = "choice",
+      default = "standard", choices = {
+        { "COMPANION", "standard" }, { "INFO", "info" },
+        { "GEAR", "gear" }, { "FULL GEAR", "full" },
+      } },
     { key = "caught_icon", label = "CAUGHT ICON",
       type = "toggle", default = true },
     { key = "keyboard_layout", label = "KEYBOARD", type = "choice",
@@ -2341,8 +2346,7 @@ return function(mod)
   end
 
   local function currentBattleUIMode()
-    -- Experimental companion build: one lower layout; native UI stays intact.
-    return "full"
+    return mod.options:get("battle_view") or "standard"
   end
   local function fullBottomBattleUI()
     if displayRuntime.autoBattle and displayRuntime.autoBattle.shown == false then return false end
@@ -2733,7 +2737,7 @@ return function(mod)
         "bottom_safe_area", "overlay_corner", "overlay_button",
         "display_target", "screen_swap" } },
     { id = "battle", label = "BATTLE", detail = "SEPARATE BATTLE HELPERS",
-      accent = "red", keys = { "auto_battle_screen", "caught_icon", "type_hints", "move_details", "catch_odds" } },
+      accent = "red", keys = { "battle_view", "auto_battle_screen", "caught_icon", "type_hints", "move_details", "catch_odds" } },
     { id = "research", label = "EXPLORATION", detail = "WHAT GEAR REVEALS",
       accent = "amber", keys = { "info_level" } },
     { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS",
@@ -3042,7 +3046,8 @@ return function(mod)
   end
 
   function hgssRuntime.nativeBattleLayout()
-    return THEME.style == "hgss" and currentBattleUIMode() == "standard"
+    -- All touch companions use Gear geometry; native geometry stays upstairs.
+    return false
   end
 
   function displayRuntime.motionEnabled()
@@ -3079,7 +3084,7 @@ return function(mod)
       or nil
     local items = menu and (menu.subItems or (submenu and submenu.items)) or {}
     local actions = {}
-    for index = 1, not fullBottomBattleUI() and #items or math.min(2, #items) do
+    for index = 1, #items do
       actions[#actions + 1] = { index = index, item = items[index] }
     end
     return actions, submenu
@@ -5510,6 +5515,10 @@ return function(mod)
   end
 
   function displayRuntime.drawStartMenu(top)
+    if battle and top.notice and customBattleLayout() then
+      displayRuntime.drawOwnedBattleMessage(top.notice, top.canAdvance)
+      return
+    end
     header(THEME:translate(top.title or "CHOOSE ACTION"), not top.namingModel and not top.learningPrompt and not top.nativeStats and top.back ~= false,
       top.nativePocket or top.trainer and top.trainer.pages > 1 or top.dexModel and top.dexModel.canCycle)
     local model = displayRuntime.startMenuModel(top)
@@ -8764,7 +8773,7 @@ return function(mod)
       bagLabel = THEME:translate("BAG"),
       partyLabel = THEME:translate("POKEMON"),
       runLabel = THEME:translate("RUN"),
-      moveIndex = nil, -- Gear has touch feedback, no D-pad focus.
+      moveIndex = customBattleLayout() and battle.moveIndex or nil,
       details = assist("move_details"),
       moves = {},
     }
@@ -8924,7 +8933,15 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:battleRoot(mon, hgssRuntime.battlePortrait, playerTeam, enemyTeam)
+      local selected = battle.menuIndex
+      if displayRuntime.gen3 then selected = ({ 1, 3, 2, 4 })[selected or 1] end
+      if fullBottomBattleUI() then
+        THEME.hgss:battleFullRoot(mon, hgssRuntime.battleStatus("player"),
+          hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, selected, hgssRuntime.battleStatuses())
+      else
+        THEME.hgss:battleRoot(mon, hgssRuntime.battlePortrait, playerTeam, enemyTeam, selected)
+      end
       G.pop()
       return
     end
@@ -8944,7 +8961,15 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       local model = displayRuntime.SafariPage.model(battle)
-      THEME.hgss:battleSafari(model, playerTeam, enemyTeam)
+      model.index = customBattleLayout() and battle.menuIndex or nil
+      if fullBottomBattleUI() then
+        THEME.hgss:battleTeamStrip(playerTeam, enemyTeam)
+        THEME.hgss:battleStatusCard(hgssRuntime.battleStatus("enemy"),
+          6, 33, 228, false, hgssRuntime.battlePortrait)
+        THEME.hgss:battleFullSafari(model)
+      else
+        THEME.hgss:battleSafari(model, playerTeam, enemyTeam)
+      end
       G.pop()
       return
     end
@@ -9051,7 +9076,14 @@ return function(mod)
       local playerTeam, enemyTeam = hgssRuntime.battleTeams()
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:battleMoves(mon, playerTeam, enemyTeam)
+      if fullBottomBattleUI() then
+        THEME.hgss:battleFullStatuses(hgssRuntime.battleStatus("player"),
+          hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, nil, hgssRuntime.battleStatuses())
+        THEME.hgss:battleFullMoves(mon)
+      else
+        THEME.hgss:battleMoves(mon, playerTeam, enemyTeam)
+      end
       G.pop()
       return
     end
@@ -10502,13 +10534,43 @@ return function(mod)
     end
   end
 
-  local function drawBattleLocked()
+  function displayRuntime.drawOwnedBattleMessage(message, advance, title)
+    local compact = fullBottomBattleUI()
     if THEME.style == "hgss" then
-      drawBattleRoot()
-      drawDim(0.55)
-      return
+      local playerTeam, enemyTeam = hgssRuntime.battleTeams()
+      local lines = type(message) == "string" and THEME:wrapText(message, compact and 208 or 192, 6,
+        function(value) return compact and THEME.hgss:partyInfoWidth(value) or THEME.hgss:labelWidth(value) end)
+        or THEME:messageLines(message or {}, compact and 34 or 24, compact and 6 or 4)
+      G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      if compact then
+        THEME.hgss:battleFullStatuses(hgssRuntime.battleStatus("player"),
+          hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
+          playerTeam, enemyTeam, nil, hgssRuntime.battleStatuses())
+        THEME.hgss:battleFullMessage(lines, advance, title, love.timer.getTime())
+      else
+        THEME.hgss:battleMessage(lines, advance, playerTeam, enemyTeam, title, love.timer.getTime())
+      end
+      G.pop()
+    elseif compact then
+      displayRuntime.drawFullBattleMessage(message, advance)
+    else
+      header(THEME:translate(title or "BATTLE"))
+      local lines = type(message) == "string" and THEME:wrapText(message, 132, 6)
+        or THEME:messageLines(message or {}, 22, 4)
+      for index, line in ipairs(lines) do text(line, 14, 36 + index * 12, INK) end
+      if advance then displayRuntime.drawContinueArrow(75, 128) end
     end
-    drawUnavailableMenu()
+  end
+
+  local function drawBattleLocked(title)
+    if customBattleLayout() then
+      displayRuntime.drawOwnedBattleMessage(battle.nativeMessage or battle.message,
+        battle.prompt == "advance", title and THEME:translate(title))
+    elseif THEME.style == "hgss" then
+      drawBattleRoot(); drawDim(0.55)
+    else
+      drawUnavailableMenu()
+    end
   end
 
   local function drawFullBattleHpBar(x, y, w, hp, maxHp)
@@ -10568,18 +10630,19 @@ return function(mod)
     drawFullBattleStatus(battle.player, 48, true)
   end
 
-  function displayRuntime.drawFullBattleMessage()
+  function displayRuntime.drawFullBattleMessage(message, advance)
     drawFullBattleStatuses()
     box("fill", 3, 94, 154, 46, MID)
     outline(3, 94, 154, 46, DARK)
-    local lines = battle.nativeMessage and THEME:wrapText(battle.nativeMessage, 132, 6)
-      or THEME:messageLines(battle.message or {}, 22, 6)
+    message = message or battle.nativeMessage or battle.message
+    local lines = type(message) == "string" and THEME:wrapText(message, 132, 6)
+      or THEME:messageLines(message or {}, 22, 6)
     local y = 96 + math.floor((42 - #lines * 7) / 2)
     for _, line in ipairs(lines) do
       text(line, 9, y, INK)
       y = y + 7
     end
-    if battle.prompt == "advance" then displayRuntime.drawContinueArrow(145, 128) end
+    if advance or advance == nil and battle.prompt == "advance" then displayRuntime.drawContinueArrow(145, 128) end
   end
 
   local function drawFullBattleRoot()
@@ -10628,14 +10691,42 @@ return function(mod)
 
   displayRuntime.enemyInfo = function()
     local raw = battleState()
+    local enemy = battle and battle.enemy
     local source = raw and (raw.enemy or (raw.battle and raw.battle.enemy))
+    if battle and battle.double and displayRuntime.enemyInfoSelection ~= nil then
+      for _, row in ipairs(battle.battlers or {}) do
+        if row.id == displayRuntime.enemyInfoSelection and row.side == "enemy" and not row.absent then
+          enemy = row
+          source = raw and raw.battle and raw.battle.battlers[row.id] or row
+          break
+        end
+      end
+    end
     local mon = source and (source.mon or source)
-    return compat.enemyInfo(battle and battle.enemy, game.data, game.save, mon)
+    local info = compat.enemyInfo(enemy, game.data, game.save, mon)
+    info.source = enemy
+    return info
   end
 
   local function drawBattle()
     if battle.nativeUnsupported then drawUnavailableMenu(); return end
     if currentBattleUIMode() == "info" then
+      if battle.double and displayRuntime.enemyInfoSelection == nil then
+        header(THEME:translate("ENEMY INFO"))
+        if THEME.style == "hgss" then
+          G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+          THEME.hgss:enemyInfoOpponents(hgssRuntime.battleStatuses(), hgssRuntime.battlePortrait)
+          G.pop()
+        else
+          for _, mon in ipairs(battle.battlers or {}) do
+            if mon.side == "enemy" then
+              button(6, 26 + math.floor(mon.id / 2) * 58, 148, 52,
+                fit(mon.absent and "--" or mon.name or mon.species, 22), false)
+            end
+          end
+        end
+        return
+      end
       local info = displayRuntime.enemyInfo()
       if THEME.style == "hgss" then
         local firstType = info.types[1]
@@ -10655,7 +10746,7 @@ return function(mod)
           pokemon = info,
           drawPokemon = function(_, x, y, size)
             drawSprite(info.species, "front", x, y, size, size,
-              nil, battle and battle.enemy)
+              nil, info.source)
           end,
         }
         local title = battleInfoDetail == "profile" and "POKEDEX"
@@ -10663,7 +10754,7 @@ return function(mod)
           or battleInfoDetail == "weak" and "WEAK"
           or battleInfoDetail == "resist" and "RESIST"
           or "ENEMY INFO"
-        header(THEME:translate(title), battleInfoDetail ~= nil)
+        header(THEME:translate(title), battleInfoDetail ~= nil or displayRuntime.enemyInfoSelection ~= nil)
         G.push()
         G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
         if battleInfoDetail == "profile" then
@@ -11025,6 +11116,7 @@ return function(mod)
       or displayRuntime.levelUp:fieldMon(top)
     local pressTouch
     if THEME.style == "hgss" then
+      THEME.hgss.nativeFocus = battle ~= nil and customBattleLayout() and not battle.nativeUnsupported
       local owned = learn or naming or levelStats or battle or fieldPp
         or fieldParty or hgssSummary or pcKind or startMenu
       local battlePanel = screenContract(top, "party") or compat.battleBagMenu(top)
@@ -11114,6 +11206,7 @@ return function(mod)
     elseif THEME.style == "classic" then
       outline(1, 1, WIDTH - 2, HEIGHT - 2, INK)
     end
+    if THEME.style == "hgss" then THEME.hgss.nativeFocus = false end
     if highResolution then G.pop() end
     G.setCanvas()
   end
@@ -11139,6 +11232,9 @@ return function(mod)
     end
     displayRuntime.perf:finish("gear_draw", measured)
     if not ok then
+      -- A hidden native menu is safe only while the lower view can be drawn.
+      displayReady = false
+      if THEME.hgss then THEME.hgss.nativeFocus = false end
       displayRuntime.mapRefresh.paintedPage = nil
       error(err, 0)
     end
@@ -11335,11 +11431,21 @@ return function(mod)
       end
     end
     battle = nextBattle
+    if displayRuntime.enemyInfoSelection ~= nil then
+      local present = false
+      for _, mon in ipairs(battle and battle.battlers or {}) do
+        if mon.id == displayRuntime.enemyInfoSelection and mon.side == "enemy" and not mon.absent then
+          present = true
+          break
+        end
+      end
+      if not present then battleInfoDetail, displayRuntime.enemyInfoSelection = nil, nil end
+    end
     displayRuntime.syncCompanionDetails()
     if changed then
       if not battle then
         moveInfo = nil
-        battleInfoDetail = nil
+        battleInfoDetail = nil; displayRuntime.enemyInfoSelection = nil
         hgssRuntime.animation = nil
       else
         radarOpen = false
@@ -11376,6 +11482,8 @@ return function(mod)
       displayRuntime.guideDetail = nil
     elseif battleInfoDetail then
       battleInfoDetail = nil
+    elseif displayRuntime.enemyInfoSelection ~= nil then
+      displayRuntime.enemyInfoSelection = nil
     elseif moveInfo then
       if battle and battle.prompt == "moves" then
         hgssRuntime.beginAnimation("battle_move_info_close")
@@ -12039,6 +12147,22 @@ return function(mod)
   local function tapBattle(x, y)
     if battle.nativeUnsupported then return end
     if currentBattleUIMode() == "info" then
+      if y < HEADER and x < 24 and (battleInfoDetail or displayRuntime.enemyInfoSelection ~= nil) then
+        back(); return
+      end
+      if battle.double and displayRuntime.enemyInfoSelection == nil then
+        local slot = THEME.style == "hgss"
+          and THEME.hgss:enemyInfoOpponentHit(x * THEME.hgssScale, y * THEME.hgssScale)
+          or THEME.style ~= "hgss" and x >= 6 and x < 154 and y >= 26 and y < 136
+            and (y < 84 and 1 or 3)
+        for _, mon in ipairs(battle.battlers or {}) do
+          if mon.id == slot and mon.side == "enemy" and not mon.absent then
+            displayRuntime.enemyInfoSelection, dirty = mon.id, true
+            break
+          end
+        end
+        return
+      end
       if THEME.style == "hgss" then
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
         if battleInfoDetail then
@@ -12179,7 +12303,11 @@ return function(mod)
     if battle.prompt == "safari" then
       local choice
       if THEME.style == "hgss" then
-        choice = THEME.hgss:safariHit(x * THEME.hgssScale, y * THEME.hgssScale)
+        if fullBottomBattleUI() then
+          choice = THEME.hgss:battleFullMoveHit(x * THEME.hgssScale, y * THEME.hgssScale)
+        else
+          choice = THEME.hgss:safariHit(x * THEME.hgssScale, y * THEME.hgssScale)
+        end
       elseif fullBottomBattleUI() then
         choice = fullBattleChoice(x, y)
       elseif y >= 24 then
@@ -12264,7 +12392,10 @@ return function(mod)
         local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
         if hy < 30 and hx < 28 then back(); return end
         local slot, info
-        if hgssRuntime.nativeBattleLayout() and not displayRuntime.gen3 then
+        if fullBottomBattleUI() then
+          slot, info = THEME.hgss:battleFullMoveHit(hx, hy)
+          if not slot then return end
+        elseif hgssRuntime.nativeBattleLayout() and not displayRuntime.gen3 then
           slot, info = THEME.hgss:battleStandardMoveHit(hx, hy)
         else
           if hy < 33 or hy >= 198 then return end
@@ -12312,6 +12443,8 @@ return function(mod)
       if hgssRuntime.nativeBattleLayout() then
         choice = THEME.hgss:safariHit(x * THEME.hgssScale, y * THEME.hgssScale)
         if displayRuntime.gen3 and choice then choice = ({ 1, 3, 2, 4 })[choice] end
+      elseif fullBottomBattleUI() then
+        choice = THEME.hgss:battleFullMoveHit(x * THEME.hgssScale, y * THEME.hgssScale)
       else
         choice = THEME.hgss:battleChoice(
           x * THEME.hgssScale, y * THEME.hgssScale)
@@ -13486,7 +13619,7 @@ return function(mod)
       tostring(top and top.picking), tostring(top and top.qtyState),
       tostring(top and top.confirm), tostring(top and top.selecting),
       tostring(not text and top and top.message ~= nil),
-      tostring(moveInfo), tostring(fieldChoice), tostring(pendingFly), tostring(battleInfoDetail),
+      tostring(moveInfo), tostring(fieldChoice), tostring(pendingFly), tostring(battleInfoDetail), tostring(displayRuntime.enemyInfoSelection),
       tostring(partyActionSlot), tostring(displayRuntime.localSummary),
       tostring(displayRuntime.localSummary and displayRuntime.localSummary.page),
       tostring(displayRuntime.nativeSummary and displayRuntime.nativeSummary.page), tostring(page), tostring(mode),
@@ -13752,6 +13885,9 @@ return function(mod)
     if displayRuntime.gen3Pointer then
       displayRuntime.gen3Pointer:release(); displayRuntime.gen3Pointer = nil
     end
+    if displayRuntime.gen3Presentation then
+      displayRuntime.gen3Presentation:release(); displayRuntime.gen3Presentation = nil
+    end
     if displayRuntime.nativeMap then displayRuntime.nativeMap:release(); displayRuntime.nativeMap = nil end
     if displayRuntime.gen3Map then displayRuntime.gen3Map:release(); displayRuntime.gen3Map = nil end
     if displayRuntime.gen3Region then displayRuntime.gen3Region:release(); displayRuntime.gen3Region = nil end
@@ -13775,6 +13911,36 @@ return function(mod)
       displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage, displayRuntime.StoragePage, displayRuntime.ItemPage, displayRuntime.MovePage,
         function() return mod.options:get("keyboard_layout") end)
       game = displayRuntime.gen3:gameView()
+      displayRuntime.gen3Presentation = assert(load(mod:read("gen3_presentation.lua"),
+        "@kanto_gear/gen3_presentation.lua"))().new(function(kind)
+        local adapter = displayRuntime.gen3
+        local raw = adapter and adapter:battleState()
+        if not (customBattleLayout() and active and displayReady and hasDisplay()
+            and raw and battle and not battle.nativeUnsupported) then return false end
+        adapter.syncScreens()
+        -- Unsupported windows retain every original control. Only take the
+        -- doubles HUD when the snapshot contains every battlefield slot.
+        local top = game.stack:top()
+        local menu = displayRuntime.gen3Ui:list(battle)
+        local summary = compat.isScreen(top, "summary") and compat.summary.supports(top, game)
+        if top ~= raw and not (top and top.isTextBox) and not menu and not summary then return false end
+        if require("src.ui.game3.stat_growth").isOpen() and not (menu and menu.nativeStats) then return false end
+        if kind == "partyNavigation" then
+          return THEME.style == "hgss" and menu and menu.party and menu.valid() or false
+        end
+        if kind == "navigation" or kind == "heroNavigation" then
+          return (fullBottomBattleUI() or THEME.style == "hgss")
+            and (kind ~= "heroNavigation" or currentBattleUIMode() == "gear")
+            and top == raw and battle.prompt == "menu"
+            and not raw.battle.safari and not adapter.Message.isOpen()
+        end
+        if kind == "hud" then
+          return fullBottomBattleUI() and (not raw.battle.double
+              or battle.battlers and #battle.battlers == 4)
+            and not adapter.BattleUI.litHealthboxShown()
+        end
+        return true
+      end, hgssRuntime.rootDirection, displayRuntime.PartyPage.direction)
     end
     displayRuntime.homeCatalog.packages.achievements.available = true
     displayRuntime.storeById.achievements.available = true
@@ -13918,7 +14084,13 @@ return function(mod)
         resetSwapState()
       end
       if not assist("move_details") then moveInfo = nil end
-      if payload.key == "auto_battle_screen"
+      if payload.key == "battle_view" then
+        battleInfoDetail, displayRuntime.enemyInfoSelection, moveInfo = nil, nil, nil
+        hgssRuntime.animation = nil
+        displayRuntime.motion.key, displayRuntime.motion.started = nil, nil
+        nextPoll = 0
+      end
+      if payload.key == "battle_view" or payload.key == "auto_battle_screen"
           or payload.key == "display_mode" or payload.key == "fullscreen_start" then
         displayRuntime.updateAutoBattleScreen()
       end
@@ -13960,6 +14132,37 @@ return function(mod)
     displayRuntime.optionsChanged(payload)
   end)
   mod.events:on("mod.kanto_gear.options_changed", displayRuntime.optionsChanged)
+
+  function hgssRuntime.remapBattleRootInput(stepGame)
+    if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss"
+        or displayRuntime.gen3 or not customBattleLayout() or not battle then return end
+    local raw = battleState()
+    local top = game.stack:top()
+    local queue = stepGame and stepGame.input and stepGame.input.pressQueue
+    if not raw or type(queue) ~= "table"
+        or not bottomOwnsBattleUI(customBattleLayout(), active,
+          hasDisplay(), displayReady, raw, battle) then return end
+    if battle.prompt ~= "menu" or top ~= raw then return end
+    for i = 1, #queue do
+      local current = raw.menuIndex or battle.menuIndex or 1
+      local target
+      if fullBottomBattleUI() then
+        target = hgssRuntime.fullRootDirection(current, queue[i])
+      else
+        target = hgssRuntime.rootDirection(current, queue[i])
+      end
+      if target then
+        for key = #queue, 1, -1 do
+          if queue[key] == "a" or hgssRuntime.rootDirection(current, queue[key]) then
+            table.remove(queue, key)
+          end
+        end
+        raw.menuIndex, battle.menuIndex = target, target
+        dirty = true
+        return true
+      end
+    end
+  end
 
   function hgssRuntime.openingBattlePanel(stepGame)
     if stepGame ~= displayRuntime.sourceGame or THEME.style ~= "hgss"
@@ -14077,6 +14280,18 @@ return function(mod)
     if stepGame == displayRuntime.sourceGame then displayRuntime.syncCompanionDetails() end
     if stepGame == displayRuntime.sourceGame and displayRuntime.levelUp:scan(game.save,
         game.stack and game.stack:top()) then dirty = true end
+    hgssRuntime.remapBattleRootInput(stepGame)
+    if stepGame == displayRuntime.sourceGame and customBattleLayout() and moveInfo
+        and battle and battleState() and not battle.nativeUnsupported
+        and active and hasDisplay() and displayReady then
+      local queue = stepGame.input and stepGame.input.pressQueue or {}
+      local cancel = false
+      for i = #queue, 1, -1 do
+        cancel = cancel or queue[i] == "b"
+        table.remove(queue, i)
+      end
+      if cancel then back() end
+    end
     local openingPanel = hgssRuntime.openingBattlePanel(stepGame)
     local closingPanel = hgssRuntime.closingBattlePanel(stepGame)
     local swapPressed, overlayPressed = pollScreenSwap()
@@ -14424,9 +14639,54 @@ return function(mod)
     return next(state)
   end)
 
+  mod.hooks:wrap("battle.bottom_ui_visible", function(next, state)
+    if next(state) == false then return false end
+    local raw = battleState()
+    local top = game and game.stack and game.stack:top()
+    local owned = bottomOwnsBattleUI(
+      customBattleLayout(), active,
+      hasDisplay(), displayReady, raw, battle)
+    return not (owned
+      and (state == raw or (state == top and top.isTextBox)))
+  end)
+
+  mod.hooks:wrap("battle.move_grid_navigation", function(next, state)
+    if next(state) == true then return true end
+    return not displayRuntime.gen3 and companionMoveGrid(state)
+  end)
+
+  mod.hooks:wrap("ui.party.grid_navigation", function(next, state)
+    if next(state) == true then return true end
+    return screenContract(state, "party") ~= nil and bottomOwnsBattleUI(
+      customBattleLayout(), active,
+      hasDisplay(), displayReady, battleState(), battle)
+  end)
+
+  mod.hooks:wrap("battle.status_hud_visible", function(next, state)
+    if next(state) == false then return false end
+    return not bottomOwnsBattleUI(
+      fullBottomBattleUI(), active, hasDisplay(),
+      displayReady, state, battle)
+  end)
+
+  mod.hooks:wrap("screen.render_visible", function(next, state)
+    if next(state) == false then return false end
+    -- Standard/Info never replace native screens, including every stats page.
+    if not customBattleLayout() then return true end
+    if compat.isScreen(state, "summary")
+        and compat.summary.supports(state, game) then
+      return not bottomOwnsBattleUI(customBattleLayout(), active,
+        hasDisplay(), displayReady, battleState(), battle)
+    end
+    local owned = bottomOwnsBattleUI(
+      customBattleLayout(), active,
+      hasDisplay(), displayReady, battleState(), battle)
+    return not (owned and screenContract(state))
+  end)
+
   mod.events:on("battle.ended", function(payload)
     dirty = true
-    battleInfoDetail = nil
+    battleInfoDetail = nil; displayRuntime.enemyInfoSelection = nil
     local state = payload and payload.battle
     local result = payload and payload.result
     if mapId == "OAKS_LAB" and state and state.oppClass == "OPP_RIVAL1"
@@ -14440,7 +14700,7 @@ return function(mod)
     if compat.isBattleScreen(payload and payload.state) then
       battle = nil
       moveInfo = nil
-      battleInfoDetail = nil
+      battleInfoDetail = nil; displayRuntime.enemyInfoSelection = nil
       dirty = true
     elseif payload and payload.state
         and (payload.state.screenId == "MoveLearnMenu"
@@ -14668,7 +14928,7 @@ return function(mod)
         tostring(pendingFly and pendingFly.id),
         tostring(pendingAction and pendingAction.id),
         tostring(partyActionSlot), tostring(partyMoveFrom),
-        tostring(trainerStepsOpen), tostring(battleInfoDetail),
+        tostring(trainerStepsOpen), tostring(battleInfoDetail), tostring(displayRuntime.enemyInfoSelection),
         tostring(displayRuntime.guideDetail
           and displayRuntime.guideDetail.species),
         tostring(displayRuntime.guideDetail and displayRuntime.guideDetail.page),
@@ -14676,8 +14936,9 @@ return function(mod)
         tostring(fieldChoice and fieldChoice.kind),
         tostring(fieldChoice and fieldChoice.source
           and fieldChoice.source.slot) }, ":")
-      -- Native battle text owns its animation upstairs; the dim companion
-      -- needs no blinking arrow or periodic text redraw downstairs.
+      if battle and customBattleLayout() and battle.prompt == "advance" then
+        screenKey = screenKey .. ":" .. tostring(math.floor(now * 4))
+      end
       if page == "LOCAL" and mod.world and mod.world.current then
         if THEME.style ~= "hgss" then
           local pos = mod.world:current()

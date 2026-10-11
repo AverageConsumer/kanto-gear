@@ -173,7 +173,7 @@ local refreshBattle
 for _,entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
  if entry.owner=="kanto_gear" then refreshBattle=upvalue(entry.callback,"refreshBattle") end
 end
-T.eq(display.gen3Presentation,nil,"native presentation has no Gear wrappers")
+T.check(display.gen3Presentation ~= nil,"native presentation has guarded battle wrappers")
 local skin=Screens.skin("bag",session)
 local skinDraw,skinCalls=skin.draw,0
 skin.draw=function() skinCalls=skinCalls+1 end
