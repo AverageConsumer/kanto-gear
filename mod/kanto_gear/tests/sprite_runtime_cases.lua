@@ -77,6 +77,55 @@ return function(T, display, runtime, gen, up)
   end
 
   local theme = up(display.drawContents, "THEME")
+  -- Battle-only sprite hooks must reach both the fight button and team cards,
+  -- without changing ordinary party portraits or replacing custom art by ROM frames.
+  do
+    local G = up(draw, "G")
+    local Sprites = require("src.pokemon.Sprites")
+    local P = gen == 3 and display.gen3.Pokemon
+    local originalPath, originalFront, paint = Sprites.path, P and P.frontPic, G.draw
+    local replacement = G.newImage("battle-only-replacement.png")
+    local received, painted
+    local mon = { species = gen == 3 and 1 or "FIXMON_A", name = "CUSTOM",
+      level = 5, hp = 10, maxHp = 20, expProgress = 0, shiny = true }
+    if P then
+      P.frontPic = function(id, form, shiny, personality, kind)
+        received = { kind = kind, shiny = shiny }
+        if kind == "battle" then return { image = replacement, path = "battle-only-replacement.png" } end
+        return originalFront(id, form, shiny, personality, kind)
+      end
+    else
+      Sprites.path = function(data, species, side, opts)
+        received = opts
+        if opts.kind == "battle" then return "battle-only-replacement.png", true end
+        return originalPath(data, species, side, opts)
+      end
+    end
+    G.draw = function(image, ...) painted = image; return paint(image, ...) end
+    local originalAnim = up(draw, "picAnimFrame")
+    local originalAnim3 = display.gen3PicAnim
+    local animationCalls = 0
+    up(draw, "picAnimFrame", function(...) animationCalls = animationCalls + 1; return originalAnim(...) end, true)
+    display.gen3PicAnim = function(...) animationCalls = animationCalls + 1; return originalAnim3(...) end
+    runtime.battlePortrait({ species = mon.species, source = mon }, 0, 0, 56, false)
+    T.eq(received.kind, "battle", "fight portrait requests battle art")
+    if not P then T.eq(received.mon, mon, "battle hook receives the individual Pokemon")
+    else T.eq(received.shiny, true, "battle hook preserves the shiny flag") end
+    T.eq(painted.__path, replacement.__path, "fight portrait paints the battle-only replacement")
+    T.eq(animationCalls, 0, "native animation cannot overwrite a replaced fight portrait")
+    local partyCard = up(up(up(display.drawCompanionPage, "drawNormalParty"), "drawParty"), "partyCard")
+    local oldBattle = up(partyCard, "battle", {}, true)
+    partyCard(mon, 6, 32, true, true)
+    T.eq(received.kind, "battle", "in-battle team card requests battle art")
+    T.eq(animationCalls, 0, "selected team card cannot animate ROM art over its replacement")
+    up(partyCard, "battle", nil, true)
+    partyCard(mon, 6, 32, false, true)
+    T.eq(received.kind, "summary", "ordinary party cards keep the summary context")
+    up(partyCard, "battle", oldBattle, true)
+    up(draw, "picAnimFrame", originalAnim, true)
+    display.gen3PicAnim, Sprites.path, G.draw = originalAnim3, originalPath, paint
+    if P then P.frontPic = originalFront end
+  end
   local eggFainted
   theme.hgss:partyCard({ name = "EGG", egg = true, hp = 0 }, 6, 32, false, true,
     function(_, _, _, _, fainted) eggFainted = fainted end)

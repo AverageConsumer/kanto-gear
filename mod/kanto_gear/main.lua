@@ -4811,7 +4811,8 @@ return function(mod)
     return mapAsset
   end
 
-  local function sprite(species, side, mon)
+  local function sprite(species, side, mon, kind)
+    kind = kind or mon and mon.spriteKind or "summary"
     if displayRuntime.gen3 then
       local P = displayRuntime.gen3.Pokemon
       local def = game.data.pokemon[species]
@@ -4829,14 +4830,21 @@ return function(mod)
           shiny = P.isShiny(mon)
         end
       end
-      local pic = side == "back" and P.backPic(picId, nil, shiny)
-        or P.frontPic(picId, nil, shiny, mon and mon.personality)
-      return pic and pic.image, true
+      local pic = side == "back" and P.backPic(picId, nil, shiny, kind)
+        or P.frontPic(picId, nil, shiny, mon and mon.personality, kind)
+      -- Recomp marks mod-provided Gen 3 pictures with their source path.
+      return pic and pic.image, true, pic and pic.path ~= nil
     end
     local path, trueColor = PokemonSprites.path(
       game and game.data, species, side,
-      { kind = mon and mon.spriteKind or "summary", mon = mon })
+      { kind = kind, mon = mon })
     if not path then return nil end
+    local Assets = require("src.render.Assets")
+    local resolved = Assets.resolve(path)
+    local def = game.data.pokemon[species]
+    local original = side == "back" and def.spriteBack or def.spriteFront
+    local replaced = path ~= original or resolved ~= path
+    path = resolved
     local key = side .. ":" .. path
     if spriteCache[key] == nil then
       local ok, image = pcall(G.newImage, path)
@@ -4848,7 +4856,7 @@ return function(mod)
       if ok and image then image:setFilter("nearest", "nearest") end
       spriteCache[key] = ok and image or false
     end
-    return spriteCache[key] or nil, trueColor
+    return spriteCache[key] or nil, trueColor, replaced
   end
 
   -- Crystal front-pic animations come from the host's ROM-derived MonAnim
@@ -4961,12 +4969,13 @@ return function(mod)
   end
 
   local function drawSprite(species, side, x, y, maxW, maxH, tint,
-                            mon, quiet, brightness, animate)
+                            mon, quiet, brightness, animate, kind)
     local image = mon and mon.presentationSprite
     local presented = image ~= nil
     local trueColor = image ~= nil and mon.presentationTrueColor ~= false
     mon = mon and (mon.source or mon)
-    if not image then image, trueColor = sprite(species, side, mon) end
+    local replaced
+    if not image then image, trueColor, replaced = sprite(species, side, mon, kind) end
     if not image then
       if not quiet then box("fill", x + 4, y + 4, maxW - 8, maxH - 8, DARK) end
       return false
@@ -4974,7 +4983,7 @@ return function(mod)
     local iw, ih = image:getDimensions()
     local scale = math.min(maxW / iw, maxH / ih)
     local sheet, quad, size, anim3
-    if side == "front" and not presented and animate ~= false
+    if side == "front" and not presented and not replaced and animate ~= false
         and (not brightness or brightness >= 1) then
       sheet, quad, size = picAnimFrame(species, mon, maxW, tint, animate)
       if not quad then anim3 = displayRuntime.gen3PicAnim(species, mon, maxW, tint, animate) end
@@ -8323,8 +8332,9 @@ return function(mod)
             compat.drawPokemonIcon(source, portraitX, portraitY, size,
               fainted and 0.48 or nil)
           elseif not drawSprite(mon.species, "front", portraitX, portraitY,
-              size, size, nil, source, true, fainted and 0.48 or nil,
-              selected == true and not fainted and view.statusId ~= "SLP") then
+              size, size, nil, mon, true, fainted and 0.48 or nil,
+              selected == true and not fainted and view.statusId ~= "SLP",
+              battle and "battle" or "summary") then
             compat.drawPokemonIcon(source, portraitX, portraitY, size,
               fainted and 0.48 or nil)
           end
@@ -8345,7 +8355,7 @@ return function(mod)
       return
     end
     if not drawSprite(mon.species, "front", x + 2, y + 4, 27, 27,
-                      nil, source, true) then
+                      nil, mon, true, nil, nil, battle and "battle" or "summary") then
       compat.drawPokemonIcon(source, x + 2, y + 2)
     end
     text(name, x + 29, y + 4, selected and PAPER or INK)
@@ -8957,7 +8967,7 @@ return function(mod)
 
   function hgssRuntime.battlePortrait(mon, x, y, size, fainted)
     if not drawSprite(mon.species, "front", x, y, size, size,
-        nil, mon.source or mon, true, fainted and 0.48 or nil) then
+        nil, mon.source or mon, true, fainted and 0.48 or nil, nil, "battle") then
       compat.drawPokemonIcon(mon.source or mon, x, y, size,
         fainted and 0.48 or nil)
     end
