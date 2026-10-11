@@ -103,11 +103,11 @@ local cases = {
   { "stamp Pokemon", "ACHIEVEMENTS", function() display.achievements.view = "finds"; display.achievements.category = 4 end,
     display.achievements, "page", 56, 189 },
   { "explorer default", "LOCAL", function() display.explorer.view = nil; display.explorer.selected = nil end,
-    display.explorer, "page", 162, 212 },
+    display.explorer, "page", 139, 210 },
   { "explorer explicit", "LOCAL", function() display.explorer.view = "wild"; display.explorer.selected = nil end,
-    display.explorer, "page", 162, 212 },
+    display.explorer, "page", 139, 210 },
   { "explorer details", "LOCAL", function() display.explorer.selected = "mon" end,
-    display.explorer, "detailPage", 148, 205 },
+    display.explorer, "detailPage", 97, 210 },
   { "store apps", "STORE", function() display.home.storeView = "apps"; display.home.storeDetail = nil end,
     display.home.storePages or {}, "apps", 51, 191 },
   { "store library", "STORE", function() display.home.storeView = "library"; display.home.storeDetail = nil end,
@@ -150,9 +150,9 @@ for _, view in ipairs({ false, "wild" }) do
   end)
   still("Here Now page 2 to Whole Route", function() action = "wild_route"; tap(80, 100) end)
   T.eq(display.explorer.page, 1, "real filter handler resets page")
-  flip("real Explorer pager", function() action = "next"; tap(80, 100) end, 1, 162, 212)
+  flip("real Explorer pager", function() action = "next"; tap(80, 100) end, 1, 139, 210)
   still("in-flight Whole Route to Here Now", function() action = "wild_here"; tap(80, 100) end)
-  flip("real Explorer reverse wrap", function() action = "prev"; tap(80, 100) end, -1, 162, 212)
+  flip("real Explorer reverse wrap", function() action = "prev"; tap(80, 100) end, -1, 139, 210)
   still("map expansion", function() action = "map_toggle"; tap(80, 100) end)
   still("map collapse", function() action = "map_toggle"; tap(80, 100) end)
 end

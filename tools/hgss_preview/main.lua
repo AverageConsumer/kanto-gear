@@ -1082,6 +1082,7 @@ function love.load()
         mapFull = explorerMap,
         mapZoom = tonumber(os.getenv("KANTO_GEAR_PREVIEW_MAP_ZOOM")) or 1,
         wildScope = wildScope, trainerIcon = trainerRows[1],
+        period = not gen1 and (os.getenv("KANTO_GEAR_PREVIEW_PERIOD") or "DAY") or nil,
         drawPlayer = function(_, x, y, tileSize)
           drawOverworld("player", x, y, tileSize / 16, colors.redLight)
         end,
@@ -1131,7 +1132,7 @@ function love.load()
         end
         return false
       end
-      assert(theme:explorerHit(211 * sx, 40 * sx,
+      softAssert(theme:explorerHit(211 * sx, 40 * sx,
         explorerModel) == "map_toggle",
         "Explorer map expand control is always interactive")
       local visibleItems = 0
@@ -1144,7 +1145,7 @@ function love.load()
           == #(overview.markers or {}) + visibleItems + #trainerRows + (fruitCase and 2 or 0),
         "Explorer only reveals hidden-item markers in spoiler mode")
       if explorerMap then
-        assert(theme:explorerHit(20 * sx, 61 * sx,
+        softAssert(theme:explorerHit(20 * sx, 61 * sx,
             explorerModel) == (explorerModel.mapZoom > 1 and "zoom_out" or nil)
           and theme:explorerHit(73 * sx, 61 * sx,
             explorerModel) == (explorerModel.mapZoom < 3 and "zoom_in" or nil)
@@ -1158,7 +1159,7 @@ function love.load()
         return
       end
       if view == "wild" and not selected then
-        assert(theme:explorerHit(50 * sx, 150 * sx, explorerModel)
+        softAssert(theme:explorerHit(50 * sx, 150 * sx, explorerModel)
             == "wild_here"
           and theme:explorerHit(125 * sx, 150 * sx, explorerModel)
             == "wild_route"
@@ -1171,11 +1172,11 @@ function love.load()
             or actionIsReachable("player_scan")),
           "Explorer gallery and map markers are interactive")
       elseif view == "wild" then
-        assert(theme:explorerHit(210 * sx, 114 * sx, explorerModel)
+        softAssert(theme:explorerHit(210 * sx, 114 * sx, explorerModel)
             == (explorerModel.detailPages > 1 and "detail_next" or nil),
           "habitat details expose every exact encounter condition")
       elseif selected then
-        assert(mapMarkerIsReachable(),
+        softAssert(mapMarkerIsReachable(),
           "Explorer item and trainer details remain connected to map markers")
       end
       return

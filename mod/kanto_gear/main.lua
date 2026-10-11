@@ -5873,7 +5873,11 @@ return function(mod)
       local view = explorer.view or "wild"
       local context = table.concat({ view, tostring(explorer.selected),
         explorer.filters.wildScope or "HERE" }, ":")
-      if view == "wild" and not explorer.mapFull then
+      if THEME.style == "hgss" and THEME.hgss.explorerMotionRegion then
+        local first, last, index = THEME.hgss:explorerMotionRegion(view, explorer.selected ~= nil,
+          explorer.mapFull, explorer.page, explorer.detailPage)
+        if first then region(context, index, first, last) end
+      elseif view == "wild" and not explorer.mapFull then
         if explorer.selected then region(context, explorer.detailPage, 148, 205)
         else region(context, explorer.page, 162, 212) end
       end
@@ -7177,7 +7181,8 @@ return function(mod)
       or view == "items" and allItems
       or view == "fruit" and cached.fruits
       or view == "trainers" and allTrainers or {}
-    local perPage = view == "wild" and 4 or math.max(1, #source)
+    local perPage = THEME.style == "hgss" and THEME.hgss.explorerPerPage
+      and THEME.hgss:explorerPerPage(view, #source) or (view == "wild" and 4 or math.max(1, #source))
     local pages = math.max(1, math.ceil(#source / perPage))
     explorer.page = math.max(1, math.min(explorer.page, pages))
     local first, rows = (explorer.page - 1) * perPage + 1, {}
@@ -7282,6 +7287,7 @@ return function(mod)
       itemsText = progress(mapItems),
       trainersText = progress(allTrainers),
       wildScope = filters.wildScope,
+      period = guide.timed ~= false and guide.time or nil,
       trainerIcon = allTrainers[1],
       drawPlayer = function(player, x, y, tileSize)
         compat.drawMapMarker(x, y, tileSize / 16, true, player.facing)
@@ -13297,7 +13303,7 @@ return function(mod)
         displayRuntime.explorer.detailPage = 1
         displayRuntime.explorer.mapFull = false
       elseif action == "row" and model.rows[slot] then
-        displayRuntime.explorer.view = "wild"
+        displayRuntime.explorer.view = model.view or "wild"
         displayRuntime.explorer.selected = model.rows[slot].key
         displayRuntime.explorer.detailPage = 1
       end

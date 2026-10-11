@@ -83,120 +83,6 @@ return function(H, ui, K)
     return a.minLevel == a.maxLevel and "L" .. tostring(a.minLevel)
       or "L" .. tostring(a.minLevel) .. "-" .. tostring(a.maxLevel)
   end
-
-  ---------------------------------------------------------------------------
-  -- Route header + map tools
-  ---------------------------------------------------------------------------
-  local PIN = { ".ooo.", "o###o", "o#w#o", "o###o", ".o#o.", "..o.." }
-  local EXPAND = { "##..##", "#....#", "......", "......", "#....#", "##..##" }
-  local COLLAPSE = { "#....#", ".#..#.", "......", "......", ".#..#.", "#....#" }
-
-  function H:v4RouteHeader(model)
-    local colors, tok = self.colors, self.tok
-    local accent = cg(self) and tok.acc.M or colors.green
-    self:v4Window(7, 32, 226, 18, { fill = mix(colors.surface, accent, self.dark and 0.12 or 0.07) })
-    ART(PIN, 12, 38, { o = colors.outline, ["#"] = hex("e05848"), w = WHITE })
-    local route = self:fitPartyInfo(model.route or translate("UNKNOWN AREA"), 80)
-    self:partyInfo(route, 20, 35, colors.ink)
-    local rw = self:partyInfoWidth(route)
-    local sub = self:fitPartyType(model.subarea or translate("OUTDOORS"), 160 - rw - 40)
-    local region = self:fitPartyType(model.region or "KANTO", 44)
-    local x = 20 + rw + 6
-    R(x, 38, 1, 7, colors.band)
-    self:partyInfo(sub, x + 4, 36, colors.green)
-    local regW = self:partyInfoWidth(region)
-    self:partyInfo(region, 199 - regW, 36, colors.mutedInk)
-    -- map toggle (hit 202..232 × 32..50)
-    local pressed = self:beginPress(206, 34, 21, 14)
-    self:v4Key(206, 34, 21, 14)
-    ART(model.mapFull and COLLAPSE or EXPAND, 213, 37, { ["#"] = colors.ink })
-    self:endPress(pressed)
-  end
-
-  local function zoomBar(self, model)
-    local colors = self.colors
-    self:v4Window(7, 53, 226, 16)
-    local zoom = model.mapZoom or 1
-    local minus = self:beginPress(11, 54, 18, 14, zoom > 1)
-    self:v4Key(11, 55, 18, 12, zoom > 1 and nil or { cap = colors.bandLight, lip = colors.band, hi = colors.bandLight })
-    R(17, 60, 6, 2, zoom > 1 and colors.ink or colors.disabledInk)
-    self:endPress(minus)
-    -- zoom pips
-    for i = 1, 3 do
-      local on = i <= zoom
-      local px = 36 + (i - 1) * 8
-      R(px, 58, 6, 6, colors.outline)
-      R(px + 1, 59, 4, 4, on and (cg(self) and self.tok.acc.M or colors.green) or colors.bandLight)
-    end
-    local plus = self:beginPress(64, 54, 18, 14, zoom < 3)
-    self:v4Key(64, 55, 18, 12, zoom < 3 and nil or { cap = colors.bandLight, lip = colors.band, hi = colors.bandLight })
-    local c = zoom < 3 and colors.ink or colors.disabledInk
-    R(70, 60, 6, 2, c); R(72, 58, 2, 6, c)
-    self:endPress(plus)
-    if not model.showMapStats then return end
-    R(85, 56, 1, 10, colors.band)
-    R(157, 56, 1, 10, colors.band)
-    -- items
-    local itemsText = tostring(model.itemsText or "--")
-    local iw = self:partyInfoWidth(itemsText)
-    local left = 86 + floor((71 - 12 - iw) / 2)
-    ART({ "..ooo..", ".o...o.", "ooooooo", "o#####o", "o##o##o", "o#####o", "ooooooo" }, left, 57,
-      { o = colors.outline, ["#"] = colors.amberLight })
-    self:partyInfo(itemsText, left + 11, 55, colors.ink)
-    local trainersText = tostring(model.trainersText or "--")
-    local tw = self:partyInfoWidth(trainersText)
-    local hasTrainer = model.drawActor and model.trainerIcon
-    local tl = 158 + floor((71 - (hasTrainer and 11 or 0) - tw) / 2)
-    if hasTrainer then model.drawActor(model.trainerIcon, tl + 4, 61, 0.5, false) end
-    self:partyInfo(trainersText, tl + (hasTrainer and 11 or 0), 55, colors.ink)
-  end
-
-  ---------------------------------------------------------------------------
-  -- Encounter cards (overview)
-  ---------------------------------------------------------------------------
-  local CARD_W, CARD_GAP, CARD_Y, CARD_H = 54, 3, 162, 48
-  local function cardX(index) return 7 + (index - 1) * (CARD_W + CARD_GAP) end
-
-  function H:v4EncounterCard(row, x, y, model)
-    local colors = self.colors
-    local accent = self:typeColor(row.type)
-    local pressed = self:beginPress(x, y, CARD_W, CARD_H)
-    local here = row.best and row.best.current
-    self:v4Window(x, y, CARD_W, CARD_H, { fill = mix(colors.surface, accent, self.dark and 0.16 or 0.1) })
-    -- type lip
-    if cg(self) then R(x + 1, y + 3, 2, CARD_H - 6, accent)
-    else R(x + 4, y + 1, CARD_W - 8, 2, accent) end
-    local uncaught = not row.caught
-    self:v4Seat(x + 12, y + 3, 30, false, here)
-    if model.drawPokemon then model.drawPokemon(row, x + 13, y + 4, 28, uncaught) end
-    if row.caught then self:v4MiniBall(x + CARD_W - 10, y + 4, "ok")
-    elseif not row.gift then self:v4MiniBall(x + CARD_W - 10, y + 4, "none") end
-    if here then
-      local t = self:clock()
-      local c = hex("f8d048")
-      if floor(t / 0.5) % 2 == 0 then P(x + 5, y + 5, c); R(x + 4, y + 6, 3, 1, c); P(x + 5, y + 7, c) end
-      self:wantAmbient(0.5)
-    end
-    if row.gift then
-      local label = row.trade and "TRADE" or row.loan and "LOAN" or (row.cost or row.coinCost) and "OFFER" or "GIFT"
-      self:v4MethodGlyph("GIFT", x + 5, y + 35)
-      self:partyInfo(self:fitPartyType(translate(label), CARD_W - 16), x + 14, y + 33,
-        row.available and colors.ink or colors.mutedInk)
-    elseif row.best then
-      self:v4MethodGlyph(row.best.method, x + 5, y + 35)
-      local odds = tostring(row.best.chance or 0) .. "%"
-      self:partyInfo(odds, x + 14, y + 33, here and colors.ink or colors.mutedInk)
-      if row.best.time and K.periodIcon then
-        K.periodIcon(row.best.time, x + CARD_W - 12, y + 35, colors.mutedInk)
-      end
-      self:v4ChanceBar(x + 5, y + CARD_H - 6, CARD_W - 10, row.best.chance)
-    end
-    self:endPress(pressed)
-  end
-
-  ---------------------------------------------------------------------------
-  -- Detail cards
-  ---------------------------------------------------------------------------
   local function statusColor(self, key)
     local colors = self.colors
     if key == "CAUGHT" or key == "FOUND" or key == "BEATEN" or key == "RECORDED"
@@ -306,35 +192,400 @@ return function(H, ui, K)
     end
   end
 
-  -- Item / trainer / fruit cards share one layout: seat · name · status | kind · where
-  local function infoCard(self, accent, seatDraw, name, status, kind, where, kindGlyph)
-    local colors = self.colors
-    self:v4Window(7, 140, 226, 70, { fill = mix(colors.surface, accent, self.dark and 0.12 or 0.07) })
-    if cg(self) then R(8, 144, 2, 62, accent) else R(11, 141, 218, 2, accent) end
-    CIRC(13, 149, 40, colors.outline)
-    CIRC(14, 150, 38, mix(colors.surface, accent, self.dark and 0.3 or 0.22))
-    K.CIRCrows(14, 150, 38, 19, 38, mix(colors.surface, accent, self.dark and 0.42 or 0.34))
-    R(20, 153, 4, 1, { 1, 1, 1, 0.6 })
-    seatDraw(33, 169)
-    local line1, line2 = self:splitPartyInfo(name, 70)
-    local nameY = line2 and 146 or 152
-    self:partyInfo(line1, 58, nameY, colors.ink)
-    if line2 then self:partyInfo(line2, 58, nameY + 12, colors.ink) end
-    self:v4Pill(status, 58, 180, statusColor(self, status), { maxW = 72 })
-    R(134, 148, 1, 54, colors.band)
-    local kx = 140
-    if kindGlyph then kindGlyph(kx, 157); kx = kx + 11 end
-    self:partyInfo(self:fitPartyType(translate(kind), 225 - kx), kx, 155, colors.green)
-    local lines = { self:splitPartyInfo(translate(where), 86) }
-    for i, line in ipairs(lines) do self:partyInfo(line, 140, 172 + (i - 1) * 12, colors.ink) end
+  ---------------------------------------------------------------------------
+  -- Geometry. Explorer owns its map frame: the hgss map layout helper is
+  -- reached through the stock motion-key closure so movement repaints,
+  -- marker hits and scan cues all agree with what is drawn.
+  ---------------------------------------------------------------------------
+  local HEADER_Y, HEADER_H = 32, 20
+  local MAP_X, MAP_W = 7, 226
+  local MAP_Y, MAP_H = 54, 64          -- overview
+  local DETAIL_MAP_H = 40              -- any selection
+  local FULL_Y, FULL_H = 74, 136       -- expanded map
+  local TAB_Y, TAB_H, TAB_W, TAB_STEP = 121, 17, 54, 56
+  local PANEL_Y = 137
+  local CARD_W, CARD_H = 109, 33
+  local CARD_POS = { { 10, 141 }, { 121, 141 }, { 10, 176 }, { 121, 176 } }
+
+  local stockLayout, stockMotionKey
+  do
+    local motion = K.base.explorerMotionKey
+    if motion and debug and debug.getupvalue then
+      for i = 1, 40 do
+        local name, value = debug.getupvalue(motion, i)
+        if not name then break end
+        if name == "mapLayout" then stockLayout = value end
+        if name == "mapMotionKey" then stockMotionKey = value end
+      end
+    end
   end
 
-  local HIDDEN = { "..#..", ".#.#.", "#.#.#", ".#.#.", "..#.." }
+  local function mapFrame(model)
+    if model.mapFull then return MAP_X, FULL_Y, MAP_W, FULL_H end
+    if model.selected then return MAP_X, MAP_Y, MAP_W, DETAIL_MAP_H end
+    return MAP_X, MAP_Y, MAP_W, MAP_H
+  end
+  local function focusOf(model)
+    local marker = model.selectedMarker
+    return marker and (marker.kind == "trainer" or marker.kind == "fruit" or marker.gift) and marker or model.player
+  end
+  local function layoutOf(model, player)
+    if not stockLayout then return nil end
+    local x, y, w, h = mapFrame(model)
+    local ok, layout = pcall(stockLayout, model.overview, x, y, w, h, {
+      player = player or model.player, focus = focusOf(model), full = model.mapFull, zoom = model.mapZoom })
+    return ok and layout or nil
+  end
+
+  -- Only take over when the stock helpers were found; otherwise the stock
+  -- Explorer keeps working unchanged.
+  local OWN = stockLayout ~= nil and stockMotionKey ~= nil
+
+  ---------------------------------------------------------------------------
+  -- Pieces
+  ---------------------------------------------------------------------------
+  local PIN = { ".ooo.", "o###o", "o#w#o", "o###o", ".o#o.", "..o.." }
+  local EXPAND = { "##..##", "#....#", "......", "......", "#....#", "##..##" }
+  local COLLAPSE = { "#....#", ".#..#.", "......", "......", ".#..#.", "#....#" }
+  local CHEV_L = { "..#", ".##", "###", ".##", "..#" }
+  local CHEV_R = { "#..", "##.", "###", "##.", "#.." }
+  local TAB_ICON = {
+    wild = { art = { "..#.#..", ".#.#.#.", "##.#.##", "#######" }, tint = "48a858" },
+    trainers = { art = { ".ooo.", "o###o", "oowoo", ".o#o.", "o###o", "ooooo" }, tint = "e05848" },
+    items = { art = { ".ooo.", "o###o", "ooooo", "owwwo", ".ooo." }, tint = "e05848" },
+  }
+  local PERIOD_ORDER = { "MORN", "DAY", "NITE" }
+  local MINI_PERIOD = {
+    MORN = { ".....", "..#..", "#####", ".###.", "....." },
+    DAY = { "#.#.#", ".###.", "#####", ".###.", "#.#.#" },
+    NITE = { ".##..", "##...", "##...", "##...", ".##.." },
+  }
+  local PERIOD_TINT = { MORN = "f0a050", DAY = "e8b820", NITE = "5878d8" }
+
+  local function periodChip(self, period, right, y)
+    if not period then return right end
+    local colors = self.colors
+    local label = translate(period)
+    local w = self:partyInfoWidth(label) + 20
+    local x = right - w
+    local c = hex(PERIOD_TINT[period] or "e8b820")
+    local fill = mix(colors.surface, c, self.dark and 0.35 or 0.28)
+    if cg(self) then CH(x, y, w, 14, 3, mix(c, { 0, 0, 0, 1 }, 0.3)); CH(x + 1, y + 1, w - 2, 12, 2, fill)
+    else RR(x, y, w, 14, 5, mix(c, { 0, 0, 0, 1 }, 0.3)); RR(x + 1, y + 1, w - 2, 12, 4, fill) end
+    if K.periodIcon then K.periodIcon(period, x + 5, y + 4, mix(c, { 0, 0, 0, 1 }, 0.15)) end
+    self:partyInfo(label, x + 14, y + 1, colors.ink)
+    return x - 4
+  end
+
+  function H:v4RouteHeader(model)
+    local colors, tok = self.colors, self.tok
+    self:v4Window(MAP_X, HEADER_Y, MAP_W, HEADER_H)
+    ART(PIN, 12, HEADER_Y + 7, { o = colors.outline, ["#"] = hex("e05848"), w = WHITE })
+    -- expand / collapse key (hit 202..232)
+    local pressed = self:beginPress(208, HEADER_Y + 3, 21, 14)
+    self:v4Key(208, HEADER_Y + 3, 21, 14)
+    ART(model.mapFull and COLLAPSE or EXPAND, 215, HEADER_Y + 6, { ["#"] = colors.ink })
+    self:endPress(pressed)
+    local right = periodChip(self, model.period, 204, HEADER_Y + 3)
+    local route = self:fitPartyInfo(model.route or translate("UNKNOWN AREA"), right - 22 - 10)
+    self:partyName(route, 20, HEADER_Y + 3, colors.ink, right - 22)
+    local rw = self:partyInfoWidth(route)
+    local where = translate(model.region or "KANTO")
+    if model.subarea and model.subarea ~= "" then where = where .. " · " .. translate(model.subarea) end
+    local room = right - (20 + rw + 8)
+    if room > 24 then
+      self:partyInfo(self:fitPartyInfo(where, room), 20 + rw + 8, HEADER_Y + 4, colors.mutedInk)
+    end
+  end
+
+  local function zoomBar(self, model)
+    local colors = self.colors
+    local y = 54
+    self:v4Window(MAP_X, y, MAP_W, 17)
+    local zoom = model.mapZoom or 1
+    local off = { cap = colors.bandLight, lip = colors.band, hi = colors.bandLight }
+    local minus = self:beginPress(11, y + 1, 18, 15, zoom > 1)
+    self:v4Key(11, y + 2, 18, 13, zoom > 1 and nil or off)
+    R(17, y + 7, 6, 2, zoom > 1 and colors.ink or colors.disabledInk)
+    self:endPress(minus)
+    for i = 1, 3 do
+      local px = 36 + (i - 1) * 8
+      R(px, y + 5, 6, 6, colors.outline)
+      R(px + 1, y + 6, 4, 4, i <= zoom and (cg(self) and self.tok.acc.M or colors.green) or colors.bandLight)
+    end
+    local plus = self:beginPress(64, y + 1, 18, 15, zoom < 3)
+    self:v4Key(64, y + 2, 18, 13, zoom < 3 and nil or off)
+    local c = zoom < 3 and colors.ink or colors.disabledInk
+    R(70, y + 7, 6, 2, c); R(72, y + 5, 2, 6, c)
+    self:endPress(plus)
+    if not model.showMapStats then return end
+    R(86, y + 3, 1, 11, colors.band); R(158, y + 3, 1, 11, colors.band)
+    local itemsText = tostring(model.itemsText or "--")
+    local iw = self:partyInfoWidth(itemsText)
+    local left = 87 + floor((71 - 10 - iw) / 2)
+    ART(TAB_ICON.items.art, left, y + 6, { o = colors.outline, ["#"] = hex("e05848"), w = WHITE })
+    self:partyInfo(itemsText, left + 9, y + 2, colors.ink)
+    local trainersText = tostring(model.trainersText or "--")
+    local tw = self:partyInfoWidth(trainersText)
+    local tl = 159 + floor((71 - 10 - tw) / 2)
+    ART(TAB_ICON.trainers.art, tl, y + 5, { o = colors.outline, ["#"] = hex("e05848"), w = hex("f8c8a0") })
+    self:partyInfo(trainersText, tl + 9, y + 2, colors.ink)
+  end
+
+  -- Folder tabs joined to the list panel below.
+  local function tabs(self, model)
+    local colors = self.colors
+    local counts = { wild = tostring(model.wildCount or model.total or 0),
+      trainers = tostring(model.trainersText or "0"), items = tostring(model.itemsText or "0") }
+    local labels = { wild = "WILD", trainers = "TRAINERS", items = "ITEMS" }
+    local active = model.view
+    for i, view in ipairs({ "wild", "trainers", "items" }) do
+      local x = MAP_X + (i - 1) * TAB_STEP
+      local on = view == active
+      local pressed = self:beginPress(x, TAB_Y, TAB_W, TAB_H, not on)
+      local fill = on and colors.surface or (self.dark and mix(colors.surface, colors.outline, 0.35) or colors.bandLight)
+      if cg(self) then
+        CH(x, TAB_Y, TAB_W, TAB_H + (on and 3 or 0), 3, on and self.tok.border or colors.outline)
+        CH(x + 1, TAB_Y + 1, TAB_W - 2, TAB_H + (on and 3 or -2), 2, fill)
+        if on then R(x + 3, TAB_Y + 1, TAB_W - 6, 2, self.tok.acc.M) end
+      else
+        RR(x, TAB_Y, TAB_W, TAB_H + (on and 4 or 0), 4, colors.outline)
+        RR(x + 1, TAB_Y + 1, TAB_W - 2, TAB_H + (on and 4 or -2), 3, fill)
+        if on then R(x + 4, TAB_Y + 1, TAB_W - 8, 1, WHITE) end
+      end
+      local icon = TAB_ICON[view]
+      local tint = hex(icon.tint)
+      if not on then tint = mix(tint, colors.surface, 0.35) end
+      local label = self:fitPartyInfo(translate(labels[view]), TAB_W - 14)
+      local count = counts[view]
+      local lw = self:partyInfoWidth(label)
+      local iconW = #icon.art[1]
+      local total = iconW + 3 + lw
+      local lx = x + floor((TAB_W - total) / 2)
+      ART(icon.art, lx, TAB_Y + floor((TAB_H - #icon.art) / 2), { o = colors.outline, ["#"] = tint, w = on and hex("f8c8a0") or colors.surface })
+      self:partyInfo(label, lx + iconW + 3, TAB_Y + 2, on and colors.ink or colors.mutedInk)
+      self:endPress(pressed)
+      model.tabCounts = model.tabCounts or {}
+      model.tabCounts[view] = count
+    end
+  end
+
+  local function panel(self)
+    local colors = self.colors
+    self:v4Window(MAP_X, PANEL_Y, MAP_W, 210 - PANEL_Y)
+  end
+
+  local function scopeSwitch(self, model)
+    -- HERE | ALL lives in the free tab-row space to the right.
+    local x, y, w = MAP_X + 3 * TAB_STEP + 2, TAB_Y + 1, MAP_W - 3 * TAB_STEP - 2
+    local scope = model.wildScope == "ROUTE" and "ROUTE" or "HERE"
+    self:v4Segments(x, y - 1, w, { { "HERE", "HERE" }, { "ALL", "ROUTE" } }, scope, true)
+  end
+
+  ---------------------------------------------------------------------------
+  -- Cards
+  ---------------------------------------------------------------------------
+  local function cardFrame(self, x, y, accent, dim)
+    local colors = self.colors
+    local fill = dim and (self.dark and mix(colors.surface, colors.outline, 0.25) or colors.bandLight)
+      or mix(colors.surface, accent, self.dark and 0.14 or 0.08)
+    if cg(self) then
+      CH(x, y, CARD_W, CARD_H, 4, colors.outline); CH(x + 1, y + 1, CARD_W - 2, CARD_H - 2, 3, fill)
+      R(x + 1, y + 5, 2, CARD_H - 10, accent)
+    else
+      RR(x, y, CARD_W, CARD_H, 4, colors.outline); RR(x + 1, y + 1, CARD_W - 2, CARD_H - 2, 3, fill)
+      R(x + 4, y + 1, CARD_W - 8, 1, self.dark and mix(fill, WHITE, 0.1) or WHITE)
+    end
+  end
+
+  local function periodsFor(row)
+    local on = {}
+    for _, m in ipairs(row.matches or {}) do
+      if m.current ~= nil and (m.mapId == nil or m.rank ~= 4) then
+        if m.time then on[m.time] = true else on.MORN, on.DAY, on.NITE = true, true, true end
+      end
+    end
+    return on
+  end
+
+  local function encounterCard(self, row, x, y, model)
+    local colors = self.colors
+    local typeId = row.type or row.types and row.types[1]
+    local accent = self:typeColor(typeId)
+    local best = row.best or {}
+    local now = row.gift and row.available ~= false or best.current
+    local dim = not now
+    local pressed = self:beginPress(x, y, CARD_W, CARD_H)
+    cardFrame(self, x, y, accent, dim)
+    self:v4Seat(x + 3, y + 2, 29, false, now)
+    if model.drawPokemon then model.drawPokemon(row, x + 4, y + 3, 27, not row.caught and not row.gift) end
+    local ink, quiet = dim and colors.mutedInk or colors.ink, colors.mutedInk
+    self:partyInfo(self:fitPartyInfo(row.isEgg and translate("EGG") or row.name or "???", 60), x + 35, y + 1, ink)
+    if row.caught then self:v4MiniBall(x + CARD_W - 10, y + 3, "ok")
+    elseif not row.gift then self:v4MiniBall(x + CARD_W - 10, y + 3, "none") end
+    if row.gift then
+      local label = row.trade and "TRADE" or row.loan and "LOAN" or (row.cost or row.coinCost) and "OFFER" or "GIFT"
+      self:v4MethodGlyph("GIFT", x + 35, y + 13)
+      self:v4Pill(label, x + 45, y + 12, hex("d05878"), { maxW = 56 })
+      return self:endPress(pressed)
+    end
+    self:v4MethodGlyph(best.method, x + 35, y + 13, dim and colors.silverDark or nil)
+    self:partyInfo(levels(best), x + 45, y + 11, quiet)
+    if best.blocked then
+      self:v4Pill("TOOL", x + CARD_W - 4, y + 12, hex("d89020"), { right = true })
+    elseif model.period then
+      local on = periodsFor(row)
+      for i, p in ipairs(PERIOD_ORDER) do
+        local px = x + CARD_W - 22 + (i - 1) * 6
+        local c = on[p] and hex(PERIOD_TINT[p]) or (self.dark and hex("3a4450") or hex("d0d6cc"))
+        ART(MINI_PERIOD[p], px, y + 13, { ["#"] = c })
+        if p == model.period then R(px, y + 19, 5, 1, on[p] and c or colors.silver) end
+      end
+    end
+    -- chance bar + percentage
+    local pct = tostring(best.chance or 0) .. "%"
+    local pw = self:partyInfoWidth(pct)
+    self:v4ChanceBar(x + 35, y + 25, CARD_W - 41 - pw, dim and 0 or best.chance)
+    if dim then R(x + 36, y + 26, floor((CARD_W - 43 - pw) * math.min(1, (best.chance or 0) / 60)), 1, colors.silverDark) end
+    self:partyInfo(pct, x + CARD_W - 4 - pw, y + 21, ink)
+    self:endPress(pressed)
+  end
+
+  local function statusOf(row, kind)
+    if kind == "trainers" then
+      return row.missed and "MISSED" or row.done and "BEATEN" or row.status or "OPEN"
+    end
+    return row.done and "FOUND" or row.status == "NOT TRACKED" and "UNKNOWN" or row.status or "OPEN"
+  end
+
+  local function listCard(self, row, x, y, model, kind, statusColor)
+    local colors = self.colors
+    local accent = kind == "trainers" and hex("e05848") or hex("e8a030")
+    local status = statusOf(row, kind)
+    local done = row.done
+    local pressed = self:beginPress(x, y, CARD_W, CARD_H)
+    cardFrame(self, x, y, accent, done)
+    CIRC(x + 3, y + 2, 29, colors.outline)
+    CIRC(x + 4, y + 3, 27, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
+    K.CIRCrows(x + 4, y + 3, 27, 14, 27, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
+    if kind == "trainers" then
+      if model.drawActor then model.drawActor(row, x + 17, y + 25, 1, false) end
+    else
+      self:battleItemIcon({ icon = row.kind == "hidden" and "item" or row.icon or "item" }, x + 8, y + 8, colors.amberLight)
+    end
+    local name = row.kind == "hidden" and not done and translate("HIDDEN") or row.displayLabel or row.label or ""
+    local a, b = self:splitPartyInfo(name, CARD_W - 40)
+    if b and #b > 0 then
+      self:partyInfo(a, x + 35, y + 0, done and colors.mutedInk or colors.ink)
+      self:partyInfo(self:fitPartyInfo(b, CARD_W - 40), x + 35, y + 10, done and colors.mutedInk or colors.ink)
+    else
+      self:partyInfo(self:fitPartyInfo(name, CARD_W - 40), x + 35, y + 3, done and colors.mutedInk or colors.ink)
+    end
+    self:v4Pill(status, x + 35, y + 20, statusColor(self, status), { maxW = CARD_W - 40 })
+    self:endPress(pressed)
+  end
+
+  local function pagerCard(self, x, y, model)
+    local colors = self.colors
+    local enabled = model.pages > 1
+    self:v4Window(x, y, CARD_W, CARD_H, { fill = colors.bandLight, shadow = false })
+    local half = floor(CARD_W / 2)
+    local p1 = self:beginPress(x, y, half, CARD_H, enabled)
+    ART(CHEV_L, x + 10, y + 14, { ["#"] = colors.ink }); self:endPress(p1)
+    local p2 = self:beginPress(x + half, y, CARD_W - half, CARD_H, enabled)
+    ART(CHEV_R, x + CARD_W - 13, y + 14, { ["#"] = colors.ink }); self:endPress(p2)
+    self:partyInfo(model.page .. "/" .. model.pages, x + 16, y + 6, colors.ink, CARD_W - 32, "center")
+    for i = 1, min(model.pages, 6) do
+      local dx = x + floor(CARD_W / 2) - min(model.pages, 6) * 3 + (i - 1) * 6
+      R(dx, y + 22, 4, 4, i == model.page and (cg(self) and self.tok.acc.M or colors.green) or colors.silver)
+    end
+  end
+
+  -- Main shows ≤4 rows when they all fit, otherwise 3 rows + a pager card.
+  function H:explorerPerPage(view, total)
+    if view == "fruit" then return math.max(1, total) end
+    return total <= 4 and 4 or 3
+  end
+
+  function H:explorerMotionRegion(view, selected, full, page, detailPage)
+    if full then return nil end
+    if selected then return 97, 210, detailPage end
+    return PANEL_Y + 2, 210, page
+  end
+
+  ---------------------------------------------------------------------------
+  -- Map
+  ---------------------------------------------------------------------------
+  local baseMap = H.explorerMap
+  function H:explorerMap(model, retained)
+    if not OWN then return baseMap(self, model, retained) end
+    local colors = self.colors
+    local x, y, w, h = mapFrame(model)
+    local focus = focusOf(model)
+    local layout = self:mapOverview(model.overview, x, y, w, h, {
+      retainFrame = retained, snapshot = model.mapSnapshot, cacheKey = model.mapCacheKey,
+      image = model.image, player = model.player, markers = model.markers, focus = focus,
+      selected = model.selectedMarker, drawPlayer = model.drawPlayer,
+      drawTrainer = model.drawTrainer, full = model.mapFull, zoom = model.mapZoom,
+    })
+    if model.canScan and model.player and focus == model.player and layout then
+      local G = ui.graphics
+      local px = layout.left + (model.player.x + 0.5) * layout.tileSize
+      local py = layout.top + (model.player.y + 0.5) * layout.tileSize
+      local cue = max(6, floor(layout.tileSize * 0.75))
+      G.setScissor(layout.innerX, layout.innerY, layout.innerW, layout.innerH)
+      K.setc(colors.greenLight)
+      G.circle("line", px, py, cue)
+      if model.scanProgress and model.scanProgress < 1 then
+        G.circle("line", px, py, max(cue + 2, layout.tileSize * math.sqrt(41) * model.scanProgress))
+      elseif model.scanHint then
+        local label = translate("SCAN")
+        local lw = max(24, self:partyInfoWidth(label) + 8)
+        local left = max(layout.innerX + 2, min(layout.innerX + layout.innerW - lw - 2, floor(px - lw / 2)))
+        local top = max(layout.innerY + 2, floor(py - cue - 13))
+        self:v4Pill(label, left, top, cg(self) and self.tok.acc.M or colors.green, { w = lw, raw = true })
+        R(floor(px) - 1, top + 11, 3, 2, colors.outline)
+      end
+      G.setScissor()
+    end
+  end
+
+  local baseMotion = H.explorerMotionKey
+  function H:explorerMotionKey(model, player)
+    if not OWN then return baseMotion(self, model, player) end
+    return stockMotionKey(layoutOf(model, player), player)
+  end
+
+  ---------------------------------------------------------------------------
+  -- Detail card for items / trainers / fruit (map 54..94, card 97..210)
+  ---------------------------------------------------------------------------
+  local HIDDEN_G = { "..#..", ".#.#.", "#.#.#", ".#.#.", "..#.." }
+  local function infoCard(self, accent, seatDraw, name, status, statusTint, kind, where, kindGlyph)
+    local colors = self.colors
+    self.v4SummaryWindow(self, MAP_X, 97, MAP_W, 113, accent)
+    CIRC(13, 103, 46, colors.outline)
+    CIRC(14, 104, 44, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
+    K.CIRCrows(14, 104, 44, 22, 44, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
+    R(21, 108, 5, 1, { 1, 1, 1, 0.6 })
+    seatDraw(36, 126)
+    local a, b = self:splitPartyInfo(name, 160)
+    self:partyName(a, 66, 102, colors.ink, 160)
+    if b and #b > 0 then self:partyName(b, 66, 115, colors.ink, 160) end
+    self:v4Pill(status, 66, b and 131 or 120, statusTint, { maxW = 150 })
+    R(14, 154, 212, 1, colors.band)
+    local kx = 16
+    if kindGlyph then kindGlyph(kx, 162); kx = kx + 10 end
+    self:partyInfo(self:fitPartyInfo(translate(kind), 200), kx, 159, colors.green)
+    local lines = { self:splitPartyInfo(translate(where), 204) }
+    for i, line in ipairs(lines) do self:partyInfo(line, 16, 174 + (i - 1) * 12, colors.ink) end
+  end
 
   ---------------------------------------------------------------------------
   -- Explorer page
   ---------------------------------------------------------------------------
+  local baseExplorer = H.explorer
   function H:explorer(model)
+    if not OWN then return baseExplorer(self, model) end
     local colors, view, selected = self.colors, model.view, model.selected
     self:v4RouteHeader(model)
     if model.mapFull then zoomBar(self, model) end
@@ -346,78 +597,105 @@ return function(H, ui, K)
       return
     elseif selected and view == "fruit" then
       local status = selected.picked and "PICKED TODAY" or "READY TO PICK"
-      infoCard(self, colors.green, function(cx, cy)
-        self:fruitIcon(cx - 8, cy - 8, 2, selected.picked)
-      end, selected.label or "", status, "BERRY TREE", "REGROWS DAILY")
+      infoCard(self, colors.green, function(cx, cy) self:fruitIcon(cx - 8, cy - 8, 2, selected.picked) end,
+        selected.label or "", status, selected.picked and colors.silverDark or colors.hp,
+        "BERRY TREE", "REGROWS DAILY")
       return
     elseif selected and view == "items" then
-      local status = selected.done and "FOUND" or selected.status == "NOT TRACKED" and "UNKNOWN"
-        or selected.status or "OPEN"
+      local status = statusOf(selected, "items")
       local kind = selected.gift and "NPC GIFT" or selected.kind == "hidden" and "HIDDEN" or "VISIBLE"
-      infoCard(self, colors.amberLight, function(cx, cy)
+      infoCard(self, hex("e8a030"), function(cx, cy)
         self:battleItemIcon({ icon = selected.kind == "hidden" and "item" or selected.icon or "item" },
-          cx - 10, cy - 3, colors.amberLight)
-      end, selected.displayLabel or selected.label or "", status, kind,
+          cx - 10, cy - 9, colors.amberLight)
+      end, selected.displayLabel or selected.label or "", status, statusColor(self, status), kind,
         selected.location or "ON THIS MAP", selected.kind == "hidden" and function(x, y)
-          ART(HIDDEN, x, y, { ["#"] = colors.green })
+          ART(HIDDEN_G, x, y, { ["#"] = colors.green })
         end or nil)
       return
     elseif selected and view == "trainers" then
-      local status = selected.missed and "MISSED" or selected.done and "BEATEN" or selected.status or "OPEN"
+      local status = statusOf(selected, "trainers")
       local where = selected.missed and "UNAVAILABLE" or selected.status == "LATER" and "STORY EVENT"
         or selected.status or "ON THIS MAP"
-      infoCard(self, colors.blueLight, function(cx, cy)
-        if model.drawActor then model.drawActor(selected, cx, cy + 9, 1, false) end
-      end, selected.label or "", status, "TRAINER", where)
+      infoCard(self, hex("e05848"), function(cx, cy)
+        if model.drawActor then model.drawActor(selected, cx, cy + 8, 2, false) end
+      end, selected.label or "", status, statusColor(self, status), "TRAINER", where)
       return
     end
 
-    if view == "wild" then
-      -- filter bar
-      local scope = model.wildScope == "ROUTE" and "ROUTE" or "HERE"
-      local here = self:beginPress(12, 142, 76, 16, scope ~= "HERE")
-      self:endPress(here)
-      local route = self:beginPress(89, 142, 76, 16, scope ~= "ROUTE")
-      self:endPress(route)
-      self:v4Segments(10, 141, 155, { { "HERE NOW", "HERE" }, { "WHOLE ROUTE", "ROUTE" } }, scope, true)
-      if model.pages > 1 then
-        local pressed = self:beginPress(168, 142, 58, 16)
-        self:v4Key(168, 141, 62, 17)
-        self:partyType(model.page .. "/" .. model.pages, 168, 143, colors.ink, 62)
-        ART({ "..#", ".##", "###", ".##", "..#" }, 174, 147, { ["#"] = colors.mutedInk })
-        ART({ "#..", "##.", "###", "##.", "#.." }, 221, 147, { ["#"] = colors.mutedInk })
-        self:endPress(pressed)
-      else
-        local label = tostring(model.total) .. " " .. translate("PKMN")
-        self:v4Window(168, 141, 62, 17, { fill = colors.bandLight })
-        self:partyType(label, 168, 143, colors.mutedInk, 62)
-      end
-      if #model.rows == 0 then
-        self:v4Window(7, CARD_Y, 226, CARD_H, { fill = colors.bandLight })
-        self:partyInfo(translate(model.emptyHint or (scope == "ROUTE"
-          and "NO WILD ENCOUNTERS" or "NOTHING HERE NOW")), 7, CARD_Y + 18, colors.mutedInk, 226, "center")
-        return
-      end
-      for index, row in ipairs(model.rows) do
-        self:v4EncounterCard(row, cardX(index), CARD_Y, model)
+    -- list: tabs + panel + cards
+    panel(self)
+    tabs(self, model)
+    if view == "wild" then scopeSwitch(self, model) end
+    local rows = model.rows or {}
+    if #rows == 0 then
+      local text = view == "wild" and (model.emptyHint or (model.wildScope == "ROUTE"
+        and "NO WILD ENCOUNTERS" or "NOTHING HERE NOW")) or "NOTHING HERE"
+      self:partyInfo(translate(text), MAP_X, 166, colors.mutedInk, MAP_W, "center")
+      return
+    end
+    for index, row in ipairs(rows) do
+      local pos = CARD_POS[index]
+      if pos then
+        if view == "wild" then encounterCard(self, row, pos[1], pos[2], model)
+        else listCard(self, row, pos[1], pos[2], model, view, statusColor) end
       end
     end
+    if model.pages > 1 then pagerCard(self, CARD_POS[4][1], CARD_POS[4][2], model) end
   end
 
-  local base = H.explorerHit
+  local baseHit = H.explorerHit
   function H:explorerHit(x, y, model)
-    local action, slot = base(self, x, y, model)
-    if action == "row" or (model and not model.mapFull and not model.selected and model.view == "wild") then
-      local px, py = x * 1.5, y * 1.5
-      if py >= CARD_Y and py < CARD_Y + CARD_H then
-        for index = 1, #(model.rows or {}) do
-          local cx = cardX(index)
-          if px >= cx and px < cx + CARD_W then return "row", index end
-        end
-        return nil
+    if not OWN then return baseHit(self, x, y, model) end
+    x, y = x * 1.5, y * 1.5
+    if x >= 202 and x < 233 and y >= HEADER_Y and y < HEADER_Y + HEADER_H then return "map_toggle" end
+    if model.mapFull and y >= 54 and y < 71 then
+      if x >= 11 and x < 29 and (model.mapZoom or 1) > 1 then return "zoom_out" end
+      if x >= 64 and x < 82 and (model.mapZoom or 1) < 3 then return "zoom_in" end
+      return nil
+    end
+    local mx, my, mw, mh = mapFrame(model)
+    local focus = focusOf(model)
+    if model.canScan and model.player and focus == model.player then
+      local layout = layoutOf(model)
+      if layout then
+        local px = layout.left + (model.player.x + 0.5) * layout.tileSize
+        local py = layout.top + (model.player.y + 0.5) * layout.tileSize
+        local radius = max(12, layout.tileSize)
+        if (x - px) ^ 2 + (y - py) ^ 2 <= radius ^ 2 then return "player_scan" end
       end
     end
-    return action, slot
+    local marker = self:mapMarkerAt(x, y, model.overview, { x = mx, y = my, w = mw, h = mh }, {
+      player = model.player, focus = focus, markers = model.markers, full = model.mapFull, zoom = model.mapZoom })
+    if marker then return "marker", marker end
+    if model.mapFull then return nil end
+    if model.selected then
+      if model.view == "wild" and x >= 166 and x < 224 and y >= 106 and y < 122 and (model.detailPages or 1) > 1 then
+        return x < 195 and "detail_prev" or "detail_next"
+      end
+      return nil
+    end
+    if y >= TAB_Y and y < TAB_Y + TAB_H then
+      for i, view in ipairs({ "wild", "trainers", "items" }) do
+        local tx = MAP_X + (i - 1) * TAB_STEP
+        if x >= tx and x < tx + TAB_W then return view ~= model.view and view or nil end
+      end
+      if model.view == "wild" and x >= MAP_X + 3 * TAB_STEP + 2 then
+        local sx = MAP_X + 3 * TAB_STEP + 2
+        local half = floor((MAP_W - 3 * TAB_STEP - 2) / 2)
+        if x < sx + half then return model.wildScope ~= "ROUTE" and nil or "wild_here" end
+        return model.wildScope == "ROUTE" and nil or "wild_route"
+      end
+      return nil
+    end
+    for index, pos in ipairs(CARD_POS) do
+      if x >= pos[1] and x < pos[1] + CARD_W and y >= pos[2] and y < pos[2] + CARD_H then
+        if model.pages > 1 and index == 4 then
+          return x < pos[1] + floor(CARD_W / 2) and "prev" or "next"
+        end
+        if model.rows and model.rows[index] then return "row", index end
+      end
+    end
+    return nil
   end
 
   ---------------------------------------------------------------------------
