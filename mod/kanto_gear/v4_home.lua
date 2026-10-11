@@ -300,9 +300,58 @@ return function(H, ui, K)
       cg(self) and tok.acc.M or (accent and accent.Hi or tok.acc.Hi), sw)
   end
 
-  function H:homeExplorerMap(model, tile, retained)
+  -- With the field guide on, the widget's bottom edge becomes a "NOW" rail:
+  -- the Pokémon that can appear on this map at this time, like the Pokétch
+  -- dowsing/radar apps. The rail sits beside the map, never over it, so
+  -- movement-only repaints (retained) never touch it.
+  local NOW_H = 15
+  local function nowLayout(self, model, tile)
     local x, y, w, h = self:homeRect(tile)
     local mx, my, mw, mh = x + 5, y + 22, w - 10, h - 27
+    if model.nowRows and mh >= 44 then
+      return mx, my, mw, mh - NOW_H - 2, true
+    end
+    return mx, my, mw, mh, false
+  end
+
+  function H:homeNowRail(model, x, y, w)
+    local tok, colors = self.tok, self.colors
+    local rows = model.nowRows or {}
+    if cg(self) then
+      CH(x - 1, y, w + 2, NOW_H, 2, tok.border)
+      CH(x, y + 1, w, NOW_H - 2, 1, colors.surface)
+    else
+      RR(x - 1, y, w + 2, NOW_H, 3, colors.outline)
+      RR(x, y + 1, w, NOW_H - 2, 2, colors.surface)
+      R(x + 2, y + 1, w - 4, 1, mix(colors.surface, WHITE, 0.5))
+    end
+    local accent = cg(self) and tok.acc.M or colors.green
+    local pw = self:v4Pill("NOW", x + 2, y + 2, accent)
+    local left, right = x + 2 + pw + 3, x + w - 3
+    if #rows == 0 then
+      self:partyType(self:fitPartyType(translate("NONE HERE"), right - left),
+        left, y + 2, colors.mutedInk or colors.silverDark, right - left)
+      return
+    end
+    -- seats are spread across the free run so the group stays centred
+    local seat, n = 16, #rows
+    local gap = n > 1 and min(6, floor((right - left - n * seat) / (n - 1))) or 0
+    local run = n * seat + (n - 1) * gap
+    local sx = left + floor((right - left - run) / 2)
+    for i, row in ipairs(rows) do
+      local cx = sx + (i - 1) * (seat + gap)
+      if model.drawNowIcon then
+        model.drawNowIcon(row, cx, y - 1, seat, not row.caught)
+      end
+      if row.caught then
+        ART(K.BALL, cx + seat - 5, y + NOW_H - 9, {
+          o = hex("101010"), r = hex("f05040"), w = hex("f8f8f8") })
+      end
+    end
+  end
+
+  function H:homeExplorerMap(model, tile, retained)
+    local mx, my, mw, mh, rail = nowLayout(self, model, tile)
     -- Movement-only repaints keep the frame pixels from the last full paint;
     -- redrawing chrome (or its translucent shade) here made the edge flicker.
     if retained then
@@ -324,6 +373,7 @@ return function(H, ui, K)
       drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
     })
     R(mx, my, mw, 1, { 0, 0, 0, 0.28 }); R(mx, my, 1, mh, { 0, 0, 0, 0.2 })
+    if rail then self:homeNowRail(model, mx, my + mh + 2, mw) end
   end
 
   function H:homeParty(model, tile, selected)
@@ -373,6 +423,117 @@ return function(H, ui, K)
     CIRC(cx - 8, cy - 8, 17, colors.surface)
     R(cx - 4, cy - 1, 9, 3, c); R(cx - 1, cy - 4, 3, 9, c)
     self:endPress(pressed)
+  end
+
+  ---------------------------------------------------------------------------
+  -- Add to Home: a parts catalogue. Apps and widgets share one card: a round
+  -- seat, the name, a footprint diagram for widgets and a state key.
+  ---------------------------------------------------------------------------
+  local CHECK = { "......#", ".....##", "#...##.", "##.##..", ".###...", "..#...." }
+  local CROSS = { "#...#", ".#.#.", "..#..", ".#.#.", "#...#" }
+  local PLUS = { "..#..", "..#..", "#####", "..#..", "..#.." }
+
+  local function footprint(self, x, y, columns, rows, accent)
+    -- one cell per Home column/row, like the edit-mode grid
+    columns, rows = tonumber(columns) or 1, tonumber(rows) or 1
+    local cw = columns > 6 and 2 or 3
+    local w = columns * (cw + 1) - 1
+    for r = 0, rows - 1 do
+      for c = 0, columns - 1 do
+        R(x + c * (cw + 1), y + r * 4, cw, 3, accent)
+      end
+    end
+    return w
+  end
+
+  function H:homeLibraryCard(x, y, w, item, icons)
+    local colors = self.colors
+    local available = item.available
+    local pressed = self:beginPress(x, y, w, 46, available)
+    local icon = icons[item.icon or item.id]
+    local id = iconId(icon) or item.widget
+    local accent = self:v4AppAccent(id) or self:v4AppAccent(item.icon) or self.tok.acc.M
+    local fill = available and nil or mix(colors.surface, colors.silverDark, self.dark and 0.3 or 0.18)
+    self:v4Window(x, y, w, 46, { radius = 4, fill = fill })
+    R(x + 1, y + 4, 2, 38, available and accent or colors.silverDark)
+    -- seat
+    CIRC(x + 5, y + 5, 33, colors.outline)
+    CIRC(x + 6, y + 6, 31, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
+    K.CIRCrows(x + 6, y + 6, 31, 16, 31, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
+    if item.kind == "app" and cg(self) and id and GLYPH[id] then
+      GLYPH[id](x + 12, y + 12, accent, mix(accent, colors.surface, 0.5))
+    elseif item.kind == "app" and icon then drawIcon(icon, x + 7, y + 7, 29)
+    else self:homeWidgetLibraryIcon(item.widget, x + 7, y + 7, item) end
+    local tx, tw = x + 41, w - 44
+    local label = self:fitPartyInfo(item.widget == "tool" and item.label or translate(item.label), tw)
+    self:partyInfo(label, tx, y + 3, available and colors.ink or colors.mutedInk)
+    -- kind: APP pill, or the widget's footprint on the Home grid
+    if item.kind == "app" then
+      self:v4Pill("APP", tx, y + 17, available and accent or colors.silverDark)
+    else
+      local fw = footprint(self, tx, y + 19, item.columns, item.rows, available and accent or colors.silverDark)
+      self:partyInfo(("%dx%d"):format(tonumber(item.columns) or 1, tonumber(item.rows) or 1),
+        tx + fw + 4, y + 14, colors.mutedInk)
+    end
+    -- state key
+    if available then
+      local a = K.rampOf(cg(self) and hex("1ea5d8") or hex("3ea04c"))
+      local off = self:v4Button(tx, y + 30, tw, 13, a, { radius = 3, lip = 2, chamfer = 2 })
+      local text = translate("ADD")
+      local gw = 5 + 3 + self:partyInfoWidth(text)
+      local gx = tx + floor((tw - gw) / 2)
+      ART(PLUS, gx, y + 33 + off, { ["#"] = WHITE })
+      self:partyInfo(text, gx + 8, y + 29 + off, WHITE)
+    else
+      local onHome = item.reason == "on_home"
+      local text = translate(onHome and "ON HOME" or "NO SPACE")
+      local glyph = onHome and CHECK or CROSS
+      local tint = onHome and (cg(self) and self.tok.acc.M or colors.green) or colors.mutedInk
+      local gw = #glyph[1] + 3 + self:partyInfoWidth(text)
+      local gx = tx + floor((tw - gw) / 2)
+      if cg(self) then CH(tx, y + 30, tw, 13, 2, mix(colors.surface, colors.outline, 0.12))
+      else RR(tx, y + 30, tw, 13, 3, mix(colors.surface, colors.outline, self.dark and 0.25 or 0.1)) end
+      ART(glyph, gx, y + 33 + (#glyph < 6 and 1 or 0), { ["#"] = tint })
+      self:partyInfo(text, gx + #glyph[1] + 3, y + 29, tint)
+    end
+    self:endPress(pressed)
+  end
+
+  function H:homeCatalog(model)
+    local colors = self.colors
+    local icons = self.homeIconTable and self:homeIconTable() or {}
+    self:v4Window(6, 31, 228, 168, { radius = 5 })
+    -- APPS | WIDGETS: one control, the lit half glides across
+    local accent = cg(self) and self.tok.acc.M or colors.green
+    local a = K.rampOf(accent)
+    if cg(self) then CH(9, 33, 222, 15, 3, colors.outline); CH(10, 34, 220, 13, 2, self.dark and hex("141b22") or hex("e4ebf0"))
+    else RR(9, 33, 222, 15, 4, colors.outline); RR(10, 34, 220, 13, 3, self.dark and hex("1c2533") or hex("dfe8e1")) end
+    local target = model.libraryKind == "widget" and 120 or 10
+    local hx = self:v4Glide("home_catalog_tab", target)
+    if cg(self) then CH(hx, 34, 110, 13, 2, a.M); CH(hx, 34, 110, 6, 2, a.L)
+    else RR(hx, 34, 110, 13, 3, a.D); RR(hx, 34, 110, 11, 3, a.M); R(hx + 3, 34, 104, 1, a.Hi) end
+    for index, tab in ipairs({ "app", "widget" }) do
+      local x = index == 1 and 10 or 121
+      local active = model.libraryKind == tab
+      local pressed = self:beginPress(x, 34, 108, 13, not active or (model.libraryPage or 1) > 1)
+      local lit = hx + 55 >= x and hx + 55 < x + 110
+      self:partyType(translate(tab == "app" and "APPS" or "WIDGETS"), x + 2, 34, lit and WHITE or colors.mutedInk, 104)
+      self:endPress(pressed)
+    end
+    local page = max(1, tonumber(model.libraryPage) or 1)
+    local first = (page - 1) * 6 + 1
+    local enter = self:v4Enter("home_catalog", tostring(model.libraryKind) .. ":" .. page, 0.26)
+    local G = ui.graphics
+    for index = first, min(first + 5, #(model.library or {})) do
+      local item = model.library[index]
+      local visible = index - first
+      local column, row = visible % 2, floor(visible / 2)
+      local _, dy = self:v4Stagger(enter, visible + 1, 0.06, 8, 6)
+      if dy ~= 0 then G.push(); G.translate(0, dy) end
+      self:homeLibraryCard(10 + column * 111, 49 + row * 48, 108, item, icons)
+      if dy ~= 0 then G.pop() end
+    end
+    self:homePager(page, model.libraryPages)
   end
 
   ---------------------------------------------------------------------------

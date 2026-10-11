@@ -319,6 +319,29 @@ return function(H, ui, K)
     return w
   end
 
+  -- Item art fills its round seat: real item sprites keep their native
+  -- pixels, the drawn pocket glyphs double up like the DS bag's big icons.
+  function H:v4ItemInSeat(item, cx, cy, size, accent)
+    local G = ui.graphics
+    local sprite = item.itemSprite
+    if sprite and not item.cancel then
+      local big = math.max(sprite.width or 16, sprite.height or 16)
+      local scale = big <= size and math.max(1, floor(size / big)) or size / big
+      local w, h = (sprite.width or 16) * scale, (sprite.height or 16) * scale
+      G.setColor(1, 1, 1, 1)
+      local dx, dy = cx - floor(w / 2), cy - floor(h / 2)
+      if sprite.quad then G.draw(sprite.image, sprite.quad, dx, dy, 0, scale, scale)
+      else G.draw(sprite.image, dx, dy, 0, scale, scale) end
+      return
+    end
+    local scale = size >= 48 and 3 or size >= 24 and 2 or 1
+    G.push()
+    G.translate(cx - floor(17 * scale / 2), cy - floor(17 * scale / 2))
+    G.scale(scale, scale)
+    self:battleItemIcon(item, 0, 0, accent)
+    G.pop()
+  end
+
   function H:bagCard(item, x, y)
     local colors = self.colors
     local accent = self:itemAccent(item.icon)
@@ -326,10 +349,11 @@ return function(H, ui, K)
     self:v4Window(x, y, 112, 43, { radius = 4 })
     R(x + 1, y + 4, 2, 35, accent)
     -- round item slot
-    CIRC(x + 6, y + 6, 31, colors.outline)
-    CIRC(x + 7, y + 7, 29, mix(colors.surface, accent, self.dark and 0.3 or 0.22))
-    K.CIRCrows(x + 7, y + 7, 29, 15, 29, mix(colors.surface, accent, self.dark and 0.42 or 0.34))
-    self:battleItemIcon(item, x + 13, y + 13, accent)
+    CIRC(x + 4, y + 4, 35, colors.outline)
+    CIRC(x + 5, y + 5, 33, mix(colors.surface, accent, self.dark and 0.3 or 0.22))
+    K.CIRCrows(x + 5, y + 5, 33, 17, 33, mix(colors.surface, accent, self.dark and 0.42 or 0.34))
+    R(x + 13, y + 7, 6, 1, { 1, 1, 1, self.dark and 0.18 or 0.6 })
+    self:v4ItemInSeat(item, x + 21, y + 21, 30, accent)
     self:partyName(item.label or translate("ITEM"), x + 41, y + 5, colors.ink, 62)
     local count = ("×%d"):format(tonumber(item.count) or 0)
     if item.detail then
@@ -382,9 +406,15 @@ return function(H, ui, K)
       self:partyInfo(translate("THIS POCKET IS EMPTY."), 24, top + 29, colors.mutedInk, 192, "center")
       return
     end
+    -- a new pocket deals its cards in, left to right, row by row
+    local enter = self:v4Enter("bag_cards", tostring(model.pocket) .. ":" .. tostring(model.page), 0.26)
+    local G = ui.graphics
     for index, item in ipairs(model.entries or {}) do
       local col, row = (index - 1) % 2, floor((index - 1) / 2)
+      local _, dy = self:v4Stagger(enter, index, 0.06, 8, 6)
+      if dy ~= 0 then G.push(); G.translate(0, dy) end
       self:bagCard(item, 6 + col * 116, (model.recent and 109 or 72) + row * 47)
+      if dy ~= 0 then G.pop() end
     end
   end
 
@@ -396,11 +426,7 @@ return function(H, ui, K)
     CIRC(14, 41, 50, colors.outline)
     CIRC(15, 42, 48, mix(colors.surface, accent, self.dark and 0.3 or 0.22))
     K.CIRCrows(15, 42, 48, 24, 48, mix(colors.surface, accent, self.dark and 0.42 or 0.34))
-    ui.graphics.push()
-    ui.graphics.translate(22, 49)
-    ui.graphics.scale(2, 2)
-    self:battleItemIcon(item, 0, 0, accent)
-    ui.graphics.pop()
+    self:v4ItemInSeat(item, 39, 66, 40, accent)
     self:partyName(item.label or translate("ITEM"), 72, 44, colors.ink, 150)
     if item.detail then
       self:partyInfo(self:fitPartyInfo(item.detail, 150), 72, 58, colors.green)
@@ -492,6 +518,53 @@ return function(H, ui, K)
     self:detailChevron(x + w - 9, y + 30, colors.green)
     self:endPress(pressed)
   end
+  H.v4StoreIcon = storeIcon
+
+  -- App page: a product card like the DS Pokétch app list — accent band,
+  -- round seat, name + NEW, category pill, publisher mark, lipped action.
+  local SILPH = { "..o..", ".o#o.", "o###o", ".o#o.", "..o.." }
+  function H:storeDetail(model)
+    local colors = self.colors
+    local icons = self.homeIconTable and self:homeIconTable() or {}
+    local app = model.app or {}
+    local id = K.iconId and K.iconId(icons[app.icon or app.id])
+    local accent = self:v4AppAccent(id) or self.tok.acc.M
+    local enter = self:v4Enter("store_detail", tostring(app.id), 0.22)
+    local G = ui.graphics
+    local lift = enter < 1 and floor((1 - K.easeOut(enter)) * 8 + 0.5) or 0
+    self:v4Window(7, 32, 226, 54, { radius = 5 })
+    R(9, 34, 222, 3, accent)
+    if cg(self) and id and K.GLYPH and K.GLYPH[id] then
+      storeIcon(self, app, icons, 11, 40, 41)
+    else
+      CIRC(11, 40, 41, colors.outline)
+      CIRC(12, 41, 39, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
+      K.CIRCrows(12, 41, 39, 20, 39, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
+      R(20, 44, 8, 1, { 1, 1, 1, self.dark and 0.2 or 0.65 })
+      storeIcon(self, app, icons, 17, 46, 29)
+    end
+    local name = self:fitPartyInfo(translate(app.label or "APP"), app.new and 76 or 106)
+    self:partyName(name, 57, 39, colors.ink, 106)
+    if app.new then self:storeNewBadge(57 + self:partyInfoWidth(name) + 4, 41, 25) end
+    self:v4Pill(translate(app.category or "UTILITY"), 57, 55, accent, { raw = true, maxW = 106 })
+    ART(SILPH, 57, 70, { o = colors.outline, ["#"] = hex("e04838") })
+    self:partyInfo(self:fitPartyInfo(translate(app.publisher or "SILPH CO."), 98), 65, 67, colors.mutedInk)
+    self:storeAction(171, 41, 51, app.action or "GET", app.state)
+    if app.removable then self:storeMiniAction(175, 61, 43, "REMOVE", "soon", true) end
+    -- preview keeps the base mock (its contents are laid out for this rect)
+    if lift ~= 0 then G.push(); G.translate(0, lift) end
+    self:storePreview(app, 7, 90, 226, 74, false)
+    -- description in the message window
+    local lines = app.description or {}
+    self:v4MessageWindow(7, 168, 226, 40)
+    local n = min(3, #lines)
+    local top = 168 + floor((40 - (n * 10)) / 2) - 1
+    for index = 1, n do
+      self:partyInfo(self:fitPartyInfo(translate(lines[index]), 206), 17, top + (index - 1) * 10, colors.ink, 206, "center")
+    end
+    if lift ~= 0 then G.pop() end
+  end
+
   function H:storeInstalledRow(x, y, w, app, icons)
     local colors = self.colors
     local blocked = app.state == "soon" and self:isPressed(x + w - 54, y + 9, 44, 11)
@@ -735,18 +808,30 @@ return function(H, ui, K)
     else RR(x, y, w, 17, 4, colors.outline); RR(x + 1, y + 1, w - 2, 15, 3, self.dark and hex("1c2533") or hex("dfe8e1"))
       R(x + 3, y + 1, w - 6, 1, { 0, 0, 0, 0.15 }) end
     local a = K.rampOf(enabled and (accent or self.tok.acc.M) or colors.silverDark)
+    local activeIndex
+    for i, choice in ipairs(choices) do if choice[2] == value then activeIndex = i end end
+    -- the lit pill glides between segments instead of jumping
+    local hx, hw
+    if activeIndex then
+      hw = activeIndex == n and w - segW * (n - 1) or segW
+      hx = self:v4Glide("seg:" .. x .. ":" .. y .. ":" .. w, x + (activeIndex - 1) * segW)
+      if cg(self) then CH(hx + 1, y + 1, hw - 2, 15, 2, a.M); CH(hx + 1, y + 1, hw - 2, 7, 2, a.L)
+      else RR(hx + 1, y + 1, hw - 2, 15, 3, a.D); RR(hx + 1, y + 1, hw - 2, 13, 3, a.M)
+        RRrows(hx + 1, y + 1, hw - 2, 13, 3, 0, 6, a.L); R(hx + 4, y + 1, hw - 8, 1, a.Hi) end
+    end
     for i, choice in ipairs(choices) do
       local sx = x + (i - 1) * segW
       local sw = i == n and w - segW * (n - 1) or segW
-      local active = choice[2] == value
       local label = translate(choice[1])
-      if active then
-        if cg(self) then CH(sx + 1, y + 1, sw - 2, 15, 2, a.M); CH(sx + 1, y + 1, sw - 2, 7, 2, a.L)
-        else RR(sx + 1, y + 1, sw - 2, 15, 3, a.D); RR(sx + 1, y + 1, sw - 2, 13, 3, a.M)
-          RRrows(sx + 1, y + 1, sw - 2, 13, 3, 0, 6, a.L); R(sx + 4, y + 1, sw - 8, 1, a.Hi) end
+      local centre = sx + floor(sw / 2)
+      local lit = hx and centre >= hx and centre < hx + hw
+      if lit then
         self:partyType(label, sx, y + 2, WHITE, sw)
       else
-        if i > 1 and choices[i - 1][2] ~= value then R(sx, y + 4, 1, 9, colors.band) end
+        local prevLit = hx and i > 1 and (sx - floor(segW / 2)) >= hx and (sx - floor(segW / 2)) < hx + hw
+        if i > 1 and not prevLit and not (hx and sx >= hx and sx <= hx + hw) then
+          R(sx, y + 4, 1, 9, colors.band)
+        end
         self:partyType(label, sx, y + 3, enabled and colors.mutedInk or colors.disabledInk, sw)
       end
     end
@@ -823,7 +908,12 @@ return function(H, ui, K)
       local glyph = CAT_GLYPH[tostring(cat.label)] or CAT_GLYPH[tostring(cat.id):upper()]
       if glyph then
         local G = ui.graphics
-        G.push(); G.translate(x + 9, TAB_Y + 2); G.scale(0.9, 0.9)
+        local hop = 0
+        if active then
+          local e = self:v4Enter("settings_tab", i, 0.24)
+          if e < 1 then hop = -floor(math.sin(e * math.pi) * 3 + 0.5) end
+        end
+        G.push(); G.translate(x + 9, TAB_Y + 2 + hop); G.scale(0.9, 0.9)
         glyph(0, 0, active and WHITE or accent, active and mix(accent, WHITE, 0.5) or mix(accent, colors.surface, 0.45))
         G.pop()
       end
@@ -843,9 +933,14 @@ return function(H, ui, K)
     -- rows
     local first = (model.page - 1) * 4 + 1
     local selectedRow
+    -- switching category cascades the rows in from the right
+    local enter = self:v4Enter("settings_rows", tostring(model.tab) .. ":" .. tostring(model.page), 0.26)
+    local G = ui.graphics
     for visible = 0, 3 do
       local index = first + visible
       local row = model.rows[index]
+      local _, dx = self:v4Stagger(enter, visible + 1, 0.09, 18)
+      if row and dx ~= 0 then G.push(); G.translate(dx, 0) end
       if row then
         local y = ROW_Y + visible * ROW_STEP
         local enabled = row.enabled ~= false
@@ -888,6 +983,7 @@ return function(H, ui, K)
           self:endPress(mp)
         end
       end
+      if row and dx ~= 0 then G.pop() end
     end
     -- help textbox
     self:v4MessageWindow(6, 168, 228, 44)

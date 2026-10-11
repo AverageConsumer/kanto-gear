@@ -1,4 +1,6 @@
 return {
+  ["NONE HERE"] = "いない",
+  ["NEST"] = "すみか",
   ["TOOL"] = "どうぐ",
   ["BERRY TREE"] = "きのみのき",
   ["RUBY"] = "ルビー",

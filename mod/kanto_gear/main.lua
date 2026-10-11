@@ -5995,6 +5995,8 @@ return function(mod)
     G.setCanvas(previous)
     motion.backgroundDim = displayRuntime.backgroundDim or 0
     motion.started = now
+    -- In-place entrances settle at once in the frame the slide captures.
+    if THEME.hgss then THEME.hgss.v4SlideAt = THEME.hgss.clock and THEME.hgss:clock() or now end
   end
 
   function displayRuntime.applyMotion()
@@ -6006,7 +6008,8 @@ return function(mod)
       motion.started = nil
       return
     end
-    progress = progress * progress * (3 - 2 * progress)
+    -- DS menus decelerate into place rather than easing both ways.
+    progress = 1 - (1 - progress) ^ 3
     local previous = G.getCanvas()
     G.setCanvas(canvas)
     G.origin()
@@ -8381,6 +8384,29 @@ return function(mod)
     return model
   end
 
+  -- Home's Explorer widget lists what can appear right now. Encounter tables
+  -- are rebuilt only on a map change or every thirty seconds (time of day).
+  displayRuntime.homeNow = { rows = {} }
+  function displayRuntime.homeNowRows(overview)
+    local now, id = love.timer.getTime(), overview and overview.mapId or mapId
+    local cache = displayRuntime.homeNow
+    if not id or not assist("guide") or THEME.style ~= "hgss" then return nil end
+    if cache.mapId == id and now - (cache.at or 0) < 30 then return cache.rows end
+    local ok, guide = pcall(guideData)
+    local rows = {}
+    if ok and guide then
+      for _, row in ipairs(displayRuntime.explorerWildRows(guide, id, "HERE",
+          displayRuntime.explorerMethods())) do
+        if #rows >= 4 then break end
+        if row.best and row.best.current and displayRuntime.knownSpecies(row.species) then
+          rows[#rows + 1] = { species = row.species, caught = row.caught }
+        end
+      end
+    end
+    cache.mapId, cache.at, cache.rows = id, now, rows
+    return rows
+  end
+
   function displayRuntime.drawHome()
     local home = displayRuntime.home
     local layout = home.layout or { tiles = {} }
@@ -8406,6 +8432,20 @@ return function(mod)
       overview = overview, image = explorer.image,
       player = explorer.player, markers = explorer.markers,
       drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
+      nowRows = overview and displayRuntime.homeNowRows(overview) or nil,
+      drawNowIcon = function(row, x, y, size, dim)
+        if not displayRuntime.gen3 then
+          return compat.drawPokemonIcon({ species = row.species }, x, y, size, dim and 0.55 or nil)
+        end
+        local icon = displayRuntime.gen3.Pokemon.monIcon({ species = row.species })
+        if icon and icon.image then
+          local quad, shade = icon.quads and icon.quads[0], dim and 0.55 or 1
+          G.setColor(shade, shade, shade, 1)
+          if quad then G.draw(icon.image, quad, x, y, 0, size / 32, size / 32)
+          else G.draw(icon.image, x, y, 0, size / 32, size / 32) end
+          G.setColor(1, 1, 1, 1)
+        end
+      end,
     }
     for key, entry in pairs(displayRuntime.perf:call("home_data", displayRuntime.homeWidgetData, needed)) do model[key] = entry end
     if home.library and home.addSlot then

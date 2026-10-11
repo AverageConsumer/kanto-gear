@@ -83,9 +83,20 @@ return function(H, ui, K)
   ---------------------------------------------------------------------------
   -- Start menu: lipped keys; focused key fills with the item's colour.
   ---------------------------------------------------------------------------
+  local function entryKey(entries, extra)
+    local parts = { tostring(extra or "") }
+    for i, e in ipairs(entries or {}) do parts[#parts + 1] = tostring(e.label) end
+    return table.concat(parts, "|")
+  end
+
   function H:startMenu(model)
     local c = self.colors
-    for _, entry in ipairs(model.entries) do
+    local G = ui.graphics
+    -- a freshly opened menu deals its keys in from the side, top to bottom
+    local enter = self:v4Enter("start_menu", entryKey(model.entries, model.page), 0.24)
+    for index, entry in ipairs(model.entries) do
+      local _, dx = self:v4Stagger(enter, index, 0.07, 16, #model.entries)
+      if dx ~= 0 then G.push(); G.translate(dx, 0) end
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h, not entry.disabled)
       local focused = self.nativeFocus and entry.selected
@@ -131,6 +142,7 @@ return function(H, ui, K)
         ART(K.CHEV_R, x + w - 14 + b, y + floor((h - 2 - 5) / 2), { ["#"] = WHITE })
       end
       self:endPress(pressed)
+      if dx ~= 0 then G.pop() end
     end
     if not model.fixedLayout and model.total > (model.visible or 5) then self:menuPager(model) end
   end
@@ -152,7 +164,11 @@ return function(H, ui, K)
           model.nudge and colors.amber or colors.ink, 210, "center")
       end
     end
-    for _, entry in ipairs(model.entries or {}) do
+    local G = ui.graphics
+    local enter = self:v4Enter("choice", entryKey(model.entries, table.concat(model.prompt or {}, " ")), 0.24)
+    for index, entry in ipairs(model.entries or {}) do
+      local _, dy = self:v4Stagger(enter, index, 0.08, 10, #(model.entries or {}))
+      if dy ~= 0 then G.push(); G.translate(0, dy) end
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h)
       local focused = self.nativeFocus and entry.selected
@@ -173,6 +189,7 @@ return function(H, ui, K)
         ART(K.CHEV_R, x + 9 + b, y + floor((h - 3 - 5) / 2), { ["#"] = WHITE })
       end
       self:endPress(pressed)
+      if dy ~= 0 then G.pop() end
     end
     if model.pages and model.pages > 1 then self:menuPager(model) end
   end

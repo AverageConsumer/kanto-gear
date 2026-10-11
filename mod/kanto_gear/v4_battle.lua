@@ -156,30 +156,44 @@ return function(H, ui, K)
       { o = self.colors.outline, ["#"] = c })
   end
 
+  -- The window hugs its text and sits on the embossed ball's centre band, so
+  -- the backdrop ball frames it above and below like the HGSS touch screen.
   function H:battleMessage(lines, canAdvance, playerTeam, enemyTeam, title, now)
     local colors = self.colors
     lines = lines or {}
+    if #lines == 0 then lines = { "..." } end
     self:battleBackdrop()
     self:battleTeamStrip(playerTeam, enemyTeam)
+    -- The whole area stays one tap target; only the window hugs its text.
     local pressed = self:beginPress(MESSAGE_X, 38, MESSAGE_WIDTH, 165, canAdvance)
-    self:v4MessageWindow(MESSAGE_X, 38, MESSAGE_WIDTH, 165)
-    local contentTop, contentHeight = 53, 105
-    if title then
-      local shown = self:fitPartyInfo(title, 190)
-      self:partyInfo(shown, 25, 53, colors.green, 190, "center")
-      R(25, 68, 190, 1, colors.band)
-      contentTop, contentHeight = 76, 82
-    end
-    if #lines == 0 then lines = { "..." } end
     local lineHeight = 18
     local blockHeight = 11 + (#lines - 1) * lineHeight
+    local titleHeight = title and 23 or 0
+    local h = min(165, max(60, 18 + titleHeight + blockHeight + 26))
+    h = h + h % 2
+    local wy = min(203 - h, 121 - h / 2)
+    -- each new message pops up a few pixels, like a DS text window opening
+    local enter = self:v4Enter("battle_message", table.concat(lines, "\n") .. tostring(title), 0.2)
+    local G = ui.graphics
+    local lift = enter < 1 and floor((1 - K.easeBack(enter)) * 10 + 0.5) or 0
+    if lift ~= 0 then G.push(); G.translate(0, lift) end
+    self:v4MessageWindow(MESSAGE_X, wy, MESSAGE_WIDTH, h)
+    local contentTop = wy + 13
+    if title then
+      local shown = self:fitPartyInfo(title, 190)
+      self:partyInfo(shown, 25, contentTop, colors.green, 190, "center")
+      R(25, contentTop + 15, 190, 1, colors.band)
+      contentTop = contentTop + titleHeight
+    end
+    local contentHeight = wy + h - 22 - contentTop
     local y = contentTop + floor((contentHeight - blockHeight) / 2)
     for _, line in ipairs(lines) do
       local shown = self:fitLabel(line, 192)
       self:label(shown, 24, y, colors.ink, 192, "center")
       y = y + lineHeight
     end
-    if canAdvance then self:v4AdvanceArrow(116, 180) end
+    if canAdvance then self:v4AdvanceArrow(116, wy + h - 19) end
+    if lift ~= 0 then G.pop() end
     self:endPress(pressed)
   end
 

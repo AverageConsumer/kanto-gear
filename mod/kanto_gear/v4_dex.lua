@@ -242,22 +242,249 @@ return function(H, ui, K)
     pager(self, model.page or 1, model.pages or 1, model.canUse)
   end
 
-  ---------------------------------------------------------------------------
-  -- Area / Cry / Size reuse the base content inside the new hero + frames
-  ---------------------------------------------------------------------------
-  local base = K.base
-  for _, name in ipairs({ "pokedexArea", "pokedexCry", "pokedexSize" }) do
-    local original = base[name] or H[name]
-    H[name] = function(self, model)
-      original(self, model)
-      local accent = name == "pokedexArea" and hex("48a858") or hex("4888e0")
-      local label = name == "pokedexArea" and translate(model.region or "AREA")
-        or name == "pokedexCry" and translate("CRY") or translate("SIZE")
-      local facts = name == "pokedexArea" and translate("AREA")
-        or name == "pokedexCry" and translate(model.playing and "PLAYING" or "READY")
-        or (model.pokemon and model.pokemon.height or "--")
-      hero(self, model, accent, label, facts)
+  local function bezel(self, x, y, w, h)
+    local colors = self.colors
+    local body = cg(self) and (self.dark and hex("1b2733") or hex("2d4458")) or (self.dark and hex("1d3a46") or hex("2f6f78"))
+    if cg(self) then CH(x, y, w, h, 6, colors.outline); CH(x + 1, y + 1, w - 2, h - 2, 5, body)
+    else RR(x, y, w, h, 6, colors.outline); RR(x + 1, y + 1, w - 2, h - 2, 5, body)
+      R(x + 6, y + 1, w - 12, 1, mix(body, WHITE, 0.3)) end
+    -- screws
+    for _, p in ipairs({ { x + 4, y + 4 }, { x + w - 6, y + 4 }, { x + 4, y + h - 6 }, { x + w - 6, y + h - 6 } }) do
+      R(p[1], p[2], 2, 2, mix(body, WHITE, 0.25))
     end
+    return body
+  end
+
+  ---------------------------------------------------------------------------
+  -- Area / Cry / Size: the native Pokédex pages as Pokégear instruments.
+  -- Content geometry (viewport, silhouettes, wave) comes from the model, so
+  -- every frame and marker here sits around what the game positioned.
+  ---------------------------------------------------------------------------
+  local PIN = { ".ooo.", "o###o", "o#w#o", "o###o", ".o#o.", "..o.." }
+  local SPEAKER = { "...o....", "..oo..o.", "oo#o.o..", "o##o.o.o", "oo#o.o..", "..oo..o.", "...o...." }
+  local RULER = { "ooooooooo", "o#o#o#o#o", "o#######o", "ooooooooo" }
+  local BACKA = { "..o....", ".oo....", "ooooooo", ".oo...o", "..o...o", "......o", "..oooo." }
+  local function actionGlyph(label)
+    local l = tostring(label or ""):upper()
+    if l:find("CRY") or l:find("RUF") or l:find("CRI") then return SPEAKER, hex("4888e0") end
+    if l:find("SIZE") or l:find("GR") or l:find("TAIL") then return RULER, hex("e8a030") end
+    if l:find("AREA") or l:find("GEBIET") or l:find("ZONE") or l:find("HABIT") then return PIN, hex("e05848") end
+    if l:find("BACK") or l:find("ZUR") or l:find("RETO") or l:find("VOLV") then return BACKA, nil end
+    return nil
+  end
+  -- Keys for the native research pages carry a glyph like the DS buttons.
+  function H:pokedexActions(model)
+    local colors = self.colors
+    for index, action in ipairs(model.actions or {}) do
+      local x, y, w, h = Dex.actionRect(index, #model.actions, model.compactActions)
+      local enabled = model.canUse ~= false and not action.inert
+      local pressed = self:beginPress(x, y, w, h, enabled)
+      self:v4Key(x, y, w, h, not enabled and { cap = colors.bandLight, lip = colors.band, hi = colors.bandLight } or nil)
+      local label = self:fitPartyInfo(translate(action.label), w - 22)
+      local glyph, tint = actionGlyph(action.label)
+      if glyph and h >= 30 then
+        -- tall keys: glyph above the label
+        local G = ui.graphics
+        local gw, gh = #glyph[1] * 2, #glyph * 2
+        local block = gh + 4 + 11
+        local top = y + floor((h - 3 - block) / 2)
+        G.push(); G.translate(x + floor((w - gw) / 2), top); G.scale(2, 2)
+        ART(glyph, 0, 0, { o = enabled and colors.outline or colors.disabledInk,
+          ["#"] = enabled and (tint or colors.ink) or colors.disabledInk, w = WHITE })
+        G.pop()
+        self:partyInfoCentered(label, x + 5, top + gh + 2, w - 10, 12,
+          enabled and colors.ink or colors.disabledInk)
+      elseif glyph then
+        local lw = self:partyInfoWidth(label)
+        local gw = #glyph[1]
+        local gx = x + floor((w - (gw + 4 + lw)) / 2)
+        ART(glyph, gx, y + floor((h - 3 - #glyph) / 2), { o = enabled and colors.outline or colors.disabledInk,
+          ["#"] = enabled and (tint or colors.ink) or colors.disabledInk, w = WHITE })
+        self:partyInfo(label, gx + gw + 4, y + floor((h - 3) / 2) - 6, enabled and colors.ink or colors.disabledInk)
+      else
+        self:partyInfoCentered(label, x + 5, y, w - 10, h - 3, enabled and colors.ink or colors.disabledInk)
+      end
+      self:endPress(pressed)
+    end
+  end
+
+  local function screenWell(self, x, y, w, h, tint)
+    local colors = self.colors
+    local body = bezel(self, x, y, w, h)
+    R(x + 3, y + 3, w - 6, h - 6, colors.outline)
+    R(x + 4, y + 4, w - 8, h - 8, tint or mix(colors.surface, colors.blueLight, self.dark and 0.18 or 0.12))
+    return body
+  end
+
+  local function pulse(self, period)
+    if self.motionEnabled == false then return 0.5 end
+    self:wantAmbient(period / 4)
+    return (math.sin(self:clock() * math.pi * 2 / period) + 1) / 2
+  end
+
+  local function nestMarker(self, x, y, k)
+    local colors = self.colors
+    local r = 4 + floor(k * 2 + 0.5)
+    local halo = { 0.95, 0.35, 0.3, 0.18 + 0.2 * (1 - k) }
+    R(x - r, y - 1, r * 2 + 1, 3, halo); R(x - 1, y - r, 3, r * 2 + 1, halo)
+    R(x - 3, y - 3, 7, 7, colors.outline)
+    R(x - 2, y - 2, 5, 5, hex("f05848"))
+    R(x - 2, y - 2, 2, 1, hex("f8b0a0"))
+  end
+
+  local function drawArea(self, model, frame)
+    local G, colors = ui.graphics, self.colors
+    local area = model.area
+    if not (area and area.available) then return false end
+    local t = Dex.areaTransform(area, model.areaViewport)
+    local cx, cy = t.x + area.x * t.scale, t.y + area.y * t.scale
+    local cw, ch = area.width * t.scale, area.height * t.scale
+    G.setScissor(cx, cy, cw, ch)
+    G.push(); G.translate(t.x, t.y); G.scale(t.scale, t.scale)
+    area.draw()
+    local k = pulse(self, 1.6)
+    G.setColor(0.94, 0.33, 0.28, 0.42 + 0.18 * k)
+    for _, cell in ipairs(area.coverage or {}) do G.rectangle("fill", cell.x, cell.y, cell.width, cell.height) end
+    G.pop()
+    -- faint LCD scanlines over the atlas
+    for ly = floor(cy), floor(cy + ch) - 1, 2 do R(floor(cx), ly, math.ceil(cw), 1, { 0, 0, 0, 0.04 }) end
+    for _, mark in ipairs(area.markers or {}) do
+      nestMarker(self, floor(t.x + mark.x * t.scale + 0.5), floor(t.y + mark.y * t.scale + 0.5), k)
+    end
+    if area.player then
+      local x, y = floor(t.x + area.player.x * t.scale + 0.5), floor(t.y + area.player.y * t.scale + 0.5)
+      local bob = (self.motionEnabled ~= false and floor(self:clock() / 0.4) % 2 == 0) and 1 or 0
+      self:wantAmbient(0.4)
+      ART({ ".ooo.", "o###o", "o#w#o", "o###o", ".o#o.", "..o.." }, x - 2, y - 6 - bob,
+        { o = colors.outline, ["#"] = hex("3878d0"), w = WHITE })
+      R(x - 1, y, 3, 1, { 0, 0, 0, 0.3 })
+    end
+    G.setScissor()
+    return true
+  end
+
+  local function legend(self, x, y)
+    local colors = self.colors
+    local nest, you = translate("NEST"), translate("YOU")
+    local w = 7 + self:partyInfoWidth(nest) + 10 + 7 + self:partyInfoWidth(you) + 8
+    x = x - w
+    RR(x, y, w, 13, 3, colors.outline)
+    RR(x + 1, y + 1, w - 2, 11, 2, colors.surface)
+    R(x + 4, y + 4, 5, 5, colors.outline); R(x + 5, y + 5, 3, 3, hex("f05848"))
+    self:partyInfo(nest, x + 11, y, colors.ink)
+    local yx = x + 11 + self:partyInfoWidth(nest) + 6
+    R(yx, y + 4, 5, 5, colors.outline); R(yx + 1, y + 5, 3, 3, hex("3878d0"))
+    self:partyInfo(you, yx + 7, y, colors.ink)
+  end
+
+  local function unknownArea(self, x, y, w)
+    local colors = self.colors
+    self:v4Window(x, y, w, 26, { radius = 4 })
+    local label = self:fitPartyInfo(translate("UNKNOWN AREA"), w - 26)
+    local lw = self:partyInfoWidth(label)
+    local gx = x + floor((w - (lw + 12)) / 2)
+    ART({ ".ooo.", "o...o", "...o.", "..o..", ".....", "..o.." }, gx, y + 10, { o = colors.mutedInk })
+    self:partyInfo(label, gx + 12, y + 6, colors.mutedInk)
+  end
+
+  function H:pokedexArea(model)
+    local colors = self.colors
+    hero(self, model, hex("48a858"), translate(model.region or "AREA"), translate("AREA"))
+    local area = model.area
+    local known = area and area.available and not area.unknown
+    if model.combined then
+      -- two instruments side by side: area atlas and the size silhouettes
+      screenWell(self, 7, 76, 110, 105, mix(colors.surface, colors.greenLight, self.dark and 0.2 or 0.18))
+      screenWell(self, 123, 76, 110, 105, mix(colors.surface, colors.blueLight, self.dark and 0.18 or 0.14))
+      self:v4Pill("AREA", 12, 80, hex("48a858"))
+      self:v4Pill("SIZE", 128, 80, hex("4888e0"))
+      drawArea(self, model)
+      for gx = 131, 225, 8 do R(gx, 96, 1, 64, { 0, 0, 0, 0.05 }) end
+      R(130, 158, 96, 1, mix(colors.surface, colors.outline, 0.45))
+      self:pokedexComparison(model)
+      local h = model.pokemon and model.pokemon.caught and (model.pokemon.height or "--") or "--"
+      self:partyInfo(h, 128, 163, colors.ink, 100, "center")
+      if not known then unknownArea(self, 14, 122, 96) end
+    else
+      local tint = mix(colors.surface, colors.greenLight, self.dark and 0.2 or 0.18)
+      screenWell(self, 7, 76, 226, 104, tint)
+      if drawArea(self, model) and known then legend(self, 226, 164) end
+      if not known then unknownArea(self, 39, 115, 162) end
+    end
+    self:pokedexActions(model)
+  end
+
+  -- Cry: an oscilloscope on a Pokétch LCD with a speaker that pulses while
+  -- the cry plays and a sweep that follows the waveform.
+  local LCD_BG, LCD_INK, LCD_MID = hex("b4cc98"), hex("2c3c24"), hex("8aa474")
+  function H:pokedexCry(model)
+    local G = ui.graphics
+    hero(self, model, hex("4888e0"), translate("CRY"), translate(model.playing and "PLAYING" or "READY"))
+    screenWell(self, 7, 76, 226, 75, LCD_BG)
+    local x0, y0, w0, h0 = 36, 82, 190, 62
+    for gx = x0, x0 + w0, 10 do R(gx, y0, 1, h0, mix(LCD_BG, LCD_MID, 0.35)) end
+    for gy = y0, y0 + h0, 10 do R(x0, gy, w0 + 1, 1, mix(LCD_BG, LCD_MID, 0.35)) end
+    local mid = y0 + floor(h0 / 2)
+    R(x0, mid, w0 + 1, 1, LCD_MID)
+    for sy = 81, 146, 2 do R(11, sy, 218, 1, { 0, 0, 0, 0.03 }) end
+    -- speaker with sound arcs
+    local playing = model.playing
+    local beat = playing and floor(self:clock() / 0.15) % 3 or -1
+    if playing then self:wantAmbient(0.15) end
+    ART({ "....##", "...###", "######", "######", "######", "...###", "....##" }, 13, mid - 3, { ["#"] = LCD_INK })
+    for i = 0, 2 do
+      local on = beat >= i
+      local c = on and LCD_INK or mix(LCD_BG, LCD_MID, 0.6)
+      R(21 + i * 3, mid - 2 - i * 2, 1, 5 + i * 4, c)
+    end
+    -- waveform: 2px trace through the sixteen samples
+    local px, py
+    local points = {}
+    for i = 0, 15 do
+      local v = model.wave and (model.wave[i] or 0) % 256 or 0
+      if v >= 128 then v = v - 256 end
+      local y = mid - floor(max(-60, min(60, v)) * 28 / 60 + 0.5)
+      local x = x0 + floor(i * w0 / 15 + 0.5)
+      points[#points + 1] = { x, y }
+    end
+    G.setLineStyle("rough")
+    G.setLineWidth(2)
+    G.setColor(LCD_INK[1], LCD_INK[2], LCD_INK[3], 1)
+    for i = 2, #points do
+      G.line(points[i - 1][1], points[i - 1][2], points[i][1], points[i][2])
+    end
+    G.setLineWidth(1)
+    for _, p in ipairs(points) do R(p[1] - 1, p[2] - 1, 3, 3, LCD_INK) end
+    if playing and self.motionEnabled ~= false then
+      local sweep = x0 + floor(((self:clock() / 1.2) % 1) * w0)
+      self:wantAmbient(0.1, 1 / 20)
+      R(sweep, y0, 2, h0, { LCD_INK[1], LCD_INK[2], LCD_INK[3], 0.35 })
+    end
+    self:pokedexActions(model)
+  end
+
+  -- Size: a measuring wall with a ruler, floor line and the caption plate.
+  function H:pokedexSize(model)
+    local colors = self.colors
+    local mon = model.pokemon or {}
+    hero(self, model, hex("e8a030"), translate("SIZE"), mon.height or "--")
+    local wall = mix(colors.surface, hex("e8c890"), self.dark and 0.12 or 0.22)
+    screenWell(self, 7, 76, 226, 75, wall)
+    for gx = 19, 225, 8 do R(gx, 80, 1, 56, mix(wall, colors.outline, 0.08)) end
+    for gy = 80, 135, 8 do R(19, gy, 207, 1, mix(wall, colors.outline, 0.08)) end
+    -- ruler down the left edge
+    R(11, 80, 7, 56, mix(wall, hex("e8a030"), 0.5))
+    for i = 0, 7 do
+      local ty = 135 - i * 7
+      R(11, ty, i % 2 == 0 and 6 or 3, 1, colors.outline)
+    end
+    R(18, 80, 1, 56, colors.outline)
+    -- floor the silhouettes stand on
+    R(11, 136, 218, 1, colors.outline)
+    R(11, 137, 218, 10, mix(wall, colors.outline, self.dark and 0.3 or 0.12))
+    self:pokedexComparison(model)
+    self:partyInfo(self:fitPartyInfo(model.caption or "", 206), 17, 137, colors.ink, 206, "center")
+    self:pokedexActions(model)
   end
 
   -- Stats keeps its v4 gauges; only the hero is swapped for the shared one.
@@ -276,19 +503,6 @@ return function(H, ui, K)
   -- Region map: Pokégear map app — device bezel, inset screen, pulsing
   -- fly points, bracket cursor, area plate and MAP | FLY segments.
   ---------------------------------------------------------------------------
-  local function bezel(self, x, y, w, h)
-    local colors = self.colors
-    local body = cg(self) and (self.dark and hex("1b2733") or hex("2d4458")) or (self.dark and hex("1d3a46") or hex("2f6f78"))
-    if cg(self) then CH(x, y, w, h, 6, colors.outline); CH(x + 1, y + 1, w - 2, h - 2, 5, body)
-    else RR(x, y, w, h, 6, colors.outline); RR(x + 1, y + 1, w - 2, h - 2, 5, body)
-      R(x + 6, y + 1, w - 12, 1, mix(body, WHITE, 0.3)) end
-    -- screws
-    for _, p in ipairs({ { x + 4, y + 4 }, { x + w - 6, y + 4 }, { x + 4, y + h - 6 }, { x + w - 6, y + h - 6 } }) do
-      R(p[1], p[2], 2, 2, mix(body, WHITE, 0.25))
-    end
-    return body
-  end
-
   local function bracket(self, x, y)
     local colors = self.colors
     x, y = floor(x + 0.5), floor(y + 0.5)

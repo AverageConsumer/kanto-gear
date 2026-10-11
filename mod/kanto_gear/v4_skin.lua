@@ -230,6 +230,78 @@ return function(H, ui, read)
     end
     return false
   end
+  ---------------------------------------------------------------------------
+  -- DS-style in-place motion. Page slides are main.lua's job; these cover
+  -- what changes inside a page (tabs, filters, prompts, a moving selector).
+  -- Anything that appears in the same frame a page slide starts is shown
+  -- settled, because the slide captures that frame once as its target.
+  ---------------------------------------------------------------------------
+  local function easeOut(p) p = 1 - p; return 1 - p * p * p end
+  local function easeBack(p)
+    local c = 1.6; p = p - 1
+    return 1 + (c + 1) * p * p * p + c * p * p
+  end
+  H.v4EnterSlots = {}
+  function H:v4MotionOff()
+    return self.frozenTime ~= nil or self.motionEnabled == false or self.ambientEnabled == false
+  end
+  -- Raw progress 0..1 of the entrance of `key` in `slot`; 1 once settled.
+  function H:v4Enter(slot, key, duration)
+    if self.previewEnter then return self.previewEnter end
+    if self:v4MotionOff() then return 1 end
+    duration = duration or 0.18
+    local t = self:clock()
+    local st = self.v4EnterSlots[slot]
+    if not st or st.key ~= key then
+      local sliding = self.v4SlideAt and t - self.v4SlideAt < 0.06
+      st = { key = key, t0 = sliding and -1e9 or t }
+      self.v4EnterSlots[slot] = st
+    end
+    local p = (t - st.t0) / duration
+    if p >= 1 then return 1 end
+    self:wantAmbient(duration - (t - st.t0) + 0.02, 1 / 60)
+    return max(0, p)
+  end
+  -- Staggered entrance for item `index`: returns an eased 0..1 and a pixel
+  -- offset to draw at, so a list cascades in like the DS menus.
+  function H:v4Stagger(p, index, step, travel, count)
+    if p >= 1 then return 1, 0 end
+    local span = max(0.3, 1 - (step or 0.12) * ((count or 4) - 1))
+    local q = (p - (index - 1) * (step or 0.12)) / span
+    q = min(1, max(0, q))
+    local e = easeOut(q)
+    return e, floor((1 - e) * (travel or 8) + 0.5)
+  end
+  -- A selector glides from where it was to where it is now.
+  H.v4GlideSlots = {}
+  function H:v4Glide(slot, target, duration)
+    if self:v4MotionOff() then return target end
+    local t = self:clock()
+    local st = self.v4GlideSlots[slot]
+    if not st then
+      st = { from = target, to = target, t0 = -1e9 }
+      self.v4GlideSlots[slot] = st
+    elseif st.to ~= target then
+      local d = duration or 0.16
+      local cur = st.from + (st.to - st.from) * easeOut(min(1, (t - st.t0) / d))
+      local sliding = self.v4SlideAt and t - self.v4SlideAt < 0.06
+      st.from, st.to, st.t0 = sliding and target or cur, target, t
+    end
+    local d = duration or 0.16
+    local p = (t - st.t0) / d
+    if p >= 1 then return target end
+    self:wantAmbient(d - (t - st.t0) + 0.02, 1 / 60)
+    return floor(st.from + (target - st.from) * easeOut(p) + 0.5)
+  end
+  -- Draw `fn` shifted by (dx, dy); used for entrances without touching hits.
+  function H:v4Shifted(dx, dy, fn, ...)
+    if dx == 0 and dy == 0 then return fn(...) end
+    local G = graphics()
+    G.push(); G.translate(dx, dy)
+    fn(...)
+    G.pop()
+  end
+
   local function now(self) return self:clock() end
   local function blink(self, period)
     self:wantAmbient(period)
@@ -485,6 +557,7 @@ return function(H, ui, read)
     CIRC = CIRC, CIRCrows = CIRCrows, RING = RING, ELL = ELL, ART = ART,
     setc = setc, inset = inset, hex = hex, mix = mix, alpha = alpha,
     rampOf = rampOf, base = base, blink = blink, graphics = graphics,
+    easeOut = easeOut, easeBack = easeBack,
   }
   if read then
     for _, name in ipairs({ "v4_chrome.lua", "v4_home.lua", "v4_party.lua",

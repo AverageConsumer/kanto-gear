@@ -1,4 +1,7 @@
 return {
+  ["NONE HERE"] = "AUCUN ICI",
+  ["NEST"] = "NID",
+  ["YOU"] = "VOUS",
   ["TOOL"] = "REQUIS",
   ["BERRY TREE"] = "ARBRE À BAIES",
   ["COMPANION"] = false,

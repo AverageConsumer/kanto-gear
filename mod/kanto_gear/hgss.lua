@@ -1697,6 +1697,9 @@ return function(ui)
     if dragging then self:roundedFocusFrame(x, y, w, h, 5) end
   end
 
+  -- v4 skins reuse the same icon table for their own catalog layouts.
+  function H:homeIconTable() return homeIcons(self) end
+
   function H:homeEditDone()
     local colors = self.colors
     local pressed = self:beginPress(158, 6, 57, 15)

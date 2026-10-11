@@ -1,4 +1,7 @@
 return {
+  ["NONE HERE"] = "KEINE HIER",
+  ["NEST"] = "NEST",
+  ["YOU"] = "DU",
   ["TOOL"] = "NÖTIG",
   ["BERRY TREE"] = "BEERENBAUM",
   -- Start, navigation and common controls.

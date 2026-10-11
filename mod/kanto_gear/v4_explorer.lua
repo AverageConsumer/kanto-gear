@@ -592,34 +592,15 @@ return function(H, ui, K)
     self:explorerMap(model)
     if model.mapFull then return end
 
-    if selected and view == "wild" then
-      wildDetail(self, model, selected)
-      return
-    elseif selected and view == "fruit" then
-      local status = selected.picked and "PICKED TODAY" or "READY TO PICK"
-      infoCard(self, colors.green, function(cx, cy) self:fruitIcon(cx - 8, cy - 8, 2, selected.picked) end,
-        selected.label or "", status, selected.picked and colors.silverDark or colors.hp,
-        "BERRY TREE", "REGROWS DAILY")
-      return
-    elseif selected and view == "items" then
-      local status = statusOf(selected, "items")
-      local kind = selected.gift and "NPC GIFT" or selected.kind == "hidden" and "HIDDEN" or "VISIBLE"
-      infoCard(self, hex("e8a030"), function(cx, cy)
-        self:battleItemIcon({ icon = selected.kind == "hidden" and "item" or selected.icon or "item" },
-          cx - 10, cy - 9, colors.amberLight)
-      end, selected.displayLabel or selected.label or "", status, statusColor(self, status), kind,
-        selected.location or "ON THIS MAP", selected.kind == "hidden" and function(x, y)
-          ART(HIDDEN_G, x, y, { ["#"] = colors.green })
-        end or nil)
-      return
-    elseif selected and view == "trainers" then
-      local status = statusOf(selected, "trainers")
-      local where = selected.missed and "UNAVAILABLE" or selected.status == "LATER" and "STORY EVENT"
-        or selected.status or "ON THIS MAP"
-      infoCard(self, hex("e05848"), function(cx, cy)
-        if model.drawActor then model.drawActor(selected, cx, cy + 8, 2, false) end
-      end, selected.label or "", status, statusColor(self, status), "TRAINER", where)
-      return
+    -- details rise into place; lists cascade card by card (in-place only)
+    local G = ui.graphics
+    if selected then
+      local e = self:v4Enter("explorer_detail", tostring(view) .. ":" .. tostring(selected.key or selected.label or selected.species), 0.2)
+      local lift = e < 1 and floor((1 - K.easeOut(e)) * 12 + 0.5) or 0
+      if lift ~= 0 then G.push(); G.translate(0, lift) end
+      local drawn = self:v4ExplorerDetail(model, selected, view)
+      if lift ~= 0 then G.pop() end
+      if drawn then return end
     end
 
     -- list: tabs + panel + cards
@@ -633,14 +614,60 @@ return function(H, ui, K)
       self:partyInfo(translate(text), MAP_X, 166, colors.mutedInk, MAP_W, "center")
       return
     end
+    local enter = self:v4Enter("explorer_cards", table.concat({ tostring(view),
+      tostring(model.wildScope), tostring(model.page) }, ":"), 0.28)
     for index, row in ipairs(rows) do
       local pos = CARD_POS[index]
       if pos then
+        local _, dy = self:v4Stagger(enter, index, 0.08, 6)
+        if dy ~= 0 then G.push(); G.translate(0, dy) end
         if view == "wild" then encounterCard(self, row, pos[1], pos[2], model)
         else listCard(self, row, pos[1], pos[2], model, view, statusColor) end
+        if dy ~= 0 then G.pop() end
       end
     end
-    if model.pages > 1 then pagerCard(self, CARD_POS[4][1], CARD_POS[4][2], model) end
+    if model.pages > 1 then
+      local _, dy = self:v4Stagger(enter, 4, 0.08, 6)
+      if dy ~= 0 then G.push(); G.translate(0, dy) end
+      pagerCard(self, CARD_POS[4][1], CARD_POS[4][2], model)
+      if dy ~= 0 then G.pop() end
+    end
+  end
+
+  -- Returns true when a detail view was drawn.
+  function H:v4ExplorerDetail(model, selected, view)
+    local colors = self.colors
+    if view == "wild" then
+      wildDetail(self, model, selected)
+      return true
+    elseif view == "fruit" then
+      local status = selected.picked and "PICKED TODAY" or "READY TO PICK"
+      infoCard(self, colors.green, function(cx, cy) self:fruitIcon(cx - 8, cy - 8, 2, selected.picked) end,
+        selected.label or "", status, selected.picked and colors.silverDark or colors.hp,
+        "BERRY TREE", "REGROWS DAILY")
+      return true
+    elseif view == "items" then
+      local status = statusOf(selected, "items")
+      local kind = selected.gift and "NPC GIFT" or selected.kind == "hidden" and "HIDDEN" or "VISIBLE"
+      infoCard(self, hex("e8a030"), function(cx, cy)
+        self:battleItemIcon({ icon = selected.kind == "hidden" and "item" or selected.icon or "item" },
+          cx - 10, cy - 9, colors.amberLight)
+      end, selected.displayLabel or selected.label or "", status, statusColor(self, status), kind,
+        selected.location or "ON THIS MAP", selected.kind == "hidden" and function(x, y)
+          ART(HIDDEN_G, x, y, { ["#"] = colors.green })
+        end or nil)
+      return true
+    elseif view == "trainers" then
+      local status = statusOf(selected, "trainers")
+      local where = selected.missed and "UNAVAILABLE" or selected.status == "LATER" and "STORY EVENT"
+        or selected.status or "ON THIS MAP"
+      infoCard(self, hex("e05848"), function(cx, cy)
+        if model.drawActor then model.drawActor(selected, cx, cy + 8, 2, false) end
+      end, selected.label or "", status, statusColor(self, status), "TRAINER", where)
+      return true
+    end
+
+    return false
   end
 
   local baseHit = H.explorerHit

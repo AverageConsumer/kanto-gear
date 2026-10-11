@@ -1,4 +1,6 @@
 return {
+  ["NONE HERE"] = "KEINE HIER",
+  ["NEST"] = "NEST",
   ["TOOL"] = "NÖTIG",
   ["BERRY TREE"] = "BEERENBAUM",
   ["RUBY"] = "RUBIN",

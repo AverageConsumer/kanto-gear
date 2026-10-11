@@ -197,6 +197,7 @@ function love.load()
     local source = file:read("*a"); file:close(); return source
   end)
   theme.frozenTime = tonumber(os.getenv("KANTO_GEAR_PREVIEW_TIME_S")) or 1.3
+  theme.previewEnter = tonumber(os.getenv("KANTO_GEAR_PREVIEW_ENTER"))
   theme:setSkin(os.getenv("KANTO_GEAR_PREVIEW_SKIN") or "pokegear")
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
   for prefix, name in pairs({ pokedex = "POKEDEX", trainer = "TRAINER", bag = "BAG",
@@ -540,7 +541,9 @@ function love.load()
   local pokedexHabitat = screen == "pokedex_habitat"
   local pokedexStats = screen == "pokedex_stats"
   local pokedexMoves = screen == "pokedex_moves"
-  local pokedex = pokedexIndex or pokedexProfile or pokedexHabitat
+  local pokedexArea = screen == "pokedex_area" or screen == "pokedex_area_combined"
+  local pokedexCry, pokedexSize = screen == "pokedex_cry", screen == "pokedex_size"
+  local pokedex = pokedexIndex or pokedexProfile or pokedexHabitat or pokedexArea or pokedexCry or pokedexSize
     or pokedexStats or pokedexMoves
   local bagOverview, bagDetail = screen == "bag", screen == "bag_detail"
   local bag = bagOverview or bagDetail
@@ -2421,6 +2424,12 @@ function love.load()
       drawDexPokemon = function(_, x, y, size)
         drawPortrait(gen1 and 6 or 2, x, y, size, false)
       end,
+      nowRows = os.getenv("KANTO_GEAR_PREVIEW_NOW") ~= "0" and {
+        { slot = 1, caught = true }, { slot = 2, caught = true },
+        { slot = 3 }, { slot = 4 } } or nil,
+      drawNowIcon = function(row, x, y, size, dim)
+        drawPortrait(row.slot, x, y, size, false)
+      end,
     }
     if homeEdit then
       if os.getenv("KANTO_GEAR_PREVIEW_HOME_FOCUS") == "1"
@@ -2548,6 +2557,7 @@ function love.load()
     end
     local model = {
       view = pokedexProfile and "profile"
+        or pokedexArea and "area" or pokedexCry and "cry" or pokedexSize and "size"
         or pokedexHabitat and "habitat"
         or pokedexStats and "stats"
         or pokedexMoves and "moves" or "index",
@@ -2619,6 +2629,48 @@ function love.load()
         { method = translate("TM/HM"), name = "SURF", type = "WATER",
           type2 = "WATER", typeLabel = "WAT", type2Label = "WAT" },
       }
+    end
+    if pokedexArea or pokedexCry or pokedexSize then
+      model.actions = pokedexSize and { { label = "CRY" }, { label = "AREA" }, { label = "BACK" } }
+        or pokedexCry and { { label = "AREA" }, { label = "SIZE" }, { label = "BACK" } }
+        or { { label = "CRY" }, { label = "SIZE" }, { label = "BACK" } }
+      model.canUse = true
+      model.compactActions = pokedexArea
+      local sprite = dexSprites.gyarados
+      local function silhouette(x, y, scale)
+        return { image = sprite.image, x = x, y = y, scale = scale }
+      end
+      if pokedexArea then
+        model.region = gen1 and "KANTO" or "JOHTO"
+        model.area = { available = true, x = 0, y = 0, width = 160, height = 72,
+          draw = function()
+            love.graphics.setColor(0.42, 0.66, 0.42, 1)
+            love.graphics.rectangle("fill", 0, 0, 160, 72)
+            love.graphics.setColor(0.36, 0.56, 0.86, 1)
+            love.graphics.rectangle("fill", 0, 50, 160, 22)
+            love.graphics.rectangle("fill", 100, 0, 22, 50)
+            love.graphics.setColor(0.86, 0.80, 0.56, 1)
+            for _, r in ipairs({ { 10, 20, 80, 4 }, { 40, 4, 4, 60 }, { 70, 30, 60, 4 } }) do
+              love.graphics.rectangle("fill", r[1], r[2], r[3], r[4])
+            end
+          end,
+          coverage = { { x = 100, y = 10, width = 22, height = 30 }, { x = 20, y = 54, width = 40, height = 12 } },
+          markers = { { x = 111, y = 22 }, { x = 40, y = 60 } },
+          player = { x = 60, y = 21 } }
+        if screen == "pokedex_area_combined" then
+          model.combined = true
+          model.areaViewport = { x = 14, y = 94, width = 96, height = 80 }
+          model.comparison = { silhouette(150, 140, 0.4), silhouette(195, 132, 0.75) }
+        end
+      elseif pokedexCry then
+        model.playing = os.getenv("KANTO_GEAR_PREVIEW_PLAYING") ~= "0"
+        model.wave = {}
+        for i = 0, 15 do model.wave[i] = math.floor(math.sin(i * 0.9) * 50 * (1 - i / 20)) % 256 end
+      else
+        model.caption = "GYARADOS IS 21'04\" TALL"
+        model.comparison = { silhouette(100, 118, 0.45), silhouette(150, 108, 0.75) }
+        model.pokemon.height = "21'04\""
+      end
     end
     theme:pokedex(model)
     if pokedexIndex then
