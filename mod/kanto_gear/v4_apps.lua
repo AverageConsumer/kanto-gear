@@ -606,12 +606,17 @@ return function(H, ui, K)
       if self.v4HelpKey ~= key then self.v4HelpKey, self.v4HelpAt = key, now end
       local shown = (self.motionEnabled == false or self.frozenTime) and math.huge
         or floor((now - (self.v4HelpAt or now)) * 70)
-      local total, left = 0, shown
-      for _, line in ipairs(lines) do total = total + #line end
+      local total, left, characters = 0, shown, {}
+      for index, line in ipairs(lines) do
+        characters[index] = ui.glyphs(line)
+        total = total + #characters[index]
+      end
       local top = 150 + floor((62 - #lines * 9) / 2) - 1
       for index, line in ipairs(lines) do
-        local part = left >= #line and line or line:sub(1, math.max(0, left))
-        left = left - #line
+        local chars = characters[index]
+        local part = left >= #chars and line
+          or table.concat(chars, "", 1, math.max(0, left))
+        left = left - #chars
         if #part > 0 then self:partyInfo(part, 16, top + (index - 1) * 9 - 1, colors.ink) end
       end
       if shown < total then self:wantAmbient(0.05, 1 / 30)
@@ -787,12 +792,17 @@ return function(H, ui, K)
     if self.v4HelpKey ~= key then self.v4HelpKey, self.v4HelpAt = key, now end
     local shown = (self.motionEnabled == false or self.frozenTime) and math.huge
       or floor((now - (self.v4HelpAt or now)) * 70)
-    local total, left = 0, shown
-    for _, line in ipairs(lines) do total = total + #line end
+    local total, left, characters = 0, shown, {}
+    for index, line in ipairs(lines) do
+      characters[index] = ui.glyphs(line)
+      total = total + #characters[index]
+    end
     local top = y + floor((h - #lines * 11) / 2)
     for index, line in ipairs(lines) do
-      local part = left >= #line and line or line:sub(1, math.max(0, left))
-      left = left - #line
+      local chars = characters[index]
+      local part = left >= #chars and line
+        or table.concat(chars, "", 1, math.max(0, left))
+      left = left - #chars
       if #part > 0 then self:partyInfo(part, x + 10, top + (index - 1) * 11 - 1, colors.ink) end
     end
     if shown < total then self:wantAmbient(0.05, 1 / 30)
@@ -856,7 +866,10 @@ return function(H, ui, K)
           self:partyType(self:fitPartyType(translate(row.value), CTRL_W - 8), CTRL_X + 4, y + 4 + off, WHITE, CTRL_W - 8)
           self:endPress(bp)
         elseif segmentFits(self, row) then
-          local sp = self:beginPress(CTRL_X, y + 2, CTRL_W, 17, live)
+          local action, touched = self:v4SettingsTabbedHit(
+            (self.touchX or -1) * 1.5, (self.touchY or -1) * 1.5, model)
+          local sp = self:beginPress(CTRL_X, y + 2, CTRL_W, 17,
+            live and action == "set" and touched == index)
           self:v4Segments(CTRL_X, y + 2, CTRL_W, row.choices, row.raw, live, accent)
           self:endPress(sp)
         else
