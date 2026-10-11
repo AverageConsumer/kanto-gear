@@ -177,6 +177,9 @@ T.check(not display.startMenu().valid(), "RS trainer setup rejects touch")
 for _ = 1, 120 do Card.update(1 / 60) end
 local card = assert(display.startMenu())
 T.check(card.valid(), "settled RS trainer card accepts touch")
+T.eq(card.trainerModel.stars, Card._card.stars, "RS companion uses the game's actual card rank")
+T.eq(display.trainerModel().stars, Card._card.stars, "RS Trainer app uses the game's actual card rank")
+T.eq(card.trainerModel.cardFamily, "hoenn", "RS rank uses the Hoenn card colours")
 Card.handleInput(input("a")); Card.update(1 / 60); Card.update(1 / 60)
 T.check(not card.valid(), "native card flip blocks repeated touch")
 for _ = 1, 120 do Card.update(1 / 60) end
