@@ -598,6 +598,8 @@ function M:catalog(mapId, checkpoint)
       if not gifts[key] and self.adapter.data.items[gift.itemId] then
         local row = base(obj)
         row.kind, row.gift, row.itemId, row.event = "item", true, gift.itemId, gift.event
+        -- This shared Pokemon Center reward needs an external event/record mix.
+        row.optional = self.hoenn and gift.itemId == self.constants:id("items", "ITEM_EON_TICKET") or nil
         local daily = self.hoenn and self.constants:flag("DAILY_FLAGS_START")
         row.repeatable = daily and gift.event >= daily
           and gift.event <= (self.constants:flag("DAILY_FLAGS_END") or daily + 63) or nil
