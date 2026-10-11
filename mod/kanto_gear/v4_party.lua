@@ -118,7 +118,10 @@ return function(H, ui, K)
     end
     -- name row
     self:partyName(mon.name, x + 46, y + 2, ink, details == true and 56 or 62)
-    if details == true then self:detailChevron(x + 105, y + 6, ink) end
+    if details == true then
+      -- Centre the glyph in the C-Gear corner stripe, including its sloped edge.
+      self:detailChevron(x + (cg(self) and 100 or 105), y + (cg(self) and 3 or 6), ink)
+    end
     if mon.egg then self:endPress(pressed); return end
     self:typeBadges(mon, x + 1, y + 45, fainted)
     -- level / status / gender
