@@ -116,3 +116,4 @@ tests/rs_objectives_test.lua
 tests/battle_modes_test.lua
 tests/pokenav_menu_test.lua
 tests/v4_stamp_test.lua
+tests/pokegear_page_test.lua

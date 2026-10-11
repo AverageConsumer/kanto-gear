@@ -2561,6 +2561,8 @@ return function(mod)
   displayRuntime.trainerPage = 1
   displayRuntime.NativeOptions = assert(load(mod:read("native_options.lua"),
     "@kanto_gear/native_options.lua"))()
+  displayRuntime.PokegearPage = assert(load(mod:read("pokegear_page.lua"),
+    "@kanto_gear/pokegear_page.lua"))()
   displayRuntime.LegacyPC = assert(load(mod:read("legacy_pc.lua"),
     "@kanto_gear/legacy_pc.lua"))()
   displayRuntime.StoragePage = assert(load(mod:read("storage_page.lua"),
@@ -5554,6 +5556,10 @@ return function(mod)
     displayRuntime.nativeOptionsView = THEME.style == "hgss" and displayRuntime.NativeOptions.project(nativeTop, game,
       displayRuntime.gen3Ui and 3 or compat.isGen2() and 2 or 1, displayRuntime.nativeOptionsView)
     if displayRuntime.nativeOptionsView then return displayRuntime.nativeOptionsView end
+    displayRuntime.nativePokegearView = THEME.style == "hgss" and THEME.hgss.pokegearScreen
+      and not displayRuntime.gen3Ui and compat.isGen2()
+      and displayRuntime.PokegearPage.project(nativeTop, game, displayRuntime.nativePokegearView) or nil
+    if displayRuntime.nativePokegearView then return displayRuntime.nativePokegearView end
     if displayRuntime.gen3Ui then
       return displayRuntime.decorateBagList(displayRuntime.gen3Ui:list(battle))
     end
@@ -5653,6 +5659,8 @@ return function(mod)
         THEME.hgss:pokedex(top.dexModel)
       elseif top.trainerModel then
         THEME.hgss:trainer(top.trainerModel)
+      elseif top.pokegearModel then
+        THEME.hgss:pokegearScreen(top.pokegearModel, displayRuntime.PokegearPage)
       elseif top.optionsModel then
         displayRuntime.NativeOptions.draw(THEME.hgss, top.optionsModel)
       elseif top.nativeStats then
@@ -12784,6 +12792,11 @@ return function(mod)
       local action = displayRuntime.TrainerPage.hit(x * THEME.hgssScale, y * THEME.hgssScale, top.trainer.pages)
       local key = action == "back" and "b" or type(action) == "number" and top.nextKey(action)
       if key then press(key); dirty = true end
+      return
+    end
+    if top.pokegearModel and THEME.style == "hgss" then
+      local action, arg = displayRuntime.PokegearPage.hit(top.pokegearModel, x * THEME.hgssScale, y * THEME.hgssScale)
+      if action and displayRuntime.PokegearPage.apply(top, action, arg, press) then dirty = true end
       return
     end
     if top.optionsModel and THEME.style == "hgss" then

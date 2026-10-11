@@ -984,4 +984,248 @@ return function(H, ui, K)
     end
   end
 
+
+  ---------------------------------------------------------------------------
+  -- Gen 2 POKéGEAR: the cards as Home-style tiles, then a tab rail and a
+  -- touch face per card. Page (pokegear_page.lua) owns the shared geometry.
+  ---------------------------------------------------------------------------
+  local PG_TINT = { clock = "e05040", map = "48a858", phone = "5878c8", radio = "f0a030" }
+  local UP = { ".....#.....", "....###....", "...#####...", "..#######..", ".#########.", "###########" }
+  local DOWN = { "###########", ".#########.", "..#######..", "...#####...", "....###....", ".....#....." }
+  local function pgAccent(self, id)
+    if cg(self) then return self.tok.acc.M end
+    return hex(PG_TINT[id] or "48a858")
+  end
+  local function lcdColors(self)
+    local tok = self.tok
+    if tok.lcd then return tok.lcdFrame, tok.lcd, tok.lcdOn, tok.lcdGhost end
+    local bg = self.dark and hex("0b1620") or hex("12212e")
+    local on = tok.acc.Hi or tok.acc.L
+    return self.colors.outline, bg, on, mix(bg, on, 0.14)
+  end
+  local function lcdPanel(self, x, y, w, h)
+    local frame, bg = lcdColors(self)
+    if cg(self) then
+      CH(x, y, w, h, 4, frame); CH(x + 1, y + 1, w - 2, h - 2, 3, bg)
+    else
+      RR(x, y, w, h, 4, frame); RR(x + 1, y + 1, w - 2, h - 2, 3, bg)
+    end
+    R(x + 3, y + 2, w - 6, 1, { 1, 1, 1, 0.07 })
+  end
+  -- big seven-segment readout, scaled from the header clock's digits
+  local function bigLcd(self, value, cx, y, scale, colon)
+    local _, _, on, ghost = lcdColors(self)
+    local G = ui.graphics
+    local w = K.lcdWidth(value) * scale
+    G.push(); G.translate(cx - floor(w / 2), y); G.scale(scale, scale)
+    K.lcd(value, 0, 0, on, ghost, colon)
+    G.pop()
+    return w
+  end
+  local function seatIcon(self, icon, x, y, d, accent, lit)
+    local c = self.colors
+    CIRC(x, y, d, c.outline)
+    CIRC(x + 1, y + 1, d - 2, lit and mix(WHITE, accent, 0.18) or mix(c.surface, accent, self.dark and 0.3 or 0.16))
+    K.CIRCrows(x + 1, y + 1, d - 2, floor((d - 2) / 2), d - 2,
+      lit and mix(WHITE, accent, 0.3) or mix(c.surface, accent, self.dark and 0.42 or 0.26))
+    if self:v4HasIcon(icon) then self:v4Icon(icon, x + floor((d - 24) / 2), y + floor((d - 24) / 2)) end
+  end
+  local function litText(self, lit, value, x, y, ink, w, align)
+    if lit then self:withoutShadow(self.partyInfo, self, value, x, y, WHITE, w, align)
+    else self:partyInfo(value, x, y, ink, w, align) end
+  end
+  local function arrowKey(self, x, y, w, h, art, enabled)
+    local pressed = self:beginPress(x, y, w, h, enabled ~= false)
+    self:v4Key(x, y, w, h)
+    ART(art, x + floor((w - 11) / 2), y + floor((h - 6) / 2) - 1, { ["#"] = self.tok.acc.M })
+    self:endPress(pressed)
+  end
+
+  function H:pokegearScreen(m, Page)
+    local c = self.colors
+    local G = ui.graphics
+    if m.mode == "strip" then
+      local enter = self:v4Enter("pokegear", "strip:" .. #m.cards, 0.24)
+      for i, r in ipairs(Page.tiles(#m.cards)) do
+        local card = m.cards[i]
+        local _, dy = self:v4Stagger(enter, i, 0.07, 10, #m.cards)
+        if dy ~= 0 then G.push(); G.translate(0, dy) end
+        local x, y, w, h = r[1], r[2], r[3], r[4]
+        local accent = pgAccent(self, card.id)
+        local lit = card.index == m.cardIndex
+        local pressed = self:beginPress(x, y, w, h, true)
+        local off = 0
+        if lit then off = self:v4Button(x, y, w, h, K.rampOf(accent), { radius = 6, lip = 3, chamfer = 5 })
+        else self:v4Window(x, y, w, h, { radius = 5 }) end
+        local d = 34
+        seatIcon(self, card.icon, x + floor((w - d) / 2), y + 5 + off, d, accent, lit)
+        litText(self, lit, self:fitPartyInfo(card.label, w - 8), x + 4, y + h - 18 + off, c.ink, w - 8, "center")
+        if self.nativeFocus and lit then self:focusFrame(x, y, w, h) end
+        self:endPress(pressed)
+        if dy ~= 0 then G.pop() end
+      end
+      -- the device's clock, always at hand under the cards
+      local clock = m.clock
+      if clock then
+        lcdPanel(self, 7, 172, 226, 38)
+        local _, _, on = lcdColors(self)
+        local colon = floor(self:clock()) % 2 == 0
+        self:wantAmbient(1)
+        local time = string.format("%d:%02d", clock.h12, clock.minute)
+        bigLcd(self, time, 120, 182, 2, colon)
+        self:withoutShadow(function()
+          self:partyInfo(clock.day, 16, 185, on, 70)
+          self:partyInfo(clock.pm and "PM" or "AM", 196, 185, on, 30)
+        end)
+      end
+      return
+    end
+
+    -- tab rail: switch cards in place
+    local current = m.card
+    for i, r in ipairs(Page.tabs(#m.cards)) do
+      local card = m.cards[i]
+      local x, y, w, h = r[1], r[2], r[3], r[4]
+      local accent = pgAccent(self, card.id)
+      local lit = card.id == current
+      local pressed = self:beginPress(x, y, w, h, not lit and not m.busy)
+      local off = 0
+      if lit then off = self:v4Button(x, y, w, h, K.rampOf(accent), { radius = 5, lip = 3, chamfer = 4 })
+      else self:v4Window(x, y, w, h, { radius = 4, fill = m.busy and c.bandLight or nil }) end
+      local iconY = y + floor((h - (lit and 3 or 0) - 24) / 2) + off
+      if w >= 100 then
+        self:v4Icon(card.icon, x + 8, iconY)
+        litText(self, lit, self:fitPartyInfo(card.label, w - 42), x + 36, y + 6 + off, c.ink, w - 42)
+      else
+        self:v4Icon(card.icon, x + floor((w - 24) / 2), iconY)
+      end
+      self:endPress(pressed)
+    end
+
+    local accent = pgAccent(self, current)
+    local enter = self:v4Enter("pokegear_card", tostring(current), 0.18)
+    local _, dy = self:v4Stagger(enter, 1, 0, 8, 1)
+    if dy ~= 0 then G.push(); G.translate(0, dy) end
+    if m.clock then
+      local clock = m.clock
+      lcdPanel(self, 7, 62, 226, 104)
+      local _, _, on = lcdColors(self)
+      self:withoutShadow(function() self:partyInfo(clock.day, 7, 72, on, 226, "center") end)
+      local colon = floor(self:clock()) % 2 == 0
+      self:wantAmbient(1)
+      bigLcd(self, string.format("%d:%02d", clock.h12, clock.minute), 120, 94, 5, colon)
+      self:withoutShadow(function() self:partyInfo(clock.pm and "PM" or "AM", 7, 146, on, 226, "center") end)
+    elseif m.phone then
+      local p = m.phone
+      if p.call then
+        self:v4MessageWindow(7, 62, 226, 104)
+        seatIcon(self, "pg_phone", 104, 70, 32, accent, true)
+        local lines = wrapLabel(self, p.call.text, 200, 4)
+        for i, line in ipairs(lines) do self:label(line, 20, 106 + (i - 1) * 13, c.ink, 200, "center") end
+        local pressed = self:beginPress(64, 172, 112, 32, true)
+        local off = self:v4Button(64, 172, 112, 32, K.rampOf(hex("e05040")), { radius = 6, lip = 3, chamfer = 5 })
+        self:withoutShadow(self.partyInfoCentered, self, translate("END"), 64, 172 + off, 112, 28, WHITE)
+        self:endPress(pressed)
+      else
+        local page = m.phonePage or 1
+        for i = 1, Page.PHONE_PAGE do
+          local row = p.rows[(page - 1) * Page.PHONE_PAGE + i]
+          if row then
+            local x, y, w, h = Page.phoneRow(i)
+            local lit = row.selected
+            local pressed = self:beginPress(x, y, w, h, not p.submenu)
+            local off = 0
+            if lit then off = self:v4Button(x, y, w, h, K.rampOf(accent), { radius = 5, lip = 3, chamfer = 4 })
+            else self:v4Window(x, y, w, h, { radius = 4 }) end
+            self:v4Icon("pg_phone", x + 4, y + floor((h - (lit and 3 or 0) - 24) / 2) + off)
+            local nameW = row.class and 104 or 186
+            litText(self, lit, self:fitPartyInfo(row.name, nameW), x + 32, y + 6 + off, c.ink, nameW)
+            if row.class then
+              local ink = lit and WHITE or c.mutedInk
+              self:withoutShadow(self.partyInfo, self, self:fitPartyInfo(row.class, 84), x + 138, y + 6 + off, ink, 84, "right")
+            end
+            self:endPress(pressed)
+          end
+        end
+        if #p.rows == 0 then
+          self:v4Window(7, 62, 226, 40, { radius = 4 })
+          self:partyInfo("----------", 7, 76, c.mutedInk, 226, "center")
+        end
+        if (m.phonePages or 1) > 1 and not p.submenu then
+          self:pageChevron(22, 193, false, true)
+          self:partyInfoCentered(page .. "/" .. m.phonePages, 30, 186, 64, 14, c.ink)
+          self:pageChevron(102, 193, true, true)
+        end
+        if not p.signal then
+          self:v4Pill("NO SIGNAL", 233, 186, hex("e05040"), { right = true })
+        end
+        if p.submenu then
+          self:systemOverlay(0.45)
+          local n = #p.submenu.entries
+          local w = floor((226 - (n - 1) * 6) / n)
+          for i, label in ipairs(p.submenu.entries) do
+            local x = 7 + (i - 1) * (w + 6)
+            local lit = i == p.submenu.cursor
+            local pressed = self:beginPress(x, 176, w, 30, true)
+            local off = 0
+            if lit then off = self:v4Button(x, 176, w, 30, K.rampOf(accent), { radius = 6, lip = 3, chamfer = 5 })
+            else self:v4Key(x, 176, w, 30) end
+            local shown = self:fitPartyInfo(label, w - 8)
+            if lit then self:withoutShadow(self.partyInfoCentered, self, shown, x, 176 + off, w, 26, WHITE)
+            else self:partyInfoCentered(shown, x, 176, w, 26, c.ink) end
+            self:endPress(pressed)
+          end
+        end
+      end
+    elseif m.radio then
+      local radio = m.radio
+      lcdPanel(self, 45, 62, 150, 44)
+      local _, _, on, ghost = lcdColors(self)
+      local digits = radio.frequency:gsub("%.", "")
+      local whole, frac = radio.frequency:match("^(%d+)%.(%d)$")
+      if whole then
+        -- whole and tenth apart, with the decimal point lit between them
+        local ww, fw = K.lcdWidth(whole) * 2, K.lcdWidth(frac) * 2
+        local x0 = 120 - floor((ww + 6 + fw) / 2)
+        bigLcd(self, whole, x0 + floor(ww / 2), 68, 2, false)
+        R(x0 + ww + 1, 84, 2, 2, on)
+        bigLcd(self, frac, x0 + ww + 6 + floor(fw / 2), 68, 2, false)
+      else
+        bigLcd(self, digits, 120, 68, 2, false)
+      end
+      self:withoutShadow(function()
+        self:partyInfo(self:fitPartyInfo(radio.name or "- - -", 140), 50, 89, radio.name and on or ghost, 140, "center")
+      end)
+      arrowKey(self, 7, 62, 34, 44, DOWN)
+      arrowKey(self, 199, 62, 34, 44, UP)
+      for i, row in ipairs(radio.stations) do
+        local x, y, w, h = Page.stationRect(i)
+        if y + h <= 214 then
+          local lit = row.current
+          local pressed = self:beginPress(x, y, w, h, true)
+          local off = 0
+          if lit then off = self:v4Button(x, y, w, h, K.rampOf(accent), { radius = 4, lip = 2, chamfer = 3 })
+          else self:v4Window(x, y, w, h, { radius = 3 }) end
+          local ink = lit and WHITE or c.mutedInk
+          self:withoutShadow(self.partyInfo, self, row.frequency, x + 5, y + 4 + off, ink, 28)
+          litText(self, lit, self:fitPartyInfo(row.name, w - 40), x + 35, y + 4 + off, c.ink, w - 40)
+          self:endPress(pressed)
+        end
+      end
+    elseif m.map then
+      local map = m.map
+      self:v4Window(7, 62, 226, 82, { radius = 5 })
+      self:v4Pill(map.region, 15, 70, accent)
+      if map.here then self:v4Pill("HERE", 225, 70, hex("e05040"), { right = true }) end
+      self:partyName(self:fitPartyInfo(map.landmark, 200), 20, 96, c.ink, 200)
+      if not map.here and map.player ~= "" then
+        self:v4Icon("map", 18, 116)
+        self:partyInfo(self:fitPartyInfo(map.player, 170), 46, 122, c.mutedInk, 170)
+      end
+      arrowKey(self, 7, 150, 110, 40, DOWN)
+      arrowKey(self, 123, 150, 110, 40, UP)
+    end
+    if dy ~= 0 then G.pop() end
+  end
+
 end

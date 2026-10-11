@@ -562,6 +562,7 @@ function love.load()
     or screen == "start_menu_early"
   local pokenavMenu = screen == "pokenav" or screen == "pokenav_condition" or screen == "pokenav_search"
     or screen == "pokenav_early" or screen == "pokenav_mc"
+  local pokegearScreen = screen:sub(1, 8) == "pokegear"
   local legacyChoice = screen == "legacy_choice"
   local legacyChoiceGrid = screen == "legacy_choice_grid"
   local legacyNaming = screen == "legacy_naming"
@@ -595,7 +596,7 @@ function love.load()
   local legacy = startMenu or legacyChoice or legacyChoiceGrid or legacyNaming
     or legacyLevelUp or legacyMoveNew or legacyMoveForget or legacyMoveInfo
     or legacyEnemy or legacyPc or legacyPpMoves
-  local legacyBack = startMenu or pokenavMenu or legacyMoveForget or legacyMoveInfo
+  local legacyBack = startMenu or pokenavMenu or pokegearScreen or legacyMoveForget or legacyMoveInfo
     or legacyEnemy and not legacyEnemyInfo or legacyPc and not legacyPcRoot
     or legacyPpMoves
   local pokedexIndex = screen == "pokedex"
@@ -667,6 +668,7 @@ function love.load()
     or regionMap and (gen1 and "KANTO MAP" or "JOHTO MAP")
     or startMenu and "CHOOSE ACTION"
     or pokenavMenu and "POKéNAV"
+    or pokegearScreen and "POKéGEAR"
     or legacyNaming and "NAME INPUT"
     or legacyLevelUp and "LEVEL UP"
     or legacyMoveNew and "NEW MOVE"
@@ -1955,6 +1957,48 @@ function love.load()
       native.items = { native.items[2], native.items[3], native.items[#native.items - 1] }
     end
     theme:startMenu(menu.model(native))
+  elseif pokegearScreen then
+    -- Gold/Silver/Crystal POKéGEAR; the model mirrors pokegear_page.lua
+    local Page = assert(loadfile(root .. "/mod/kanto_gear/pokegear_page.lua"))()
+    local cards = {
+      { id = "clock", index = 1, icon = "pg_clock", label = "CLOCK" },
+      { id = "map", index = 2, icon = "map", label = "MAP" },
+      { id = "phone", index = 3, icon = "pg_phone", label = "PHONE" },
+      { id = "radio", index = 4, icon = "pg_radio", label = "RADIO" } }
+    if screen == "pokegear_early" then cards = { cards[1], cards[3] }; cards[2].index = 2 end
+    local clock = { hour = 20, minute = 4, h12 = 8, pm = true, day = "SUNDAY" }
+    local m = { mode = "card", cards = cards, cardIndex = 1 }
+    if screen == "pokegear" or screen == "pokegear_early" then m.mode, m.clock = "strip", clock
+    elseif screen == "pokegear_clock" then m.card, m.clock = "clock", clock
+    elseif screen:sub(1, 14) == "pokegear_phone" or screen == "pokegear_call" then
+      m.card, m.cardIndex = "phone", 3
+      m.phone = { signal = screen ~= "pokegear_phone_nosignal", rows = {
+        { slot = 1, name = "MOM", selected = screen ~= "pokegear_phone_menu" },
+        { slot = 2, name = "PROF.ELM" },
+        { slot = 3, name = "JOEY", class = "YOUNGSTER", selected = screen == "pokegear_phone_menu" },
+        { slot = 4, name = "WADE", class = "BUG CATCHER" },
+        { slot = 5, name = "LIZ", class = "PICNICKER" } } }
+      m.phonePage, m.phonePages = 1, 2
+      if screen == "pokegear_phone_menu" then
+        m.busy, m.phone.submenu = true, { cursor = 1, entries = { "CALL", "DELETE", "CANCEL" } }
+      elseif screen == "pokegear_call" then
+        m.busy, m.phone.call = true, { name = "JOEY", text = "JOEY: Hi! My RATTATA is in the top percentage of RATTATA!" }
+      end
+    elseif screen == "pokegear_radio" then
+      m.card, m.cardIndex = "radio", 4
+      m.radio = { frequency = "7.5", name = "POKéMON MUSIC", top = "", bottom = "", stations = {
+        { knob = 16, frequency = "4.5", name = "OAK'S TALK" },
+        { knob = 28, frequency = "7.5", name = "POKéMON MUSIC", current = true },
+        { knob = 32, frequency = "8.5", name = "LUCKY CHANNEL" },
+        { knob = 40, frequency = "10.5", name = "BUENA'S PASSWORD" },
+        { knob = 52, frequency = "13.5", name = "UNOWN" },
+        { knob = 64, frequency = "16.5", name = "PLACES & PEOPLE" },
+        { knob = 78, frequency = "20.0", name = "EVOLUTION" } } }
+    elseif screen == "pokegear_map" then
+      m.card, m.cardIndex = "map", 2
+      m.map = { region = "JOHTO", landmark = "VIOLET CITY", player = "ROUTE 32", here = false }
+    end
+    theme:pokegearScreen(m, Page)
   elseif pokenavMenu then
     -- Emerald PokéNav menus; rectangles mirror gen3_ui.lua's projection
     local rows = screen == "pokenav" and {

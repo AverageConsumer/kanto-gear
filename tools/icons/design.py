@@ -388,6 +388,47 @@ def itemfinder():
     return c
 
 @reg
+def pg_clock():
+    c=C()
+    # gear clock: red rim, cream face, two hands and tick marks
+    c.fill(c.mask_circle(12,12.5,10.5),'#e05040')
+    c.fill(c.mask_circle(12,12.5,7.6),'#fff8e8',shade=False)
+    for (x,y) in [(11,5),(12,5),(18,12),(18,13),(11,19),(12,19),(5,12),(5,13)]: c.flat({(x,y)},'#a09080')
+    c.flat(c.mask_line(12,12.5,12,7.5,1),'#384858')
+    c.flat(c.mask_line(12,12.5,15.5,14.5,1),'#384858')
+    c.flat({(11,12),(12,12),(11,13),(12,13)},'#e05040')
+    c.flat({(7,6),(8,5)},'#ffffff')
+    return c
+
+@reg
+def pg_phone():
+    c=C()
+    # Gen 2 cell phone: antenna, lit screen, keypad
+    c.flat(c.mask_line(16,6,16,1,1),'#384858'); c.fill(c.mask_circle(16.5,1.8,1.4),'#e05040',shade=False)
+    c.fill(c.mask_rrect(6,5,12,18,3),'#5878c8')
+    c.fill(c.mask_rect(8,7,8,6),'#b8f0a0',shade=False)
+    c.flat(c.mask_rect(9,9,4,1),'#307040'); c.flat(c.mask_rect(9,11,6,1),'#307040')
+    for j in (15,17,19):
+        for i in (8,11,14): c.flat({(i,j),(i+1,j)},'#e8f0f8')
+    c.outer_outline()
+    return c
+
+@reg
+def pg_radio():
+    c=C()
+    # pocket radio: antenna, speaker grille, tuning dial
+    c.flat(c.mask_line(5,9,9,2,1),'#384858'); c.flat({(9,1),(10,2)},'#f8d040')
+    c.fill(c.mask_rrect(2,8,20,14,3),'#f0a030')
+    c.fill(c.mask_rrect(4,10,9,10,2),'#704820',shade=False)
+    for j in (12,14,16,18):
+        c.flat(c.mask_rect(5,j,7,1),'#c08848')
+    c.fill(c.mask_circle(17.5,13.5,2.8),'#fff8e8',shade=False)
+    c.flat({(17,12),(17,13)},'#e05040')
+    c.fill(c.mask_rect(15,18,6,2),'#384858',shade=False)
+    c.outer_outline()
+    return c
+
+@reg
 def runner():
     c=C()
     c.fill(c.mask_circle(14,4,2.6),'#f8f8f8')
