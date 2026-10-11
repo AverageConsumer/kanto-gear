@@ -62,11 +62,28 @@ local function frame()
     end
   end, {}, { secondScreen = bridge })
 end
+-- Camera and marker rounding can produce an identical image on a due tick.
+-- Count those verified skips separately from missed movement updates.
+local unchangedPixels = 0
+local updateMapRefresh = display.updateMapRefresh
+local theme = up(drawContents, "THEME").hgss
+display.updateMapRefresh = function(time)
+  local due = time + .000001 >= display.mapRefresh.nextAt
+  local pos = due and display.localMapPosition()
+  local model = display.explorer.renderModel
+  local samePixels = due and up(compose, "page") == "LOCAL" and model and pos
+    and theme:explorerMotionKey(model, pos) == display.mapRefresh.key
+  local changed = updateMapRefresh(time)
+  if samePixels and not changed then unchangedPixels = unchangedPixels + 1 end
+  return changed
+end
 local function walk(page)
   up(compose, "page", page); up(compose, "dirty", true)
+  world.player.px = 36
   display.mapRefresh.nextAt = now
   frame()
   local beforeFull, beforePartial = full, partial
+  local beforeUnchanged = unchangedPixels
   for i = 1, 600 do
     now = now + 1 / 60; world.player.px = 36 + i
     if page == "HOME" and i % 12 == 0 then
@@ -75,7 +92,8 @@ local function walk(page)
     frame()
   end
   local painted = full - beforeFull + partial - beforePartial
-  T.check(painted >= 299 and painted <= 302, page .. " keeps 30 Hz movement")
+  local updated = painted + unchangedPixels - beforeUnchanged
+  T.check(updated >= 299 and updated <= 302, page .. " keeps 30 Hz movement without identical repaints")
   T.check(partial - beforePartial >= 270, page .. " skips static UI on most moving frames")
   T.check(full - beforeFull <= 25, page .. " refreshes data without painting every map frame")
   print(string.format("MAP_PAINT %s full=%d partial=%d total=%d", page,

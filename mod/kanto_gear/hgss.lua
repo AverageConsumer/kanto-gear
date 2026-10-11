@@ -3305,6 +3305,9 @@ return function(ui)
       player.facing or "down" }, ":")
   end
 
+  -- Shared with skins so map drawing, marker hits and motion use one geometry.
+  H.mapLayout, H.mapMotionKey = mapLayout, mapMotionKey
+
   function H:explorerMotionKey(model, player)
     local layout = mapLayout(model.overview, 7, model.mapFull and 72 or 53,
       226, model.mapFull and 138
