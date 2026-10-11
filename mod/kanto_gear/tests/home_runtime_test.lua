@@ -88,6 +88,33 @@ end
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
 local theme = upvalue(display.drawContents, "THEME")
+do
+  local pixels = upvalue(theme.hgss.silphEmblem, "emblemPixels")
+  for _, hexShape in ipairs({ false, true }) do
+    for _, size in ipairs({ 32, 64, 65 }) do
+      local data, left, right = pixels(size, 4, hexShape), math.huge, -math.huge
+      local swept, settled = {}, {}
+      for segment = 1, 3 do
+        for _, point in ipairs(data.px[segment]) do
+          left, right = math.min(left, point[1]), math.max(right, point[1])
+          swept[point[1] .. ":" .. point[2]] = point[3]
+        end
+        for _, run in ipairs(data.runs[segment]) do
+          for x = run[2], run[2] + run[4] - 1 do settled[x .. ":" .. run[3]] = run[1] end
+        end
+      end
+      T.eq(left + right, size - 1, "both emblem tips have symmetric pixel bounds")
+      T.check(not hexShape or left < 0 and right >= size,
+        "hexagonal emblem includes the tips outside its height-sized square")
+      T.eq(next(swept) ~= nil, true, "the emblem has visible pixels")
+      local same = true
+      for key, kind in pairs(swept) do if settled[key] ~= kind then same = false end end
+      for key, kind in pairs(settled) do if swept[key] ~= kind then same = false end end
+      T.check(same, "cached runs exactly match the animated emblem pixels")
+      T.eq(pixels(size, 4, hexShape), data, "settled emblems reuse the geometry cache")
+    end
+  end
+end
 T.eq(display.storeEntries()[1].id, "pss", "PSS is visible on the first Apps page")
 T.eq(display.storeTodayEntries()[1].id, "pss", "PSS is featured when the Store opens")
 T.eq(display.storeWidgetSummary().label, "APPS", "Store widget shows the catalogue when no app is new")
@@ -579,6 +606,31 @@ T.eq(page(), "TOOLS",
   "a field widget that is not usable here opens its Field Kit")
 tap(5, 5)
 T.eq(page(), "HOME", "Field Kit back returns Home")
+do
+  local inventory, party, badges = game.save.inventory, game.save.party, game.save.player.badges
+  local availableTool = display.availableTool
+  game.save.inventory = { BICYCLE = 1, OLD_ROD = 1, GOOD_ROD = 1 }
+  game.save.party = { { moves = { { id = "CUT" }, { id = "TELEPORT" } } } }
+  game.save.player.badges = { HIVE = true }
+  local usable = { cut = { id = "cut" }, teleport = { id = "teleport" } }
+  display.availableTool = function(_, id) return usable[id] end
+  local actions = display.toolModels()
+  T.eq(#actions, 4, "Tools groups multiple rods into one fishing card")
+  for index, id in ipairs({ "cut", "teleport", "bicycle", "fish" }) do
+    T.eq(actions[index].id, id, "usable tools come first with stable order within each group")
+    T.eq(actions[index].ready, index <= 2, "the sorted card keeps its current availability")
+  end
+  local action, index = theme.hgss:toolsHit(20, 50, { actions = actions, page = 1 })
+  T.eq(action, "action", "the first sorted card remains tappable")
+  T.eq(index and actions[index].action, usable.cut, "touch resolves the sorted card's actual field action")
+  usable = { bicycle = { id = "bicycle" }, fish = { id = "fish" } }
+  actions = display.toolModels()
+  for index, id in ipairs({ "bicycle", "fish", "cut", "teleport" }) do
+    T.eq(actions[index].id, id, "Tools reorders when the current context changes")
+  end
+  game.save.inventory, game.save.party, game.save.player.badges = inventory, party, badges
+  display.availableTool = availableTool
+end
 home.layout = { tiles = {
   { id = "map_app", page = 1, column = 1, row = 1 },
 } }

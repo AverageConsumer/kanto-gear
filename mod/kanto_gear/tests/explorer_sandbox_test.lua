@@ -11,7 +11,7 @@ end
 local function module(name)
   return assert(Sandbox.compile(read(name), "@" .. name, env))()
 end
-local ui = { graphics = love.graphics, glyphs = function(value)
+local ui = { graphics = love.graphics, color = love.graphics.setColor, glyphs = function(value)
   local glyphs = {}
   for glyph in tostring(value):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
     glyphs[#glyphs + 1] = glyph
@@ -43,6 +43,15 @@ for _, skin in ipairs({ "pokegear", "cgear" }) do
     local moved = { mapId = "TEST", x = 1, y = 0 }
     T.check(theme:explorerMotionKey(model, moved) ~= key,
       "player movement changes the retained map key")
+    local print, printf = ui.graphics.print, ui.graphics.printf
+    local shown = {}
+    ui.graphics.print = function(value) shown[tostring(value)] = true end
+    ui.graphics.printf = function(value) shown[tostring(value)] = true end
+    theme:v4ExplorerDetail({ player = { x = 1.25, y = 2.5 } },
+      { label = "POTION", x = 5, y = 6 }, "items")
+    T.check(shown["7 Steps"] or shown["7 STEPS"],
+      "smooth fractional player positions display a whole-step distance")
+    ui.graphics.print, ui.graphics.printf = print, printf
   end
 end
 T.finish("Explorer in the production sandbox")

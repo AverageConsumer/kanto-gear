@@ -598,7 +598,7 @@ return function(H, ui, K)
     if not (player and target and player.x and player.y and target.x and target.y) then return end
     local colors = self.colors
     local dx, dy = target.x - player.x, target.y - player.y
-    local steps = math.abs(dx) + math.abs(dy)
+    local steps = floor(math.abs(dx) + math.abs(dy) + 0.5)
     local d = 30
     CIRC(x, y, d, colors.outline)
     CIRC(x + 1, y + 1, d - 2, colors.surface)

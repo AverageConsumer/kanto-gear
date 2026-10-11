@@ -335,12 +335,15 @@ return function(H, ui, K)
     local key = d .. ":" .. t .. ":" .. tostring(hexShape)
     if emblemCache[key] then return emblemCache[key] end
     local r = d / 2
+    -- A flat-topped hexagon is wider than its height. Include both tips and
+    -- retain a final sentinel column so the cached pixel runs close fully.
+    local pad = hexShape and math.ceil(r / 0.866 - r) or 0
     local px, runs = { {}, {}, {} }, { {}, {}, {} }
     for y = 0, d - 1 do
       local open = {}
-      for x = 0, d do
+      for x = -pad, d + pad do
         local seg, kind, u
-        if x < d then
+        if x < d + pad then
           local dx, dy = x + 0.5 - r, y + 0.5 - r
           local dist = hexShape and math.max(math.abs(dx) * 0.866 + math.abs(dy) * 0.5, math.abs(dy))
             or math.sqrt(dx * dx + dy * dy)
