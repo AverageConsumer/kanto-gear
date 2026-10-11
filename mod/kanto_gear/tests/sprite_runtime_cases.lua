@@ -77,6 +77,58 @@ return function(T, display, runtime, gen, up)
   end
 
   local theme = up(display.drawContents, "THEME")
+  if gen ~= 3 then
+    local G = up(draw, "G")
+    local paint, originalProvider = G.draw, display.frontArt
+    local custom = G.newImage("g9-memory-portrait.png")
+    local received, painted, requests = nil, nil, 0
+    local mon = { species = "FIXMON_A", shiny = true, gender = "female" }
+    display.frontArt = function(source)
+      received, requests = source, requests + 1
+      return custom, custom:getWidth(), custom:getHeight()
+    end
+    G.draw = function(image, ...) painted = image; return paint(image, ...) end
+    local oldAnimation = up(draw, "picAnimFrame")
+    local animations = 0
+    up(draw, "picAnimFrame", function() animations = animations + 1 end, true)
+    for _, kind in ipairs({ "summary", "battle", "dex" }) do
+      draw(mon.species, "front", 0, 0, 32, 32, nil, { source = mon }, true, nil, true, kind)
+      T.eq(painted, custom, kind .. " portrait uses the provider's in-memory image")
+      T.eq(received, mon, "provider receives the live mon with form/shiny/gender data")
+    end
+    T.eq(animations, 0, "ROM animation cannot overwrite provider art")
+    draw(mon.species, "front", 0, 0, 32, 32, nil, nil, true)
+    T.eq(received.species, mon.species, "species-only dex/encounter previews also resolve provider art")
+    draw(mon.species, "front", 0, 0, 32, 32, nil, { spriteKind = "dex" }, true)
+    T.eq(received.species, mon.species, "display-only dex records retain their requested species")
+    local before = requests
+    draw(mon.species, "back", 0, 0, 32, 32, nil, mon, true)
+    T.eq(requests, before, "front-art provider never substitutes a back picture")
+    local staged = G.newImage("staged-battle-art.png")
+    draw(mon.species, "front", 0, 0, 32, 32, nil,
+      { source = mon, presentationSprite = staged }, true)
+    T.eq(painted, staged, "explicit battle presentation keeps precedence")
+    T.eq(requests, before, "already presented pictures never request provider art")
+    display.frontArt = function() return nil, true end
+    display.frontArtRetryAt = nil
+    local oldMotion = theme.hgss.motionEnabled
+    theme.hgss.motionEnabled = false
+    draw(mon.species, "front", 0, 0, 32, 32, nil, mon, true)
+    T.check(painted ~= custom, "unfinished bake retains the normal fallback")
+    T.check(display.frontArtRetryAt ~= nil, "pending art schedules a repaint even in performance mode")
+    display.frontArt = function() return custom end
+    draw(mon.species, "front", 0, 0, 32, 32, nil, mon, true)
+    T.eq(painted, custom, "a completed bake replaces the fallback without reopening the page")
+    for _, provider in ipairs({ function() return nil end,
+        function() return 42 end, function() error("unavailable") end }) do
+      display.frontArt = provider
+      T.check(pcall(draw, mon.species, "front", 0, 0, 32, 32, nil, mon, true),
+        "missing, incompatible or failing provider retains the normal portrait")
+    end
+    theme.hgss.motionEnabled = oldMotion
+    display.frontArt, display.frontArtRetryAt, G.draw = originalProvider, nil, paint
+    up(draw, "picAnimFrame", oldAnimation, true)
+  end
   -- Battle-only sprite hooks must reach both the fight button and team cards,
   -- without changing ordinary party portraits or replacing custom art by ROM frames.
   do

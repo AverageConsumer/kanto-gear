@@ -4986,6 +4986,18 @@ return function(mod)
     local presented = image ~= nil
     local trueColor = image ~= nil and mon.presentationTrueColor ~= false
     mon = mon and (mon.source or mon)
+    -- G9 publishes in-memory portraits rather than pokemon.sprite paths.
+    -- Its budgeted baker owns the images; do not decode or cache another copy.
+    if not image and side == "front" and displayRuntime.frontArt then
+      local ok, art, pending = pcall(displayRuntime.frontArt,
+        mon and mon.species and mon or { species = species })
+      if ok and (type(art) == "userdata" or type(art) == "table")
+          and type(art.getDimensions) == "function" then
+        image, trueColor, presented = art, true, true
+      elseif ok and pending and not displayRuntime.frontArtRetryAt then
+        displayRuntime.frontArtRetryAt = love.timer.getTime() + 0.1
+      end
+    end
     local replaced
     if not image then image, trueColor, replaced = sprite(species, side, mon, kind) end
     if not image then
@@ -14118,6 +14130,10 @@ return function(mod)
     displayRuntime.legacyRegion, displayRuntime.regionCursor = nil, {}
     game = payload.game
     displayRuntime.sourceGame = game
+    local spriteProvider = game.generation ~= 3 and mod.find("g9-battle-sprites")
+    local frontArt = spriteProvider and spriteProvider.exports and spriteProvider.exports.frontArt
+    displayRuntime.frontArt = type(frontArt) == "function" and frontArt or nil
+    displayRuntime.frontArtRetryAt = nil
     displayRuntime.gen3 = nil
     displayRuntime.bindBattleInput(game)
     displayRuntime.gen3Field = nil
@@ -15312,6 +15328,11 @@ return function(mod)
       end
     end
     if displayRuntime.motion.started then dirty = true end
+    -- Asset readiness must repaint even with animations disabled. Retry only
+    -- while a visible portrait is waiting for the provider's background bake.
+    if displayRuntime.frontArtRetryAt and now >= displayRuntime.frontArtRetryAt then
+      displayRuntime.frontArtRetryAt, dirty = nil, true
+    end
     if THEME.style == "hgss" and THEME.hgss.ambientDue
         and THEME.hgss:ambientDue(now) then dirty = true end
     if not displayRuntime.bootWarm.finished and screenState() == "title"
