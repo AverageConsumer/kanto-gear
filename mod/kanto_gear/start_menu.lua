@@ -44,7 +44,7 @@ function Menu.redrawKey(top)
   local parts = { tostring(top.nativeKey), tostring(selected), tostring(#top.items), tostring(first), tostring(count),
     tostring(Menu.cursor(top) ~= nil), tostring(top.title), tostring(top.name),
     tostring(top.itemActionId), tostring(top.itemActionCount),
-    tostring(top.prompt), tostring(top.notice), tostring(top.canAdvance), tostring(top.recentBag and top.recentBag.id), tostring(top.recentBag and top.recentBag.count),
+    tostring(top.prompt), tostring(top.pokenavHelp), tostring(top.notice), tostring(top.canAdvance), tostring(top.recentBag and top.recentBag.id), tostring(top.recentBag and top.recentBag.count),
     tostring(quantity and quantity.label), tostring(quantity and quantity.qty),
     tostring(quantity and quantity.max), tostring(quantity and quantity.total), tostring(stats and stats._page),
     tostring(heal and heal.mon), hp(heal and heal.shown),

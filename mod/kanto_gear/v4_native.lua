@@ -902,4 +902,86 @@ return function(H, ui, K)
     local w, h = #spec.art[1], #spec.art
     ART(spec.art, x + floor((17 - w) / 2), y + floor((17 - h) / 2), pal)
   end
+
+  ---------------------------------------------------------------------------
+  -- PokéNav: the device's menus as big touch keys with their own icons, and
+  -- the PokéNav's description line in the message window underneath.
+  ---------------------------------------------------------------------------
+  local function wrapLabel(self, text, width, maxLines)
+    local lines, current = {}, ""
+    for word in tostring(text or ""):gsub("\n", " "):gmatch("%S+") do
+      local try = current == "" and word or current .. " " .. word
+      if self:labelWidth(try) <= width or current == "" then current = try
+      else lines[#lines + 1] = current; current = word end
+    end
+    if current ~= "" then lines[#lines + 1] = current end
+    while #lines > maxLines do table.remove(lines) end
+    return lines
+  end
+
+  function H:pokenavMenu(model, help, rs)
+    local c = self.colors
+    local G = ui.graphics
+    local accent = cg(self) and self.tok.acc.M or (rs and hex("3878d0") or hex("e86030"))
+    local a = K.rampOf(accent)
+    local entries = model and model.entries or {}
+    local enter = self:v4Enter("pokenav", #entries .. ":" .. tostring(entries[1] and entries[1].label), 0.24)
+    for index, e in ipairs(entries) do
+      local _, dx = self:v4Stagger(enter, index, 0.06, 14, #entries)
+      if dx ~= 0 then G.push(); G.translate(dx, 0) end
+      local x, y, w, h = e.x, e.y, e.w, e.h
+      local lit = e.selected
+      local pressed = self:beginPress(x, y, w, h, not e.disabled)
+      local off = 0
+      if lit then off = self:v4Button(x, y, w, h, a, { radius = 6, lip = 3, chamfer = 5 })
+      else self:v4Window(x, y, w, h, { radius = 5 }) end
+      local icon = tostring(e.kind or "")
+      local hasIcon = self.v4HasIcon and self:v4HasIcon(icon)
+      local ink = lit and WHITE or c.ink
+      local face = h - (lit and 3 or 0)
+      local function seat(sx, sy, d)
+        CIRC(sx, sy, d, c.outline)
+        CIRC(sx + 1, sy + 1, d - 2, lit and mix(WHITE, accent, 0.18) or mix(c.surface, accent, self.dark and 0.3 or 0.16))
+        K.CIRCrows(sx + 1, sy + 1, d - 2, floor((d - 2) / 2), d - 2,
+          lit and mix(WHITE, accent, 0.3) or mix(c.surface, accent, self.dark and 0.42 or 0.26))
+        if hasIcon then self:v4Icon(icon, sx + floor((d - 24) / 2), sy + floor((d - 24) / 2)) end
+      end
+      local function text(value, tx, ty, tw, align)
+        local shown = self:fitPartyInfo(value, tw)
+        if lit then self:withoutShadow(self.partyInfo, self, shown, tx, ty, ink, tw, align)
+        else self:partyInfo(shown, tx, ty, ink, tw, align) end
+      end
+      if h >= 54 and w < 200 then
+        -- tile: icon on top, name underneath, like a Home app
+        local d = 32
+        seat(x + floor((w - d) / 2), y + 5 + off, d)
+        text(e.label, x + 4, y + face - 15 + off, w - 8, "center")
+      else
+        local d = min(face - 4, 30)
+        local sx, sy = x + 5, y + floor((face - d) / 2) + off
+        if d >= 26 then seat(sx, sy, d)
+        elseif hasIcon then self:v4Icon(icon, sx, y + floor((face - 24) / 2) + off); d = 24 end
+        local tx = sx + d + 6
+        text(e.label, tx, y + floor((face - 11) / 2) + off, x + w - tx - (w >= 200 and 16 or 4))
+        if lit and w >= 200 then
+          local b = (self.motionEnabled ~= false and floor(self:clock() / 0.4) % 2 == 0) and 1 or 0
+          self:wantAmbient(0.4)
+          ART(K.CHEV_R, x + w - 12 + b, y + floor((face - 5) / 2) + off, { ["#"] = WHITE })
+        end
+      end
+      if self.nativeFocus and e.selected then self:focusFrame(x, y, w, h) end
+      self:endPress(pressed)
+      if dx ~= 0 then G.pop() end
+    end
+    -- the device's own description of the highlighted feature
+    self:v4MessageWindow(7, 170, 226, 41)
+    if help and help ~= "" then
+      local lines = wrapLabel(self, help, 204, 2)
+      local top = 170 + floor((41 - 4 - #lines * 13) / 2)
+      for i, line in ipairs(lines) do
+        self:label(line, 18, top + (i - 1) * 13, c.ink, 204, "center")
+      end
+    end
+  end
+
 end

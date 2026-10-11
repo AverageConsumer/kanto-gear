@@ -5627,6 +5627,8 @@ return function(mod)
           THEME.hgss:actionRow(entry.x, entry.y, entry.w, entry.h, label, kind, 0,
             THEME.hgss.nativeFocus and entry.selected)
         end
+      elseif top.pokenav and THEME.hgss.pokenavMenu then
+        THEME.hgss:pokenavMenu(model, top.pokenavHelp, top.pokenavRs)
       elseif top.party then
         THEME.hgss:partyBackdrop()
         THEME.hgss:partySelection(displayRuntime.startMenuPartyViews(top), hgssRuntime.summaryPortrait,
