@@ -4,8 +4,8 @@ local bit = require("bit")
 local UI = {}
 UI.__index = UI
 
-function UI.new(adapter, layout, choicePage, namingPage, storagePage, itemPage, movePage)
-  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, itemPage = itemPage, movePage = movePage, Stack = require("src.ui.game3.stack"),
+function UI.new(adapter, layout, choicePage, namingPage, storagePage, itemPage, movePage, keyboardLayout)
+  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, itemPage = itemPage, movePage = movePage, keyboardLayout = keyboardLayout, Stack = require("src.ui.game3.stack"),
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
 end
 
@@ -101,7 +101,8 @@ function UI:naming(layer)
   local page = state.pages and state.pages[state.page] and state.pages[state.page].rows
     or keyboard[state.page]
   if not page then return nil end
-  local key = tostring(layer) .. ":" .. tostring(state) .. ":" .. state.page .. ":" .. tostring(state.pcPage)
+  local layout = self.keyboardLayout and self.keyboardLayout() or "qwerty"
+  local key = tostring(layer) .. ":" .. tostring(state) .. ":" .. state.page .. ":" .. tostring(state.pcPage) .. ":" .. layout
   local view = self.namingView
   if not view or view.nativeKey ~= key then
     local pageIndex, pcPages, pcPage = state.page, state.pcPages, state.pcPage
@@ -111,6 +112,7 @@ function UI:naming(layer)
       return self.Stack.top() == layer and native.openFlag and native._state == state
         and not state.finished and state.page == pageIndex
         and state.pcPages == pcPages and state.pcPage == pcPage
+        and (not self.keyboardLayout or self.keyboardLayout() == layout)
         and (preview or state.swapT == nil)
     end
     for row, chars in ipairs(page) do
@@ -121,7 +123,7 @@ function UI:naming(layer)
     for i, label in ipairs({ ({ "abc", "123", "ABC" })[state.page], "DEL", "OK" }) do
       view.items[#view.items + 1] = { label = label, btn = i, action = ({ "case", "delete", "confirm" })[i] }
     end
-    view.namingModel = self.namingPage.model("", view.items)
+    view.namingModel = self.namingPage.model("", view.items, nil, nil, layout)
     for _, entry in ipairs(view.namingModel.entries) do
       view.items[entry.index].rect = { entry.x, entry.y, entry.w, entry.h }
     end

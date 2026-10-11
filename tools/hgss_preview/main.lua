@@ -205,7 +205,7 @@ function love.load()
   -- Legacy battle/party assertions predate the companion pages. Silph and
   -- Stamps and map scenes exercise their own renderer without those screens.
   if screen:sub(1,3) ~= "pss" and not achievements and not homePreview
-      and screen:sub(1,8) ~= "explorer" then
+      and screen:sub(1,8) ~= "explorer" and screen ~= "legacy_naming" then
   assert(theme.backdropCenterY == 121,
     "every HGSS Pokeball backdrop shares the Party screen center")
   local blueFocus = theme:focusSurface(true, theme.colors.surface,
@@ -1849,23 +1849,22 @@ function love.load()
     end
     theme:choiceScreen({ entries = entries })
   elseif legacyNaming then
-    local rows = {
-      { "A", "B", "C", "D", "E", "F", "G", "H", "I" },
-      { "J", "K", "L", "M", "N", "O", "P", "Q", "R" },
-      { "S", "T", "U", "V", "W", "X", "Y", "Z", "-" },
-      { "LOWER", "DEL", "END" },
-    }
-    local entries = {}
-    for row, cells in ipairs(rows) do
-      for col, label in ipairs(cells) do
-        local left = 3 + math.floor((col - 1) * 154 / #cells)
-        local right = 3 + math.floor(col * 154 / #cells)
-        entries[#entries + 1] = { x = left, y = 36 + (row - 1) * 17,
-          w = right - left, h = 15, label = label,
-          selected = row == 1 and col == 4, action = row == #rows }
-      end
+    local Naming = assert(loadfile(root .. "/mod/kanto_gear/naming_page.lua"))()
+    local items = {}
+    for label in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):gmatch(".") do
+      items[#items + 1] = { label = label, row = math.floor(#items / 9) + 1 }
     end
-    theme:naming({ name = "GOLD", entries = entries })
+    -- Full Gen 1 / Gen 2 box-name alphabet, including native special glyphs.
+    for _, label in ipairs({ "_", "×", "(", ")", ":", ";", "[", "]", "PK", "MN",
+        "-", "?", "!", "♂", "♀", "/", ".", "," }) do
+      items[#items + 1] = { label = label, row = math.floor(#items / 9) + 1 }
+    end
+    if not gen1 then items[#items + 1] = { label = "&", row = 5 } end
+    items[#items + 1] = { label = "abc", action = "case" }
+    items[#items + 1] = { label = "DEL", action = "delete" }
+    items[#items + 1] = { label = "OK", action = "confirm" }
+    theme:naming(Naming.model(gen1 and "RED" or "GOLD", items, 8, 3,
+      os.getenv("KANTO_GEAR_PREVIEW_KEYBOARD") or "qwerty"))
   elseif legacyLevelUp then
     local levelModel = { name = gen1 and "TAUROS" or "FERALIGATR",
       level = "LV35 → LV36", type = gen1 and "NORMAL" or "WATER",

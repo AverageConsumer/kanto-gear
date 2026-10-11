@@ -1,7 +1,7 @@
 -- Shared naming geometry drives the real legacy naming handlers.
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
-local gen = assert(tonumber(arg[1]))
+local gen = assert(tonumber(os.getenv("KANTO_GEAR_TEST_GEN") or arg[1]))
 local run = T.sdk.loadMod(path, { generation = gen, data = T.fixtures.load() })
 assert(run.mod, run.error or run.reason)
 love.graphics.arc = love.graphics.arc or function() end
@@ -69,11 +69,27 @@ end
 for _, style in ipairs({ "hgss", "hgss_dark" }) do
   run.loader.modOptions.kanto_gear.theme_v3 = style
   run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
-  for _, kind in ipairs({ "nickname", "box" }) do
+  for _, layout in ipairs({ "qwerty", "qwertz" }) do
+  run.loader.modOptions.kanto_gear.keyboard_layout = layout
+  for _, kind in ipairs({ "player", "rival", "nickname", "box" }) do
     open(kind)
     local m = model()
     local ok, err = pcall(display.drawContents)
     T.check(ok, "common naming renders: " .. tostring(err))
+    local row = {}
+    for _, entry in ipairs(m.entries) do
+      if not entry.action and entry.label:match("^[A-Z]$") and entry.y == find("Q").y then
+        row[#row + 1] = entry
+      end
+    end
+    table.sort(row, function(a, b) return a.x < b.x end)
+    local text = ""; for _, entry in ipairs(row) do text = text .. entry.label end
+    T.eq(text, layout == "qwertz" and "QWERTZUIOP" or "QWERTYUIOP", "setting orders the displayed top row")
+    for letter in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):gmatch(".") do
+      top.text, top.glyphs = "", {}
+      hit(find(letter)); T.eq(name(), letter, "reordered touch types native " .. letter)
+    end
+    top.text, top.glyphs = "", {}
     for _, entry in ipairs(m.entries) do
       local expected = not entry.disabled and entry.index or nil
       T.eq(display.NamingPage.hit(m, entry.x + entry.w / 2, entry.y + entry.h / 2), expected,
@@ -88,6 +104,11 @@ for _, style in ipairs({ "hgss", "hgss_dark" }) do
     hit(find("A")); T.eq(name(), "A", "native character entry types exactly A")
     hit(find("case", true)); T.check(top.lower, "case button uses the native alphabet switch")
     T.eq(#model().entries, before, "case switch retains all native keys")
+    for letter in ("abcdefghijklmnopqrstuvwxyz"):gmatch(".") do
+      top.text, top.glyphs = "", {}
+      hit(find(letter)); T.eq(name(), letter, "reordered touch types lowercase " .. letter)
+    end
+    top.text, top.glyphs = "A", { "A" }
     hit(find("b")); T.eq(name(), "Ab", "native lowercase character retains its case")
     hit(find("delete", true)); T.eq(name(), "A", "DEL removes exactly one character")
     hit(find("_")); T.eq(name(), "A ", "space key still sends a real native blank")
@@ -99,9 +120,27 @@ for _, style in ipairs({ "hgss", "hgss_dark" }) do
     input("select"); display.syncTouchGuard(); now = now + 1; key = nil
     touch(("up,%d,%d"):format(letter.x + 8, letter.y + 8), 240, 216)
     T.eq(key, nil, "held touch cannot activate a replaced alphabet")
+    letter = find("B")
+    display.syncTouchGuard(); now = now + 1
+    touch(("down,%d,%d"):format(letter.x + 8, letter.y + 8), 240, 216)
+    run.loader.modOptions.kanto_gear.keyboard_layout = layout == "qwerty" and "qwertz" or "qwerty"
+    display.syncTouchGuard(); now = now + 1; key = nil
+    touch(("up,%d,%d"):format(letter.x + 8, letter.y + 8), 240, 216)
+    T.eq(key, nil, "held touch cannot activate a changed keyboard layout")
+    run.loader.modOptions.kanto_gear.keyboard_layout = layout
     hit(find("confirm", true)); T.eq(result, "A", "OK finishes through the native name callback")
     open(kind); hit(find("confirm", true))
     T.check(result ~= nil, "empty names retain native default-name handling")
   end
+  end
+end
+local custom = { { label = "あ", row = 1 }, { label = "い", row = 1 },
+  { label = "A", row = 2 }, { label = "OK", action = "confirm" } }
+local a = display.NamingPage.model("", custom, 7, 0, "qwerty")
+local b = display.NamingPage.model("", custom, 7, 0, "qwertz")
+for i, entry in ipairs(a.entries) do
+  T.eq(b.entries[i].label, entry.label, "custom alphabets retain every original character")
+  T.eq(b.entries[i].x, entry.x, "custom alphabet ordering stays intact")
+  T.eq(b.entries[i].y, entry.y, "custom alphabet rows stay intact")
 end
 T.finish()

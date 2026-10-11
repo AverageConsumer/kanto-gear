@@ -6032,7 +6032,7 @@ return function(mod)
     items[#items + 1] = { label = "DEL", action = "delete" }
     items[#items + 1] = { label = "OK", action = "confirm" }
     return displayRuntime.NamingPage.model(name, items, top.maxLen or top.maxLength,
-      gen2 and #name or #(top.glyphs or {})), items
+      gen2 and #name or #(top.glyphs or {}), mod.options:get("keyboard_layout")), items
   end
 
   local function drawNaming(top, grid)
@@ -13263,6 +13263,7 @@ return function(mod)
     local key = table.concat({ tostring(top), text and "text" or tostring(top and top.phase),
       tostring(top and top.submenu), tostring(top and top.page),
       tostring(top and top.lower),
+      tostring(mod.options:get("keyboard_layout")),
       tostring(top and top.kind), tostring(top and top.mode),
       tostring(top and top.activeBattler), tostring(nativeMenu and nativeMenu.nativeKey),
       tostring(top and top.picking), tostring(top and top.qtyState),
@@ -13554,7 +13555,8 @@ return function(mod)
       displayRuntime.gen3 = assert(load(mod:read("gen3.lua"), "@kanto_gear/gen3.lua"))().new(game)
       displayRuntime.gen3Field = assert(load(mod:read("gen3_field.lua"), "@kanto_gear/gen3_field.lua"))().new(displayRuntime.gen3, mod.world)
       displayRuntime.gen3Progress = assert(load(mod:read("gen3_progress.lua"), "@kanto_gear/gen3_progress.lua"))().new(displayRuntime.gen3)
-      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage, displayRuntime.StoragePage, displayRuntime.ItemPage, displayRuntime.MovePage)
+      displayRuntime.gen3Ui = assert(load(mod:read("gen3_ui.lua"), "@kanto_gear/gen3_ui.lua"))().new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage, displayRuntime.StoragePage, displayRuntime.ItemPage, displayRuntime.MovePage,
+        function() return mod.options:get("keyboard_layout") end)
       game = displayRuntime.gen3:gameView()
     end
     displayRuntime.homeCatalog.packages.achievements.available = true

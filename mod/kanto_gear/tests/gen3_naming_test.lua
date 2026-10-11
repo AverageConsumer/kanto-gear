@@ -19,12 +19,26 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local function settle()
     for _ = 1, 32 do Naming.update(1 / 60) end
   end
+  for _, layout in ipairs({ "qwerty", "qwertz" }) do
+  run.loader.modOptions.kanto_gear.keyboard_layout = layout
   for page = 1, 3 do
     local result
     local state = Naming.open({ title = "NAME", maxLen = 7, session = game.session,
       onDone = function(value) result = value end })
     for _ = 2, page do press("select"); settle() end
     local menu = assert(display.startMenu())
+    if page < 3 then
+      local row, firstY = {}, math.huge
+      for _, entry in ipairs(menu.namingModel.entries) do
+        if not entry.action then firstY = math.min(firstY, entry.y) end
+      end
+      for _, entry in ipairs(menu.namingModel.entries) do
+        if not entry.action and entry.y == firstY then row[#row + 1] = entry end
+      end
+      table.sort(row, function(a, b) return a.x < b.x end)
+      local text = ""; for _, entry in ipairs(row) do text = text .. entry.label end
+      T.eq(text:lower(), layout == "qwertz" and "qwertzuiop" or "qwertyuiop", "layout applies to each native letter page")
+    end
     if display.gen3.hoenn then
       T.check(state.pages ~= nil, "Emerald native keyboard loaded")
       local count = 3
@@ -72,6 +86,13 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     end
     Naming.dismiss(); Stack.clear()
   end
+  end
+  local state = Naming.open({ title = "NAME", maxLen = 7, session = game.session })
+  local old = assert(display.startMenu())
+  run.loader.modOptions.kanto_gear.keyboard_layout = "qwerty"
+  T.check(not display.StartMenu.select(old, 1), "changed layout rejects stale touch geometry")
+  T.check(display.startMenu() ~= old, "changed layout builds a fresh naming view")
+  Naming.dismiss(); Stack.clear()
   love.filesystem.load = load
 end
 dofile(path .. "/tests/gen3_fixture.lua")
