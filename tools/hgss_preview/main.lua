@@ -183,6 +183,7 @@ function love.load()
     graphics = love.graphics, box = box, text = text,
     pokedexPage = assert(loadfile(root .. "/mod/kanto_gear/pokedex_page.lua"))(),
     partyPage = assert(loadfile(root .. "/mod/kanto_gear/party_page.lua"))(),
+    itemPage = assert(loadfile(root .. "/mod/kanto_gear/item_page.lua"))(),
     fit = fit, glyphs = glyphs, color = color, font = font,
     smallFont = smallFont, smallFontMetrics = smallMetrics, largeFont = largeFont,
     translate = translate, format = format,
@@ -197,6 +198,12 @@ function love.load()
   theme.frozenTime = tonumber(os.getenv("KANTO_GEAR_PREVIEW_TIME_S")) or 1.3
   theme:setSkin(os.getenv("KANTO_GEAR_PREVIEW_SKIN") or "pokegear")
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  for prefix, name in pairs({ pokedex = "POKEDEX", trainer = "TRAINER", bag = "BAG",
+      store = "STORE", tools = "TOOLS", settings = "SETTINGS", achievements = "ACHIEVEMENTS",
+      region_map = "MAP", pss = "PSS", notes = "NOTES" }) do
+    if screen:sub(1, #prefix) == prefix then theme.v4Page = name end
+  end
+  if screen == "trainer_steps" then theme.v4Page = "STEPS" end
   if os.getenv("KANTO_GEAR_PREVIEW_MAP_PARITY") == "1" then
     assert(loadfile(root .. "/tools/hgss_preview/map_parity.lua"))()(theme)
   end
@@ -2410,6 +2417,8 @@ function love.load()
       pockets = gen1 and 1 or 4, page = 1, pages = 2,
       entries = entries, total = 12, canUse = true, money = 34820,
       detail = bagDetail and entries[4] or nil,
+      actions = bagDetail and { { label = translate("USE") }, { label = translate("GIVE") },
+        { label = translate("TOSS"), enabled = false }, { label = translate("CANCEL") } } or nil,
     }
     theme:bag(model)
     if bagOverview then
@@ -2417,7 +2426,7 @@ function love.load()
       assert(action == "item" and index == 2,
         "Bag cards are touch reachable")
     else
-      assert(theme:bagHit(120, 185, model) == "use",
+      assert(theme:bagHit(20, 175, model) == "action",
         "Bag USE action is touch reachable")
     end
   elseif pokedex then

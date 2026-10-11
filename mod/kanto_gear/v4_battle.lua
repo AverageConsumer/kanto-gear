@@ -255,4 +255,144 @@ return function(H, ui, K)
   function H:moveTypeBadge(move, x, y)
     self:v4TypePill(move.type, move.typeLabel or move.type, x, y, 46)
   end
+
+  ---------------------------------------------------------------------------
+  -- Full Gear message, battle bag rows, PC quantity
+  ---------------------------------------------------------------------------
+  function H:battleFullMessage(lines, canAdvance, title, now)
+    local c = self.colors
+    local pressed = self:beginPress(6, 117, 228, 93, canAdvance)
+    self:v4MessageWindow(6, 117, 228, 93)
+    if title then self:partyInfo(self:fitPartyInfo(title, 200), 16, 124, c.green, 208, "center") end
+    lines = #lines > 0 and lines or { "..." }
+    local top, height = title and 138 or 125, title and 65 or 78
+    if canAdvance then height = height - 14 end
+    local step = title and 9 or 10
+    local y = top + floor((height - (8 + (#lines - 1) * step)) / 2)
+    for _, line in ipairs(lines) do
+      self:partyInfo(self:fitPartyInfo(line, 200), 16, y, c.ink, 208, "center")
+      y = y + step
+    end
+    if canAdvance then self:v4AdvanceArrow(116, 194) end
+    self:endPress(pressed)
+  end
+
+  function H:battleBagRow(item, index, y, selected, offsetX)
+    local G, colors = ui.graphics, self.colors
+    local disabled = item.disabled
+    local ink = disabled and colors.disabledInk or colors.ink
+    local tint = disabled and colors.silverDark or self:itemAccent(item.icon)
+    local pressed = self:beginPress(7 + (offsetX or 0), y, 226, 31, not disabled)
+    G.push()
+    G.translate(offsetX or 0, 0)
+    self:v4Window(7, y, 226, 31, { radius = 4,
+      fill = selected and not disabled and mix(colors.surface, tint, 0.25) or colors.surface })
+    R(8, y + 4, 2, 23, tint)
+    CIRC(13, y + 3, 25, colors.outline)
+    CIRC(14, y + 4, 23, mix(colors.surface, tint, self.dark and 0.3 or 0.22))
+    K.CIRCrows(14, y + 4, 23, 12, 23, mix(colors.surface, tint, self.dark and 0.42 or 0.32))
+    self:battleItemIcon(item, 17, y + 7, tint)
+    local chance = self:battleCatchLabel(item.catchChance)
+    local labelY = (chance or disabled) and y + 3 or y + 9
+    local right = item.right and tostring(item.right) or ""
+    local rightWidth = right ~= "" and min(110, max(12, self:partyInfoWidth(right))) or 0
+    local labelWidth = 178 - rightWidth - (rightWidth > 0 and 6 or 0)
+    self:partyName(item.label or tostring(index), 44, labelY, ink, labelWidth)
+    if right ~= "" then
+      self:partyInfo(self:fitPartyInfo(right, rightWidth), 224 - rightWidth, labelY, ink, rightWidth, "right")
+    end
+    if chance then
+      -- catch odds as a gauge
+      self:partyInfo(item.catchLabel or translate("CATCH"), 44, y + 17, colors.green, 37)
+      local pct = tonumber(tostring(chance):match("(%d+)")) or 0
+      local bx, bw = 84, 80
+      R(bx, y + 19, bw, 7, colors.outline)
+      R(bx + 1, y + 20, bw - 2, 5, self.dark and hex("2a3542") or hex("dfe6e1"))
+      local fill = pct >= 60 and colors.hp or pct >= 25 and colors.hpMid or colors.hpLow
+      local f = floor((bw - 2) * min(1, pct / 100))
+      R(bx + 1, y + 20, f, 5, fill); R(bx + 1, y + 20, f, 2, mix(fill, WHITE, 0.45))
+      self:partyInfo(chance, bx + bw + 4, y + 16, colors.ink)
+    elseif disabled then
+      self:partyInfo(item.disabledLabel or translate("UNUSABLE"), 44, y + 17, colors.disabledInk)
+    end
+    if selected and not disabled then self:focusFrame(7, y, 226, 31) end
+    G.pop()
+    self:endPress(pressed)
+  end
+
+  function H:pcQuantity(model)
+    local colors = self.colors
+    self:v4Window(7, 34, 226, 50)
+    R(9, 36, 222, 2, colors.amberLight)
+    CIRC(15, 42, 34, colors.outline)
+    CIRC(16, 43, 32, mix(colors.surface, colors.amberLight, self.dark and 0.3 or 0.25))
+    self:battleItemIcon({ icon = model.icon or "item", itemSprite = model.itemSprite }, 24, 51, colors.amberLight)
+    self:partyInfoCentered(self:fitPartyInfo(model.label or translate("ITEM"), 161), 64, 44, 161, 16, colors.ink)
+    self:partyInfoCentered(model.total ~= nil and "¥" .. model.total or translate("QUANTITY"), 64, 61, 161, 16, colors.green)
+    -- counter well
+    self:v4MessageWindow(83, 91, 74, 48)
+    local qty = tostring(model.qty or 1)
+    local font = ui.largeFont
+    local G = ui.graphics
+    if font and (not font.hasGlyphs or font:hasGlyphs(qty)) then
+      local prev = G.getFont(); G.setFont(font); K.setc(colors.ink)
+      G.print(qty, 120 - floor(font:getWidth(qty) / 2), 98)
+      if prev then G.setFont(prev) end
+    else
+      self:partyInfoCentered(qty, 83, 91, 74, 48, colors.ink)
+    end
+    for _, control in ipairs({ { x = 7, label = "-", action = "minus" }, { x = 159, label = "+", action = "plus" } }) do
+      local interactive = self:pcQuantityEnabled(model, control.action)
+      local pressed = self:beginPress(control.x, 91, 74, 48, interactive)
+      self:v4Key(control.x, 91, 74, 48, not interactive and
+        { cap = colors.bandLight, lip = colors.band, hi = colors.bandLight } or nil)
+      local ink = interactive and self.tok.acc.M or colors.disabledInk
+      R(control.x + 30, 112, 14, 4, ink)
+      if control.action == "plus" then R(control.x + 35, 107, 4, 14, ink) end
+      self:endPress(pressed)
+    end
+    local buttons = {
+      { x = 7, label = translate("CONFIRM"), ramp = K.rampOf(cg(self) and hex("1ea5d8") or hex("3ea04c")) },
+      { x = 123, label = translate("CANCEL"), ramp = K.rampOf(hex("5a6c88")) },
+    }
+    for _, action in ipairs(buttons) do
+      local pressed = self:beginPress(action.x, 146, 110, 64)
+      local off = self:v4Button(action.x, 146, 110, 64, action.ramp, { radius = 7, lip = 5, chamfer = 8 })
+      self:partyInfoCentered(action.label, action.x, 144 + off, 110, 64, WHITE)
+      self:endPress(pressed)
+    end
+  end
+
+  -- Party action rows (switch, stats, item...) as lipped buttons with icon seats.
+  local baseActionRow = base.actionRow
+  function H:actionRow(x, y, w, h, label, kind, offset, selected)
+    local colors = self.colors
+    local accentName = (kind == "swap" or kind == "switch") and "amber" or kind == "release" and "red"
+      or kind == "cancel" and "slate" or "blue"
+    local ramps = { amber = hex("e09a20"), red = hex("e04838"), slate = hex("5a6c88"), blue = hex("3878d0") }
+    local a = K.rampOf(ramps[accentName])
+    y = y + (offset or 0)
+    local pressed = self:beginPress(x, y, w, h)
+    self:v4Window(x, y, w, h, { radius = 5 })
+    R(x + 1, y + 4, 3, h - 8, a.M)
+    local d = min(h - 8, 30)
+    local sx, sy = x + 9, y + floor((h - d) / 2)
+    CIRC(sx, sy, d, colors.outline)
+    CIRC(sx + 1, sy + 1, d - 2, a.L)
+    K.CIRCrows(sx + 1, sy + 1, d - 2, floor(d / 2), d, a.M)
+    local cx, cy = sx + floor(d / 2), sy + floor(d / 2)
+    if kind == "swap" or kind == "switch" then
+      ART({ "......#..", "#########", "......#..", ".........", "..#......", "#########", "..#......" }, cx - 4, cy - 3, { ["#"] = WHITE })
+    elseif kind == "cancel" then
+      ART({ "#...#", ".#.#.", "..#..", ".#.#.", "#...#" }, cx - 2, cy - 2, { ["#"] = WHITE })
+    elseif kind == "release" then
+      ART({ ".###.", "#####", ".#.#.", ".#.#.", ".###." }, cx - 2, cy - 2, { ["#"] = WHITE })
+    else
+      R(cx - 5, cy + 1, 2, 3, WHITE); R(cx - 1, cy - 2, 2, 6, WHITE); R(cx + 3, cy - 5, 2, 9, WHITE)
+    end
+    self:partyInfoCentered(self:fitPartyInfo(label, w - 86), x + 43, y, w - 86, h, colors.ink)
+    self:detailChevron(x + w - 25, y + floor((h - 8) / 2), colors.mutedInk, true)
+    if selected then self:focusFrame(x, y, w, h) end
+    self:endPress(pressed)
+  end
 end

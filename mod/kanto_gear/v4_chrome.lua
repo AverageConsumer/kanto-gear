@@ -196,10 +196,33 @@ return function(H, ui, K)
   local BACK = { "...#", "..##", ".###", "####", ".###", "..##", "...#" }
   K.CHEV_L, K.CHEV_R = CHEV_L, CHEV_R
 
+  local PAGE_TINT = {
+    POKEDEX = "e04838", TRAINER = "3878d0", STEPS = "3ea04c", BAG = "d88a18",
+    STORE = "d84860", NOTES = "c88a20", ACHIEVEMENTS = "c89a18", SETTINGS = "5a6c88",
+    TOOLS = "d88a18", MAP = "3878d0", LOCAL = "3878d0", PSS = "4a68c8",
+  }
+  local tintCache = {}
+  -- Every app wears its own colour on the header plate; Home keeps the theme.
+  function H:v4HeaderAccent()
+    local tok = self.tok
+    local key = self.v4Page and PAGE_TINT[self.v4Page]
+    if not key then return tok.acc, tok.accS, tok.well end
+    local cacheKey = key .. (self.dark and ":d" or ":l") .. self.skinName
+    local entry = tintCache[cacheKey]
+    if not entry then
+      local base = hex(key)
+      if self.dark then base = mix(base, { 0, 0, 0, 1 }, 0.18) end
+      local r = K.rampOf(base)
+      entry = { r, mix(r.M, r.L, 0.35), mix(r.D, { 0, 0, 0, 1 }, 0.45) }
+      tintCache[cacheKey] = entry
+    end
+    return entry[1], entry[2], entry[3]
+  end
+
   function H:headerBar(title, back, paged, contentOffsetY)
     contentOffsetY = contentOffsetY or 0
     local tok, colors = self.tok, self.colors
-    local acc = tok.acc
+    local acc, accS, well = self:v4HeaderAccent()
     local pulse = floor(self:clock() / 0.4) % 2
     if paged then self:wantAmbient(0.4) end
     local left = 0
@@ -215,7 +238,7 @@ return function(H, ui, K)
       end
       local tabW = (back and 138 or 112) - left
       for y = 0, 20 do
-        R(left, y, tabW + (20 - y), 1, y < 1 and acc.L or (y % 2 == 1 and acc.M or tok.accS))
+        R(left, y, tabW + (20 - y), 1, y < 1 and acc.L or (y % 2 == 1 and acc.M or accS))
         R(left + tabW + (20 - y), y, 2, 1, acc.Hi)
       end
       local shown = self:fitLabel(title, paged and tabW - 22 or tabW - 14)
@@ -234,7 +257,7 @@ return function(H, ui, K)
     end
     -- Pokégear plate
     R(0, 0, 240, 23, acc.D)
-    for y = 1, 20 do R(0, y, 240, 1, y % 2 == 1 and acc.M or tok.accS) end
+    for y = 1, 20 do R(0, y, 240, 1, y % 2 == 1 and acc.M or accS) end
     R(0, 0, 240, 1, acc.Hi)
     R(0, 21, 240, 1, acc.D); R(0, 22, 240, 1, colors.outline)
     for x = 0, 239, 6 do
@@ -255,7 +278,7 @@ return function(H, ui, K)
     end
     local wellW = 138 - left
     RR(left, 3, wellW, 17, 3, acc.D)
-    RR(left + 1, 4, wellW - 2, 15, 2, tok.well)
+    RR(left + 1, 4, wellW - 2, 15, 2, well)
     R(left + 3, 18, wellW - 6, 1, acc.M)
     local inner = paged and wellW - 22 or wellW - 8
     local shown = self:fitLabel(title, inner)

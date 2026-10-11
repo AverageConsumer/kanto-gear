@@ -182,7 +182,7 @@ return function(H, G, translate, format)
         label(goal and (model.mode == "spoiler" and format("%d LEFT", goal.remaining)
           or translate("KEEP EXPLORING")) or translate("EXPLORE AT YOUR PACE"),
           92, 106, 133, 10, quiet, true)
-        self:panel(95, 124, 127, 20, false)
+        if self.v4ActionPanel then self:v4ActionPanel(95, 124, 127, 20) else self:panel(95, 124, 127, 20, false) end
         local title = self:fitPartyInfo(translate(goal and "VIEW AREA" or "STAMP BOOK"), 105)
         local width = self:partyInfoWidth(title)
         local left = 95 + math.floor((127 - width - 13) / 2)

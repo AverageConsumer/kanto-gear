@@ -63,7 +63,7 @@ return function(H, G, tr, fmt)
     end
     local function button(text,x,y,w,h,action,value)
       local pressed=self:beginPress(x,y,w,h,action~=nil)
-      self:panel(x,y,w,h)
+      if self.v4ActionPanel then self:v4ActionPanel(x,y,w,h,action~=nil) else self:panel(x,y,w,h) end
       label(tr(text),x,y,w,h,action and c.green or c.disabledInk)
       self:endPress(pressed)
       if action then hit(x,y,w,h,action,value) end

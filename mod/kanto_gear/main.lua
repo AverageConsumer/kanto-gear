@@ -10796,6 +10796,7 @@ return function(mod)
     "modal text and loading overlays capture HGSS press animation")
 
   function displayRuntime.drawCompanionPage()
+    THEME.hgss.v4Page = (not fieldChoice and not radarOpen) and page or nil
     if fieldChoice then
       drawFieldChoice()
       return
@@ -10899,6 +10900,7 @@ return function(mod)
       pressTouch = displayRuntime.pressTouch(mode, choice, touchDown, owned, blocked)
       THEME.hgss:setTouch(pressTouch and pressTouch.x,
         pressTouch and pressTouch.y, not pendingFly and not pendingAction)
+      THEME.hgss.v4Page = nil
       THEME.hgss:backdrop()
     end
     if moveInfo then
