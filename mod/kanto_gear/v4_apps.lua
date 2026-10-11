@@ -559,15 +559,16 @@ return function(H, ui, K)
         local y = 34 + (index - 1) * 30
         local pressed = self:beginPress(7, y, 226, 26)
         local accent = accentOf(self, category.accent)
-        self:v4Window(7, y, 226, 26, { radius = 4 })
+        self:v4Key(7, y, 226, 27)
+        if cg(self) then R(8, y + 4, 2, 17, accent) end
         -- glyph seat
         CIRC(11, y + 2, 22, colors.outline)
         CIRC(12, y + 3, 20, mix(colors.surface, accent, self.dark and 0.35 or 0.22))
         local glyph = CAT_GLYPH[tostring(category.label)]
         if glyph then glyph(12, y + 3, accent, mix(accent, colors.surface, 0.45)) end
         self:partyInfo(self:fitPartyInfo(translate(category.label), 170), 39, y + 2, colors.ink)
-        self:partyType(self:fitPartyType(translate(category.detail), 170), 39, y + 13, colors.mutedInk, 170)
-        self:detailChevron(221, y + 9, colors.mutedInk, true)
+        self:partyInfo(self:fitPartyInfo(translate(category.detail), 170), 39, y + 12, colors.mutedInk)
+        ART({ "#..", "##.", "###", "##.", "#.." }, 219, y + 10, { ["#"] = colors.mutedInk })
         self:endPress(pressed)
       end
       return
@@ -738,6 +739,12 @@ return function(H, ui, K)
         self:partyType(label, sx, y + 3, enabled and colors.mutedInk or colors.disabledInk, sw)
       end
     end
+  end
+
+  -- Page swipes move only the choices; the help textbox stays put.
+  function H:settingsMotionRegion(option, first, last)
+    if option then return 34, 134 end
+    return first, last
   end
 
   function H:settingsChoiceTop(model)

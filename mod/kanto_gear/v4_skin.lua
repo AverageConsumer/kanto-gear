@@ -488,7 +488,7 @@ return function(H, ui, read)
   }
   if read then
     for _, name in ipairs({ "v4_chrome.lua", "v4_home.lua", "v4_party.lua",
-        "v4_battle.lua", "v4_summary.lua", "v4_apps.lua", "v4_menus.lua" }) do
+        "v4_battle.lua", "v4_summary.lua", "v4_apps.lua", "v4_explorer.lua", "v4_battleinfo.lua", "v4_dex.lua", "v4_pc.lua", "v4_menus.lua", "v4_native.lua" }) do
       local source = read(name)
       if source then
         assert(load(source, "@kanto_gear/" .. name))()(H, ui, K)

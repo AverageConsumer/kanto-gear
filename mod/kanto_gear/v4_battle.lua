@@ -395,4 +395,41 @@ return function(H, ui, K)
     if selected then self:focusFrame(x, y, w, h) end
     self:endPress(pressed)
   end
+
+  ---------------------------------------------------------------------------
+  -- Safari actions: same panels, proper pixel props.
+  ---------------------------------------------------------------------------
+  local SAFARI = {
+    bait = { art = { "....gg....", "...g.g....", ".oooooooo.", "o########o", "o#yy##yy#o", "o##yyyy##o",
+      "o#yy##yy#o", "o########o", ".oooooooo." }, pal = { ["#"] = "d89848", y = "f8d878", g = "58b848" } },
+    rock = { art = { "...oooo...", "..o####o..", ".o##ww##o.", "o###w####o", "o########o", "o#######do",
+      ".o#####ddo", "..ooooooo." }, pal = { ["#"] = "a8a8a0", w = "e8e8e0", d = "707068" } },
+    pokeblock = { art = { ".oooooooo.", "o#ww#####o", "o#w######o", "o######yyo", "o######yyo", "o##yy###do",
+      "o##yy##ddo", ".oooooooo." }, pal = { ["#"] = "e86070", w = "f8b0b8", y = "f8d040", d = "a83848" } },
+  }
+  local safariBase = H.battleSafariAction
+  function H:battleSafariAction(action, index, selected)
+    local spec = SAFARI[action.kind]
+    if not spec then return safariBase(self, action, index, selected) end
+    local colors = self.colors
+    local column, row = (index - 1) % 2, floor((index - 1) / 2)
+    local x, y = 6 + column * 116, 33 + row * 91
+    if ui.safariPage then x, y = ui.safariPage.rect(index) end
+    local pressed = self:beginPress(x, y, 112, 86, action.enabled ~= false)
+    self:battleActionPanel(x, y, 112, 86, action.color, selected)
+    local pal = { o = colors.outline }
+    for k, v in pairs(spec.pal) do pal[k] = hex(v) end
+    local w, h = #spec.art[1], #spec.art
+    local total = 12 + 6 + h * 2 + (action.detail and 16 or 0)
+    local top = y + floor((86 - total) / 2)
+    self:partyInfoCentered(self:fitPartyInfo(translate(action.label), 96), x + 8, top, 96, 12, WHITE)
+    local G = ui.graphics
+    G.push(); G.translate(x + 56 - w, top + 18); G.scale(2, 2)
+    ART(spec.art, 0, 0, pal)
+    G.pop()
+    if action.detail then
+      self:partyInfoCentered(action.detail, x + 8, top + 18 + h * 2 + 4, 96, 12, WHITE)
+    end
+    self:endPress(pressed)
+  end
 end

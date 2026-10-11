@@ -303,6 +303,16 @@ return function(H, ui, K)
   function H:homeExplorerMap(model, tile, retained)
     local x, y, w, h = self:homeRect(tile)
     local mx, my, mw, mh = x + 5, y + 22, w - 10, h - 27
+    -- Movement-only repaints keep the frame pixels from the last full paint;
+    -- redrawing chrome (or its translucent shade) here made the edge flicker.
+    if retained then
+      self:mapOverview(model.overview, mx, my, mw, mh, {
+        retainFrame = true,
+        image = model.image, player = model.player, markers = model.markers,
+        drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
+      })
+      return
+    end
     if cg(self) then
       CH(mx - 1, my - 1, mw + 2, mh + 2, 2, self.tok.border)
     else

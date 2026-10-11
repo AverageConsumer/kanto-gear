@@ -4873,6 +4873,67 @@ return function(mod)
     return nil
   end
 
+  -- Gen 3 front pics replay their summary-screen animation from the host's
+  -- pokeemerald MonAnim port (same data the native summary uses). Battles
+  -- are left alone so the companion never shares animation slots with them.
+  displayRuntime.gen3Anims = { seed = 0 }
+  function displayRuntime.gen3PicAnim(species, mon, maxW, tint)
+    local gen3Anims = displayRuntime.gen3Anims
+    if tint or maxW < 50 or not displayRuntime.gen3 or battle
+        or THEME.style ~= "hgss" or not displayRuntime.motionEnabled() then return nil end
+    local okAnim, MonAnim = pcall(require, "src.core.game3.mon_anim")
+    if not okAnim or type(MonAnim) ~= "table" or not MonAnim.newSprite then return nil end
+    local okEnabled, enabled = pcall(MonAnim.enabled)
+    if not (okEnabled and enabled) then return nil end
+    local P = displayRuntime.gen3.Pokemon
+    local def = game.data.pokemon[species]
+    local source = mon and (mon.source or mon)
+    local picId = source and P.monPicSpecies and select(2, pcall(P.monPicSpecies, source))
+    picId = tonumber(picId) or def and def.index
+    if not picId then return nil end
+    local shiny = false
+    if source then
+      if source.shiny ~= nil then shiny = source.shiny == true
+      elseif source.personality ~= nil and (source.otId ~= nil or source.trainerId ~= nil) then
+        local okShiny, value = pcall(P.isShiny, source)
+        shiny = okShiny and value == true
+      end
+    end
+    local key = tostring(picId) .. ":" .. tostring(shiny)
+    local now = love.timer.getTime()
+    local state = gen3Anims[key]
+    if not state then
+      gen3Anims.seed = gen3Anims.seed + 1
+      state = { next = now + 0.4 + (gen3Anims.seed % 5) * 0.7 }
+      gen3Anims[key] = state
+    end
+    if not state.sprite and now >= state.next then
+      local ok, sprite = pcall(MonAnim.newSprite, picId, { affineMode = "off", hFlip = false })
+      if ok and sprite then
+        sprite.data[0], sprite.data[1] = picId, 1
+        sprite.callback = function(s) MonAnim.summary(s, picId, false) end
+        state.sprite, state.last = sprite, now
+      else
+        state.next = now + 30
+      end
+    end
+    THEME.hgss:wantAmbient(0.3, state.sprite and 1 / 30 or nil)
+    if not state.sprite then return nil end
+    local steps = math.min(30, math.floor((now - state.last) * 60))
+    state.last = state.last + steps / 60
+    for _ = 1, steps do
+      local ok = pcall(MonAnim.step, state.sprite, true)
+      if not ok or (state.sprite.frames or 0) > 600 or MonAnim.done(state.sprite)
+          and (state.sprite.frames or 0) > 2 then
+        state.sprite, state.next = nil, now + 5 + (gen3Anims.seed % 3)
+        return nil
+      end
+    end
+    local frame = state.sprite.frame
+    local pic = (tonumber(frame) or 0) > 0 and select(2, pcall(MonAnim.framePic, picId, frame, shiny)) or nil
+    return { MonAnim = MonAnim, sprite = state.sprite, pic = type(pic) == "table" and pic or nil }
+  end
+
   local function drawSprite(species, side, x, y, maxW, maxH, tint,
                             mon, quiet, brightness)
     local image = mon and mon.presentationSprite
@@ -4885,12 +4946,21 @@ return function(mod)
     end
     local iw, ih = image:getDimensions()
     local scale = math.min(maxW / iw, maxH / ih)
-    local sheet, quad, size
+    local sheet, quad, size, anim3
     if side == "front" and not (mon and mon.presentationSprite) then
       sheet, quad, size = picAnimFrame(species, mon, maxW, tint)
+      if not quad then anim3 = displayRuntime.gen3PicAnim(species, mon, maxW, tint) end
     end
     local function paint()
       color(tint or { brightness or 1, brightness or 1, brightness or 1, 1 })
+      if anim3 then
+        local pic = anim3.pic and anim3.pic.image or image
+        local pw, ph = pic:getDimensions()
+        local s = math.min(maxW / pw, maxH / ph)
+        local ok = pcall(anim3.MonAnim.draw, anim3.sprite, pic,
+          x + maxW / 2, y + maxH / 2, { scale = s })
+        if ok then return end
+      end
       if quad then
         local s = math.min(maxW / size, maxH / size)
         G.draw(sheet, quad, x + (maxW - size * s) / 2,
@@ -4915,7 +4985,7 @@ return function(mod)
     end
     color(tint or { brightness or 1, brightness or 1, brightness or 1, 1 })
     local resolved = colors and gbc.remap(gbc.resolve(colors), gbc.bgp)
-    if quad or not displayRuntime.spriteFilter:draw(image, x + (maxW - iw * scale) / 2,
+    if quad or anim3 or not displayRuntime.spriteFilter:draw(image, x + (maxW - iw * scale) / 2,
         y + (maxH - ih * scale) / 2, scale, resolved) then
       if colors and gbc.available() then gbc.with(colors, paint)
       else paint() end
@@ -5743,9 +5813,12 @@ return function(mod)
     elseif page == "SETTINGS" then
       local settings = displayRuntime.settings
       if settings.category and not settings.confirm then
+        local first, last = settings.option and 101 or 34, settings.option and 201 or 193
+        if THEME.style == "hgss" and THEME.hgss.settingsMotionRegion then
+          first, last = THEME.hgss:settingsMotionRegion(settings.option ~= nil, first, last)
+        end
         region(tostring(settings.category) .. ":" .. tostring(settings.option),
-          settings.option and settings.choicePage or settings.page,
-          settings.option and 101 or 34, settings.option and 201 or 193)
+          settings.option and settings.choicePage or settings.page, first, last)
       end
     elseif page == "NOTES" then
       local notes = displayRuntime.notes
@@ -10572,6 +10645,12 @@ return function(mod)
         info.type2Label = THEME:typeName(secondType, mod.content)
         info.levelText = info.level and THEME:format("L%d", info.level)
           or "L--"
+        for _, list in ipairs({ info.weak or {}, info.resist or {} }) do
+          for _, row in ipairs(list) do
+            row.typeLabel = row.typeLabel or THEME:typeName(row.type, mod.content)
+            row.effectLabel = row.effectLabel or effectLabel(row.multiplier)
+          end
+        end
         local model = {
           pokemon = info,
           drawPokemon = function(_, x, y, size)

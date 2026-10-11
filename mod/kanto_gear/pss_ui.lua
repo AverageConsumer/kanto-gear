@@ -63,23 +63,37 @@ return function(H, G, tr, fmt)
     end
     local function button(text,x,y,w,h,action,value)
       local pressed=self:beginPress(x,y,w,h,action~=nil)
-      if self.v4ActionPanel then self:v4ActionPanel(x,y,w,h,action~=nil) else self:panel(x,y,w,h) end
-      label(tr(text),x,y,w,h,action and c.green or c.disabledInk)
+      local tone = self.v4Choice and ({ BATTLE = "battle", TRADE = "trade", ACCEPT = "positive", CONNECT = "positive",
+        DECLINE = "negative", DISCONNECT = "negative" })[text]
+      if tone and action then
+        self:v4Choice(x,y,w,h,tone,true)
+        label(tr(text),x,y,w,h-3,c.white)
+      else
+        if self.v4ActionPanel then self:v4ActionPanel(x,y,w,h,action~=nil) else self:panel(x,y,w,h) end
+        label(tr(text),x,y,w,h,action and c.green or c.disabledInk)
+      end
       self:endPress(pressed)
       if action then hit(x,y,w,h,action,value) end
     end
     local function person(cx,y,tint)
+      if self.v4Person then return self:v4Person(cx,y,tint) end
       G.setColor(tint);G.rectangle("fill",cx-3,y,6,6)
       G.rectangle("fill",cx-5,y+8,10,6)
       G.setColor(c.surface);G.rectangle("fill",cx-1,y+11,2,3)
     end
     if state.incoming then
       local inv = state.incoming
+      if self.v4PssCard then
+        self:v4PssCard(inv.from and inv.from.name or tr("YOUR TRAINER"), nil,
+          tr(inv.mode == "trade" and "TRADE INVITATION" or "BATTLE INVITATION"), inv.mode,
+          tr(state.canAccept and "ACCEPT TO OPEN LINK SETUP" or "FINISH YOUR CURRENT ACTION"), 110)
+      else
       self:panel(7,33,226,110)
       person(120,45,c.blue)
       label(inv.from and inv.from.name or tr("YOUR TRAINER"),15,67,210,20)
       label(tr(inv.mode == "trade" and "TRADE INVITATION" or "BATTLE INVITATION"),15,92,210,18,c.green)
       label(tr(state.canAccept and "ACCEPT TO OPEN LINK SETUP" or "FINISH YOUR CURRENT ACTION"),15,118,210,16,c.mutedInk)
+      end
       button("DECLINE",7,154,109,28,"decline",inv.id)
       button("ACCEPT",124,154,109,28,state.canAccept and "accept" or nil,inv.id)
       label(tr("SILPH CONNECT"),7,190,226,21,c.mutedInk)
@@ -87,17 +101,33 @@ return function(H, G, tr, fmt)
     end
     if state.pending or state.activity then
       local pending = state.pending or state.activity
+      if self.v4PssCard then
+        self:v4PssCard(pending.peer and pending.peer.name or tr("YOUR TRAINER"), nil,
+          tr(pending.mode == "trade" and "TRADE" or "BATTLE"), pending.mode,
+          tr(state.activity and "LINK SESSION OPEN" or pending.room
+            and "FINISH YOUR CURRENT ACTION" or "INVITATION SENT"), 145, not state.activity)
+      else
       self:panel(7,33,226,145)
       person(120,48,c.blue)
       label(pending.peer and pending.peer.name or tr("YOUR TRAINER"),15,72,210,20)
       label(tr(pending.mode == "trade" and "TRADE" or "BATTLE"),15,99,210,18,c.green)
       label(tr(state.activity and "LINK SESSION OPEN" or pending.room
         and "FINISH YOUR CURRENT ACTION" or "INVITATION SENT"),15,127,210,18,c.mutedInk)
+      end
       label(tr("YOU CAN KEEP PLAYING"),7,190,226,21,c.mutedInk)
       return
     end
     if state.selected then
       local row=state.selectedRow
+      local available = row and row.canInvite
+      local reason = state.notice or (not state.session and "HOST UPDATE NEEDED"
+        or not state.ready and "SET YOUR STATUS TO READY" or not available and "PLAYER NOT READY")
+      if self.v4PssCard then
+        self:v4PssCard(row and row.name or tr(state.state == "online" and "PLAYER LEFT"
+            or states[state.state] or "OFFLINE"), row and tr(versions[row.version] or "UNKNOWN GAME"),
+          row and tr(row.ready and "READY" or statuses[row.status] or "ONLINE"), row and (row.ready and "ready" or "online") or "offline",
+          reason and tr(reason), 110)
+      else
       self:panel(7,33,226,110)
       person(120,43,row and c.blue or c.disabledInk)
       label(row and row.name or tr(state.state == "online" and "PLAYER LEFT"
@@ -107,10 +137,8 @@ return function(H, G, tr, fmt)
         label(tr(row.ready and "READY" or statuses[row.status] or "ONLINE"),15,102,210,15,
           row.ready and c.green or c.mutedInk)
       end
-      local available = row and row.canInvite
-      local reason = state.notice or (not state.session and "HOST UPDATE NEEDED"
-        or not state.ready and "SET YOUR STATUS TO READY" or not available and "PLAYER NOT READY")
       if reason then label(tr(reason),12,121,216,16,c.mutedInk) end
+      end
       button("BATTLE",7,154,109,28,available and "battle" or nil)
       button("TRADE",124,154,109,28,available and "trade" or nil)
       button("BACK",7,188,226,23,"back")

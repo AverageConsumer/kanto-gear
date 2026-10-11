@@ -69,9 +69,12 @@ return function(H, G, translate)
         enabled = arg < 0 and state.cursor > 0 or arg > 0 and state.cursor < draftLength
       end
       local pressed = self:beginPress(x,y,w,h,enabled)
-      self:panel(x,y,w,h,false,nil)
-      if selected then
-        G.setColor(c.green);G.rectangle("fill",x+2,y+1,w-4,h-2)
+      if self.v4Choice then self:v4Choice(x,y,w,h,selected,enabled)
+      else
+        self:panel(x,y,w,h,false,nil)
+        if selected then
+          G.setColor(c.green);G.rectangle("fill",x+2,y+1,w-4,h-2)
+        end
       end
       local ink = not action and c.disabledInk or selected and (self.dark and c.statusInk or c.white) or c.ink
       label(raw and value or translate(value),x+3,y,w-6,h,ink)
@@ -95,9 +98,9 @@ return function(H, G, translate)
         local entry=list[(state.page-1)*3+row]
         if entry then
           local y=59+(row-1)*31
-          self:panel(7,y,226,26)
-          self:partyInfo(self:fitPartyInfo(entry.note.title,210),15,y+3,c.ink)
-          self:partyInfo(self:fitPartyInfo(entry.note.area and entry.note.areaName or translate("GENERAL"),210),15,y+15,c.mutedInk)
+          if self.v4NoteCard then self:v4NoteCard(7,y,226,26,entry.note) else self:panel(7,y,226,26) end
+          self:partyInfo(self:fitPartyInfo(entry.note.title,190),self.v4NoteCard and 24 or 15,y+(self.v4NoteCard and 2 or 3),c.ink)
+          self:partyInfo(self:fitPartyInfo(entry.note.area and entry.note.areaName or translate("GENERAL"),190),self.v4NoteCard and 24 or 15,y+(self.v4NoteCard and 12 or 15),c.mutedInk)
           hit(7,y,226,26,"open",entry.index)
         end
       end
@@ -162,7 +165,7 @@ return function(H, G, translate)
       for i,t in ipairs({{"TEXT","text"},{"TASKS","tasks"},{"DRAWING","sketch"}}) do button(t[1],7+(i-1)*77,65,72,20,"view",t[2],state.view==t[2]) end
       if state.view=="text" then
         local rows=state:wrapped(n.text,210);pager(math.ceil(#rows/6),174)
-        self:panel(7,91,226,78)
+        if self.v4Paper then self:v4Paper(7,91,226,78,95) else self:panel(7,91,226,78) end
         for i=1,6 do local row=rows[(state.page-1)*6+i];if row then self:partyInfo(row.text,15,95+(i-1)*12,c.ink) end end
         if n.text=="" then label(translate("YOUR NOTE"),7,91,226,78,c.mutedInk) end
         button("EDIT",7,194,110,17,"edit","text",true)

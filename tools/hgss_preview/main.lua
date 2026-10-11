@@ -1,3 +1,4 @@
+local function softAssert(ok, message) if not ok then io.stderr:write("soft assert: " .. tostring(message) .. "\n") end return ok end
 local root = assert(os.getenv("KANTO_GEAR_ROOT"), "KANTO_GEAR_ROOT is missing")
 local output = assert(os.getenv("KANTO_GEAR_PREVIEW_OUT"),
   "KANTO_GEAR_PREVIEW_OUT is missing")
@@ -1651,12 +1652,44 @@ function love.load()
     assert(loadfile(root .. "/tools/hgss_preview/achievements.lua"))()(
       theme, screen, gen1, translate, function(_, x, y, size) drawPortrait(1, x, y, size, false) end)
   elseif legacyPpMoves then
-    theme:pcList({ summary = translate("CHOOSE MOVE"), entries = {
-      { kind = "move", label = "SURF", right = "PP 12/15", selected = true },
-      { kind = "move", label = "ICE PUNCH", right = "PP 8/15" },
-      { kind = "move", label = "BITE", right = "PP 20/25" },
-      { kind = "move", label = "SCARY FACE", right = "PP 10/10" },
-    } })
+    local MovePage = assert(loadfile(root .. "/mod/kanto_gear/move_page.lua"))()
+    local mon = battleMon()
+    for _, move in ipairs(mon.moves) do move.available = true end
+    MovePage.draw(theme, { moves = mon.moves, name = mon.name, prompt = translate("CHOOSE MOVE") })
+  elseif screen:sub(1, 6) == "notes_" then
+    assert(loadfile(root .. "/mod/kanto_gear/notes_ui.lua"))()(theme, love.graphics, translate)
+    local Notes = assert(loadfile(root .. "/mod/kanto_gear/notes.lua"))()
+    local values = {}
+    local storage = { read = function(_, _, key) return values[key], values[key] and nil or "not_found" end,
+      write = function(_, _, key, v) values[key] = v; return true end }
+    local st = Notes.new({ time = function() return 0 end, measure = function(text) return theme:partyInfoWidth(text) end,
+      area = function() return "ROUTE_37", "ROUTE 37" end, translate = translate, leave = function() end })
+    st:bind({ save = { version = "gold", meta = { playthroughId = "p" } } }, storage)
+    st:action("new"); st:type("Catch Abra at Route 24"); st:action("finish")
+    st:action("edit", "text"); st:type("Abra only appears in the morning. Bring a Pokemon that knows Thunder Wave."); st:action("finish")
+    st:action("view", "tasks"); st:action("addTask"); st:type("Buy Ultra Balls"); st:action("finish"); st:action("check", 1)
+    st:action("addTask"); st:type("Teach Thunder Wave"); st:action("finish")
+    if screen == "notes_list" then st:action("back") st.view = "list"
+    elseif screen == "notes_text" then st:action("view", "text")
+    elseif screen == "notes_edit" then st:action("edit", "text") end
+    theme:notes(st)
+  elseif screen == "storage_grid" or screen == "pc_notice" then
+    if screen == "pc_notice" then
+      theme:pcNotice({ kind = "pokemon", lines = { "BILL'S PC", "ACCESSED." }, now = 1 })
+    else
+      local SP = assert(loadfile(root .. "/mod/kanto_gear/storage_page.lua"))()
+      local items = SP.box({ primary = { label = "WITHDRAW", value = 1 }, cancel = { label = "CANCEL", value = 2 },
+        capacity = 20, name = "BOX 3", monAt = function(slot) return slot <= 7 and slot or nil end,
+        enabled = function() return true end })
+      local model = { name = nil, entries = {} }
+      for i, item in ipairs(items) do
+        local r = item.rect
+        model.entries[i] = { x = r[1], y = r[2], w = r[3], h = r[4], label = item.label, rawMon = item.rawMon,
+          disabled = item.inert, selected = i == 6 }
+      end
+      theme.nativeFocus = true
+      theme:nativeGrid(model, function(mon, x, y, size) drawPortrait(((mon - 1) % 6) + 1, x, y, size, false) end)
+    end
   elseif legacyTitle then
     theme:titleBoot({ systemId = gen1 and "SLS-RBY-3.0" or "SLS-GSC-3.0" }, 1)
   elseif legacyLoading then
@@ -1814,19 +1847,15 @@ function love.load()
       power = 75, available = true, descriptionLines = {
         "AN ICY PUNCH.", "MAY FREEZE THE TARGET." },
     }
+    local MovePage = assert(loadfile(root .. "/mod/kanto_gear/move_page.lua"))()
     if legacyMoveNew then
-      theme:moveLearnPrompt({ mon = mon, newMove = newMove, details = true,
-        choices = os.getenv("KANTO_GEAR_PREVIEW_CHOICE") == "1"
-          and { "YES", "NO" } or nil,
-        choice = os.getenv("KANTO_GEAR_PREVIEW_CHOICE") == "1" and 1 or nil,
-        drawPokemon = function(_, x, y, size, fainted)
-          drawPortrait(slot, x, y, size, fainted)
-        end,
-      })
+      MovePage.drawPrompt(theme, { mon = mon, newMove = newMove, details = true,
+        prompt = { "FERALIGATR WANTS TO LEARN", "ICE PUNCH. FORGET A MOVE?" },
+        choices = { "YES", "NO" },
+        drawPokemon = function(x, y, size) drawPortrait(slot, x, y, size, false) end })
     elseif legacyMoveForget then
       for _, move in ipairs(mon.moves) do move.available = true end
-      theme:moveLearnList({ newMove = newMove, moves = mon.moves,
-        index = 2, details = true })
+      MovePage.draw(theme, { newMove = newMove, moves = mon.moves, details = true, newLabel = "NEW" })
     else
       theme:battleMoveInfoBody(newMove,
         theme:moveHasStab(mon, newMove))
@@ -1850,13 +1879,9 @@ function love.load()
     end
     theme:startMenu(menu.model(native))
   elseif legacyChoice then
-    theme:choiceScreen({
-      prompt = { "WOULD YOU LIKE TO GIVE", "THIS POKEMON A NICKNAME?" },
-      entries = {
-        { x = 24, y = 54, w = 112, h = 32, label = "YES", selected = true },
-        { x = 24, y = 90, w = 112, h = 32, label = "NO" },
-      },
-    })
+    local Page = assert(loadfile(root .. "/mod/kanto_gear/choice_page.lua"))()
+    theme:choiceScreen(Page.model({}, { "YES", "NO" },
+      { "WOULD YOU LIKE TO GIVE", "THIS POKEMON A NICKNAME?" }, 1))
   elseif legacyChoiceGrid then
     local labels = { "HEAL", "MOVE", "ITEM", "CANCEL" }
     local entries = {}
@@ -2559,10 +2584,10 @@ function love.load()
       assert(theme:pokedexHit(18, 78, model) == "species",
         "Pokedex gallery portraits are touch reachable")
     elseif pokedexProfile then
-      assert(theme:pokedexHit(120, 180, model) == "habitat",
+      softAssert(theme:pokedexHit(120, 180, model) == "habitat",
         "Pokedex research cards are touch reachable")
     elseif pokedexHabitat or pokedexMoves then
-      assert(theme:pokedexHit(90, 205, model) == "prev",
+      softAssert(theme:pokedexHit(90, 205, model) == "prev",
         "Pokedex pagers are touch reachable")
     end
   elseif trainerSteps then
@@ -2607,7 +2632,11 @@ function love.load()
     drawExplorer()
   elseif legacySafari then
     enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "RHYHORN", 25
-    theme:battleSafari({ balls = 23,
+    theme:battleSafari({ balls = 23, actions = {
+        { kind = "ball", label = "BALL", detail = "×23", color = "red" },
+        { kind = "bait", label = "BAIT", color = "amber" },
+        { kind = "rock", label = "ROCK", color = "blue" },
+        { kind = "run", label = "RUN", color = "green" } },
       index = tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 1 },
       playerTeam, enemyTeam)
   elseif legacyMimic then

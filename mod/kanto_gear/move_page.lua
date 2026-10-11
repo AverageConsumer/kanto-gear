@@ -45,6 +45,7 @@ function Page.hit(model, x, y)
 end
 
 function Page.draw(H, model)
+  if H.v4MovePage then return H:v4MovePage(model, Page) end
   if model.message then
     H:panel(6, 33, 228, 34, false, nil, H.colors.amberLight)
     local first, second = H:splitPartyInfo(model.message:gsub("\n", " "), 212)
@@ -88,6 +89,7 @@ function Page.promptHit(model, x, y)
 end
 
 function Page.drawPrompt(H, model)
+  if H.v4MovePrompt then return H:v4MovePrompt(model, Page) end
   local c, mon = H.colors, model.mon or {}
   local enabled = model.enabled ~= false and model.choices ~= nil
   H:panel(6, 33, 228, 51, false, nil, H:typeColor(mon.type))

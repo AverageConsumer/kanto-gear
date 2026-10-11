@@ -261,7 +261,7 @@ return function(H, G, translate, format)
         local action = canLocate and "locate"
           or row.wild and "habitat" or nil
         card(6, top, 228, 32, action, row, function()
-          name(row.isEgg and translate("EGG") or row.label, 13, top + 2, 171, 19)
+          if not self.v4FindRow then name(row.isEgg and translate("EGG") or row.label, 13, top + 2, 171, 19) end
           local status = translate(row.state == "unavailable" and "NO LONGER AVAILABLE"
             or row.species and (not row.gift or row.catchGoal) and (row.state == "done" and "CAUGHT" or "NOT CAUGHT")
             or ({ done = "RECORDED", open = row.trade and "NPC TRADE" or row.loan and "NPC LOAN" or (row.cost or row.coinCost) and "NPC OFFER" or row.gift and "NPC GIFT" or "NOT YET", later = "LATER",
@@ -269,9 +269,13 @@ return function(H, G, translate, format)
             untracked = "NOT TRACKED", excluded = "ALTERNATIVE CHOICE",
             repeatable = row.kind == "hidden" and "RENEWABLE" or "REPEATABLE" })[row.state])
           if row.bonus then status = translate("BONUS") .. ": " .. status end
+          if self.v4FindRow then
+            self:v4FindRow(row, top, status, action ~= nil)
+          else
           label(status,
             13, top + 20, 195, 9, row.state == "done" and accent or quiet, true)
           if action then self:detailChevron(214, top + 12, accent, true) end
+          end
         end)
       end
       if model.category == 4 and #(model.entries or {}) > 0 then
