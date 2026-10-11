@@ -88,6 +88,33 @@ end
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
 local theme = upvalue(display.drawContents, "THEME")
+do
+  local pixels = upvalue(theme.hgss.silphEmblem, "emblemPixels")
+  for _, hexShape in ipairs({ false, true }) do
+    for _, size in ipairs({ 32, 64, 65 }) do
+      local data, left, right = pixels(size, 4, hexShape), math.huge, -math.huge
+      local swept, settled = {}, {}
+      for segment = 1, 3 do
+        for _, point in ipairs(data.px[segment]) do
+          left, right = math.min(left, point[1]), math.max(right, point[1])
+          swept[point[1] .. ":" .. point[2]] = point[3]
+        end
+        for _, run in ipairs(data.runs[segment]) do
+          for x = run[2], run[2] + run[4] - 1 do settled[x .. ":" .. run[3]] = run[1] end
+        end
+      end
+      T.eq(left + right, size - 1, "both emblem tips have symmetric pixel bounds")
+      T.check(not hexShape or left < 0 and right >= size,
+        "hexagonal emblem includes the tips outside its height-sized square")
+      T.eq(next(swept) ~= nil, true, "the emblem has visible pixels")
+      local same = true
+      for key, kind in pairs(swept) do if settled[key] ~= kind then same = false end end
+      for key, kind in pairs(settled) do if swept[key] ~= kind then same = false end end
+      T.check(same, "cached runs exactly match the animated emblem pixels")
+      T.eq(pixels(size, 4, hexShape), data, "settled emblems reuse the geometry cache")
+    end
+  end
+end
 T.eq(display.storeEntries()[1].id, "pss", "PSS is visible on the first Apps page")
 T.eq(display.storeTodayEntries()[1].id, "pss", "PSS is featured when the Store opens")
 T.eq(display.storeWidgetSummary().label, "APPS", "Store widget shows the catalogue when no app is new")
