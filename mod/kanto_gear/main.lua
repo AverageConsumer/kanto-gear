@@ -3931,6 +3931,20 @@ return function(mod)
     return ordered
   end
 
+  function displayRuntime.needsTools()
+    if page == "TOOLS" or pendingAction or fieldChoice then return true end
+    if page ~= "HOME" then return false end
+    local home = displayRuntime.home
+    if home.editing or home.library then return true end
+    for _, tile in ipairs(home.layout and home.layout.tiles or {}) do
+      local surface = displayRuntime.homeCatalog.surfaces[tile.id]
+      if tile.page == home.page and surface and surface.widget == "tool" then
+        return true
+      end
+    end
+    return false
+  end
+
   local function refreshTools()
     local nextTools, unavailable = {}, nil
     local world = displayRuntime.gen3Field or mod.world
@@ -11807,7 +11821,9 @@ return function(mod)
     if not app or not app.target or not package or not package.installed then
       return false
     end
-    if id == "pss" then
+    if id == "tools" then
+      displayRuntime.perf:call("tools", refreshTools)
+    elseif id == "pss" then
       displayRuntime.pss.selected, displayRuntime.pss.page = nil, 1
       displayRuntime.pss:open()
     elseif id == "notes" then
@@ -12993,6 +13009,7 @@ return function(mod)
         displayRuntime.requestPageMotion(direction)
         home.page = ((home.page or 1) - 1 + direction) % count + 1
       end
+      if displayRuntime.needsTools() then displayRuntime.perf:call("tools", refreshTools) end
       dirty = true
       return
     elseif THEME.style == "hgss" and page == "STORE" then
@@ -15198,7 +15215,7 @@ return function(mod)
           end
         end
       end
-      if page == "TOOLS" or page == "HOME" or pendingAction then displayRuntime.perf:call("tools", refreshTools) end
+      if displayRuntime.needsTools() then displayRuntime.perf:call("tools", refreshTools) end
       local mode, top = screenState()
       if page == "POKEDEX" and displayRuntime.pokedex.view == "habitat"
           and not battle and mode == "active" then

@@ -105,4 +105,48 @@ local input = hook("input.step")
 input(function() now = now + 0.010; return sentinel end, game, 1 / 60)
 T.check(metrics.gear_input.n > 0, "diagnostics include work in the input hook")
 T.check(metrics.gear_input.max < 0.0001, "host simulation time is excluded from Gear input")
+do
+  local api = up(input, "mod")
+  local originalWorld, calls, available = api.world, 0, {}
+  api.world = { current = function() end, availableFieldActions = function()
+    calls = calls + 1
+    return available
+  end }
+  local home = display.home
+  home.layout = { tiles = {
+    { id = "explorer_widget", page = 1, column = 1, row = 1 },
+    { id = "tool_widget_old_rod", page = 2, column = 1, row = 1 },
+  } }
+  home.page, home.editing, home.library = 1, false, false
+  game.stack.states = { world }
+  up(compose, "page", "HOME")
+  local function poll()
+    now = now + 0.06
+    up(compose, "nextPoll", 0)
+    compose(function() end, {}, context)
+  end
+  for _ = 1, 3 do poll() end
+  T.eq(calls, 0, "Home does not query field actions for an off-page tool widget")
+  home.page = 2
+  game.save.inventory.OLD_ROD = 1
+  available = { { id = "fish", label = "FISH", rods = { { id = "OLD_ROD" } } } }
+  poll()
+  local surface = display.homeCatalog.surfaces.tool_widget_old_rod
+  T.eq(calls, 1, "a visible tool widget retains the normal poll cadence")
+  T.check(surface.ready, "the visible rod becomes ready in the same poll")
+  available = {}
+  poll()
+  T.check(not surface.ready, "the visible rod stops being ready as soon as context changes")
+  home.page, home.library = 1, true
+  T.check(display.needsTools(), "the widget library still refreshes field unlocks")
+  home.library, home.editing = false, true
+  T.check(display.needsTools(), "editing still refreshes field unlocks")
+  home.editing = false
+  local before = calls
+  display.openHomeApp("tools")
+  T.eq(calls, before + 1, "opening Field Kit refreshes before its first paint")
+  poll()
+  T.eq(calls, before + 2, "Field Kit retains its normal live updates")
+  api.world = originalWorld
+end
 T.finish("Kanto Gear performance runtime Gen " .. generation)
