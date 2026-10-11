@@ -112,3 +112,4 @@ tests/gen3_fixture.lua
 tests/rs_native_test.lua
 tests/rs_runtime_test.lua
 tests/rs_objectives_test.lua
+tests/battle_modes_test.lua
