@@ -227,7 +227,7 @@ return function(H, ui, K)
   end
   local function focusOf(model)
     local marker = model.selectedMarker
-    return marker and (marker.kind == "trainer" or marker.kind == "fruit" or marker.gift) and marker or model.player
+    return marker and (marker.kind == "trainer" or marker.kind == "fruit" or marker.gift or marker.entrance) and marker or model.player
   end
   local function layoutOf(model, player)
     if not stockLayout then return nil end
@@ -529,6 +529,7 @@ return function(H, ui, K)
     if kind == "trainers" then
       return row.missed and "MISSED" or row.done and "BEATEN" or row.status or "OPEN"
     end
+    if row.bonus then return "BONUS" end
     return row.done and "FOUND" or row.status == "NOT TRACKED" and "UNKNOWN" or row.status or "OPEN"
   end
 
@@ -714,6 +715,11 @@ return function(H, ui, K)
     panel(self)
     tabs(self, model)
     if view == "wild" then scopeSwitch(self, model) end
+    if view == "items" and model.itemProgress and model.itemProgress.optional > 0 then
+      local bonus = ui.format and ui.format("%d/%d BONUS", model.itemProgress.bonusDone, model.itemProgress.optional)
+        or (model.itemProgress.bonusDone .. "/" .. model.itemProgress.optional .. " " .. translate("BONUS"))
+      self:partyInfoCentered(self:fitPartyInfo(bonus, 130), MAP_X + 5, STRIP_Y, 130, STRIP_H, colors.mutedInk)
+    end
     if model.pages > 1 then self:v4PageKeys(MAP_X + MAP_W - 5, STRIP_Y - 1, model.page, model.pages) end
     local rows = model.rows or {}
     if #rows == 0 then
@@ -760,7 +766,14 @@ return function(H, ui, K)
           ART(HIDDEN_G, x, y, { ["#"] = colors.green })
         end or function(x, y)
           ART({ ".ooo.", "o.#.o", "o###o", "o.#.o", ".ooo." }, x, y, { o = colors.outline, ["#"] = hex("4888e0") })
-        end, model.player, selected)
+        end, model.player, selected.remote and model.selectedMarker or not selected.remote and selected)
+      if selected.remote and not selected.outsideMap and selected.x ~= nil and selected.y ~= nil then
+        local pressed = self:beginPress(123, 158, 104, 46, true)
+        self:v4Key(123, 158, 104, 46)
+        local label = self:fitPartyInfo(translate(selected.indoor and "SHOW INSIDE" or "MAP"), 92)
+        self:partyInfoCentered(label, 129, 159, 92, 44, cg(self) and self.tok.acc.M or colors.green)
+        self:endPress(pressed)
+      end
       return true
     elseif view == "trainers" then
       local status = statusOf(selected, "trainers")
@@ -803,6 +816,9 @@ return function(H, ui, K)
     if marker then return "marker", marker end
     if model.mapFull then return nil end
     if model.selected then
+      if model.view == "items" and model.selected.remote and not model.selected.outsideMap
+          and model.selected.x ~= nil and model.selected.y ~= nil
+          and x >= 123 and x < 227 and y >= 158 and y < 204 then return "locate" end
       if model.view == "wild" and (model.detailPages or 1) > 1 and y >= 103 and y < 123 then
         local px, rx = pagerRects(226, 105)
         if x >= px - 2 and x < px + PAGER_KEY + 2 then return "detail_prev" end

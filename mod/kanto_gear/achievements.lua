@@ -120,6 +120,16 @@ local function section(rows)
     bonusDone = 0, bonusMissed = 0, untracked = 0, excluded = 0, repeatable = 0, unknown = 0 }
 end
 
+-- Explorer uses the same obligations, either/or groups and bonuses as Stamps.
+function M.section(rows, category, context)
+  local result = section()
+  for _, row in ipairs(rows or {}) do
+    result.rows[#result.rows + 1] = prepare(row, category, context)
+  end
+  count(result, category)
+  return result
+end
+
 local function tier(area)
   local fieldComplete = area.fieldDone == area.fieldTotal and area.unknown == 0
   area.tier = area.evidence and "bronze" or "none"

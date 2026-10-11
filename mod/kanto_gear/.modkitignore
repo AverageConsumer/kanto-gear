@@ -119,3 +119,5 @@ tests/v4_stamp_test.lua
 tests/pokegear_page_test.lua
 tests/pokegear_native_test.lua
 tests/held_item_test.lua
+tests/explorer_items_cases.lua
+tests/explorer_items3_test.lua

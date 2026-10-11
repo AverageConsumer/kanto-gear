@@ -27,13 +27,11 @@ local function position(map, point, generation)
   return map.width and map.height and x < map.width * cells and y < map.height * cells
 end
 
--- Called only when opening a find, never while drawing or moving the player.
--- Rebuild from current definitions so registered/replaced maps are respected.
-function M.entrance(maps, target, generation, current)
-  local def = maps and maps[target.mapId]
-  if not def or M.outdoor(def, generation) then return nil end
+-- Index fixed incoming warps once per Explorer visit; find previews can also
+-- request a fresh resolver to respect registered or replaced map definitions.
+function M.resolver(maps, generation)
   local incoming = {}
-  for id, map in pairs(maps) do
+  for id, map in pairs(maps or {}) do
     for _, warp in ipairs(map.warps or {}) do
       if maps[warp.destMap] and warp.destMap ~= id and warp.destWarp ~= 255
           and warp.destWarp ~= -1 and position(map, warp, generation) then
@@ -43,38 +41,46 @@ function M.entrance(maps, target, generation, current)
       end
     end
   end
-  local queue, seen, doors = { { id = target.mapId, depth = 0 } }, { [target.mapId] = true }, {}
-  local index = 1
-  while index <= #queue do
-    local at = queue[index]; index = index + 1
-    for _, entry in ipairs(incoming[at.id] or {}) do
-      if M.outdoor(maps[entry.mapId], generation) then
-        doors[#doors + 1] = { mapId = entry.mapId, x = entry.x, y = entry.y, depth = at.depth + 1 }
-      elseif not seen[entry.mapId] then
-        seen[entry.mapId] = true
-        queue[#queue + 1] = { id = entry.mapId, depth = at.depth + 1 }
+  return function(target, current)
+    local def = maps and maps[target.mapId]
+    if not def or M.outdoor(def, generation) then return nil end
+    local queue, seen, doors = { { id = target.mapId, depth = 0 } }, { [target.mapId] = true }, {}
+    local index = 1
+    while index <= #queue do
+      local at = queue[index]; index = index + 1
+      for _, entry in ipairs(incoming[at.id] or {}) do
+        if M.outdoor(maps[entry.mapId], generation) then
+          doors[#doors + 1] = { mapId = entry.mapId, x = entry.x, y = entry.y, depth = at.depth + 1 }
+        elseif not seen[entry.mapId] then
+          seen[entry.mapId] = true
+          queue[#queue + 1] = { id = entry.mapId, depth = at.depth + 1 }
+        end
       end
     end
-  end
-  table.sort(doors, function(a, b)
-    if (a.mapId == current) ~= (b.mapId == current) then return a.mapId == current end
-    if a.depth ~= b.depth then return a.depth < b.depth end
-    if a.mapId ~= b.mapId then return tostring(a.mapId) < tostring(b.mapId) end
-    if a.y ~= b.y then return a.y < b.y end
-    return a.x < b.x
-  end)
-  local first = doors[1]
-  if not first then return nil end
-  first.points = {}
-  local added = {}
-  for _, door in ipairs(doors) do
-    local key = door.x .. ":" .. door.y
-    if door.mapId == first.mapId and not added[key] then
-      first.points[#first.points + 1] = { x = door.x, y = door.y }
-      added[key] = true
+    table.sort(doors, function(a, b)
+      if (a.mapId == current) ~= (b.mapId == current) then return a.mapId == current end
+      if a.depth ~= b.depth then return a.depth < b.depth end
+      if a.mapId ~= b.mapId then return tostring(a.mapId) < tostring(b.mapId) end
+      if a.y ~= b.y then return a.y < b.y end
+      return a.x < b.x
+    end)
+    local first = doors[1]
+    if not first then return nil end
+    first.points = {}
+    local added = {}
+    for _, door in ipairs(doors) do
+      local key = door.x .. ":" .. door.y
+      if door.mapId == first.mapId and not added[key] then
+        first.points[#first.points + 1] = { x = door.x, y = door.y }
+        added[key] = true
+      end
     end
+    return first
   end
-  return first
+end
+
+function M.entrance(maps, target, generation, current)
+  return M.resolver(maps, generation)(target, current)
 end
 
 return M

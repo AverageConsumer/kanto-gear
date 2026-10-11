@@ -3505,6 +3505,10 @@ return function(mod)
   end
 
   function displayRuntime.clearExplorerSnapshot()
+    local preview = displayRuntime.explorer.locationPreview
+    if preview and preview.locationImage then preview.locationImage:release() end
+    if preview and preview.locationRenderer then preview.locationRenderer:release() end
+    displayRuntime.explorer.locationPreview, displayRuntime.explorer.entrances = nil, nil
     local snapshot = displayRuntime.explorer.mapSnapshot
     if not snapshot then return end
     if snapshot.canvas then snapshot.canvas:release() end
@@ -7073,6 +7077,7 @@ return function(mod)
     if (page ~= "LOCAL" and page ~= "HOME") or THEME.style ~= "hgss"
         or displayRuntime.overlayHidden then return false end
     local home = page == "HOME"
+    if not home and displayRuntime.explorer.locationPreview then return false end
     if home and (displayRuntime.home.editing or displayRuntime.home.library) then return false end
     if now + 0.000001 < state.nextAt or readbackPending then return false end
     local rate = 30
@@ -7108,6 +7113,7 @@ return function(mod)
         or pendingFly or pendingAction or moveInfo or fieldChoice or radarOpen
         or (displayRuntime.backgroundDim or 0) > 0 or displayRuntime.nativeHandoff
         or screenState() ~= "active" then return false end
+    if displayRuntime.explorer.locationPreview then return false end
     local home = page == "HOME"
     local model = home and state.homeModel or displayRuntime.explorer.renderModel
     local data = displayRuntime.explorer.data
@@ -7163,7 +7169,7 @@ return function(mod)
           and displayRuntime.fruitTrees.rows(game.data, id) or {},
         guide = guideEnabled and not mapOnly and guideData()
           or { rows = {}, caught = 0, time = "DAY", timed = false },
-        area = (areaEnabled or guideEnabled) and areaData({ id }, true)
+        area = (areaEnabled or guideEnabled) and areaData(mapOnly and { id } or areaMaps(id), true)
           or { sections = { { rows = {} }, { rows = {} }, { rows = {} } } },
       }
       explorer.data = cached
@@ -7186,7 +7192,8 @@ return function(mod)
     local sections = area.sections or { { rows = {} }, { rows = {} },
       { rows = {} } }
     local allTrainers, allItems, wild = Discovery.filter(areaEnabled and sections[1].rows or {}, function(row)
-      return Discovery.row(displayRuntime.discoveryMode(), row, 1, displayRuntime.knownMap(row.mapId or id))
+      return (row.mapId == nil or row.mapId == id)
+        and Discovery.row(displayRuntime.discoveryMode(), row, 1, displayRuntime.knownMap(row.mapId or id))
     end), {}, {}
     for _, row in ipairs(areaEnabled and sections[2].rows or {}) do allItems[#allItems + 1] = row end
     for _, row in ipairs(areaEnabled and sections[3].rows or {}) do allItems[#allItems + 1] = row end
@@ -7236,7 +7243,7 @@ return function(mod)
       return captured
     end
     if snapshot then
-      for _, row in ipairs(sections[1].rows or {}) do mapActor(row, row.id, "trainer") end
+      for _, row in ipairs(allTrainers) do mapActor(row, row.id, "trainer") end
     end
     for _, row in ipairs(allTrainers) do
       local actor = mapActor(row, row.id, "trainer")
@@ -7258,18 +7265,18 @@ return function(mod)
     local scanProgress = explorer.scanFrame
       and math.min(1, explorer.scanFrame / RADAR_FRAMES) or nil
     for _, row in ipairs(allItems) do
-      if row.gift then
+      if row.gift and (row.mapId == nil or row.mapId == id) then
         row.actor = mapActor(row, row.actorId, "gift")
         if row.actor then
           row.mapVisible = row.actor.visible ~= false
           row.x, row.y = row.actor.x, row.actor.y
         end
       end
-      row.key = table.concat({ "item", tostring(row.kind), tostring(row.x),
+      row.key = table.concat({ "item", tostring(row.mapId or id), tostring(row.id), tostring(row.kind), tostring(row.x),
         tostring(row.y), tostring(row.label) }, ":")
       if canScan and scanProgress and row.kind == "hidden" and not row.done
           and row.available ~= false
-          and row.x and row.y and pos and pos.mapId == id
+          and row.x and row.y and pos and pos.mapId == id and (row.mapId == nil or row.mapId == id)
           and (displayRuntime.gen3 and displayRuntime.gen3:itemfinderReached(pos.x, pos.y, row, scanProgress)
             or not displayRuntime.gen3 and Area.itemfinderScanReached(pos.x, pos.y, row.x, row.y, scanProgress)) then
         explorer.scanRevealed[row.key] = true
@@ -7295,7 +7302,7 @@ return function(mod)
     local gifts, items = {}, {}
     for _, row in ipairs(allItems) do
       if row.species or row.isEgg then
-        if filters.wildScope == "ROUTE" or row.available and row.mapVisible ~= false
+        if filters.wildScope == "ROUTE" or (row.mapId == nil or row.mapId == id) and row.available and row.mapVisible ~= false
             and not row.outsideMap and not row.done and not row.excluded then
           row.key, row.name, row.caught = row.id, row.isEgg and THEME:translate("EGG") or row.label, row.done
           row.method = row.trade and "NPC TRADE" or row.loan and "NPC LOAN" or (row.cost or row.coinCost) and "NPC OFFER" or "NPC GIFT"
@@ -7306,10 +7313,35 @@ return function(mod)
       else items[#items + 1] = row end
     end
     allItems = items
+    local itemProgress = displayRuntime.Achievements.section(allItems, 2, {
+      gen2 = compat.isGen2(), gen3 = displayRuntime.gen3 ~= nil, save = game.save,
+      flag = function(event) return mod.world and mod.world.getFlag and mod.world:getFlag(event) end,
+    })
+    allItems = itemProgress.rows
+    local entrances = explorer.entrances
+    local definitions = compat.isGen2() and game.data.gen2Maps or game.data.maps
+    if not mapOnly and (not entrances or entrances.mapId ~= id or entrances.definitions ~= definitions) then
+      entrances = { mapId = id, definitions = definitions, byMap = {},
+        resolve = displayRuntime.LocationPreview.resolver(definitions, displayRuntime.gen3 and 3 or compat.isGen2() and 2 or 1) }
+      explorer.entrances = entrances
+    end
+    for _, row in ipairs(allItems) do
+      row.remote = row.mapId ~= nil and row.mapId ~= id
+      if row.remote and entrances then
+        row.indoor = definitions[row.mapId] and not displayRuntime.LocationPreview.outdoor(definitions[row.mapId],
+          displayRuntime.gen3 and 3 or compat.isGen2() and 2 or 1) or false
+        if entrances.byMap[row.mapId] == nil then
+          entrances.byMap[row.mapId] = entrances.resolve(row, id) or false
+        end
+        local door = entrances.byMap[row.mapId]
+        row.entrance = door and door.mapId == id and door or nil
+        row.location = displayRuntime.sectionName(row.mapId)
+      end
+    end
     for i = #gifts, 1, -1 do
       if gifts[i].available then table.insert(wild, 1, gifts[i]) else wild[#wild + 1] = gifts[i] end
     end
-    local mapItems = Discovery.filter(allItems, function(row) return not row.outsideMap end)
+    local mapItems = Discovery.filter(allItems, function(row) return not row.outsideMap and (not row.remote or row.entrance) end)
     for _, row in ipairs(wild) do
       local def = game.data.pokemon and game.data.pokemon[row.species] or {}
       local types = row.types or def.types or {}
@@ -7351,16 +7383,17 @@ return function(mod)
       if row == selected then selectedMarker = marker end
     end
     for _, row in ipairs(mapItems) do
-      if row.mapVisible ~= false and row.x ~= nil and row.y ~= nil then
-        local marker = { kind = row.kind, x = row.x, y = row.y,
+      local point = row.entrance or row
+      if (row.remote or row.mapVisible ~= false) and point.x ~= nil and point.y ~= nil then
+        local marker = { kind = row.kind, x = point.x, y = point.y, entrance = row.entrance ~= nil,
           found = row.done, scanned = row.scanned, source = row,
-          gift = row.gift, actor = row.actor or row, state = row.done and "beaten" or "open" }
+          gift = not row.remote and row.gift, actor = not row.remote and (row.actor or row), state = row.done and "beaten" or "open" }
         markers[#markers + 1] = marker
         if row == selected then selectedMarker = marker end
       end
     end
     for _, row in ipairs(gifts) do
-      if row.mapVisible ~= false and not row.excluded and not row.outsideMap and row.x ~= nil and row.y ~= nil then
+      if (row.mapId == nil or row.mapId == id) and row.mapVisible ~= false and not row.excluded and not row.outsideMap and row.x ~= nil and row.y ~= nil then
         local marker = { kind = "pokemon", gift = true, x = row.x, y = row.y, source = row,
           actor = row.actor or row, state = row.done and "beaten" or "open" }
         markers[#markers + 1] = marker
@@ -7428,7 +7461,9 @@ return function(mod)
       showMapStats = areaEnabled,
       guideEnabled = guideEnabled, areaEnabled = areaEnabled,
       emptyHint = displayRuntime.discoveryMode() == "vanilla" and "NO KNOWN POKEMON HERE" or nil,
-      itemsText = progress(mapItems),
+      itemsText = (displayRuntime.discoveryMode() == "vanilla" and tostring(itemProgress.done)
+        or THEME:format("%d/%d", itemProgress.done, itemProgress.total)),
+      itemProgress = itemProgress,
       trainersText = progress(allTrainers),
       wildText = (function()
         local caught = 0
@@ -7564,8 +7599,28 @@ return function(mod)
     G.pop()
   end
 
-  function displayRuntime.loadAchievementLocation(row)
-    local state = displayRuntime.achievements
+  function displayRuntime.openExplorerLocation(row)
+    if not row.remote or not row.mapId or not row.x or not row.y or row.outsideMap then return false end
+    displayRuntime.explorer.locationPreview = { location = row, locationPoint = row,
+      locationEntrance = row.entrance }
+    dirty = true
+    return true
+  end
+
+  function displayRuntime.explorerLocationModel()
+    local state = displayRuntime.explorer.locationPreview
+    local point = state.locationPoint
+    displayRuntime.loadAchievementLocation(point, state)
+    return { view = "location", location = state.location, locationPoint = point,
+      entrance = state.locationEntrance, inside = point == state.location,
+      locationFloor = displayRuntime.LocationPreview.floor(point.mapId),
+      section = displayRuntime.sectionName(point.mapId),
+      drawLocation = (state.locationImage or state.locationRenderer)
+        and function(x, y, w, h) displayRuntime.drawAchievementLocation(x, y, w, h, state) end }
+  end
+
+  function displayRuntime.loadAchievementLocation(row, preview)
+    local state = preview or displayRuntime.achievements
     if state.locationMap == row.mapId and state.locationDark == THEME.hgss.dark then return end
     if state.locationImage and state.locationImage.release then state.locationImage:release() end
     if state.locationRenderer then state.locationRenderer:release(); state.locationRenderer = nil end
@@ -7607,8 +7662,8 @@ return function(mod)
     else mod.log:warn("achievement map preview unavailable: %s", tostring(result)) end
   end
 
-  function displayRuntime.drawAchievementLocation(x, y, w, h)
-    local state = displayRuntime.achievements
+  function displayRuntime.drawAchievementLocation(x, y, w, h, preview)
+    local state = preview or displayRuntime.achievements
     local image, row, renderer = state.locationImage, state.locationPoint or state.location, state.locationRenderer
     if not (image or renderer) or not row then return end
     local iw, ih
@@ -7643,7 +7698,9 @@ return function(mod)
           or displayRuntime.home.activeApp ~= nil, false)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      if not overview then
+      if displayRuntime.explorer.locationPreview then
+        THEME.hgss:achievements(displayRuntime.explorerLocationModel())
+      elseif not overview then
         THEME.hgss:panel(7, 32, 226, 178, false)
         THEME.hgss:partyInfo(THEME:translate("HOST UPDATE REQUIRED"), 31, 112,
           THEME.hgss.colors.ink, 178, "center")
@@ -13200,7 +13257,12 @@ return function(mod)
           or displayRuntime.explorer.view
           or displayRuntime.explorer.mapFull) then
       local explorer = displayRuntime.explorer
-      if explorer.mapFull then explorer.mapFull = false
+      if explorer.locationPreview then
+        local preview = explorer.locationPreview
+        if preview.locationImage then preview.locationImage:release() end
+        if preview.locationRenderer then preview.locationRenderer:release() end
+        explorer.locationPreview = nil
+      elseif explorer.mapFull then explorer.mapFull = false
       elseif explorer.selected then
         explorer.view, explorer.selected, explorer.detailPage = nil, nil, 1
       else explorer.view, explorer.page = nil, 1 end
@@ -13627,6 +13689,15 @@ return function(mod)
       return
     end
     if page == "LOCAL" and THEME.style == "hgss" then
+      if displayRuntime.explorer.locationPreview then
+        local action = THEME.hgss:achievementsHit(x * 1.5, y * 1.5)
+        if action == "location_scope" then
+          local preview = displayRuntime.explorer.locationPreview
+          preview.locationPoint = preview.locationPoint == preview.location and preview.locationEntrance or preview.location
+          dirty = true
+        end
+        return
+      end
       local overview = loadLocalMap()
       if not overview then return end
       local model = displayRuntime.explorerModel(overview)
@@ -13666,6 +13737,8 @@ return function(mod)
         displayRuntime.explorer.selected = model.markers[slot].source.key
         displayRuntime.explorer.detailPage = 1
         displayRuntime.explorer.mapFull = false
+      elseif action == "locate" and model.selected and model.selected.remote then
+        displayRuntime.openExplorerLocation(model.selected)
       elseif action == "row" and model.rows[slot] then
         displayRuntime.explorer.view = model.view or "wild"
         displayRuntime.explorer.selected = model.rows[slot].key
@@ -13916,6 +13989,7 @@ return function(mod)
       changePage(dx < 0 and 1 or -1)
       return
     end
+    if displayRuntime.explorer.locationPreview then return end
     local overview = loadLocalMap()
     local model = overview and displayRuntime.explorerModel(overview)
     if model and not model.mapFull then
