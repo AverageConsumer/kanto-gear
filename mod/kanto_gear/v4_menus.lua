@@ -235,19 +235,39 @@ return function(H, ui, K)
     if ui.dimBackground then ui.dimBackground(alpha or 0.5) end
     K.setc({ 0, 0, 0, alpha or 0.5 })
     ui.graphics.rectangle("fill", 0, 0, 240, 216)
-    if prompt then self:v4AdvanceArrow(116, 180) end
+    if not prompt then return end
+    -- the game talks on the top screen: a continue plate points there
+    local colors = self.colors
+    local tw = self:partyInfoWidth(translate("TAP TO GO ON"))
+    local w = tw + 40
+    local x = 120 - floor(w / 2)
+    self:v4MessageWindow(x, 164, w, 34)
+    local DS = { "ooooooo", "o#####o", "o#####o", "ooooooo", ".......", "ooooooo", "o.....o", "o.....o", "ooooooo" }
+    local hot = cg(self) and self.tok.acc.M or colors.green
+    ART(DS, x + 9, 176, { o = colors.outline, ["#"] = hot })
+    local b = (self.motionEnabled ~= false and floor(self:clock() / 0.4) % 2 == 0) and 1 or 0
+    self:wantAmbient(0.4)
+    ART({ "..#..", ".###.", "#####" }, x + 10, 170 - b, { ["#"] = hot })
+    self:partyInfo(translate("TAP TO GO ON"), x + 22, 175, colors.ink)
   end
 
   function H:loadingOverlay(label, now)
     local colors = self.colors
     self:systemOverlay(0.58, false)
     self:v4MessageWindow(45, 72, 150, 72)
-    self:partyInfo(translate(label or "LOADING AREA"), 55, 88, colors.ink, 130, "center")
+    self:partyInfo(translate(label or "LOADING AREA"), 55, 86, colors.ink, 130, "center")
+    -- indeterminate progress track
+    local hot = cg(self) and self.tok.acc.M or colors.green
+    R(70, 102, 100, 4, colors.outline); R(71, 103, 98, 2, colors.bandLight)
+    local tt = self.motionEnabled == false and 0 or (tonumber(now) or self:clock())
+    local sx = 71 + floor(((tt / 1.2) % 1) * 128) - 30
+    local l, r = math.max(71, sx), math.min(169, sx + 30)
+    if r > l then R(l, 103, r - l, 2, hot) end
     local t = self.motionEnabled == false and 0 or (tonumber(now) or self:clock())
     for index = 0, 2 do
       local hop = self.motionEnabled == false and 0
         or math.max(0, math.floor(math.sin((t * 6) - index * 0.9) * 4 + 0.5))
-      self:v4MiniBall(106 + index * 11, 118 - hop, "ok")
+      self:v4MiniBall(106 + index * 11, 121 - hop, "ok")
     end
     self:wantAmbient(0.2, 1 / 15)
   end
@@ -273,22 +293,35 @@ return function(H, ui, K)
     end
   end
 
+  local ROD_TIER = { OLD_ROD = { "a07040", 1 }, GOOD_ROD = { "3878d0", 2 }, SUPER_ROD = { "e04838", 3 } }
+  local STAR = { "..#..", ".###.", "#####", ".###.", ".#.#." }
   function H:rodPicker(rods)
     local colors = self.colors
-    local blue = hex("3878d0")
+    local G = ui.graphics
+    local enter = self:v4Enter("rod_picker", #(rods or {}), 0.24)
     for index, rod in ipairs(rods or {}) do
       local y = 38 + (index - 1) * 54
+      local tier = ROD_TIER[tostring(rod.id)] or { "3878d0", index }
+      local tint = hex(tier[1])
+      local _, dx = self:v4Stagger(enter, index, 0.1, 16, #rods)
+      if dx ~= 0 then G.push(); G.translate(dx, 0) end
       local pressed = self:beginPress(16, y, 208, 44)
       self:v4Window(16, y, 208, 44, { radius = 5 })
-      R(17, y + 4, 2, 36, blue)
+      R(17, y + 4, 3, 36, tint)
       CIRC(23, y + 5, 34, colors.outline)
-      CIRC(24, y + 6, 32, mix(colors.surface, blue, self.dark and 0.3 or 0.18))
-      K.CIRCrows(24, y + 6, 32, 16, 32, mix(colors.surface, blue, self.dark and 0.42 or 0.28))
-      self:toolIcon("fish", 27, y + 9, colors.blueLight)
-      self:partyInfo(self:fitPartyInfo(rod.label, 132), 65, y + 8, colors.ink, 132, "center")
-      self:partyType(translate("TAP TO USE"), 65, y + 26, colors.green, 132)
-      self:detailChevron(211, y + 18, colors.mutedInk, true)
+      CIRC(24, y + 6, 32, mix(colors.surface, tint, self.dark and 0.3 or 0.18))
+      K.CIRCrows(24, y + 6, 32, 16, 32, mix(colors.surface, tint, self.dark and 0.42 or 0.28))
+      self:toolIcon("fish", 27, y + 9, mix(tint, WHITE, 0.25))
+      self:partyName(self:fitPartyInfo(rod.label, 110), 64, y + 6, colors.ink, 110)
+      for st = 1, 3 do
+        ART(STAR, 64 + (st - 1) * 8, y + 25, { ["#"] = st <= tier[2] and hex("f8c838") or colors.band })
+      end
+      self:partyInfo(translate("TAP TO USE"), 92, y + 23, cg(self) and self.tok.acc.M or colors.green)
+      local b = (self.motionEnabled ~= false and floor(self:clock() / 0.4) % 2 == 0) and 1 or 0
+      self:wantAmbient(0.4)
+      ART(K.CHEV_R, 206 + b, y + 19, { ["#"] = tint })
       self:endPress(pressed)
+      if dx ~= 0 then G.pop() end
     end
   end
 

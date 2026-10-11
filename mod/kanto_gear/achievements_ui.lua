@@ -167,11 +167,14 @@ return function(H, G, translate, format)
       for i, tab in ipairs({ { "GOALS", "goals" }, { "STAMP BOOK", "album" } }) do
         local x = 6 + (i - 1) * 117
         hit(x, 34, 111, 18, "view", tab[2])
-        if view == tab[2] then
-          self:panel(x, 34, 111, 18, false); rect(x + 5, 49, 101, 2, accent)
+        if not self.v4AchievementTabs then
+          if view == tab[2] then
+            self:panel(x, 34, 111, 18, false); rect(x + 5, 49, 101, 2, accent)
+          end
+          label(translate(tab[1]), x, 35, 111, 12, view == tab[2] and accent or quiet, true)
         end
-        label(translate(tab[1]), x, 35, 111, 12, view == tab[2] and accent or quiet, true)
       end
+      if self.v4AchievementTabs then self:v4AchievementTabs(view) end
     end
     if view == "goals" then
       local goal = model.goal

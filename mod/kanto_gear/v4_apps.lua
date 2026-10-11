@@ -172,6 +172,17 @@ return function(H, ui, K)
     return tier, owned
   end
 
+  local MEDALS = {
+    { c = "a8b0b8", art = { "...ooo...", "..o###o..", ".o#w###o.", "o#w#####o", "o#######o", "o######do", ".o####do.", "..oddd o.", "...ooo..." } },
+    { c = "e86890", art = { "....o....", "...o#o...", "..o#w#o..", ".o#w###o.", "o#######o", ".o####do.", "..o##do..", "...odo...", "....o...." } },
+    { c = "f8c848", art = { "....o....", "...o#o...", "oooo#oooo", "o#w#####o", ".o#####o.", "..o###o..", ".o##o##o.", ".oo...oo.", "........." } },
+    { c = "7a68d0", art = { ".ooooooo.", "o#w#####o", "o#w#####o", "o#######o", "o######do", ".o####do.", "..o##do..", "...odo...", "....o...." } },
+    { c = "58b848", art = { "......oo.", "....oo#o.", "...o#w#o.", "..o#w##o.", ".o####do.", ".o###do..", "o##ddo...", "oooo.....", "........." } },
+    { c = "68b8e8", art = { "....o....", "...o#o...", "..o#w#o..", ".o#w###o.", ".o#####o.", "o#######o", "o######do", ".o###ddo.", "..ooooo.." } },
+    { c = "e85838", art = { "...ooo...", "..o###o..", ".o#w#o#o.", ".o#####o.", "o###o###o", "o#######o", ".o#####o.", "..o###o..", "...ooo..." } },
+    { c = "40c0a0", art = { ".ooo.ooo.", "o#w#o###o", "o#w#####o", "o#######o", ".o#####o.", "..o###o..", "...o#o...", "....o....", "........." } },
+  }
+  for _, m in ipairs(MEDALS) do for i, row in ipairs(m.art) do m.art[i] = row:gsub(" ", ".") end end
   local function badgeSocket(self, model, index, cx, cy, r)
     local owned = model.badgeOwned and model.badgeOwned[index]
     CIRC(cx - r, cy - r, r * 2 + 1, self.colors.outline)
@@ -179,12 +190,14 @@ return function(H, ui, K)
     CIRCrows(cx - r + 1, cy - r + 1, r * 2 - 1, r + 1, r * 2, owned and hex("4a3458") or hex("342a3c"))
     local drawn = model.drawBadge and model.drawBadge(index, cx, cy, owned)
     if not drawn then
-      if owned then
-        CIRC(cx - 4, cy - 4, 9, self.colors.outline)
-        CIRC(cx - 3, cy - 3, 7, hex("f8c848")); P(cx - 1, cy - 2, WHITE)
-      else
-        CIRC(cx - 2, cy - 2, 5, hex("4a3e54"))
-      end
+      -- eight original medal cuts, one per slot
+      local m = MEDALS[((index - 1) % #MEDALS) + 1]
+      local pal = owned and { o = self.colors.outline, ["#"] = hex(m.c), w = mix(hex(m.c), WHITE, 0.6), d = mix(hex(m.c), hex("000000"), 0.35) }
+        or { o = hex("4a3e54"), ["#"] = hex("3a3044"), w = hex("3a3044"), d = hex("3a3044") }
+      local G = ui.graphics
+      G.push(); G.translate(cx - #m.art[1], cy - #m.art); G.scale(2, 2)
+      ART(m.art, 0, 0, pal)
+      G.pop()
     end
     if owned and (self:clock() + index * 0.37) % 3.2 < 0.15 then
       self:wantAmbient(0.2)
@@ -334,7 +347,9 @@ return function(H, ui, K)
       else G.draw(sprite.image, dx, dy, 0, scale, scale) end
       return
     end
-    local scale = size >= 48 and 3 or size >= 24 and 2 or 1
+    local aw, ah = 15, 15
+    if self.v4ItemArtDims then aw, ah = self:v4ItemArtDims(item) end
+    local scale = max(1, min(3, floor((size + 2) / max(aw, ah))))
     G.push()
     G.translate(cx - floor(17 * scale / 2), cy - floor(17 * scale / 2))
     G.scale(scale, scale)
@@ -432,13 +447,17 @@ return function(H, ui, K)
       self:partyInfo(self:fitPartyInfo(item.detail, 150), 72, 58, colors.green)
     end
     qtyPill(self, ("×%d"):format(tonumber(item.count) or 0), 226, 80)
+    local kinds = { machine = "TM / HM", medicine = "MEDICINE", ball = "POKé BALL", status = "STATUS CURE",
+      key = "KEY ITEM", berry = "BERRY" }
+    local kind = kinds[item.icon or ""] or "ITEM"
+    if tostring(item.label or ""):match("^HM") then kind = "TM / HM" end
+    self:v4Pill(translate(kind), 72, 78, accent, { raw = true, maxW = 110 })
     local lines = model.message or item.lines or {}
-    self:v4MessageWindow(6, 100, 228, 44)
-    for index = 1, min(2, #lines) do
-      self:partyInfo(self:fitPartyInfo(lines[index], 196), 22, 107 + (index - 1) * 14, colors.ink, 196, "center")
-    end
-    if #lines > 2 then
-      self:partyInfo(self:fitPartyInfo(lines[3], 196), 22, 128, colors.ink, 196, "center")
+    self:v4MessageWindow(6, 100, 228, 50)
+    local n = min(3, #lines)
+    local top = 100 + floor((50 - n * 13) / 2)
+    for index = 1, n do
+      self:partyInfo(self:fitPartyInfo(lines[index], 196), 22, top + (index - 1) * 13, colors.ink, 196, "center")
     end
     local a = K.rampOf(hex("e0a020"))
     for index, action in ipairs(model.actions or {}) do
@@ -482,9 +501,17 @@ return function(H, ui, K)
     self:wantAmbient(0.6)
     self:partyType(translate("NEW"), x + 1, y - 1, on and WHITE or hex("f8e070"), w - 2)
   end
-  local function storeIcon(self, app, icons, x, y, size)
+  local function storeIcon(self, app, icons, x, y, size, seat)
     local icon = icons and icons[app.icon or app.id]
     local id = K.iconId and K.iconId(icon)
+    if seat and not (cg(self) and id and K.GLYPH[id]) then
+      -- round tinted seat behind the drawn icon
+      local accent = self:v4AppAccent(id) or self.tok.acc.M
+      local d = size + 4
+      CIRC(x - 2, y - 2, d, self.colors.outline)
+      CIRC(x - 1, y - 1, d - 2, mix(self.colors.surface, accent, self.dark and 0.3 or 0.2))
+      K.CIRCrows(x - 1, y - 1, d - 2, floor(d / 2), d - 2, mix(self.colors.surface, accent, self.dark and 0.42 or 0.32))
+    end
     if cg(self) and id and K.GLYPH[id] then
       CIRC(x, y, size, self.colors.outline)
       CIRC(x + 1, y + 1, size - 2, self.dark and hex("26313c") or hex("f4f8fa"))
@@ -506,13 +533,14 @@ return function(H, ui, K)
     self:v4Window(x, y, w, 42, { radius = 4 })
     local accent = self:v4AppAccent(K.iconId and K.iconId(icons[app.icon or app.id])) or self.tok.acc.M
     R(x + 1, y + 4, 2, 34, accent)
-    storeIcon(self, app, icons, x + 4, y + 6, 29)
-    local separateBadge = app.new and self:partyInfoWidth(translate(app.label)) > w - 39 - 29
-    self:storeTitle(app.label, x + 36, y + 4, w - 39, app.new and not separateBadge)
-    if separateBadge then
-      self:storeNewBadge(x + 36 + floor((w - 39 - 25) / 2), y + 15, 25)
+    storeIcon(self, app, icons, x + 5, y + 7, 27, true)
+    local tw = w - 39
+    local title = self:fitPartyInfo(translate(app.label), tw)
+    self:partyInfo(title, x + 37, y + 3, colors.ink)
+    if app.new then
+      self:storeNewBadge(x + 37, y + 15, 25)
     else
-      self:partyType(self:fitPartyType(translate(app.category), w - 39), x + 36, y + 16, colors.green, w - 39)
+      self:partyInfo(self:fitPartyInfo(translate(app.category), tw), x + 37, y + 14, colors.mutedInk)
     end
     self:storeMiniAction(x + 36, y + 28, 43, app.action or (app.state == "open" and "OPEN" or "GET"), app.state)
     self:detailChevron(x + w - 9, y + 30, colors.green)
@@ -565,14 +593,155 @@ return function(H, ui, K)
     if lift ~= 0 then G.pop() end
   end
 
+  -- Small party previews show the team as seats + HP, never cut names.
+  local basePreview = H.storePreview
+  function H:storePreview(app, x, y, w, h, interactive)
+    app = type(app) == "table" and app or { id = app }
+    if app.id ~= "party" or w >= 180 then return basePreview(self, app, x, y, w, h, interactive) end
+    local colors = self.colors
+    local preview = app.preview or {}
+    local pressed = self:beginPress(x, y, w, h, interactive ~= false)
+    self:v4Window(x, y, w, h, { radius = 4, fill = mix(colors.surface, colors.party, self.dark and 0.18 or 0.1) })
+    local cw = floor((w - 8) / 3)
+    for index = 0, 5 do
+      local col, row = index % 3, floor(index / 3)
+      local cx = x + 4 + col * cw + floor((cw - 22) / 2)
+      local cy = y + 4 + row * floor((h - 6) / 2)
+      CIRC(cx, cy, 22, colors.outline)
+      CIRC(cx + 1, cy + 1, 20, mix(colors.surface, colors.party, self.dark and 0.3 or 0.2))
+      local mon = preview.party and preview.party[index + 1]
+      if mon and preview.drawPokemon then preview.drawPokemon(mon, cx + 2, cy + 1, 18)
+      else self:battleTeamBall(cx + 11, cy + 11, mon ~= false) end
+      local ratio = mon and tonumber(mon.hpRatio) or mon and (tonumber(mon.hp) or 0) / max(1, tonumber(mon.maxHp) or 1)
+        or (index == 4 and 0 or index == 5 and 0.32 or 0.82)
+      ratio = max(0, min(1, ratio))
+      R(cx - 1, cy + 23, 24, 4, colors.outline)
+      R(cx, cy + 24, 22, 2, self.dark and hex("26303c") or hex("dfe3db"))
+      R(cx, cy + 24, floor(22 * ratio), 2, ratio == 0 and colors.mutedInk or ratio < 0.5 and colors.hpMid or colors.hp)
+    end
+    self:endPress(pressed)
+  end
+
+  -- Today: featured card with a ribbon header, recommendations as cards.
+  local STAR = { "...#...", "..###..", "#######", ".#####.", "..###..", ".##.##.", ".#...#." }
+  function H:storeRecommendation(x, y, w, app, icons)
+    local colors = self.colors
+    local pressed = self:beginPress(x, y, w, 47)
+    local id = K.iconId and K.iconId(icons[app.icon or app.id])
+    local accent = self:v4AppAccent(id) or self.tok.acc.M
+    self:v4Window(x, y, w, 47, { radius = 4 })
+    R(x + 1, y + 4, 2, 39, accent)
+    storeIcon(self, app, icons, x + 6, y + 9, 27, true)
+    local tx, tw = x + 38, w - 41
+    self:partyInfo(self:fitPartyInfo(translate(app.label), tw), tx, y + 3, colors.ink)
+    self:partyInfo(self:fitPartyInfo(translate(app.reason), tw), tx, y + 15, colors.mutedInk)
+    self:storeMiniAction(tx, y + 31, 44, app.action or (app.state == "open" and "OPEN" or "VIEW"), app.state or "open")
+    self:detailChevron(x + w - 9, y + 33, colors.green)
+    self:endPress(pressed)
+  end
+
+  function H:storeToday(model)
+    local colors = self.colors
+    local icons = self.homeIconTable and self:homeIconTable() or {}
+    local featured = model.featured or {}
+    local id = K.iconId and K.iconId(icons[featured.icon or featured.id])
+    local accent = self:v4AppAccent(id) or self.tok.acc.M
+    local blocked = featured.state == "soon" and self:isPressed(57, 83, 56, 15)
+    local pressed = self:beginPress(7, 32, 226, 89, not blocked)
+    self:v4Window(7, 32, 226, 89, { radius = 5 })
+    -- ribbon header
+    local band = K.rampOf(cg(self) and self.tok.acc.M or hex("3878d0"))
+    if cg(self) then CH(9, 34, 222, 15, 3, band.M); R(11, 35, 218, 1, band.Hi)
+    else RR(9, 34, 222, 15, 4, band.D); RR(9, 34, 222, 13, 4, band.M); R(12, 35, 216, 1, band.Hi) end
+    local title = translate("APP OF THE DAY")
+    local tw = self:partyInfoWidth(title)
+    local group = 9 + tw + (featured.new and 30 or 0)
+    local left = 120 - floor(group / 2)
+    ART(STAR, left, 38, { ["#"] = hex("f8e070") })
+    self:withoutShadow(self.partyType, self, title, left + 10, 35, WHITE, tw)
+    if featured.new then self:storeNewBadge(left + 14 + tw, 36, 25) end
+    -- featured app
+    if cg(self) and id and K.GLYPH and K.GLYPH[id] then
+      storeIcon(self, featured, icons, 12, 54, 39)
+    else
+      CIRC(12, 54, 39, colors.outline)
+      CIRC(13, 55, 37, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
+      K.CIRCrows(13, 55, 37, 19, 37, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
+      storeIcon(self, featured, icons, 17, 59, 29)
+    end
+    self:partyInfo(self:fitPartyInfo(translate(featured.label or "APP"), 62), 55, 53, colors.ink)
+    self:v4Pill(translate(featured.category or "UTILITY"), 55, 67, accent, { raw = true, maxW = 62 })
+    self:storeAction(57, 83, 56, featured.action or "GET", featured.state)
+    self:storePreview(featured, 121, 53, 106, 62)
+    self:endPress(pressed)
+    -- section label
+    local label = translate("RECOMMENDED FOR YOU")
+    local lw = self:partyInfoWidth(label)
+    local lx = 120 - floor(lw / 2)
+    R(12, 131, lx - 18, 1, colors.band); R(lx + lw + 6, 131, 228 - lx - lw - 6, 1, colors.band)
+    self:partyInfo(label, lx, 125, cg(self) and self.tok.acc.M or colors.green)
+    for index, app in ipairs(model.recommended or {}) do
+      if index > 2 then break end
+      self:storeRecommendation(7 + (index - 1) * 115, 142, 111, app, icons)
+    end
+    self:storeNav("today")
+  end
+
+  -- Store list headers: a plate with a glyph, the count and the pager.
+  local SHOP_G = { "ooooooooo", "o#o#o#o#o", "ooooooooo", "o.......o", "o.oo.ooo.", "o.oo.o.o.", "ooooooooo" }
+  local BOX_G = { "ooooooooo", "o#######o", "ooooooooo", "o.......o", "o..ooo..o", "o.......o", "ooooooooo" }
+  local function storeHeader(self, label, glyph, h, pages, page)
+    local colors = self.colors
+    local accent = hex("d84860")
+    self:v4Window(7, 32, 226, h, { radius = 4 })
+    R(8, 34, 2, h - 4, accent)
+    ART(glyph, 14, 32 + floor((h - #glyph) / 2), { o = colors.outline, ["#"] = accent, ["."] = nil })
+    local hasPager = (tonumber(pages) or 1) > 1
+    local w = hasPager and 120 or 200
+    self:partyInfo(self:fitPartyInfo(translate(label), w), 27, 32 + floor((h - 9) / 2) - 1, colors.ink)
+    if hasPager then self:storePager(page, pages) end
+  end
+  function H:storeApps(model)
+    local icons = self.homeIconTable and self:homeIconTable() or {}
+    storeHeader(self, "DISCOVER APPS", SHOP_G, 17, model.pages, model.page)
+    if (tonumber(model.pages) or 1) <= 1 then
+      self:partyInfo(translate("SILPH VERIFIED"), 122, 35, cg(self) and self.tok.acc.M or self.colors.green, 106, "right")
+    end
+    local G = ui.graphics
+    local enter = self:v4Enter("store_apps", tostring(model.page), 0.26)
+    for index, app in ipairs(model.apps or {}) do
+      local column, row = (index - 1) % 2, floor((index - 1) / 2)
+      local _, dy = self:v4Stagger(enter, index, 0.06, 8, #(model.apps or {}))
+      if dy ~= 0 then G.push(); G.translate(0, dy) end
+      self:storeAppCard(7 + column * 115, 53 + row * 44, 111, app, icons)
+      if dy ~= 0 then G.pop() end
+    end
+    self:storeNav("apps")
+  end
+  function H:storeMyApps(model)
+    local icons = self.homeIconTable and self:homeIconTable() or {}
+    storeHeader(self, model.summary or "APPS READY", BOX_G, 21, model.pages, model.page)
+    local G = ui.graphics
+    local enter = self:v4Enter("store_mine", tostring(model.page), 0.24)
+    for index, app in ipairs(model.apps or {}) do
+      local _, dx = self:v4Stagger(enter, index, 0.08, 14, #(model.apps or {}))
+      if dx ~= 0 then G.push(); G.translate(dx, 0) end
+      self:storeInstalledRow(7, 57 + (index - 1) * 33, 226, app, icons)
+      if dx ~= 0 then G.pop() end
+    end
+    self:storeNav("library")
+  end
+
   function H:storeInstalledRow(x, y, w, app, icons)
     local colors = self.colors
     local blocked = app.state == "soon" and self:isPressed(x + w - 54, y + 9, 44, 11)
     local pressed = self:beginPress(x, y, w, 30, not blocked)
     self:v4Window(x, y, w, 30, { radius = 3 })
-    storeIcon(self, app, icons, x + 4, y + 2, 26)
-    self:storeTitle(app.label, x + 34, y + 3, 91, app.new)
-    self:partyType(self:fitPartyType(translate(app.category), 91), x + 34, y + 15, colors.green, 91)
+    storeIcon(self, app, icons, x + 5, y + 3, 24, true)
+    local title = self:fitPartyInfo(translate(app.label), app.new and 100 or 130)
+    self:partyInfo(title, x + 36, y + 3, colors.ink)
+    if app.new then self:storeNewBadge(x + 40 + self:partyInfoWidth(title), y + 4, 25) end
+    self:partyInfo(self:fitPartyInfo(translate(app.category), 130), x + 36, y + 15, colors.mutedInk)
     self:storeMiniAction(x + w - 54, y + 9, 44, app.action or "OPEN", app.state)
     self:endPress(pressed)
   end
@@ -650,20 +819,27 @@ return function(H, ui, K)
 
     if model.option then
       local first = (model.page - 1) * 4 + 1
+      local G = ui.graphics
+      local enter = self:v4Enter("settings_option", tostring(model.option) .. ":" .. model.page, 0.24)
+      local count = min(4, #model.choices - first + 1)
       for visible = 0, 3 do
         local choice = model.choices[first + visible]
         if choice then
           local y, selected = self:settingsChoiceTop(model) + visible * 25, choice[2] == model.value
+          local _, dx = self:v4Stagger(enter, visible + 1, 0.09, 16, count)
+          if dx ~= 0 then G.push(); G.translate(dx, 0) end
           local pressed = self:beginPress(7, y, 226, 22, not selected)
-          self:v4Choice(7, y, 226, 22, selected, true)
-          self:partyInfoCentered(self:fitPartyInfo(translate(choice[1]), 190), 7, y, 226, 19,
-            selected and WHITE or colors.ink)
+          local off = self:v4Choice(7, y, 226, 22, selected, true) or 0
+          -- radio mark
+          local ink = selected and WHITE or colors.ink
+          CIRC(14, y + 5 + off, 11, selected and WHITE or colors.outline)
+          CIRC(15, y + 6 + off, 9, selected and (cg(self) and self.tok.acc.D or hex("1b5a4c")) or colors.surface)
+          if selected then CIRC(17, y + 8 + off, 5, WHITE) end
+          local label = translate(choice[1])
+          local swatch = self.v4ThemeSwatch and self:v4ThemeSwatch(tostring(choice[2]), 196, y + 4 + off)
+          self:partyInfo(self:fitPartyInfo(label, swatch and 160 or 190), 31, y + 4 + off, ink)
           self:endPress(pressed)
-          if selected then
-            local b = floor(self:clock() / 0.4) % 2
-            self:wantAmbient(0.4)
-            ART(K.CHEV_R, 14 + b, y + 8, { ["#"] = WHITE })
-          end
+          if dx ~= 0 then G.pop() end
         end
       end
       if model.pages > 1 then
@@ -835,6 +1011,27 @@ return function(H, ui, K)
         self:partyType(label, sx, y + 3, enabled and colors.mutedInk or colors.disabledInk, sw)
       end
     end
+  end
+
+  -- Theme choices preview their own colours as a tiny screen.
+  function H:v4ThemeSwatch(value, x, y)
+    local skin = value:find("cgear") and "cgear" or (value:find("pokegear") or value:find("^hgss")) and "pokegear"
+    if not skin then return false end
+    local K2 = K.SKINS[skin]
+    if not K2 then return false end
+    local auto = value:find("auto")
+    local parts = auto and { "light", "dark" } or { value:find("dark") and "dark" or "light" }
+    R(x - 1, y - 1, 30, 16, self.colors.outline)
+    for i, v in ipairs(parts) do
+      local tok = K2[v].tokens
+      local w = auto and 14 or 28
+      local sx = x + (i - 1) * 14
+      R(sx, y, w, 14, tok.bgA or tok.bg)
+      R(sx, y, w, 4, tok.acc.M)
+      R(sx + 2, y + 6, w - 4, 6, tok.paper)
+      R(sx + 3, y + 8, floor((w - 6) / 2), 2, tok.acc.L)
+    end
+    return true
   end
 
   -- Page swipes move only the choices; the help textbox stays put.

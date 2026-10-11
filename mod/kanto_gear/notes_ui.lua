@@ -69,7 +69,8 @@ return function(H, G, translate)
         enabled = arg < 0 and state.cursor > 0 or arg > 0 and state.cursor < draftLength
       end
       local pressed = self:beginPress(x,y,w,h,enabled)
-      if self.v4Choice then self:v4Choice(x,y,w,h,selected,enabled)
+      local tone = selected and (value=="EDIT" or value=="+ TASK" or value=="DRAW" or value=="EDIT DRAWING" or value=="OK" or value=="NEW NOTE") and "amber" or selected
+      if self.v4Choice then self:v4Choice(x,y,w,h,tone,enabled)
       else
         self:panel(x,y,w,h,false,nil)
         if selected then
@@ -90,7 +91,9 @@ return function(H, G, translate)
       if state.page>1 then hit(83,y,20,13,"page",-1) end
       if state.page<state.pages then hit(137,y,20,13,"page",1) end
     end
-    if state.view == "list" then
+    if state.view == "list" and self.v4NotesList then
+      self:v4NotesList(state, hit)
+    elseif state.view == "list" then
       button("HERE",7,33,110,19,"filter","here",state.filter=="here")
       button("ALL NOTES",123,33,110,19,"filter","all",state.filter=="all")
       local list=state:list();pager(math.ceil(#list/3),154)
@@ -158,11 +161,14 @@ return function(H, G, translate)
         end
       end
     elseif n then
+      if self.v4NoteHeader then self:v4NoteHeader(n, state, hit)
+      else
       self:panel(7,33,226,27)
       self:partyInfo(self:fitPartyInfo(n.title,210),15,35,c.ink)
       self:partyInfo(self:fitPartyInfo(n.area and n.areaName or translate("GENERAL"),210),15,47,c.mutedInk)
       hit(7,33,226,14,"edit","title");hit(7,47,226,13,"area")
       for i,t in ipairs({{"TEXT","text"},{"TASKS","tasks"},{"DRAWING","sketch"}}) do button(t[1],7+(i-1)*77,65,72,20,"view",t[2],state.view==t[2]) end
+      end
       if state.view=="text" then
         local rows=state:wrapped(n.text,210);pager(math.ceil(#rows/6),174)
         if self.v4Paper then self:v4Paper(7,91,226,78,95) else self:panel(7,91,226,78) end

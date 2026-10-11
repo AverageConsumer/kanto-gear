@@ -221,10 +221,14 @@ return function(H, ui, K)
     self:partyInfo(mon.idLabel or translate("ID NO."), 144, 80, colors.mutedInk)
     self:partyName(mon.idText or "00000", 144, 92, colors.ink, 80)
     -- a little OT stamp in the corner
-    local sx, sy = 206, 99
-    K.RING(sx, sy, 20, 2, mix(colors.surface, colors.red, self.dark and 0.55 or 0.45))
-    R(sx + 6, sy + 9, 8, 2, mix(colors.surface, colors.red, self.dark and 0.55 or 0.45))
-    R(sx + 9, sy + 6, 2, 8, mix(colors.surface, colors.red, self.dark and 0.55 or 0.45))
+    -- an inked Poké Ball stamp, slightly worn, in the corner
+    local ink = mix(colors.surface, colors.red, self.dark and 0.6 or 0.5)
+    local sx, sy = 203, 96
+    K.RING(sx, sy, 23, 2, ink)
+    R(sx + 2, sy + 10, 19, 2, ink)
+    K.CIRC(sx + 8, sy + 8, 7, ink)
+    K.CIRC(sx + 10, sy + 10, 3, colors.surface)
+    R(sx + 5, sy + 4, 3, 1, colors.surface); R(sx + 15, sy + 18, 2, 1, colors.surface)
   end
 
   function H:summaryGrowthMemo(mon)

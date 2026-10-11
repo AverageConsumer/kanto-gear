@@ -302,10 +302,10 @@ return function(H, ui, K)
     self:v4Window(7, y, 226, 31, { radius = 4,
       fill = selected and not disabled and mix(colors.surface, tint, 0.25) or colors.surface })
     R(8, y + 4, 2, 23, tint)
-    CIRC(13, y + 3, 25, colors.outline)
-    CIRC(14, y + 4, 23, mix(colors.surface, tint, self.dark and 0.3 or 0.22))
-    K.CIRCrows(14, y + 4, 23, 12, 23, mix(colors.surface, tint, self.dark and 0.42 or 0.32))
-    self:battleItemIcon(item, 17, y + 7, tint)
+    CIRC(12, y + 1, 29, colors.outline)
+    CIRC(13, y + 2, 27, mix(colors.surface, tint, self.dark and 0.3 or 0.22))
+    K.CIRCrows(13, y + 2, 27, 14, 27, mix(colors.surface, tint, self.dark and 0.42 or 0.32))
+    self:v4ItemInSeat(item, 26, y + 15, 26, tint)
     local chance = self:battleCatchLabel(item.catchChance)
     local labelY = (chance or disabled) and y + 3 or y + 9
     local right = item.right and tostring(item.right) or ""
@@ -340,7 +340,8 @@ return function(H, ui, K)
     R(9, 36, 222, 2, colors.amberLight)
     CIRC(15, 42, 34, colors.outline)
     CIRC(16, 43, 32, mix(colors.surface, colors.amberLight, self.dark and 0.3 or 0.25))
-    self:battleItemIcon({ icon = model.icon or "item", itemSprite = model.itemSprite }, 24, 51, colors.amberLight)
+    K.CIRCrows(16, 43, 32, 16, 32, mix(colors.surface, colors.amberLight, self.dark and 0.42 or 0.4))
+    self:v4ItemInSeat({ icon = model.icon or "item", itemSprite = model.itemSprite, label = model.label }, 32, 59, 30, colors.amberLight)
     self:partyInfoCentered(self:fitPartyInfo(model.label or translate("ITEM"), 161), 64, 44, 161, 16, colors.ink)
     self:partyInfoCentered(model.total ~= nil and "¥" .. model.total or translate("QUANTITY"), 64, 61, 161, 16, colors.green)
     -- counter well
@@ -372,7 +373,13 @@ return function(H, ui, K)
     for _, action in ipairs(buttons) do
       local pressed = self:beginPress(action.x, 146, 110, 64)
       local off = self:v4Button(action.x, 146, 110, 64, action.ramp, { radius = 7, lip = 5, chamfer = 8 })
-      self:partyInfoCentered(action.label, action.x, 144 + off, 110, 64, WHITE)
+      local glyph = action.x == 7 and { "......#", ".....##", "#...##.", "##.##..", ".###...", "..#...." }
+        or { "#...#", ".#.#.", "..#..", ".#.#.", "#...#" }
+      local G = ui.graphics
+      G.push(); G.translate(action.x + 55 - #glyph[1], 158 + off); G.scale(2, 2)
+      ART(glyph, 0, 0, { ["#"] = WHITE })
+      G.pop()
+      self:partyInfoCentered(action.label, action.x, 160 + off, 110, 40, WHITE)
       self:endPress(pressed)
     end
   end
@@ -395,16 +402,30 @@ return function(H, ui, K)
     CIRC(sx + 1, sy + 1, d - 2, a.L)
     K.CIRCrows(sx + 1, sy + 1, d - 2, floor(d / 2), d, a.M)
     local cx, cy = sx + floor(d / 2), sy + floor(d / 2)
-    if kind == "swap" or kind == "switch" then
-      ART({ "......#..", "#########", "......#..", ".........", "..#......", "#########", "..#......" }, cx - 4, cy - 3, { ["#"] = WHITE })
-    elseif kind == "cancel" then
-      ART({ "#...#", ".#.#.", "..#..", ".#.#.", "#...#" }, cx - 2, cy - 2, { ["#"] = WHITE })
-    elseif kind == "release" then
-      ART({ ".###.", "#####", ".#.#.", ".#.#.", ".###." }, cx - 2, cy - 2, { ["#"] = WHITE })
-    else
-      R(cx - 5, cy + 1, 2, 3, WHITE); R(cx - 1, cy - 2, 2, 6, WHITE); R(cx + 3, cy - 5, 2, 9, WHITE)
+    local GLY = {
+      swap = { "...#...", "..###..", ".#####.", "...#...", "...#...", ".#####.", "..###..", "...#..." },
+      cancel = { "#...#", ".#.#.", "..#..", ".#.#.", "#...#" },
+      release = { ".##.##.", "#######", "#######", ".#####.", "..###..", "...#..." },
+      stats = { ".....##", ".....##", "..##.##", "..##.##", "##.#.##", "##.#.##", "#######" },
+    }
+    local g = GLY[(kind == "switch" and "swap") or kind] or GLY.stats
+    if kind == "switch" then
+      g = { "...#.....", "..##.....", ".########", "..##.....", ".....##..", "########.", ".....##..", ".....#..." }
     end
-    self:partyInfoCentered(self:fitPartyInfo(label, w - 86), x + 43, y, w - 86, h, colors.ink)
+    local G = ui.graphics
+    local sc = d >= 26 and 2 or 1
+    G.push(); G.translate(cx - floor(#g[1] * sc / 2), cy - floor(#g * sc / 2)); G.scale(sc, sc)
+    ART(g, 0, 0, { ["#"] = WHITE })
+    G.pop()
+    local sub = ({ swap = "CHANGE ORDER", switch = "SEND INTO BATTLE", stats = "VIEW SUMMARY",
+      release = "SAY GOODBYE", cancel = "GO BACK" })[kind or "stats"]
+    local tx, tw = sx + d + 8, w - (sx + d + 8 - x) - 24
+    if sub and h >= 30 then
+      self:partyName(self:fitPartyInfo(label, tw), tx, y + floor(h / 2) - 12, colors.ink, tw)
+      self:partyInfo(self:fitPartyInfo(translate(sub), tw), tx, y + floor(h / 2) + 1, colors.mutedInk)
+    else
+      self:partyInfo(self:fitPartyInfo(label, tw), tx, y + floor((h - 9) / 2) - 1, colors.ink)
+    end
     self:detailChevron(x + w - 25, y + floor((h - 8) / 2), colors.mutedInk, true)
     if selected then self:focusFrame(x, y, w, h) end
     self:endPress(pressed)
@@ -536,22 +557,31 @@ return function(H, ui, K)
         self.nativeFocus and model.index == index)
       local spec = SAFARI[action.kind]
       local label = translate(action.label) .. (action.detail and " " .. action.detail or "")
-      local lx = rect.x
+      local G = ui.graphics
+      -- round seat with a 2x prop, like the Safari keys on the full screen
+      local d = min(28, rect.h - 8)
+      local sx, sy = rect.x + 7, rect.y + floor((rect.h - 4 - d) / 2)
+      CIRC(sx, sy, d, c.outline)
+      CIRC(sx + 1, sy + 1, d - 2, WHITE)
+      K.CIRCrows(sx + 1, sy + 1, d - 2, floor(d / 2), d - 2, hex("e8eef0"))
+      local cx, cy = sx + floor(d / 2), sy + floor(d / 2)
       if spec then
         local pal = { o = c.outline }
         for k, v in pairs(spec.pal) do pal[k] = hex(v) end
-        ART(spec.art, rect.x + 10, rect.y + floor((rect.h - #spec.art) / 2) - 2, pal)
-        lx = rect.x + 22
+        G.push(); G.translate(cx - #spec.art[1], cy - #spec.art); G.scale(2, 2)
+        ART(spec.art, 0, 0, pal)
+        G.pop()
       elseif action.kind == "ball" then
-        self:battleTeamBall(rect.x + 16, rect.y + floor(rect.h / 2) - 2, true)
-        lx = rect.x + 22
+        G.push(); G.translate(cx, cy); G.scale(2, 2)
+        self:battleTeamBall(0, 0, true)
+        G.pop()
       elseif self.battleRunnerIcon then
-        local G = ui.graphics
-        G.push(); G.translate(rect.x + 16, rect.y + floor(rect.h / 2) - 2); G.scale(0.5, 0.5)
+        CIRC(sx + 1, sy + 1, d - 2, hex("3a8a4a"))
+        G.push(); G.translate(cx, cy); G.scale(0.5, 0.5)
         self:battleRunnerIcon(0, 0)
         G.pop()
-        lx = rect.x + 22
       end
+      local lx = sx + d + 2
       self:partyInfoCentered(self:fitPartyInfo(label, rect.w - 12 - (lx - rect.x)),
         lx, rect.y, rect.w - (lx - rect.x), rect.h - 4, action.enabled and WHITE or c.disabledInk)
       self:endPress(pressed)

@@ -426,6 +426,182 @@ return function(H, ui, K)
   end
 
   ---------------------------------------------------------------------------
+  -- Home in edit mode: faint placement grid, a hint strip, and badges that
+  -- breathe so the page reads as "editable" like the DS Pokétch app swap.
+  ---------------------------------------------------------------------------
+  local baseHome = H.home
+  function H:home(model)
+    model = model or {}
+    if model.editing and not model.library then
+      local colors = self.colors
+      local dot = mix(colors.surface, colors.outline, self.dark and 0.25 or 0.18)
+      for row = 0, 1 do
+        for col = 0, 12 do
+          local x = col == 12 and 233 or 7 + col * 19
+          for _, y in ipairs({ 32 + row * 85, 32 + row * 85 + 82 }) do R(x - 1, y - 1, 3, 3, dot) end
+        end
+      end
+    end
+    baseHome(self, model)
+    if model.editing and not model.library then
+      -- hint only where no tile or slot sits
+      local colors = self.colors
+      local hint = translate("HOLD + DRAG TO MOVE")
+      local hw = self:partyInfoWidth(hint) + 16
+      local hx = 120 - floor(hw / 2)
+      local free = true
+      for _, list in ipairs({ model.tiles or {}, model.slots or {} }) do
+        for _, t in ipairs(list) do
+          local x, y, w, h = self:homeRect(t)
+          if y + h > 186 and y < 199 and x < hx + hw and x + w > hx then free = false end
+        end
+      end
+      if free then
+        if cg(self) then CH(hx, 187, hw, 12, 2, mix(colors.surface, colors.outline, 0.1))
+        else RR(hx, 187, hw, 12, 4, mix(colors.surface, colors.outline, self.dark and 0.25 or 0.08)) end
+        self:partyInfo(hint, hx + 8, 187, colors.mutedInk)
+      elseif #(model.tiles or {}) == 0 then
+        -- empty page: a two-line hint card in the free left column
+        local a1, a2 = translate("TAP + TO"), translate("ADD HERE")
+        local w = max(self:partyInfoWidth(a1), self:partyInfoWidth(a2)) + 12
+        if cg(self) then CH(8, 100, w, 26, 3, mix(colors.surface, colors.outline, 0.1))
+        else RR(8, 100, w, 26, 4, mix(colors.surface, colors.outline, self.dark and 0.25 or 0.08)) end
+        self:partyInfo(a1, 8, 102, colors.mutedInk, w, "center")
+        self:partyInfo(a2, 8, 113, colors.mutedInk, w, "center")
+      end
+    end
+  end
+
+  function H:homeEditOverlay(tile, dragging)
+    local colors = self.colors
+    local x, y, w, h = self:homeRect(tile)
+    local pulse = (self.motionEnabled ~= false and floor(self:clock() / 0.5) % 2 == 0) and 1 or 0
+    self:wantAmbient(0.5)
+    -- remove badge
+    CIRC(x - 2, y - 2, 13 + pulse, colors.outline)
+    CIRC(x - 1, y - 1, 11 + pulse, hex("e04838"))
+    R(x + 1, y + 3, 7 + pulse, 2, WHITE)
+    R(x + 1, y, 3, 1, hex("f8a090"))
+    -- grip
+    for row = 0, 2 do
+      R(x + w - 11, y + 5 + row * 3, 2, 2, colors.mutedInk)
+      R(x + w - 7, y + 5 + row * 3, 2, 2, colors.mutedInk)
+    end
+    if dragging then self:roundedFocusFrame(x, y, w, h, 5) end
+  end
+
+  -- Empty Home: a welcome above the add card, the card itself with a tray
+  -- seat and a pulsing plus, and the kinds of things you can add.
+  function H:homeEmpty()
+    local colors = self.colors
+    local x, y, w, h = self:homeEmptyRect()
+    local accent = cg(self) and self.tok.acc.M or colors.green
+    self:partyInfo(translate("WELCOME TO SILPH LINK"), 7, 50, colors.ink, 226, "center")
+    self:partyInfo(translate("YOUR HOME IS EMPTY"), 7, 61, colors.mutedInk, 226, "center")
+    local pressed = self:beginPress(x, y, w, h)
+    self:v4Window(x, y, w, h, { radius = 5 })
+    R(x + 2, y + 2, w - 4, 3, accent)
+    -- dashed tray seat with a breathing plus
+    local sx, sy, sd = x + 12, y + 18, 46
+    for dx = sx + 3, sx + sd - 5, 6 do R(dx, sy, 3, 1, accent); R(dx, sy + sd - 1, 3, 1, accent) end
+    for dy = sy + 3, sy + sd - 5, 6 do R(sx, dy, 1, 3, accent); R(sx + sd - 1, dy, 1, 3, accent) end
+    local k = self.motionEnabled == false and 0 or (floor(self:clock() / 0.5) % 2)
+    self:wantAmbient(0.5)
+    local cx, cy = sx + 23, sy + 23
+    local d = 27 + k * 2
+    CIRC(cx - floor(d / 2), cy - floor(d / 2), d, colors.outline)
+    CIRC(cx - floor(d / 2) + 1, cy - floor(d / 2) + 1, d - 2, accent)
+    R(cx - 6, cy - 1, 13, 3, WHITE); R(cx - 1, cy - 6, 3, 13, WHITE)
+    local tx, tw = x + 66, 100
+    self:partyName(self:fitPartyInfo(translate("ADD TO HOME"), tw), tx, y + 16, colors.ink, tw)
+    self:partyInfo(self:fitPartyInfo(translate("APPS") .. " + " .. translate("WIDGETS"), tw), tx, y + 31, accent)
+    -- what can go here
+    for i, kind in ipairs({ "pokedex", "pack", "pokegear", "status" }) do
+      local cx = tx + 7 + (i - 1) * 24
+      CIRC(cx - 9, y + 48, 19, colors.outline)
+      CIRC(cx - 8, y + 49, 17, mix(colors.surface, accent, self.dark and 0.25 or 0.14))
+      self:v4StartIcon(kind, cx, y + 57)
+    end
+    ART(K.CHEV_R, x + w - 12, y + 38, { ["#"] = accent })
+    self:endPress(pressed)
+    self:partyInfo(translate("TAP TO START"), 7, 166, colors.mutedInk, 226, "center")
+  end
+
+  -- First-run help: spotlight + message window + lipped key.
+  local HAND = { "...oo.....", "..o##o....", "..o##o....", "..o##ooo..", "..o##o##oo", "oo###o##o#o",
+    "o#o#######o", "o#########o", ".o#######o.", "..o#####o..", "...ooooo..." }
+  function H:homeHelp(tiles)
+    local colors = self.colors
+    local target, top = self:homeHelpLayout(tiles)
+    local dim = { 0, 0, 0, 0.55 }
+    if ui.dimBackground then ui.dimBackground(dim[4]) end
+    local accent = cg(self) and self.tok.acc.M or colors.green
+    if target then
+      local x, y, w, h = self:homeRect(target)
+      R(0, 0, 240, y, dim); R(0, y + h, 240, 216 - y - h, dim)
+      R(0, y, x, h, dim); R(x + w, y, 240 - x - w, h, dim)
+      local b = (self.motionEnabled ~= false and floor(self:clock() / 0.4) % 2 == 0) and 1 or 0
+      self:wantAmbient(0.4)
+      local hot = cg(self) and self.tok.acc.L or hex("f8d048")
+      for _, c in ipairs({ { x - 2 - b, y - 2 - b, 1, 1 }, { x + w + 1 + b, y - 2 - b, -1, 1 },
+          { x - 2 - b, y + h + 1 + b, 1, -1 }, { x + w + 1 + b, y + h + 1 + b, -1, -1 } }) do
+        R(c[3] > 0 and c[1] or c[1] - 5, c[2], 6, 2, hot)
+        R(c[1] + (c[3] > 0 and 0 or -1), c[4] > 0 and c[2] or c[2] - 5, 2, 6, hot)
+      end
+    else
+      R(0, 0, 240, 216, dim)
+    end
+    self:v4MessageWindow(7, top, 226, 84)
+    -- holding finger with a timer ring
+    local hx, hy = 22, top + 22
+    local t = self.motionEnabled == false and 1 or ((self:clock() % 1.6) / 1.6)
+    self:wantAmbient(0.1, 1 / 15)
+    RING(hx - 4, hy - 4, 26, 2, mix(colors.surface, accent, 0.3))
+    local steps = floor(t * 12)
+    for i = 0, steps - 1 do
+      local a = i / 12 * math.pi * 2 - math.pi / 2
+      R(hx + 9 + floor(math.cos(a) * 11 + 0.5) - 1, hy + 9 + floor(math.sin(a) * 11 + 0.5) - 1, 2, 2, accent)
+    end
+    ART(HAND, hx + 4, hy + 4, { o = colors.outline, ["#"] = hex("f8d8b8") })
+    self:partyInfo(translate("YOUR SILPH LINK."), 54, top + 9, colors.ink, 168, "center")
+    self:partyInfo(translate("YOUR HOME SCREEN."), 54, top + 20, accent, 168, "center")
+    for line, value in ipairs({ translate("HOLD AN APP OR WIDGET"), translate("TO CUSTOMIZE YOUR"), translate("HOME SCREEN.") }) do
+      self:partyType(value, 54, top + 24 + line * 9, colors.ink, 168)
+    end
+    local pressed = self:beginPress(70, top + 62, 100, 17)
+    local off = self:v4Button(70, top + 62, 100, 17, K.rampOf(accent), { radius = 4, lip = 3, chamfer = 4 })
+    self:partyType(translate("GOT IT"), 70, top + 63 + off, WHITE, 100)
+    self:endPress(pressed)
+  end
+
+  -- Field tool widget: header band, round seat, status pill.
+  function H:homeTool(model, tile, selected)
+    local colors = self.colors
+    local x, y, w, h = self:homeRect(tile)
+    local accent = self:toolAccent(tile.icon)
+    local ready = tile.ready == true
+    local a = K.rampOf(ready and accent or colors.silverDark)
+    self:homeTile(x, y, w, h, ready and accent or colors.silverDark, selected)
+    -- plain band: the tool name gets the full width (no chevron)
+    if cg(self) then CH(x + 1, y + 1, w - 2, 17, 3, a.M); R(x + 3, y + 2, w - 6, 1, a.Hi)
+    else RR(x + 1, y + 1, w - 2, 17, 4, a.D); RR(x + 1, y + 1, w - 2, 15, 4, a.M); R(x + 4, y + 2, w - 8, 1, a.Hi) end
+    self:withoutShadow(self.partyType, self, self:fitPartyType(translate(tile.label), w - 6), x + 3, y + 2, WHITE, w - 6)
+    local d = 34
+    local sx, sy = x + floor((w - d) / 2), y + 22
+    CIRC(sx, sy, d, colors.outline)
+    CIRC(sx + 1, sy + 1, d - 2, ready and mix(colors.surface, accent, self.dark and 0.3 or 0.2) or colors.bandLight)
+    K.CIRCrows(sx + 1, sy + 1, d - 2, 17, d - 2, ready and mix(colors.surface, accent, self.dark and 0.42 or 0.32) or colors.band)
+    self:toolIcon(tile.icon, sx + 3, sy + 3, ready and accent or colors.silver)
+    local status = translate(ready and "READY" or "NOT HERE")
+    local ramp = K.rampOf(ready and colors.hp or colors.silverDark)
+    local pw = min(w - 8, self:partyInfoWidth(status) + 10)
+    local px = x + floor((w - pw) / 2)
+    if cg(self) then CH(px, y + 63, pw, 12, 2, colors.outline); CH(px + 1, y + 64, pw - 2, 10, 1, ramp.M)
+    else RR(px, y + 63, pw, 12, 4, colors.outline); RR(px + 1, y + 64, pw - 2, 10, 3, ramp.M); R(px + 3, y + 64, pw - 6, 1, ramp.Hi) end
+    self:withoutShadow(self.partyType, self, self:fitPartyType(status, pw - 4), px, y + 63, WHITE, pw)
+  end
+
+  ---------------------------------------------------------------------------
   -- Add to Home: a parts catalogue. Apps and widgets share one card: a round
   -- seat, the name, a footprint diagram for widgets and a state key.
   ---------------------------------------------------------------------------

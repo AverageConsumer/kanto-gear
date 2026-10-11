@@ -105,7 +105,7 @@ return function(H, ui, K)
       { "STATS", model.statsText or translate("BASE POWER") },
       { "HABITAT", model.habitatText or translate("WHERE TO FIND") },
       { "MOVES", model.movesText or translate("LEARNSET") },
-      { "EVOLUTIONS", translate("METHOD + CONDITIONS") },
+      { "EVOLUTIONS", model.evolutionsText or translate("HOW IT EVOLVES") },
     }
     for index, card in ipairs(cards) do
       local left, top, width, height = Dex.cardRect(index)
@@ -146,16 +146,29 @@ return function(H, ui, K)
   function H:pokedexMoves(model)
     local colors = self.colors
     hero(self, model, hex("e8a030"), translate("LEARNSET"), translate("LEVEL + TM/HM"))
+    local G = ui.graphics
+    local enter = self:v4Enter("dex_moves", tostring(model.page), 0.24)
     for index, row in ipairs(model.rows or {}) do
       local top = 76 + (index - 1) * 28
+      local _, sdx = self:v4Stagger(enter, index, 0.08, 14, #(model.rows or {}))
+      if sdx ~= 0 then G.push(); G.translate(sdx, 0) end
       local tc = self:typeColor(row.type or row.types and row.types[1])
       self:v4Window(7, top, 226, 25, { fill = mix(colors.surface, tc, self.dark and 0.16 or 0.1) })
       -- method chip
       local method = tostring(row.method or "--")
       local mc = method:match("^L%d") and hex("48a858") or method:find("TM") and hex("4888e0") or hex("8890a0")
       self:v4Pill(method, 12, top + 7, mc, { raw = true, w = 40, maxW = 40 })
-      self:partyInfo(self:fitPartyInfo(row.name or translate("MOVE"), 110), 58, top + 6, colors.ink)
+      local mon = model.pokemon or {}
+      local stab = row.type and (row.type == mon.type or row.type == mon.type2
+        or (mon.types and (mon.types[1] == row.type or mon.types[2] == row.type)))
+      self:partyInfo(self:fitPartyInfo(row.name or translate("MOVE"), stab and 90 or 110), 58, top + 6, colors.ink)
+      if stab then
+        -- same-type moves hit harder: mark them like the battle cards do
+        ART({ "...#...", "..###..", "#######", ".#####.", "..###..", ".##.##.", ".#...#." }, 160, top + 9,
+          { ["#"] = hex("f0b020") })
+      end
       self:v4TypePill(row.type, row.typeLabel or row.type, 186, top + 8, 40)
+      if sdx ~= 0 then G.pop() end
     end
     pager(self, model.page or 1, model.pages or 1, model.canUse)
   end

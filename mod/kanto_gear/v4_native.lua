@@ -182,7 +182,18 @@ return function(H, ui, K)
         if cg(self) then R(x + 3, y + 4, 2, h - 10, tone) else R(x + 6, y + 2, w - 12, 2, tone) end
       end
       local ink = focused and WHITE or colors.ink
-      self:partyInfo(self:fitPartyInfo(entry.label, w - 32), x + 16, y + floor((h - 3 - 9) / 2) - 1, ink, w - 32, "center")
+      local glyph = POSITIVE[label] and { "......#", ".....##", "#...##.", "##.##..", ".###...", "..#...." }
+        or NEGATIVE[label] and { "#...#", ".#.#.", "..#..", ".#.#.", "#...#" } or nil
+      local text = self:fitPartyInfo(entry.label, w - 44)
+      if glyph then
+        local gw = #glyph[1] + 5
+        local tw = self:partyInfoWidth(text)
+        local gx = x + floor((w - gw - tw) / 2)
+        ART(glyph, gx, y + floor((h - 3 - #glyph) / 2), { ["#"] = focused and WHITE or tone })
+        self:partyInfo(text, gx + gw, y + floor((h - 3 - 9) / 2) - 1, ink)
+      else
+        self:partyInfo(text, x + 16, y + floor((h - 3 - 9) / 2) - 1, ink, w - 32, "center")
+      end
       if focused then
         local b = floor(self:clock() / 0.3) % 2
         self:wantAmbient(0.3)
@@ -221,7 +232,13 @@ return function(H, ui, K)
     else
       local paged = model.pages and model.pages > 1
       self:v4Window(6, 33, 228, 34)
-      local left, width = paged and 36 or 14, paged and 168 or 212
+      if not paged then
+        -- seat with what this move list is for (PP item, or a generic move mark)
+        CIRC(11, 36, 28, c.outline)
+        CIRC(12, 37, 26, mix(c.surface, hex("48a8e8"), self.dark and 0.3 or 0.2))
+        self:v4ItemInSeat({ icon = "medicine", label = "ETHER" }, 28, 50, 28, hex("48a8e8"))
+      end
+      local left, width = paged and 36 or 40, paged and 168 or 188
       self:partyInfoCentered(self:fitPartyInfo(model.name or "", width), left, 36, width, 13, c.ink)
       local sub = paged and model.page .. "/" .. model.pages or model.prompt or ""
       self:partyInfoCentered(self:fitPartyInfo(sub, width), left, 50, width, 13, c.green)
@@ -260,7 +277,20 @@ return function(H, ui, K)
       local up = tostring(label):upper()
       local tone = POSITIVE[up] and (cg(self) and hex("1ea5d8") or hex("3ea04c")) or hex("5a6c88")
       local off = self:v4Button(x, y, w, h, K.rampOf(tone), { radius = 6, lip = 4, chamfer = 6 })
-      self:partyInfoCentered(self:fitPartyInfo(label, w - 16), x + 8, y + off, w - 16, h - 5, WHITE)
+      local glyph = POSITIVE[up] and { "......#", ".....##", "#...##.", "##.##..", ".###...", "..#...." }
+        or NEGATIVE[up] and { "#...#", ".#.#.", "..#..", ".#.#.", "#...#" } or nil
+      local text = self:fitPartyInfo(label, w - 30)
+      if glyph then
+        local G = ui.graphics
+        local gw, tw = #glyph[1] * 2 + 6, self:partyInfoWidth(text)
+        local gx = x + floor((w - gw - tw) / 2)
+        G.push(); G.translate(gx, y + off + floor((h - 5 - #glyph * 2) / 2)); G.scale(2, 2)
+        ART(glyph, 0, 0, { ["#"] = WHITE })
+        G.pop()
+        self:partyInfo(text, gx + gw, y + off + floor((h - 5 - 9) / 2) - 1, WHITE)
+      else
+        self:partyInfoCentered(text, x + 8, y + off, w - 16, h - 5, WHITE)
+      end
       self:endPress(pressed)
     end
     if not enabled then self:systemOverlay(0.48) end
@@ -269,7 +299,7 @@ return function(H, ui, K)
   ---------------------------------------------------------------------------
   -- Small shared pieces for feature modules (Notes, Silph Connect)
   ---------------------------------------------------------------------------
-  local TONES = { battle = "e05040", trade = "3878d0", negative = "5a6c88" }
+  local TONES = { battle = "e05040", trade = "3878d0", negative = "5a6c88", amber = "e09a20" }
   function H:v4Choice(x, y, w, h, state, enabled)
     local c = self.colors
     if type(state) == "string" then
@@ -304,6 +334,198 @@ return function(H, ui, K)
       for _, t in ipairs(note.tasks) do if t.done then done = done + 1 end end
       local text = done .. "/" .. #note.tasks
       self:partyInfo(text, x + w - 8 - self:partyInfoWidth(text), y + 8, done == #note.tasks and c.green or c.mutedInk)
+    end
+  end
+
+  -- Notes list: a memo pad. Filter as one sliding switch, notes as sticky
+  -- cards on ruled paper (title, place, what is inside), then a lipped
+  -- NEW NOTE key with a pencil. Hit rectangles match notes_ui.lua.
+  local PIN_G = { ".ooo.", "o###o", "o#w#o", "o###o", ".o#o.", "..o.." }
+  local PENCIL = { "......oo", ".....o#o", "....o##o", "...o##o.", "..o##o..", ".o##o...", "ow#o....", "oo......" }
+  local TASK_G = { "ooooo", "o...o", "o.#.o", "o...o", "ooooo" }
+  local DRAW_G = { "....o", "...o.", ".oo..", "o.o..", "oo..." }
+  function H:v4NotesList(state, hit)
+    local c = self.colors
+    local G = ui.graphics
+    local amber = hex("e8a030")
+    -- filter switch
+    local here = state.filter == "here"
+    local a = K.rampOf(cg(self) and self.tok.acc.M or hex("3ea04c"))
+    if cg(self) then CH(7, 33, 226, 19, 3, c.outline); CH(8, 34, 224, 17, 2, self.dark and hex("141b22") or hex("e4ebf0"))
+    else RR(7, 33, 226, 19, 4, c.outline); RR(8, 34, 224, 17, 3, self.dark and hex("1c2533") or hex("dfe8e1")) end
+    local hx = self:v4Glide("notes_filter", here and 8 or 120)
+    if cg(self) then CH(hx, 34, 112, 17, 2, a.M); CH(hx, 34, 112, 8, 2, a.L)
+    else RR(hx, 34, 112, 17, 3, a.D); RR(hx, 34, 112, 15, 3, a.M); R(hx + 3, 34, 106, 1, a.Hi) end
+    for i, f in ipairs({ { "HERE", "here", 7 }, { "ALL NOTES", "all", 123 } }) do
+      local selected = state.filter == f[2]
+      local enabled = not (selected and state.page == 1)
+      local pressed = self:beginPress(f[3], 33, 110, 19, enabled)
+      local lit = hx + 56 >= f[3] and hx + 56 < f[3] + 112
+      local label = translate(f[1])
+      local gw = i == 1 and 8 or 0
+      local lw = self:partyInfoWidth(label)
+      local lx = f[3] + floor((110 - lw - gw) / 2)
+      if i == 1 then ART(PIN_G, lx, 39, { o = lit and WHITE or c.mutedInk, ["#"] = lit and a.M or c.mutedInk, w = WHITE }); lx = lx + 8 end
+      self:partyInfo(label, lx, 36, lit and WHITE or c.mutedInk)
+      self:endPress(pressed)
+      if enabled then hit(f[3], 33, 110, 19, "filter", f[2]) end
+    end
+    -- memo pad behind the cards
+    local paper = self.dark and hex("2c3440") or hex("fffdf2")
+    if cg(self) then CH(7, 56, 226, 113, 4, c.outline); CH(8, 57, 224, 111, 3, paper)
+    else RR(7, 56, 226, 113, 4, c.outline); RR(8, 57, 224, 111, 3, paper) end
+    local rule = mix(paper, c.blue, self.dark and 0.3 or 0.16)
+    for ly = 66, 164, 8 do R(12, ly, 216, 1, rule) end
+    R(20, 58, 1, 109, mix(paper, c.red, self.dark and 0.4 or 0.28))
+    local list = state:list()
+    state.pages = math.max(1, math.ceil(#list / 3))
+    state.page = math.max(1, math.min(state.page, state.pages))
+    local enter = self:v4Enter("notes_list", tostring(state.filter) .. ":" .. state.page .. ":" .. #list, 0.24)
+    for row = 1, 3 do
+      local entry = list[(state.page - 1) * 3 + row]
+      if entry then
+        local y = 59 + (row - 1) * 31
+        local n = entry.note
+        local _, dx = self:v4Stagger(enter, row, 0.1, 14, 3)
+        if dx ~= 0 then G.push(); G.translate(dx, 0) end
+        local pressed = self:beginPress(7, y, 226, 26)
+        local tint = n.tasks and #n.tasks > 0 and hex("4888e0")
+          or n.strokes and #n.strokes > 0 and hex("d05878") or amber
+        local sticky = mix(self.dark and hex("3a4250") or hex("fff6d0"), tint, self.dark and 0.18 or 0.12)
+        if cg(self) then CH(11, y, 218, 26, 3, c.outline); CH(12, y + 1, 216, 24, 2, sticky)
+        else RR(11, y, 218, 26, 3, c.outline); RR(12, y + 1, 216, 24, 2, sticky)
+          R(15, y + 1, 210, 1, mix(sticky, WHITE, 0.6)) end
+        -- folded corner
+        R(220, y + 1, 8, 1, paper); R(222, y + 2, 6, 1, paper); R(224, y + 3, 4, 1, paper); R(226, y + 4, 2, 1, paper)
+        for k = 0, 3 do R(220 + k * 2, y + 1 + k, 1, 1, c.outline) end
+        R(12, y + 3, 3, 20, tint)
+        ART(NOTE, 19, y + 9, { o = c.outline, ["#"] = tint, ["."] = WHITE })
+        local title = n.title ~= "" and n.title or translate("UNTITLED")
+        self:partyInfo(self:fitPartyInfo(title, 150), 31, y + 2, n.title ~= "" and c.ink or c.mutedInk)
+        local place = n.area and n.areaName or translate("GENERAL")
+        if n.area then ART(PIN_G, 31, y + 15, { o = c.outline, ["#"] = hex("e05848"), w = WHITE }) end
+        self:partyInfo(self:fitPartyInfo(place, 140), n.area and 39 or 31, y + 12, c.mutedInk)
+        -- what's inside: tasks progress, drawing mark
+        local rx = 216
+        if n.tasks and #n.tasks > 0 then
+          local done = 0
+          for _, t in ipairs(n.tasks) do if t.done then done = done + 1 end end
+          local text = done .. "/" .. #n.tasks
+          local pw = self:v4Pill(text, rx, y + 8, done == #n.tasks and c.hp or hex("4888e0"), { raw = true, right = true })
+          rx = rx - pw - 4
+        end
+        if n.strokes and #n.strokes > 0 then
+          ART(DRAW_G, rx - 6, y + 10, { o = hex("d05878") })
+        end
+        self:endPress(pressed)
+        if dx ~= 0 then G.pop() end
+        hit(7, y, 226, 26, "open", entry.index)
+      end
+    end
+    if #list < 3 and state.page == 1 then
+      -- a pencil doodle on the free part of the pad
+      local ink = mix(paper, c.blue, self.dark and 0.45 or 0.32)
+      RING(188, 124, 30, 1, ink); R(189, 138, 28, 2, ink); CIRC(198, 134, 10, paper); RING(198, 134, 10, 1, ink)
+    end
+    if #list == 0 then
+      ART(PENCIL, 116, 88, { o = c.outline, ["#"] = amber, w = WHITE })
+      self:partyInfo(translate("NO NOTES YET"), 7, 102, c.mutedInk, 226, "center")
+    end
+    -- pager on the pad's foot
+    if state.pages > 1 then
+      self:v4Window(83, 153, 74, 13, { radius = 3, fill = c.bandLight, shadow = false })
+      local pp = self:beginPress(83, 153, 20, 13, state.page > 1)
+      ART({ "..#", ".##", "###", ".##", "..#" }, 90, 157, { ["#"] = state.page > 1 and c.ink or c.disabledInk }); self:endPress(pp)
+      local np = self:beginPress(137, 153, 20, 13, state.page < state.pages)
+      ART({ "#..", "##.", "###", "##.", "#.." }, 147, 157, { ["#"] = state.page < state.pages and c.ink or c.disabledInk }); self:endPress(np)
+      self:partyInfo(state.page .. "/" .. state.pages, 103, 153, c.green, 34, "center")
+      if state.page > 1 then hit(83, 153, 20, 13, "page", -1) end
+      if state.page < state.pages then hit(137, 153, 20, 13, "page", 1) end
+    end
+    if state.deleted then
+      self:v4Window(7, 172, 226, 17, { radius = 3 })
+      self:partyInfo(translate("NOTE DELETED"), 12, 174, c.green, 126, "center")
+      local up = self:beginPress(141, 173, 90, 15)
+      local off = self:v4Button(141, 173, 90, 15, K.rampOf(hex("5a6c88")), { radius = 3, lip = 2, chamfer = 3 })
+      self:partyInfo(translate("UNDO"), 141, 174 + off, WHITE, 90, "center")
+      self:endPress(up)
+      hit(141, 172, 92, 17, "restore")
+    end
+    -- NEW NOTE: lipped key with a pencil
+    local pressed = self:beginPress(7, 192, 226, 20)
+    local off = self:v4Button(7, 192, 226, 20, K.rampOf(amber), { radius = 5, lip = 3, chamfer = 5 })
+    local label = translate("NEW NOTE")
+    local lw = self:partyInfoWidth(label)
+    local gx = 120 - floor((lw + 12) / 2)
+    ART(PENCIL, gx, 197 + off, { o = c.outline, ["#"] = WHITE, w = hex("f8e0b0") })
+    self:partyInfo(label, gx + 12, 195 + off, WHITE)
+    self:endPress(pressed)
+    hit(7, 192, 226, 20, "new")
+  end
+
+  -- Note page header: sticky title card + TEXT | TASKS | DRAWING tabs with
+  -- glyphs and a gliding lit tab (hits as in notes_ui.lua).
+  local TEXT_G = { "#######", ".......", "#####..", ".......", "######." }
+  function H:v4NoteHeader(n, state, hit)
+    local c = self.colors
+    local tint = hex("e8a030")
+    local sticky = mix(self.dark and hex("3a4250") or hex("fff6d0"), tint, self.dark and 0.18 or 0.12)
+    if cg(self) then CH(7, 33, 226, 27, 3, c.outline); CH(8, 34, 224, 25, 2, sticky)
+    else RR(7, 33, 226, 27, 4, c.outline); RR(8, 34, 224, 25, 3, sticky); R(11, 34, 218, 1, mix(sticky, WHITE, 0.6)) end
+    R(8, 37, 3, 19, tint)
+    ART(NOTE, 15, 43, { o = c.outline, ["#"] = tint, ["."] = WHITE })
+    local title = n.title ~= "" and n.title or translate("UNTITLED")
+    self:partyInfo(self:fitPartyInfo(title, 190), 27, 34, n.title ~= "" and c.ink or c.mutedInk)
+    if n.area then ART(PIN_G, 27, 50, { o = c.outline, ["#"] = hex("e05848"), w = WHITE }) end
+    self:partyInfo(self:fitPartyInfo(n.area and n.areaName or translate("GENERAL"), 180), n.area and 35 or 27, 47, c.mutedInk)
+    ART(PENCIL, 219, 47, { o = c.mutedInk, ["#"] = mix(sticky, c.mutedInk, 0.4), w = sticky })
+    hit(7, 33, 226, 14, "edit", "title"); hit(7, 47, 226, 13, "area")
+    local tabs = { { "TEXT", "text", TEXT_G, hex("e8a030") }, { "TASKS", "tasks", TASK_G, hex("4888e0") },
+      { "DRAWING", "sketch", DRAW_G, hex("d05878") } }
+    local active = 1
+    for i, t in ipairs(tabs) do if state.view == t[2] then active = i end end
+    local a = K.rampOf(tabs[active][4])
+    if cg(self) then CH(7, 65, 226, 20, 3, c.outline); CH(8, 66, 224, 18, 2, self.dark and hex("141b22") or hex("e4ebf0"))
+    else RR(7, 65, 226, 20, 4, c.outline); RR(8, 66, 224, 18, 3, self.dark and hex("1c2533") or hex("dfe8e1")) end
+    local hx = self:v4Glide("note_tab", 8 + (active - 1) * 75)
+    local hw = active == 3 and 74 or 75
+    if cg(self) then CH(hx, 66, hw, 18, 2, a.M); CH(hx, 66, hw, 8, 2, a.L)
+    else RR(hx, 66, hw, 18, 3, a.D); RR(hx, 66, hw, 16, 3, a.M); R(hx + 3, 66, hw - 6, 1, a.Hi) end
+    for i, t in ipairs(tabs) do
+      local x = 7 + (i - 1) * 77
+      local selected = state.view == t[2]
+      local enabled = not selected
+      local pressed = self:beginPress(x, 65, 72, 20, enabled)
+      local lit = hx + 37 >= x - 2 and hx + 37 < x + 75
+      local label = translate(t[1])
+      local gw = #t[3][1] + 4
+      local lx = x + floor((72 - gw - self:partyInfoWidth(label)) / 2)
+      ART(t[3], lx, 65 + floor((18 - #t[3]) / 2) + 1, { ["#"] = lit and WHITE or t[4], o = lit and WHITE or t[4], ["."] = nil })
+      self:partyInfo(label, lx + gw, 68, lit and WHITE or c.mutedInk)
+      self:endPress(pressed)
+      if enabled then hit(x, 65, 72, 20, "view", t[2]) end
+    end
+  end
+
+  -- Achievements: GOALS | STAMP BOOK as one switch with glyphs.
+  local FLAG_G = { "o......", "o####..", "o#####.", "o####..", "o......", "o......" }
+  local BOOK_G = { "ooo.ooo", "o#o.o#o", "o#o.o#o", "o#o.o#o", "ooooooo" }
+  function H:v4AchievementTabs(view)
+    local c = self.colors
+    local a = K.rampOf(hex("c89a18"))
+    if cg(self) then CH(6, 34, 228, 18, 3, c.outline); CH(7, 35, 226, 16, 2, self.dark and hex("141b22") or hex("e4ebf0"))
+    else RR(6, 34, 228, 18, 4, c.outline); RR(7, 35, 226, 16, 3, self.dark and hex("1c2533") or hex("dfe8e1")) end
+    local hx = self:v4Glide("ach_tab", view == "album" and 120 or 7)
+    if cg(self) then CH(hx, 35, 113, 16, 2, a.M); CH(hx, 35, 113, 7, 2, a.L)
+    else RR(hx, 35, 113, 16, 3, a.D); RR(hx, 35, 113, 14, 3, a.M); R(hx + 3, 35, 107, 1, a.Hi) end
+    for i, t in ipairs({ { "GOALS", "goals", FLAG_G }, { "STAMP BOOK", "album", BOOK_G } }) do
+      local x = 6 + (i - 1) * 117
+      local lit = hx + 56 >= x and hx + 56 < x + 115
+      local label = translate(t[1])
+      local gw = #t[3][1] + 4
+      local lx = x + floor((111 - gw - self:partyInfoWidth(label)) / 2)
+      ART(t[3], lx, 40, { o = lit and WHITE or c.mutedInk, ["#"] = lit and hex("f8e070") or c.band })
+      self:partyInfo(label, lx + gw, 37, lit and WHITE or c.mutedInk)
     end
   end
 
@@ -342,24 +564,226 @@ return function(H, ui, K)
       end
       self:wantAmbient(0.3, 0.15)
     end
-    -- link illustration: two devices and a cable that pulses while waiting
-    local ly = 33 + height - 22
-    local DEV = { "oooooooo", "o######o", "o#wwww#o", "o#wwww#o", "o######o", "o#o##o#o", "oooooooo" }
-    local devC = cg(self) and hex("40a8d8") or hex("58b078")
-    ART(DEV, 82, ly, { o = c.outline, ["#"] = devC, w = hex("d8f0e0") })
-    ART(DEV, 150, ly, { o = c.outline, ["#"] = accent, w = hex("d8f0e0") })
-    local t = self:clock()
-    for k = 0, 9 do
-      local on = mode == "ready" or mode == "trade" or mode == "battle"
-      local lit = on and (not waiting or (floor(t / 0.1) % 10) == k)
-      R(93 + k * 5, ly + 3, 3, 1, lit and accent or c.band)
-    end
     if note then
       R(15, 92, 210, 1, c.band)
       local a, b = self:splitPartyInfo(note, 204)
-      self:partyInfo(a, 18, 98, c.mutedInk, 204, "center")
-      if b then self:partyInfo(b, 18, 110, c.mutedInk, 204, "center") end
+      self:partyInfo(a, 18, 97, c.mutedInk, 204, "center")
+      if b then self:partyInfo(b, 18, 108, c.mutedInk, 204, "center") end
     end
+    -- link illustration: two DS-style devices, signal pips running between
+    local top, bottom = note and 118 or 96, 33 + height - 5
+    local room = bottom - top
+    local scale = room >= 36 and 2 or 1
+    local DEV = { ".oooooooo.", "o########o", "o#wwwwww#o", "o#wwwwww#o", "o########o",
+      ".oooooooo.", "o########o", "o#o#oo#o#o", "o########o", ".oooooooo." }
+    local devC = cg(self) and hex("40a8d8") or hex("58b078")
+    local dw, dh = #DEV[1] * scale, #DEV * scale
+    local ly = top + floor((room - dh) / 2)
+    local gap = scale == 2 and 72 or 52
+    local lx = 120 - floor((dw * 2 + gap) / 2)
+    local rx = lx + dw + gap
+    local G = ui.graphics
+    for i, dx in ipairs({ lx, rx }) do
+      G.push(); G.translate(dx, ly); G.scale(scale, scale)
+      ART(DEV, 0, 0, { o = c.outline, ["#"] = i == 1 and devC or accent, w = hex("d8f0e0") })
+      G.pop()
+    end
+    local t = self:clock()
+    local on = mode == "ready" or mode == "trade" or mode == "battle"
+    local n = floor(gap / 6)
+    local cy = ly + floor(dh * 0.3)
+    for k = 0, n - 1 do
+      local lit = on and (not waiting or (floor(t / 0.08) % n) == k)
+      R(lx + dw + 3 + k * 6, cy, 3, scale, lit and accent or c.band)
+    end
+    if waiting then self:wantAmbient(0.3, 0.08) end
+  end
+
+  -- Silph Connect keys that are not a toned action: disabled tones stay
+  -- recognisable (greyed with a lock), BACK carries its arrow.
+  local LOCK = { ".ooo.", "o...o", "ooooo", "o#o#o", "o###o", "ooooo" }
+  local BACK_G = { "..o....", ".oo....", "ooooooo", ".oo...o", "..o...o", "......o", "..oooo." }
+  function H:v4PssButton(text, x, y, w, h, enabled, tone)
+    local c = self.colors
+    local label = (ui.translate and ui.translate(text)) or text
+    if tone and not enabled then
+      self:v4Key(x, y, w, h, { cap = c.bandLight, lip = c.band, hi = c.bandLight })
+      local tint = hex(TONES[tone] or "8890a0")
+      R(x + 6, y + 2, w - 12, 2, mix(tint, c.bandLight, 0.4))
+      local lw = self:partyInfoWidth(label)
+      local gx = x + floor((w - lw - 9) / 2)
+      ART(LOCK, gx, y + floor((h - 3 - 6) / 2), { o = c.disabledInk, ["#"] = c.bandLight })
+      self:partyInfo(label, gx + 9, y + floor((h - 3 - 9) / 2) - 1, c.disabledInk)
+      return
+    end
+    self:v4Key(x, y, w, h, not enabled and { cap = c.bandLight, lip = c.band, hi = c.bandLight } or nil)
+    local upper = tostring(text):upper()
+    local glyph = (upper == "BACK" or upper == "PREV") and BACK_G or nil
+    local lw = self:partyInfoWidth(label)
+    local gw = glyph and #glyph[1] + 4 or 0
+    local gx = x + floor((w - lw - gw) / 2)
+    if glyph then ART(glyph, gx, y + floor((h - 3 - #glyph) / 2), { o = enabled and c.ink or c.disabledInk }) end
+    self:partyInfo(label, gx + gw, y + floor((h - 3 - 9) / 2) - 1, enabled and c.ink or c.disabledInk)
+  end
+
+  local TONE_G = {
+    positive = { "......#", ".....##", "#...##.", "##.##..", ".###...", "..#...." },
+    negative = { "#...#", ".#.#.", "..#..", ".#.#.", "#...#" },
+    battle = { "#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..", "##...##", "##...##" },
+    trade = { "...#.....", "..##.....", ".########", "..##.....", ".....##..", "########.", ".....##..", ".....#..." },
+  }
+  function H:v4ToneLabel(text, x, y, w, h, tone)
+    local glyph = TONE_G[tone]
+    local text2 = self:fitPartyInfo(text, w - 24)
+    local tw = self:partyInfoWidth(text2)
+    if not glyph then
+      self:partyInfoCentered(text2, x, y, w, h - 3, WHITE); return
+    end
+    local gw = #glyph[1] + 5
+    local gx = x + floor((w - gw - tw) / 2)
+    ART(glyph, gx, y + floor((h - 3 - #glyph) / 2), { ["#"] = WHITE })
+    self:partyInfo(text2, gx + gw, y + floor((h - 3 - 9) / 2) - 1, WHITE)
+  end
+
+  -- Footer plate under link cards: Silph mark + a calm status line.
+  function H:v4PssFooter(text)
+    local c = self.colors
+    local tw = self:partyInfoWidth(text)
+    local w = tw + 30
+    local x = 120 - floor(w / 2)
+    if cg(self) then CH(x, 191, w, 18, 3, mix(c.surface, c.outline, 0.15)); CH(x + 1, 192, w - 2, 16, 2, c.surface)
+    else RR(x, 191, w, 18, 5, mix(c.surface, c.outline, self.dark and 0.3 or 0.18)); RR(x + 1, 192, w - 2, 16, 4, c.surface) end
+    local t = self.motionEnabled == false and 0 or floor(self:clock() / 0.5) % 3
+    self:wantAmbient(0.5)
+    for i = 0, 2 do
+      R(x + 8 + i * 4, 202 - i * 2, 2, 2 + i * 2, i <= t and (cg(self) and self.tok.acc.M or c.green) or c.band)
+    end
+    self:partyInfo(text, x + 22, 194, c.mutedInk)
+  end
+
+  -- Silph Connect lobby: own trainer plate with link key, a ready switch,
+  -- player cards with game chips, and a pager. Hits match pss_ui.lua.
+  local GAME_TINT = { red = "e04838", blue = "3878d0", yellow = "e8c030", gold = "c89a30", silver = "8890a0",
+    crystal = "7a68d0", firered = "e86030", leafgreen = "48a858", emerald = "30a878", ruby = "c03048", sapphire = "3060c8" }
+  function H:v4PssLobby(state, hit, data)
+    local c = self.colors
+    local G = ui.graphics
+    local tr = function(v) return ui.translate and ui.translate(v) or v end
+    local online = state.state == "online"
+    local pending = state.state == "connecting" or state.state == "reconnecting" or state.state == "ticket"
+    local accent = state.ready and c.hp or online and (cg(self) and self.tok.acc.M or hex("3878d0")) or c.silverDark
+    -- own plate
+    self:v4Window(7, 33, 226, 32, { radius = 4 })
+    R(8, 37, 2, 24, accent)
+    CIRC(13, 36, 26, c.outline)
+    CIRC(14, 37, 24, mix(c.surface, accent, self.dark and 0.32 or 0.2))
+    self:v4Person(26, 41, accent)
+    self:partyInfo(self:fitPartyInfo(state.name or tr("YOUR TRAINER"), 100), 43, 34, c.ink)
+    local st = tr(state.ready and "READY" or data.states[state.state] or "OFFLINE")
+    self:v4Pill(st, 43, 49, accent, { raw = true, maxW = 98 })
+    local action
+    if state.state ~= "unavailable" and not pending and not state.inUse then
+      action = online and "disconnect" or "connect"
+    end
+    local keyLabel = state.inUse and "IN USE" or online and "DISCONNECT" or pending and "WAITING" or "CONNECT"
+    local kp = self:beginPress(147, 37, 82, 24, action ~= nil)
+    if action then
+      local off = self:v4Choice(147, 37, 82, 24, online and "negative" or "positive", true)
+      self:partyInfoCentered(self:fitPartyInfo(tr(keyLabel), 74), 147, 37 + off, 82, 21, WHITE)
+    else
+      self:v4Key(147, 37, 82, 24, { cap = c.bandLight, lip = c.band, hi = c.bandLight })
+      self:partyInfoCentered(self:fitPartyInfo(tr(keyLabel), 74), 147, 37, 82, 21, c.disabledInk)
+    end
+    self:endPress(kp)
+    if action then hit(147, 37, 82, 24, action) end
+    -- ready strip
+    local readyAction = online and state.session and not state.inUse and not state.onlineUnavailable and "ready" or nil
+    local readyLabel = state.notice or state.enabled and (state.ready and "GO BUSY" or "FINISH YOUR CURRENT ACTION")
+      or state.session and "GO READY" or "HOST UPDATE NEEDED"
+    local rp = self:beginPress(7, 70, 226, 18, readyAction ~= nil)
+    if readyAction then
+      local tone = state.ready and "negative" or "positive"
+      local off = self:v4Choice(7, 70, 226, 18, tone, true)
+      CIRC(14, 74 + off, 9, WHITE); CIRC(15, 75 + off, 7, state.ready and c.hp or c.silverDark)
+      self:partyInfoCentered(self:fitPartyInfo(tr(readyLabel), 200), 20, 70 + off, 206, 15, WHITE)
+    else
+      local fill = mix(c.surface, hex("e8a030"), self.dark and 0.2 or 0.14)
+      if cg(self) then CH(7, 70, 226, 18, 3, mix(fill, c.outline, 0.35)); CH(8, 71, 224, 16, 2, fill)
+      else RR(7, 70, 226, 18, 4, mix(fill, c.outline, 0.35)); RR(8, 71, 224, 16, 3, fill) end
+      ART({ "..o..", ".....", ".ooo.", "..o..", "..o..", ".ooo." }, 14, 76, { o = hex("b07010") })
+      self:partyInfoCentered(self:fitPartyInfo(tr(readyLabel), 200), 20, 70, 206, 17, c.ink)
+    end
+    self:endPress(rp)
+    if readyAction then hit(7, 70, 226, 18, "ready") end
+    -- players
+    if #state.rows == 0 then
+      self:v4Window(7, 94, 226, 93, { radius = 4 })
+      -- sonar rings around a lone trainer
+      local t = self.motionEnabled == false and 0 or self:clock()
+      local k = (t % 1.6) / 1.6
+      if self.motionEnabled ~= false then self:wantAmbient(0.1, 1 / 15) end
+      local ring = mix(c.surface, accent, 0.35)
+      for i = 0, 2 do
+        local d = 14 + floor(((k + i / 3) % 1) * 40) * 2
+        RING(120 - floor(d / 2), 118 - floor(d / 2), d, 1, ring)
+      end
+      self:v4Person(120, 112, c.silverDark)
+      local message = state.error and "CONNECTION FAILED" or online and "NO PLAYERS VISIBLE"
+        or pending and "CONNECTING" or state.state == "unavailable" and "HOST UPDATE NEEDED"
+        or "CONNECT TO SEE PLAYERS"
+      self:partyInfo(self:fitPartyInfo(tr(message), 210), 7, 154, c.mutedInk, 226, "center")
+      self:partyInfo(tr("SILPH CONNECT"), 7, 168, c.green, 226, "center")
+    end
+    local enter = self:v4Enter("pss_lobby", tostring(state.page) .. ":" .. #state.rows, 0.26)
+    for i = 1, 6 do
+      local row = state.rows[(state.page - 1) * 6 + i]
+      if row then
+        local x, y = 7 + ((i - 1) % 3) * 77, 94 + floor((i - 1) / 3) * 47
+        local _, dy = self:v4Stagger(enter, i, 0.06, 8, 6)
+        if dy ~= 0 then G.push(); G.translate(0, dy) end
+        local pressed = self:beginPress(x, y, 72, 44, true)
+        local gt = hex(GAME_TINT[row.version] or "8890a0")
+        local ready = row.ready
+        self:v4Window(x, y, 72, 44, { radius = 4, fill = ready and mix(c.surface, c.hp, self.dark and 0.16 or 0.08) or nil })
+        R(x + 4, y + 1, 64, 2, gt)
+        CIRC(x + 4, y + 5, 22, c.outline)
+        CIRC(x + 5, y + 6, 20, mix(c.surface, ready and c.hp or hex("3878d0"), self.dark and 0.3 or 0.2))
+        self:v4Person(x + 15, y + 9, ready and c.hp or hex("3878d0"))
+        -- game chip
+        local short = data.short[row.version] or "?"
+        local cw = max(18, self:partyInfoWidth(short) + 8)
+        if cg(self) then CH(x + 66 - cw, y + 6, cw, 11, 2, mix(gt, c.outline, 0.4)); CH(x + 67 - cw, y + 7, cw - 2, 9, 1, gt)
+        else RR(x + 66 - cw, y + 6, cw, 11, 3, mix(gt, c.outline, 0.4)); RR(x + 67 - cw, y + 7, cw - 2, 9, 2, gt) end
+        self:withoutShadow(self.partyType, self, short, x + 66 - cw, y + 5, WHITE, cw)
+        local stText = tr(ready and "READY" or row.where == "launcher" and "IN MENU" or "ONLINE")
+        local dot = ready and c.hp or row.where == "launcher" and c.silverDark or hex("3878d0")
+        local st = self:fitPartyInfo(stText, 40)
+        local sw = self:partyInfoWidth(st)
+        self:partyInfo(st, x + 68 - sw, y + 17, ready and c.green or c.mutedInk)
+        if sw <= 34 then R(x + 64 - sw, y + 21, 3, 3, dot) end
+        self:partyInfo(self:fitPartyInfo(row.name or "", 66), x + 3, y + 30, c.ink, 66, "center")
+        self:endPress(pressed)
+        if dy ~= 0 then G.pop() end
+        hit(x, y, 72, 44, "player", row.id)
+      end
+    end
+    -- pager
+    local pages = state.pages or 1
+    local canPrev, canNext = state.page > 1, state.page < pages
+    for _, p in ipairs({ { 7, -1, canPrev, { "..#", ".##", "###", ".##", "..#" } }, { 175, 1, canNext, { "#..", "##.", "###", "##.", "#.." } } }) do
+      local pp = self:beginPress(p[1], 190, 58, 21, p[3])
+      self:v4Key(p[1], 190, 58, 21, not p[3] and { cap = c.bandLight, lip = c.band, hi = c.bandLight } or nil)
+      ART(p[4], p[1] + 27, 196, { ["#"] = p[3] and c.ink or c.disabledInk })
+      self:endPress(pp)
+      if p[3] then hit(p[1], 190, 58, 21, "page", p[2]) end
+    end
+    local dots = min(pages, 7)
+    local dx = 120 - floor((dots * 8 - 3) / 2)
+    for i = 1, dots do
+      local on = i == state.page
+      R(dx + (i - 1) * 8, on and 204 or 205, 5, on and 3 or 2, on and (cg(self) and self.tok.acc.M or c.green) or c.band)
+    end
+    self:partyInfo(state.page .. "/" .. pages, 70, 189, c.green, 100, "center")
   end
 
   -- Stamp-book find rows: kind icon, name, status pill, chevron.
@@ -421,6 +845,10 @@ return function(H, ui, K)
       ".o#w######o.", ".o########o.", ".o#######do.", "..o#####do..", "...oooooo..." }, pal = { ["#"] = "e05050", w = "f8c0c0", g = "58b848", d = "a03030" } },
     mail = { art = { "oooooooooooo", "o##########o", "oo########oo", "o#o######o#o", "o##oo##oo##o",
       "o####oo####o", "o##########o", "oooooooooooo" }, pal = { ["#"] = "f8f0d8" } },
+    candy = { art = { "oo...oooo...oo", "o#o.o#ww#o.o#o", "o##o#w####o##o", "o############o", "o##o######o##o",
+      "o#o.o####o.o#o", "oo...oooo...oo" }, pal = { ["#"] = "9c78e0", w = "e0d4fa" } },
+    leaf = { art = { ".......oooo", ".....oo###o", "...oo####wo", "..o####w##o", ".o###w####o", ".o##w####o.",
+      "o##w####o..", "o#w###oo...", "ow#ooo.....", "oo........." }, pal = { ["#"] = "b8c8d0", w = "f8f8f8" } },
     bag = { art = { "....oooo....", "...o####o...", "..oooooooo..", ".o########o.", "o##########o",
       "o#oooooooo#o", "o#o######o#o", "o#oooooooo#o", "o##########o", ".oooooooooo." }, pal = { ["#"] = "d8a048" } },
   }
@@ -428,6 +856,8 @@ return function(H, ui, K)
     local name = tostring(item.label or item.name or item.displayLabel or ""):upper()
     if item.icon == "machine" or name:match("^TM") or name:match("^HM") then return "machine", name:match("^HM") and "hm" end
     if name:find("ROPE") then return "rope" end
+    if name:find("CANDY") then return "candy" end
+    if name:find("LEAF") then return "leaf" end
     if name:find("REPEL") then return "repel" end
     if name:find("STONE") then return "stone" end
     if name:find("BERRY") or name:find("BERRIES") then return "berry" end
@@ -439,6 +869,15 @@ return function(H, ui, K)
     if item.icon == "status" then return "status" end
     if item.icon == "medicine" then return "medicine" end
     return "bag"
+  end
+  -- Size of what battleItemIcon draws for this item, so seats can pick the
+  -- largest whole-pixel scale that still fits.
+  function H:v4ItemArtDims(item)
+    if item.cancel or item.icon == "ball" then return 11, 11 end
+    if item.itemSprite then return 17, 17 end
+    local spec = ITEM_ART[(itemFamily(item))]
+    if spec then return #spec.art[1], #spec.art end
+    return 15, 15
   end
   local baseItemIcon = H.battleItemIcon
   function H:battleItemIcon(item, x, y, tint)

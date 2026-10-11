@@ -592,12 +592,13 @@ function love.load()
   local statsTitle = format("STATS %d/%d", 1, gen1 and 2 or 3)
   local movesTitle = format("MOVES %d/%d", 2, gen1 and 2 or 3)
   local pssScreen = screen:sub(1, 3) == "pss"
-  local title = pssScreen and "SILPH CONNECT" or storeDetail and
+  local title = pssScreen and screen ~= "pss-home" and screen:sub(1, 10) ~= "pss-widget" and "SILPH CONNECT" or storeDetail and
       (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "pss" and "SILPH CONNECT"
         or (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "NOTES"):upper())
     or store and "SILPH STORE"
     or homeAdd and "ADD TO HOME"
     or homeEdit and "EDIT HOME"
+    or (screen == "pss-home" or screen:sub(1, 10) == "pss-widget") and "SILPH LINK"
     or home and "SILPH LINK"
     or explorerRadar and "ITEM RADAR"
     or explorer and "EXPLORER"
@@ -623,6 +624,11 @@ function love.load()
     or legacyPcNotice and "ITEM PC"
     or legacyPcTop and "MENU ON TOP"
     or legacyPpMoves and "RESTORE PP"
+    or screen == "pc_notice" and "BILL'S PC"
+    or screen == "storage_grid" and format("BOX %d", 3)
+    or screen:sub(1, 6) == "notes_" and "NOTES"
+    or legacyLoading and "SILPH LINK"
+    or legacyOverlay and "SILPH LINK"
     or legacy and "CHOOSE"
     or pokedexHabitat and format("HABITAT %d/%d", 1, 4)
     or pokedexStats and "STATS"
@@ -1607,7 +1613,7 @@ function love.load()
   local toolPage = math.max(1, math.floor(
     tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
   local toolPages = math.max(1, math.ceil(#toolActions / 4))
-  if screen == "pss-home" then
+  if screen == "pss-home-icons" then
     theme:home({page=1,pages=1,tiles={
       {id="pss_app",kind="app",icon="pss",accent="blue",label="SILPH CONNECT",column=1,row=1,columns=3},
       {id="notes_app",kind="app",icon="notes",accent="amber",label="NOTES",column=4,row=1,columns=3},
@@ -1624,8 +1630,8 @@ function love.load()
         where = i == 1 and "launcher" or "game", status = i == 2 and "battling" or "busy",
         ready = i > 2, canInvite = i > 2 }
     end
-    if screen:sub(1, 10) == "pss-widget" then
-      local mode = screen:sub(12)
+    if screen:sub(1, 10) == "pss-widget" or screen == "pss-home" then
+      local mode = screen == "pss-home" and "" or screen:sub(12)
       if mode == "one" then state.rows = { state.rows[1] }
       elseif mode == "empty" then state.rows = {}
       elseif mode ~= "" then state.state, state.rows = mode, {} end
@@ -1888,14 +1894,10 @@ function love.load()
     theme:choiceScreen(Page.model({}, { "YES", "NO" },
       { "WOULD YOU LIKE TO GIVE", "THIS POKEMON A NICKNAME?" }, 1))
   elseif legacyChoiceGrid then
-    local labels = { "HEAL", "MOVE", "ITEM", "CANCEL" }
-    local entries = {}
-    for index, label in ipairs(labels) do
-      entries[index] = { x = 8 + ((index - 1) % 2) * 74,
-        y = 38 + math.floor((index - 1) / 2) * 39,
-        w = 70, h = 34, label = label, selected = index == 2 }
-    end
-    theme:choiceScreen({ entries = entries })
+    -- Real 2D menus go through ChoicePage like every other dialogue choice.
+    local ChoicePage = assert(loadfile(root .. "/mod/kanto_gear/choice_page.lua"))()
+    theme:choiceScreen(ChoicePage.model({}, { "HEAL", "MOVE", "ITEM", "CANCEL" },
+      { "WHAT WOULD YOU LIKE", "TO DO?" }, 2))
   elseif legacyNaming then
     local Naming = assert(loadfile(root .. "/mod/kanto_gear/naming_page.lua"))()
     local items = {}
@@ -2706,7 +2708,7 @@ function love.load()
       drawPlayer = function(x, y, scale)
         drawOverworld("player", x, y, scale, nil, true)
       end,
-      drawBadge = function(index, cx, cy, isOwned)
+      drawBadge = os.getenv("KANTO_GEAR_PREVIEW_BADGE_DOTS") == "1" and function(index, cx, cy, isOwned)
         local tint = isOwned and badgeTints[(index - 1) % 4 + 1]
           or theme.colors.silver
         color(theme.colors.outline)

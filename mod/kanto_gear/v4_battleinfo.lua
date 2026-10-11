@@ -276,7 +276,27 @@ return function(H, ui, K)
           self:v4TypePill(row.type, row.typeLabel or row.type, px, py, 30)
           self:partyInfo(row.effectLabel or "", px + 32, py - 2, effectColor(row.effectLabel))
         end
+        y = top + h
       end
+    end
+    -- battle tip in the message window: what to use, what to avoid
+    local bottom = 210
+    if bottom - (y + 6) >= 30 then
+      local names = {}
+      local source = weak and rows or rows
+      for i = 1, min(3, #source) do names[#names + 1] = tostring(source[i].type or source[i].typeLabel or "") end
+      local list = table.concat(names, ", ")
+      local text = weak and (translate("TRY") .. " " .. list .. " " .. translate("MOVES"))
+        or (translate("AVOID") .. " " .. list .. " " .. translate("MOVES"))
+      local top = y + 6
+      local h = min(44, bottom - top)
+      self:v4MessageWindow(7, top, 226, h)
+      local icon = weak and STAR or SHIELD
+      local a, b = self:splitPartyInfo(text, 180)
+      local lines = (b and #b > 0) and { a, b } or { a }
+      local ty = top + floor((h - #lines * 11) / 2) - 1
+      ART(icon, 18, top + floor((h - #icon) / 2) - 1, { ["#"] = weak and hex("e8a030") or BLUE })
+      for i, line in ipairs(lines) do self:partyInfo(line, 32, ty + (i - 1) * 11, colors.ink, 188, "center") end
     end
   end
 

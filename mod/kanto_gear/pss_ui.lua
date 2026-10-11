@@ -67,7 +67,9 @@ return function(H, G, tr, fmt)
         DECLINE = "negative", DISCONNECT = "negative" })[text]
       if tone and action then
         self:v4Choice(x,y,w,h,tone,true)
-        label(tr(text),x,y,w,h-3,c.white)
+        if self.v4ToneLabel then self:v4ToneLabel(tr(text),x,y,w,h,tone) else label(tr(text),x,y,w,h-3,c.white) end
+      elseif self.v4PssButton then
+        self:v4PssButton(text,x,y,w,h,action~=nil,tone)
       else
         if self.v4ActionPanel then self:v4ActionPanel(x,y,w,h,action~=nil) else self:panel(x,y,w,h) end
         label(tr(text),x,y,w,h,action and c.green or c.disabledInk)
@@ -96,7 +98,7 @@ return function(H, G, tr, fmt)
       end
       button("DECLINE",7,154,109,28,"decline",inv.id)
       button("ACCEPT",124,154,109,28,state.canAccept and "accept" or nil,inv.id)
-      label(tr("SILPH CONNECT"),7,190,226,21,c.mutedInk)
+      if self.v4PssFooter then self:v4PssFooter(tr("SILPH CONNECT")) else label(tr("SILPH CONNECT"),7,190,226,21,c.mutedInk) end
       return
     end
     if state.pending or state.activity then
@@ -114,7 +116,7 @@ return function(H, G, tr, fmt)
       label(tr(state.activity and "LINK SESSION OPEN" or pending.room
         and "FINISH YOUR CURRENT ACTION" or "INVITATION SENT"),15,127,210,18,c.mutedInk)
       end
-      label(tr("YOU CAN KEEP PLAYING"),7,190,226,21,c.mutedInk)
+      if self.v4PssFooter then self:v4PssFooter(tr("YOU CAN KEEP PLAYING")) else label(tr("YOU CAN KEEP PLAYING"),7,190,226,21,c.mutedInk) end
       return
     end
     if state.selected then
@@ -142,6 +144,10 @@ return function(H, G, tr, fmt)
       button("BATTLE",7,154,109,28,available and "battle" or nil)
       button("TRADE",124,154,109,28,available and "trade" or nil)
       button("BACK",7,188,226,23,"back")
+      return
+    end
+    if self.v4PssLobby then
+      self:v4PssLobby(state, hit, { versions = versions, short = shortVersions, states = states })
       return
     end
     self:panel(7,33,226,32)

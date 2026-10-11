@@ -560,7 +560,36 @@ return function(H, ui, K)
   -- Detail card for items / trainers / fruit (map 54..94, card 97..210)
   ---------------------------------------------------------------------------
   local HIDDEN_G = { "..#..", ".#.#.", "#.#.#", ".#.#.", "..#.." }
-  local function infoCard(self, accent, seatDraw, name, status, statusTint, kind, where, kindGlyph)
+  -- Compass chip: which way and how many steps from the player.
+  local function compass(self, x, y, player, target, accent)
+    if not (player and target and player.x and player.y and target.x and target.y) then return end
+    local colors = self.colors
+    local dx, dy = target.x - player.x, target.y - player.y
+    local steps = math.abs(dx) + math.abs(dy)
+    local d = 30
+    CIRC(x, y, d, colors.outline)
+    CIRC(x + 1, y + 1, d - 2, colors.surface)
+    K.RING(x + 3, y + 3, d - 6, 1, mix(colors.surface, colors.outline, 0.2))
+    for _, t in ipairs({ { 14, 2 }, { 14, 26 }, { 2, 14 }, { 26, 14 } }) do R(x + t[1], y + t[2], 2, 2, colors.band) end
+    local cx, cy = x + 15, y + 15
+    if steps == 0 then
+      K.CIRC(cx - 3, cy - 3, 7, accent)
+    else
+      local len = math.sqrt(dx * dx + dy * dy)
+      local ux, uy = dx / len, dy / len
+      for k = 0, 9 do
+        local px, py = floor(cx + ux * k + 0.5), floor(cy + uy * k + 0.5)
+        R(px - 1, py - 1, 2, 2, accent)
+      end
+      local hx, hy = floor(cx + ux * 10 + 0.5), floor(cy + uy * 10 + 0.5)
+      R(hx - 2, hy - 2, 4, 4, accent)
+      R(cx - 1, cy - 1, 3, 3, colors.outline)
+    end
+    local text = steps <= 1 and translate("HERE") or (steps .. " " .. translate("STEPS"))
+    self:partyInfo(self:fitPartyInfo(text, 50), x - 10, y + d + 1, colors.mutedInk, d + 20, "center")
+  end
+
+  local function infoCard(self, accent, seatDraw, name, status, statusTint, kind, where, kindGlyph, player, target)
     local colors = self.colors
     self.v4SummaryWindow(self, MAP_X, 97, MAP_W, 113, accent)
     CIRC(13, 103, 46, colors.outline)
@@ -568,16 +597,40 @@ return function(H, ui, K)
     K.CIRCrows(14, 104, 44, 22, 44, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
     R(21, 108, 5, 1, { 1, 1, 1, 0.6 })
     seatDraw(36, 126)
-    local a, b = self:splitPartyInfo(name, 160)
-    self:partyName(a, 66, 102, colors.ink, 160)
-    if b and #b > 0 then self:partyName(b, 66, 115, colors.ink, 160) end
+    local nameW = (player and target and target.x) and 112 or 160
+    local a, b = self:splitPartyInfo(name, nameW)
+    self:partyName(a, 66, 102, colors.ink, nameW)
+    if b and #b > 0 then self:partyName(b, 66, 115, colors.ink, nameW) end
     self:v4Pill(status, 66, b and 131 or 120, statusTint, { maxW = 150 })
-    R(14, 154, 212, 1, colors.band)
-    local kx = 16
-    if kindGlyph then kindGlyph(kx, 162); kx = kx + 10 end
-    self:partyInfo(self:fitPartyInfo(translate(kind), 200), kx, 159, colors.green)
-    local lines = { self:splitPartyInfo(translate(where), 204) }
-    for i, line in ipairs(lines) do self:partyInfo(line, 16, 174 + (i - 1) * 12, colors.ink) end
+    compass(self, 186, 108, player, target, accent)
+    -- "marked on the map" note under the name, tied to the map above
+    local my = b and 145 or 135
+    ART({ ".ooo.", "o###o", "o#w#o", "o###o", ".o#o.", "..o.." }, 66, my + 2,
+      { o = colors.outline, ["#"] = accent, w = WHITE })
+    self:partyInfo(self:fitPartyInfo(translate("MARKED ON MAP"), 150), 74, my, colors.mutedInk)
+    -- two fact tiles: what it is, where it is
+    local function tile(x, w, label, value, glyph, tint)
+      local fill = mix(colors.surface, tint, self.dark and 0.16 or 0.1)
+      if cg(self) then CH(x, 158, w, 46, 3, mix(fill, colors.outline, 0.3)); CH(x + 1, 159, w - 2, 44, 2, fill)
+      else RR(x, 158, w, 46, 4, mix(fill, colors.outline, 0.3)); RR(x + 1, 159, w - 2, 44, 3, fill) end
+      R(x + 4, 159, w - 8, 2, tint)
+      self:partyInfo(self:fitPartyInfo(translate(label), w - 10), x, 162, colors.mutedInk, w, "center")
+      local a, b2 = self:splitPartyInfo(translate(value), w - 22)
+      local gw = glyph and 10 or 0
+      local lines = (b2 and #b2 > 0) and { a, b2 } or { a }
+      local top = #lines == 2 and 174 or 180
+      for i, line in ipairs(lines) do
+        local lw = self:partyInfoWidth(line) + (i == 1 and gw or 0)
+        local lx = x + floor((w - lw) / 2)
+        if i == 1 and glyph then glyph(lx, top + 3); lx = lx + gw end
+        self:partyInfo(line, lx, top + (i - 1) * 11, colors.ink)
+      end
+    end
+    tile(13, 104, "KIND", kind, kindGlyph, accent)
+    tile(123, 104, "WHERE", where, function(x, y)
+      ART({ ".ooo.", "o###o", "o#w#o", "o###o", ".o#o.", "..o.." }, x, y - 1,
+        { o = colors.outline, ["#"] = hex("e05848"), w = WHITE })
+    end, hex("4888e0"))
   end
 
   ---------------------------------------------------------------------------
@@ -644,26 +697,31 @@ return function(H, ui, K)
       local status = selected.picked and "PICKED TODAY" or "READY TO PICK"
       infoCard(self, colors.green, function(cx, cy) self:fruitIcon(cx - 8, cy - 8, 2, selected.picked) end,
         selected.label or "", status, selected.picked and colors.silverDark or colors.hp,
-        "BERRY TREE", "REGROWS DAILY")
+        "BERRY TREE", "REGROWS DAILY", nil, model.player, selected)
       return true
     elseif view == "items" then
       local status = statusOf(selected, "items")
       local kind = selected.gift and "NPC GIFT" or selected.kind == "hidden" and "HIDDEN" or "VISIBLE"
       infoCard(self, hex("e8a030"), function(cx, cy)
-        self:battleItemIcon({ icon = selected.kind == "hidden" and "item" or selected.icon or "item" },
-          cx - 10, cy - 9, colors.amberLight)
+        self:v4ItemInSeat({ icon = selected.kind == "hidden" and "item" or selected.icon or "item",
+          label = selected.displayLabel or selected.label }, cx, cy, 42, colors.amberLight)
       end, selected.displayLabel or selected.label or "", status, statusColor(self, status), kind,
-        selected.location or "ON THIS MAP", selected.kind == "hidden" and function(x, y)
+        (selected.location and selected.location ~= "MARKED ON MAP") and selected.location or "ON THIS MAP",
+        selected.kind == "hidden" and function(x, y)
           ART(HIDDEN_G, x, y, { ["#"] = colors.green })
-        end or nil)
+        end or function(x, y)
+          ART({ ".ooo.", "o.#.o", "o###o", "o.#.o", ".ooo." }, x, y, { o = colors.outline, ["#"] = hex("4888e0") })
+        end, model.player, selected)
       return true
     elseif view == "trainers" then
       local status = statusOf(selected, "trainers")
       local where = selected.missed and "UNAVAILABLE" or selected.status == "LATER" and "STORY EVENT"
-        or selected.status or "ON THIS MAP"
+        or selected.location or "ON THIS MAP"
       infoCard(self, hex("e05848"), function(cx, cy)
         if model.drawActor then model.drawActor(selected, cx, cy + 8, 2, false) end
-      end, selected.label or "", status, statusColor(self, status), "TRAINER", where)
+      end, selected.label or "", status, statusColor(self, status), "TRAINER", where, function(x, y)
+        ART({ ".ooo.", "o###o", ".ooo.", "o###o", "o###o" }, x, y - 1, { o = colors.outline, ["#"] = hex("e05848") })
+      end, model.player, selected)
       return true
     end
 
