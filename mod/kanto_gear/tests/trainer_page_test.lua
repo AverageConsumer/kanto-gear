@@ -73,6 +73,13 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     local drawn, err = xpcall(display.drawContents, debug.traceback)
     T.check(drawn, "native trainer front renders: " .. tostring(err))
     local app = display.trainerModel()
+    if generation == 3 then
+      T.eq(initial.trainerModel.stars, Native._card.stars, "native companion uses the game's actual card rank")
+      T.eq(app.stars, Native._card.stars, "Trainer app uses the game's actual card rank")
+      T.eq(app.cardFamily, display.gen3.hoenn and "hoenn" or "kanto", "card colour uses the edition family")
+    else
+      T.eq(app.stars, nil, "Gen 1/2 do not invent a trainer-card rank from badges")
+    end
     for _, key in ipairs({ "name", "region", "idText", "money", "time", "pokedex", "badgeText" }) do
       T.eq(initial.trainerModel[key], app[key], "native and app trainer share " .. key)
     end

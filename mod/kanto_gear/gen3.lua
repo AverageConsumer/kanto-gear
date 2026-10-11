@@ -158,7 +158,7 @@ function Gen3:trainerCardData(native)
   local gather = self.profile.id == "emerald" and native.rseCardData or native.cardData
   local card = gather(session)
   if self.profile.id == "emerald" and native.backTextsRse then
-    -- The host exports the FRLG gatherer; these extra RSE records live in the session.
+    -- Keep the extra RSE record counters aligned with the session.
     local function stat(id, key, cap)
       local stats = session.gameStats
       local value = type(stats) == "table" and (stats[id] or stats[key]) or session[key]
