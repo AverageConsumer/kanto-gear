@@ -4882,8 +4882,9 @@ return function(mod)
       end
       local pic = side == "back" and P.backPic(picId, nil, shiny, kind)
         or P.frontPic(picId, nil, shiny, mon and mon.personality, kind)
-      -- Recomp marks mod-provided Gen 3 pictures with their source path.
-      return pic and pic.image, true, pic and pic.path ~= nil
+      -- Native ROM pictures carry the host's cache marker. Generated mod
+      -- canvases can have no path; never mix their art with ROM animation frames.
+      return pic and pic.image, true, pic and (pic.path ~= nil or pic.lru ~= true)
     end
     local path, trueColor = PokemonSprites.path(
       game and game.data, species, side,

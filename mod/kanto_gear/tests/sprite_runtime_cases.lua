@@ -178,6 +178,28 @@ return function(T, display, runtime, gen, up)
     display.gen3PicAnim, Sprites.path, G.draw = originalAnim3, originalPath, paint
     if P then P.frontPic = originalFront end
   end
+  if gen == 3 then
+    local P, G = display.gen3.Pokemon, up(draw, "G")
+    local originalFront, originalAnim, paint = P.frontPic, display.gen3PicAnim, G.draw
+    local image = G.newImage("generated-front-frame.png")
+    local received, animations = nil, 0
+    -- G9 Gen3 returns live Canvas pictures without a file path. They must not
+    -- acquire ROM animation transforms or switch to ROM front-sheet frames.
+    P.frontPic = function() return { image = image, w = 64, h = 64 } end
+    display.gen3PicAnim = function() animations = animations + 1 end
+    G.draw = function(pic, ...) received = pic; return paint(pic, ...) end
+    for _, size in ipairs({ 32, 48, 56 }) do
+      for _, kind in ipairs({ "summary", "battle", "dex" }) do
+        draw(1, "front", 0, 0, size, size, nil, { species = 1 }, true, nil, true, kind)
+        T.eq(received, image, "generated portrait keeps the provider frame in " .. kind)
+      end
+    end
+    T.eq(animations, 0, "generated pictures without paths never acquire ROM animations")
+    P.frontPic = function(...) return originalFront(...) end
+    local _, _, replaced = sprite(1, "front", { species = 1 })
+    T.eq(replaced, false, "a wrapped native picture remains eligible for ROM animation")
+    P.frontPic, display.gen3PicAnim, G.draw = originalFront, originalAnim, paint
+  end
   local eggFainted
   theme.hgss:partyCard({ name = "EGG", egg = true, hp = 0 }, 6, 32, false, true,
     function(_, _, _, _, fainted) eggFainted = fainted end)
