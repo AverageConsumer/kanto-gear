@@ -6432,7 +6432,7 @@ return function(ui)
   end
 
   function H:partyCard(mon, x, y, selected, details, drawPortrait, focused, emptyTarget, interactive)
-    local fainted = mon and (mon.statusId == "FNT"
+    local fainted = mon and not mon.egg and (mon.statusId == "FNT"
       or mon.hp ~= nil and mon.hp <= 0)
     local pressed = self:beginPress(x, y, 112, 56,
       interactive ~= false and (mon ~= nil or emptyTarget))

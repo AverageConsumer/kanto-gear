@@ -4851,11 +4851,12 @@ return function(mod)
   end
 
   -- Crystal front-pic animations come from the host's ROM-derived MonAnim
-  -- data. Large portraits replay the menu scene every few seconds; Gold,
+  -- data. Detail portraits and the selected party member replay the menu scene; Gold,
   -- Silver, older hosts and replaced sprites keep the static picture.
   local picAnims, picAnimSeed = {}, 0
-  local function picAnimFrame(species, mon, maxW, tint)
-    if tint or maxW < 50 or not compat.isGen2() or displayRuntime.gen3
+  local function picAnimFrame(species, mon, maxW, tint, animate)
+    if tint or (maxW < 48 and animate ~= true) or compat.partyEgg(mon)
+        or not compat.isGen2() or displayRuntime.gen3
         or THEME.style ~= "hgss" or not displayRuntime.motionEnabled() then return nil end
     local def = game and game.data and game.data.pokemon and game.data.pokemon[species]
     if not (def and def.anim) then return nil end
@@ -4900,9 +4901,10 @@ return function(mod)
   -- pokeemerald MonAnim port (same data the native summary uses). Battles
   -- are left alone so the companion never shares animation slots with them.
   displayRuntime.gen3Anims = { seed = 0 }
-  function displayRuntime.gen3PicAnim(species, mon, maxW, tint)
+  function displayRuntime.gen3PicAnim(species, mon, maxW, tint, animate)
     local gen3Anims = displayRuntime.gen3Anims
-    if tint or maxW < 50 or not displayRuntime.gen3 or battle
+    if tint or (maxW < 48 and animate ~= true) or compat.partyEgg(mon)
+        or not displayRuntime.gen3 or battle
         or THEME.style ~= "hgss" or not displayRuntime.motionEnabled() then return nil end
     local okAnim, MonAnim = pcall(require, "src.core.game3.mon_anim")
     if not okAnim or type(MonAnim) ~= "table" or not MonAnim.newSprite then return nil end
@@ -4931,7 +4933,7 @@ return function(mod)
       gen3Anims[key] = state
     end
     if not state.sprite and now >= state.next then
-      local ok, sprite = pcall(MonAnim.newSprite, picId, { affineMode = "off", hFlip = false })
+      local ok, sprite = pcall(MonAnim.newSprite, picId, { hFlip = false })
       if ok and sprite then
         sprite.data[0], sprite.data[1] = picId, 1
         sprite.callback = function(s) MonAnim.summary(s, picId, false) end
@@ -4958,8 +4960,9 @@ return function(mod)
   end
 
   local function drawSprite(species, side, x, y, maxW, maxH, tint,
-                            mon, quiet, brightness)
+                            mon, quiet, brightness, animate)
     local image = mon and mon.presentationSprite
+    local presented = image ~= nil
     local trueColor = image ~= nil and mon.presentationTrueColor ~= false
     mon = mon and (mon.source or mon)
     if not image then image, trueColor = sprite(species, side, mon) end
@@ -4970,9 +4973,10 @@ return function(mod)
     local iw, ih = image:getDimensions()
     local scale = math.min(maxW / iw, maxH / ih)
     local sheet, quad, size, anim3
-    if side == "front" and not (mon and mon.presentationSprite) then
-      sheet, quad, size = picAnimFrame(species, mon, maxW, tint)
-      if not quad then anim3 = displayRuntime.gen3PicAnim(species, mon, maxW, tint) end
+    if side == "front" and not presented and animate ~= false
+        and (not brightness or brightness >= 1) then
+      sheet, quad, size = picAnimFrame(species, mon, maxW, tint, animate)
+      if not quad then anim3 = displayRuntime.gen3PicAnim(species, mon, maxW, tint, animate) end
     end
     local function paint()
       color(tint or { brightness or 1, brightness or 1, brightness or 1, 1 })
@@ -4980,8 +4984,15 @@ return function(mod)
         local pic = anim3.pic and anim3.pic.image or image
         local pw, ph = pic:getDimensions()
         local s = math.min(maxW / pw, maxH / ph)
+        G.push("all")
+        if G.transformPoint and G.intersectScissor then
+          local left, top = G.transformPoint(x - 2, y - 2)
+          local right, bottom = G.transformPoint(x + maxW + 2, y + maxH + 2)
+          G.intersectScissor(left, top, right - left, bottom - top)
+        end
         local ok = pcall(anim3.MonAnim.draw, anim3.sprite, pic,
           x + maxW / 2, y + maxH / 2, { scale = s })
+        G.pop()
         if ok then return end
       end
       if quad then
@@ -5018,16 +5029,50 @@ return function(mod)
 
   function compat.partyEgg(mon)
     if not mon then return false end
-    if mon.isEgg == true then return true end
+    mon = mon.source or mon
+    if mon.isEgg == true or mon.egg == true then return true end
+    if displayRuntime.gen3 and displayRuntime.gen3.Pokemon.isEgg(mon) then return true end
     local live = mon.slot and game and game.save and game.save.party
       and game.save.party[mon.slot]
     return live and live.isEgg == true or false
   end
 
   function compat.drawPokemonIcon(mon, x, y, size, brightness)
+    mon = mon and (mon.source or mon)
+    if not mon then return false end
     local data = game and game.data or {}
     local name, path, isEgg = nil, nil, compat.partyEgg(mon)
     size = size or 27
+    if displayRuntime.gen3 then
+      local P = displayRuntime.gen3.Pokemon
+      -- Eggs use their ROM-derived front picture, never the hatchling's portrait.
+      local pic = isEgg and P.frontPic(P.monPicSpecies(mon), nil, false, mon.personality)
+        or nil
+      pic = pic or P.monIcon(mon)
+      if not (pic and pic.image) then return false end
+      local fw, fh = pic.w, pic.h
+      local quad = pic.quads and pic.quads[0]
+      if isEgg and not pic.quads then
+        -- The 24px EggPic sits inside a padded 64px front-pic canvas.
+        local frame = spriteCache.nativeEggFrame
+        if not frame or frame.image ~= pic.image then
+          frame = { image = pic.image,
+            quad = G.newQuad(fw / 4, fh / 4, fw / 2, fh / 2, fw, fh) }
+          spriteCache.nativeEggFrame = frame
+        end
+        quad, fw, fh = frame.quad, fw / 2, fh / 2
+      end
+      local scale = math.min(size / fw, size / fh)
+      color({ brightness or 1, brightness or 1, brightness or 1, 1 })
+      if quad then
+        G.draw(pic.image, quad, x + (size - fw * scale) / 2,
+          y + (size - fh * scale) / 2, 0, scale, scale)
+      else
+        G.draw(pic.image, x + (size - fw * scale) / 2,
+          y + (size - fh * scale) / 2, 0, scale, scale)
+      end
+      return true
+    end
     if data.gen2Icons then
       name = isEgg and "ICON_EGG"
         or data.gen2Icons.species and data.gen2Icons.species[mon.species]
@@ -8232,6 +8277,7 @@ return function(mod)
   function displayRuntime.partyView(mon)
     if not mon then return nil end
     local source = mon.source or mon
+    local isEgg = compat.partyEgg(mon)
     local def = game.data.pokemon[mon.species] or {}
     local maxHp = mon.maxHp or source.stats and source.stats.hp
     -- Imported Gen 1 box records contain current HP but no party stat block.
@@ -8245,15 +8291,16 @@ return function(mod)
     local type2 = mon.types and (mon.types[2] or mon.types[1])
       or def.types and (def.types[2] or def.types[1])
     return {
-      slot = mon.slot, name = mon.name or source.nickname or def.name,
-      egg = compat.partyEgg(source),
+      slot = mon.slot, name = isEgg and THEME:translate("EGG")
+        or mon.name or source.nickname or def.name,
+      egg = isEgg,
       gender = mon.gender == "M" and "male" or mon.gender == "F" and "female" or mon.gender,
       hp = mon.hp, maxHp = maxHp,
       expProgress = mon.expProgress or displayRuntime.gen3
         and displayRuntime.gen3.Summary.expProgress(source,
           displayRuntime.gen3.Pokemon.growthRate(mon.species)).progressPercent,
-      statusId = (mon.hp or 0) <= 0 and "FNT"
-        or THEME:statusName(mon.status, mod.content),
+      statusId = not isEgg and ((mon.hp or 0) <= 0 and "FNT"
+        or THEME:statusName(mon.status, mod.content)) or nil,
       type = type1, type2 = type2,
       typeLabel = THEME:typeName(type1, mod.content),
       type2Label = THEME:typeName(type2, mod.content),
@@ -8273,7 +8320,8 @@ return function(mod)
             compat.drawPokemonIcon(source, portraitX, portraitY, size,
               fainted and 0.48 or nil)
           elseif not drawSprite(mon.species, "front", portraitX, portraitY,
-              size, size, nil, source, true, fainted and 0.48 or nil) then
+              size, size, nil, source, true, fainted and 0.48 or nil,
+              selected == true and not fainted and view.statusId ~= "SLP") then
             compat.drawPokemonIcon(source, portraitX, portraitY, size,
               fainted and 0.48 or nil)
           end
@@ -8394,7 +8442,8 @@ return function(mod)
         if compat.partyEgg(source) then
           compat.drawPokemonIcon(source, x, y, size)
         elseif not drawSprite(mon.species, "front", x, y, size, size,
-            nil, source, true, fainted and 0.48 or nil) then
+            nil, source, true, fainted and 0.48 or nil,
+            view == leadView and not fainted and view.statusId ~= "SLP") then
           compat.drawPokemonIcon(source, x, y, size, fainted and 0.48 or nil)
         end
       end,

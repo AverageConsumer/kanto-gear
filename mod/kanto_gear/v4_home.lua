@@ -413,7 +413,7 @@ return function(H, ui, K)
     local lead = model.lead
     self:homeTile(x, y, w, h, colors.partyLight, selected)
     self:homeWidgetHeader(x, y, w, "PARTY", nil, nil, model.editing)
-    local fainted = lead and (lead.hp or 1) <= 0
+    local fainted = lead and not lead.egg and (lead.hp or 1) <= 0
     local seat = 36
     local sx, sy = x + 5, y + 20
     self:v4Seat(sx, sy, seat, fainted)
