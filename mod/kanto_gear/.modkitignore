@@ -1,6 +1,7 @@
 tests/achievements_test.lua
 tests/achievement_find3_test.lua
 tests/explorer_snapshot3_test.lua
+tests/explorer_sandbox_test.lua
 tests/pickup_state_test.lua
 tests/bag_runtime_test.lua
 tests/compat_test.lua
