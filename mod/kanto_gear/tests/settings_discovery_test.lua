@@ -82,11 +82,12 @@ local function exercise(run, display)
       for page = 1, detail.pages do
         display.settings.choicePage = page; detail = display.settingsModel()
         for i = 0, 3 do
-          local index = (page - 1) * 4 + i + 1
+          local index = (page - 1) * detail.perPage + i + 1
+          local choice = i < detail.perPage and detail.choices[index]
           local top = theme.hgss:settingsChoiceTop(detail)
           local action, hit = theme.hgss:settingsHit(120, top + 11 + i * 25, detail)
-          T.eq(action, detail.choices[index] and "choice" or nil, "only actual option rows accept touches")
-          if detail.choices[index] then T.eq(hit, index, "choice hit matches its visible page") end
+          T.eq(action, choice and "choice" or nil, "only actual option rows accept touches")
+          if choice then T.eq(hit, index, "choice hit matches its visible page") end
           T.eq(theme.hgss:settingsHit(120, top + 23 + i * 25, detail), nil, "gaps cannot select a neighboring choice")
         end
         T.eq(theme.hgss:settingsHit(120, 180, detail), nil, "explanation text cannot change a setting")

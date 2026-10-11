@@ -846,11 +846,12 @@ return function(H, ui, K)
     end
 
     if model.option then
-      local first = (model.page - 1) * 4 + 1
+      local perPage = model.perPage or 4
+      local first = (model.page - 1) * perPage + 1
       local G = ui.graphics
       local enter = self:v4Enter("settings_option", tostring(model.option) .. ":" .. model.page, 0.24)
-      local count = min(4, #model.choices - first + 1)
-      for visible = 0, 3 do
+      local count = min(perPage, #model.choices - first + 1)
+      for visible = 0, perPage - 1 do
         local choice = model.choices[first + visible]
         if choice then
           local y, selected = self:settingsChoiceTop(model) + visible * 25, choice[2] == model.value
@@ -1069,7 +1070,8 @@ return function(H, ui, K)
   end
 
   function H:settingsChoiceTop(model)
-    local count = min(4, #(model.choices or {}) - ((model.page or 1) - 1) * 4)
+    local perPage = model.perPage or 4
+    local count = min(perPage, #(model.choices or {}) - ((model.page or 1) - 1) * perPage)
     local height = max(0, count * 25 - 3)
     return 36 + floor((97 - height) / 2)
   end
@@ -1278,9 +1280,10 @@ return function(H, ui, K)
       if x >= 136 and x < 168 then return "next" end
     end
     local top = self:settingsChoiceTop(model)
+    local perPage = model.perPage or 4
     local visible = floor((y - top) / 25)
-    local index = (model.page - 1) * 4 + visible + 1
-    if x >= 7 and x < 233 and visible >= 0 and visible < 4 and y >= top
+    local index = (model.page - 1) * perPage + visible + 1
+    if x >= 7 and x < 233 and visible >= 0 and visible < perPage and y >= top
         and y < top + 22 + visible * 25 and model.choices[index] then return "choice", index end
   end
 end

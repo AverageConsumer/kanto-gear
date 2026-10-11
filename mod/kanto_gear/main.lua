@@ -2819,13 +2819,14 @@ return function(mod)
           { row.key == "home_help" and "SHOW ME" or state.confirm == row.key and "TAP AGAIN" or "RESET", true } }
           or row.type == "toggle" and { { "OFF", false }, { "ON", true } }
           or displayRuntime.optionChoices(row)
-        local pages = math.max(1, math.ceil(#choices / 4))
+        local perPage = row.key == "theme_v3" and 3 or 4
+        local pages = math.max(1, math.ceil(#choices / perPage))
         state.choicePage = math.max(1, math.min(pages, state.choicePage or 1))
         return { category = "option", option = row.key, label = row.label,
           accent = displayRuntime.settingsCategories[state.category].accent,
           description = SettingsInfo.description(row.key, mod.options:get(row.key)),
           choices = choices, value = mod.options:get(row.key), source = row,
-          page = state.choicePage, pages = pages }
+          page = state.choicePage, pages = pages, perPage = perPage }
       end
       state.option = nil
     end
@@ -12072,7 +12073,9 @@ return function(mod)
       state.option, state.choicePage = row.action or row.key, 1
       if not row.action then
         for i, choice in ipairs(displayRuntime.optionChoices(row.source)) do
-          if choice[2] == mod.options:get(row.key) then state.choicePage = math.ceil(i / 4) end
+          if choice[2] == mod.options:get(row.key) then
+            state.choicePage = math.ceil(i / (row.key == "theme_v3" and 3 or 4))
+          end
         end
       end
     end

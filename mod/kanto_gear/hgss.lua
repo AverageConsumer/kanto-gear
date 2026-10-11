@@ -2393,7 +2393,8 @@ return function(ui)
   end
 
   function H:settingsChoiceTop(model)
-    local count = math.min(4, #model.choices - (model.page - 1) * 4)
+    local perPage = model.perPage or 4
+    local count = math.min(perPage, #model.choices - (model.page - 1) * perPage)
     local height = math.max(0, count * 25 - 3)
     return 101 + math.floor(((model.pages > 1 and 97 or 110) - height) / 2)
   end
@@ -2426,8 +2427,9 @@ return function(ui)
       for index, line in ipairs(lines) do
         self:partyType(line, 15, top + (index - 1) * 9, colors.ink, 210)
       end
-      local first = (model.page - 1) * 4 + 1
-      for visible = 0, 3 do
+      local perPage = model.perPage or 4
+      local first = (model.page - 1) * perPage + 1
+      for visible = 0, perPage - 1 do
         local choice = model.choices[first + visible]
         if choice then
           local y, selected = self:settingsChoiceTop(model) + visible * 25, choice[2] == model.value
@@ -2493,9 +2495,10 @@ return function(ui)
         if x >= 136 and x < 168 then return "next" end
       end
       local top = self:settingsChoiceTop(model)
+      local perPage = model.perPage or 4
       local visible = math.floor((y - top) / 25)
-      local index = (model.page - 1) * 4 + visible + 1
-      if x >= 7 and x < 233 and visible >= 0 and visible < 4
+      local index = (model.page - 1) * perPage + visible + 1
+      if x >= 7 and x < 233 and visible >= 0 and visible < perPage
           and y < top + 22 + visible * 25 and model.choices[index] then return "choice", index end
       return
     end
