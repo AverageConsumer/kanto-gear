@@ -128,14 +128,10 @@ return function(H, ui, K)
       self:partyType(lv, 15, 192, colors.green, 210)
       return
     end
-    -- pager (hit 166..224 × 106..122)
+    -- habitats: a label, and page keys only when there is more than one page
     if model.detailPages > 1 then
-      local pressed = self:beginPress(166, 106, 58, 16)
-      self:v4Key(166, 106, 58, 15)
-      self:partyType(model.detailPage .. "/" .. model.detailPages, 166, 108, colors.ink, 58)
-      ART({ "#..", "##.", "###", "##.", "#.." }, 216, 111, { ["#"] = colors.mutedInk })
-      ART({ "..#", ".##", "###", ".##", "..#" }, 171, 111, { ["#"] = colors.mutedInk })
-      self:endPress(pressed)
+      self:v4PageKeys(226, 105, model.detailPage, model.detailPages)
+      self:partyType(translate("HABITAT"), 156, 124, colors.mutedInk, 70, "right")
     else
       self:partyType(translate("HABITAT"), 166, 110, colors.mutedInk, 58)
     end
@@ -201,12 +197,20 @@ return function(H, ui, K)
   local MAP_Y, MAP_H = 54, 64          -- overview
   local DETAIL_MAP_H = 40              -- any selection
   local FULL_Y, FULL_H = 74, 136       -- expanded map
-  -- Bottom half follows the mockup: three full-width folder tabs with
-  -- progress counts, one paper panel, four 109×36 encounter cards.
+  -- Bottom half: three folder tabs with progress counts, one paper panel
+  -- with a quiet control strip (HERE / ALL on the left, the page keys on the
+  -- right), then always four calm 109×26 cards. Paging never takes a card slot.
   local TAB_Y, TAB_H = 120, 18
   local PANEL_Y, PANEL_B = 137, 214
-  local CARD_W, CARD_H = 109, 36
-  local CARD_POS = { { 9, 141 }, { 122, 141 }, { 9, 178 }, { 122, 178 } }
+  local STRIP_Y, STRIP_H = 140, 14
+  local CARD_W, CARD_H = 109, 26
+  local CARD_POS = { { 9, 157 }, { 122, 157 }, { 9, 186 }, { 122, 186 } }
+  -- page keys: [<]  dots  [>]
+  local PAGER_W, PAGER_KEY = 70, 17
+  local function pagerRects(right, y)
+    local x = right - PAGER_W
+    return x, x + PAGER_W - PAGER_KEY, y
+  end
   local function tabRect(i)
     local tw = floor(MAP_W / 3)
     local x = MAP_X + (i - 1) * tw
@@ -328,6 +332,53 @@ return function(H, ui, K)
     self:partyInfo(trainersText, tl + 9, y + 2, colors.ink)
   end
 
+  -- Two small keys with page dots between them. Keys at the ends wrap, so
+  -- both stay lit; the dots say where you are.
+  function H:v4PageKeys(right, y, page, pages)
+    local colors = self.colors
+    local x, rx = pagerRects(right, y)
+    local accent = cg(self) and self.tok.acc.M or colors.green
+    for i, kx in ipairs({ x, rx }) do
+      local pressed = self:beginPress(kx, y, PAGER_KEY, 15, true)
+      self:v4Key(kx, y, PAGER_KEY, 15)
+      ART(i == 1 and CHEV_L or CHEV_R, kx + 7, y + 4, { ["#"] = accent })
+      self:endPress(pressed)
+    end
+    local n = min(pages, 5)
+    local dw = n * 6 - 2
+    local dx = x + PAGER_KEY + floor((PAGER_W - 2 * PAGER_KEY - dw) / 2)
+    local current = min(n, page)
+    for i = 1, n do
+      local on = i == current
+      R(dx + (i - 1) * 6, y + 5, 4, 4, on and accent or colors.silver)
+      if on then R(dx + (i - 1) * 6 + 1, y + 6, 2, 1, mix(accent, WHITE, 0.5)) end
+    end
+  end
+
+  -- HERE / ALL for wild encounters: a two-segment switch in the strip.
+  local function scopeSwitch(self, model)
+    local colors, tok = self.colors, self.tok
+    local labels = { { "HERE", "HERE" }, { "ALL", "ROUTE" } }
+    local x = MAP_X + 5
+    for i, seg in ipairs(labels) do
+      local w = 38
+      local sx = x + (i - 1) * (w + 2)
+      local on = (model.wildScope == "ROUTE") == (seg[2] == "ROUTE")
+      local pressed = self:beginPress(sx, STRIP_Y, w, STRIP_H, not on)
+      if on then
+        if cg(self) then CH(sx, STRIP_Y, w, STRIP_H, 3, tok.acc.D); CH(sx + 1, STRIP_Y + 1, w - 2, STRIP_H - 2, 2, tok.acc.M)
+        else RR(sx, STRIP_Y, w, STRIP_H, 4, colors.outline); RR(sx + 1, STRIP_Y + 1, w - 2, STRIP_H - 2, 3, tok.acc.M) end
+      else
+        if cg(self) then CH(sx, STRIP_Y, w, STRIP_H, 3, tok.border); CH(sx + 1, STRIP_Y + 1, w - 2, STRIP_H - 2, 2, tok.paper)
+        else RR(sx, STRIP_Y, w, STRIP_H, 4, mix(colors.outline, tok.paper2, 0.5)); RR(sx + 1, STRIP_Y + 1, w - 2, STRIP_H - 2, 3, tok.paper) end
+      end
+      local label = self:fitPartyInfo(translate(seg[1]), w - 6)
+      if on then self:withoutShadow(self.partyInfo, self, label, sx, STRIP_Y, WHITE, w, "center")
+      else self:withoutShadow(self.partyInfo, self, label, sx, STRIP_Y, colors.mutedInk, w, "center") end
+      self:endPress(pressed)
+    end
+  end
+
   -- Folder tabs joined to the list panel below.
   local SWAP = { ".#....", "######", ".#....", "....#.", "######", "....#." }
   local function tabs(self, model)
@@ -338,8 +389,7 @@ return function(H, ui, K)
     for i, view in ipairs({ "wild", "trainers", "items" }) do
       local x, w = tabRect(i)
       local on = view == active
-      -- the active WILD tab toggles HERE / ALL, so it stays pressable
-      local pressable = not on or view == "wild"
+      local pressable = not on
       local pressed = self:beginPress(x, TAB_Y, w, TAB_H, pressable)
       if cg(self) then
         CH(x, TAB_Y + 1, w, 16, 3, on and tok.acc.M or tok.paper2)
@@ -356,9 +406,9 @@ return function(H, ui, K)
         R(x + 3, TAB_Y + 3, w - 6, 1, self.dark and hex("3a4659") or WHITE)
       end
       local icon = TAB_ICON[view]
-      local label = translate(view == "wild" and on and model.wildScope == "ROUTE" and "ALL" or labels[view])
+      local label = translate(labels[view])
       local count = counts[view] and tostring(counts[view]) or nil
-      local swapW = (view == "wild" and on) and (#SWAP[1] + 3) or 0
+      local swapW = 0
       local iconW = #icon.art[1] + 2
       local room = w - 6 - iconW - swapW
       local cw = count and (self:partyInfoWidth(" " .. count)) or 0
@@ -433,49 +483,37 @@ return function(H, ui, K)
     local now = row.gift and row.available ~= false or best.current
     local pressed = self:beginPress(x, y, CARD_W, CARD_H)
     cardFrame(self, x, y, tok.acc.M, now and not best.blocked)
-    self:v4Seat(x + 4, y + 4, 28, false, false)
-    if model.drawPokemon then model.drawPokemon(row, x + 5, y + 5, 26, not row.caught and not row.gift) end
-    self:partyInfo(self:fitPartyInfo(row.isEgg and translate("EGG") or row.name or "???", 60), x + 35, y + 1, colors.ink)
+    self:v4Seat(x + 2, y + 1, 24, false, false)
+    if model.drawPokemon then model.drawPokemon(row, x + 4, y + 3, 20, not row.caught and not row.gift) end
+    local nameW = CARD_W - 40
+    self:partyInfo(self:fitPartyInfo(row.isEgg and translate("EGG") or row.name or "???", nameW), x + 29, y + 1, colors.ink)
     if row.caught then self:v4MiniBall(x + CARD_W - 10, y + 4, "ok")
     elseif not row.gift then self:v4MiniBall(x + CARD_W - 10, y + 4, "none") end
     if row.gift then
       local label = row.trade and "TRADE" or row.loan and "LOAN" or (row.cost or row.coinCost) and "OFFER" or "GIFT"
-      self:v4MethodGlyph("GIFT", x + 35, y + 14)
-      self:v4Pill(label, x + 45, y + 13, hex("d05878"), { maxW = 56 })
+      self:v4Pill(label, x + 29, y + 13, hex("d05878"), { maxW = 60 })
       return self:endPress(pressed)
     end
-    self:v4MethodGlyph(best.method, x + 35, y + 14)
-    self:partyInfo(levels(best), x + 45, y + 12, colors.mutedInk)
+    -- one quiet line: levels on the left, the odds on the right
+    self:partyInfo(levels(best), x + 29, y + 12, colors.mutedInk)
     if best.blocked then
-      -- needs a field tool: orange TOOL badge instead of the period icons
-      local lx, ly = x + CARD_W - 25, y + 12
-      RR(lx - 1, ly, 22, 11, 2, colors.outline); R(lx, ly + 1, 20, 9, hex("e09a20"))
-      self:withoutShadow(self.partyType, self, translate("TOOL"), lx - 1, ly - 1, WHITE, 22)
-    elseif model.period then
-      local on = periodsFor(row)
-      for i, p in ipairs(PERIOD_ORDER) do
-        local px = x + CARD_W - 24 + (i - 1) * 7
-        local c = on[p] and hex(PERIOD_TINT[p]) or (self.dark and hex("3e4a58") or hex("c4cec8"))
-        ART(MINI_PERIOD[p], px, y + 14, { ["#"] = c })
-        if on[p] and p == model.period then R(px, y + 20, 5, 1, c) end
-      end
-    end
-    -- chance bar (40px) + percentage beside it
-    local chance = tonumber(best.chance) or 0
-    local bx, bw = x + 35, 40
-    R(bx, y + 26, bw, 5, colors.outline)
-    R(bx + 1, y + 27, bw - 2, 3, self.dark and hex("3a4652") or hex("d4ddd6"))
-    local f = max(2, floor((bw - 2) * min(1, chance / 50) + 0.5))
-    local cc = chance >= 25 and colors.hp or chance >= 10 and colors.hpMid or hex("c070f0")
-    R(bx + 1, y + 27, f, 3, cc); R(bx + 1, y + 27, f, 1, mix(cc, WHITE, 0.5))
-    self:partyInfo(tostring(chance) .. "%", x + 78, y + 23, colors.ink)
-    -- rare finds twinkle while they can appear
-    if now and chance > 0 and chance <= 5 and self.motionEnabled ~= false then
-      self:wantAmbient(0.3)
-      if (self:clock() % 1.8) < 0.7 then
-        local sx, sy = x + 6, y + 5
-        P(sx, sy, WHITE); P(sx - 1, sy, hex("f8e070")); P(sx + 1, sy, hex("f8e070"))
-        P(sx, sy - 1, hex("f8e070")); P(sx, sy + 1, hex("f8e070"))
+      self:v4Pill("TOOL", x + CARD_W - 4, y + 13, hex("e09a20"), { right = true, maxW = 40 })
+    else
+      local chance = tonumber(best.chance) or 0
+      self:partyInfo(tostring(chance) .. "%", x + CARD_W - 32, y + 12, colors.ink, 28, "right")
+      -- a hairline under the card shows the odds at a glance
+      local f = max(1, floor((CARD_W - 32) * min(1, chance / 50) + 0.5))
+      local cc = chance >= 25 and colors.hp or chance >= 10 and colors.hpMid or hex("c070f0")
+      R(x + 29, y + CARD_H - 3, CARD_W - 33, 1, self.dark and hex("3a4652") or hex("d4ddd6"))
+      R(x + 29, y + CARD_H - 3, f, 1, cc)
+      -- rare finds twinkle while they can appear
+      if now and chance > 0 and chance <= 5 and self.motionEnabled ~= false then
+        self:wantAmbient(0.3)
+        if (self:clock() % 1.8) < 0.7 then
+          local sx, sy = x + 5, y + 4
+          P(sx, sy, WHITE); P(sx - 1, sy, hex("f8e070")); P(sx + 1, sy, hex("f8e070"))
+          P(sx, sy - 1, hex("f8e070")); P(sx, sy + 1, hex("f8e070"))
+        end
       end
     end
     if not now and not best.blocked then dimCard(self, x, y) end
@@ -496,54 +534,32 @@ return function(H, ui, K)
     local done = row.done
     local pressed = self:beginPress(x, y, CARD_W, CARD_H)
     cardFrame(self, x, y, accent, not done)
-    CIRC(x + 4, y + 4, 28, colors.outline)
-    CIRC(x + 5, y + 5, 26, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
-    K.CIRCrows(x + 5, y + 5, 26, 13, 26, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
+    CIRC(x + 3, y + 2, 22, colors.outline)
+    CIRC(x + 4, y + 3, 20, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
+    K.CIRCrows(x + 4, y + 3, 20, 10, 20, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
     if kind == "trainers" then
-      if model.drawActor then model.drawActor(row, x + 18, y + 27, 1, false) end
+      if model.drawActor then model.drawActor(row, x + 14, y + 21, 1, false) end
     else
       self:v4ItemInSeat({ icon = row.kind == "hidden" and "item" or row.icon or "item",
-        label = row.displayLabel or row.label }, x + 18, y + 18, 28, colors.amberLight)
+        label = row.displayLabel or row.label }, x + 14, y + 13, 22, colors.amberLight)
     end
     local name = row.kind == "hidden" and not done and translate("HIDDEN") or row.displayLabel or row.label or ""
-    local a, b = self:splitPartyInfo(name, CARD_W - 40)
-    if b and #b > 0 then
-      self:partyInfo(a, x + 35, y + 1, done and colors.mutedInk or colors.ink)
-      self:partyInfo(self:fitPartyInfo(b, CARD_W - 40), x + 35, y + 11, done and colors.mutedInk or colors.ink)
-    else
-      self:partyInfo(self:fitPartyInfo(name, CARD_W - 40), x + 35, y + 4, done and colors.mutedInk or colors.ink)
-    end
-    self:v4Pill(status, x + 35, y + 22, statusColor(self, status), { maxW = CARD_W - 40 })
+    self:partyInfo(self:fitPartyInfo(name, CARD_W - 33), x + 29, y + 1, done and colors.mutedInk or colors.ink)
+    self:v4Pill(status, x + 29, y + 13, statusColor(self, status), { maxW = CARD_W - 33 })
     if done then dimCard(self, x, y) end
     self:endPress(pressed)
   end
 
-  local function pagerCard(self, x, y, model)
-    local colors = self.colors
-    local enabled = model.pages > 1
-    self:v4Window(x, y, CARD_W, CARD_H, { fill = colors.bandLight, shadow = false })
-    local half = floor(CARD_W / 2)
-    local p1 = self:beginPress(x, y, half, CARD_H, enabled)
-    ART(CHEV_L, x + 10, y + 14, { ["#"] = colors.ink }); self:endPress(p1)
-    local p2 = self:beginPress(x + half, y, CARD_W - half, CARD_H, enabled)
-    ART(CHEV_R, x + CARD_W - 13, y + 14, { ["#"] = colors.ink }); self:endPress(p2)
-    self:partyInfo(model.page .. "/" .. model.pages, x + 16, y + 6, colors.ink, CARD_W - 32, "center")
-    for i = 1, min(model.pages, 6) do
-      local dx = x + floor(CARD_W / 2) - min(model.pages, 6) * 3 + (i - 1) * 6
-      R(dx, y + 22, 4, 4, i == model.page and (cg(self) and self.tok.acc.M or colors.green) or colors.silver)
-    end
-  end
-
-  -- Main shows ≤4 rows when they all fit, otherwise 3 rows + a pager card.
+  -- Four cards a page; the page keys live in the strip above them.
   function H:explorerPerPage(view, total)
     if view == "fruit" then return math.max(1, total) end
-    return total <= 4 and 4 or 3
+    return 4
   end
 
   function H:explorerMotionRegion(view, selected, full, page, detailPage)
     if full then return nil end
     if selected then return 97, 210, detailPage end
-    return PANEL_Y + 2, PANEL_B, page
+    return CARD_POS[1][2] - 1, PANEL_B, page
   end
 
   ---------------------------------------------------------------------------
@@ -689,14 +705,16 @@ return function(H, ui, K)
       if drawn then return end
     end
 
-    -- list: tabs + panel + cards
+    -- list: tabs + panel + control strip + cards
     panel(self)
     tabs(self, model)
+    if view == "wild" then scopeSwitch(self, model) end
+    if model.pages > 1 then self:v4PageKeys(MAP_X + MAP_W - 5, STRIP_Y - 1, model.page, model.pages) end
     local rows = model.rows or {}
     if #rows == 0 then
       local text = view == "wild" and (model.emptyHint or (model.wildScope == "ROUTE"
         and "NO WILD ENCOUNTERS" or "NOTHING HERE NOW")) or "NOTHING HERE"
-      self:partyInfo(translate(text), MAP_X, 166, colors.mutedInk, MAP_W, "center")
+      self:partyInfo(translate(text), MAP_X, 178, colors.mutedInk, MAP_W, "center")
       return
     end
     local enter = self:v4Enter("explorer_cards", table.concat({ tostring(view),
@@ -710,12 +728,6 @@ return function(H, ui, K)
         else listCard(self, row, pos[1], pos[2], model, view, statusColor) end
         if dy ~= 0 then G.pop() end
       end
-    end
-    if model.pages > 1 then
-      local _, dy = self:v4Stagger(enter, 4, 0.08, 6)
-      if dy ~= 0 then G.push(); G.translate(0, dy) end
-      pagerCard(self, CARD_POS[4][1], CARD_POS[4][2], model)
-      if dy ~= 0 then G.pop() end
     end
   end
 
@@ -786,8 +798,10 @@ return function(H, ui, K)
     if marker then return "marker", marker end
     if model.mapFull then return nil end
     if model.selected then
-      if model.view == "wild" and x >= 166 and x < 224 and y >= 106 and y < 122 and (model.detailPages or 1) > 1 then
-        return x < 195 and "detail_prev" or "detail_next"
+      if model.view == "wild" and (model.detailPages or 1) > 1 and y >= 103 and y < 123 then
+        local px, rx = pagerRects(226, 105)
+        if x >= px - 2 and x < px + PAGER_KEY + 2 then return "detail_prev" end
+        if x >= rx - 2 and x < rx + PAGER_KEY + 2 then return "detail_next" end
       end
       return nil
     end
@@ -796,18 +810,26 @@ return function(H, ui, K)
         local tx, tw = tabRect(i)
         if x >= tx and x < tx + tw then
           if view ~= model.view then return view end
-          -- tapping the active WILD tab flips HERE / ALL
-          if view == "wild" then return model.wildScope == "ROUTE" and "wild_here" or "wild_route" end
           return nil
         end
       end
       return nil
     end
+    if y >= STRIP_Y - 2 and y < STRIP_Y + STRIP_H + 1 then
+      if model.view == "wild" and x >= MAP_X + 5 and x < MAP_X + 83 then
+        local route = x >= MAP_X + 45
+        if route ~= (model.wildScope == "ROUTE") then return route and "wild_route" or "wild_here" end
+        return nil
+      end
+      if model.pages > 1 then
+        local px, rx = pagerRects(MAP_X + MAP_W - 5, STRIP_Y - 1)
+        if x >= px - 2 and x < px + PAGER_KEY + 2 then return "prev" end
+        if x >= rx - 2 and x < rx + PAGER_KEY + 2 then return "next" end
+      end
+      return nil
+    end
     for index, pos in ipairs(CARD_POS) do
-      if x >= pos[1] and x < pos[1] + CARD_W and y >= pos[2] and y < pos[2] + CARD_H then
-        if model.pages > 1 and index == 4 then
-          return x < pos[1] + floor(CARD_W / 2) and "prev" or "next"
-        end
+      if x >= pos[1] and x < pos[1] + CARD_W and y >= pos[2] - 1 and y < pos[2] + CARD_H + 1 then
         if model.rows and model.rows[index] then return "row", index end
       end
     end

@@ -32,7 +32,7 @@ for _, skin in ipairs({ "pokegear", "cgear" }) do
   for _, dark in ipairs({ false, true }) do
     theme:setVariant(dark)
     local function hit(x, y) return theme:explorerHit(x / 1.5, y / 1.5, model) end
-    T.eq(hit(50, 128), "wild_route", "Wild folder switches scope in the sandbox")
+    T.eq(hit(70, 146), "wild_route", "HERE / ALL switch changes scope in the sandbox")
     T.eq(hit(120, 128), "trainers", "Trainers folder uses the new map frame")
     T.eq(hit(210, 128), "items", "Items folder uses the new map frame")
     local action, index = hit(210, 196)

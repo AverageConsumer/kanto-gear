@@ -1132,7 +1132,8 @@ function love.load()
       local scanActive = os.getenv("KANTO_GEAR_PREVIEW_SCAN") == "1"
       local explorerModel = {
         view = view, selected = selected, rows = rows, total = #sourceRows,
-        page = 1, pages = math.max(1, math.ceil(#sourceRows / perPage)),
+        page = 1, pages = tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGES") or "")
+          or math.max(1, math.ceil(#sourceRows / perPage)),
         perPage = perPage,
         route = data.route,
         subarea = data.subarea,
@@ -1234,12 +1235,11 @@ function love.load()
         return
       end
       if view == "wild" and not selected then
-        softAssert(theme:explorerHit(50 * sx, 150 * sx, explorerModel)
-            == "wild_here"
-          and theme:explorerHit(125 * sx, 150 * sx, explorerModel)
+        softAssert(theme:explorerHit(30 * sx, 146 * sx, explorerModel) == nil
+          and theme:explorerHit(70 * sx, 146 * sx, explorerModel)
             == "wild_route"
-          and theme:explorerHit(50 * sx, 185 * sx, explorerModel) == "row"
-          and theme:explorerHit(210 * sx, 150 * sx, explorerModel)
+          and theme:explorerHit(50 * sx, 170 * sx, explorerModel) == "row"
+          and theme:explorerHit(219 * sx, 146 * sx, explorerModel)
             == (explorerModel.pages > 1 and "next" or nil)
           and mapMarkerIsReachable("item")
           and mapMarkerIsReachable("trainer")
@@ -1247,7 +1247,7 @@ function love.load()
             or actionIsReachable("player_scan")),
           "Explorer gallery and map markers are interactive")
       elseif view == "wild" then
-        softAssert(theme:explorerHit(210 * sx, 114 * sx, explorerModel)
+        softAssert(theme:explorerHit(217 * sx, 112 * sx, explorerModel)
             == (explorerModel.detailPages > 1 and "detail_next" or nil),
           "habitat details expose every exact encounter condition")
       elseif selected then
