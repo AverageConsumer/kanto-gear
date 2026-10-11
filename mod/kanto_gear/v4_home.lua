@@ -359,14 +359,19 @@ return function(H, ui, K)
   function H:homePlus(tile)
     local x, y, w, h = self:homeRect(tile)
     local pressed = self:beginPress(x, y, w, h)
-    local c = cg(self) and self.tok.border or self.colors.silverDark
-    if cg(self) then
-      CH(x, y, w, h, 6, c); CH(x + 1, y + 1, w - 2, h - 2, 5, self.colors.bandLight)
-    else
-      RR(x, y, w, h, 4, c); RR(x + 1, y + 1, w - 2, h - 2, 3, self.colors.bandLight)
-    end
+    local colors = self.colors
+    local c = cg(self) and self.tok.acc.M or colors.silverDark
+    -- an empty slot is a dashed outline on a translucent tray, not a card
+    K.setc({ colors.surface[1], colors.surface[2], colors.surface[3], 0.35 })
+    ui.graphics.rectangle("fill", x + 1, y + 1, w - 2, h - 2)
+    for dx = x + 3, x + w - 5, 6 do R(dx, y, 3, 1, c); R(dx, y + h - 1, 3, 1, c) end
+    for dy = y + 3, y + h - 5, 6 do R(x, dy, 1, 3, c); R(x + w - 1, dy, 1, 3, c) end
+    R(x, y, 2, 1, c); R(x, y, 1, 2, c); R(x + w - 2, y, 2, 1, c); R(x + w - 1, y, 1, 2, c)
+    R(x, y + h - 1, 2, 1, c); R(x, y + h - 2, 1, 2, c); R(x + w - 2, y + h - 1, 2, 1, c); R(x + w - 1, y + h - 2, 1, 2, c)
     local cx, cy = x + floor(w / 2), y + floor(h / 2)
-    R(cx - 5, cy - 1, 11, 3, c); R(cx - 1, cy - 5, 3, 11, c)
+    CIRC(cx - 9, cy - 9, 19, c)
+    CIRC(cx - 8, cy - 8, 17, colors.surface)
+    R(cx - 4, cy - 1, 9, 3, c); R(cx - 1, cy - 4, 3, 9, c)
     self:endPress(pressed)
   end
 

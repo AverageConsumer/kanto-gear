@@ -1,4 +1,6 @@
 return {
+  ["TOOL"] = "REQUIS",
+  ["BERRY TREE"] = "ARBRE À BAIES",
   ["COMPANION"] = false,
   ["START GAME"] = "COMMENCER",
   ["TAP TO CONTINUE"] = "TOUCHER POUR AVANCER",

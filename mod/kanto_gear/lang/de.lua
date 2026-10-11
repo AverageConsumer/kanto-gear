@@ -1,4 +1,6 @@
 return {
+  ["TOOL"] = "NÖTIG",
+  ["BERRY TREE"] = "BEERENBAUM",
   ["RUBY"] = "RUBIN",
   ["SAPPHIRE"] = "SAPHIR",
   ["SHOW INSIDE"] = "INNEN ANZEIGEN",

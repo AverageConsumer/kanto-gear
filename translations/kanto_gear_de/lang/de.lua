@@ -1,4 +1,6 @@
 return {
+  ["TOOL"] = "NÖTIG",
+  ["BERRY TREE"] = "BEERENBAUM",
   -- Start, navigation and common controls.
   ["START GAME"] = "SPIEL STARTEN",
   ["TAP TO CONTINUE"] = "ZUM STARTEN TIPPEN",

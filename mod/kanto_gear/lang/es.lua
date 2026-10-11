@@ -1,4 +1,6 @@
 return {
+  ["TOOL"] = "FALTA",
+  ["BERRY TREE"] = "ÁRBOL BAYA",
   ["COMPANION"] = false,
   ["RUBY"] = "RUBÍ",
   ["SAPPHIRE"] = "ZAFIRO",

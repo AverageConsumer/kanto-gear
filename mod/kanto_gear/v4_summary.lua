@@ -212,13 +212,19 @@ return function(H, ui, K)
   function H:summaryTrainerMemo(mon)
     local colors = self.colors
     window(self, 6, 63, 228, 62, colors.blueLight)
-    ruled(self, 6, 63, 228, 62, 22)
+    ruled(self, 6, 63, 228, 62, 26)
     self:partyInfo(mon.memoTitle or translate("TRAINER MEMO"), 24, 66, colors.green)
-    self:partyInfo(mon.otLabel or translate("ORIGINAL TRAINER"), 24, 84, colors.mutedInk)
-    self:partyName(mon.otText or "---", 24, 97, colors.ink, 104)
-    R(136, 84, 1, 32, colors.band)
-    self:partyInfo(mon.idLabel or translate("ID NO."), 144, 84, colors.mutedInk)
-    self:partyName(mon.idText or "00000", 144, 97, colors.ink, 80)
+    -- text sits on the notebook rules (rules at 89, 102, 115)
+    self:partyInfo(mon.otLabel or translate("ORIGINAL TRAINER"), 24, 80, colors.mutedInk)
+    self:partyName(mon.otText or "---", 24, 92, colors.ink, 104)
+    R(136, 80, 1, 34, colors.band)
+    self:partyInfo(mon.idLabel or translate("ID NO."), 144, 80, colors.mutedInk)
+    self:partyName(mon.idText or "00000", 144, 92, colors.ink, 80)
+    -- a little OT stamp in the corner
+    local sx, sy = 206, 99
+    K.RING(sx, sy, 20, 2, mix(colors.surface, colors.red, self.dark and 0.55 or 0.45))
+    R(sx + 6, sy + 9, 8, 2, mix(colors.surface, colors.red, self.dark and 0.55 or 0.45))
+    R(sx + 9, sy + 6, 2, 8, mix(colors.surface, colors.red, self.dark and 0.55 or 0.45))
   end
 
   function H:summaryGrowthMemo(mon)

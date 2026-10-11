@@ -1,4 +1,6 @@
 return {
+  ["TOOL"] = "FALTA",
+  ["BERRY TREE"] = "ÁRBOL BAYA",
   ["COMPANION"] = false,
   -- Traducción al español de España de Kanto Gear.
   -- Las claves originales y los marcadores %s/%d/%% se mantienen sin cambios.

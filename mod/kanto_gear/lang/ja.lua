@@ -1,4 +1,6 @@
 return {
+  ["TOOL"] = "どうぐ",
+  ["BERRY TREE"] = "きのみのき",
   ["RUBY"] = "ルビー",
   ["SAPPHIRE"] = "サファイア",
   ["NPC TRADE"] = false,
