@@ -1,4 +1,5 @@
 return {
+  ["UNKNOWN ITEM"] = "UNBEKANNTES ITEM",
   ["NONE HERE"] = "KEINE HIER",
   ["NEST"] = "NEST",
   ["HOW IT EVOLVES"] = "ENTWICKLUNG",

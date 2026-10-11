@@ -45,6 +45,14 @@ check(i18n:text("PIKACHU") == "PIKACHU",
 
 selected = "de"
 check(i18n:text("UNTRANSLATED UI") == "UNTRANSLATED UI", "missing UI falls back to English")
+catalogs.de["PENDING TRANSLATION"] = false
+catalogs.de["EMPTY TRANSLATION"] = ""
+check(i18n:text("PENDING TRANSLATION") == "PENDING TRANSLATION", "false translation falls back to English")
+check(i18n:text("EMPTY TRANSLATION") == "EMPTY TRANSLATION", "empty translation falls back to English")
+local missing = table.concat(i18n:coverage("de"), "|")
+check(missing:find("PENDING TRANSLATION", 1, true) and missing:find("EMPTY TRANSLATION", 1, true),
+  "untranslated placeholders remain visible in coverage")
+catalogs.de["PENDING TRANSLATION"], catalogs.de["EMPTY TRANSLATION"] = nil, nil
 catalogs.de["%s %d"] = "%d %s"
 check(i18n:format("%s %d", "25", 3) == "25 3", "reordered specifiers cannot silently corrupt values")
 catalogs.de["%s %d"] = "%s"
@@ -60,7 +68,7 @@ local function signature(value)
 end
 for code, catalog in pairs(catalogs) do
   for key, value in pairs(catalog) do
-    if signature(key) ~= "" then
+    if type(value) == "string" and signature(key) ~= "" then
       check(signature(key) == signature(value), code .. " format signature: " .. key)
     end
   end
@@ -69,13 +77,13 @@ end
 local reference, referenceCount = catalogs.de, 0
 for key, value in pairs(catalogs.ja) do
   check(reference[key] ~= nil, "ja has no unknown key: " .. key)
-  check(type(value) == "string" and value ~= "", "ja has a non-empty value: " .. key)
+  check(value == false or type(value) == "string" and value ~= "", "ja has a translation or an explicit fallback: " .. key)
 end
 for key in pairs(reference) do referenceCount = referenceCount + 1 end
 local pendingPath = root .. "/../../translations/ja-missing.lua"
 local pending = assert(loadfile(pendingPath))()
 for key in pairs(reference) do
-  check((catalogs.ja[key] == nil) == (pending[key] == false), "Japanese completion file matches coverage: " .. key)
+  check((type(catalogs.ja[key]) ~= "string") == (pending[key] == false), "Japanese completion file matches coverage: " .. key)
 end
 for key in pairs(pending) do check(reference[key] ~= nil, "Japanese completion key exists: " .. key) end
 
@@ -84,8 +92,8 @@ for _, language in ipairs({ "es", "fr" }) do
   for key, value in pairs(catalogs[language]) do
     count = count + 1
     check(reference[key] ~= nil, language .. " has no extra key: " .. key)
-    check(type(value) == "string" and value ~= "",
-      language .. " has a non-empty value: " .. key)
+    check(value == false or type(value) == "string" and value ~= "",
+      language .. " has a translation or an explicit fallback: " .. key)
   end
   check(count == referenceCount, language .. " catalog key count matches")
   for key in pairs(reference) do
@@ -124,11 +132,15 @@ end
 
 -- Every translated glyph must survive the classic renderer as well as HGSS.
 local font = assert(loadstring("return " .. assert(mainSource:match("local FONT = (%b{})"))))()
+local normalization = assert(mainSource:match("(local function glyphList.-)local function clean"))
+local normalize = assert(loadstring("local FONT = ...; " .. normalization .. " return normalize"))(font)
 for code, catalog in pairs(catalogs) do
   local characters = {}
   for _, value in pairs(catalog) do
-    for glyph in value:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
-      characters[glyph] = true
+    if type(value) == "string" then
+      for glyph in normalize(value):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+        characters[glyph] = true
+      end
     end
   end
   for glyph in pairs(characters) do

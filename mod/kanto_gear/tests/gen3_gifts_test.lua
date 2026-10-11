@@ -567,6 +567,19 @@ local function explorerModel()
   explorer.data, explorer.renderModel = nil, nil
   return display.explorerModel(overview)
 end
+local function offersOnMap(mapId)
+  local rows, previous = {}, explorer.page
+  explorer.page = 1
+  local pages = explorerModel().pages
+  for page = 1, pages do
+    explorer.page = page
+    for _, row in ipairs(explorerModel().rows) do
+      if row.mapId == mapId then rows[#rows + 1] = row end
+    end
+  end
+  explorer.page = previous
+  return rows
+end
 local function find(rows, receipt) for _, r in ipairs(rows) do if r.event == receipt then return r end end end
 local presented = assert(find(explorerModel().rows, offer.source.event))
 check(presented.method == "NPC GIFT", "Explorer presents a ready native gift")
@@ -648,7 +661,7 @@ if edition == "emerald" then
   display.gen3:refresh()
   check(#explorerModel().rows == 0, "caught fossil leaves immediate hunting offers")
   explorer.filters.wildScope = "ROUTE"
-  local rows = explorerModel().rows
+  local rows = offersOnMap(offer.map)
   check(#rows == 2, "WHOLE ROUTE retains both separate Emerald fossil goals")
   for _, row in ipairs(rows) do check(row.done == (row.species == 390), "catching one fossil does not complete the other") end
   session.dex.caught[390], session.dex.owned[390] = nil, nil
@@ -671,7 +684,12 @@ if edition ~= "emerald" then
   session.coins = 0
   check(#explorerModel().rows == 0, "HERE NOW hides prizes without enough coins")
   explorer.filters.wildScope = "ROUTE"
-  check(explorerModel().total == 5, "WHOLE ROUTE retains five unavailable prize catch goals")
+  local prizes = offersOnMap(offer.map)
+  check(#prizes == 5, "WHOLE ROUTE retains five unavailable prize catch goals within the whole city")
+  for _, row in ipairs(prizes) do
+    check(row.method == "NPC OFFER" and row.coinCost > 0 and not row.available,
+      "whole-city prize rows retain their method, price and unavailable state")
+  end
   session.coins = 9999
   explorer.filters.wildScope = "HERE"
   if os.getenv("KANTO_GEAR_PREVIEW_CASINO") ~= "1" then offer = original; session.map = offer.map end

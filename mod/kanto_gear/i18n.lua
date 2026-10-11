@@ -43,7 +43,7 @@ function I18N:text(key)
   local language = self:language()
   if language == "en" then return key end
   local translated = self.catalogs[language][key]
-  if translated == nil then
+  if type(translated) ~= "string" or translated == "" then
     return key
   end
   return translated
@@ -64,7 +64,7 @@ function I18N:coverage(language)
   if language ~= "en" then
     local catalog = self.catalogs[language] or {}
     for key in pairs(self.requested) do
-      if catalog[key] == nil then missing[#missing + 1] = key end
+      if type(catalog[key]) ~= "string" or catalog[key] == "" then missing[#missing + 1] = key end
     end
   end
   table.sort(missing)

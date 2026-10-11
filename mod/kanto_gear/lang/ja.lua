@@ -1,4 +1,5 @@
 return {
+  ["UNKNOWN ITEM"] = false,
   ["NONE HERE"] = "いない",
   ["NEST"] = "すみか",
   ["HOW IT EVOLVES"] = "しんかの しかた",
