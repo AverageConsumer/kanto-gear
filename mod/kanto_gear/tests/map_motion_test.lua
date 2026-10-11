@@ -185,19 +185,20 @@ do
 end
 local homeModel = { page = 1, overview = overview,
   tiles = { { widget = "explorer", column = 1, row = 1, columns = 7 } } }
--- The NOW rail changes the viewport; redraw sampling must use the exact
--- layout that is painted, including at fractional player positions.
+-- The NOW window sits on the map; redraw sampling must use the exact layout
+-- that is painted, including at fractional player positions, and a
+-- movement-only repaint must put the window back on top of the map.
 do
   local h = theme.hgss
-  local drawMap, drawRail = h.mapOverview, h.homeNowRail
-  local railDraws, layout = 0, nil
+  local drawMap, drawCorner = h.mapOverview, h.homeNowCorner
+  local cornerDraws, layout = 0, nil
   h.mapOverview = function(self, ...)
     layout = drawMap(self, ...)
     return layout
   end
-  h.homeNowRail = function(self, ...)
-    railDraws = railDraws + 1
-    return drawRail(self, ...)
+  h.homeNowCorner = function(self, ...)
+    cornerDraws = cornerDraws + 1
+    return drawCorner(self, ...)
   end
   for _, skin in ipairs({ "pokegear", "cgear" }) do
     h:setSkin(skin)
@@ -211,12 +212,12 @@ do
         math.floor(layout.top + pos.y * layout.tileSize + 0.5), pos.facing }, ":")
       T.eq(h:homeMotionKey(homeModel, pos), expected,
         skin .. " movement key matches the painted viewport with NOW=" .. tostring(rail))
-      local before = railDraws
+      local before = cornerDraws
       h:homeExplorerMap(homeModel, homeModel.tiles[1], true)
-      T.eq(railDraws, before, "movement-only repaint leaves the NOW rail untouched")
+      T.eq(cornerDraws, before + (rail and 1 or 0), "movement-only repaint keeps the NOW window on top")
     end
   end
-  h.mapOverview, h.homeNowRail = drawMap, drawRail
+  h.mapOverview, h.homeNowCorner = drawMap, drawCorner
   h:setSkin("pokegear")
   homeModel.nowRows, homeModel.player = nil, nil
 end
@@ -502,6 +503,37 @@ do
   display.clearExplorerSnapshot()
   T.check(snapshot.canvas.released, "closing/reopening releases the viewport cache")
   love.graphics.setCanvas()
+end
+-- The corner portrait clips in physical pixels and preserves its parent clip.
+do
+  local G = love.graphics
+  local saved = { push = G.push, pop = G.pop, transformPoint = G.transformPoint,
+    intersectScissor = G.intersectScissor }
+  local parent, current, stack, clipped = { 0, 0, 400, 300 }, nil, {}, nil
+  current = parent
+  G.push = function(mode)
+    T.eq(mode, "all", "corner saves all graphics state")
+    stack[#stack + 1] = current
+  end
+  G.pop = function() current = table.remove(stack) end
+  G.transformPoint = function(x, y) return 11 + x * 3, 17 + y * 3 end
+  G.intersectScissor = function(x, y, w, h)
+    clipped = { x, y, w, h }; current = clipped
+  end
+  local drawn = 0
+  theme.hgss:homeNowCorner({ nowRows = { {}, {} }, drawNowIcon = function()
+    drawn = drawn + 1
+    T.eq(current, clipped, "portrait draws inside the corner clip")
+  end }, 10, 20, 80, 60)
+  T.eq(drawn, 1, "corner draws one portrait")
+  T.eq(clipped[1], 191, "corner clip follows horizontal display transform")
+  T.eq(clipped[2], 158, "corner clip follows vertical display transform")
+  T.eq(clipped[3], 84, "corner clip scales its width")
+  T.eq(clipped[4], 93, "corner clip scales its height")
+  T.eq(current, parent, "corner restores the surrounding map clip")
+  T.eq(#stack, 0, "corner balances graphics pushes")
+  for name, fn in pairs(saved) do G[name] = fn end
+  G.transformPoint, G.intersectScissor = saved.transformPoint, saved.intersectScissor
 end
 run.release()
 T.finish("Kanto Gear map motion")

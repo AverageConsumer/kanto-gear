@@ -301,52 +301,54 @@ return function(H, ui, K)
       cg(self) and tok.acc.M or (accent and accent.Hi or tok.acc.Hi), sw)
   end
 
-  -- With the field guide on, the widget's bottom edge becomes a "NOW" rail:
-  -- the Pokémon that can appear on this map at this time, like the Pokétch
-  -- dowsing/radar apps. The rail sits beside the map, never over it, so
-  -- movement-only repaints (retained) never touch it.
-  local NOW_H = 15
+  -- The map fills the widget below its header.
   function H:homeExplorerRect(model, tile)
     local x, y, w, h = self:homeRect(tile)
-    local mx, my, mw, mh = x + 5, y + 22, w - 10, h - 27
-    if model.nowRows and mh >= 44 then
-      return mx, my, mw, mh - NOW_H - 2, true
-    end
-    return mx, my, mw, mh, false
+    return x + 5, y + 22, w - 10, h - 27, false
   end
 
-  function H:homeNowRail(model, x, y, w)
-    local tok, colors = self.tok, self.colors
+  local function nowSprite(model, row, x, y)
+    if not model.drawNowIcon then return end
+    if model.nowIconBox then model.drawNowIcon(row, x - 4, y - 6, 32, false)
+    else model.drawNowIcon(row, x + 1, y + 1, 22, false) end
+  end
+  local function caughtBall(row, x, y)
+    if row.caught then ART(K.BALL, x, y, { o = hex("101010"), r = hex("f05040"), w = hex("f8f8f8") }) end
+  end
+
+  -- With the field guide on, a small window in the map's corner shows who
+  -- can appear here right now, one Pokémon at a time at a readable size
+  -- (Gen 3 menu icons 1:1, older games' front sprites), stepping through
+  -- them every 2.5 s; caught ones carry a ball. The map keeps its full size.
+  function H:homeNowCorner(model, mx, my, mw, mh)
     local rows = model.nowRows or {}
-    if cg(self) then
-      CH(x - 1, y, w + 2, NOW_H, 2, tok.border)
-      CH(x, y + 1, w, NOW_H - 2, 1, colors.surface)
-    else
-      RR(x - 1, y, w + 2, NOW_H, 3, colors.outline)
-      RR(x, y + 1, w, NOW_H - 2, 2, colors.surface)
-      R(x + 2, y + 1, w - 4, 1, mix(colors.surface, WHITE, 0.5))
+    if #rows == 0 then return end
+    local colors = self.colors
+    local t = self.motionEnabled == false and 0 or self:clock()
+    local index = floor(t / 2.5) % #rows + 1
+    if #rows > 1 then self:wantAmbient(2.5 - (t % 2.5)) end
+    local row = rows[index]
+    local s = 28
+    local bx, by = mx + mw - s - 2, my + mh - s - 2 - (#rows > 1 and 3 or 0)
+    if cg(self) then CH(bx - 1, by - 1, s + 2, s + 2 + (#rows > 1 and 4 or 0), 3, colors.outline); CH(bx, by, s, s + (#rows > 1 and 4 or 0), 2, colors.surface)
+    else RR(bx - 1, by - 1, s + 2, s + 2 + (#rows > 1 and 4 or 0), 4, colors.outline); RR(bx, by, s, s + (#rows > 1 and 4 or 0), 3, colors.surface) end
+    local G = ui.graphics
+    G.push("all")
+    local left, top, right, bottom = bx, by, bx + s, by + s + 3
+    if G.transformPoint then
+      left, top = G.transformPoint(left, top)
+      right, bottom = G.transformPoint(right, bottom)
     end
-    local accent = cg(self) and tok.acc.M or colors.green
-    local pw = self:v4Pill("NOW", x + 2, y + 2, accent)
-    local left, right = x + 2 + pw + 3, x + w - 3
-    if #rows == 0 then
-      self:partyType(self:fitPartyType(translate("NONE HERE"), right - left),
-        left, y + 2, colors.mutedInk or colors.silverDark, right - left)
-      return
-    end
-    -- seats are spread across the free run so the group stays centred
-    local seat, n = 16, #rows
-    local gap = n > 1 and min(6, floor((right - left - n * seat) / (n - 1))) or 0
-    local run = n * seat + (n - 1) * gap
-    local sx = left + floor((right - left - run) / 2)
-    for i, row in ipairs(rows) do
-      local cx = sx + (i - 1) * (seat + gap)
-      if model.drawNowIcon then
-        model.drawNowIcon(row, cx, y - 1, seat, not row.caught)
-      end
-      if row.caught then
-        ART(K.BALL, cx + seat - 5, y + NOW_H - 9, {
-          o = hex("101010"), r = hex("f05040"), w = hex("f8f8f8") })
+    if G.intersectScissor then G.intersectScissor(left, top, right - left, bottom - top)
+    else G.setScissor(left, top, right - left, bottom - top) end
+    nowSprite(model, row, bx + 3, by + 3)
+    G.pop()
+    caughtBall(row, bx + s - 7, by + s - 8)
+    if #rows > 1 then
+      local dw = min(#rows, 6) * 4 - 2
+      local dx = bx + floor((s - dw) / 2)
+      for i = 1, min(#rows, 6) do
+        R(dx + (i - 1) * 4, by + s + 1, 2, 2, i == index and (cg(self) and self.tok.acc.M or colors.green) or colors.band)
       end
     end
   end
@@ -361,6 +363,8 @@ return function(H, ui, K)
         image = model.image, player = model.player, markers = model.markers,
         drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
       })
+      -- the corner window sits on the map, so it is repainted with it
+      if model.nowRows then self:homeNowCorner(model, mx, my, mw, mh) end
       return
     end
     if cg(self) then
@@ -374,7 +378,7 @@ return function(H, ui, K)
       drawPlayer = model.drawPlayer, drawTrainer = model.drawTrainer,
     })
     R(mx, my, mw, 1, { 0, 0, 0, 0.28 }); R(mx, my, 1, mh, { 0, 0, 0, 0.2 })
-    if rail then self:homeNowRail(model, mx, my + mh + 2, mw) end
+    if model.nowRows then self:homeNowCorner(model, mx, my, mw, mh) end
   end
 
   -- Trainer widget: card icon at 1:1, name + region, badge row, money/time.

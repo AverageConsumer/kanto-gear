@@ -500,6 +500,8 @@ function love.load()
   local regionMap = screen == "region_map" or regionMapFly
   local startMenu = screen == "start_menu" or screen == "start_menu_more"
     or screen == "start_menu_early"
+  local pokenavMenu = screen == "pokenav" or screen == "pokenav_condition" or screen == "pokenav_search"
+    or screen == "pokenav_early" or screen == "pokenav_mc"
   local legacyChoice = screen == "legacy_choice"
   local legacyChoiceGrid = screen == "legacy_choice_grid"
   local legacyNaming = screen == "legacy_naming"
@@ -533,7 +535,7 @@ function love.load()
   local legacy = startMenu or legacyChoice or legacyChoiceGrid or legacyNaming
     or legacyLevelUp or legacyMoveNew or legacyMoveForget or legacyMoveInfo
     or legacyEnemy or legacyPc or legacyPpMoves
-  local legacyBack = startMenu or legacyMoveForget or legacyMoveInfo
+  local legacyBack = startMenu or pokenavMenu or legacyMoveForget or legacyMoveInfo
     or legacyEnemy and not legacyEnemyInfo or legacyPc and not legacyPcRoot
     or legacyPpMoves
   local pokedexIndex = screen == "pokedex"
@@ -604,6 +606,7 @@ function love.load()
     or explorer and "EXPLORER"
     or regionMap and (gen1 and "KANTO MAP" or "JOHTO MAP")
     or startMenu and "CHOOSE ACTION"
+    or pokenavMenu and "POKéNAV"
     or legacyNaming and "NAME INPUT"
     or legacyLevelUp and "LEVEL UP"
     or legacyMoveNew and "NEW MOVE"
@@ -1890,6 +1893,27 @@ function love.load()
       native.items = { native.items[2], native.items[3], native.items[#native.items - 1] }
     end
     theme:startMenu(menu.model(native))
+  elseif pokenavMenu then
+    -- Emerald PokéNav menus; rectangles mirror gen3_ui.lua's projection
+    local rows = screen == "pokenav" and {
+        { "HOENN MAP", "pn_map" }, { "CONDITION", "pn_condition" }, { "MATCH CALL", "pn_matchcall" },
+        { "RIBBONS", "pn_ribbons" }, { "SWITCH OFF", "pn_off" } }
+      or screen == "pokenav_condition" and { { "PARTY", "pn_party" }, { "SEARCH", "pn_search" }, { "CANCEL", "pn_back" } }
+      or { { "COOL", "pn_cool" }, { "BEAUTY", "pn_beauty" }, { "CUTE", "pn_cute" },
+        { "SMART", "pn_smart" }, { "TOUGH", "pn_tough" }, { "CANCEL", "pn_back" } }
+    if screen == "pokenav_early" then rows = { { "HOENN MAP", "pn_map" }, { "CONDITION", "pn_condition" }, { "SWITCH OFF", "pn_off" } }
+    elseif screen == "pokenav_mc" then rows = { { "HOENN MAP", "pn_map" }, { "CONDITION", "pn_condition" },
+      { "MATCH CALL", "pn_matchcall" }, { "SWITCH OFF", "pn_off" } } end
+    local help = (screen == "pokenav" or screen == "pokenav_early" or screen == "pokenav_mc") and "Check the map of the HOENN region."
+      or screen == "pokenav_condition" and "Check the condition of your party POKéMON."
+      or "Search for POKéMON with high COOL condition."
+    local Gen3UI = assert(loadfile(root .. "/mod/kanto_gear/gen3_ui.lua"))()
+    local entries = {}
+    for i, row in ipairs(rows) do
+      local r = Gen3UI.pokenavRect(i, #rows)
+      entries[i] = { label = row[1], kind = row[2], selected = i == 1, x = r[1], y = r[2], w = r[3], h = r[4] }
+    end
+    theme:pokenavMenu({ entries = entries }, help, false)
   elseif legacyChoice then
     local Page = assert(loadfile(root .. "/mod/kanto_gear/choice_page.lua"))()
     theme:choiceScreen(Page.model({}, { "YES", "NO" },

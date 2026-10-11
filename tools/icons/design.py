@@ -527,3 +527,155 @@ def c_system():
     c.fill(c.mask_circle(8,8,5.4)|teeth,'#40b0a0')
     c.fill(c.mask_circle(8,8,2.4),'#f8f8f8',shade=False)
     return c
+
+# ---------------- PokéNav (Ruby/Sapphire/Emerald) ----------------
+@reg
+def pn_map():
+    c=C()
+    # Hoenn at a glance: sea, a long island with a mountain, a pin
+    c.fill(c.mask_rrect(1,3,22,18,3),'#58a8e0')
+    c.flat({(4,7),(5,7),(17,17),(18,17),(19,6),(20,6)},'#88c8f0')
+    isl=c.mask_poly([(3,15),(6,9),(11,7),(16,9),(19,13),(15,17),(8,18)])
+    c.fill(isl,'#88c860')
+    c.fill(c.mask_poly([(9,13),(12,8),(15,13)]),'#a08060')
+    c.flat({(12,9),(11,10),(12,10)},'#f8f8f8')
+    c.flat(c.mask_line(5,15,9,14,1),'#f0d890'); c.flat(c.mask_line(15,14,18,13,1),'#f0d890')
+    pin=c.mask_circle(17.5,6.5,4.2)|c.mask_poly([(14.6,8.5),(20.4,8.5),(17.5,14)])
+    c.fill(pin,'#f05040')
+    c.fill(c.mask_circle(17.5,6.5,1.7),'#ffffff',shade=False,outline=False)
+    return c
+
+@reg
+def pn_condition():
+    c=C()
+    # the condition pentagon: frame, five-coloured sheen, filled stats
+    pts=[(12+math.sin(k*2*math.pi/5)*10,12.5-math.cos(k*2*math.pi/5)*10) for k in range(5)]
+    c.fill(c.mask_poly(pts),'#f0f0f8')
+    inner=[(12+math.sin(k*2*math.pi/5)*r,12.5-math.cos(k*2*math.pi/5)*r) for k,r in enumerate((8,5,7,4,6.5))]
+    c.fill(c.mask_poly(inner),'#e868a8',outline=False)
+    cols=['#e85030','#3880e8','#f080b0','#48b048','#e8c030']
+    for k,(x,y) in enumerate(pts):
+        c.flat(c.mask_circle(x,y,1.6),cols[k])
+    return c
+
+@reg
+def pn_matchcall():
+    c=C()
+    # PokéNav handset with signal waves
+    c.fill(c.mask_rrect(2,7,12,16,3),'#e86030')
+    c.fill(c.mask_rect(4,10,8,6),'#c4f0b0',shade=False)
+    c.flat({(5,12),(6,12),(7,12),(5,14),(6,14)},'#2b4d3b')
+    c.fill(c.mask_circle(8,19.5,1.8),'#f8f0e0',shade=False)
+    for k,r in enumerate((3.5,6.5,9.5)):
+        ring=c.mask_ring(13,10,r,1.3)
+        c.flat({(i,j) for (i,j) in ring if i>=14 and j<=9 and i<24 and j>=0},'#2890e0' if k<2 else '#68b8f0')
+    return c
+
+@reg
+def pn_eyes():
+    c=C()
+    # Trainer's Eyes: an eye with a red iris
+    eye=c.mask_ellipse(12,12,10.5,6.5)
+    c.fill(eye,'#f8f8f8')
+    c.fill(c.mask_circle(12,12,5),'#e04838')
+    c.fill(c.mask_circle(12,12,2.4),'#302830',shade=False,outline=False)
+    c.flat({(10,10),(11,10),(10,9)},'#ffffff')
+    return c
+
+@reg
+def pn_ribbons():
+    c=C()
+    # ribbon rosette with two tails
+    c.fill(c.mask_poly([(8,12),(5,22),(9,20),(11,13)]),'#3880e8')
+    c.fill(c.mask_poly([(16,12),(19,22),(15,20),(13,13)]),'#3880e8')
+    petals=set()
+    for k in range(10):
+        a=k*math.pi/5
+        petals|=c.mask_circle(12+math.cos(a)*6.4,9.5+math.sin(a)*6.4,2.6)
+    c.fill(petals|c.mask_circle(12,9.5,6.4),'#f8c838')
+    c.fill(c.mask_circle(12,9.5,3.6),'#e86030')
+    c.flat({(11,8),(12,8)},'#f8b090')
+    return c
+
+@reg
+def pn_off():
+    c=C()
+    # power key: red disc with the standby symbol
+    c.fill(c.mask_circle(12,12,10),'#e04838')
+    ring=c.mask_ring(12,13,6,1.8)
+    gap={(i,j) for (i,j) in ring if j<10 and abs(i+0.5-12)<3.2}
+    c.flat(ring-gap,'#f8f8f8')
+    c.flat(c.mask_rect(11,5,2,8),'#f8f8f8')
+    return c
+
+@reg
+def pn_party():
+    c=C()
+    def ball(cx,cy,r):
+        m=c.mask_circle(cx,cy,r); c.fill(m,'#f8f8f8')
+        c.fill({p for p in m if p[1]+0.5<cy},'#e84838',outline=False)
+        for (i,j) in m:
+            if abs(j+0.5-cy)<0.8: c.px[j][i]=OUT
+        edge={(i,j) for (i,j) in m if any((i+di,j+dj) not in m for di,dj in ((1,0),(-1,0),(0,1),(0,-1)))}
+        for (i,j) in edge: c.px[j][i]=OUT
+        c.fill(c.mask_circle(cx,cy,1.6),'#f8f8f8',shade=False)
+    ball(7,15,5.5); ball(17,15,5.5); ball(12,8,5.5)
+    return c
+
+@reg
+def pn_search():
+    c=C()
+    c.fill(c.mask_line(15,15,21,21,3.2),'#8a6040')
+    c.fill(c.mask_circle(10,10,7.5),'#5a6c88')
+    c.fill(c.mask_circle(10,10,5),'#b8e0f8')
+    c.flat({(8,7),(7,8),(8,8)},'#ffffff')
+    return c
+
+@reg
+def pn_back():
+    c=C()
+    # return arrow on a grey key
+    c.fill(c.mask_rrect(2,3,20,18,4),'#8a98b0')
+    arr=c.mask_poly([(5,11),(11,5),(11,9),(17,9),(17,17),(13,17),(13,13),(11,13),(11,17)])
+    c.flat(arr,'#f8f8f8')
+    return c
+
+def gem(c,col,shape):
+    if shape=='star':
+        pts=[]
+        for k in range(10):
+            r=10 if k%2==0 else 4.3; a=-math.pi/2+k*math.pi/5
+            pts.append((12+math.cos(a)*r,12.5+math.sin(a)*r))
+        c.fill(c.mask_poly(pts),col)
+    elif shape=='flower':
+        pet=set()
+        for k in range(5):
+            a=-math.pi/2+k*2*math.pi/5
+            pet|=c.mask_circle(12+math.cos(a)*5.5,12+math.sin(a)*5.5,4.2)
+        c.fill(pet,col); c.fill(c.mask_circle(12,12,3),'#f8d040')
+    elif shape=='heart':
+        m=c.mask_circle(8,9,5)|c.mask_circle(16,9,5)|c.mask_poly([(3.4,11),(20.6,11),(12,21)])
+        c.fill(m,col)
+    elif shape=='bulb':
+        c.fill(c.mask_circle(12,10,7.5),col)
+        c.fill(c.mask_rect(9,16,6,5),'#a8b0b8')
+        c.flat({(9,18),(10,18),(11,18),(12,18),(13,18),(14,18)},'#788088')
+        c.flat({(10,7),(9,8),(10,8)},'#ffffff')
+    elif shape=='shield':
+        c.fill(c.mask_poly([(4,4),(20,4),(20,12),(12,21),(4,12)]),col)
+        c.flat(c.mask_rect(11,6,2,11),'#f8f0d0'); c.flat(c.mask_rect(7,10,10,2),'#f8f0d0')
+    return c
+
+@reg
+def pn_cool(): return gem(C(),'#e85030','star')
+@reg
+def pn_beauty(): return gem(C(),'#3880e8','flower')
+@reg
+def pn_cute(): return gem(C(),'#f070a8','heart')
+@reg
+def pn_smart(): return gem(C(),'#48b048','bulb')
+@reg
+def pn_tough(): return gem(C(),'#e8b020','shield')
+
+if __name__=='__main__':
+    sheet([n for n in D if n.startswith('pn_')],scale=6).save('/home/claude/shots/pn_icons.png')

@@ -5673,6 +5673,8 @@ return function(mod)
           THEME.hgss:actionRow(entry.x, entry.y, entry.w, entry.h, label, kind, 0,
             THEME.hgss.nativeFocus and entry.selected)
         end
+      elseif top.pokenav and THEME.hgss.pokenavMenu then
+        THEME.hgss:pokenavMenu(model, top.pokenavHelp, top.pokenavRs)
       elseif top.party then
         THEME.hgss:partyBackdrop()
         THEME.hgss:partySelection(displayRuntime.startMenuPartyViews(top), hgssRuntime.summaryPortrait,
@@ -8509,9 +8511,13 @@ return function(mod)
       player = explorer.player, markers = explorer.markers,
       drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
       nowRows = overview and displayRuntime.homeNowRows(overview) or nil,
+      -- Gen 3 menu icons are 32px boxes and draw 1:1; older games pass sprites
+      nowIconBox = displayRuntime.gen3 ~= nil,
       drawNowIcon = function(row, x, y, size, dim)
         if not displayRuntime.gen3 then
-          return compat.drawPokemonIcon({ species = row.species }, x, y, size, dim and 0.55 or nil)
+          -- Gen 1/2 party icons are shared silhouettes; the rail needs the
+          -- species, so it uses the same front sprite as the Explorer app
+          return drawSprite(row.species, "front", x, y, size, size, dim and { 0.55, 0.55, 0.55, 1 } or nil)
         end
         local icon = displayRuntime.gen3.Pokemon.monIcon({ species = row.species })
         if icon and icon.image then
