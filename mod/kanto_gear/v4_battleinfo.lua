@@ -133,20 +133,20 @@ return function(H, ui, K)
   function H:enemyInfoProfile(model)
     local colors = self.colors
     local mon = model.pokemon or {}
-    self:enemyInfoHero(model, 66)
-    -- category | height / weight
-    self:v4Window(7, 104, 226, 28, { fill = colors.bandLight })
-    R(118, 108, 1, 20, colors.band)
-    self:partyInfo(self:fitPartyInfo(translate(mon.kind or "UNKNOWN"), 100), 9, 111, colors.green, 108, "center")
-    self:partyInfo(self:fitPartyInfo(mon.height or translate("HEIGHT --"), 104), 124, 106, colors.ink)
-    self:partyInfo(self:fitPartyInfo(mon.weight or translate("WEIGHT --"), 104), 124, 118, colors.ink)
-    self:v4MessageWindow(7, 136, 226, 74)
+    self:enemyInfoHero(model, 74)
+    -- the entry's facts live in the hero card, like a Pokédex page:
+    -- category in the accent, height and weight underneath
+    self:partyInfo(self:fitPartyInfo(translate(mon.kind or "UNKNOWN"), 150), 73, 70, colors.green)
+    self:partyInfo(self:fitPartyInfo(mon.height or translate("HEIGHT --"), 150), 73, 82, colors.mutedInk)
+    self:partyInfo(self:fitPartyInfo(mon.weight or translate("WEIGHT --"), 150), 73, 93, colors.mutedInk)
+    self:v4MessageWindow(7, 113, 226, 97)
     local lines = mon.description or {}
     if #lines == 0 then lines = { translate("NO DETAILS AVAILABLE") } end
-    local visible = min(4, #lines)
+    local visible = min(5, #lines)
+    local top = 113 + floor((97 - 6 - visible * 15) / 2)
     self:v4Prose(function()
       for i = 1, visible do
-        self:partyInfo(self:fitPartyInfo(lines[i], 202), 17, 144 + (i - 1) * 13, colors.ink)
+        self:partyInfo(self:fitPartyInfo(lines[i], 202), 17, top + (i - 1) * 15, colors.ink, 206, "center")
       end
     end)
   end

@@ -120,18 +120,19 @@ return function(H, ui, K)
       { x = 7, up = true, enabled = model.first > 1 },
       { x = 177, enabled = model.last < model.total },
     }
+    -- the same lit pager keys as every other list, pointing up and down
     for _, control in ipairs(controls) do
       local pressed = control.enabled and self:beginPress(control.x, 190, 56, 23)
-      self:v4Key(control.x, 190, 56, 23, not control.enabled and
-        { cap = c.bandLight, lip = c.band, hi = c.bandLight } or nil)
-      local tint = control.enabled and self.tok.acc.M or c.disabledInk
+      local ramp = K.rampOf(control.enabled and (cg(self) and self.tok.acc.M or c.green) or c.silverDark)
+      self:v4Button(control.x, 190, 56, 23, ramp, { radius = 5, lip = 3, chamfer = 4 })
+      local tint = control.enabled and WHITE or c.band
       for line = 0, 3 do
         local width = 1 + line * 2
-        R(control.x + 28 - floor(width / 2), 198 + (control.up and line or 3 - line), width, 1, tint)
+        R(control.x + 28 - floor(width / 2), 197 + (control.up and line or 3 - line), width, 1, tint)
       end
-      self:endPress(pressed)
+      if pressed then self:endPress(pressed) end
     end
-    self:partyInfo(model.first .. "-" .. model.last .. " / " .. model.total, 68, 196, c.ink, 104, "center")
+    self:partyInfoCentered(model.first .. "-" .. model.last .. " / " .. model.total, 63, 190, 114, 20, c.ink)
   end
 
   function H:startMenu(model)

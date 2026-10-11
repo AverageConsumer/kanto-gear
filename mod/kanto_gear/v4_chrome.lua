@@ -644,15 +644,18 @@ return function(H, ui, K)
     id = tostring(id or ""):upper()
     local s = STATUS[id]
     if not s then return 0 end
+    local by = y - 1
     if cg(self) then
-      CH(x, y, 21, 9, 2, s[3]); CH(x + 1, y + 1, 19, 7, 1, s[1])
-      R(x + 2, y + 1, 17, 3, s[2])
+      CH(x, by, 21, 11, 2, s[3]); CH(x + 1, by + 1, 19, 9, 1, s[1])
+      R(x + 2, by + 1, 17, 4, s[2])
     else
-      RR(x, y, 21, 9, 2, s[3]); R(x + 1, y + 1, 19, 7, s[1]); R(x + 1, y + 1, 19, 3, s[2])
-      P(x + 1, y + 1, s[3]); P(x + 19, y + 1, s[3]); P(x + 1, y + 7, s[3]); P(x + 19, y + 7, s[3])
+      RR(x, by, 21, 11, 3, s[3]); RR(x + 1, by + 1, 19, 9, 2, s[1]); R(x + 2, by + 1, 17, 4, s[2])
     end
     local w = self:partyInfoWidth(id)
-    self:partyInfo(id, x + floor((21 - w) / 2) + 1, y - 2, WHITE)
+    local c = s[1]
+    local lum = c[1] * 0.3 + c[2] * 0.59 + c[3] * 0.11
+    self:withoutShadow(self.partyInfo, self, id, x + floor((21 - w) / 2) + 1, y - 2,
+      lum > 0.62 and s[3] or WHITE)
     return 21
   end
   local baseStatusIcon = base.statusIcon
@@ -686,12 +689,15 @@ return function(H, ui, K)
     local c = self:typeColor(typeId)
     if fainted then c = mix(c, hex("707070"), 0.6) end
     local d = mix(c, { 0, 0, 0, 1 }, 0.45)
+    -- the badge is tall enough to hold its letters, which are printed flat
+    -- (no drop shadow) so nothing spills over the rim
+    local by = y - 1
     if cg(self) then
-      CH(x, y, w, 9, 2, d); CH(x + 1, y + 1, w - 2, 7, 1, c)
-      R(x + 2, y + 1, w - 4, 1, mix(c, WHITE, 0.4))
+      CH(x, by, w, 11, 2, d); CH(x + 1, by + 1, w - 2, 9, 1, c)
+      R(x + 2, by + 1, w - 4, 1, mix(c, WHITE, 0.4))
     else
-      RR(x, y, w, 9, 2, d); R(x + 1, y + 1, w - 2, 7, c)
-      R(x + 1, y + 1, w - 2, 1, mix(c, WHITE, 0.35)); R(x + 1, y + 7, w - 2, 1, mix(c, d, 0.4))
+      RR(x, by, w, 11, 3, d); RR(x + 1, by + 1, w - 2, 9, 2, c)
+      R(x + 2, by + 1, w - 4, 1, mix(c, WHITE, 0.35)); R(x + 2, by + 9, w - 4, 1, mix(c, d, 0.4))
     end
     local chars = {}
     for ch in tostring(label or typeId or "---"):gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = ch end
@@ -699,7 +705,9 @@ return function(H, ui, K)
     while #chars > limit or (#chars > 1 and self:partyInfoWidth(table.concat(chars)) > w - 3) do table.remove(chars) end
     local shown = table.concat(chars)
     local tw = self:partyInfoWidth(shown)
-    self:partyInfo(shown, x + floor((w - tw) / 2) + 1, y - 2, WHITE)
+    local lum = c[1] * 0.3 + c[2] * 0.59 + c[3] * 0.11
+    self:withoutShadow(self.partyInfo, self, shown, x + floor((w - tw) / 2) + 1, y - 2,
+      lum > 0.62 and mix(c, { 0, 0, 0, 1 }, 0.62) or WHITE)
   end
   function H:typeBadges(mon, x, y, fainted)
     local dual = mon.type2 and mon.type2 ~= mon.type

@@ -311,7 +311,22 @@ return function(H, ui, K)
       else
         self:label(value, x + 12, y + 44, LCD_DARK, w - 24, "center")
       end
-      self:partyInfo(self:fitPartyInfo(translate("TOTAL STEPS"), w - 30), x + 15, y + 74, LCD_DARK, w - 30, "center")
+      self:partyInfo(self:fitPartyInfo(translate("TOTAL STEPS"), w - 30), x + 15, y + 70, LCD_DARK, w - 30, "center")
+      -- road to the next ten thousand: a segmented LCD track with a flag
+      local total = tonumber(model.steps) or 0
+      local goal = (floor(total / 10000) + 1) * 10000
+      local frac = (total % 10000) / 10000
+      local goalText = tostring(goal):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+      local segs = 14
+      local groupW = segs * 8 + 8 + self:partyInfoWidth(goalText)
+      local tx, ty = x + floor((w - groupW) / 2), y + 86
+      for i = 0, segs - 1 do
+        local on = i < floor(frac * segs + 0.5)
+        R(tx + i * 8, ty, 6, 5, on and LCD_DARK or mix(LCD_BG, LCD_MID, 0.45))
+      end
+      local fx2 = tx + segs * 8
+      ART({ "#...", "###.", "####", "#...", "#...", "#..." }, fx2, ty - 1, { ["#"] = LCD_DARK })
+      self:partyInfo(goalText, fx2 + 8, ty - 3, LCD_DARK)
     end)
     -- Pokétch-style reset key (same hit rectangle)
     local pressed = self:beginPress(54, 165, 132, 38, true)

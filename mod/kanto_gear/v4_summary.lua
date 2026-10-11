@@ -188,12 +188,22 @@ return function(H, ui, K)
     local typeText = self:fitPartyInfo(move.typeLabel or move.type or "---", 44)
     self:partyInfo(typeText, x + 6 + floor((48 - self:partyInfoWidth(typeText)) / 2) + 1, y + 9, WHITE)
     self:partyName(move.name or "-", x + 62, y + 3, WHITE, 92)
-    self:partyInfo(move.ppLabel or translate("PP"), x + 158, y + 3, a.D)
+    local lum = a.M[1] * 0.3 + a.M[2] * 0.59 + a.M[3] * 0.11
+    self:withoutShadow(self.partyInfo, self, move.ppLabel or translate("PP"), x + 158, y + 3,
+      lum > 0.55 and a.D or mix(a.Hi, WHITE, 0.2))
     self:partyInfo(move.ppText or "--", x + 174, y + 3, WHITE, 36, "right")
     if showChevron then self:detailChevron(x + 217, y + 7, WHITE) end
-    self:partyInfo(move.powerLabel or translate("PWR"), x + 62, y + 16, a.D)
+    -- power and accuracy sit in a recessed well so their labels read on
+    -- every type colour, light (Ice) or dark (Dark)
+    local well = mix(a.D, a.M, 0.25)
+    RR(x + 59, y + 16, 160, 13, 3, mix(a.D, { 0, 0, 0, 1 }, 0.2))
+    RR(x + 60, y + 17, 158, 11, 2, well)
+    local label = mix(a.Hi, WHITE, 0.2)
+    self:withoutShadow(function()
+      self:partyInfo(move.powerLabel or translate("PWR"), x + 65, y + 16, label)
+      self:partyInfo(move.accuracyLabel or translate("ACC"), x + 127, y + 16, label)
+    end)
     self:partyInfo(move.powerText or "--", x + 86, y + 16, WHITE, 28, "right")
-    self:partyInfo(move.accuracyLabel or translate("ACC"), x + 124, y + 16, a.D)
     self:partyInfo(move.accuracyText or "--", x + 148, y + 16, WHITE, 30, "right")
     if interactive and selected then self:focusFrame(x, y, 228, 34) end
     self:endPress(pressed)
