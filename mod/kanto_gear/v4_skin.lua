@@ -24,11 +24,20 @@ return function(H, ui, read)
   ---------------------------------------------------------------------------
   -- Colour helpers
   ---------------------------------------------------------------------------
+  -- Colours are shared read-only tables, so a literal costs nothing per frame.
+  local hexCache = {}
   local function hex(value, alpha)
-    value = value:gsub("#", "")
-    return { tonumber(value:sub(1, 2), 16) / 255,
-      tonumber(value:sub(3, 4), 16) / 255,
-      tonumber(value:sub(5, 6), 16) / 255, alpha or 1 }
+    alpha = alpha or 1
+    local byAlpha = hexCache[alpha]
+    if not byAlpha then byAlpha = {}; hexCache[alpha] = byAlpha end
+    local c = byAlpha[value]
+    if c then return c end
+    local v = value:gsub("#", "")
+    c = { tonumber(v:sub(1, 2), 16) / 255,
+      tonumber(v:sub(3, 4), 16) / 255,
+      tonumber(v:sub(5, 6), 16) / 255, alpha }
+    byAlpha[value] = c
+    return c
   end
   local function mix(a, b, k)
     return { a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k,
@@ -313,9 +322,98 @@ return function(H, ui, read)
   -- Pixel primitives
   ---------------------------------------------------------------------------
   local function setc(c) graphics().setColor(c[1], c[2], c[3], c[4] or 1) end
+
+  -- Shape stamps. Every primitive below is pure 1px-row geometry, so each
+  -- distinct shape is rasterised once into a white-on-clear atlas and then
+  -- drawn as one tinted quad. The coverage is the same pixel set the row
+  -- rectangles fill, so the picture is identical, but a 42px ball costs one
+  -- call instead of 42, and plain rectangles share the atlas texture so the
+  -- whole skin stays in one autobatch. Without a real love.graphics (tests,
+  -- headless tools) or when the atlas is full, the row path is used instead.
+  local STAMP = 1024
+  local stamp = { ok = nil }
+  local loveG = rawget(_G, "love") and love.graphics
+  local loveI = rawget(_G, "love") and love.image
+  local stampable = loveG ~= nil and ui.graphics == loveG
+    and loveI ~= nil and loveI.newImageData ~= nil
+  local function stampReady()
+    local st = stamp
+    if st.ok ~= nil then return st.ok end
+    st.ok = false
+    if not stampable then return false end
+    local ok = pcall(function()
+      local G = loveG
+      local data = loveI.newImageData(STAMP, STAMP)
+      for y = 0, 2 do for x = 0, 2 do data:setPixel(x, y, 1, 1, 1, 1) end end
+      st.image = G.newImage(data)
+      st.image:setFilter("nearest", "nearest")
+      st.white = G.newQuad(1, 1, 1, 1, STAMP, STAMP)
+      st.scratch = G.newQuad(0, 0, 1, 1, STAMP, STAMP)
+      st.x, st.y, st.row = 4, 0, 4
+    end)
+    st.ok = ok
+    return ok
+  end
+  H.v4StampReady = stampReady
+  local function stampAlloc(w, h)
+    local st = stamp
+    if w + 1 > STAMP or h + 1 > STAMP then return nil end
+    if st.x + w + 1 > STAMP then st.x, st.y, st.row = 0, st.y + st.row, 0 end
+    if st.y + h + 1 > STAMP then st.full = true; return nil end
+    local x, y = st.x, st.y
+    st.x, st.row = st.x + w + 1, max(st.row, h + 1)
+    return x, y
+  end
+  -- paint(fill) describes the shape as rectangles in its own 0,0 space.
+  local function makeStamp(w, h, paint, a, b, c)
+    if not stampReady() or stamp.full or w <= 0 or h <= 0 then return false end
+    local ax, ay = stampAlloc(w, h)
+    if not ax then return false end
+    local ok, result = pcall(function()
+      local data = loveI.newImageData(w, h)
+      paint(function(x, y, rw, rh)
+        for yy = y, y + rh - 1 do
+          for xx = x, x + rw - 1 do data:setPixel(xx, yy, 1, 1, 1, 1) end
+        end
+      end, w, h, a, b, c)
+      stamp.image:replacePixels(data, nil, nil, ax, ay)
+      return { quad = loveG.newQuad(ax, ay, w, h, STAMP, STAMP),
+        x = ax, y = ay, w = w, h = h }
+    end)
+    if not ok then stamp.ok = false; return false end
+    return result
+  end
+  local function slot2(cache, a, b)
+    local t = cache[a]
+    if not t then t = {}; cache[a] = t end
+    return t[b], t
+  end
+  local function slot3(cache, a, b, c)
+    local t = cache[a]
+    if not t then t = {}; cache[a] = t end
+    return slot2(t, b, c)
+  end
+  local function stampDraw(st, x, y)
+    graphics().draw(stamp.image, st.quad, x, y)
+  end
+  -- Rows [from, to) of a stamp, as the *rows primitives clip them.
+  local function stampRows(st, x, y, from, to)
+    from, to = max(0, from), min(st.h, to)
+    if to <= from then return end
+    local q = stamp.scratch
+    q:setViewport(st.x, st.y + from, st.w, to - from, STAMP, STAMP)
+    graphics().draw(stamp.image, q, x, y + from)
+  end
+  local SMALL = 4096
+
   local function R(x, y, w, h, c)
     if w <= 0 or h <= 0 then return end
-    setc(c); graphics().rectangle("fill", x, y, w, h)
+    setc(c)
+    if stamp.ok or stamp.ok == nil and stampReady() then
+      graphics().draw(stamp.image, stamp.white, x, y, 0, w, h)
+    else
+      graphics().rectangle("fill", x, y, w, h)
+    end
   end
   local function P(x, y, c) R(x, y, 1, 1, c) end
   local RAD = {
@@ -330,14 +428,86 @@ return function(H, ui, read)
     if h - 1 - i < #t then return t[h - i] end
     return 0
   end
-  -- Rounded rectangle: corner rows individually, the body as one rect.
-  local function RR(x, y, w, h, r, c)
-    if w <= 0 or h <= 0 then return end
-    r = min(r, floor(min(w, h) / 2))
+
+  -- Shape painters: the exact row geometry, written against fill().
+  local function paintRR(fill, w, h, r)
     local t = RAD[r] or RAD[10]
     local n = #t
-    setc(c)
-    local G = graphics()
+    if h <= n * 2 then
+      for i = 0, h - 1 do
+        local k = inset(r, h, i)
+        if w - 2 * k > 0 then fill(k, i, w - 2 * k, 1) end
+      end
+      return
+    end
+    for i = 0, n - 1 do
+      local k = t[i + 1]
+      fill(k, i, w - 2 * k, 1)
+      fill(k, h - 1 - i, w - 2 * k, 1)
+    end
+    fill(0, n, w, h - 2 * n)
+  end
+  local function paintRRBand(fill, w, _, r)
+    local t = RAD[r] or RAD[10]
+    for i = 0, #t - 1 do fill(t[i + 1], i, w - 2 * t[i + 1], 1) end
+  end
+  local function paintCH(fill, w, h, k)
+    for i = 0, k - 1 do
+      local n = k - i
+      fill(n, i, w - 2 * n, 1)
+      fill(n, h - 1 - i, w - 2 * n, 1)
+    end
+    fill(0, k, w, h - 2 * k)
+  end
+  local function paintCHBand(fill, w, _, k)
+    for i = 0, k - 1 do fill(k - i, i, w - 2 * (k - i), 1) end
+  end
+  local function span(d, i)
+    local r = d / 2
+    local yy = i + 0.5 - r
+    return floor(r - sqrt(max(0, r * r - yy * yy)) + 0.5)
+  end
+  local function paintCIRC(fill, d)
+    for i = 0, d - 1 do
+      local l = span(d, i)
+      fill(l, i, d - 2 * l, 1)
+    end
+  end
+  local function paintRING(fill, d, _, t)
+    for i = 0, d - 1 do
+      local l = span(d, i)
+      local j, di = i - t, d - 2 * t
+      if j < 0 or j >= di then
+        fill(l, i, d - 2 * l, 1)
+      else
+        local l2 = t + span(di, j)
+        fill(l, i, l2 - l, 1)
+        fill(d - l2, i, l2 - l, 1)
+      end
+    end
+  end
+
+  local rrFull, rrBand, chFull, chBand, circs, rings = {}, {}, {}, {}, {}, {}
+  local function rrStamp(w, h, r)
+    local st, t = slot3(rrFull, r, w, h)
+    if st == nil then st = makeStamp(w, h, paintRR, r); t[h] = st end
+    return st
+  end
+  local function chStamp(w, h, k)
+    local st, t = slot3(chFull, k, w, h)
+    if st == nil then st = makeStamp(w, h, paintCH, k); t[h] = st end
+    return st
+  end
+  local function circStamp(d)
+    local st = circs[d]
+    if st == nil then st = makeStamp(d, d, paintCIRC); circs[d] = st end
+    return st
+  end
+
+  -- Row fallbacks (no atlas).
+  local function rowsRR(x, y, w, h, r, G)
+    local t = RAD[r] or RAD[10]
+    local n = #t
     if h <= n * 2 then
       for i = 0, h - 1 do
         local k = inset(r, h, i)
@@ -352,10 +522,41 @@ return function(H, ui, read)
     end
     G.rectangle("fill", x, y + n, w, h - 2 * n)
   end
+
+  -- Rounded rectangle: corner rows individually, the body as one rect.
+  local function RR(x, y, w, h, r, c)
+    if w <= 0 or h <= 0 then return end
+    r = min(r, floor(min(w, h) / 2))
+    setc(c)
+    local G = graphics()
+    if stamp.ok ~= false and stampReady() then
+      if w * h <= SMALL then
+        local st = rrStamp(w, h, r)
+        if st then return stampDraw(st, x, y) end
+      else
+        local n = #(RAD[r] or RAD[10])
+        if h > n * 2 then
+          local st, t = slot2(rrBand, r, w)
+          if st == nil then st = makeStamp(w, n, paintRRBand, r); t[w] = st end
+          if st then
+            G.draw(stamp.image, st.quad, x, y)
+            G.draw(stamp.image, stamp.white, x, y + n, 0, w, h - 2 * n)
+            G.draw(stamp.image, st.quad, x, y + h, 0, 1, -1)
+            return
+          end
+        end
+      end
+    end
+    rowsRR(x, y, w, h, r, G)
+  end
   local function RRrows(x, y, w, h, r, from, to, c)
     r = min(r, floor(min(w, h) / 2))
     setc(c)
     local G = graphics()
+    if w > 0 and h > 0 and w * h <= SMALL and stamp.ok ~= false and stampReady() then
+      local st = rrStamp(w, h, r)
+      if st then return stampRows(st, x, y, from, to) end
+    end
     local n = #(RAD[r] or RAD[10])
     local i = max(0, from)
     to = min(h, to)
@@ -377,6 +578,21 @@ return function(H, ui, read)
     k = min(k, floor(min(w, h) / 2))
     setc(c)
     local G = graphics()
+    if stamp.ok ~= false and stampReady() then
+      if w * h <= SMALL then
+        local st = chStamp(w, h, k)
+        if st then return stampDraw(st, x, y) end
+      elseif k > 0 then
+        local st, t = slot2(chBand, k, w)
+        if st == nil then st = makeStamp(w, k, paintCHBand, k); t[w] = st end
+        if st then
+          G.draw(stamp.image, st.quad, x, y)
+          G.draw(stamp.image, stamp.white, x, y + k, 0, w, h - 2 * k)
+          G.draw(stamp.image, st.quad, x, y + h, 0, 1, -1)
+          return
+        end
+      end
+    end
     for i = 0, k - 1 do
       local n = k - i
       G.rectangle("fill", x + n, y + i, w - 2 * n, 1)
@@ -388,19 +604,22 @@ return function(H, ui, read)
     k = min(k, floor(min(w, h) / 2))
     setc(c)
     local G = graphics()
+    if w > 0 and h > 0 and w * h <= SMALL and stamp.ok ~= false and stampReady() then
+      local st = chStamp(w, h, k)
+      if st then return stampRows(st, x, y, from, to) end
+    end
     for i = max(0, from), min(h, to) - 1 do
       local n = i < k and k - i or (h - 1 - i < k and k - (h - 1 - i) or 0)
       G.rectangle("fill", x + n, y + i, w - 2 * n, 1)
     end
   end
-  local function span(d, i)
-    local r = d / 2
-    local yy = i + 0.5 - r
-    return floor(r - sqrt(max(0, r * r - yy * yy)) + 0.5)
-  end
   local function CIRC(x, y, d, c)
     setc(c)
     local G = graphics()
+    if d > 0 and stamp.ok ~= false and stampReady() then
+      local st = circStamp(d)
+      if st then return stampDraw(st, x, y) end
+    end
     for i = 0, d - 1 do
       local l = span(d, i)
       G.rectangle("fill", x + l, y + i, d - 2 * l, 1)
@@ -409,6 +628,10 @@ return function(H, ui, read)
   local function CIRCrows(x, y, d, from, to, c)
     setc(c)
     local G = graphics()
+    if d > 0 and stamp.ok ~= false and stampReady() then
+      local st = circStamp(d)
+      if st then return stampRows(st, x, y, from, to) end
+    end
     for i = max(0, from), min(d, to) - 1 do
       local l = span(d, i)
       G.rectangle("fill", x + l, y + i, d - 2 * l, 1)
@@ -417,6 +640,11 @@ return function(H, ui, read)
   local function RING(x, y, d, t, c)
     setc(c)
     local G = graphics()
+    if d > 0 and stamp.ok ~= false and stampReady() then
+      local st, tt = slot2(rings, d, t)
+      if st == nil then st = makeStamp(d, d, paintRING, t); tt[t] = st end
+      if st then return stampDraw(st, x, y) end
+    end
     for i = 0, d - 1 do
       local l = span(d, i)
       local j, di = i - t, d - 2 * t
@@ -438,28 +666,60 @@ return function(H, ui, read)
       G.rectangle("fill", x + l, y + i, w - 2 * l, 1)
     end
   end
-  -- Pixel art from strings; palette maps characters to colours.
+  -- Pixel art from strings; palette maps characters to colours. Call sites
+  -- pass fresh literal tables, so the parsed art is keyed by its content.
   local artCache = setmetatable({}, { __mode = "k" })
-  local function ART(rows, x, y, pal)
-    local runs = artCache[rows]
-    if not runs then
-      runs = {}
-      for j, row in ipairs(rows) do
-        local i = 1
-        while i <= #row do
-          local ch = row:sub(i, i)
-          if ch ~= "." then
-            local start = i
-            while i + 1 <= #row and row:sub(i + 1, i + 1) == ch do i = i + 1 end
-            runs[#runs + 1] = { ch, start - 1, j - 1, i - start + 1 }
-          end
-          i = i + 1
+  local artByText = {}
+  local concat = table.concat
+  local function parseArt(rows)
+    local runs, chars, w = {}, {}, 0
+    for j, row in ipairs(rows) do
+      w = max(w, #row)
+      local i = 1
+      while i <= #row do
+        local ch = row:sub(i, i)
+        if ch ~= "." then
+          local start = i
+          while i + 1 <= #row and row:sub(i + 1, i + 1) == ch do i = i + 1 end
+          runs[#runs + 1] = { ch, start - 1, j - 1, i - start + 1 }
+          if not chars[ch] then chars[ch] = true; chars[#chars + 1] = ch end
         end
+        i = i + 1
       end
-      artCache[rows] = runs
+    end
+    return { runs = runs, chars = chars, w = w, h = #rows }
+  end
+  local function paintArtChar(fill, _, _, art, ch)
+    for _, run in ipairs(art.runs) do
+      if run[1] == ch then fill(run[2], run[3], run[4], 1) end
+    end
+  end
+  local function ART(rows, x, y, pal)
+    local art = artCache[rows]
+    if not art then
+      local text = concat(rows, "\n")
+      art = artByText[text]
+      if not art then art = parseArt(rows); artByText[text] = art end
+      artCache[rows] = art
     end
     local G = graphics()
-    for _, run in ipairs(runs) do
+    if art.masks == nil and stamp.ok ~= false and stampReady() then
+      local masks = {}
+      for i, ch in ipairs(art.chars) do
+        masks[i] = makeStamp(art.w, art.h, paintArtChar, art, ch)
+        if not masks[i] then masks = false; break end
+      end
+      art.masks = masks
+    end
+    if art.masks then
+      local image = stamp.image
+      for i, ch in ipairs(art.chars) do
+        local c = pal[ch]
+        if c then setc(c); G.draw(image, art.masks[i].quad, x, y) end
+      end
+      return
+    end
+    for _, run in ipairs(art.runs) do
       local c = pal[run[1]]
       if c then setc(c); G.rectangle("fill", x + run[2], y + run[3], run[4], 1) end
     end
@@ -490,30 +750,35 @@ return function(H, ui, read)
     return s[1], s[2], s[3], s[4] * (a or 1)
   end
   local function shadowed(draw)
-    return function(...)
+    -- Fixed leading arguments, no per-call tables: text, x, y, then the rest.
+    return function(text, x, y, ...)
       if H.textShadow and not H.shadowSuspended then
         local r, g, b, a = rawGraphics.getColor()
         local sr, sg, sb, sa = shadowFor(r, g, b, a)
         if sr then
-          local args = { ... }
-          local x, y = args[2], args[3]
           H.shadowSuspended = true
           rawGraphics.setColor(sr, sg, sb, sa)
-          args[2], args[3] = x + 1, y + 1; draw(unpack(args))
-          args[2], args[3] = x + 1, y; draw(unpack(args))
-          args[2], args[3] = x, y + 1; draw(unpack(args))
+          draw(text, x + 1, y + 1, ...)
+          draw(text, x + 1, y, ...)
+          draw(text, x, y + 1, ...)
           H.shadowSuspended = false
           rawGraphics.setColor(r, g, b, a)
-          args[2], args[3] = x, y
-          return draw(unpack(args))
         end
       end
-      return draw(...)
+      return draw(text, x, y, ...)
     end
   end
   local proxy = setmetatable({
     print = shadowed(function(...) return rawGraphics.print(...) end),
     printf = shadowed(function(...) return rawGraphics.printf(...) end),
+    -- Plain fills join the stamp atlas so they batch with the shapes.
+    rectangle = function(mode, x, y, w, h, ...)
+      if mode == "fill" and select("#", ...) == 0
+          and (stamp.ok or stamp.ok == nil and stampReady()) then
+        return rawGraphics.draw(stamp.image, stamp.white, x, y, 0, w, h)
+      end
+      return rawGraphics.rectangle(mode, x, y, w, h, ...)
+    end,
   }, { __index = rawGraphics })
   ui.graphics = proxy
   if ui.translationFonts then

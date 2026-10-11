@@ -1,4 +1,5 @@
 local function softAssert(ok, message) if not ok then io.stderr:write("soft assert: " .. tostring(message) .. "\n") end return ok end
+if os.getenv("KANTO_GEAR_PREVIEW_BENCH") == "1" then _G.V4PRIMCOUNT = {} end
 local root = assert(os.getenv("KANTO_GEAR_ROOT"), "KANTO_GEAR_ROOT is missing")
 local output = assert(os.getenv("KANTO_GEAR_PREVIEW_OUT"),
   "KANTO_GEAR_PREVIEW_OUT is missing")
@@ -454,6 +455,65 @@ function love.load()
   canvas:setFilter("nearest", "nearest")
   love.graphics.setCanvas(canvas)
   love.graphics.clear(theme.colors.bg)
+  -- KANTO_GEAR_PREVIEW_BENCH=1 reports one frame's cost: draw calls, Lua
+  -- garbage and CPU time spent painting the screen.
+  local bench = os.getenv("KANTO_GEAR_PREVIEW_BENCH") == "1" and { themeKb = 0, themeMs = 0 } or nil
+  local benchPass = 0
+  ::bench_again::
+  benchPass = benchPass + 1
+  if bench then
+    bench.themeKb, bench.themeMs = 0, 0
+    if benchPass > 1 then
+      for name, fn in pairs(bench.original or {}) do theme[name] = fn end
+    end
+    collectgarbage("collect"); collectgarbage("stop")
+    bench.kb, bench.t, bench.calls = collectgarbage("count"), love.timer.getTime(), love.graphics.getStats().drawcalls
+    bench.rects, bench.prints, bench.draws = 0, 0, 0
+    if _G.V4PRIMCOUNT then for k in pairs(_G.V4PRIMCOUNT) do _G.V4PRIMCOUNT[k] = nil end end
+    if not bench.wrapped then
+      bench.wrapped = true
+      local rect, prt, prtf, drw = love.graphics.rectangle, love.graphics.print, love.graphics.printf, love.graphics.draw
+      love.graphics.rectangle = function(...) bench.rects = bench.rects + 1
+        local pc = _G.V4PRIMCOUNT; local k = pc.cur or "direct"; pc[k] = (pc[k] or 0) + 1
+        return rect(...) end
+      love.graphics.print = function(...) bench.prints = bench.prints + 1; return prt(...) end
+      love.graphics.printf = function(...) bench.prints = bench.prints + 1; return prtf(...) end
+      love.graphics.draw = function(...) bench.draws = bench.draws + 1
+        local pc = _G.V4PRIMCOUNT; if pc then local k = pc.cur or "direct"; pc[k] = (pc[k] or 0) + 1 end
+        return drw(...) end
+    end
+    -- count only what the theme itself costs (fixtures load images too)
+    local depth, enterKb, enterT = 0, 0, 0
+    local hot, stack = {}, {}
+    bench.hot = hot
+    bench.original = {}
+    for name, fn in pairs(theme) do
+      if type(fn) == "function" then
+        bench.original[name] = fn
+        -- no per-call tables: the probe itself must not make garbage
+        local function finish(...)
+          local now = collectgarbage("count")
+          hot[name] = (hot[name] or 0) + (now - stack[depth])
+          bench.hotRects = bench.hotRects or {}
+          bench.hotRects[name] = (bench.hotRects[name] or 0) + (bench.rects + bench.draws - (bench.rstack[depth] or 0))
+          depth = depth - 1
+          if depth == 0 then
+            bench.themeKb = bench.themeKb + now - enterKb
+            bench.themeMs = bench.themeMs + (love.timer.getTime() - enterT) * 1000
+          end
+          return ...
+        end
+        theme[name] = function(...)
+          if depth == 0 then enterKb, enterT = collectgarbage("count"), love.timer.getTime() end
+          depth = depth + 1
+          stack[depth] = collectgarbage("count")
+          bench.rstack = bench.rstack or {}
+          bench.rstack[depth] = bench.rects + bench.draws
+          return finish(fn(...))
+        end
+      end
+    end
+  end
   local gen1 = os.getenv("KANTO_GEAR_PREVIEW_GEN") == "1"
   local fontScript = os.getenv("KANTO_GEAR_PREVIEW_FONT")
   if fontScript then
@@ -3019,6 +3079,38 @@ function love.load()
       local x, y = theme:partyPosition(slot)
       drawMon(slot, x, y, slot == 1, true)
     end
+  end
+  local benchReps = tonumber(os.getenv("KANTO_GEAR_PREVIEW_BENCH_REPS") or "") or 1
+  if bench and benchPass > 1 then
+    bench.samples = bench.samples or {}
+    bench.samples[#bench.samples + 1] = bench.themeMs
+  end
+  if bench and (benchPass == 1 and os.getenv("KANTO_GEAR_PREVIEW_BENCH_WARM") ~= "0"
+      or benchPass > 1 and benchPass <= benchReps) then
+    collectgarbage("restart")
+    -- second pass: caches are warm, so this is what a steady frame costs
+    goto bench_again
+  end
+  if bench then
+    io.stdout:write(string.format("BENCH %s calls=%d kb=%.1f ms=%.2f themeKb=%.1f themeMs=%.2f rects=%d prints=%d draws=%d\n", screen,
+      love.graphics.getStats().drawcalls - bench.calls, collectgarbage("count") - bench.kb,
+      (love.timer.getTime() - bench.t) * 1000, bench.themeKb, bench.themeMs, bench.rects, bench.prints, bench.draws))
+    if bench.samples and #bench.samples > 1 then
+      table.sort(bench.samples)
+      io.stdout:write(string.format("MEDIAN %s themeMs=%.3f min=%.3f\n", screen, bench.samples[math.ceil(#bench.samples / 2)], bench.samples[1]))
+    end
+    if _G.V4PRIMCOUNT then for k, v in pairs(_G.V4PRIMCOUNT) do if k ~= "cur" then io.stdout:write(string.format("PRIM %s %d\n", k, v)) end end end
+    if os.getenv("KANTO_GEAR_PREVIEW_BENCH_HOT") == "1" then
+      local list = {}
+      for name, kb in pairs(bench.hot) do list[#list + 1] = { name, kb } end
+      table.sort(list, function(a, b) return a[2] > b[2] end)
+      for i = 1, math.min(15, #list) do io.stdout:write(string.format("HOT %s %.1f\n", list[i][1], list[i][2])) end
+      local rl = {}
+      for name, n in pairs(bench.hotRects or {}) do rl[#rl + 1] = { name, n } end
+      table.sort(rl, function(a, b) return a[2] > b[2] end)
+      for i = 1, math.min(25, #rl) do io.stdout:write(string.format("RECTS %s %d\n", rl[i][1], rl[i][2])) end
+    end
+    collectgarbage("restart")
   end
   love.graphics.setCanvas()
   local preview = love.graphics.newCanvas(960, 864, { dpiscale = 1 })
