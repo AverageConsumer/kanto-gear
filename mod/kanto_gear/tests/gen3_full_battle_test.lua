@@ -245,6 +245,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       display.gen3.syncScreens();refresh()
       local focus, drawTeamCard = nil, H.partyCard
       H.partyCard = function(self, mon, x, y, selected, details, portrait, focused, ...)
+        T.check(not selected or focused, "Gen 3 card highlight belongs only to the D-pad selection")
         if focused then
           T.eq(focus, nil, "Gen 3 team has only one focused card")
           for slot = 1, 6 do

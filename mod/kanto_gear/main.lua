@@ -8781,7 +8781,8 @@ return function(mod)
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:partyBackdrop()
       displayRuntime.PartyPage.draw(THEME.hgss, {
-        party = list, selection = (partyMoveFrom or THEME.hgss.nativeFocus) and selectedSlot or nil,
+        party = list, selection = partyMoveFrom and selectedSlot
+          or THEME.hgss.nativeFocus and (selectedSlot or 0) or nil,
         details = paged and not back,
       }, function(slot, x, y, selected, details, focused)
         local mon = list[slot]

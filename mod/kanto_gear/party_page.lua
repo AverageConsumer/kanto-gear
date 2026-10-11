@@ -37,7 +37,7 @@ function Page.draw(H, model, drawCard)
     local x, y = Page.rect(H, slot)
     local mon = model.party[slot]
     local selected = model.selection == slot
-    drawCard(slot, x, y, selected or mon and mon.active,
+    drawCard(slot, x, y, selected or model.selection == nil and mon and mon.active,
       model.details, selected)
   end
 end

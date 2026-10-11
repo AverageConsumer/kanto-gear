@@ -262,9 +262,16 @@ do
     game = game, party = six, index = 1, battle = true, clock = 0, pickOnly = true,
     keepOpen = true, onChoose = function(index) confirmed = index end,
     onSwitch = function(chosen) confirmed = chosen.slot end }, NativeParty)
-  local H, focused = theme.hgss
+  local H, focused, highlighted = theme.hgss
   local drawCard = H.partyCard
   H.partyCard = function(self, view, x, y, selected, details, portrait, focus, ...)
+    if selected then
+      T.eq(highlighted, nil, "only one team card can look selected")
+      for slot = 1, 6 do
+        local sx, sy = self:partyPosition(slot)
+        if x == sx and y == sy then highlighted = slot end
+      end
+    end
     if focus then
       T.eq(focused, nil, "only one team card can hold D-pad focus")
       for slot = 1, 6 do
@@ -302,14 +309,22 @@ do
             expected = (index - 1 + (key == "up" and -1 or 1)) % total + 1
           end
           T.eq(native.index, expected, mode .. " " .. source .. " native team cursor follows its layout")
-          focused = nil; display.drawContents()
+          focused, highlighted = nil, nil; display.drawContents()
           T.eq(focused, owns and expected or nil, mode .. " " .. style .. " visible team focus follows the real cursor")
+          T.eq(highlighted, owns and expected or mode == "standard" and 1 or nil,
+            "active battler cannot compete with the selected card's highlight")
           if expected <= #six then
             confirmed = nil; edge("a", source)
             T.eq(confirmed, expected, "A confirms the same partner that was focused")
           end
         end
       end end
+      if gen == 2 and owns then
+        stack.states = { world, raw, native }; native.index = 7; refresh()
+        focused, highlighted = nil, nil; display.drawContents()
+        T.eq(focused, nil, "Cancel leaves every team card unfocused")
+        T.eq(highlighted, nil, "Cancel cannot leave the active battler looking selected")
+      end
     end
   end
   H.partyCard = drawCard
