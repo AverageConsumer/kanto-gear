@@ -474,6 +474,15 @@ local function choiceReady(now, readyAt)
 end
 
 local function textTouch(top)
+  if top and top.screenId == "Gen2SaveMenu" then
+    -- Save owns its printer instead of pushing a TextBox. Only its question
+    -- pages accept A; the write and completion messages are timed sequences.
+    if (top.phase ~= "confirm" and top.phase ~= "overwrite")
+        or top.typedPhase ~= top.phase or not top.typer or not top.pages then return nil end
+    if not top.typer:done() then return "speed" end
+    if top.page < #top.pages then return "advance" end
+    return nil
+  end
   if not (top and top.isTextBox) then return nil end
   if top.waiting then return "advance" end
   if not top.done then return "speed" end
@@ -5383,7 +5392,7 @@ return function(mod)
       return "transition", top, alpha
     end
     if externalLoading then return "loading", top, 0.72 end
-    if top and top.isTextBox then return "textbox", top, 0.58 end
+    if top and (top.isTextBox or textTouch(top) ~= nil) then return "textbox", top, 0.58 end
     if world.flyAnim or world.teleportOut then return "locked", top, 0.58 end
     if (compat.isGen2() and not top) or top == world then return "active", top, 0 end
     return "locked", top, 0.58

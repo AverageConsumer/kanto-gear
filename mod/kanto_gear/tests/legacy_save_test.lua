@@ -15,9 +15,11 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.same(model.prompt, THEME:messageLines({(native:promptText():gsub("[\v\f]", "\n"))}, 34, 3),
       "Gen2 save uses its actual complete native prompt")
   end
-  local tap
+  local tap, touch
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
-    if entry.owner == "kanto_gear" then tap = up(up(entry.callback, "touchEvent"), "tap") end
+    if entry.owner == "kanto_gear" then
+      touch = up(entry.callback, "touchEvent"); tap = up(touch, "tap")
+    end
   end
   local api = up(display.saveHome, "mod")
   local originalTap, originalInput = api.input.tap, game.input
@@ -68,12 +70,30 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       native = open(); settle(function() return native:yesNoVisible() end); click(1)
       T.eq(native.phase, "overwrite", "Gen2 existing save retains overwrite warning")
       T.eq(choice(), nil, "new overwrite prompt cannot be confirmed before typing")
+      local textTouch = up(tap, "textTouch")
+      T.eq(textTouch(native), "speed", "touch can accelerate the save's own printer")
       settle(function() return not require("src.ui.gen2.Typer").typing(native) end)
-      if not native:yesNoVisible() then tick("a") end
+      T.eq(textTouch(native), "advance", "overwrite paragraph accepts lower-screen text advance")
+      queued = nil; display.syncTouchGuard(); now = now + 1
+      display.touchGuard.pending = false
+      local page = native.page
+      touch("down,80,90", 160, 144); touch("up,80,90", 160, 144)
+      T.eq(queued, "a", "a lower-screen gesture advances the native save paragraph")
+      T.eq(writes, 0, "advancing the paragraph does not write the save")
+      if queued then tick(queued) end
+      T.eq(native.page, page + 1, "touch reaches the next native overwrite page")
       settle(function() return native:yesNoVisible() end)
+      T.eq(textTouch(native), nil, "ready Yes/No is no longer treated as generic text")
       checkPrompt(native)
       click(2); T.eq(done, false, "Gen2 overwrite No cancels")
       T.eq(writes, 0, "overwrite cancellation preserves save")
+      native = open()
+      for _, phase in ipairs({ "saving", "done" }) do
+        native:enterPhase(phase)
+        T.eq(textTouch(native), nil, "timed " .. phase .. " never forwards an A press")
+        queued = nil; tap(80, 90)
+        T.eq(queued, nil, "touch cannot skip the timed " .. phase .. " sequence")
+      end
     else
       local menu = require("src.ui.StartMenu").new(game)
       game.stack.states = { world, menu }
