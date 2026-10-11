@@ -153,7 +153,10 @@ end
 function Gen3:trainerCardData(native)
   local session = self.session
   if self.rs then return require("src.ui.game3.rs.trainer_card_policy").generate(session) end
-  local card = native.cardData(session)
+  -- Emerald scores its stars on Hoenn feats (pokeemerald trainer_card.c:679),
+  -- not on the FRLG rules the shared gatherer applies.
+  local gather = self.profile.id == "emerald" and native.rseCardData or native.cardData
+  local card = gather(session)
   if self.profile.id == "emerald" and native.backTextsRse then
     -- The host exports the FRLG gatherer; these extra RSE records live in the session.
     local function stat(id, key, cap)

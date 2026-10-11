@@ -7841,12 +7841,20 @@ return function(mod)
       if palette and gbc.available() then gbc.with(palette, paint) else paint() end
       return true
     end
-    if displayRuntime.gen3 and model.kind == "records" then
+    if displayRuntime.gen3 then
+      -- Gen 3 cards earn stars and change colour; mirror the game's own count.
       local native = context.native or require("src.ui.game3.trainer_card")
-      local card = context.card or displayRuntime.gen3:trainerCardData(native)
-      model.records = displayRuntime.gen3.rs and displayRuntime.gen3:trainerRecords(card)
-        or displayRuntime.TrainerPage.records(native, card,
-          displayRuntime.gen3.profile.id == "emerald" and native.backTextsRse ~= nil)
+      local ok, card = pcall(function() return context.card or displayRuntime.gen3:trainerCardData(native) end)
+      card = ok and card or nil
+      if card then
+        model.stars = math.max(0, math.min(4, math.floor(tonumber(card.stars) or 0)))
+        model.cardFamily = displayRuntime.gen3.hoenn and "hoenn" or "kanto"
+      end
+      if card and model.kind == "records" then
+        model.records = displayRuntime.gen3.rs and displayRuntime.gen3:trainerRecords(card)
+          or displayRuntime.TrainerPage.records(native, card,
+            displayRuntime.gen3.profile.id == "emerald" and native.backTextsRse ~= nil)
+      end
     end
     return model
   end

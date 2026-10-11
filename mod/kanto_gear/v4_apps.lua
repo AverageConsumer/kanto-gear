@@ -168,17 +168,22 @@ return function(H, ui, K)
   end
 
   ---------------------------------------------------------------------------
-  -- Trainer Card: the card's colour follows the badge count, like Gen 4.
+  -- Trainer Card. Gen 3 cards change colour with the stars the game awards
+  -- (trainer_card.c sHoennTrainerCardPals / sKantoTrainerCardPals); Gen 1 and
+  -- 2 have no such rank, so their card stays plain and starless.
   ---------------------------------------------------------------------------
-  local CARD_TIERS = {
-    { "4f9a6c", "8cd0a4" }, { "b0703a", "e0a46c" }, { "8a8f9c", "d0d6e0" },
-    { "c8a020", "f8e070" }, { "3a6ad0", "90b8f8" },
+  local CARD_COLORS = {
+    hoenn = { { "3f8a58", "88cc9c" }, { "9a6030", "d8a068" }, { "b0583c", "e89a7c" },
+      { "8a8f9c", "d0d6e0" }, { "c8a020", "f8e070" } },
+    kanto = { { "3a6ad0", "90b8f8" }, { "3f8a58", "88cc9c" }, { "9a6030", "d8a068" },
+      { "8a8f9c", "d0d6e0" }, { "c8a020", "f8e070" } },
+    plain = { { "4f9a6c", "8cd0a4" } },
   }
   local function cardTier(model)
-    local owned = 0
-    for _, has in ipairs(model.badgeOwned or {}) do if has then owned = owned + 1 end end
-    local tier = owned >= 8 and 4 or owned >= 6 and 3 or owned >= 3 and 2 or owned >= 1 and 1 or 0
-    return tier, owned
+    if model.stars == nil then return 0, CARD_COLORS.plain[1] end
+    local stars = max(0, min(4, model.stars))
+    local set = CARD_COLORS[model.cardFamily] or CARD_COLORS.hoenn
+    return stars, set[stars + 1]
   end
 
   local MEDALS = {
@@ -221,8 +226,7 @@ return function(H, ui, K)
     if model.kind == "records" or model.kind == "badges" then
       return base.trainer(self, model)
     end
-    local tier = cardTier(model)
-    local frame = CARD_TIERS[tier + 1]
+    local tier, frame = cardTier(model)
     local dark, light = hex(frame[1]), hex(frame[2])
     -- card body
     local x, y, w, h = 7, 32, 226, 98
@@ -234,7 +238,7 @@ return function(H, ui, K)
     -- card face
     RR(x + 5, y + 17, w - 10, h - 22, 3, mix(colors.surface, light, self.dark and 0.08 or 0.12))
     for ry = y + 32, y + h - 10, 14 do R(x + 9, ry, 140, 1, mix(colors.surface, dark, 0.18)) end
-    -- stars for tiers
+    -- the stars the game awarded
     for s = 1, tier do
       ART({ "....o....", "...o#o...", "ooo###ooo", "o#######o", ".o#####o.", ".o##o##o.", ".oo...oo." },
         x + w - 14 - (s - 1) * 10, y + 3, { o = colors.outline, ["#"] = hex("f8e070") })

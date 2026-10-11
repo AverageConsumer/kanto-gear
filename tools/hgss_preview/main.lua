@@ -2827,6 +2827,8 @@ function love.load()
       theme.colors.greenLight,
     }
     theme:trainer({
+      stars = tonumber(os.getenv("KANTO_GEAR_PREVIEW_STARS") or ""),
+      cardFamily = os.getenv("KANTO_GEAR_PREVIEW_CARD") or "hoenn",
       name = gen1 and "RED" or "GOLD",
       region = gen1 and "KANTO" or "JOHTO",
       idText = "ID 12345",
