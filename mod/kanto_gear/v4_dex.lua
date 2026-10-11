@@ -98,12 +98,13 @@ return function(H, ui, K)
     -- description
     self:v4MessageWindow(7, 108, 226, 44)
     local lines = mon.description or { translate("NO DETAILS AVAILABLE") }
-    local visible = min(3, #lines)
+    local visible = min(2, #lines)
     local paged = (model.descriptionPages or 1) > 1
-    local firstY = 110 + floor(((paged and 29 or 40) - visible * 10) / 2)
+    -- Keep the text inside the inset frame, above the description pager.
+    local firstY = 113 + floor(((paged and 23 or 34) - visible * 11) / 2)
     self:v4Prose(function()
       for index = 1, visible do
-        self:partyInfoCentered(self:fitPartyInfo(lines[index], 204), 18, firstY + (index - 1) * 10, 204, 10, colors.ink)
+        self:partyInfoCentered(lines[index], 18, firstY + (index - 1) * 11, 204, 11, colors.ink)
       end
     end)
     if paged then

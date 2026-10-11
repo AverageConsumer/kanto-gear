@@ -91,7 +91,7 @@ end
 
 function Page.description(state, model)
   model.pokemon.description, model.descriptionPage, model.descriptionPages =
-    Page.window(model.pokemon.description, state.descriptionPage, 3)
+    Page.window(model.pokemon.description, state.descriptionPage, 2)
   state.descriptionPage = model.descriptionPage
   return model
 end

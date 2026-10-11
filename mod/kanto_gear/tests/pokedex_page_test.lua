@@ -13,6 +13,27 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   assert(loadfile(path.."/tests/evolutions_cases.lua"))()(T,display,game,theme)
   T.eq(table.concat(theme:descriptionLines("FIRST\fSECOND\vTHIRD\nFOURTH",24,nil,210)," "),
     "FIRST SECOND THIRD FOURTH", "native page and line controls preserve word boundaries")
+  for _, source in ipairs({
+    "IN THE JUNGLE, ITS POWER IS WITHOUT EQUAL. THIS POKEMON CAREFULLY GROWS TREES AND PLANTS. IT REGULATES ITS BODY TEMPERATURE BY BASKING IN SUNLIGHT.",
+    "A SHORT DESCRIPTION.",
+    "FIRST\fSECOND\vTHIRD\nFOURTH",
+  }) do
+    local lines = theme:pokedexDescriptionLines(source)
+    T.eq(table.concat(lines," "),source:gsub("%s+"," "),"description wrapping retains every word and punctuation")
+    theme.hgss:v4Prose(function()
+      for _, line in ipairs(lines) do
+        T.eq(theme.hgss:fitPartyInfo(line,204),line,"description lines fit their actual prose lettering without ellipses")
+      end
+    end)
+    local textState, reconstructed = { descriptionPage = 1 }, {}
+    for page = 1, math.max(1,math.ceil(#lines/2)) do
+      textState.descriptionPage = page
+      local part = Page.description(textState,{pokemon={description=lines}})
+      T.check(#part.pokemon.description <= 2,"description leaves breathing room above its page controls")
+      for _, line in ipairs(part.pokemon.description) do reconstructed[#reconstructed+1] = line end
+    end
+    T.same(reconstructed,lines,"paging reaches the complete description in its original order")
+  end
   local compose
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
     if entry.owner == "kanto_gear" then compose = entry.callback end
@@ -213,14 +234,14 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   state = { view = "profile", descriptionPage = 99 }
   model = Page.description(state, { view = "profile", pokemon = { description = text } })
   T.same(model.pokemon.description,{"SEVEN"},"long descriptions clamp to their exact last text page")
-  T.eq(model.descriptionPages,3,"all description lines remain accessible")
+  T.eq(model.descriptionPages,4,"all description lines remain accessible above the pager")
   T.eq(#text,7,"paging never truncates the original description")
   T.check(Page.cycleDescription(state,model,1),"description wraps forward")
   T.eq(state.descriptionPage,1,"description wraps to page one")
   model = Page.description(state, { view = "profile", pokemon = { description = text } })
-  T.same(model.pokemon.description,{"ONE","TWO","THREE"},"first page retains exact source order")
+  T.same(model.pokemon.description,{"ONE","TWO"},"first page retains exact source order without overlapping the frame")
   T.check(Page.cycleDescription(state,model,-1),"description wraps backward")
-  T.eq(state.descriptionPage,3,"description wraps to its last page")
+  T.eq(state.descriptionPage,4,"description wraps to its last page")
   model = Page.description(state, { view = "profile", pokemon = { description = { "SHORT" } } })
   T.eq(Page.cycleDescription(state,model,1),false,"short descriptions never animate or page")
   T.eq(Page.hit(model,149,145),nil,"short description has no stray pager target")
@@ -301,5 +322,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   display.requestPageMotion = oldMotion
 end
 if generation == 3 then
-  dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+  local version = os.getenv("POKEPORT_VERSION")
+  dofile(path .. (version == "emerald" and "/tests/emerald_runtime_test.lua"
+    or (version == "ruby" or version == "sapphire") and "/tests/rs_runtime_test.lua"
+    or "/tests/gen3_runtime_test.lua"))
 else dofile(path .. "/tests/legacy_bag_test.lua") end

@@ -1910,6 +1910,14 @@ function THEME:descriptionLines(source, chars, limit, hgssWidth)
   return self:wrapText(source, chars * 6, limit)
 end
 
+function THEME:pokedexDescriptionLines(source)
+  local function wrap() return self:descriptionLines(source, 24, nil, 204) end
+  if self.style == "hgss" and self.hgss.v4Prose then
+    return self.hgss:v4Prose(wrap)
+  end
+  return wrap()
+end
+
 function THEME:messageLines(messages, chars, limit)
   limit = limit or 2
   local count, out = #(messages or {}), {}
@@ -5538,7 +5546,7 @@ return function(mod)
             portrait.presentationSprite, portrait.presentationTrueColor = native.sprite, native.spriteTrueColor == true
           end
           return drawSprite(row.species, "front", x, y, size, size, nil, portrait, true)
-        end, function(value) return THEME:descriptionLines(value, 24, nil, 210) end)
+        end, function(value) return THEME:pokedexDescriptionLines(value) end)
       if view.dexModel then view.items[1].right = displayRuntime.NativeDex.redrawKey(view.dexModel)
       elseif view.dex.uiLabels then
         for _, row in ipairs(view.items) do row.label = THEME:translate(row.label) end
@@ -9557,7 +9565,7 @@ return function(mod)
     info.type2Label = THEME:typeName(info.type2, mod.content)
     info.kind = info.kind or THEME:translate("UNKNOWN")
     info.height, info.weight = info.heightValue or "--", info.weightValue or "--"
-    if info.descriptionText then info.description = THEME:descriptionLines(info.descriptionText, 24, nil, 210) end
+    if info.descriptionText then info.description = THEME:pokedexDescriptionLines(info.descriptionText) end
     if #info.description == 0 then info.description = { THEME:translate("NO RESEARCH DATA AVAILABLE.") } end
     return info
   end

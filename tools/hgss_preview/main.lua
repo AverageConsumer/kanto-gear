@@ -2805,6 +2805,21 @@ function love.load()
         model.pokemon.height = "21'04\""
       end
     end
+    if pokedexProfile then
+      local source = os.getenv("KANTO_GEAR_PREVIEW_DESCRIPTION") or table.concat(gyarados.description, " ")
+      gyarados.description = theme:v4Prose(function()
+        local lines, current = {}, ""
+        for word in source:gmatch("%S+") do
+          local candidate = current == "" and word or current .. " " .. word
+          if current ~= "" and theme:partyInfoWidth(candidate) > 204 then
+            lines[#lines + 1], current = current, word
+          else current = candidate end
+        end
+        if current ~= "" then lines[#lines + 1] = current end
+        return lines
+      end)
+      previewUi.pokedexPage.description({descriptionPage = tonumber(os.getenv("KANTO_GEAR_PREVIEW_DESCRIPTION_PAGE")) or 1}, model)
+    end
     theme:pokedex(model)
     if pokedexIndex then
       assert(theme:pokedexHit(18, 78, model) == "species",
