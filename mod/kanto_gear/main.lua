@@ -2173,8 +2173,10 @@ return function(mod)
     { key = "theme_v3", label = "THEME", type = "choice", default = "hgss",
       choices = {
         { "KANTO GREEN", "kanto" }, { "MATCH GAME", "match" },
-        { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" },
-        { "HGSS AUTO", "hgss_auto" },
+        { "POKEGEAR LIGHT", "hgss" }, { "POKEGEAR DARK", "hgss_dark" },
+        { "POKEGEAR AUTO", "hgss_auto" },
+        { "C-GEAR LIGHT", "cgear" }, { "C-GEAR DARK", "cgear_dark" },
+        { "C-GEAR AUTO", "cgear_auto" },
         { "MODERN LIGHT", "modern_light" },
         { "MODERN DARK", "modern_dark" },
         { "OG", "og" }, { "OG INVERTED", "og_inv" },
@@ -2191,13 +2193,13 @@ return function(mod)
       } },
     { key = "ui_motion", label = "TRANSITIONS",
       type = "toggle", default = true, visible_if = {
-        key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
+        key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto", "cgear", "cgear_dark", "cgear_auto" },
       } },
     { key = "map_motion", label = "PRESENTATION", type = "choice",
       default = "quality", choices = {
         { "QUALITY", "quality" }, { "PERFORMANCE", "performance" },
       }, visible_if = {
-        key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
+        key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto", "cgear", "cgear_dark", "cgear_auto" },
       } },
     { key = "info_level", label = "DISCOVERY", type = "choice",
       default = infoDefault, reset_default = "enhanced", choices = infoChoices },
@@ -2205,7 +2207,7 @@ return function(mod)
       type = "choice", default = false, choices = {
         { "OFF", false }, { "MAP", true },
       }, visible_if = {
-        key = "theme_v3", not_one_of = { "hgss", "hgss_dark", "hgss_auto" },
+        key = "theme_v3", not_one_of = { "hgss", "hgss_dark", "hgss_auto", "cgear", "cgear_dark", "cgear_auto" },
       } },
     { key = "display_mode", label = "DISPLAY MODE", type = "choice",
       default = THEME.displayModeDefault, reset_default = "separate", choices = {
@@ -2293,7 +2295,7 @@ return function(mod)
       } },
     { key = "ui_haptics", label = "GEAR HAPTICS",
       type = "toggle", default = false, visible_if = {
-        key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto" },
+        key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto", "cgear", "cgear_dark", "cgear_auto" },
       } },
   })
 
@@ -2481,7 +2483,7 @@ return function(mod)
   displayRuntime.NativeDex = assert(load(mod:read("native_dex.lua"), "@kanto_gear/native_dex.lua"))()
   displayRuntime.NativeDex.describe3 = assert(load(mod:read("native_dex3.lua"), "@kanto_gear/native_dex3.lua"))()
   displayRuntime.SafariPage = assert(load(mod:read("safari_page.lua"), "@kanto_gear/safari_page.lua"))()
-  THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()({
+  local hgssUi = {
     graphics = G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
     nativeFocus = false, partyPage = displayRuntime.PartyPage, itemPage = displayRuntime.ItemPage,
@@ -2493,7 +2495,13 @@ return function(mod)
     translate = function(value) return THEME:translate(value) end,
     format = function(value, ...) return THEME:format(value, ...) end,
     dimBackground = displayRuntime.dimBackground,
-  })
+  }
+  THEME.hgss = assert(load(mod:read("hgss.lua"), "@kanto_gear/hgss.lua"))()(hgssUi)
+  displayRuntime.v4 = assert(load(mod:read("v4_skin.lua"), "@kanto_gear/v4_skin.lua"))()(
+    THEME.hgss, hgssUi, function(name)
+      local ok, source = pcall(mod.read, mod, name)
+      return ok and source or nil
+    end)
 
   assert(THEME.hgss:battleChoice(120, 80) == 1
       and THEME.hgss:battleChoice(200, 170) == 2
@@ -2774,8 +2782,9 @@ return function(mod)
 
   function displayRuntime.optionChoices(row)
     if row and row.key == "theme_v3" then
-      return { { "HGSS LIGHT", "hgss" }, { "HGSS DARK", "hgss_dark" },
-        { "HGSS AUTO", "hgss_auto" } }
+      return { { "POKEGEAR LIGHT", "hgss" }, { "POKEGEAR DARK", "hgss_dark" },
+        { "POKEGEAR AUTO", "hgss_auto" }, { "C-GEAR LIGHT", "cgear" },
+        { "C-GEAR DARK", "cgear_dark" }, { "C-GEAR AUTO", "cgear_auto" } }
     end
     return row and row.choices or {}
   end
@@ -3526,7 +3535,8 @@ return function(mod)
         classic = "kanto",
       })[PaletteFX.mode] or "kanto"
     end
-    if theme == "hgss" or theme == "hgss_dark" or theme == "hgss_auto" then
+    if theme == "hgss" or theme == "hgss_dark" or theme == "hgss_auto"
+        or theme == "cgear" or theme == "cgear_dark" or theme == "cgear_auto" then
       return THEME.hgss.palette
     end
     if theme == "og" then return PaletteFX.GRAYS end
@@ -3553,14 +3563,17 @@ return function(mod)
       dirty = true
     end
     local theme = mod.options:get("theme_v3") or "hgss"
-    local autoDark = theme == "hgss_auto" and compat.autoThemeDark(game,
+    local auto = theme == "hgss_auto" or theme == "cgear_auto"
+    local autoDark = auto and compat.autoThemeDark(game,
       mod.options:get("clock_source"), os.time())
     local key = theme .. (theme == "match" and (":" .. PaletteFX.mode) or "")
-      .. (theme == "hgss_auto" and (autoDark and ":dark" or ":light") or "")
+      .. (auto and (autoDark and ":dark" or ":light") or "")
     if not force and key == themeKey then return end
     local wasHgss = THEME.style == "hgss"
+    local cgear = theme == "cgear" or theme == "cgear_dark"
+      or theme == "cgear_auto"
     local hgss = theme == "hgss" or theme == "hgss_dark"
-      or theme == "hgss_auto"
+      or theme == "hgss_auto" or cgear
     THEME.style = hgss and "hgss"
       or theme == "modern_light" and "modern_light"
       or theme == "modern_dark" and "modern_dark" or "classic"
@@ -3573,7 +3586,8 @@ return function(mod)
     elseif hgss and (page == "GUIDE" or page == "AREA") then
       page = "LOCAL"
     end
-    THEME.hgss:setVariant(theme == "hgss_dark" or autoDark)
+    THEME.hgss.skinName = cgear and "cgear" or "pokegear"
+    THEME.hgss:setVariant(theme == "hgss_dark" or theme == "cgear_dark" or autoDark)
     THEME.hgss.motionEnabled = displayRuntime.motionEnabled()
     if not hgss then hgssRuntime.animation = nil end
     local scale = THEME.style == "hgss" and THEME.hgssScale or 1
@@ -4810,6 +4824,52 @@ return function(mod)
     return spriteCache[key] or nil, trueColor
   end
 
+  -- Crystal front-pic animations come from the host's ROM-derived MonAnim
+  -- data. Large portraits replay the menu scene every few seconds; Gold,
+  -- Silver, older hosts and replaced sprites keep the static picture.
+  local picAnims, picAnimSeed = {}, 0
+  local function picAnimFrame(species, mon, maxW, tint)
+    if tint or maxW < 50 or not compat.isGen2() or displayRuntime.gen3
+        or THEME.style ~= "hgss" or not displayRuntime.motionEnabled() then return nil end
+    local def = game and game.data and game.data.pokemon and game.data.pokemon[species]
+    if not (def and def.anim) then return nil end
+    local okView, MonAnimView = pcall(require, "src.render.MonAnimView")
+    if not okView or type(MonAnimView) ~= "table" or not MonAnimView.start then return nil end
+    local key = tostring(species) .. ":" .. tostring(mon and mon.shiny)
+    local now = love.timer.getTime()
+    local state = picAnims[key]
+    if not state then
+      picAnimSeed = picAnimSeed + 1
+      state = { next = now + 0.4 + (picAnimSeed % 5) * 0.7 }
+      picAnims[key] = state
+    end
+    if not state.view and now >= state.next then
+      local path = PokemonSprites.path(game.data, species, "front",
+        { kind = "summary", mon = mon })
+      local ok, view = pcall(MonAnimView.start, def, mon, "menu", function(p)
+        local loaded, image = pcall(require("src.render.Assets").image, p)
+        if loaded and image then image:setFilter("nearest", "nearest") end
+        return loaded and image or nil
+      end, nil, { staticReplaced = MonAnimView.replaced(def.spriteFront, path) })
+      state.view, state.last = ok and view or nil, now
+      if not state.view then state.next = now + 30 end
+    end
+    THEME.hgss:wantAmbient(0.3, state.view and 1 / 20 or nil)
+    if not state.view then return nil end
+    local steps = math.min(30, math.floor((now - state.last) * 60))
+    state.last = state.last + steps / 60
+    for _ = 1, steps do
+      local ok, done = pcall(state.view.step, state.view)
+      if not ok or done then
+        state.view, state.next = nil, now + 5 + (picAnimSeed % 3)
+        return nil
+      end
+    end
+    local ok, sheet, quad, size = pcall(state.view.frame, state.view)
+    if ok and sheet and quad then return sheet, quad, size end
+    return nil
+  end
+
   local function drawSprite(species, side, x, y, maxW, maxH, tint,
                             mon, quiet, brightness)
     local image = mon and mon.presentationSprite
@@ -4822,8 +4882,18 @@ return function(mod)
     end
     local iw, ih = image:getDimensions()
     local scale = math.min(maxW / iw, maxH / ih)
+    local sheet, quad, size
+    if side == "front" and not (mon and mon.presentationSprite) then
+      sheet, quad, size = picAnimFrame(species, mon, maxW, tint)
+    end
     local function paint()
       color(tint or { brightness or 1, brightness or 1, brightness or 1, 1 })
+      if quad then
+        local s = math.min(maxW / size, maxH / size)
+        G.draw(sheet, quad, x + (maxW - size * s) / 2,
+               y + (maxH - size * s) / 2, 0, s, s)
+        return
+      end
       G.draw(image, x + (maxW - iw * scale) / 2,
              y + (maxH - ih * scale) / 2, 0, scale, scale)
     end
@@ -4842,7 +4912,7 @@ return function(mod)
     end
     color(tint or { brightness or 1, brightness or 1, brightness or 1, 1 })
     local resolved = colors and gbc.remap(gbc.resolve(colors), gbc.bgp)
-    if not displayRuntime.spriteFilter:draw(image, x + (maxW - iw * scale) / 2,
+    if quad or not displayRuntime.spriteFilter:draw(image, x + (maxW - iw * scale) / 2,
         y + (maxH - ih * scale) / 2, scale, resolved) then
       if colors and gbc.available() then gbc.with(colors, paint)
       else paint() end
@@ -14488,6 +14558,8 @@ return function(mod)
       end
     end
     if displayRuntime.motion.started then dirty = true end
+    if THEME.style == "hgss" and THEME.hgss.ambientDue
+        and THEME.hgss:ambientDue(now) then dirty = true end
     displayRuntime.updateStepRefresh(now)
     if now >= nextClock then
       local title = screenState() == "title"

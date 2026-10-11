@@ -179,7 +179,7 @@ function love.load()
       end
     end
   end
-  local theme = chunk()({
+  local previewUi = {
     graphics = love.graphics, box = box, text = text,
     pokedexPage = assert(loadfile(root .. "/mod/kanto_gear/pokedex_page.lua"))(),
     partyPage = assert(loadfile(root .. "/mod/kanto_gear/party_page.lua"))(),
@@ -187,7 +187,15 @@ function love.load()
     smallFont = smallFont, smallFontMetrics = smallMetrics, largeFont = largeFont,
     translate = translate, format = format,
     translationFonts = translationFonts,
-  })
+  }
+  local theme = chunk()(previewUi)
+  assert(loadfile(root .. "/mod/kanto_gear/v4_skin.lua"))()(theme, previewUi, function(name)
+    local file = io.open(root .. "/mod/kanto_gear/" .. name, "rb")
+    if not file then return nil end
+    local source = file:read("*a"); file:close(); return source
+  end)
+  theme.frozenTime = tonumber(os.getenv("KANTO_GEAR_PREVIEW_TIME_S")) or 1.3
+  theme:setSkin(os.getenv("KANTO_GEAR_PREVIEW_SKIN") or "pokegear")
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
   if os.getenv("KANTO_GEAR_PREVIEW_MAP_PARITY") == "1" then
     assert(loadfile(root .. "/tools/hgss_preview/map_parity.lua"))()(theme)
@@ -334,6 +342,7 @@ function love.load()
       and not theme:levelUpHit(41, 170)
       and not theme:levelUpHit(198, 203),
     "level-up continue hitbox follows its visible HGSS button")
+  if theme.moveLearnHit then
   local learnAction, learnSlot = theme:moveLearnHit(20, 70, true)
   local infoAction, infoSlot = theme:moveLearnHit(220, 105, true)
   assert(learnAction == "move" and learnSlot == 1
@@ -342,6 +351,7 @@ function love.load()
       and theme:moveLearnHit(20, 94, false) == "new"
       and theme:moveLearnHit(20, 68, true) == nil,
     "move-learning touch targets follow every visible card")
+  end
   assert(theme:safariHit(20, 40) == 1
       and theme:safariHit(220, 40) == 2
       and theme:safariHit(20, 200) == 3

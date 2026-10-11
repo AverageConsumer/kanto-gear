@@ -350,15 +350,21 @@ T.eq(optionsByKey.language.default, "en", "language preserves English by default
 T.eq(#optionsByKey.language.choices, 5, "language offers five built-in languages")
 T.eq(optionsByKey.language.choices[5][2], "ja", "Japanese is selectable using its standard locale code")
 T.eq(optionsByKey.theme_v3.label, "THEME", "theme setting is device-neutral")
-T.eq(#optionsByKey.theme_v3.choices, 12, "classic and modern themes share one setting")
+T.eq(#optionsByKey.theme_v3.choices, 15, "classic and modern themes share one setting")
 T.eq(optionsByKey.theme_v3.choices[3][2], "hgss", "HGSS theme is available")
 T.eq(optionsByKey.theme_v3.choices[4][2], "hgss_dark",
   "HGSS dark theme is available")
 T.eq(optionsByKey.theme_v3.choices[5][2], "hgss_auto",
   "HGSS automatic day and night theme is available")
-T.eq(optionsByKey.theme_v3.choices[6][2], "modern_light",
+T.eq(optionsByKey.theme_v3.choices[6][2], "cgear",
+  "C-Gear light theme is available")
+T.eq(optionsByKey.theme_v3.choices[7][2], "cgear_dark",
+  "C-Gear dark theme is available")
+T.eq(optionsByKey.theme_v3.choices[8][2], "cgear_auto",
+  "C-Gear automatic day and night theme is available")
+T.eq(optionsByKey.theme_v3.choices[9][2], "modern_light",
   "modern light theme is available")
-T.eq(optionsByKey.theme_v3.choices[7][2], "modern_dark",
+T.eq(optionsByKey.theme_v3.choices[10][2], "modern_dark",
   "modern dark theme is available")
 T.eq(optionsByKey.clock_source.label, "CLOCK SOURCE", "clock source is one compact choice")
 T.eq(optionsByKey.clock_source.default, "game", "Gen 2 follows its encounter clock by default")

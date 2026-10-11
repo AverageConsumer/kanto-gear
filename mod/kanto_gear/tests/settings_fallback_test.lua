@@ -68,10 +68,10 @@ local function rowFor(key)
     if row.key == key then return row end
   end
 end
-T.eq(rowFor("theme_v3").value, "HGSS LIGHT", "the fallback reads the 3.0 default")
+T.eq(rowFor("theme_v3").value, "POKEGEAR LIGHT", "the fallback reads the 3.0 default")
 T.eq(rowFor("theme_v3").enabled, true, "touch settings stay enabled without host setter")
 T.check(display.cycleSetting(rowFor("theme_v3"), 1), "touch can change the theme")
-T.eq(rowFor("theme_v3").value, "HGSS DARK",
+T.eq(rowFor("theme_v3").value, "POKEGEAR DARK",
   "the changed theme is visible immediately")
 local api = upvalue(display.saveHome, "mod")
 T.eq(api.cache:read("options/theme_v3"), "shgss_dark",
@@ -92,7 +92,7 @@ run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "theme_v3", value = "hgss" })
 T.eq(api.options:get("theme_v3"), "hgss",
   "the native mod menu replaces a cached touch setting")
-T.eq(rowFor("theme_v3").value, "HGSS LIGHT",
+T.eq(rowFor("theme_v3").value, "POKEGEAR LIGHT",
   "the touch menu immediately follows the native mod menu")
 T.eq(api.cache:read("options/theme_v3"), "shgss",
   "the synchronized native value survives the next restart")
