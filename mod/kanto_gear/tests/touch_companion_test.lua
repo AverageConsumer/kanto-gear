@@ -18,6 +18,34 @@ local function hook(run, name)
     if entry.owner == "kanto_gear" then return entry.callback end
   end
 end
+local function battleLog(run, theme)
+  local H = theme.hgss
+  H.v4BattleLog = { entries = { "Previous encounter" }, last = "Last encounter ended" }
+  run.loader.events:emit("battle.started", {})
+  H:battleMessage({ "New encounter" }, true)
+  T.eq(#H.v4BattleLog.entries, 0, "every encounter starts with an empty battle log")
+  T.eq(H.v4BattleLog.last, "New encounter", "new encounter owns its first message")
+  H:battleMessage({ "First attack" }, true)
+  H:battleMessage({ "Second attack" }, true)
+  local log = H.v4BattleLog
+  T.eq(log.entries[1], "First attack", "current encounter retains its last message")
+  T.eq(log.entries[2], "New encounter", "history only includes this encounter")
+  local clock, now = H.clock, H:clock()
+  H.clock = function() return now + 30 end
+  H:battleMessage({ "Second attack" }, true)
+  T.eq(log.entries[2], "New encounter", "a long pause inside the fight does not erase its history")
+  H.clock = clock
+  for _, event in ipairs({ "battle.turn_started", "battle.battler_switched", "battle.turn_ended" }) do
+    run.loader.events:emit(event, {})
+    T.eq(H.v4BattleLog, log, "turns and Pokemon switches preserve the current log")
+  end
+  run.loader.events:emit("battle.ended", {})
+  T.eq(H.v4BattleLog, nil, "ending a fight discards its battle log")
+  run.loader.events:emit("battle.started", {})
+  H:battleMessage({ "Second attack" }, true)
+  T.eq(#H.v4BattleLog.entries, 0, "identical text in an immediate rematch cannot restore old history")
+  run.loader.events:emit("battle.ended", {})
+end
 local function preservedHooks(run, states)
   for _, name in ipairs({ "battle.bottom_ui_visible", "battle.status_hud_visible",
       "screen.render_visible", "battle.move_grid_navigation", "ui.party.grid_navigation" }) do
@@ -142,6 +170,7 @@ if gen == 3 then
       run.loader.modOptions.kanto_gear.theme_v3 = style
       run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
       nativeCursorPresentation(up(display.drawContents,"THEME"), display)
+      battleLog(run, up(display.drawContents, "THEME"))
       hardware(run, display, game, scenes)
       assert(loadfile(path .. "/tests/press_feedback_cases.lua"))()(T,display,up(display.drawContents,"THEME").hgss)
       assert(loadfile(path .. "/tests/sprite_runtime_cases.lua"))()(T,display,up(hook(run,"input.step"),"hgssRuntime"),gen,up)
@@ -207,6 +236,7 @@ else
     run.loader.modOptions.kanto_gear = { theme_v3 = style, info_level = "enhanced", ui_motion = false }
     run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
     nativeCursorPresentation(theme, display)
+    battleLog(run, theme)
     assert(loadfile(path .. "/tests/press_feedback_cases.lua"))()(T,display,theme.hgss)
     assert(loadfile(path .. "/tests/sprite_runtime_cases.lua"))()(T,display,up(hook(run,"input.step"),"hgssRuntime"),gen,up)
     for _, saved in ipairs({ "standard" }) do

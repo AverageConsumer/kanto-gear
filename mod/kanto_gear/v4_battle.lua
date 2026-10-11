@@ -179,14 +179,12 @@ return function(H, ui, K)
     -- window, faded, so a message that flew by can still be read.
     local log = self.v4BattleLog or { entries = {} }
     self.v4BattleLog = log
-    local now = self:clock()
     local key = table.concat(lines, " ")
-    if log.seen and now - log.seen > 20 then log.entries, log.last = {}, nil end
     if log.last and log.last ~= key then
       table.insert(log.entries, 1, log.last)
       while #log.entries > 2 do table.remove(log.entries) end
     end
-    log.last, log.seen = key, now
+    log.last = key
     local slot = wy - 6
     for index, entry in ipairs(log.entries) do
       local top = slot - index * 17

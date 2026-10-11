@@ -15291,7 +15291,13 @@ return function(mod)
       or screenContract(state, "naming")))
   end)
 
+  mod.events:on("battle.started", function()
+    if THEME.hgss then THEME.hgss.v4BattleLog = nil end
+    dirty = true
+  end)
+
   mod.events:on("battle.ended", function(payload)
+    if THEME.hgss then THEME.hgss.v4BattleLog = nil end
     dirty = true
     battleInfoDetail = nil; displayRuntime.enemyInfoSelection = nil
     local state = payload and payload.battle
@@ -15318,7 +15324,7 @@ return function(mod)
   end)
 
   for _, event in ipairs({
-    "battle.started", "battle.turn_started", "battle.move_used",
+    "battle.turn_started", "battle.move_used",
     "battle.damage_dealt", "battle.status_inflicted",
     "battle.battler_switched", "battle.turn_ended",
     "pokemon.caught",
