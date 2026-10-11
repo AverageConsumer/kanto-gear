@@ -4,7 +4,7 @@ return function(T, display, raw)
   local Fade = require("src.ui.game3.fade")
   local Stack = require("src.ui.game3.stack")
   local Bag, Items = require("src.core.game3.bag"), a.Items
-  local emerald = a.profile.id == "emerald"
+  local emerald = a.hoenn
   local money = session.money
   local function input(key) return { wasPressed = function(_, k) return k == key end, isDown = function() return false end } end
   local function view() return display.gen3Ui:list() end

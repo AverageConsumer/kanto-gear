@@ -126,4 +126,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   Bridge.persistSessionOnly, api.input.tap, game.input = original.persist, original.tap, original.input
   Save.close(); Stack.clear(); Message.reset(); Choice.reset(); display.gen3.syncScreens()
 end
-dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

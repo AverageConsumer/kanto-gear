@@ -25,7 +25,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       onDone = function(value) result = value end })
     for _ = 2, page do press("select"); settle() end
     local menu = assert(display.startMenu())
-    if os.getenv("POKEPORT_VERSION") == "emerald" then
+    if display.gen3.hoenn then
       T.check(state.pages ~= nil, "Emerald native keyboard loaded")
       local count = 3
       for row, chars in ipairs(state.pages[page].rows) do
@@ -74,5 +74,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   end
   love.filesystem.load = load
 end
-dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald"
-  and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

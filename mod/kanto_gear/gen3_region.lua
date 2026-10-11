@@ -5,7 +5,7 @@ local names = { [0] = "KANTO", "SEVII 1-3", "SEVII 4-5", "SEVII 6-7" }
 local images = { [0] = "kanto_map", "sevii123_map", "sevii45_map", "sevii67_map" }
 
 function Region.new(adapter, graphics)
-  if adapter.profile.id == "emerald" then
+  if adapter.hoenn then
     return setmetatable({ adapter = adapter, graphics = graphics,
       Hoenn = require("src.ui.game3.rse.region_map"),
       Kit = require("src.ui.game3.rse.scene_kit") }, Region)

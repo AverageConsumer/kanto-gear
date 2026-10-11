@@ -19,17 +19,18 @@ function love.load()
       local Field = require("src.core.game3.field")
       require("src.core.game3.tileset_native").install(require("src.core.game3.dataset").cache())
       require("src.core.game3.ow_sprites").install(require("src.core.game3.dataset").cache())
-      local emerald = os.getenv("POKEPORT_VERSION") == "emerald"
-      game.session.map, game.session.x, game.session.y = emerald and "EM_ROUTE101" or "FR_ROUTE_1", 10, 15
+      game.session.map, game.session.x, game.session.y = display.gen3.hoenn
+        and display.gen3.profile.map.enginePrefix .. "ROUTE101" or "FR_ROUTE_1", 10, 15
       Map.current, Map._def = game.session.map, maps[game.session.map]
       Player.cellX, Player.cellY, Player.px, Player.py = 10, 15, 160, 240
       Field.running = true
       display.gen3:refresh()
       run.loader.events:emit("map.entered", { game = game, mapId = game.session.map })
-      local outputCanvas = love.graphics.newCanvas(1440, 1080)
+      local labels = { "party", "bag", "pokedex", "trainer", "native-party", "native-bag", "summary", "summary-skills", "summary-moves", "explorer", "map", "notes", "battle", "battle-moves", "battle-targets" }
+      if display.gen3.hoenn then labels[#labels + 1] = "summary-contest" end
+      local outputCanvas = love.graphics.newCanvas(1440, math.ceil(#labels / 3) * 216)
       love.graphics.setCanvas(outputCanvas); love.graphics.clear(0.08, 0.08, 0.1, 1)
       love.graphics.setCanvas()
-      local labels = { "party", "bag", "pokedex", "trainer", "native-party", "native-bag", "summary", "summary-skills", "summary-moves", "explorer", "map", "notes", "battle", "battle-moves", "battle-targets" }
       local Battle = require("src.core.game3.battle")
       local Ui = require("src.core.game3.battle.ui")
       local refreshBattle
@@ -68,6 +69,10 @@ function love.load()
           end
           display.gen3.syncScreens()
           refreshBattle()
+          if app:match("^summary") then
+            display.summaryContext().page = app == "summary-skills" and 2 or app == "summary-moves" and 3
+              or app == "summary-contest" and 4 or 1
+          end
           if app == "battle-moves" then
             local runtime = upvalue(refreshBattle, "hgssRuntime")
             for _, move in ipairs(runtime.battleMon().moves) do
@@ -113,10 +118,10 @@ function love.load()
     local ran = false
     local function run()
       ran = true
-      dofile(mod .. (os.getenv("POKEPORT_VERSION") == "emerald"
-        and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+      dofile(mod .. "/tests/gen3_fixture.lua")
     end
-    if os.getenv("POKEPORT_VERSION") == "emerald" then
+    if os.getenv("POKEPORT_VERSION") == "emerald" or os.getenv("POKEPORT_VERSION") == "ruby"
+        or os.getenv("POKEPORT_VERSION") == "sapphire" then
       local root = assert(os.getenv("POKEPORT_GBA_CACHE")):gsub("/data/generated/gba$", "")
       require("src.import.CacheFs").withMounted(root, "", run)
     else run() end

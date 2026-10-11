@@ -231,6 +231,7 @@ local function describe(layer, game, previous)
     end
   else
     local Native = require("src.ui.game3.rse.pokedex")
+    local rs = require("src.ui.game3.rse.pokedex_gfx").manifest().assetLayout == "rs"
     local s = native._s
     if not s then return end
     dex, session = s.dex, s.session
@@ -316,12 +317,14 @@ local function describe(layer, game, previous)
       local info = caught and s.caught or s.info
       local text = info.text or {}
       local description = ""
-      for _, part in ipairs(text) do if part.y == 95 then description = part.text end end
+      for _, part in ipairs(text) do if part.y == (rs and 104 or 95) then description = part.text end end
+      local actions = caught and { { label = "CONTINUE" } } or {
+        { label = "AREA" }, { label = "CRY" }, { label = "SIZE", inert = not info.owned }, { label = "CANCEL" } }
+      if rs and not caught then table.insert(actions, 1, { label = "NEXT DATA", inert = not info.owned }) end
       state = { kind = "profile", species = Native.speciesOf(info.dexNum), owned = caught or info.owned,
-        page = s.page, signature = tostring(s) .. ":" .. s.fn, description = description,
+        page = s.page, signature = tostring(s) .. ":" .. s.fn .. ":" .. tostring(s.descriptionPage), description = description,
         waiting = s.fn ~= (caught and "caughtInput" or "infoInput"),
-        actions = caught and { { label = "CONTINUE" } } or {
-          { label = "AREA" }, { label = "CRY" }, { label = "SIZE", inert = not info.owned }, { label = "CANCEL" } },
+        actions = actions,
         cursor = not caught and function() return s.selectedScreen + 1 end or nil,
         select = not caught and function(i) s.selectedScreen = i - 1 end or nil }
     end

@@ -8,8 +8,9 @@ local function up(fn, key)
   end
 end
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
-  local emerald = os.getenv("POKEPORT_VERSION") == "emerald"
+  local emerald = display.gen3.hoenn
   local Native = require(emerald and "src.ui.game3.rse.move_relearner" or "src.ui.game3.move_relearner")
+  local show = display.gen3.rs and require("src.ui.game3.rs.move_relearner").show or Native.show
   local Stack, Message, Choice = require("src.ui.game3.stack"), require("src.ui.game3.message"), require("src.ui.game3.choice")
   local Summary, Hud = require("src.ui.game3.summary_menu"), require("src.ui.game3.hud")
   local Learn, Party = require("src.core.game3.battle.learn_move"), require("src.core.game3.party")
@@ -44,7 +45,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local function open()
     Native.finish(false); Summary.close(); Stack.clear(); Message.reset(); Choice.reset(); Learn.reset()
     done, learned = 0, nil
-    Native.show(mon, { session = game.session, onDone = function(value) done, learned = done + 1, value end })
+    show(mon, { session = game.session, onDone = function(value) done, learned = done + 1, value end })
     return view()
   end
   local function inspect(index, nativeId)
@@ -108,6 +109,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     answer(1)
     waitFor(function() return Summary.isOpen() end)
     T.check(Summary.isOpen(), "native teaching opens the common replacement chooser")
+    waitFor(function() local current = display.startMenu(); return current and current.valid() end)
     current = view()
     T.check(current.moveSelection and not current.moveSelection.catalogue, "replacement keeps the shared four-slot page")
     click(120, 120)
@@ -133,7 +135,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     moves[1], moves[2] = moves[2], moves[1]
     T.check(not current.valid(), "in-place native learnset changes invalidate old move cards")
     moves[1], moves[2] = moves[2], moves[1]
-    current = view(); Native.show(mon, { session = game.session })
+    current = view(); show(mon, { session = game.session })
     T.check(not current.valid(), "reopened native singleton rejects previous cards")
     Native.finish(false)
     current = open(); before = { unpack(mon.moves) }
@@ -161,4 +163,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   table.remove(game.session.party)
   api.input.tap, game.input = originalTap, originalInput
 end
-dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

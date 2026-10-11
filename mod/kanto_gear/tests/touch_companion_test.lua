@@ -166,8 +166,7 @@ if gen == 3 then
     Summary.close(); Party.close(); Bag.close(); Stack.clear(); Message.reset()
     Battle._active, Battle._st = false, nil; Ui.reset({ headless = true })
   end
-  dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald"
-    and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+  dofile(path .. "/tests/gen3_fixture.lua")
 else
   local run = T.sdk.loadMod(path, { generation = gen, data = T.fixtures.load() })
   T.eq(run.mod.state, "loaded", "companion loads")

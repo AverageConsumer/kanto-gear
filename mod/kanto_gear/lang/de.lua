@@ -1,4 +1,6 @@
 return {
+  ["RUBY"] = "RUBIN",
+  ["SAPPHIRE"] = "SAPHIR",
   ["SHOW INSIDE"] = "INNEN ANZEIGEN",
   ["SHOW ENTRANCE"] = "EINGANG ANZEIGEN",
   ["ENTRANCE"] = "EINGANG",

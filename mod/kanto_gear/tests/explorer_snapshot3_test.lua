@@ -8,7 +8,7 @@ local function up(fn, key)
   error("missing upvalue " .. key)
 end
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
-  local id = os.getenv("POKEPORT_VERSION") == "emerald" and "EM_ROUTE102" or "FR_ROUTE_3"
+  local id = display.gen3.hoenn and display.gen3.profile.map.enginePrefix .. "ROUTE102" or "FR_ROUTE_3"
   game.session.map = id
   run.loader.events:emit("map.entered", { game = game, mapId = id })
   run.loader.modOptions.kanto_gear.info_level = "spoiler"
@@ -105,5 +105,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   display.localMapPosition = oldPosition
   objects.find, objects._mapId = oldFind, oldMap
 end
-dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald"
-  and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

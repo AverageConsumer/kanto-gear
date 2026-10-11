@@ -5,7 +5,7 @@
 ### Silph Link OS — Your adventure. Reconnected.
 
 A Nintendo DS-inspired companion OS for Pokémon Red, Blue, Yellow, Gold,
-Silver, Crystal, FireRed, LeafGreen and Emerald in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
+Silver, Crystal, Ruby, Sapphire, FireRed, LeafGreen and Emerald in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
 
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest Kanto Gear release"></a>
@@ -70,11 +70,12 @@ ROM or save file.
 | Gold, Silver and Crystal | 0.3.20 |
 | FireRed and LeafGreen | 0.3.20 |
 | Emerald (US 1.0) | 0.3.33 |
+| Ruby and Sapphire (US/Europe, 4.0 beta) | 0.3.74 |
 
-**Gen 3 support is still early.** Emerald, FireRed and LeafGreen have not been
-extensively playtested yet. Feedback from your playthroughs is very welcome!
-Some specialized menus stay on the original game screen. Ruby and Sapphire
-are not currently supported. See [Gen 3 coverage](tools/GEN3.md) for details.
+Ruby and Sapphire join the other supported editions in the **4.0 beta**.
+All Gen 3 games still welcome broader playthrough testing and feedback.
+Some specialized menus stay on the original game screen.
+See [Gen 3 coverage](tools/GEN3.md) for details.
 
 ## One screen or two
 

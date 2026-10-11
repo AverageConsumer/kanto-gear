@@ -65,7 +65,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     for i = 1, 3 do Blocks.add(session, { color = i, spicy = 10 + i, dry = 12, feel = 20 }) end
     Case.saved.row, Case.saved.scroll = 0, 0
     opts = opts or {}; opts.session, opts.caseId = session, caseId or Blocks.CASE.FIELD
-    Case.show(opts)
+    local skin = a.rs and require("src.ui.game3.rs.pokeblock_case") or Case
+    skin.show(opts)
     waitFor(function() return Case._st.fadeDir == 0 end, "case entry")
     a:refresh(); a.syncScreens()
     return assert(display.startMenu())
@@ -100,7 +101,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
         T.eq(Blocks.get(session, 0).color, 2, "native compaction retains remaining blocks")
       else T.eq(Case._st.phase, "list", "No returns to the actual case") end
     end
-    for _, id in ipairs({ Blocks.CASE.FEEDER, Blocks.CASE.GIVE }) do
+    for _, id in ipairs(a.rs and { Blocks.CASE.FEEDER } or { Blocks.CASE.FEEDER, Blocks.CASE.GIVE }) do
       local uses, closes, chosen = 0, 0, nil
       local list = open(id, { onUse = function(index) uses = uses + 1; return index end,
         onClose = function(index) closes = closes + 1; chosen = index end })
@@ -118,9 +119,9 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.eq(Case._st.phase, "swap", "native Select starts reordering")
     click(assert(poll()), 3)
     T.eq(Case._st.phase, "list", "touch confirms native reordering")
-    T.eq(Blocks.get(session, 0).color, 2, "native order changed without replacing blocks")
+    T.eq(Blocks.get(session, 0).color, a.rs and 3 or 2, "native order changed without replacing blocks")
     list = assert(poll()); tick("select"); back(assert(poll()))
-    T.eq(Blocks.get(session, 0).color, 2, "cancelled reorder preserves native order")
+    T.eq(Blocks.get(session, 0).color, a.rs and 3 or 2, "cancelled reorder preserves native order")
 
     local chooser = feedPage()
     T.eq(#chooser.items, 3, "feeding excludes eggs and includes Cancel")
@@ -168,7 +169,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     chooser = feedPage(); click(chooser, 2)
     local pending = ui.pokeblockSelection
     T.check(pending ~= nil, "deferred selection exists only during native transition")
-    Use.reset(); Use.show({ session = session, pokeblockId = 0 })
+    Use.reset(); (a.rs and require("src.ui.game3.rs.use_pokeblock") or Use).show({ session = session, pokeblockId = 0 })
     poll()
     T.eq(ui.pokeblockSelection, nil, "reopened native chooser invalidates old pending confirmation")
     waitFor(function() return Use._st.state == "input" and Use._st.fadeDir == 0 end, "reopened chooser")
@@ -206,4 +207,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   ui.pokeblockSelection = nil
   Case.reset(); Use.reset(); Feed.reset(); Stack.clear(); Message.reset(); Choice.reset(); a:refresh(); a.syncScreens()
 end
-dofile(path .. "/tests/emerald_runtime_test.lua")
+dofile(path .. "/tests/gen3_fixture.lua")

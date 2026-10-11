@@ -108,3 +108,7 @@ tests/gen3_trades_test.lua
 tests/gen3_gifts_test.lua
 tests/display_idle_test.lua
 tests/location_preview_test.lua
+tests/gen3_fixture.lua
+tests/rs_native_test.lua
+tests/rs_runtime_test.lua
+tests/rs_objectives_test.lua

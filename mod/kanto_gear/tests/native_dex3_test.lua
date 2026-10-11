@@ -8,7 +8,8 @@ local function up(fn, key)
   end
 end
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
-  local emerald = os.getenv("POKEPORT_VERSION") == "emerald"
+  local hoenn = display.gen3.hoenn
+  local rs = display.gen3.rs
   -- Native RSE scenes read LÖVE's mounted cache; the headless SDK needs the same files exposed.
   local fs = love.filesystem
   local read, load, getInfo = fs.read, fs.load, fs.getInfo
@@ -32,7 +33,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     if bytes then return { type = "file", size = #bytes } end
     return getInfo(file)
   end
-  local Native = require(emerald and "src.ui.game3.rse.pokedex" or "src.ui.game3.pokedex")
+  local Native = require(hoenn and "src.ui.game3.rse.pokedex" or "src.ui.game3.pokedex")
   local Stack, Hud = require("src.ui.game3.stack"), require("src.ui.game3.hud")
   local Pokemon, Dex = display.gen3.Pokemon, display.gen3.Dex
   local api = up(display.saveHome, "mod")
@@ -64,11 +65,12 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local function click(x, y)
     queued = nil
     display.tapStartMenu(view(), x / 1.5, y / 1.5)
-    if queued then tick(queued) end
+    if queued then tick(queued); tick() end
     return queued
   end
   local function action(index)
     local current = view()
+    if rs and current.dexModel.view == "profile" and #current.items == 5 then index = index + 1 end
     local x, y, w, h = display.PokedexPage.actionRect(index, #current.items, current.dexModel.compactActions)
     return click(x + w / 2, y + h / 2)
   end
@@ -85,7 +87,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   end
   local function phase(name) waitFor(function() return Native.active().fn == name end) end
   local function ready()
-    if emerald then waitFor(function() local s = Native.active(); return s and s.fn == "infoInput" end) end
+    if hoenn then waitFor(function() local s = Native.active(); return s and s.fn == "infoInput" end) end
   end
   local function render(name)
     local ok, err = xpcall(display.drawContents, debug.traceback)
@@ -94,14 +96,14 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   end
   local dex, first, third
   local function open()
-    if emerald then Native.reset() else Native.close() end
+    if hoenn then Native.reset() else Native.close() end
     Stack.clear(); require("src.ui.game3.message").reset(); require("src.ui.game3.choice").reset()
     dex = Dex.new(); game.session.dex = dex
-    first, third = Pokemon.speciesFromNational(emerald and 252 or 1), Pokemon.speciesFromNational(emerald and 254 or 3)
+    first, third = Pokemon.speciesFromNational(hoenn and 252 or 1), Pokemon.speciesFromNational(hoenn and 254 or 3)
     Dex.setCaught(dex, first); Dex.setSeen(dex, third)
-    Dex.setSeen(dex, Pokemon.speciesFromNational(emerald and 386 or 25))
+    Dex.setSeen(dex, Pokemon.speciesFromNational(hoenn and 386 or 25))
     Native.show(dex, { session = game.session, mode = "kanto", onClose = function() closed = closed + 1 end })
-    if emerald then waitFor(function() return Native.active().fn == "mainInput" and Native.active().menuY == 0 end) end
+    if hoenn then waitFor(function() return Native.active().fn == "mainInput" and Native.active().menuY == 0 end) end
     return view()
   end
   for _, style in ipairs({ "hgss", "hgss_dark" }) do
@@ -125,7 +127,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     click(130, 13)
     T.eq(view().dexModel.page, 2, "touch pagination reaches the next native window")
     T.check(not list.valid(), "previous native window rejects stale touches")
-    if emerald then
+    if hoenn then
       local s = Native.active()
       T.eq(s.selected, 9, "Emerald pagination updates its zero-based cursor")
       T.eq(s.fn, "mainInput", "pagination does not restart a loading fade")
@@ -140,8 +142,17 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.check(profile.dexModel.pokemon.height ~= "--", "caught entry exposes measurements")
     T.check(#profile.dexModel.pokemon.description > 0,"caught entry exposes real native description")
     render("profile")
-    if emerald then
-      T.eq(#profile.items,4,"Emerald keeps AREA CRY SIZE CANCEL actions")
+    if hoenn then
+      T.eq(#profile.items,rs and 5 or 4,"native entry action count")
+      if rs then
+        local description, redraw = table.concat(profile.dexModel.pokemon.description,"\n"), display.StartMenu.redrawKey(profile)
+        action(0)
+        T.eq(Native.active().descriptionPage,1,"NEXT DATA selects the native second text page")
+        T.check(table.concat(view().dexModel.pokemon.description,"\n") ~= description,"second description is mirrored")
+        T.check(display.StartMenu.redrawKey(view()) ~= redraw,"text-page change invalidates the companion canvas")
+        action(0)
+        T.eq(table.concat(view().dexModel.pokemon.description,"\n"),description,"reverse text-page change restores the first description")
+      end
       action(1); phase("areaInput")
       waitFor(function() local s=Native.active();return s.area.inputState==1 and not s.pal:fadeActive() end)
       local area=view()
@@ -309,7 +320,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.eq(unknown.dexModel.pokemon.weight,"--","seen-only entry hides weight")
     T.eq(#unknown.dexModel.pokemon.description,0,"seen-only entry hides owned description")
     T.eq(unknown.dexModel.pokemon.kind,"?????","seen-only Gen3 category remains hidden")
-    if not emerald then
+    if not hoenn then
       action(1)
       local hiddenArea=view()
       T.eq(#hiddenArea.dexModel.comparison,0,"seen-only FRLG entry never reveals size silhouettes")
@@ -317,8 +328,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       render("area_size_seen_only")
       action(2)
     end
-    if emerald then
-      T.eq(unknown.items[3].inert,true,"unowned size comparison is inert")
+    if hoenn then
+      T.eq(unknown.items[rs and 4 or 3].inert,true,"unowned size comparison is inert")
       T.eq(action(3),nil,"disabled size control sends no input")
       action(2);phase("cryInput")
       waitFor(function() return not Native.active().pal:fadeActive() end)
@@ -445,10 +456,10 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
         end
       end
     end
-    if emerald then Native.reset() else Native.close() end
+    if hoenn then Native.reset() else Native.close() end
     Stack.clear()
     local done = closed
-    if emerald then
+    if hoenn then
       Native.showCaughtMon(first,{session=game.session,personality=123,onDone=function() closed=closed+1 end})
       waitFor(function() return Native.active().fn == "caughtInput" end)
     else Native.showRegistration(first,{session=game.session,onDone=function() closed=closed+1 end}) end
@@ -456,11 +467,15 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.eq(#registration.items,1,"registration offers only the genuine continue action")
     render("registration")
     action(1)
-    if emerald then waitFor(function() return Native.active() == nil end) end
+    if rs then
+      T.eq(Native.active().descriptionPage,1,"caught registration first reveals its second page")
+      action(1)
+    end
+    if hoenn then waitFor(function() return Native.active() == nil end) end
     T.eq(closed,done+1,"registration invokes original callback exactly once")
     T.check(not registration.valid(),"closed registration rejects delayed touches")
   end
-  if emerald then
+  if hoenn then
     local gender, playerGender = game.session.gender, game.session.playerGender
     local trainerImages = {}
     for _, test in ipairs({{321,"male","size_large"},{298,"female","size_small"},{327,"female","size_spinda"}}) do
@@ -520,22 +535,22 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   end
   open()
   local oldSession = game.session
-  if emerald then Native.active().session = {} else Native._session = {} end
+  if hoenn then Native.active().session = {} else Native._session = {} end
   T.eq(display.startMenu(),nil,"foreign session Dex cannot claim the lower screen")
-  if emerald then Native.active().session = oldSession; Native.reset() else Native._session = oldSession; Native.close() end
+  if hoenn then Native.active().session = oldSession; Native.reset() else Native._session = oldSession; Native.close() end
   Stack.clear()
   dex = Dex.new(); game.session.dex = dex
   Native.show(dex,{session=game.session,mode="kanto"})
-  if emerald then waitFor(function() return Native.active().fn == "mainInput" end) end
+  if hoenn then waitFor(function() return Native.active().fn == "mainInput" end) end
   local empty = view()
   T.eq(empty.dexModel.total,0,"empty native Dex invents no species")
   T.eq(#empty.dexModel.entries,0,"empty native Dex has no fake card")
   T.eq(display.NativeDex.page(empty,1),false,"empty native Dex has no pagination")
-  if emerald then Native.reset() else Native.close() end
+  if hoenn then Native.reset() else Native.close() end
   Stack.clear()
   game.session.dex, api.input.tap, game.input = oldDex, oldTap, oldInput
   love.graphics.newQuad = newQuad
   fs.read, fs.load, fs.getInfo = read, load, getInfo
   print("NATIVE_DEX3_CHECKED", os.getenv("POKEPORT_VERSION"))
 end
-dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

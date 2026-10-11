@@ -1,4 +1,6 @@
 return {
+  ["RUBY"] = "RUBÍ",
+  ["SAPPHIRE"] = "ZAFIRO",
   ["SHOW INSIDE"] = "VER INTERIOR",
   ["SHOW ENTRANCE"] = "VER ENTRADA",
   ["ENTRANCE"] = "ENTRADA",

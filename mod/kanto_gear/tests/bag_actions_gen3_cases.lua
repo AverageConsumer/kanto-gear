@@ -9,6 +9,7 @@ return function(T, run, display, raw)
   local function clear()
     Party.close(); Menu.close(); Stack.clear(); Message.reset()
     if a.profile.id == "emerald" then require("src.ui.game3.rse.bag_menu").reset() end
+    if a.rs then require("src.ui.game3.rs.bag_menu").reset() end
     display.gen3:refresh(); display.gen3.syncScreens()
     -- Standalone fixtures do not run the host's normal compose/update tick.
     for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
@@ -33,7 +34,7 @@ return function(T, run, display, raw)
   T.same(ids(ball), {"give","toss"}, "balls do not offer meaningless field use")
   T.same(ids(rod), {"use","register"}, "key items expose use/registration and no destructive action")
   local nativeTm = Items.toNumericId("TM01")
-  T.same(ids(nativeTm), {"use"}, "unsupported native TM giving is not advertised")
+  T.same(ids(nativeTm), a.rs and {"use","give"} or {"use"}, "only editions supporting native TM giving advertise it")
   Bag.add(session.bag,nativeTm,1);a:refresh()
   assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH") .. "/tests/item_page_cases.lua"))()(T, display,
     up(display.drawContents,"THEME").hgss)
@@ -146,6 +147,11 @@ return function(T, run, display, raw)
     clear(); a:refresh()
     T.check(display.performBagAction(id,"use"),"PP item opens the real party picker")
     Menu.settle()
+    if a.rs then
+      T.check(not display.startMenu().valid(), "RS party fade rejects touch before native input is ready")
+      for _ = 1, 120 do Party.update(1 / 60) end
+      T.check(display.startMenu().valid(), "settled RS party allows PP target selection")
+    end
     Screens.handleInput("party",Party,input("a"),session)
     T.eq(Party.mode,"forget","native PP selector is open")
     a:refresh(); a.syncScreens()
@@ -211,7 +217,7 @@ return function(T, run, display, raw)
   clear()
   T.eq(display.bagActions(rod)[2].label, "UNREGISTER", "registered item offers the inverse action")
   T.check(display.performBagAction(rod,"register"),"unregister delegates to the same native toggle")
-  T.eq(session.registeredItem,nil,"unregister removes the native shortcut")
+  T.eq(session.registeredItem,a.rs and 0 or nil,"unregister removes the native shortcut")
   clear();session.registeredItem=registered
   local Sell=require("src.ui.game3.sell_flow")
   Menu.show(session.bag,{session=session,location="shop"});Menu.settle()
@@ -226,7 +232,7 @@ return function(T, run, display, raw)
   T.eq(sale.qty,3,"native sale wraps from one to its maximum")
   T.eq(display.gen3Ui:list().quantity.total,sale:total(),"sale total follows native quantity changes")
   sale:handleInput(input("b"));Menu._sell=nil;clear()
-  if a.profile.id~="emerald" then
+  if not a.hoenn then
     local Shop=require("src.ui.game3.shop_menu")
     local money=session.money;session.money=600
     Shop.show({session=session,items={potion}})
@@ -242,17 +248,19 @@ return function(T, run, display, raw)
     T.eq(Shop.qty,2,"native mart agrees with the affordable upper bound")
     Shop.close();session.money=money;clear()
   end
-  if a.profile.id == "emerald" then
+  if a.hoenn then
     local berry=Items.toNumericId("CHERI_BERRY")
     Bag.add(session.bag,berry,1);a:refresh()
     T.same(ids(berry),{"check_tag","use","give","toss"},"Emerald berries retain their additional tag action")
     T.check(display.performBagAction(berry,"check_tag"),"berry tag opens through native input")
-    T.eq(Stack.top() and Stack.top().id,"rse_berry_tag","native berry information is displayed")
+    T.eq(Stack.top() and Stack.top().id,a.rs and "rs_berry_tag" or "rse_berry_tag","native berry information is displayed")
     clear()
   end
   -- Icon sources and quad reuse, independent of a headless GPU stub.
   local icon={}; local original
-  if a.profile.id == "emerald" then
+  if a.rs then
+    T.eq(a:itemIcon(potion), nil, "RS has no native item icon pack and keeps the generic symbol")
+  elseif a.hoenn then
     local Kit=require("src.ui.game3.rse.scene_kit")
     local manifest,rgba=Kit.manifest,Kit.rgbaImage
     Kit.manifest=function() return {icons={rgba="fixture",w=24,h=24000,count=1000}} end

@@ -1,5 +1,5 @@
 return function(T, display, raw)
-  if display.gen3.profile.id ~= "emerald" then return end
+  if not display.gen3.hoenn then return end
   local session, a = raw.session, display.gen3
   local Pc = require("src.ui.game3.pc_menu")
   local Store = require("src.ui.game3.rse.item_storage")

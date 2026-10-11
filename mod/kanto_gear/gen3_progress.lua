@@ -19,17 +19,18 @@ end
 function M.new(adapter)
   local renewable, initiallyHidden = {}, {}
   local emerald = adapter.profile.id == "emerald"
-  if not emerald then
+  local hoenn = adapter.hoenn
+  if not hoenn then
     for _, flag in ipairs(adapter.Flags.NEW_GAME_HIDE_FLAGS or {}) do initiallyHidden[flag] = true end
   end
-  for _, zone in ipairs(not emerald and require("src.core.game3.renewable_hidden_items").ZONES or {}) do
+  for _, zone in ipairs(not hoenn and require("src.core.game3.renewable_hidden_items").ZONES or {}) do
     for _, tier in ipairs({ "rare", "uncommon", "common" }) do
       for _, flag in ipairs(zone[tier]) do renewable[flag] = true end
     end
   end
   return setmetatable({ adapter = adapter, maps = {}, renewable = renewable, initiallyHidden = initiallyHidden,
-    emerald = emerald,
-    constants = emerald and require("src.core.game3.constants").of("emerald"),
+    emerald = emerald, hoenn = hoenn, rs = adapter.rs,
+    constants = hoenn and require("src.core.game3.constants").of(adapter.profile.id),
     Trainers = require("src.core.game3.scripting.trainers"), builds = 0 }, M)
 end
 
@@ -183,7 +184,7 @@ end
 -- Identify the actual trade scene and its receipt, not the species-info helper.
 function M:trades(scripts, key, rows, vars, checkpoint)
   local ids, scenes, checked, written, cleared = sortedKeys(vars[0x8008]), {}, {}, {}, {}
-  local sceneId = self.emerald and self.constants:special("DoInGameTradeScene") or 254
+  local sceneId = self.hoenn and self.constants:special("DoInGameTradeScene") or 254
   for _, row in ipairs(rows) do
     local flag = row.flag or row[1]
     if row.op == "checkflag" then checked[flag] = true
@@ -317,9 +318,10 @@ local function pokemonPath(scripts, key, gift, receipt, options, checkpoint)
           if options.firered and id == 391 then at.vars[dest] = 0 -- not Quest Log playback
           elseif options.firered and id == 392 then -- stop recording; no result
           elseif options.firered and id == 230 then at.vars[dest] = options.friendship or 6
-          elseif at.given and (options.firered and (id == 158 or id == 358 or id == 357
+          elseif at.given and (options.rs and id == 158
+              or options.firered and (id == 158 or id == 358 or id == 357
               or id == 394 or id == 436 or id == 371)
-              or not options.firered and (id == 161 or id == 486 or id == 488 or id == 487)) then
+              or not options.firered and not options.rs and (id == 161 or id == 486 or id == 488 or id == 487)) then
             at.vars[dest] = nil -- naming/PC text/post-gift friendship; no receipt writes
           else return nil end
         elseif op == "trainerbattle" then
@@ -412,9 +414,9 @@ function M:pokemonGifts(scripts, key, rows, vars, obj, checkpoint, mapId)
     end
     if species and self.adapter.data.pokemon[species] then
       local previous = #out
-      local success = { party = 1, result = 0, firered = not self.emerald }
-      local failure = { party = 6, result = 2, firered = not self.emerald }
-      local pc = { party = 6, result = 1, firered = not self.emerald }
+      local success = { party = 1, result = 0, firered = not self.hoenn, rs = self.rs }
+      local failure = { party = 6, result = 2, firered = not self.hoenn, rs = self.rs }
+      local pc = { party = 6, result = 1, firered = not self.hoenn, rs = self.rs }
       for _, receipt in ipairs(receipts) do
         local proofKey = key
         local proof = pokemonPath(scripts, key, command, receipt, success, checkpoint)
@@ -490,10 +492,36 @@ function M:bundle()
   local bundle = self.adapter.Space.bundle
   if bundle ~= self.source then
     self.maps, self.source = {}, bundle
-    if self.emerald and bundle then
+    self.unusedHideout = nil
+    if self.hoenn and bundle then
       self.initiallyHidden = {}
       for _, row in ipairs(M.scan(bundle.scripts, "EventScript_ResetAllMapFlags")) do
         if row.op == "setflag" then self.initiallyHidden[row.flag or row[1]] = true end
+      end
+    end
+    if self.rs and bundle then
+      -- RS ships both Lilycove hideouts. Terrain/load scripts wall off the
+      -- unused entrance. Require that native proof so a custom map which
+      -- opens it can still supply objectives instead of being filtered by ID.
+      local prefix = self.adapter.profile.map.enginePrefix
+      local unused = prefix .. (self.adapter.profile.id == "ruby" and "AQUA" or "MAGMA") .. "_HIDEOUT_"
+      local city = self.adapter.data.maps[prefix .. "LILYCOVE_CITY"]
+      local event = bundle.events[prefix .. "LILYCOVE_CITY"]
+      local key = event and event.mapScripts and event.mapScripts.onLoad
+      for _, warp in ipairs(city and city.warps or {}) do
+        if warp.destMap == unused .. "1F" then
+          local layout = city.midLayout
+          local blocked = layout and layout:collAt(warp.x, warp.y) ~= 0 or false
+          local opened = false
+          for _, row in ipairs(bundle.scripts[key] or {}) do
+            if row.op ~= "setmetatile" then break end
+            if row[1] == warp.x and row[2] == warp.y and row[4] == 1 then blocked = true end
+          end
+          for _, row in ipairs(M.scan(bundle.scripts, key)) do
+            if row.op == "setmetatile" and row[1] == warp.x and row[2] == warp.y and row[4] == 0 then opened = true end
+          end
+          if blocked and not opened then self.unusedHideout = unused end
+        end
       end
     end
   end
@@ -503,6 +531,10 @@ end
 function M:catalog(mapId, checkpoint)
   local bundle = self:bundle()
   if self.maps[mapId] then return self.maps[mapId] end
+  if self.unusedHideout and mapId:sub(1, #self.unusedHideout) == self.unusedHideout then
+    self.maps[mapId] = { {}, {}, {}, {} }
+    return self.maps[mapId]
+  end
   local event = bundle and bundle.events and bundle.events[mapId]
   if not event or not bundle.scripts then
     return { { { label = "NOT TRACKED", mapId = mapId, untracked = true } }, {}, {}, {} }
@@ -566,8 +598,9 @@ function M:catalog(mapId, checkpoint)
       if not gifts[key] and self.adapter.data.items[gift.itemId] then
         local row = base(obj)
         row.kind, row.gift, row.itemId, row.event = "item", true, gift.itemId, gift.event
-        row.repeatable = self.emerald and gift.event >= self.constants:flag("DAILY_FLAGS_START")
-          and gift.event <= self.constants:flag("DAILY_FLAGS_END") or nil
+        local daily = self.hoenn and self.constants:flag("DAILY_FLAGS_START")
+        row.repeatable = daily and gift.event >= daily
+          and gift.event <= (self.constants:flag("DAILY_FLAGS_END") or daily + 63) or nil
         row.id = mapId .. "_gift_" .. key
         gifts[key], out[2][#out[2] + 1] = row, row
       end
@@ -578,10 +611,11 @@ function M:catalog(mapId, checkpoint)
         local id, typ = command.trainer or command[1], command.type
         local def = self.Trainers.get(id)
         if typ ~= 5 and typ ~= 7 and not (self.emerald and (typ == 9 or typ == 12)) then -- rematch op points at the same base trainer
-          local rival = def and (self.emerald and def.class == self.constants:id("trainer_classes", "TRAINER_CLASS_RIVAL")
-            or not self.emerald and (def.class == 81 or def.class == 89 or def.class == 90))
+          local rival = def and (self.hoenn and def.class == self.constants:id("trainer_classes",
+              self.rs and "TRAINER_CLASS_POKEMON_TRAINER_3" or "TRAINER_CLASS_RIVAL")
+            or not self.hoenn and (def.class == 81 or def.class == 89 or def.class == 90))
           local league = mapId:match("^FR_POKEMON_LEAGUE_") ~= nil
-            or mapId:match("^EM_EVER_GRANDE_CITY_.*ROOM$") ~= nil
+            or self.hoenn and mapId:match("_EVER_GRANDE_CITY_.*ROOM$") ~= nil
           local key = rival and ("rival:" .. tostring(def.class) .. ":" .. tostring(typ == 9))
             or league and def and ("league:" .. def.class .. ":" .. def.name) or tostring(id)
           local row = trainers[key]
@@ -589,9 +623,9 @@ function M:catalog(mapId, checkpoint)
             row = base(obj)
             row.id = mapId .. "_trainer_" .. key
             row.label = def and ((def.className or "") .. " " .. (def.name or "")):gsub("^%s+", "") or "TRAINERS"
-            row.rival, row.league, row.optional = rival, league, not self.emerald and typ == 9
-            row.required = not row.optional and (rival or league or def and (not self.emerald and def.class == 83
-              or self.emerald and (def.class == self.constants:id("trainer_classes", "TRAINER_CLASS_AQUA_LEADER")
+            row.rival, row.league, row.optional = rival, league, not self.hoenn and typ == 9
+            row.required = not row.optional and (rival or league or def and (not self.hoenn and def.class == 83
+              or self.hoenn and (def.class == self.constants:id("trainer_classes", "TRAINER_CLASS_AQUA_LEADER")
                 or def.class == self.constants:id("trainer_classes", "TRAINER_CLASS_MAGMA_LEADER")))) or nil
             row.flags, row.untracked = {}, not def or type(id) ~= "number"
             trainers[key], out[1][#out[1] + 1] = row, row
@@ -611,7 +645,7 @@ function M:catalog(mapId, checkpoint)
         else
           out[1][#out[1] + 1] = { label = "POKEMON", mapId = mapId, untracked = true }
         end
-      elseif not self.emerald and command.op == "special" and command.id == 443 then
+      elseif not self.hoenn and command.op == "special" and command.id == 443 then
         -- CreateEventLegalEnemyMon uses the immediately preceding three vars.
         local species
         for _, r in ipairs(rows) do
@@ -620,10 +654,11 @@ function M:catalog(mapId, checkpoint)
         end
         hasMon = true
         mon(species, obj, nil, true)
-      elseif self.emerald and command.op == "special" and command.id == self.constants:special("ChooseStarter") then
+      elseif self.hoenn and command.op == "special" and command.id == self.constants:special(
+          self.rs and "ScrSpecial_ChooseStarter" or "ChooseStarter") then
         hasMon = true
         for _, nat in ipairs({ 252, 255, 258 }) do mon(self.adapter.Pokemon.speciesFromNational(nat), obj) end
-      elseif command.op == "specialvar" and command[2] == (self.emerald
+      elseif command.op == "specialvar" and command[2] == (self.hoenn
           and self.constants:special("GetInGameTradeSpeciesInfo") or 252) then
         hasMon = true -- The proven offer is a separate receipt-based objective above.
       end
@@ -660,6 +695,18 @@ function M:catalog(mapId, checkpoint)
         row.event, row.alternative = obj.flag == 47 and 626 or 627, obj.flag == 47 and 627 or 626
         out[2][#out[2] + 1], hasItem = row, true
       end
+      if self.rs and mapId:match("_ROUTE111$") and (obj.flag == self.constants:flag("FLAG_HIDE_ROOT_FOSSIL")
+          or obj.flag == self.constants:flag("FLAG_HIDE_CLAW_FOSSIL")) then
+        -- RS hides both fossils after either choice, without recording which one.
+        -- Represent the single durable choice, never claim both items were received.
+        if obj.flag == self.constants:flag("FLAG_HIDE_ROOT_FOSSIL") then
+          local row = base(obj)
+          row.kind, row.event = "item", obj.flag
+          row.label = self.adapter.data.items[286].name .. " / " .. self.adapter.data.items[287].name
+          out[2][#out[2] + 1] = row
+        end
+        hasItem = true
+      end
       if self.emerald then
         local C = self.constants
         local root, claw = C:flag("FLAG_CHOSE_ROOT_FOSSIL"), C:flag("FLAG_CHOSE_CLAW_FOSSIL")
@@ -687,12 +734,13 @@ function M:catalog(mapId, checkpoint)
           hasItem = true
         end
       end
-      local decorativeBall = self.emerald and (
+      local decorativeBall = self.rs and obj.flag == self.constants:flag("FLAG_LINK_CONTEST_ROOM_POKEBALL")
+        or self.emerald and (
         obj.flag == self.constants:flag("FLAG_HIDE_CONTEST_POKE_BALL")
         or obj.flag == self.constants:flag("FLAG_HIDE_LITTLEROOT_TOWN_BRENDANS_HOUSE_2F_POKE_BALL")
         or obj.flag == self.constants:flag("FLAG_HIDE_LITTLEROOT_TOWN_MAYS_HOUSE_2F_POKE_BALL"))
       if not hasTrainer and (obj.trainerType == 1 or obj.trainerType == 3)
-          or obj.graphicsId == (self.emerald and self.constants:id("event_objects", "OBJ_EVENT_GFX_ITEM_BALL") or 92)
+          or obj.graphicsId == (self.hoenn and self.constants:id("event_objects", "OBJ_EVENT_GFX_ITEM_BALL") or 92)
             and not hasItem and not hasMon and not decorativeBall then
         local row = base(obj)
         row.label, row.untracked = "NOT TRACKED", true
@@ -727,7 +775,7 @@ function M:catalog(mapId, checkpoint)
       out[3][#out[3] + 1] = row
     elseif bg.scriptKey then scan(bg) end
   end
-  if self.emerald then
+  if self.hoenn then
     for _, row in ipairs(out[1]) do
       local name = (self.constants.flags.byId.FLAG_ or {})[row.hideEvent] or ""
       if row.flags and not row.required and (name:find("AQUA") or name:find("MAGMA")) then row.missable = true end
@@ -774,6 +822,7 @@ function M:completionKey()
     return (reached("VAR_DEX_UPGRADE_JOHTO_STARTER_STATE", 6) and 1 or 0)
       + (reached("VAR_MIRAGE_TOWER_STATE", 2) and 2 or 0)
   end
+  if self.rs then return 0 end
   -- These hidden, non-consumable keys require actual ownership.
   return (self:ownsKey(356) and 1 or 0) + (self:ownsKey(359) and 2 or 0)
 end
@@ -781,7 +830,10 @@ end
 function M:rows(mapIds, checkpoint)
   local out, adapter = { {}, {}, {}, {} }, self.adapter
   local store, Flags = adapter:flagStore(), adapter.Flags
-  local function flag(id) return Flags.getFlag(store, nil, id) == true end
+  local function flag(id)
+    if self.hoenn and type(id) == "string" then id = self.constants:flag(id) end
+    return id ~= nil and Flags.getFlag(store, nil, id) == true
+  end
   for _, id in ipairs(mapIds) do
     local catalog = self:catalog(id, checkpoint)
     for category = 1, 4 do
@@ -854,7 +906,7 @@ function M:rows(mapIds, checkpoint)
                 { live = true, party = party, money = session.money or 0, gender = session.gender,
                   choice = row.choice, coins = session.coins or 0, species = row.species,
                   friendship = score, flag = flag, var = function(v) return Flags.getVar(store, nil, v) end,
-                  firered = not self.emerald }, checkpoint) == true
+                  firered = not self.hoenn, rs = self.rs }, checkpoint) == true
             row.status = row.done and (row.catchGoal and "CAUGHT" or "RECORDED") or row.available and "READY" or "LATER"
           end
           out[category][#out[category] + 1] = row
@@ -895,9 +947,11 @@ function M:pokemon(mapIds, checkpoint, rewards)
     end
   end
   for _, id in ipairs(mapIds) do
-    if id == "EM_ROUTE101" then
+    if self.hoenn and id:match("_ROUTE101$") then
       goal({ adapter.Pokemon.speciesFromNational(252), adapter.Pokemon.speciesFromNational(255),
         adapter.Pokemon.speciesFromNational(258) })
+    elseif self.rs and id:match("_RUSTBORO_CITY_DEVON_CORP_2F$") then
+      goal({ adapter.Pokemon.speciesFromNational(345), adapter.Pokemon.speciesFromNational(347) })
     elseif id == "FR_OAKS_LAB" then
       -- One starter is obtainable, even before the player chooses it.
       local starter = adapter.Flags.getVar(adapter:flagStore(), nil, "VAR_STARTER_MON")

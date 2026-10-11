@@ -1,4 +1,6 @@
 return {
+  ["RUBY"] = "ルビー",
+  ["SAPPHIRE"] = "サファイア",
   ["NPC TRADE"] = false,
   ["NPC LOAN"] = false,
   ["LOAN"] = false,

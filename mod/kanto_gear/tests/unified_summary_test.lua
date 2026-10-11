@@ -44,7 +44,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
     state.mon.gender="M";T.eq(summaryView(state).gender,"male","native male code becomes the common icon")
     state.mon.gender="F";T.eq(summaryView(state).gender,"female","native female code becomes the common icon")
     state.mon.gender=gender
-    T.eq(state.pages,os.getenv("POKEPORT_VERSION")=="emerald" and 4 or 3,"capabilities add only supported tabs")
+    T.eq(state.pages,display.gen3.hoenn and 4 or 3,"capabilities add only supported tabs")
     local raw=game.session.party[1]
     local card=display.partyView(state.mon)
     T.eq(card.expProgress,display.gen3.Summary.expProgress(raw,display.gen3.Pokemon.growthRate(raw.species)).progressPercent,"team EXP uses the real species growth curve")
@@ -141,4 +141,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
     display.localSummary=nil
   end
 end
-dofile(path..(os.getenv("POKEPORT_VERSION")=="emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

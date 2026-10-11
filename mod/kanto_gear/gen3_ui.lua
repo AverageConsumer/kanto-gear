@@ -53,10 +53,34 @@ end
 
 local function nativeMode(layer)
   local native = layer.mod
+  if layer.id == "summary" and type(native._mode) == "number" then
+    return (native._mode == 2 or native._mode == 3) and "select_move" or native._state
+  end
   -- Emerald retains mode=buy throughout list, quantity, confirmation and receipt.
   if layer.id == "shop" and native._rse then return native.state end
   if layer.id == "save" then return native._phase end
   return native.mode or native.state or native._mode
+end
+
+function UI:selectBagAction(native, index)
+  native.actionCursor = index
+  if self.adapter.rs then
+    local skin = require("src.ui.game3.rs.bag_menu")
+    local count = 0
+    for i, cell in ipairs(skin.grid(native, native.list()[native.cursor]).cells) do
+      if cell then count = count + 1 end
+      if cell and count == index then
+        native._rsBag.gridPos = i
+        native._rsBag.lastMode = "action"
+        break
+      end
+    end
+  elseif self.adapter.hoenn then
+    local st = require("src.ui.game3.rse.bag_menu")._st
+    for i, cell in ipairs(st.grid and st.grid.cells or {}) do
+      if cell and cell.idx == index then st.gridPos = i - 1; break end
+    end
+  end
 end
 
 -- Fallback for hosts without extracted naming pages (FRLG). Newer hosts
@@ -205,11 +229,13 @@ function UI:pokeblocks(layer)
     local block = Blocks.get(state.session, id)
     blocks[#blocks + 1] = block
     items[#items + 1] = { label = self.adapter:plainText(Blocks.name(block)),
-      itemSprite = self:pokeblockIcon(Blocks.data(block, 0)), right = self.adapter:plainText(
+      itemSprite = self:pokeblockIcon(Blocks.data(block, 0)), right = self.adapter.rs
+        and tostring(Blocks.highestFlavorLevel(block)) or self.adapter:plainText(
       require("src.core.game3.rom_text").plain("gText_LvVar1", {
         stringVars = { tostring(Blocks.highestFlavorLevel(block)) } })) }
   end
-  items[#items + 1] = { label = self.adapter:plainText(require("src.core.game3.rom_text").plain("gText_StowCase")) }
+  items[#items + 1] = { label = self.adapter:plainText(require("src.core.game3.rom_text").plain(
+    self.adapter.rs and "gContestStatsText_StowCase" or "gText_StowCase")) }
   local key = tostring(opts) .. ":" .. tostring(map) .. ":" .. phase .. ":" .. tostring(itemId)
     .. ":" .. tostring(printer) .. ":" .. tostring(yesNo) .. ":" .. tostring(swap)
   for _, block in ipairs(blocks) do key = key .. ":" .. tostring(block) end
@@ -468,9 +494,11 @@ function UI:list(battle)
   end
   if not layer or not layer.mod or layer.mod.open ~= true then return nil end
   -- The contest summary has its own view, but move replacement still needs its touch list.
-  if layer.id == "summary" and layer.mod._mode ~= "select_move" and self.adapter.profile.id == "emerald"
-      and require("src.ui.game3.rse.summary_menu").page(layer.mod) == 3 then return nil end
+  if layer.id == "summary" and nativeMode(layer) ~= "select_move" and self.adapter.hoenn
+      and (self.adapter.rs and layer.mod._page == 3
+        or not self.adapter.rs and require("src.ui.game3.rse.summary_menu").page(layer.mod) == 3) then return nil end
   local native, items, field, title, slots = layer.mod
+  local rsSummaryState = self.adapter.rs and layer.id == "summary" and native._state
   local quantity, prompt, grid, boxParty, moveSelection
   local relearnMoves, relearnKey, relearnMon, relearnFirst
   local mode = nativeMode(layer)
@@ -497,7 +525,7 @@ function UI:list(battle)
     if layer.id == "bag" and mode == "deposit_done" then return native._depositText end
     if layer.id == "bag" and mode == "toss_done" then
       local row = native.list()[native.cursor]
-      return row and RomText.box(self.adapter.profile.id == "emerald"
+      return row and RomText.box(self.adapter.hoenn
         and "gText_ThrewAwayVar2Var1s" or "gText_ThrewAwayStrVar2StrVar1s",
         { stringVars = { self.adapter.Items.displayName(row.id), tostring(native.tossQty) } })
     end
@@ -573,13 +601,15 @@ function UI:list(battle)
   elseif layer.id == "shop" then
     title = "BUY"
     local rse = native._rse
-    local decoration = rse and native._martType ~= rse.MART_NORMAL
+    local decoration = rse and native._martType ~= require("src.ui.game3.rse.shop_menu").MART_NORMAL
     if mode == "root" then
       items, field = {}, "cursor"
       if rse then
         local keys = decoration and { "gText_ShopBuy", "gText_ShopQuit" }
           or { "gText_ShopBuy", "gText_ShopSell", "gText_ShopQuit" }
-        for i, key in ipairs(keys) do items[i] = { label = RomText.plain(key) } end
+        for i, key in ipairs(keys) do
+          items[i] = { label = self.adapter.rs and rse.plain(key) or RomText.plain(key) }
+        end
       else
         for i in ipairs(native.ROOT) do items[i] = { label = RomText.at("sShopMenuActions_BuySellQuit", i - 1) } end
       end
@@ -628,13 +658,13 @@ function UI:list(battle)
     title, field = "PC", "cursor"
     if mode == "root" then items = labels(native._rootEntries())
     elseif mode == "storage_menu" then items = labels(native._storageOptions())
-    elseif self.adapter.profile.id == "emerald" and (mode == "player_pc" or mode == "item_storage") then
+    elseif self.adapter.hoenn and (mode == "player_pc" or mode == "item_storage") then
       local rows = mode == "player_pc" and require("src.ui.game3.rse.player_pc").topOrder(native)
         or { "withdraw", "deposit", "toss", "exit" }
       local keys = { item_storage = "gText_ItemStorage", mailbox = "gText_Mailbox",
         decoration = "gText_Decoration", turn_off = "gText_TurnOff",
         withdraw = "gText_WithdrawItem", deposit = "gText_DepositItem",
-        toss = "gText_TossItem", exit = "gText_Cancel" }
+        toss = "gText_TossItem", exit = self.adapter.rs and "gOtherText_Exit" or "gText_Cancel" }
       items = {}
       for _, id in ipairs(rows) do items[#items + 1] = { label = RomText.plain(keys[id]) } end
     elseif mode == "player_pc" then items = labels(native.TOP_ACTIONS)
@@ -678,18 +708,20 @@ function UI:list(battle)
     elseif mode == "yesno" then
       items, field, prompt = labels({ "YES", "NO" }), "yesNoCursor", native.prompt
     end
-  elseif layer.id == "summary" and native._mode == "select_move" then
+  elseif layer.id == "summary" and mode == "select_move" then
     title, items, slots, field = "FORGET MOVE", {}, {}, "_moveCursor"
     local raw = native._party and native._party[native._cursor]
     local mon = raw and self.adapter:mon(raw)
+    field = self.adapter.rs and "_selected" or field
     for slot = 1, 4 do
       local row = raw and self:moveItem(raw, slot)
       if row then items[#items + 1], slots[#slots + 1] = row, slot end
     end
     items[#items + 1], slots[#slots + 1] = { label = "CANCEL" }, 5
     moveSelection = { mon = mon, items = items, slots = slots,
-      newMoveId = native._moveToLearn and self.adapter.Moves.constName(native._moveToLearn), learning = true }
-    if native._hmNotice then
+      newMoveId = (tonumber(native._moveToLearn) or 0) > 0 and self.adapter.Moves.constName(native._moveToLearn) or nil,
+      learning = true }
+    if native._hmNotice or rsSummaryState == "notice" then
       prompt = RomText.plain(require("src.core.game3.battle.profile").get(self.adapter.session).strings.hmCantForget)
     end
   elseif (layer.id == "bag" or layer.id == "berry_pouch") and
@@ -699,7 +731,7 @@ function UI:list(battle)
     if mode == "toss_confirm" then
       items, field = labels({ "YES", "NO" }), "yesNoCursor"
       prompt = row and self.adapter.Items.displayName(row.id) .. "\n" ..
-        RomText.box(self.adapter.profile.id == "emerald" and "gText_ConfirmTossItems"
+        RomText.box(self.adapter.hoenn and "gText_ConfirmTossItems"
           or "gText_ThrowAwayStrVar2OfThisItemQM", {
           stringVars = { self.adapter.Items.displayName(row.id), tostring(native.tossQty) } })
     else quantity = row and { label = self.adapter.Items.displayName(row.id), qty = native.tossQty,
@@ -789,7 +821,7 @@ function UI:list(battle)
     if not itemActionId then return nil end
     itemActionCount, title = row.qty, self.adapter.Items.displayName(itemActionId)
     if layer.id == "bag" then actionOrder = table.concat(native.ACTIONS, "\31") end
-    if layer.id == "bag" and self.adapter.profile.id == "emerald"
+    if layer.id == "bag" and self.adapter.hoenn and not self.adapter.rs
         and not require("src.ui.game3.rse.bag_menu")._st.grid then return nil end
   end
   if quantity then items, field = { { label = "CONFIRM" } }, nil end
@@ -802,6 +834,7 @@ function UI:list(battle)
     .. ":" .. tostring(native._forgetMoves) .. ":" .. tostring(native._forgetCallback)
     .. ":" .. tostring(yesNoCallback) .. ":" .. tostring(yesNoPrompt)
     .. ":" .. tostring(native._hmNotice) .. ":" .. tostring(native._confirmExit)
+    .. ":" .. tostring(rsSummaryState)
     .. ":" .. tostring(layer.id == "box_storage" and native._session.storage.currentBox)
     .. ":" .. tostring(relearnKey) .. ":" .. tostring(relearnMon) .. ":" .. tostring(relearnFirst)
   local learningPrompt = (layer.id == "party" or layer.id == "move_relearner") and mode == "yesno"
@@ -819,6 +852,7 @@ function UI:list(battle)
     function view.valid(preview)
       return owner.Stack.top() == layer and native.open == true
         and nativeMode(layer) == mode and native.pocketIdx == pocketIdx
+        and (not rsSummaryState or native._state == rsSummaryState)
         and (not itemActionId or native.list()[native.cursor]
           and owner.adapter.Items.toNumericId(native.list()[native.cursor].id) == itemActionId)
         and (not actionOrder or table.concat(native.ACTIONS, "\31") == actionOrder)
@@ -839,7 +873,11 @@ function UI:list(battle)
         and (preview or not native._fx and not (native._slide and native._slide.active))
         and (preview or not native._fading)
         and (preview or not native.isPresentationBusy or not native.isPresentationBusy())
-        and (preview or not native._switch and not native._exit and not native._open)
+        and (preview or layer.id ~= "party" or not owner.adapter.rs
+          or owner.adapter.profile.ui.party.inputAllowed(native))
+        and (preview or rsSummaryState and not native._fade and not native._pageTask and not native._reload
+          and native._selectSetup == nil and (native._noticeDelay or 0) == 0
+          or not rsSummaryState and not native._switch and not native._exit and not native._open)
     end
     setmetatable(view, {
       __index = function(t, k)
@@ -849,6 +887,7 @@ function UI:list(battle)
         if layer.id == "box_storage" and mode == "pick_box" then return native._session.storage.currentBox end
         if field == "row" then return native.scroll + native.row + 1 end
         local value = native[field]
+        if rsSummaryState and field == "_selected" then value = value + 1 end
         if not t.nativeSlots then return value end
         for i, slot in ipairs(t.nativeSlots) do if slot == value then return i end end
       end,
@@ -862,14 +901,13 @@ function UI:list(battle)
               native.scroll = math.max(0, math.min(v - 1, #t.items - visible))
               native.row = v - 1 - native.scroll
             else
-              native[field] = t.nativeSlots and t.nativeSlots[v] or v
-              if relearnMoves then native.scroll = math.max(0, v - 1) end
-              if layer.id == "bag" and mode == "action" and owner.adapter.profile.id == "emerald" then
-                local st = require("src.ui.game3.rse.bag_menu")._st
-                for i, cell in ipairs(st.grid and st.grid.cells or {}) do
-                  if cell and cell.idx == native[field] then st.gridPos = i - 1; break end
-                end
+              if rsSummaryState == "notice" then
+                native.handleInput({ wasPressed = function(_, key) return key == "down" end })
               end
+              native[field] = t.nativeSlots and t.nativeSlots[v] or v
+              if rsSummaryState and field == "_selected" then native[field] = native[field] - 1 end
+              if relearnMoves then native.scroll = math.max(0, v - 1) end
+              if layer.id == "bag" and mode == "action" then owner:selectBagAction(native, native[field]) end
             end
           end
         else rawset(t, k, v) end
@@ -941,9 +979,10 @@ function UI:bagActions(id)
     return actions
   elseif pocket == "POKE_BALLS" then return { "GIVE", "TOSS" }
   elseif pocket == "TM_CASE" then
+    if a.rs and not a.Items.isHm(id) then return { "USE", "GIVE" } end
     -- The host currently supports teaching here; its GIVE path refuses TMs/HMs.
     return { "USE" }
-  elseif pocket == "BERRY_POUCH" and a.profile.id == "emerald" then
+  elseif pocket == "BERRY_POUCH" and a.hoenn then
     return { "CHECK_TAG", "USE", "GIVE", "TOSS" }
   end
   return { "USE", "GIVE", "TOSS" }
@@ -956,10 +995,10 @@ function UI:openBagItem(id, action)
   local def = a.data.items[id]
   local pocket = def and def.nativePocket
   local menu
-  if pocket == "TM_CASE" and a.profile.id ~= "emerald" then
+  if pocket == "TM_CASE" and not a.hoenn then
     menu = require("src.ui.game3.tm_case")
     menu.show(session, session.bag)
-  elseif pocket == "BERRY_POUCH" and a.profile.id ~= "emerald" then
+  elseif pocket == "BERRY_POUCH" and not a.hoenn then
     menu = require("src.ui.game3.berry_pouch")
     menu.show(session, session.bag)
   else
@@ -983,7 +1022,7 @@ function UI:openBagItem(id, action)
       if menu.mode == "action" then
         for index, name in ipairs(actions) do
           if name == action then
-            menu.actionCursor = index
+            self:selectBagAction(menu, index)
             menu.handleInput(confirm)
             return true
           end

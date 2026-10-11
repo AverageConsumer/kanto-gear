@@ -1,9 +1,10 @@
 return function(H, G, tr, fmt)
   local versions = { red = "RED", blue = "BLUE", yellow = "YELLOW", gold = "GOLD",
-    silver = "SILVER", crystal = "CRYSTAL", firered = "FIRERED", leafgreen = "LEAFGREEN", emerald = "EMERALD" }
+    silver = "SILVER", crystal = "CRYSTAL", firered = "FIRERED", leafgreen = "LEAFGREEN", emerald = "EMERALD",
+    ruby = "RUBY", sapphire = "SAPPHIRE" }
   local places = { launcher = "RECOMP MENU", game = "IN GAME", union = "UNION ROOM", direct = "DIRECT CORNER" }
   local shortVersions = { red = "R", blue = "B", yellow = "Y", gold = "G",
-    silver = "S", crystal = "C", firered = "FR", leafgreen = "LG", emerald = "EM" }
+    silver = "S", crystal = "C", firered = "FR", leafgreen = "LG", emerald = "EM", ruby = "RU", sapphire = "SA" }
   local statuses = { idle = "ONLINE", busy = "NOT AVAILABLE", trading = "TRADING",
     battling = "BATTLING", chatting = "CHATTING", recruiting = "RECRUITING", waiting = "WAITING" }
   local states = { offline = "OFFLINE", online = "ONLINE", connecting = "CONNECTING",

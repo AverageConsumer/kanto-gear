@@ -23,7 +23,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     foeParty = session.party, wild = true, session = session })
   state.session, state.safari, state.safariState = session, true, { balls = 23 }
   Battle._active, Battle._st, Battle._phase = true, state, "command"
-  local ids = a.profile.id == "emerald" and { "ball", "pokeblock", "go_near", "run" }
+  local ids = a.hoenn and { "ball", "pokeblock", "go_near", "run" }
     or { "ball", "bait", "rock", "run" }
   for _, style in ipairs({ "hgss", "hgss_dark" }) do
     run.loader.modOptions.kanto_gear.theme_v3 = style
@@ -37,7 +37,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
         local model = display.SafariPage.model(snapshot)
         T.eq(snapshot.prompt, "safari", "native Safari owns this command page")
         T.eq(display.SafariPage.action(model, index), id, "normalized action matches the edition")
-        if a.profile.id == "emerald" then
+        if a.hoenn then
           T.eq(model.actions[2].label, "POKéBLOCK", "Emerald shows its actual Pokeblock command")
           T.eq(model.actions[3].label, "GO NEAR", "Emerald shows its actual approach command")
         end
@@ -53,7 +53,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       end
     end
   end
-  if a.profile.id == "emerald" then
+  if a.hoenn then
     local Blocks = require("src.core.game3.rse.pokeblock")
     local Case = require("src.ui.game3.rse.pokeblock_case")
     local before = session.pokeblocks
@@ -90,7 +90,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
         T.eq(list.title, "POKéBLOCK CASE", "case title uses Emerald's real item ID")
         T.eq(#list.items, 13, "all native blocks and the real stow action are available")
         T.eq(list.items[1].label, a:plainText(Blocks.name(Blocks.get(session, 0))), "block names come from the game")
-        T.eq(list.items[1].right, "Lv11", "block levels come from native flavor data")
+        T.eq(list.items[1].right, a.rs and "11" or "Lv11", "block levels come from native flavor data")
         T.check(pcall(display.drawContents), "native block list renders")
         T.check(display.StartMenu.select(list, 10), "common paging can select later native blocks")
         T.eq(Case.saved.scroll + Case.saved.row, 9, "later touch row updates the actual native scrolled cursor")
@@ -146,4 +146,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   Battle._active, Battle._st = false, nil
   U.reset({ headless = true }); Stack.clear(); Message.reset(); a.syncScreens(); refresh()
 end
-dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

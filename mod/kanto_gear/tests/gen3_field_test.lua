@@ -72,5 +72,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   p.cellX, p.cellY, p.facing, p.surfing = old.x, old.y, old.facing, old.surfing
   a.session.escapeWarp = old.escapeWarp
 end
-dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald"
-  and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

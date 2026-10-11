@@ -3,10 +3,32 @@
 Version **3.3.0** adds initial public support for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
 support. Version **3.4.0** adds Emerald US 1.0 on official
-Recomp **v0.3.33 or newer**. Ruby and Sapphire remain unsupported.
+Recomp **v0.3.33 or newer**. The **4.0 beta** adds Ruby and Sapphire,
+tested with official Recomp **v0.3.74** and US/Europe Rev 2 ROMs.
 The FRLG test package passed the user's Thor check; both editions also
 have automated native-data and menu checks. This does not verify every possible
 playthrough, mod combination or specialized native menu.
+
+## Ruby and Sapphire
+
+Ruby and Sapphire use their own native menu skins, badge and receipt flags,
+Hoenn map names, regional Dex order and edition-specific encounter data.
+Gear covers all five bag pockets, four summary pages, move replacement,
+naming, field actions, shops, PC storage, Safari and Pokéblocks. Ruby/Sapphire
+do not have native item icons; Gear retains its generic item symbols.
+Their original two-page Dex descriptions and trainer records are preserved.
+
+Stamps read the imported event scripts for trainers, items, hidden finds,
+gifts and NPC trades. Starter and fossil alternatives count as choices.
+The unused opposite-edition hideout is excluded only when native terrain and
+city scripts prove its entrance stays blocked; custom scripts reopening it retain
+their objectives.
+
+`tests/rs_runtime_test.lua` uses the real imported ROM cache, including checks
+for all 394 maps. `tests/rs_objectives_test.lua` checks gift/trade receipts,
+party capacity, choice goals and save round trips. The shared Gen 3 suites and
+both preview tools also accept `POKEPORT_VERSION=ruby` or `sapphire`.
+Interactive playthrough checks remain separate from these automated tests.
 
 ## Emerald scope
 

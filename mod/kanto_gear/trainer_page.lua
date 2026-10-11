@@ -18,7 +18,7 @@ function Page.project(top, game, generation, previous)
     active = function(preview)
       return require("src.ui.game3.stack").top() == top and native.open and native._session == game.session and native._card == card and native.side == side
         and not require("src.ui.game3.message").isOpen() and not require("src.ui.game3.choice").active
-        and (preview or not native._flip)
+        and (preview or not native._flip and (native._phase == nil or native._phase == "wait"))
     end
     nextKey = function() return side == "back" and "b" or "a" end
   else

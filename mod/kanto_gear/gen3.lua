@@ -23,8 +23,10 @@ function Gen3.new(game)
   assert(game.generation == 3, "native Gen 3 game required")
   local self = setmetatable({ game = game, mons = setmetatable({}, { __mode = "k" }) }, Gen3)
   self.profile = require("src.core.game3.profile").forSession(game.session)
-  self.flagDefinitions = self.profile.id == "emerald" and require("src.core.game3.scripting.flags").forVersion("emerald")
-    or require("src.core.game3.scripting.flags")
+  self.hoenn = self.profile.family == "rse"
+  self.rs = self.profile.id == "ruby" or self.profile.id == "sapphire"
+  local flags = require("src.core.game3.scripting.flags")
+  self.flagDefinitions = flags.forVersion and flags.forVersion(self.profile.id) or flags
   self.Pokemon = require("src.core.game3.pokemon")
   self.Moves = require("src.core.game3.battle.moves")
   self.Items = require("src.core.game3.items_data")
@@ -106,7 +108,7 @@ function Gen3:itemIcon(id)
   local image, quad
   self.itemIcons = self.itemIcons or {}
   local cached = self.itemIcons[id]
-  if self.profile.id == "emerald" then
+  if self.hoenn then
     local chrome = require("src.ui.game3.rse.bag_chrome")
     local manifest = chrome.manifest()
     local icons = manifest and manifest.icons
@@ -128,7 +130,7 @@ end
 function Gen3:drawBadge(g, index, cx, cy, owned)
   local Kit = require("src.ui.game3.rse.scene_kit")
   local image
-  if self.profile.id == "emerald" then
+  if self.hoenn then
     local m = Kit.manifest("rse/trainer_card")
     image = m and m.badges and Kit.image(m.badges.png)
   else
@@ -150,6 +152,7 @@ end
 
 function Gen3:trainerCardData(native)
   local session = self.session
+  if self.rs then return require("src.ui.game3.rs.trainer_card_policy").generate(session) end
   local card = native.cardData(session)
   if self.profile.id == "emerald" and native.backTextsRse then
     -- The host exports the FRLG gatherer; these extra RSE records live in the session.
@@ -163,6 +166,28 @@ function Gen3:trainerCardData(native)
     card.frontierBP = tonumber((session.frontier or {}).cardBattlePoints) or 0
   end
   return card
+end
+
+function Gen3:trainerRecords(card)
+  -- RS exports a different card renderer. Read its extracted captions and
+  -- policy values without opening the native screen or changing its state.
+  local manifest = require("src.ui.game3.rse.scene_kit").manifest("rse/trainer_card")
+  local rows, labels = {}, manifest.strings
+  local function add(key, value) rows[#rows + 1] = { label = labels[key], value = tostring(value) } end
+  if card.hofDebutHours ~= 0 or card.hofDebutMinutes ~= 0 or card.hofDebutSeconds ~= 0 then
+    add("hof", string.format("%d:%02d:%02d", card.hofDebutHours, card.hofDebutMinutes, card.hofDebutSeconds))
+  end
+  if card.linkBattleWins ~= 0 or card.linkBattleLosses ~= 0 then
+    add("link", card.linkBattleWins .. " / " .. card.linkBattleLosses)
+  end
+  for _, row in ipairs({ { "trade", "pokemonTrades" }, { "blender", "pokeblocksWithFriends" },
+      { "contest", "contestsWithFriends" } }) do
+    if card[row[2]] ~= 0 then add(row[1], card[row[2]]) end
+  end
+  if card.battleTowerWins ~= 0 or card.battleTowerLosses ~= 0 then
+    add("tower", card.battleTowerWins .. " / " .. card.battleTowerLosses)
+  end
+  return rows
 end
 
 function Gen3:types(source)
@@ -179,7 +204,7 @@ function Gen3:refreshDefinitions()
   local source = Compat.dataView(self.game.data or {})
   local P, M, I = self.Pokemon, self.Moves, self.Items
   local dexData = require("src.core.game3.pokedex_data")
-  local hoennEntries = self.profile.id == "emerald" and
+  local hoennEntries = self.hoenn and
     assert(require("src.ui.game3.rse.mapsec").readLua("pokemon/pokedex/entries.lua"))
   local data = { pokemon = {}, moves = {}, items = {}, maps = self.game.data and self.game.data.maps or {} }
   -- Iterate National IDs, not the native table length (which includes holes
@@ -190,10 +215,11 @@ function Gen3:refreshDefinitions()
       local row = copy(source.pokemon[id])
       row.index, row.dex, row.national = id, dex, dex
       row.regionalDex = self.Dex.regionalNumber and self.Dex.regionalNumber(id, self.profile.id)
-        or (self.profile.id ~= "emerald" and dex <= 151 and dex or nil)
+        or (not self.hoenn and dex <= 151 and dex or nil)
       local entry = hoennEntries and assert(hoennEntries[id]) or dexData.getEntry(id)
       row.dexEntry = { kind = entry.category, heightM = (entry.heightDm or entry.height) / 10,
-        weightKg = (entry.weightHg or entry.weight) / 10, text = entry.description }
+        weightKg = (entry.weightHg or entry.weight) / 10,
+        text = self.rs and entry.description2 and entry.description .. "\n" .. entry.description2 or entry.description }
       row.types = self:types(row.types)
       row.learnset = {}
       for _, learn in ipairs(P.learnset(id) or {}) do
@@ -448,14 +474,14 @@ function Gen3:locations()
   local out = {}
   for id, def in pairs(self.data.maps) do
     local info
-    if self.profile.id == "emerald" then
+    if self.hoenn then
       local entry = require("src.ui.game3.rse.mapsec").entry(def.regionMapSectionId)
       info = entry and { resolved = true, rawName = entry.name }
     else info = sections.getInfo(def.regionMapSectionId, id, def.floorNum) end
     local name = info and info.resolved and info.rawName
     local named = type(name) == "string" and name:find("%S") ~= nil
     out[id] = { name = named and name
-      or id:gsub("^FR_", ""):gsub("^EM_", ""):gsub("_", " "), section = def.regionMapSectionId }
+      or id:gsub("^%u%u_", ""):gsub("_", " "), section = def.regionMapSectionId }
     -- Localized names are labels, never progress identity. Keep gyms/dojo
     -- separate from city houses; combine dungeon floors and route segments.
     local facility = id:match("_GYM$") and "GYM" or id:match("_DOJO$") and "DOJO"
@@ -521,7 +547,10 @@ function Gen3:gameView()
           state.mon = self:mon(native._party and native._party[native._cursor])
           state.page = (native._page or 0) + 1
           state.moveDetail = native._mode == "select_move" or state.page > 3 or false
-          if self.profile.id == "emerald" then
+          if self.rs then
+            state.pages = 4
+            state.moveDetail = native._state ~= "normal"
+          elseif self.profile.id == "emerald" then
             local skin = require("src.ui.game3.rse.summary_menu")
             state.page, state.pages = skin.page(native) + 1, 4
             state.moveDetail = skin.detail(native)

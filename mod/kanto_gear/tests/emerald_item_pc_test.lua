@@ -9,4 +9,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(_, display, raw)
   assert(loadfile(path .. "/tests/pc_items_gen3_cases.lua"))()(T, display, raw)
   Runtime._game, raw.input = game, originalInput
 end
-dofile(path .. "/tests/emerald_runtime_test.lua")
+dofile(path .. "/tests/gen3_fixture.lua")

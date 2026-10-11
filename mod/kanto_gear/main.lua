@@ -3244,7 +3244,7 @@ return function(mod)
 
   compat.romCodes = {
     red = "RD", blue = "BL", yellow = "YL", gold = "GD", silver = "SV",
-    crystal = "CR", firered = "FR", leafgreen = "LG", emerald = "EM",
+    crystal = "CR", firered = "FR", leafgreen = "LG", emerald = "EM", ruby = "RU", sapphire = "SA",
   }
 
   function compat.systemId(version, release)
@@ -3980,7 +3980,7 @@ return function(mod)
   end
 
   function displayRuntime.sectionName(id, fallback)
-    local section = tostring(id or "OTHER AREA"):gsub("^FR_", ""):gsub("^EM_", ""):gsub("_", " ")
+    local section = tostring(id or "OTHER AREA"):gsub("^%u%u_", ""):gsub("_", " ")
     local entry = locationEntry(id)
     local name = entry and tostring(entry.name or entry.label or "") or ""
     for word in name:upper():gmatch("[%w]+") do
@@ -6450,7 +6450,7 @@ return function(mod)
   end
 
   function compat.currentRegion()
-    if displayRuntime.gen3 then return displayRuntime.gen3.profile.id == "emerald" and "hoenn" or "kanto" end
+    if displayRuntime.gen3 then return displayRuntime.gen3.hoenn and "hoenn" or "kanto" end
     if not compat.isGen2() then return nil end
     local entry = locationEntry(mapId)
     local index = tonumber(entry and entry.index) or 0
@@ -7475,8 +7475,9 @@ return function(mod)
     if displayRuntime.gen3 and model.kind == "records" then
       local native = context.native or require("src.ui.game3.trainer_card")
       local card = context.card or displayRuntime.gen3:trainerCardData(native)
-      model.records = displayRuntime.TrainerPage.records(native, card,
-        displayRuntime.gen3.profile.id == "emerald" and native.backTextsRse ~= nil)
+      model.records = displayRuntime.gen3.rs and displayRuntime.gen3:trainerRecords(card)
+        or displayRuntime.TrainerPage.records(native, card,
+          displayRuntime.gen3.profile.id == "emerald" and native.backTextsRse ~= nil)
     end
     return model
   end
@@ -11329,7 +11330,7 @@ return function(mod)
       return true
     end
     local state = compat.summary.inspection(mon, game, displayRuntime.gen3 and 3
-      or compat.isGen2() and 2 or 1, displayRuntime.gen3 and displayRuntime.gen3.profile.id == "emerald")
+      or compat.isGen2() and 2 or 1, displayRuntime.gen3 and displayRuntime.gen3.hoenn)
     compat.summary.configure(state, assist("spoilers"))
     state.slot = slot
     displayRuntime.localSummary, moveInfo, hgssRuntime.animation, dirty = state, nil, nil, true

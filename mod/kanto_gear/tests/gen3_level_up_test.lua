@@ -72,4 +72,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
   T.eq(completed,8,"each native growth sequence completes exactly once")
   mon.nickname,mon.name=nickname,name
 end
-dofile(path..(os.getenv("POKEPORT_VERSION")=="emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")
