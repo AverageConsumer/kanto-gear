@@ -580,7 +580,11 @@ return function(H, ui, K)
         local choice = model.choices[first + visible]
         if choice then
           local y, selected = self:settingsChoiceTop(model) + visible * 25, choice[2] == model.value
-          self:tab(7, y, 226, 22, translate(choice[1]), selected)
+          local pressed = self:beginPress(7, y, 226, 22, not selected)
+          self:v4Choice(7, y, 226, 22, selected, true)
+          self:partyInfoCentered(self:fitPartyInfo(translate(choice[1]), 190), 7, y, 226, 19,
+            selected and WHITE or colors.ink)
+          self:endPress(pressed)
           if selected then
             local b = floor(self:clock() / 0.4) % 2
             self:wantAmbient(0.4)
