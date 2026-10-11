@@ -340,23 +340,26 @@ return function(H, ui, K)
         self:partyInfo(self:fitPartyInfo(line, 196), 22, top + (index - 1) * 10, colors.ink, 196, "center")
       end
     else
-      -- STAB
-      self:v4Window(14, 111, 104, 38, { fill = colors.bandLight, shadow = false })
-      self:partyInfo(move.stabLabel or translate("STAB"), 14, 114, colors.mutedInk, 104, "center")
-      local sc = stab and accent or colors.silverDark
-      local sw = self:v4Pill(stab and "1.5×" or "--", 66 - 20, 131, sc, { raw = true, w = 40 })
-      if stab then ART(STAR, 34, 133, { ["#"] = hex("f0c020") }) end
-      -- MATCHUP
-      self:v4Window(122, 111, 104, 38, { fill = colors.bandLight, shadow = false })
-      self:partyInfo(move.matchupLabel or translate("MATCHUP"), 122, 114, colors.mutedInk, 104, "center")
       local label, eff = self:battleEffectLabel(move)
-      local ec = eff == nil and colors.silverDark or eff == 0 and GREY
-        or eff > 10 and hex("e05040") or eff < 10 and hex("4878c8") or hex("8890a0")
-      local shown = label == "--" and "--" or label:gsub("X", "×")
-      self:v4Pill(shown, 154, 131, ec, { raw = true, w = 40 })
-      if eff and eff > 10 then ART(ARROW_UP, 142, 134, { ["#"] = hex("e05040") }); if eff >= 40 then ART(ARROW_UP, 142, 138, { ["#"] = hex("e05040") }) end
-      elseif eff and eff > 0 and eff < 10 then ART(ARROW_DN, 142, 135, { ["#"] = hex("4878c8") })
-      elseif eff == 0 then ART(CROSS, 142, 134, { ["#"] = GREY }) end
+      local stabX = eff ~= nil and 14 or 68
+      local stabCenter = stabX + 52
+      -- STAB
+      self:v4Window(stabX, 111, 104, 38, { fill = colors.bandLight, shadow = false })
+      self:partyInfo(move.stabLabel or translate("STAB"), stabX, 114, colors.mutedInk, 104, "center")
+      local sc = stab and accent or colors.silverDark
+      self:v4Pill(stab and "1.5×" or "--", stabCenter - (stab and 14 or 20), 131, sc, { raw = true, w = 40 })
+      if stab then ART(STAR, stabCenter - 26, 133, { ["#"] = hex("f0c020") }) end
+      -- MATCHUP
+      if eff ~= nil then
+        self:v4Window(122, 111, 104, 38, { fill = colors.bandLight, shadow = false })
+        self:partyInfo(move.matchupLabel or translate("MATCHUP"), 122, 114, colors.mutedInk, 104, "center")
+        local ec = eff == 0 and GREY
+          or eff > 10 and hex("e05040") or eff < 10 and hex("4878c8") or hex("8890a0")
+        self:v4Pill(label:gsub("X", "×"), 154, 131, ec, { raw = true, w = 40 })
+        if eff > 10 then ART(ARROW_UP, 142, 134, { ["#"] = hex("e05040") }); if eff >= 40 then ART(ARROW_UP, 142, 138, { ["#"] = hex("e05040") }) end
+        elseif eff > 0 and eff < 10 then ART(ARROW_DN, 142, 135, { ["#"] = hex("4878c8") })
+        elseif eff == 0 then ART(CROSS, 142, 134, { ["#"] = GREY }) end
+      end
     end
     -- description
     local lines = move.descriptionLines or { move.description or "--" }
