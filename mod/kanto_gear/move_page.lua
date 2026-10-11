@@ -67,7 +67,8 @@ function Page.draw(H, model)
   for index = 1, 4 do
     local move = model.moves[index] or { available = false, name = "-" }
     local x, y = Page.rect(index)
-    H:summaryMoveRow(move, x, y, false, model.enabled ~= false and move.available ~= false, model.details == true and move.available ~= false)
+    H:summaryMoveRow(move, x, y, H.nativeFocus and model.selection == index,
+      model.enabled ~= false and move.available ~= false, model.details == true and move.available ~= false)
   end
 end
 
@@ -109,7 +110,7 @@ function Page.drawPrompt(H, model)
   for index, label in ipairs(model.choices or {}) do
     local x, y, w, h = Page.promptRect(index)
     local pressed = H:beginPress(x, y, w, h, enabled)
-    H:panel(x, y, w, h, false, nil, c.greenLight)
+    H:panel(x, y, w, h, H.nativeFocus and model.selection == index, nil, c.greenLight)
     H:partyInfoCentered(H:fitPartyInfo(label, w - 16), x + 8, y, w - 16, h, c.ink)
     H:endPress(pressed)
   end

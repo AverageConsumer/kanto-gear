@@ -45,4 +45,17 @@ local beforeSide = Menu.redrawKey(target)
 target.items[1].targetSide = "enemy"
 eq(Menu.redrawKey(target) ~= beforeSide, true, "allegiance changes invalidate a cached target row")
 eq(Menu.model(lockedBack).entries[1].targetSide, nil, "ordinary menus have no target styling")
+local ItemPage=dofile("mod/kanto_gear/item_page.lua")
+local actions={screenId="CompanionMenu",update=function() end,valid=function() return true end,index=1,
+  fixedLayout=true,items={{label="USE"},{label="GIVE"},{label="TOSS"},{label="CANCEL"}}}
+ItemPage.layout(actions.items)
+eq(Menu.direction(actions,"right"),2,"item actions navigate to the visible right button")
+eq(Menu.direction(actions,"down"),3,"item actions navigate to the visible next row")
+actions.index=4
+eq(Menu.direction(actions,"up"),2,"return navigation keeps the right column")
+eq(Menu.direction(actions,"left"),3,"return navigation keeps the lower row")
+actions.fixedLayout=false;actions.nativePocket=true
+eq(Menu.direction(actions,"left"),nil,"native pocket changes retain their handler")
+actions.items[1].inert=true;actions.index=4
+eq(Menu.direction(actions,"down"),2,"inert list entries are skipped")
 print("start menu: " .. n .. " checks passed")

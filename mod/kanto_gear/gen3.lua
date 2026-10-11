@@ -668,7 +668,8 @@ function Gen3:battleSnapshot(snapshot)
   local st = state and state.battle
   if not st then return nil end
   snapshot.menuIndex, snapshot.moveIndex = state.menuIndex, state.moveIndex
-  snapshot.nativeUnsupported = state.tutorial or state.demo or st.link
+  snapshot.nativeUnsupported = not not st.link
+  snapshot.nativeInputLocked = state.tutorial or state.demo or false
   snapshot.nativeMessage = self:messageText()
   if snapshot.nativeMessage then
     snapshot.message = { snapshot.nativeMessage }
@@ -678,6 +679,9 @@ function Gen3:battleSnapshot(snapshot)
     snapshot.nativeCanReveal = M.isTyping() and not M._choice
     snapshot.prompt = M.isWaiting() and not M._stay and not M._held
       and not M._choice and "advance" or "locked"
+  end
+  if snapshot.nativeInputLocked then
+    snapshot.prompt, snapshot.nativeCanReveal = "locked", false
   end
   if st.safari and snapshot.prompt == "menu" then
     snapshot.prompt, snapshot.safariBalls = "safari", st.safariState and st.safariState.balls or 0

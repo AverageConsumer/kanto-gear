@@ -4895,6 +4895,7 @@ return function(ui)
 
   function H:battleFullRoot(mon, player, enemy, drawPortrait,
       playerTeam, enemyTeam, selected, battlers)
+    selected = self.nativeFocus and selected or nil
     self:battleFullStatuses(player, enemy, drawPortrait,
       playerTeam, enemyTeam, nil, battlers)
     local labels = { mon.fightLabel or translate("FIGHT"), mon.partyLabel or translate("POKEMON"),
@@ -5075,8 +5076,8 @@ return function(ui)
     return ui.partyPage.hit(self, x, y, count, cancel)
   end
 
-  function H:partySelection(party, drawPortrait, emptyTargets)
-    ui.partyPage.draw(self, { party = party }, function(slot, x, y, selected, details, focused)
+  function H:partySelection(party, drawPortrait, emptyTargets, selection)
+    ui.partyPage.draw(self, { party = party, selection = self.nativeFocus and selection or nil }, function(slot, x, y, selected, details, focused)
       local target = type(emptyTargets) == "table" and emptyTargets[slot] or emptyTargets == true
       self:partyCard(party[slot], x, y, selected, details, drawPortrait, focused, target)
     end)

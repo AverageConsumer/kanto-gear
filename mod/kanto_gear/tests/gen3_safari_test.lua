@@ -28,7 +28,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   for _, style in ipairs({ "hgss", "hgss_dark" }) do
     run.loader.modOptions.kanto_gear.theme_v3 = style
     run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3", value = style })
-    for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
+    for _, mode in ipairs({ "standard", "gear", "full" }) do
       run.loader.modOptions.kanto_gear.battle_view = mode
       for index, id in ipairs(ids) do
         Message.reset(); Stack.clear(); U.reset({ headless = true }); U.bindState(state, session); U.openMenu(0)
@@ -41,11 +41,15 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
           T.eq(model.actions[2].label, "POKéBLOCK", "Emerald shows its actual Pokeblock command")
           T.eq(model.actions[3].label, "GO NEAR", "Emerald shows its actual approach command")
         end
-        local captured, draw = nil, H.battleSafari
-        H.battleSafari = function(self, value, ...) captured = value; return draw(self, value, ...) end
-        display.drawContents(); H.battleSafari = draw
+        local renderer = mode == "gear" and "battleSafari" or "battleFullSafari"
+        local captured, draw = nil, H[renderer]
+        H[renderer] = function(self, value, ...) captured = value; return draw(self, value, ...) end
+        display.drawContents(); H[renderer] = draw
         T.eq(captured.actions[index].kind, id, "rendering and touch use the same shared model")
         local x, y, w, h = display.SafariPage.rect(index)
+        if mode ~= "gear" then
+          local r=H.fullBattleActions[index]; x,y,w,h=r.x,r.y,r.w,r.h
+        end
         tap((x + w / 2) / 1.5, (y + h / 2) / 1.5)
         local command = U._pendingCommand
         T.check(command and (id == "run" and command.safariRun
@@ -127,7 +131,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     Blocks.clearAll(session)
     U.reset({ headless = true }); U.bindState(state, session); U.openMenu(0)
     Battle._phase = "command"; a.syncScreens(); refresh()
-    local x, y, w, h = display.SafariPage.rect(2)
+    local r=H.fullBattleActions[2]
+    local x,y,w,h=r.x,r.y,r.w,r.h
     tap((x + w / 2) / 1.5, (y + h / 2) / 1.5)
     Battle.update(1 / 60, {})
     T.eq(Battle._phase, "safari_pokeblock", "actual battle dispatcher opens the native case")

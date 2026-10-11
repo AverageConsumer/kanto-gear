@@ -248,7 +248,8 @@ return function(H, ui, K)
     for index = 1, 4 do
       local move = model.moves[index] or { available = false, name = "-" }
       local x, y = Page.rect(index)
-      self:summaryMoveRow(move, x, y, false, model.enabled ~= false and move.available ~= false,
+      self:summaryMoveRow(move, x, y, self.nativeFocus and model.selection == index,
+        model.enabled ~= false and move.available ~= false,
         model.details == true and move.available ~= false)
     end
   end
@@ -277,6 +278,7 @@ return function(H, ui, K)
       local up = tostring(label):upper()
       local tone = POSITIVE[up] and (cg(self) and hex("1ea5d8") or hex("3ea04c")) or hex("5a6c88")
       local off = self:v4Button(x, y, w, h, K.rampOf(tone), { radius = 6, lip = 4, chamfer = 6 })
+      if self.nativeFocus and model.selection == index then self:focusFrame(x, y, w, h) end
       local glyph = POSITIVE[up] and { "......#", ".....##", "#...##.", "##.##..", ".###...", "..#...." }
         or NEGATIVE[up] and { "#...#", ".#.#.", "..#..", ".#.#.", "#...#" } or nil
       local text = self:fitPartyInfo(label, w - 30)

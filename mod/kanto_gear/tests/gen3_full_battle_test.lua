@@ -53,7 +53,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     nativePresent[id].displayHp=10+id+0.8
   end
   local H=theme.hgss
-  local drawCard,drawMessage=H.battleCompactStatus,H.battleFullMessage
+  local drawCard,drawMessage,gearMessage=H.battleCompactStatus,H.battleFullMessage,H.battleMessage
   local opponents,drawOpponents=nil,H.enemyInfoOpponents
   H.enemyInfoOpponents=function(self,rows,...)
     opponents={}
@@ -68,6 +68,10 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   H.battleFullMessage=function(self,lines,advance,...)
     compact={lines=lines,advance=advance}
     return drawMessage(self,lines,advance,...)
+  end
+  H.battleMessage=function(self,lines,advance,...)
+    compact={lines=lines,advance=advance}
+    return gearMessage(self,lines,advance,...)
   end
   for _,style in ipairs({"hgss","hgss_dark"}) do
     options.theme_v3=style;run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="theme_v3"})
@@ -138,7 +142,10 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     Stack.clear();Message.reset();Ui.openMenu(0);cards={};tick()
     T.eq(not not display.gen3Presentation.owns("panel"),mode=="gear" or mode=="full",mode.." controls native command visibility")
     T.eq(not not display.gen3Presentation.owns("hud"),mode=="full",mode.." controls native HP visibility")
-    if mode=="standard" then T.eq(next(cards),nil,"Companion does not duplicate HP cards") end
+    if mode=="standard" then
+      T.check(cards[0] and cards[1] and cards[2] and cards[3],"Companion mirrors all four HP cards without hiding them above")
+      T.eq(selectedCommand,nil,"Companion never presents lower D-pad command focus")
+    end
     if mode=="info" then
       T.check(opponents and opponents[1] and opponents[3],"Info shows both opponents")
       T.eq(opponents[0],nil,"Info never offers a partner as opponent")
@@ -154,6 +161,35 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       tapBattle(80,145/1.5)
       T.eq(display.enemyInfoSelection,nil,"an absent opponent cannot open unrelated info")
       st.absent[3]=nil
+      -- Info is independent of the original menu stack, including transitions
+      -- into and out of every built-in battle overlay.
+      local Team=require("src.ui.game3.party_menu")
+      local Summary=require("src.ui.game3.summary_menu")
+      local Growth=require("src.ui.game3.stat_growth")
+      local Choice=require("src.ui.game3.choice")
+      local scenes={
+        function() Team.show(game.session.party,{session=game.session,battle=st,mode="battle_switch"}) end,
+        function() Bag.show(game.session.bag,{session=game.session,battle=st});Bag.settle() end,
+        function() Summary.openMenu(game.session.party,1,{session=game.session}) end,
+        function() Growth.open(game.session.party[1],{},{}) end,
+        function() Choice.yesNo(function() error("Info answered a native choice") end) end,
+        function() Message.show("A native battle message",{frame="battle",speed=1}) end,
+      }
+      for _,open in ipairs(scenes) do
+        Team.close();Bag.close();Summary.close();Growth.close({silent=true})
+        Stack.clear();Message.reset();Choice.active=false;Ui.openMenu(0)
+        display.enemyInfoSelection=nil;open();opponents=nil;tick()
+        T.check(opponents and opponents[1] and opponents[3],"Info keeps both foes while the upper menu changes")
+        T.check(not display.gen3Presentation.owns("menu"),"Info retains every original upper overlay")
+        local guard=display.syncTouchGuard();guard.readyAt=0
+        tap(80,145/1.5)
+        T.eq(display.enemyInfoSelection,3,"Info touch selects a foe instead of the covered original menu")
+        local key=display.motionKey()
+        T.check(key:find("battle%-info:")~=nil,"Info animation identity excludes the original menu")
+      end
+      Team.close();Bag.close();Summary.close();Growth.close({silent=true})
+      Stack.clear();Message.reset();Choice.active=false;Ui.openMenu(0)
+      display.enemyInfoSelection=nil;tick()
     end
     for _,doubles in ipairs({false,true}) do
       st.double=doubles
@@ -214,6 +250,37 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       Party.handleInput({wasPressed=function(_,key) return key=="right" end})
       T.eq(Party.cursor,2,"owned team navigation reaches the adjacent card")
       Party.close();Stack.clear();Ui.openMenu(0)
+      -- The original action list is vertical; the lower item card has two
+      -- columns. Navigate and confirm the actual native cursor, not a copy.
+      local NativeBag=require("src.core.game3.bag")
+      NativeBag.add(game.session.bag,13,1)
+      Bag.show(game.session.bag,{session=game.session,battle=st,pocket="ITEMS"});Bag.settle()
+      local Hud=require("src.ui.game3.hud")
+      local nativeMenuInput=up(Hud.update,"update_top_menu")
+      local function bagInput(key)
+        nativeMenuInput({wasPressed=function(_,pressed) return pressed==key end,isDown=function() return false end})
+      end
+      bagInput(nil)
+      for index,row in ipairs(Bag.list()) do if row.id==13 then Bag.cursor=index end end
+      bagInput("a")
+      tick()
+      local actions=display.startMenu()
+      if actions and actions.itemActionId then
+        Bag.actionCursor=1
+        bagInput("right")
+        T.eq(Bag.actionCursor,2,"owned item actions follow the lower columns")
+        bagInput("left")
+        T.eq(Bag.actionCursor,1,"owned item actions return to the lower left button")
+      else T.check(false,"battle item opens its shared action card") end
+      Bag.close();Stack.clear();Ui.openMenu(0)
+      T.check(Ui.chooseTarget(st,0,1),"owned doubles open native target selection")
+      refresh()
+      local targets=display.startMenu()
+      targets.target.cursor=targets.battleTargets[1];refresh()
+      Ui.handleInput({wasPressed=function(_,key) return key=="down" end})
+      targets=display.startMenu()
+      T.eq(targets.target.cursor,targets.battleTargets[2],"owned target selection follows the lower list")
+      Ui.openMenu(0)
     end
     Ui._openMoveMenu();cards={};tick()
     if mode=="full" then
@@ -236,6 +303,21 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     Battle._active=false
     T.check(not display.gen3Presentation.owns("menu"),mode.." never suppresses field menus")
     Battle._active=true
+    -- Demonstrations keep their native automation, but use the same display
+    -- contract. No hidden, interactive-looking command screen below.
+    Stack.clear();Message.reset();Ui.openMenu(0)
+    Battle._auto=true
+    Message.show("Watch carefully!",{frame="battle",speed=0,stay=true})
+    cards,compact,opponents={},nil,nil;tick()
+    T.check(up(refresh,"battle").nativeInputLocked,"scripted battle retains native input authority")
+    T.eq(not not display.gen3Presentation.owns("panel"),mode=="gear" or mode=="full",
+      mode.." keeps its display contract during demonstrations")
+    T.eq(not not display.gen3Presentation.owns("hud"),mode=="full",
+      mode.." keeps its HP contract during demonstrations")
+    T.check(not display.gen3Presentation.owns("menuNavigation"),"scripted battle never remaps automated choices")
+    if mode=="info" then T.check(opponents and opponents[1] and opponents[3],"Info keeps both scripted opponents")
+    else T.check(compact~=nil,"scripted battle text is mirrored below") end
+    Battle._auto=false;Message.reset();Ui.openMenu(0);tick()
   end
   H.battleRoot,H.battleFullRoot=gearRoot,fullRoot
   options.battle_view="full"
@@ -289,6 +371,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="map_motion"})
   end
   H.battleCompactStatus,H.battleFullMessage=drawCard,drawMessage
+  H.battleMessage=gearMessage
   H.enemyInfoOpponents=drawOpponents
   display.drawContents=originalDraw
   for id=0,3 do nativePresent[id].displayHp=nil end

@@ -538,14 +538,14 @@ for _, mode in ipairs({ "gear", "full" }) do
 end
 run.loader.modOptions.kanto_gear.battle_view = "standard"
 display.gen3:refresh(); display.gen3.syncScreens(); refreshBattle()
-tapBattle(120 / 1.5, 90 / 1.5)
+tapBattle(62 / 1.5, 139 / 1.5)
 T.eq(Ui._mode, "moves", "FIGHT opens the actual native move menu")
 paintBattle("native move selection")
 for _, move in ipairs(upvalue(refreshBattle, "battle").moves) do
   T.eq(move.type, display.gen3.data.moves[move.id].type, "battle move retains its native type: " .. move.id)
 end
 submit("back"); refreshBattle()
-tapBattle(200 / 1.5, 185 / 1.5)
+tapBattle(178 / 1.5, 139 / 1.5)
 paintBattle("native battle party")
 T.check(display.startMenu() ~= nil, "battle party uses its actual display order")
 NativeParty.close(); Ui.openMenu(0); display.gen3.syncScreens(); refreshBattle()

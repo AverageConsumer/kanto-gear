@@ -103,7 +103,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   for _, style in ipairs({ "hgss", "hgss_dark" }) do
     options.theme_v3 = style
     run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3", value = style })
-    for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
+    for _, mode in ipairs({ "standard", "gear", "full" }) do
       options.battle_view = mode
       for _, outcome in ipairs({ "replace", "cancel", "retry" }) do
         Stack.clear(); Message.reset(); Learn.reset(); Choice.active = false
@@ -262,5 +262,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   Stack.clear(); Message.reset(); Learn.reset(); Ui.reset({ headless = true })
   Battle._active, Battle._st = false, nil
 end
-dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald"
-  and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

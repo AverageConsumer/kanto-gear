@@ -219,14 +219,14 @@ else
       T.eq(raw.moveIndex, 1, "snapshot never skips the original zero-PP cursor")
       preservedHooks(run, { raw, stack:top() })
       stack.states = { world, raw }; state.prompt = "menu"; refresh()
-      for index, action in ipairs(theme.hgss.battleActions) do
+      for index, action in ipairs(theme.hgss.fullBattleActions) do
         tapBattle((action.x + action.w / 2) / 1.5, (action.y + action.h / 2) / 1.5)
         T.eq(raw.menuIndex, index, "touch chooses its semantic action without D-pad navigation")
         T.eq(tapped[#tapped], "a", "explicit touch delegates native confirmation")
       end
       state.prompt = "moves"; raw.moveIndex = 2; refresh()
       local before = #tapped
-      display.dispatchTouchTap(tapBattle, 110 / 1.5, 40 / 1.5)
+      display.dispatchTouchTap(tapBattle, 110 / 1.5, 122 / 1.5)
       T.check(up(display.syncCompanionDetails, "moveInfo") ~= nil, "touch opens local attack details")
       T.eq(raw.moveIndex, 2, "inspecting another attack never changes the original cursor")
       T.eq(#tapped, before, "opening Gear details sends no native input")

@@ -78,6 +78,42 @@ function Menu.select(top, index)
   return true
 end
 
+function Menu.direction(top, key)
+  local cursor = Menu.cursor(top)
+  if not cursor or not ({up=true,down=true,left=true,right=true})[key] then return nil end
+  local index, count = cursor.index, #top.items
+  local rect = top.fixedLayout and top.items[index].rect
+  if not rect then
+    if key == "left" or key == "right" then
+      if top.nativePocket then return nil end
+      return index
+    end
+    local step = key == "up" and -1 or 1
+    for offset = 1, count do
+      local target = (index - 1 + step * offset) % count + 1
+      if not top.items[target].inert then return target end
+    end
+    return index
+  end
+  -- Navigate the same rectangles used for drawing and touch, rather than
+  -- inheriting the original game's different menu geometry.
+  local cx, cy = rect[1] + rect[3] / 2, rect[2] + rect[4] / 2
+  local best, score = index, math.huge
+  for target, item in ipairs(top.items) do
+    local r = item.rect
+    if r and target ~= index and not item.inert
+        and not (top.moveSelection and item.label == "CANCEL") then
+      local dx, dy = r[1] + r[3] / 2 - cx, r[2] + r[4] / 2 - cy
+      local along = key == "left" and -dx or key == "right" and dx
+        or key == "up" and -dy or dy
+      local across = (key == "left" or key == "right") and math.abs(dy) or math.abs(dx)
+      local distance = along + across * 2
+      if along > 0 and distance < score then best, score = target, distance end
+    end
+  end
+  return best
+end
+
 function Menu.hit(top, x, y)
   local first, count = Menu.window(top)
   if not first then return nil end

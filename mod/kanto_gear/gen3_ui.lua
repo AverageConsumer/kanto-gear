@@ -4,9 +4,29 @@ local bit = require("bit")
 local UI = {}
 UI.__index = UI
 
-function UI.new(adapter, layout, choicePage, namingPage, storagePage, itemPage, movePage, keyboardLayout)
-  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, itemPage = itemPage, movePage = movePage, keyboardLayout = keyboardLayout, Stack = require("src.ui.game3.stack"),
+function UI.new(adapter, layout, choicePage, namingPage, storagePage, itemPage, movePage, keyboardLayout, navigation)
+  return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, itemPage = itemPage, movePage = movePage, keyboardLayout = keyboardLayout, navigation = navigation, Stack = require("src.ui.game3.stack"),
     Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
+end
+
+function UI:navigate(native, battle, input)
+  if not self.navigation then return false end
+  native = native._nativeDelegate or native
+  local view = self:list(battle)
+  if not view or view.native ~= native or not view.valid() or view.notice
+      or view.quantity or view.nativeStats then return false end
+  if not view.fixedLayout and not view.battleTargets then return false end
+  for _, key in ipairs({"up","down","left","right"}) do
+    if input:wasPressed(key) then
+      local index = self.navigation(view, key)
+      if index == nil then return false end
+      if view.battleTargets then view.target.cursor = view.battleTargets[index] end
+      view.index = index
+      if view.moveSelection then native._hmNotice = false end
+      return true
+    end
+  end
+  return false
 end
 
 function UI:moveItem(raw, slot, name)
@@ -423,7 +443,7 @@ function UI:list(battle)
     local owner, move = learning and learning.rawMon, learning and learning.newMoveId
     local view = self.choiceView
     if not view or view.options ~= key or view.learningOwner ~= owner or view.learningMove ~= move then
-      view = { screenId = "Gen3Menu", title = "CHOOSE ACTION", options = key,
+      view = { screenId = "Gen3Menu", title = "CHOOSE ACTION", options = key, native = self.adapter.BattleUI,
         learningOwner = owner, learningMove = move,
         nativeKey = tostring(key), choiceState = { page = 1 }, update = function() end,
         valid = function() return Choice.active and Choice.options == key
@@ -479,7 +499,7 @@ function UI:list(battle)
     end
     local view = self.targetView
     if not view or view.target ~= target then
-      view = { screenId = "Gen3Menu", title = "CHOOSE TARGET", target = target,
+      view = { screenId = "Gen3Menu", title = "CHOOSE TARGET", target = target, native = U,
         nativeKey = tostring(target), update = function() end,
         valid = function() return self.Stack.top() == nil and U._mode == "target" and U._target == target end }
       self.targetView = view
@@ -532,11 +552,12 @@ function UI:list(battle)
         { stringVars = { self.adapter.Items.displayName(row.id), tostring(native.tossQty) } })
     end
   end
-  local notice = not native._pokedude and not native._statBoost and noticeText()
+  local notice = noticeText()
   if notice then
     local noticeMode = mode
     local function ready()
-      return not native._hpAnim and (mode ~= "oak" or native._oakFx and native._oakFx.phase == "text")
+      return not native._hpAnim and not native._pokedude and not native._statBoost
+        and (mode ~= "oak" or native._oakFx and native._oakFx.phase == "text")
     end
     local key = tostring(layer) .. ":" .. mode .. ":" .. tostring(ready()) .. ":" .. notice
     local view = self.noticeView
@@ -744,7 +765,7 @@ function UI:list(battle)
     if native._confirmExit then
       items, field, prompt = labels({ "YES", "NO" }), "_confirmCursor", require("src.core.Strings")("RETURN TO MAIN\nMENU?")
     else items, field = labels(native.ENTRIES), "cursor" end
-  elseif layer.id == "party" and not native._pokedude then
+  elseif layer.id == "party" then
     title = "PARTY"
     if partyModes[native.mode] then
       partyLayout = native.mode ~= "choose_multi"
@@ -799,7 +820,7 @@ function UI:list(battle)
         or { "USE", "GIVE", "TOSS", "EXIT" })
       field = "actionCursor"
     end
-  elseif layer.id == "bag" and not native._pokedude and not native._statBoost then
+  elseif layer.id == "bag" then
     title = "BAG"
     if native.mode == "list" then
       items, field, pocket = {}, "cursor", true
@@ -844,7 +865,7 @@ function UI:list(battle)
   local view = self.view
   if not view or view.nativeKey ~= key then
     local owner = self
-    view = { screenId = "Gen3Menu", nativeKey = key, update = function() end }
+    view = { screenId = "Gen3Menu", nativeKey = key, native = native, update = function() end }
     local pocketIdx = native.pocketIdx
     local holding = native.holdingMon
     local storageBox = layer.id == "box_storage" and native._session.storage.currentBox
@@ -870,7 +891,7 @@ function UI:list(battle)
         and (not learningPrompt or learningPrompt.valid())
         and (not sale or native._sell == sale and sale.state == saleState)
         and (layer.id ~= "box_storage" or not require("src.ui.game3.release_seq").isActive())
-        and (preview or not native._hpAnim) and not native._pokedude and not native._statBoost
+        and (preview or not native._hpAnim and not native._pokedude and not native._statBoost)
         and (preview or not owner.Message.isOpen() and not owner.Choice.active)
         and (preview or not native._fx and not (native._slide and native._slide.active))
         and (preview or not native._fading)

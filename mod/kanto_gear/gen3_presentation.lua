@@ -3,7 +3,7 @@
 local Presentation = {}
 Presentation.__index = Presentation
 
-function Presentation.new(owns, heroDirection, partyDirection)
+function Presentation.new(owns, heroDirection, partyDirection, menuNavigation)
   local self = setmetatable({ owns = owns, patches = {} }, Presentation)
   local function wrap(module, name, callback)
     local original = module[name]
@@ -17,6 +17,7 @@ function Presentation.new(owns, heroDirection, partyDirection)
   end
   local ui = require("src.core.game3.battle.ui")
   wrap(ui, "handleInput", function(next, input, ...)
+    if input and menuNavigation and hidden("menuNavigation") and menuNavigation(ui, input) then return true end
     if input and heroDirection and hidden("heroNavigation") then
       -- Gear's large FIGHT button and lower three buttons are not a 2x2
       -- grid. Keep native semantic indices and the doubles cursor in sync.
@@ -105,9 +106,12 @@ function Presentation.new(owns, heroDirection, partyDirection)
   local oam = require("src.core.game3.oam")
   local party = require("src.ui.game3.party_menu")
   wrap(party, "handleInput", function(next, input, ...)
+    if input and menuNavigation and hidden("menuNavigation") and menuNavigation(party, input) then return true end
     if input and partyDirection and hidden("partyNavigation") and
         (party.mode == "list" or party.mode == "choose" or party.mode == "switch"
-          or party.mode == "battle_switch" or party.mode == "use" or party.mode == "give") then
+          or party.mode == "battle_switch" or party.mode == "battle_faint"
+          or party.mode == "use" or party.mode == "give" or party.mode == "softboiled"
+          or party.mode == "move_tutor") then
       for _, key in ipairs({ "up", "down", "left", "right" }) do
         if input:wasPressed(key) then
           party.cursor = partyDirection(party.cursor, #(party._party or {}), key, 7)
@@ -117,6 +121,13 @@ function Presentation.new(owns, heroDirection, partyDirection)
     end
     return next(input, ...)
   end)
+  for _, name in ipairs({ "bag_menu", "tm_case", "berry_pouch", "summary_menu" }) do
+    local menu = require("src.ui.game3." .. name)
+    wrap(menu, "handleInput", function(next, input, ...)
+      if input and menuNavigation and hidden("menuNavigation") and menuNavigation(menu, input) then return true end
+      return next(input, ...)
+    end)
+  end
   wrap(oam, "buildOamBuffer", function(next, ...)
     local buffer = next(...)
     if not (party.open and hidden("menu")) then return buffer end
@@ -135,16 +146,35 @@ function Presentation.new(owns, heroDirection, partyDirection)
     return filtered
   end)
   for _, name in ipairs({ "message", "choice", "party_menu", "bag_menu",
-      "tm_case", "berry_pouch", "summary_menu", "stat_growth" }) do
+      "tm_case", "berry_pouch", "summary_menu", "stat_growth", "naming" }) do
     wrap(require("src.ui.game3." .. name), "draw", function(next, ...)
       if not hidden("menu") then return next(...) end
     end)
   end
-  -- Newer hosts dispatch Emerald skins without calling the base menu draw.
+  -- HUD and UiPass request profile skins directly. Intercept the returned
+  -- skin before it draws or rewrites input for the original menu geometry.
   local okScreens, screens = pcall(require, "src.ui.game3.screens")
-  if okScreens and type(screens.draw) == "function" then
-    wrap(screens, "draw", function(next, id, ...)
-      if (id ~= "bag" and id ~= "summary") or not hidden("menu") then return next(id, ...) end
+  if okScreens and type(screens.skin) == "function" then
+    local wrapped = {}
+    wrap(screens, "skin", function(next, id, ...)
+      local skin = next(id, ...)
+      if skin and not wrapped[skin] then
+        wrapped[skin] = true
+        wrap(skin, "draw", function(draw, ...)
+          if not hidden("screen:" .. tostring(id)) then return draw(...) end
+        end)
+        wrap(skin, "handleInput", function(handle, input, native, ...)
+          if input and menuNavigation and hidden("menuNavigation") and menuNavigation(native, input) then return true end
+          return handle(input, native, ...)
+        end)
+      end
+      return skin
+    end)
+  end
+  local okCase, case = pcall(require, "src.ui.game3.rse.pokeblock_case")
+  if okCase then
+    wrap(case, "draw", function(next, ...)
+      if not hidden("screen:rse_pokeblock_case") then return next(...) end
     end)
   end
   return self

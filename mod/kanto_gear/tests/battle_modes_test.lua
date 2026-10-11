@@ -57,6 +57,7 @@ local function call(name, state, previous)
 end
 local party = { screenId = gen == 2 and "Gen2PartyMenu" or "PartyMenu", index = 1 }
 if gen == 1 then party.party = game.save.party end
+local choice = { onChoose = function() end, index = 1, labels = { "YES", "NO" } }
 for _, style in ipairs({ "hgss", "hgss_dark" }) do
   options.theme_v3 = style
   run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
@@ -85,6 +86,39 @@ for _, style in ipairs({ "hgss", "hgss_dark" }) do
     T.eq(call("battle.move_grid_navigation", raw, false), owns, mode .. " move navigation")
     raw.phase = nil
     T.check(pcall(display.drawContents), mode .. " move page renders")
+    -- The same mode contract must survive native party/text/learning overlays.
+    local H=theme.hgss
+    local info,drawInfo=0,H.enemyInfoHero
+    H.enemyInfoHero=function(self,...) info=info+1;return drawInfo(self,...) end
+    local panels,drawMessage,drawFull=0,H.battleMessage,H.battleFullMessage
+    H.battleMessage=function(self,...) panels=panels+1;return drawMessage(self,...) end
+    H.battleFullMessage=function(self,...) panels=panels+1;return drawFull(self,...) end
+    game.input.pressQueue={}
+    snapshot.message={"THE ACTUAL BATTLE TEXT"};snapshot.prompt="advance"
+    stack.states={world,raw,{isTextBox=true}}
+    T.check(pcall(display.drawContents),mode.." native text overlay renders")
+    T.eq(panels,mode=="info" and 0 or 1,mode.." lower text follows the mode contract")
+    if mode=="info" then
+      T.eq(info,1,"Info stays visible during native text")
+      stack.states={world,raw,party};display.drawContents()
+      T.eq(info,2,"Info stays visible during native party selection")
+      local tap=up(up(compose,"touchEvent"),"tap")
+      tap(5,5)
+      T.eq(#game.input.pressQueue,0,"Info back cannot cancel the original party menu")
+    end
+    H.enemyInfoHero,H.battleMessage,H.battleFullMessage=drawInfo,drawMessage,drawFull
+    snapshot.message=nil;snapshot.prompt="locked"
+    raw.pendingLearn={index=1,move="FIX_MOVE_A"};raw.battle={party={mon}}
+    raw.phase="ask-forget";choice.index=1;raw.forgetChoice=1
+    local learner={screenId="MoveLearnMenu",mon=mon,newMoveId="FIX_MOVE_A",index=1}
+    if gen==1 then stack.states={world,raw,learner,choice}
+    else stack.states={world,raw} end
+    refresh()
+    game.input.pressQueue={"right","a"}
+    step(function() end,game,.016)
+    T.eq(gen==1 and choice.index or raw.forgetChoice,owns and 2 or 1,mode.." learning answers follow the lower horizontal layout only when owned")
+    T.eq(table.concat(game.input.pressQueue,","),owns and "" or "right,a",mode.." learning input retains one authority")
+    game.input.pressQueue={};raw.pendingLearn,raw.battle,raw.phase=nil,nil,nil
     -- No lower presentation suppresses original menus outside battle.
     stack.states = { world, party }
     T.eq(call("screen.render_visible", party, true), true, mode .. " field party is visible")

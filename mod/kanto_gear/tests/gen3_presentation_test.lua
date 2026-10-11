@@ -6,7 +6,7 @@ for _, name in ipairs({ "src.core.game3.battle.ui", "src.core.game3.battle.healt
     "src.ui.game3.battle_chrome", "src.ui.game3.frlg_font", "src.ui.game3.window",
     "src.ui.game3.message", "src.ui.game3.choice", "src.ui.game3.party_menu",
     "src.ui.game3.bag_menu", "src.ui.game3.tm_case", "src.ui.game3.berry_pouch",
-    "src.ui.game3.summary_menu", "src.core.game3.oam" }) do
+    "src.ui.game3.summary_menu", "src.ui.game3.screens", "src.core.game3.oam" }) do
   saved[name] = package.loaded[name]
   local m = {}; modules[name], package.loaded[name] = m, m
   for _, method in ipairs({ "draw", "drawPanel", "drawMenuFrames", "drawTerrain", "cursorPx" }) do
@@ -14,6 +14,12 @@ for _, name in ipairs({ "src.core.game3.battle.ui", "src.core.game3.battle.healt
     m[method] = function() calls[key] = (calls[key] or 0) + 1; return "native" end
   end
 end
+local skinDraws,skinInputs=0,0
+local skin={draw=function() skinDraws=skinDraws+1 end,
+  handleInput=function() skinInputs=skinInputs+1 end}
+local Screens=modules["src.ui.game3.screens"]
+local nativeSkin=function() return skin end
+Screens.skin=nativeSkin
 local U = modules["src.core.game3.battle.ui"]
 local F = modules["src.ui.game3.frlg_font"]
 local H = modules["src.core.game3.battle.healthbox"]
@@ -47,9 +53,13 @@ local p = Presentation.new(function(kind) return mode ~= "standard" and ((kind ~
 local function count(name, method) return calls[name .. ":" .. method] or 0 end
 T.eq(#O.buildOamBuffer(), 4, "Standard retains all native OBJ sprites")
 U.draw()
+Screens.skin("bag").draw({})
+T.eq(skinDraws,1,"Companion retains direct profile skin rendering")
 T.eq(#bands, 0, "standard leaves the native background unchanged")
 T.eq(count("src.ui.game3.frlg_font", "draw"), 2, "standard preserves both command and HP printers")
 mode = "gear"; U.draw()
+Screens.skin("bag").draw({})
+T.eq(skinDraws,1,"Gear hides a skin dispatched directly by UiPass")
 local filtered = O.buildOamBuffer()
 T.eq(#filtered, 1, "Gear removes menu icons including sprite ID zero")
 T.eq(filtered[1], sprites[4], "unrelated sprite identity is retained")
@@ -90,6 +100,9 @@ F.draw = function(...) return wrapped(...) end
 local wrappedInput = U.handleInput
 U.handleInput = function(...) return wrappedInput(...) end
 p:release()
+T.eq(Screens.skin,nativeSkin,"release restores skin lookup")
+skin.draw({})
+T.eq(skinDraws,2,"release restores a previously borrowed skin draw")
 T.eq(O.buildOamBuffer, nativeBuffer, "release restores the native OBJ builder")
 T.eq(#O.buildOamBuffer(), 4, "release restores menu sprites without a state reset")
 down, right, confirm = U.handleInput(input)
@@ -122,6 +135,15 @@ allowed=false
 U.handleInput(moveAndConfirm)
 T.eq(U._menuIndex,1,"lost presentation ownership restores native input")
 hero:release()
+local navigated=0
+local menus=Presentation.new(function(kind) return kind=="menuNavigation" end,nil,nil,
+  function(native,i) if i:wasPressed("right") then navigated=navigated+1;return true end end)
+Screens.skin("bag").handleInput(input,{})
+T.eq(navigated,1,"HUD skin input is intercepted before its original geometry rewrite")
+T.eq(skinInputs,0,"handled lower navigation never reaches the original skin")
+menus:release()
+skin.handleInput(input,{})
+T.eq(skinInputs,1,"release restores skin input")
 for name in pairs(modules) do package.loaded[name] = saved[name] end
 love = oldLove
 T.finish("Native Gen3 presentation ownership")
