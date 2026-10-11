@@ -692,7 +692,7 @@ T.eq(display.settingsModel().option, "language",
   "the visible setting row opens its explanation and choices")
 T.eq(run.loader.modOptions.kanto_gear.language, "en",
   "opening an explanation does not change the setting")
-display.tapSettings(120, 62)
+display.tapSettings(120, 180)
 T.eq(run.loader.modOptions.kanto_gear.language, "en",
   "the explanation itself cannot change the setting")
 local choiceTop = theme.hgss:settingsChoiceTop(display.settingsModel())

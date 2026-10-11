@@ -2831,6 +2831,9 @@ return function(mod)
       if row and displayRuntime.optionVisible(row) then
         rows[#rows + 1] = { key = key, label = row.label,
           value = displayRuntime.optionValueLabel(row), source = row,
+          raw = mod.options:get(key),
+          choices = row.type == "toggle" and { { "OFF", false }, { "ON", true } }
+            or displayRuntime.optionChoices(row),
           enabled = type(mod.options.set) == "function", description = SettingsInfo.help[key] }
       end
     end
@@ -5974,11 +5977,74 @@ return function(mod)
     return start, count
   end
 
+  -- Boot warm-up. While the title owns the screen, build the caches the
+  -- first Gear frames would otherwise stall on: the skin's backdrop images
+  -- (both variants, so Auto never hitches), the region map tiles and the
+  -- host modules the explorer and portraits pull in lazily. One step per
+  -- tick; the title's boot log reports each group as it really finishes.
+  displayRuntime.bootWarm = { group = 1, step = 1, groups = {
+    { label = "THEME", steps = {
+      function()
+        if THEME.hgss and THEME.hgss.v4PrewarmBackdrop then
+          THEME.hgss:v4PrewarmBackdrop(THEME.hgss.dark == true)
+        end
+      end,
+      function()
+        if THEME.hgss and THEME.hgss.v4PrewarmBackdrop then
+          THEME.hgss:v4PrewarmBackdrop(THEME.hgss.dark ~= true)
+        end
+      end,
+    } },
+    { label = "MAP", steps = {
+      function()
+        if displayRuntime.gen3 or not (game and game.data) then return end
+        local ready = compat.isGen2()
+          and game.data.gen2MenuGfx and game.data.gen2MenuGfx.pokegear
+          or not compat.isGen2() and game.data.field and game.data.field.townMap
+        -- Never cache a miss before the host finished loading its data.
+        if ready then loadMap() end
+      end,
+      function()
+        if compat.isGen2() and game and game.data and game.data.gen2MenuGfx then
+          compat.gen2BadgeAsset()
+        end
+      end,
+    } },
+    { label = "SYSTEM", steps = {
+      function()
+        if displayRuntime.gen3 then return end
+        for _, name in ipairs({ "src.render.Assets", "src.render.GbcPalette",
+            "src.world.MapOverview",
+            compat.isGen2() and "src.world.gen2.Map" or "src.world.Map" }) do
+          pcall(require, name)
+        end
+      end,
+    } },
+  } }
+
+  function displayRuntime.bootWarmStep()
+    local warm = displayRuntime.bootWarm
+    local group = warm.groups[warm.group]
+    if not group then warm.finished = true; return false end
+    local fn = group.steps[warm.step]
+    if fn then pcall(fn) end
+    warm.step = warm.step + 1
+    if warm.step > #group.steps then
+      group.done = true
+      warm.group, warm.step = warm.group + 1, 1
+      if not warm.groups[warm.group] then warm.finished = true end
+      return true
+    end
+    return false
+  end
+
   local function drawTitle()
     if THEME.style == "hgss" then
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:titleBoot({ systemId = compat.systemId() },
+      THEME.hgss:titleBoot({ systemId = compat.systemId(),
+        version = tostring(mod.version or "4.0"):match("^(%d+%.%d+)") or "4.0",
+        warm = displayRuntime.bootWarm.groups },
         love.timer.getTime())
       G.pop()
       return
@@ -14562,6 +14628,8 @@ return function(mod)
     if displayRuntime.motion.started then dirty = true end
     if THEME.style == "hgss" and THEME.hgss.ambientDue
         and THEME.hgss:ambientDue(now) then dirty = true end
+    if not displayRuntime.bootWarm.finished and screenState() == "title"
+        and displayRuntime.bootWarmStep() then dirty = true end
     displayRuntime.updateStepRefresh(now)
     if now >= nextClock then
       local title = screenState() == "title"

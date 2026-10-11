@@ -55,6 +55,17 @@ return function(H, ui, K)
     cache[key] = ok and value or false
     return cache[key]
   end
+  -- Boot warm-up: build the expensive backdrop image of one variant of the
+  -- active skin ahead of time, so Auto theme switches never stall a frame.
+  function H:v4PrewarmBackdrop(dark)
+    local skin = K.SKINS[self.skinName or "pokegear"]
+    local variant = skin and skin[dark and "dark" or "light"]
+    if not variant then return false end
+    local probe = { tok = variant.tokens }
+    local built = self.skinName == "cgear" and hexField(probe) or stripeImage(probe)
+    return built ~= false
+  end
+
   function buildHex(self)
     local t = self.tok
     local s = 9

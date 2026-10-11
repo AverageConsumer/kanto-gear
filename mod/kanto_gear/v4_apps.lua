@@ -574,12 +574,6 @@ return function(H, ui, K)
     end
 
     if model.option then
-      self:v4MessageWindow(7, 34, 226, 62)
-      local lines = self:settingsHelpLines(translate(model.description or ""))
-      local top = 33 + floor((62 - #lines * 9) / 2)
-      for index, line in ipairs(lines) do
-        self:partyType(line, 15, top + (index - 1) * 9, colors.ink, 210)
-      end
       local first = (model.page - 1) * 4 + 1
       for visible = 0, 3 do
         local choice = model.choices[first + visible]
@@ -594,11 +588,29 @@ return function(H, ui, K)
         end
       end
       if model.pages > 1 then
-        self:v4Window(72, 202, 96, 12, { radius = 2, shadow = false })
-        self:pageChevron(88, 208, false)
-        self:partyType(model.page .. "/" .. model.pages, 104, 203, colors.ink, 32)
-        self:pageChevron(152, 208, true)
+        self:v4Window(72, 135, 96, 12, { radius = 2, shadow = false })
+        self:pageChevron(88, 141, false)
+        self:partyType(model.page .. "/" .. model.pages, 104, 136, colors.ink, 32)
+        self:pageChevron(152, 141, true)
       end
+      -- Gen 4 text box with typewriter help and the blinking advance mark
+      self:v4MessageWindow(6, 150, 228, 62)
+      local lines = self:settingsHelpLines(translate(model.description or ""))
+      local key = tostring(model.option) .. ":" .. tostring(model.value)
+      local now = self:clock()
+      if self.v4HelpKey ~= key then self.v4HelpKey, self.v4HelpAt = key, now end
+      local shown = (self.motionEnabled == false or self.frozenTime) and math.huge
+        or floor((now - (self.v4HelpAt or now)) * 70)
+      local total, left = 0, shown
+      for _, line in ipairs(lines) do total = total + #line end
+      local top = 150 + floor((62 - #lines * 9) / 2) - 1
+      for index, line in ipairs(lines) do
+        local part = left >= #line and line or line:sub(1, math.max(0, left))
+        left = left - #line
+        if #part > 0 then self:partyInfo(part, 16, top + (index - 1) * 9 - 1, colors.ink) end
+      end
+      if shown < total then self:wantAmbient(0.05, 1 / 30)
+      else self:v4AdvanceArrow(214, 199) end
       return
     end
 
@@ -621,22 +633,31 @@ return function(H, ui, K)
           local off = self:v4Button(60, y + 16, 120, 15, a, { radius = 4, lip = 3, chamfer = 3 })
           self:partyType(self:fitPartyType(value, 112), 64, y + 16 + off, WHITE, 112)
         else
-          -- selector well with arrows marking the two tap halves
-          local well = mix(colors.surface, accent, self.dark and 0.22 or 0.12)
-          if cg(self) then CH(15, y + 15, 210, 17, 3, colors.outline); CH(16, y + 16, 208, 15, 2, well)
-          else RR(15, y + 15, 210, 17, 4, colors.outline); RR(16, y + 16, 208, 15, 3, well)
-            R(18, y + 16, 204, 1, { 0, 0, 0, 0.12 }) end
-          local arrow = enabled and accent or colors.disabledInk
-          ART(K.CHEV_L, 21, y + 21, { ["#"] = arrow })
-          ART(K.CHEV_R, 216, y + 21, { ["#"] = arrow })
-          local valueInk = enabled and colors.ink or colors.disabledInk
-          local firstLine, secondLine
-          if self:partyInfoWidth(value) > 176 then firstLine, secondLine = self:splitPartyInfo(value, 176) end
-          if secondLine then
-            self:partyType(firstLine, 32, y + 14, valueInk, 176)
-            self:partyType(secondLine, 32, y + 22, valueInk, 176)
+          local choices = row.choices or {}
+          local fits = #choices >= 2 and #choices <= 3
+          if fits then
+            local segW = floor(210 / #choices)
+            for _, choice in ipairs(choices) do
+              if self:partyInfoWidth(translate(choice[1])) > segW - 6 then fits = false end
+            end
+          end
+          if fits then
+            self:v4Segments(15, y + 15, 210, choices, row.raw, enabled, accent)
           else
-            self:partyType(self:fitPartyType(value, 176), 32, y + 18, valueInk, 176)
+            local well = mix(colors.surface, accent, self.dark and 0.22 or 0.12)
+            if cg(self) then CH(15, y + 15, 210, 17, 3, colors.outline); CH(16, y + 16, 208, 15, 2, well)
+            else RR(15, y + 15, 210, 17, 4, colors.outline); RR(16, y + 16, 208, 15, 3, well)
+              R(18, y + 16, 204, 1, { 0, 0, 0, 0.12 }) end
+            local valueInk = enabled and colors.ink or colors.disabledInk
+            local firstLine, secondLine
+            if self:partyInfoWidth(value) > 176 then firstLine, secondLine = self:splitPartyInfo(value, 176) end
+            if secondLine then
+              self:partyType(firstLine, 24, y + 14, valueInk, 176)
+              self:partyType(secondLine, 24, y + 22, valueInk, 176)
+            else
+              self:partyType(self:fitPartyType(value, 176), 24, y + 18, valueInk, 176)
+            end
+            self:detailChevron(214, y + 21, enabled and accent or colors.disabledInk)
           end
         end
         self:endPress(pressed)
@@ -691,5 +712,51 @@ return function(H, ui, K)
       ART(K.CHEV_R, x + 98, y + 59, { ["#"] = colors.green })
     end
     self:endPress(pressed)
+  end
+
+  -- Segmented strip; the active segment is a lipped key in the row accent.
+  function H:v4Segments(x, y, w, choices, value, enabled, accent)
+    local colors = self.colors
+    local n = #choices
+    local segW = floor(w / n)
+    if cg(self) then CH(x, y, w, 17, 3, colors.outline); CH(x + 1, y + 1, w - 2, 15, 2, self.dark and hex("141b22") or hex("e4ebf0"))
+    else RR(x, y, w, 17, 4, colors.outline); RR(x + 1, y + 1, w - 2, 15, 3, self.dark and hex("1c2533") or hex("dfe8e1"))
+      R(x + 3, y + 1, w - 6, 1, { 0, 0, 0, 0.15 }) end
+    local a = K.rampOf(enabled and (accent or self.tok.acc.M) or colors.silverDark)
+    for i, choice in ipairs(choices) do
+      local sx = x + (i - 1) * segW
+      local sw = i == n and w - segW * (n - 1) or segW
+      local active = choice[2] == value
+      local label = translate(choice[1])
+      if active then
+        if cg(self) then CH(sx + 1, y + 1, sw - 2, 15, 2, a.M); CH(sx + 1, y + 1, sw - 2, 7, 2, a.L)
+        else RR(sx + 1, y + 1, sw - 2, 15, 3, a.D); RR(sx + 1, y + 1, sw - 2, 13, 3, a.M)
+          RRrows(sx + 1, y + 1, sw - 2, 13, 3, 0, 6, a.L); R(sx + 4, y + 1, sw - 8, 1, a.Hi) end
+        self:partyType(label, sx, y + 2, WHITE, sw)
+      else
+        if i > 1 and choices[i - 1][2] ~= value then R(sx, y + 4, 1, 9, colors.band) end
+        self:partyType(label, sx, y + 3, enabled and colors.mutedInk or colors.disabledInk, sw)
+      end
+    end
+  end
+
+  function H:settingsChoiceTop(model)
+    local count = min(4, #model.choices - (model.page - 1) * 4)
+    local height = max(0, count * 25 - 3)
+    return 36 + floor((97 - height) / 2)
+  end
+
+  function H:settingsHit(x, y, model)
+    if not (model and model.option) then return base.settingsHit(self, x, y, model) end
+    if y < 29 and x < 27 then return "back" end
+    if model.pages > 1 and y >= 135 and y < 147 then
+      if x >= 72 and x < 104 then return "prev" end
+      if x >= 136 and x < 168 then return "next" end
+    end
+    local top = self:settingsChoiceTop(model)
+    local visible = floor((y - top) / 25)
+    local index = (model.page - 1) * 4 + visible + 1
+    if x >= 7 and x < 233 and visible >= 0 and visible < 4 and y >= top
+        and y < top + 22 + visible * 25 and model.choices[index] then return "choice", index end
   end
 end

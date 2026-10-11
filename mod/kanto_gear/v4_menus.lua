@@ -292,83 +292,347 @@ return function(H, ui, K)
     end
   end
 
-  -- Pixel Silph Link emblem: Poké Ball seat inside a tri-colour link ring.
-  local ringCache = {}
-  local function ringRuns(d, t)
-    local key = d .. ":" .. t
-    if ringCache[key] then return ringCache[key] end
-    local runs, r = {}, d / 2
+  ---------------------------------------------------------------------------
+  -- Silph Link identity: the emblem is three link arcs (Silph red, blue,
+  -- green) around an "S" core. Pokégear draws a round ring, C-Gear a
+  -- hexagon. Pixels are cached once per shape and drawn as runs when idle.
+  ---------------------------------------------------------------------------
+  local SILPH = { hex("e04838"), hex("3878d0"), hex("3ea04c") }
+  local SILPH_CG = { hex("f0604c"), hex("1ea5d8"), hex("3cc07c") }
+  local GAP = 0.075
+  local emblemCache = {}
+  local function emblemPixels(d, t, hexShape)
+    local key = d .. ":" .. t .. ":" .. tostring(hexShape)
+    if emblemCache[key] then return emblemCache[key] end
+    local r = d / 2
+    local px, runs = { {}, {}, {} }, { {}, {}, {} }
     for y = 0, d - 1 do
-      local current, start
+      local open = {}
       for x = 0, d do
-        local idx
+        local seg, kind, u
         if x < d then
           local dx, dy = x + 0.5 - r, y + 0.5 - r
-          local dist = math.sqrt(dx * dx + dy * dy)
-          if dist <= r and dist >= r - t then
-            local a = math.atan2(dy, dx)
-            idx = (a >= -math.pi / 3 and a < math.pi / 3) and 2 or (a >= math.pi / 3 and a < math.pi) and 3 or 1
+          local dist = hexShape and math.max(math.abs(dx) * 0.866 + math.abs(dy) * 0.5, math.abs(dy))
+            or math.sqrt(dx * dx + dy * dy)
+          if dist <= r and dist >= r - t - 2 then
+            local f = (math.atan2(dx, -dy) / (2 * math.pi)) % 1
+            local s = floor(f * 3)
+            u = f * 3 - s
+            if u >= GAP and u <= 1 - GAP then
+              seg = s + 1
+              local edge = dist > r - 1 or dist < r - t - 1
+                or u < GAP + 0.025 or u > 1 - GAP - 0.025
+              kind = edge and 1 or dist > r - 2.5 and 3 or 2
+              local list = px[seg]
+              list[#list + 1] = { x, y, kind, (u - GAP) / (1 - 2 * GAP) }
+            end
           end
         end
-        if idx ~= current then
-          if current then runs[#runs + 1] = { current, start, y, x - start } end
-          current, start = idx, x
+        -- run-length per segment and kind for the settled emblem
+        for s2 = 1, 3 do
+          local want = seg == s2 and kind or nil
+          local o = open[s2]
+          if o and o[1] ~= want then
+            local list = runs[s2]
+            list[#list + 1] = { o[1], o[2], y, x - o[2] }
+            open[s2] = nil
+          end
+          if want and not open[s2] then open[s2] = { want, x } end
         end
       end
     end
-    ringCache[key] = runs
-    return runs
+    emblemCache[key] = { px = px, runs = runs }
+    return emblemCache[key]
   end
-  function H:silphLinkIcon(cx, cy, phase)
+  K.emblemPixels = emblemPixels
+
+  -- "S" monogram; the outline is derived so the glyph stays one source.
+  local S_GLYPH = (function()
+    local fill = {
+      ".######.", "##....##", "##......", "##......", ".######.",
+      "......##", "......##", "##....##", ".######.",
+    }
+    local h, w = #fill + 2, #fill[1] + 2
+    local function at(x, y)
+      local row = fill[y]
+      return row ~= nil and x >= 1 and x <= #row and row:sub(x, x) == "#"
+    end
+    local rows = {}
+    for y = 0, h - 1 do
+      local line = {}
+      for x = 0, w - 1 do
+        local ch = "."
+        if at(x, y) then ch = "#"
+        else
+          for dy = -1, 1 do for dx = -1, 1 do
+            if at(x + dx, y + dy) then ch = "o" end
+          end end
+        end
+        line[#line + 1] = ch
+      end
+      rows[#rows + 1] = table.concat(line)
+    end
+    return rows
+  end)()
+
+  local function easeOut(p) p = math.max(0, math.min(1, p)); return 1 - (1 - p) * (1 - p) end
+
+  -- progress: per-arc sweep 0..1 (nil = settled); core: 0..1 pop-in.
+  function H:silphEmblem(cx, cy, d, opts)
+    opts = opts or {}
     local colors = self.colors
-    local d = 74
-    local runs = ringRuns(d, 3)
-    local tints = { colors.blueLight, colors.greenLight, colors.amberLight }
-    for _, run in ipairs(runs) do R(cx - d / 2 + run[2], cy - d / 2 + run[3], run[4], 1, tints[run[1]]) end
-    self:v4Seat(cx - 27, cy - 27, 55)
-    for index, node in ipairs({ { -36, 0 }, { 18, -31 }, { 18, 31 } }) do
-      local active = index - 1 == (phase or 0)
-      CIRC(cx + node[1] - 5, cy + node[2] - 5, 11, colors.outline)
-      CIRC(cx + node[1] - 3, cy + node[2] - 3, 7, active and colors.amberLight or colors.greenLight)
+    local hexShape = cg(self)
+    local t = 4
+    local data = emblemPixels(d, t, hexShape)
+    local tints = hexShape and SILPH_CG or SILPH
+    local ox, oy = cx - floor(d / 2), cy - floor(d / 2)
+    for seg = 1, 3 do
+      local c = tints[seg]
+      local pal = { colors.outline, c, mix(c, WHITE, 0.42) }
+      local p = opts.sweep and opts.sweep[seg] or 1
+      if p >= 1 then
+        for _, run in ipairs(data.runs[seg]) do R(ox + run[2], oy + run[3], run[4], 1, pal[run[1]]) end
+      elseif p > 0 then
+        for _, q in ipairs(data.px[seg]) do
+          if q[4] <= p then
+            local head = q[4] > p - 0.06
+            R(ox + q[1], oy + q[2], 1, 1, head and q[3] ~= 1 and WHITE or pal[q[3]])
+          end
+        end
+      end
+    end
+    -- link nodes sit in the three gaps
+    local nodeR = d / 2 - t / 2 - 1
+    for k = 0, 2 do
+      local shown = not opts.sweep or (opts.sweep[k == 0 and 3 or k] or 0) >= 1
+      if shown then
+        local a = k / 3 * 2 * math.pi
+        local nx, ny = floor(cx + math.sin(a) * nodeR + 0.5), floor(cy - math.cos(a) * nodeR + 0.5)
+        local lit = opts.active == k
+        if hexShape then
+          CH(nx - 4, ny - 4, 9, 9, 3, colors.outline)
+          CH(nx - 3, ny - 3, 7, 7, 2, lit and hex("f8d048") or WHITE)
+        else
+          CIRC(nx - 4, ny - 4, 9, colors.outline)
+          CIRC(nx - 3, ny - 3, 7, lit and hex("f8d048") or WHITE)
+          R(nx - 1, ny - 2, 2, 1, lit and hex("fff4c0") or colors.silver)
+        end
+      end
+    end
+    -- core
+    local pop = opts.core == nil and 1 or opts.core
+    if pop > 0 then
+      local s = pop < 1 and floor((26 + 6 * math.sin(pop * math.pi)) * easeOut(pop) + 0.5) or 26
+      s = s - s % 2
+      if s >= 4 then
+        local x, y = cx - s / 2, cy - s / 2
+        if hexShape then
+          CH(x, y, s, s, floor(s / 3), colors.outline)
+          CH(x + 1, y + 1, s - 2, s - 2, floor(s / 3) - 1, colors.surface)
+          K.CHrows(x + 1, y + 1, s - 2, s - 2, floor(s / 3) - 1, floor(s / 2), s - 2, colors.band)
+        else
+          CIRC(x, y, s, colors.outline)
+          CIRC(x + 1, y + 1, s - 2, colors.surface)
+          K.CIRCrows(x + 1, y + 1, s - 2, floor(s / 2), s - 2, colors.band)
+        end
+        if pop >= 1 then
+          local ink = hexShape and self.tok.acc.D or colors.ink
+          ART(S_GLYPH, cx - 5, cy - 5, { o = colors.surface, ["#"] = ink })
+        end
+      end
     end
   end
 
+  -- Kept for feature modules that still ask for the old emblem.
+  function H:silphLinkIcon(cx, cy, phase)
+    self:silphEmblem(cx, cy, 64, { active = phase })
+  end
+
+  local function utf8Chars(value)
+    local list = {}
+    for ch in tostring(value):gmatch("[%z\1-\127\194-\244][\128-\191]*") do list[#list + 1] = ch end
+    return list
+  end
+
+  -- 4-point twinkle, the classic title-screen glint.
+  local function glint(x, y, size, c)
+    R(x, y - size, 1, size * 2 + 1, c); R(x - size, y, size * 2 + 1, 1, c)
+    R(x - 1, y - 1, 3, 3, c)
+  end
+
+  -- Boot timeline (seconds since the title appeared):
+  --   0.10-0.85 arcs sweep in one after another, nodes click on
+  --   0.80-1.10 core pops, "S" lands
+  --   1.05-1.55 wordmark types in letter by letter
+  --   1.30+     boot log: real warm-up jobs report OK as they finish
+  --   ready     LINK ONLINE + TAP ANYWHERE / A
+  local BOOT = { arc = 0.10, arcStep = 0.16, arcLen = 0.42, core = 0.80, coreLen = 0.30,
+    word = 1.05, wordLen = 0.50, log = 1.30, logStep = 0.30, settle = 0.35 }
+
   function H:titleBoot(model, now)
+    model = model or {}
     local colors = self.colors
-    local phase = self.motionEnabled == false and 0 or floor((tonumber(now) or 0) * 2) % 3
-    self:v4Window(10, 9, 220, 153)
-    local tints = { hex("e04838"), hex("3878d0"), hex("3ea04c") }
-    for i, c in ipairs(tints) do R(15 + (i - 1) * 70, 13, 70, 3, c) end
-    self:partyType(translate("SILPH CO."), 15, 20, colors.green, 105)
-    self:partyType("KANTO GEAR 4.0", 120, 20, colors.ink, 105)
-    self:silphLinkIcon(120, 70, phase)
     local G = ui.graphics
-    local font = ui.largeFont
+    local motion = self.motionEnabled ~= false
+    local t
+    if self.frozenTime then
+      t = self.frozenTime
+    else
+      now = tonumber(now) or self:clock()
+      if not self.v4BootSeen or now - self.v4BootSeen > 1.5 or now < self.v4BootSeen then
+        self.v4BootAt = now
+      end
+      self.v4BootSeen = now
+      t = motion and (now - self.v4BootAt) or 99
+    end
+    local pressed = self:beginPress(0, 0, 240, 216)
+
+    -- Emblem window
+    self:v4Window(8, 6, 224, 136)
+    local tints = cg(self) and SILPH_CG or SILPH
+    for i, c in ipairs(tints) do
+      local p = easeOut((t - BOOT.arc - (i - 1) * BOOT.arcStep) / BOOT.arcLen)
+      local w = floor(70 * p)
+      if w > 0 then R(15 + (i - 1) * 70, 10, w, 3, c) end
+    end
+    local sweep = {}
+    for i = 1, 3 do
+      sweep[i] = math.max(0, math.min(1, (t - BOOT.arc - (i - 1) * BOOT.arcStep) / BOOT.arcLen))
+    end
+    local core = math.max(0, math.min(1, (t - BOOT.core) / BOOT.coreLen))
+    local idle = core >= 1 and sweep[3] >= 1
+    local active = idle and floor(t / 0.6) % 3 or nil
+    self:silphEmblem(120, 50, 64, { sweep = sweep, core = core, active = active })
+    -- core flash ring when the "S" lands
+    local flash = t - (BOOT.core + BOOT.coreLen)
+    if flash >= 0 and flash < 0.25 then
+      local d = 30 + floor(flash / 0.25 * 30)
+      d = d - d % 2
+      K.RING(120 - d / 2, 50 - d / 2, d, 1, WHITE)
+    end
+    -- signal pulse orbiting the ring once settled
+    if idle then
+      local nodeR = 64 / 2 - 3
+      for k = 0, 2 do
+        local f = (t * 0.32 - k * 0.012) % 1
+        local a = f * 2 * math.pi
+        local x, y = floor(120 + math.sin(a) * nodeR + 0.5), floor(50 - math.cos(a) * nodeR + 0.5)
+        R(x - (k == 0 and 1 or 0), y - (k == 0 and 1 or 0), k == 0 and 2 or 1, k == 0 and 2 or 1,
+          k == 0 and WHITE or mix(WHITE, colors.silver, 0.5))
+      end
+    end
+
+    -- Wordmark, typed in letter by letter
     local title = translate("SILPH LINK")
-    if font and (not font.hasGlyphs or font:hasGlyphs(title)) and font:getWidth(title) <= 200 then
+    local font = ui.largeFont
+    local wordP = math.max(0, math.min(1, (t - BOOT.word) / BOOT.wordLen))
+    local useLarge = font and (not font.hasGlyphs or font:hasGlyphs(title)) and font:getWidth(title) <= 200
+    local wordRight = 196
+    if useLarge then
+      local chars = utf8Chars(title)
+      local total = font:getWidth(title)
+      local x0 = 120 - floor(total / 2)
+      wordRight = x0 + total
+      local shown = wordP >= 1 and #chars or floor(wordP * #chars + 0.0001)
       local prev = G.getFont()
       G.setFont(font)
-      K.setc(colors.ink)
-      G.print(title, 120 - floor(font:getWidth(title) / 2), 97)
+      local x = x0
+      for i = 1, shown do
+        local ch = chars[i]
+        local lift = 0
+        if wordP < 1 then
+          local born = BOOT.word + (i - 1) / #chars * BOOT.wordLen
+          lift = (t - born) < 0.07 and 2 or 0
+        end
+        K.setc(colors.ink)
+        G.print(ch, x, 84 - lift)
+        x = x + font:getWidth(ch)
+      end
       if prev then G.setFont(prev) end
-    else
-      self:label(title, 28, 109, colors.ink, 184, "center")
+    elseif wordP > 0 then
+      self:label(title, 28, 92, colors.ink, 184, "center")
     end
-    self:partyInfo(self:fitPartyInfo(model.systemId or "SLS-DEV", 102), 69, 124, colors.mutedInk, 102, "center")
-    local status = self:fitPartyType(translate("LINK ONLINE"), 104)
-    local sw = self:partyInfoWidth(status)
-    local left = 120 - floor((sw + 14) / 2)
-    if cg(self) then CH(left - 6, 141, sw + 26, 15, 3, self.tok.border); CH(left - 5, 142, sw + 24, 13, 2, colors.bandLight)
-    else RR(left - 6, 141, sw + 26, 15, 4, colors.outline); RR(left - 5, 142, sw + 24, 13, 3, colors.bandLight) end
-    local on = floor(self:clock() / 0.5) % 2 == 0
-    self:wantAmbient(0.5)
-    CIRC(left, 145, 7, colors.outline); CIRC(left + 1, 146, 5, on and colors.hp or colors.silverDark)
-    self:partyType(status, left + 12, 143, colors.green, sw)
-    local pressed = self:beginPress(0, 0, 240, 216)
-    local a = K.rampOf(cg(self) and hex("1ea5d8") or hex("3ea04c"))
-    local off = self:v4Button(26, 171, 188, 36, a, { radius = 7, lip = 5, chamfer = 7 })
-    self:label(translate("START GAME"), 40, 178 + off, WHITE, 160, "center")
-    self:detailChevron(195, 182 + off, WHITE, true)
+    -- Glint: once when the wordmark completes, then every few seconds.
+    local since = t - (BOOT.word + BOOT.wordLen)
+    local cycle = since >= 0 and since % 5.5 or -1
+    if cycle >= 0 and cycle < 0.36 then
+      local size = cycle < 0.12 and 1 or cycle < 0.24 and 3 or 2
+      glint(wordRight + 2, 89, size, WHITE)
+      glint(wordRight + 2, 89, math.max(0, size - 2), hex("f8e070"))
+    end
+
+    -- Kanto Gear line with version chip
+    if t >= BOOT.word + BOOT.wordLen * 0.6 then
+      local gear = translate("KANTO GEAR")
+      local version = tostring(model.version or "4.0")
+      local gw = self:partyInfoWidth(gear)
+      local vw = self:partyInfoWidth(version)
+      local total = gw + 6 + vw + 8
+      local x = 120 - floor(total / 2)
+      self:partyInfo(gear, x, 115, colors.mutedInk)
+      local chip = cg(self) and self.tok.acc.M or colors.red
+      if cg(self) then CH(x + gw + 6, 115, vw + 8, 13, 3, chip)
+      else RR(x + gw + 6, 115, vw + 8, 13, 3, chip) end
+      self:withoutShadow(self.partyInfo, self, version, x + gw + 10, 115, WHITE)
+    end
+
+    -- Boot log in the Gen 4 textbox
+    self:v4MessageWindow(6, 148, 228, 62)
+    local jobs = model.warm or { { label = "THEME", done = true }, { label = "MAP", done = true },
+      { label = "SYSTEM", done = true } }
+    local allDone, lastTyped = true, 0
+    for index, job in ipairs(jobs) do
+      local typedAt = BOOT.log + (index - 1) * BOOT.logStep
+      if t < typedAt + 0.12 or not job.done then allDone = false end
+      lastTyped = typedAt + 0.12
+    end
+    local ready = allDone and t >= lastTyped + BOOT.settle
+    if not ready then
+      if t < BOOT.log and t > 0.2 and floor(t / 0.25) % 2 == 0 then
+        R(18, 158, 6, 10, colors.ink)
+      end
+      for index, job in ipairs(jobs) do
+        local typedAt = BOOT.log + (index - 1) * BOOT.logStep
+        if t >= typedAt then
+          local y = 156 + (index - 1) * 15
+          local label = self:fitPartyType(translate(job.label), 110)
+          local lw = self:partyInfoWidth(label)
+          self:partyInfo(label, 18, y, colors.ink)
+          local ok = job.done and t >= typedAt + 0.12
+          local okLabel = translate("OK")
+          local okW = self:partyInfoWidth(okLabel)
+          local right = 218
+          for dx = 18 + lw + 4, right - (ok and okW or 18) - 5, 3 do R(dx, y + 9, 1, 1, colors.mutedInk) end
+          if ok then
+            self:partyInfo(okLabel, right - okW, y, colors.green)
+          else
+            local spin = floor(t / 0.12) % 3
+            for k = 0, 2 do
+              R(right - 14 + k * 5, y + 7, 3, 3, k == spin and colors.ink or colors.silverDark)
+            end
+          end
+        end
+      end
+      self:wantAmbient(0.3, 1 / 20)
+    else
+      -- LINK ONLINE status line with the system id on the right
+      local status = self:fitPartyType(translate("LINK ONLINE"), 104)
+      local on = floor(t / 0.5) % 2 == 0
+      CIRC(18, 160, 9, colors.outline)
+      CIRC(19, 161, 7, on and colors.hp or colors.silverDark)
+      if on then R(20, 162, 2, 1, WHITE) end
+      self:partyInfo(status, 32, 157, colors.green, 104)
+      local id = self:fitPartyInfo(model.systemId or "SLS-DEV", 84)
+      self:partyInfo(id, 134, 157, colors.mutedInk, 84, "right")
+      R(16, 175, 208, 1, colors.silver)
+      local hint = translate("TAP ANYWHERE / A")
+      if floor(t / 0.8) % 2 == 0 or not motion then
+        self:partyInfo(hint, 18, 182, colors.ink, 186)
+      end
+      self:v4AdvanceArrow(212, 186)
+      self:wantAmbient(0.5, 1 / 10)
+    end
+    if not idle or wordP < 1 then self:wantAmbient(0.3, 1 / 30) end
     self:endPress(pressed)
   end
 

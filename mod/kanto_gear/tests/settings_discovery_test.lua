@@ -86,7 +86,7 @@ local function exercise(run, display)
           if detail.choices[index] then T.eq(hit, index, "choice hit matches its visible page") end
           T.eq(theme.hgss:settingsHit(120, top + 23 + i * 25, detail), nil, "gaps cannot select a neighboring choice")
         end
-        T.eq(theme.hgss:settingsHit(120, 55, detail), nil, "explanation text cannot change a setting")
+        T.eq(theme.hgss:settingsHit(120, 180, detail), nil, "explanation text cannot change a setting")
       end
       display.settings.option = nil
     end
@@ -96,7 +96,7 @@ local function exercise(run, display)
   display.tapSettings(120, 53)
   T.eq(api.options:get("info_level"), before, "opening a setting does not change it")
   T.eq(display.settingsModel().option, "info_level", "touch opens the discovery explanation")
-  display.tapSettings(120, 131)
+  display.tapSettings(120, theme.hgss:settingsChoiceTop(display.settingsModel()) + 11)
   T.eq(api.options:get("info_level"), "purist", "explicit choice selects Discover")
   T.check(display.settingsModel().description:find("Known Pokemon", 1, true), "explanation follows the selected mode")
   display.tapSettings(10, 10)

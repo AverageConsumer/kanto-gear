@@ -562,6 +562,7 @@ function love.load()
   local settingsBattle, settingsResearch = screen == "settings_battle", screen == "settings_research"
   local settings = settingsRoot or settingsDisplay
     or settingsAppearance or settingsSystem or settingsControls or settingsBattle or settingsResearch
+    or screen == "settings_option"
   local store = storeToday or storeApps or storeLibrary or storeDetail
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
@@ -2028,14 +2029,22 @@ function love.load()
       } })
   elseif settingsBattle then
     theme:settings({ category = "battle", accent = "red", page = 1, pages = 1, rows = {
-      { label = "BATTLE VIEW", value = "STANDARD" },
-      { label = "AUTO BATTLE SCREEN", value = "ON" },
-      { label = "CAUGHT ICON", value = "ON" },
+      { label = "BATTLE VIEW", value = "STANDARD", raw = "standard", choices = {
+        { "STANDARD", "standard" }, { "GEAR", "gear" }, { "FULL GEAR", "full" } } },
+      { label = "AUTO BATTLE SCREEN", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
+      { label = "CAUGHT ICON", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
     } })
   elseif settingsResearch then
     theme:settings({ category = "research", accent = "amber", page = 1, pages = 1, rows = {
-      { label = "INFO", value = "ENHANCED" },
+      { label = "INFO", value = "ENHANCED", raw = "enhanced", choices = {
+        { "VANILLA", "purist" }, { "ENHANCED", "enhanced" }, { "SPOILERS", "spoiler" } } },
     } })
+  elseif screen == "settings_option" then
+    theme:settings({ category = "option", option = "theme_v3", label = "THEME", accent = "blue",
+      description = "Choose a light or dark companion. Auto follows the time of day.",
+      choices = { { "POKEGEAR LIGHT", "hgss" }, { "POKEGEAR DARK", "hgss_dark" },
+        { "POKEGEAR AUTO", "hgss_auto" }, { "C-GEAR LIGHT", "cgear" } },
+      value = "hgss_auto", page = 1, pages = 2 })
   elseif settingsControls then
     theme:settings({ category = "controls", accent = "blue", page = 1,
       pages = 1, rows = {
