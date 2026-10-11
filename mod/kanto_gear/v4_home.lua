@@ -456,6 +456,8 @@ return function(H, ui, K)
     self:endPress(pressed)
   end
 
+  local HAND = { "...oo.....", "..o##o....", "..o##o....", "..o##ooo..", "..o##o##oo", "oo###o##o#o",
+    "o#o#######o", "o#########o", ".o#######o.", "..o#####o..", "...ooooo..." }
   ---------------------------------------------------------------------------
   -- Home in edit mode: faint placement grid, a hint strip, and badges that
   -- breathe so the page reads as "editable" like the DS Pokétch app swap.
@@ -494,15 +496,38 @@ return function(H, ui, K)
         else RR(hx, 187, hw, 12, 4, mix(colors.surface, colors.outline, self.dark and 0.25 or 0.08)) end
         self:partyInfo(hint, hx + 8, 187, colors.mutedInk)
       elseif #(model.tiles or {}) == 0 then
-        -- empty page: a two-line hint card in the free left column
-        local a1, a2 = translate("TAP + TO"), translate("ADD HERE")
-        local w = max(self:partyInfoWidth(a1), self:partyInfoWidth(a2)) + 12
-        if cg(self) then CH(8, 100, w, 26, 3, mix(colors.surface, colors.outline, 0.1))
-        else RR(8, 100, w, 26, 4, mix(colors.surface, colors.outline, self.dark and 0.25 or 0.08)) end
-        self:v4Prose(function()
-          self:partyInfo(a1, 8, 102, colors.mutedInk, w, "center")
-          self:partyInfo(a2, 8, 113, colors.mutedInk, w, "center")
-        end)
+        -- empty page: two quiet hint cards in the free columns beside the
+        -- slots — what a tap does on the left, what a hold does on the right
+        local left, right = 240, 0
+        for _, t in ipairs(model.slots or {}) do
+          local x, _, w = self:homeRect(t)
+          left, right = min(left, x), max(right, x + w)
+        end
+        local cards = {
+          { x0 = 7, x1 = left - 5, a = "TAP + TO", b = "ADD HERE", glyph = "plus" },
+          { x0 = right + 5, x1 = 233, a = "HOLD + DRAG", b = "TO MOVE", glyph = "hand" },
+        }
+        local fill = self.dark and mix(colors.surface, self.tok.acc.M, 0.16)
+          or mix(colors.surface, colors.outline, 0.08)
+        for _, card in ipairs(cards) do
+          local w = card.x1 - card.x0
+          if w >= 56 then
+            local x, y, h = card.x0, 88, 52
+            if cg(self) then CH(x, y, w, h, 3, fill) else RR(x, y, w, h, 5, fill) end
+            local cx = x + floor(w / 2)
+            local ink = colors.mutedInk
+            if card.glyph == "plus" then
+              CIRC(cx - 7, y + 6, 15, ink); CIRC(cx - 6, y + 7, 13, fill)
+              R(cx - 3, y + 13, 7, 1, ink); R(cx, y + 10, 1, 7, ink)
+            else
+              ART(HAND, cx - 5, y + 6, { o = ink, ["#"] = fill })
+            end
+            self:v4Prose(function()
+              self:partyInfo(self:fitPartyInfo(translate(card.a), w - 6), x, y + 23, ink, w, "center")
+              self:partyInfo(self:fitPartyInfo(translate(card.b), w - 6), x, y + 34, ink, w, "center")
+            end)
+          end
+        end
       end
     end
   end
@@ -565,8 +590,6 @@ return function(H, ui, K)
   end
 
   -- First-run help: spotlight + message window + lipped key.
-  local HAND = { "...oo.....", "..o##o....", "..o##o....", "..o##ooo..", "..o##o##oo", "oo###o##o#o",
-    "o#o#######o", "o#########o", ".o#######o.", "..o#####o..", "...ooooo..." }
   function H:homeHelp(tiles)
     local colors = self.colors
     local target, top = self:homeHelpLayout(tiles)

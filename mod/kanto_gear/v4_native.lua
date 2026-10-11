@@ -182,7 +182,6 @@ return function(H, ui, K)
         self:v4Button(x, y, w, h, K.rampOf(tone), { radius = 6, lip = 4, chamfer = 6 })
       else
         self:v4Key(x, y, w, h)
-        if cg(self) then R(x + 3, y + 4, 2, h - 10, tone) else R(x + 6, y + 2, w - 12, 2, tone) end
       end
       local ink = focused and WHITE or colors.ink
       local glyph = POSITIVE[label] and { "......#", ".....##", "#...##.", "##.##..", ".###...", "..#...." }
@@ -775,19 +774,10 @@ return function(H, ui, K)
     local pages = state.pages or 1
     local canPrev, canNext = state.page > 1, state.page < pages
     for _, p in ipairs({ { 7, -1, canPrev, { "..#", ".##", "###", ".##", "..#" } }, { 175, 1, canNext, { "#..", "##.", "###", "##.", "#.." } } }) do
-      local pp = self:beginPress(p[1], 190, 58, 21, p[3])
-      self:v4Key(p[1], 190, 58, 21, not p[3] and { cap = c.bandLight, lip = c.band, hi = c.bandLight } or nil)
-      ART(p[4], p[1] + 27, 196, { ["#"] = p[3] and c.ink or c.disabledInk })
-      self:endPress(pp)
+      H.v4PagerKey(self, p[1], 190, 58, 21, p[2] < 0, p[3], true)
       if p[3] then hit(p[1], 190, 58, 21, "page", p[2]) end
     end
-    local dots = min(pages, 7)
-    local dx = 120 - floor((dots * 8 - 3) / 2)
-    for i = 1, dots do
-      local on = i == state.page
-      R(dx + (i - 1) * 8, on and 204 or 205, 5, on and 3 or 2, on and (cg(self) and self.tok.acc.M or c.green) or c.band)
-    end
-    self:partyInfo(state.page .. "/" .. pages, 70, 189, c.green, 100, "center")
+    self:partyInfoCentered(state.page .. "/" .. pages, 65, 190, 110, 19, c.ink)
   end
 
   -- Stamp-book find rows: kind icon, name, status pill, chevron.

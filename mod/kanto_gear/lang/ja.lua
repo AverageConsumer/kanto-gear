@@ -7,6 +7,8 @@ return {
   ["HOLD + DRAG TO MOVE"] = "ながおし + ドラッグ",
   ["TAP + TO"] = "+ を タッチ",
   ["ADD HERE"] = "で ついか",
+  ["HOLD + DRAG"] = "ながおし + ドラッグ",
+  ["TO MOVE"] = "で いどう",
   ["WELCOME TO SILPH LINK"] = "SILPH LINKへ ようこそ",
   ["YOUR HOME IS EMPTY"] = "ホームは からっぽ",
   ["TAP TO START"] = "タッチで はじめる",

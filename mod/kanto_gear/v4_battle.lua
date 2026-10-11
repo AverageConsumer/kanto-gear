@@ -175,6 +175,33 @@ return function(H, ui, K)
     -- each new message pops up a few pixels, like a DS text window opening
     local enter = self:v4Enter("battle_message", table.concat(lines, "\n") .. tostring(title), 0.2)
     local G = ui.graphics
+    -- Battle log: the last two lines the game said stay readable above the
+    -- window, faded, so a message that flew by can still be read.
+    local log = self.v4BattleLog or { entries = {} }
+    self.v4BattleLog = log
+    local now = self:clock()
+    local key = table.concat(lines, " ")
+    if log.seen and now - log.seen > 20 then log.entries, log.last = {}, nil end
+    if log.last and log.last ~= key then
+      table.insert(log.entries, 1, log.last)
+      while #log.entries > 2 do table.remove(log.entries) end
+    end
+    log.last, log.seen = key, now
+    local slot = wy - 6
+    for index, entry in ipairs(log.entries) do
+      local top = slot - index * 17
+      if top >= 34 then
+        local fade = index == 1 and 0.55 or 0.3
+        local fill = mix(colors.bandLight, colors.surface, 0.4)
+        if cg(self) then CH(MESSAGE_X + 8, top, MESSAGE_WIDTH - 16, 15, 3, mix(fill, colors.outline, 0.25)); CH(MESSAGE_X + 9, top + 1, MESSAGE_WIDTH - 18, 13, 2, fill)
+        else RR(MESSAGE_X + 8, top, MESSAGE_WIDTH - 16, 15, 4, mix(fill, colors.outline, 0.25)); RR(MESSAGE_X + 9, top + 1, MESSAGE_WIDTH - 18, 13, 3, fill) end
+        local ink = mix(fill, colors.ink, 1 - fade * 0.6)
+        self:v4Caps(function()
+          self:withoutShadow(self.partyInfo, self, self:fitPartyInfo(entry, MESSAGE_WIDTH - 32),
+            MESSAGE_X + 16, top + 2, ink, MESSAGE_WIDTH - 32, "center")
+        end)
+      end
+    end
     local lift = enter < 1 and floor((1 - K.easeBack(enter)) * 10 + 0.5) or 0
     if lift ~= 0 then G.push(); G.translate(0, lift) end
     self:v4MessageWindow(MESSAGE_X, wy, MESSAGE_WIDTH, h)

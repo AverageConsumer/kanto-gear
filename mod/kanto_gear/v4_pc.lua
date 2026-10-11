@@ -42,6 +42,11 @@ return function(H, ui, K)
 
   function H:pcNotice(model)
     local colors = self.colors
+    -- sit the terminal card on the screen's optical centre
+    local G = ui.graphics
+    G.push(); G.translate(0, 8)
+    local offsetY = self.pressOffsetY
+    self.pressOffsetY = (offsetY or 0) + 8
     local pressed = self:beginPress(12, 48, 216, 132)
     self:v4Window(12, 48, 216, 132)
     -- screen header band
@@ -71,6 +76,8 @@ return function(H, ui, K)
     end)
     self:v4AdvanceArrow(116, 163)
     self:endPress(pressed)
+    self.pressOffsetY = offsetY
+    G.pop()
   end
 
   ---------------------------------------------------------------------------

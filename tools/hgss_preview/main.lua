@@ -614,6 +614,7 @@ function love.load()
     or legacyEnemyWeak and "WEAK"
     or legacyEnemyResist and "RESIST"
     or legacyEnemyInfo and "ENEMY INFO"
+    or screen == "battle_opponents" and "ENEMY INFO"
     or legacyPcRoot and format("PC BOX %d %d/20", 3, 12)
     or legacyPcBox and "WITHDRAW"
     or legacyPcChange and "BOX CHANGE"
@@ -666,7 +667,7 @@ function love.load()
     or (summary or transition and transitionProgress >= 0.42) and statsTitle
     or language.title
   if not legacyTitle and not achievements
-      and not battleRoot and not battleFull and not battleMessage and not battlePartyTransition
+      and not battleRoot and not (battleFull and screen ~= "battle_opponents") and not battleMessage and not battlePartyTransition
       and not battlePartyMenu and not battleParty
       and not battleMoves and not battleMovesTransition
       and not battleMoveInfo and not battleMoveInfoTransition
@@ -729,7 +730,7 @@ function love.load()
         theme.colors.greenLight)
     end
   end
-  if battleRoot or battleFull or battleMessage or battlePartyTransition or battlePartyMenu
+  if battleRoot or (battleFull and screen ~= "battle_opponents") or battleMessage or battlePartyTransition or battlePartyMenu
       or battleMoves or battleMovesTransition or battleMoveInfo
       or battleMoveInfoTransition or battleBag or battleBagTransition
       or battleSpecial then
@@ -2743,6 +2744,10 @@ function love.load()
     local wild = os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild"
     if wild then
       enemyTeam.name, enemyTeam.level = "RATTATA", 3
+    elseif os.getenv("KANTO_GEAR_PREVIEW_LOG") ~= "0" then
+      -- earlier lines of the same battle feed the faded battle log
+      theme.v4BattleLog = { entries = { "LEADER WHITNEY WANTS TO BATTLE!", "GYM LEADER WHITNEY APPEARS!" },
+        last = nil, seen = theme:clock() }
     end
     theme:battleMessage(wild and { "WILD RATTATA APPEARED!" }
         or { "LEADER WHITNEY SENT OUT", "MILTANK!" },
