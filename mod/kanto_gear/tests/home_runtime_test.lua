@@ -579,6 +579,31 @@ T.eq(page(), "TOOLS",
   "a field widget that is not usable here opens its Field Kit")
 tap(5, 5)
 T.eq(page(), "HOME", "Field Kit back returns Home")
+do
+  local inventory, party, badges = game.save.inventory, game.save.party, game.save.player.badges
+  local availableTool = display.availableTool
+  game.save.inventory = { BICYCLE = 1, OLD_ROD = 1, GOOD_ROD = 1 }
+  game.save.party = { { moves = { { id = "CUT" }, { id = "TELEPORT" } } } }
+  game.save.player.badges = { HIVE = true }
+  local usable = { cut = { id = "cut" }, teleport = { id = "teleport" } }
+  display.availableTool = function(_, id) return usable[id] end
+  local actions = display.toolModels()
+  T.eq(#actions, 4, "Tools groups multiple rods into one fishing card")
+  for index, id in ipairs({ "cut", "teleport", "bicycle", "fish" }) do
+    T.eq(actions[index].id, id, "usable tools come first with stable order within each group")
+    T.eq(actions[index].ready, index <= 2, "the sorted card keeps its current availability")
+  end
+  local action, index = theme.hgss:toolsHit(20, 50, { actions = actions, page = 1 })
+  T.eq(action, "action", "the first sorted card remains tappable")
+  T.eq(index and actions[index].action, usable.cut, "touch resolves the sorted card's actual field action")
+  usable = { bicycle = { id = "bicycle" }, fish = { id = "fish" } }
+  actions = display.toolModels()
+  for index, id in ipairs({ "bicycle", "fish", "cut", "teleport" }) do
+    T.eq(actions[index].id, id, "Tools reorders when the current context changes")
+  end
+  game.save.inventory, game.save.party, game.save.player.badges = inventory, party, badges
+  display.availableTool = availableTool
+end
 home.layout = { tiles = {
   { id = "map_app", page = 1, column = 1, row = 1 },
 } }

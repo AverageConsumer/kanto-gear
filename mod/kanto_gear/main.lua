@@ -3907,7 +3907,15 @@ return function(mod)
         end
       end
     end
-    return result
+    -- Keep the familiar order within each group, and use the same model for
+    -- drawing and touch resolution as availability changes with the context.
+    local ordered = {}
+    for _, ready in ipairs({ true, false }) do
+      for _, action in ipairs(result) do
+        if action.ready == ready then ordered[#ordered + 1] = action end
+      end
+    end
+    return ordered
   end
 
   local function refreshTools()
