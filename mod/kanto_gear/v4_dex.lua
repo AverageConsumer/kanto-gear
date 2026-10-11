@@ -37,21 +37,38 @@ return function(H, ui, K)
   end
   H.v4DexHero = hero
 
+  -- Finger-sized pager keys: the arrows are wide keys of their own, the page
+  -- count sits between them. The hit rects live in pokedex_page.lua, so the
+  -- touch targets grow with the drawing.
+  local basePagerRect = Dex.pagerRect
+  function Dex.pagerRect(direction, description)
+    if description then return direction < 0 and 66 or 140, 138, 34, 14 end
+    return direction < 0 and 56 or 142, 197, 42, 16
+  end
+  H.v4DexBasePagerRect = basePagerRect
+
+  local function pagerKey(self, x, y, w, h, left, on, enabled)
+    local colors = self.colors
+    local pressed = self:beginPress(x, y, w, h, enabled and on)
+    local ramp = K.rampOf(on and (cg(self) and self.tok.acc.M or colors.green) or colors.silverDark)
+    self:v4Button(x, y, w, h, ramp, { radius = 4, lip = 2, chamfer = 3 })
+    local ax = x + floor((w - 3) / 2)
+    local ay = y + floor((h - 2 - 5) / 2)
+    ART(left and { "..#", ".##", "###", ".##", "..#" } or { "#..", "##.", "###", "##.", "#.." }, ax, ay,
+      { ["#"] = on and WHITE or colors.band })
+    self:endPress(pressed)
+  end
+  H.v4PagerKey = pagerKey
+
   local function pager(self, page, pages, canUse, description)
     if (pages or 1) <= 1 then return end
     local colors = self.colors
-    local px, py = Dex.pagerRect(-1, description)
+    local px, py, pw, ph = Dex.pagerRect(-1, description)
     local nx = Dex.pagerRect(1, description)
-    local y = py - 2
-    self:v4Window(px - 4, y, nx + 22 - (px - 4), 16, { fill = colors.bandLight })
     local enabled = canUse ~= false
-    local prev = self:beginPress(px, py, 18, 12, enabled and page > 1)
-    ART({ "..#", ".##", "###", ".##", "..#" }, px + 7, py + 3, { ["#"] = page > 1 and colors.ink or colors.disabledInk })
-    self:endPress(prev)
-    local nextP = self:beginPress(nx, py, 18, 12, enabled and page < pages)
-    ART({ "#..", "##.", "###", "##.", "#.." }, nx + 8, py + 3, { ["#"] = page < pages and colors.ink or colors.disabledInk })
-    self:endPress(nextP)
-    self:partyInfo(page .. "/" .. pages, px + 18, py, colors.green, nx - px - 18, "center")
+    pagerKey(self, px, py, pw, ph, true, page > 1, enabled)
+    pagerKey(self, nx, py, pw, ph, false, page < pages, enabled)
+    self:partyInfoCentered(page .. "/" .. pages, px + pw, py, nx - px - pw, ph - 2, colors.ink)
   end
   H.v4DexPager = pager
 
@@ -84,18 +101,13 @@ return function(H, ui, K)
     local visible = min(3, #lines)
     local paged = (model.descriptionPages or 1) > 1
     local firstY = 110 + floor(((paged and 29 or 40) - visible * 10) / 2)
-    for index = 1, visible do
-      self:partyInfoCentered(self:fitPartyInfo(lines[index], 204), 18, firstY + (index - 1) * 10, 204, 10, colors.ink)
-    end
+    self:v4Prose(function()
+      for index = 1, visible do
+        self:partyInfoCentered(self:fitPartyInfo(lines[index], 204), 18, firstY + (index - 1) * 10, 204, 10, colors.ink)
+      end
+    end)
     if paged then
-      local cu = model.canUse ~= false
-      local p1 = self:beginPress(82, 140, 18, 11, cu)
-      ART({ "..#", ".##", "###", ".##", "..#" }, 88, 143, { ["#"] = colors.mutedInk })
-      self:endPress(p1)
-      local p2 = self:beginPress(140, 140, 18, 11, cu)
-      ART({ "#..", "##.", "###", "##.", "#.." }, 148, 143, { ["#"] = colors.mutedInk })
-      self:endPress(p2)
-      self:partyInfoCentered(model.descriptionPage .. "/" .. model.descriptionPages, 100, 141, 40, 8, colors.green)
+      pager(self, model.descriptionPage or 1, model.descriptionPages, model.canUse, true)
     end
     if model.actions then
       self:pokedexActions(model)
@@ -496,7 +508,9 @@ return function(H, ui, K)
     R(11, 136, 218, 1, colors.outline)
     R(11, 137, 218, 10, mix(wall, colors.outline, self.dark and 0.3 or 0.12))
     self:pokedexComparison(model)
-    self:partyInfo(self:fitPartyInfo(model.caption or "", 206), 17, 137, colors.ink, 206, "center")
+    self:v4Prose(function()
+      self:partyInfo(self:fitPartyInfo(model.caption or "", 206), 17, 137, colors.ink, 206, "center")
+    end)
     self:pokedexActions(model)
   end
 

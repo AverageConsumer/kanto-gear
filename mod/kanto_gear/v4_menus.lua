@@ -88,17 +88,19 @@ return function(H, ui, K)
       self:v4MessageWindow(7, 34, 226, 46)
       local lines = model.nudge and { translate("PAUSE THEN CHOOSE") } or model.prompt
       local firstY = 33 + floor((46 - (9 + (#lines - 1) * 11)) / 2)
-      for index, line in ipairs(lines) do
-        self:partyInfo(self:fitPartyInfo(line, 200), 15, firstY + (index - 1) * 11,
-          model.nudge and colors.amber or colors.ink, 210, "center")
-      end
+      self:v4Caps(function()
+        for index, line in ipairs(lines) do
+          self:partyInfo(self:fitPartyInfo(line, 200), 15, firstY + (index - 1) * 11,
+            model.nudge and colors.amber or colors.ink, 210, "center")
+        end
+      end)
     end
     for _, entry in ipairs(model.entries or {}) do
       local x, y, w, h = entry.x, entry.y, entry.w, entry.h
       local pressed = self:beginPress(x, y, w, h)
       local focused = self.nativeFocus and entry.selected
       self:v4Window(x, y, w, h, { radius = 4 })
-      R(x + 1, y + 4, 2, h - 8, focused and colors.selected or self.tok.acc.M)
+      if focused then R(x + 1, y + 4, 2, h - 8, colors.selected) end
       if focused then
         local b = floor(self:clock() / 0.3) % 2
         self:wantAmbient(0.3)
@@ -140,7 +142,7 @@ return function(H, ui, K)
       local focused = self.nativeFocus and entry.selected
       local target = entry.targetSide and (entry.targetSide == "player" and c.blue or c.red)
       self:v4Window(x, y, w, h, { radius = 4, fill = entry.disabled and c.bandLight or c.surface })
-      R(x + 1, y + 4, 2, h - 8, target or (focused and c.selected or self.tok.acc.M))
+      if target or focused then R(x + 1, y + 4, 2, h - 8, target or c.selected) end
       -- icon seat
       local d = min(h - 6, 24)
       local sx, sy = x + 6, y + floor((h - d) / 2)
@@ -287,28 +289,35 @@ return function(H, ui, K)
     local G = ui.graphics
     local enter = self:v4Enter("rod_picker", #(rods or {}), 0.24)
     for index, rod in ipairs(rods or {}) do
-      local y = 38 + (index - 1) * 54
+      -- a lit card is the action: name and pull strength, nothing to read twice
+      local y = 40 + (index - 1) * 58
       local tier = ROD_TIER[tostring(rod.id)] or { "3878d0", index }
       local tint = hex(tier[1])
       local _, dx = self:v4Stagger(enter, index, 0.1, 16, #rods)
       if dx ~= 0 then G.push(); G.translate(dx, 0) end
-      local pressed = self:beginPress(16, y, 208, 44)
-      self:v4Window(16, y, 208, 44, { radius = 5 })
-      R(17, y + 4, 3, 36, tint)
-      CIRC(23, y + 5, 34, colors.outline)
-      CIRC(24, y + 6, 32, mix(colors.surface, tint, self.dark and 0.3 or 0.18))
-      K.CIRCrows(24, y + 6, 32, 16, 32, mix(colors.surface, tint, self.dark and 0.42 or 0.28))
-      self:toolIcon("fish", 27, y + 9, mix(tint, WHITE, 0.25))
-      self:partyName(self:fitPartyInfo(rod.label, 110), 64, y + 6, colors.ink, 110)
+      local pressed = self:beginPress(12, y, 216, 52)
+      self:v4Window(12, y, 216, 52, { radius = 5 })
+      R(13, y + 5, 3, 42, tint)
+      CIRC(21, y + 6, 40, colors.outline)
+      CIRC(22, y + 7, 38, mix(colors.surface, tint, self.dark and 0.3 or 0.18))
+      K.CIRCrows(22, y + 7, 38, 19, 38, mix(colors.surface, tint, self.dark and 0.42 or 0.28))
+      self:toolIcon("fish", 29, y + 14, mix(tint, WHITE, 0.25))
+      self:partyName(self:fitPartyInfo(rod.label, 120), 70, y + 11, colors.ink, 120)
       for st = 1, 3 do
-        ART(STAR, 64 + (st - 1) * 8, y + 25, { ["#"] = st <= tier[2] and hex("f8c838") or colors.band })
+        ART(STAR, 70 + (st - 1) * 9, y + 31, { ["#"] = st <= tier[2] and hex("f8c838") or colors.band })
       end
-      self:partyInfo(translate("TAP TO USE"), 92, y + 23, cg(self) and self.tok.acc.M or colors.green)
       local b = (self.motionEnabled ~= false and floor(self:clock() / 0.4) % 2 == 0) and 1 or 0
       self:wantAmbient(0.4)
-      ART(K.CHEV_R, 206 + b, y + 19, { ["#"] = tint })
+      ART(K.CHEV_R, 212 + b, y + 23, { ["#"] = tint })
       self:endPress(pressed)
       if dx ~= 0 then G.pop() end
+    end
+  end
+
+  function H:rodHit(x, y, rods)
+    for index = 1, #(rods or {}) do
+      local top = 40 + (index - 1) * 58
+      if x >= 12 and x < 228 and y >= top - 3 and y < top + 55 then return index end
     end
   end
 

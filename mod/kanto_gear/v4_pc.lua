@@ -63,10 +63,12 @@ return function(H, ui, K)
     local lines = model and model.lines or { "..." }
     if #lines == 0 then lines = { "..." } end
     local y, lineHeight, visible = self:pcNoticeRows(#lines)
-    for index = 1, visible do
-      self:partyInfo(self:fitPartyInfo(lines[index], 184), 28, y, colors.ink, 184, "center")
-      y = y + lineHeight
-    end
+    self:v4Prose(function()
+      for index = 1, visible do
+        self:partyInfo(self:fitPartyInfo(lines[index], 184), 28, y, colors.ink, 184, "center")
+        y = y + lineHeight
+      end
+    end)
     self:v4AdvanceArrow(116, 163)
     self:endPress(pressed)
   end
@@ -141,7 +143,7 @@ return function(H, ui, K)
       else
         self:v4Window(7, y, 226, LIST_H, { radius = 4,
           fill = focused and mix(colors.surface, tint, self.dark and 0.28 or 0.2) or nil })
-        R(8, y + 4, 2, LIST_H - 8, tint)
+        if focused then R(8, y + 4, 2, LIST_H - 8, tint) end
       end
       -- seat
       local sx, sy, d = 12, y + 2, 29

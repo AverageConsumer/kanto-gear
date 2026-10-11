@@ -90,18 +90,18 @@ return function(H, ui, K)
       if entry.selected then self:focusFrame(left, top, width, height) end
       self:endPress(pressed)
     end
-    -- pager
+    -- pager: two finger-sized keys around the page count
     local page, pages = model.page or 1, model.pages or 1
-    self:v4Window(82, 199, 76, 12, { radius = 2, shadow = false })
-    if pages > 1 then
-      for _, direction in ipairs({ -1, 1 }) do
-        local x, y, w, h = Dex.pagerRect(direction, false)
-        local pressed = self:beginPress(x, y, w, h, model.canUse ~= false)
-        self:pageChevron(x + w / 2, y + floor(h / 2), direction > 0, false)
-        self:endPress(pressed)
-      end
+    if pages > 1 and H.v4PagerKey then
+      local px, py, pw, ph = Dex.pagerRect(-1, false)
+      local nx = Dex.pagerRect(1, false)
+      local cu = model.canUse ~= false
+      H.v4PagerKey(self, px, py, pw, ph, true, page > 1, cu)
+      H.v4PagerKey(self, nx, py, pw, ph, false, page < pages, cu)
+      self:partyInfoCentered(tostring(page) .. "/" .. tostring(pages), px + pw, py, nx - px - pw, ph - 2, colors.ink)
+    elseif pages > 1 then
+      self:partyInfoCentered(tostring(page) .. "/" .. tostring(pages), 100, 199, 40, 12, colors.green)
     end
-    self:partyInfoCentered(tostring(page) .. "/" .. tostring(pages), 100, 199, 40, 12, colors.green)
   end
 
   local STAT_KEYS = {
@@ -362,7 +362,6 @@ return function(H, ui, K)
     local accent = self:itemAccent(item.icon)
     local pressed = self:beginPress(x, y, 112, 43)
     self:v4Window(x, y, 112, 43, { radius = 4 })
-    R(x + 1, y + 4, 2, 35, accent)
     -- round item slot
     CIRC(x + 4, y + 4, 35, colors.outline)
     CIRC(x + 5, y + 5, 33, mix(colors.surface, accent, self.dark and 0.3 or 0.22))
@@ -456,9 +455,11 @@ return function(H, ui, K)
     self:v4MessageWindow(6, 100, 228, 50)
     local n = min(3, #lines)
     local top = 100 + floor((50 - n * 13) / 2)
-    for index = 1, n do
-      self:partyInfo(self:fitPartyInfo(lines[index], 196), 22, top + (index - 1) * 13, colors.ink, 196, "center")
-    end
+    self:v4Prose(function()
+      for index = 1, n do
+        self:partyInfo(self:fitPartyInfo(lines[index], 196), 22, top + (index - 1) * 13, colors.ink, 196, "center")
+      end
+    end, { item.detail, item.label })
     local a = K.rampOf(hex("e0a020"))
     for index, action in ipairs(model.actions or {}) do
       local enabled = model.canUse ~= false and action.enabled ~= false
@@ -532,7 +533,6 @@ return function(H, ui, K)
     local pressed = self:beginPress(x, y, w, 42, not blocked)
     self:v4Window(x, y, w, 42, { radius = 4 })
     local accent = self:v4AppAccent(K.iconId and K.iconId(icons[app.icon or app.id])) or self.tok.acc.M
-    R(x + 1, y + 4, 2, 34, accent)
     storeIcon(self, app, icons, x + 5, y + 7, 27, true)
     local tw = w - 39
     local title = self:fitPartyInfo(translate(app.label), tw)
@@ -587,9 +587,11 @@ return function(H, ui, K)
     self:v4MessageWindow(7, 168, 226, 40)
     local n = min(3, #lines)
     local top = 168 + floor((40 - (n * 10)) / 2) - 1
-    for index = 1, n do
-      self:partyInfo(self:fitPartyInfo(translate(lines[index]), 206), 17, top + (index - 1) * 10, colors.ink, 206, "center")
-    end
+    self:v4Prose(function()
+      for index = 1, n do
+        self:partyInfo(self:fitPartyInfo(translate(lines[index]), 206), 17, top + (index - 1) * 10, colors.ink, 206, "center")
+      end
+    end)
     if lift ~= 0 then G.pop() end
   end
 
@@ -630,7 +632,6 @@ return function(H, ui, K)
     local id = K.iconId and K.iconId(icons[app.icon or app.id])
     local accent = self:v4AppAccent(id) or self.tok.acc.M
     self:v4Window(x, y, w, 47, { radius = 4 })
-    R(x + 1, y + 4, 2, 39, accent)
     storeIcon(self, app, icons, x + 6, y + 9, 27, true)
     local tx, tw = x + 38, w - 41
     self:partyInfo(self:fitPartyInfo(translate(app.label), tw), tx, y + 3, colors.ink)
@@ -846,10 +847,9 @@ return function(H, ui, K)
         end
       end
       if model.pages > 1 then
-        self:v4Window(72, 135, 96, 12, { radius = 2, shadow = false })
-        self:pageChevron(88, 141, false)
-        self:partyType(model.page .. "/" .. model.pages, 104, 136, colors.ink, 32)
-        self:pageChevron(152, 141, true)
+        H.v4PagerKey(self, 72, 133, 32, 14, true, model.page > 1, true)
+        H.v4PagerKey(self, 136, 133, 32, 14, false, model.page < model.pages, true)
+        self:partyInfoCentered(model.page .. "/" .. model.pages, 104, 133, 32, 12, colors.ink)
       end
       -- Gen 4 text box with typewriter help and the blinking advance mark
       self:v4MessageWindow(6, 150, 228, 62)
@@ -928,10 +928,9 @@ return function(H, ui, K)
       end
     end
     if (model.pages or 1) > 1 then
-      self:v4Window(72, 194, 96, 17, { radius = 3, shadow = false })
-      self:pageChevron(88, 202, false)
-      self:partyInfo(model.page .. "/" .. model.pages, 105, 197, colors.ink, 32, "center")
-      self:pageChevron(152, 202, true)
+      H.v4PagerKey(self, 72, 195, 32, 15, true, model.page > 1, true)
+      H.v4PagerKey(self, 136, 195, 32, 15, false, model.page < model.pages, true)
+      self:partyInfoCentered(model.page .. "/" .. model.pages, 104, 195, 32, 13, colors.ink)
     end
   end
 
@@ -939,41 +938,42 @@ return function(H, ui, K)
   -- Field Kit cards
   ---------------------------------------------------------------------------
   function H:toolCard(action, x, y)
+    -- One state per card, like the DS menus: a lit card with a coloured seat
+    -- is usable (tap it); a flat grey card says once why it is not.
     local colors = self.colors
     local accent = self:toolAccent(action.icon)
     local ready = action.ready
     local pressed = self:beginPress(x, y, 109, 76, ready)
     self:v4Window(x, y, 109, 76, { radius = 5, fill = ready and colors.surface or colors.bandLight })
     R(x + 5, y + 2, 99, 2, ready and accent or colors.silverDark)
-    CIRC(x + 6, y + 8, 38, colors.outline)
-    CIRC(x + 7, y + 9, 36, ready and mix(colors.surface, accent, self.dark and 0.3 or 0.2) or colors.band)
-    K.CIRCrows(x + 7, y + 9, 36, 18, 36, ready and mix(colors.surface, accent, self.dark and 0.42 or 0.32) or colors.band)
-    self:toolIcon(action.icon, x + 12, y + 14, ready and accent or colors.silver)
-    local infoLeft = x + 48
+    local sx, sy = x + 7, y + 17
+    CIRC(sx, sy, 42, colors.outline)
+    CIRC(sx + 1, sy + 1, 40, ready and mix(colors.surface, accent, self.dark and 0.3 or 0.2) or colors.band)
+    K.CIRCrows(sx + 1, sy + 1, 40, 20, 40, ready and mix(colors.surface, accent, self.dark and 0.42 or 0.32) or colors.band)
+    self:toolIcon(action.icon, sx + 7, sy + 7, ready and accent or colors.silver)
+    local infoLeft, infoW = x + 51, 46
     local label = tostring(action.label or "")
-    if self:partyInfoWidth(label) <= 56 then
-      self:partyInfo(label, infoLeft, y + 8, colors.ink, 56, "center")
+    local a, b = label, nil
+    if self:partyInfoWidth(label) > infoW then a, b = self:splitPartyInfo(label, infoW) end
+    local nameInk = ready and colors.ink or colors.mutedInk
+    if b then
+      self:partyInfo(a, infoLeft, y + 22, nameInk, infoW, "center")
+      self:partyInfo(b, infoLeft, y + 33, nameInk, infoW, "center")
     else
-      local a, b = self:splitPartyInfo(label, 56)
-      if b then
-        self:partyType(a, infoLeft, y + 5, colors.ink, 56)
-        self:partyType(b, infoLeft, y + 15, colors.ink, 56)
-      else
-        self:partyType(self:fitPartyType(label, 56), infoLeft, y + 10, colors.ink, 56)
-      end
+      self:partyInfo(self:fitPartyInfo(a, infoW), infoLeft, y + 28, nameInk, infoW, "center")
     end
-    local status = translate(ready and "READY" or "NOT HERE")
-    local ramp = K.rampOf(ready and colors.hp or colors.silverDark)
-    if cg(self) then CH(infoLeft, y + 28, 56, 13, 3, colors.outline); CH(infoLeft + 1, y + 29, 54, 11, 2, ramp.M)
-    else RR(infoLeft, y + 28, 56, 13, 4, colors.outline); RR(infoLeft + 1, y + 29, 54, 11, 3, ramp.M)
-      R(infoLeft + 3, y + 29, 50, 1, ramp.Hi) end
-    self:partyType(self:fitPartyType(status, 52), infoLeft + 2, y + 29, WHITE, 52)
-    R(x + 8, y + 52, 93, 1, colors.band)
-    self:partyType(self:fitPartyType(translate(ready and "TAP TO USE" or "CONTEXT REQUIRED"), 93),
-      x + 8, y + 57, ready and colors.green or colors.mutedInk, 93)
-    if ready and floor(self:clock() / 0.5) % 2 == 0 then
+    if ready then
+      local bob = (self.motionEnabled ~= false and floor(self:clock() / 0.5) % 2 == 0) and 1 or 0
       self:wantAmbient(0.5)
-      ART(K.CHEV_R, x + 98, y + 59, { ["#"] = colors.green })
+      ART(K.CHEV_R, x + 100 + bob, y + 35, { ["#"] = accent })
+    else
+      local text = self:fitPartyType(translate("NOT HERE"), 52)
+      local tw = self:partyInfoWidth(text) + 8
+      local px = min(x + 104 - tw, infoLeft + floor((infoW - tw) / 2))
+      local py = b and y + 48 or y + 44
+      if cg(self) then CH(px, py, tw, 12, 3, colors.silverDark)
+      else RR(px, py, tw, 12, 4, colors.silverDark) end
+      self:partyType(text, px + 1, py, WHITE, tw - 2)
     end
     self:endPress(pressed)
   end
@@ -1249,7 +1249,7 @@ return function(H, ui, K)
     if model and model.tabs and not model.option then return self:v4SettingsTabbedHit(x, y, model) end
     if not (model and model.option) then return base.settingsHit(self, x, y, model) end
     if y < 29 and x < 27 then return "back" end
-    if model.pages > 1 and y >= 135 and y < 147 then
+    if model.pages > 1 and y >= 133 and y < 148 then
       if x >= 72 and x < 104 then return "prev" end
       if x >= 136 and x < 168 then return "next" end
     end

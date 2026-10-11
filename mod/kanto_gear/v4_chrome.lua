@@ -454,8 +454,10 @@ return function(H, ui, K)
     local text = translated and label or ui.translate(label)
     if cg(self) then
       R(x + 6, y + 4, 4, 7, tok.acc.M); R(x + 6, y + 4, 4, 1, tok.acc.L)
-      local shown = self:fitPartyInfo(text, w - 34)
-      self:partyInfo(shown, x + 13, y + 2, colors.ink)
+      -- in Edit Home the remove badge owns the corner: the title steps aside
+      local nudge = self.v4HomeEditing and 6 or 0
+      local shown = self:fitPartyInfo(text, w - 34 - nudge)
+      self:partyInfo(shown, x + 13 + nudge, y + 2, colors.ink)
       R(x + 5, y + 14, w - 10, 1, self.dark and tok.acc.D or tok.acc.L)
       if not editing then
         for i = 0, 3 do for j = 0, 5 do
@@ -478,8 +480,9 @@ return function(H, ui, K)
     R(x + 3, y + 1, w - 6, 1, a.Hi)
     R(x + 1, y + 15, w - 2, 1, a.D)
     R(x + 1, y + 16, w - 2, 1, self.tok.line)
-    local shown = self:fitPartyInfo(text, w - 22)
-    self:partyInfo(shown, x + 7, y + 3, WHITE)
+    local nudge = self.v4HomeEditing and 8 or 0
+    local shown = self:fitPartyInfo(text, w - 22 - nudge)
+    self:partyInfo(shown, x + 7 + nudge, y + 3, WHITE)
     if not editing then
       ART(K.CHEV_R, x + w - 10 + floor(self:clock() / 0.5) % 2, y + 5, { ["#"] = WHITE })
       self:wantAmbient(0.5)

@@ -159,10 +159,13 @@ return function(H, ui, K)
       self:v4MessageWindow(7, 34, 226, 46)
       local lines = model.nudge and { translate("PAUSE THEN CHOOSE") } or model.prompt
       local firstY = 34 + floor((46 - (9 + (#lines - 1) * 12)) / 2) - 1
-      for index, line in ipairs(lines) do
-        self:partyInfo(self:fitPartyInfo(line, 200), 15, firstY + (index - 1) * 12,
-          model.nudge and colors.amber or colors.ink, 210, "center")
-      end
+      -- the game is talking: its words keep the cartridge's capitals
+      self:v4Caps(function()
+        for index, line in ipairs(lines) do
+          self:partyInfo(self:fitPartyInfo(line, 200), 15, firstY + (index - 1) * 12,
+            model.nudge and colors.amber or colors.ink, 210, "center")
+        end
+      end)
     end
     local G = ui.graphics
     local enter = self:v4Enter("choice", entryKey(model.entries, table.concat(model.prompt or {}, " ")), 0.24)
@@ -269,9 +272,11 @@ return function(H, ui, K)
     local lines = model.prompt or {}
     local n = min(3, #lines)
     local firstY = 124 + floor((38 - n * 11) / 2)
-    for index = 1, n do
-      self:partyInfoCentered(self:fitPartyInfo(lines[index], 208), 14, firstY + (index - 1) * 11, 212, 11, c.ink)
-    end
+    self:v4Caps(function()
+      for index = 1, n do
+        self:partyInfoCentered(self:fitPartyInfo(lines[index], 208), 14, firstY + (index - 1) * 11, 212, 11, c.ink)
+      end
+    end)
     for index, label in ipairs(model.choices or {}) do
       local x, y, w, h = Page.promptRect(index)
       local pressed = self:beginPress(x, y, w, h, enabled)
@@ -435,14 +440,11 @@ return function(H, ui, K)
     end
     -- pager on the pad's foot
     if state.pages > 1 then
-      self:v4Window(83, 153, 74, 13, { radius = 3, fill = c.bandLight, shadow = false })
-      local pp = self:beginPress(83, 153, 20, 13, state.page > 1)
-      ART({ "..#", ".##", "###", ".##", "..#" }, 90, 157, { ["#"] = state.page > 1 and c.ink or c.disabledInk }); self:endPress(pp)
-      local np = self:beginPress(137, 153, 20, 13, state.page < state.pages)
-      ART({ "#..", "##.", "###", "##.", "#.." }, 147, 157, { ["#"] = state.page < state.pages and c.ink or c.disabledInk }); self:endPress(np)
-      self:partyInfo(state.page .. "/" .. state.pages, 103, 153, c.green, 34, "center")
-      if state.page > 1 then hit(83, 153, 20, 13, "page", -1) end
-      if state.page < state.pages then hit(137, 153, 20, 13, "page", 1) end
+      H.v4PagerKey(self, 66, 152, 36, 15, true, state.page > 1, true)
+      H.v4PagerKey(self, 138, 152, 36, 15, false, state.page < state.pages, true)
+      self:partyInfoCentered(state.page .. "/" .. state.pages, 102, 152, 36, 13, c.ink)
+      if state.page > 1 then hit(66, 152, 36, 15, "page", -1) end
+      if state.page < state.pages then hit(138, 152, 36, 15, "page", 1) end
     end
     if state.deleted then
       self:v4Window(7, 172, 226, 17, { radius = 3 })

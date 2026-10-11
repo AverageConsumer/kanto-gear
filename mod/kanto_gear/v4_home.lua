@@ -473,7 +473,9 @@ return function(H, ui, K)
         end
       end
     end
+    self.v4HomeEditing = model.editing and not model.library or nil
     baseHome(self, model)
+    self.v4HomeEditing = nil
     if model.editing and not model.library then
       -- hint only where no tile or slot sits
       local colors = self.colors
@@ -497,8 +499,10 @@ return function(H, ui, K)
         local w = max(self:partyInfoWidth(a1), self:partyInfoWidth(a2)) + 12
         if cg(self) then CH(8, 100, w, 26, 3, mix(colors.surface, colors.outline, 0.1))
         else RR(8, 100, w, 26, 4, mix(colors.surface, colors.outline, self.dark and 0.25 or 0.08)) end
-        self:partyInfo(a1, 8, 102, colors.mutedInk, w, "center")
-        self:partyInfo(a2, 8, 113, colors.mutedInk, w, "center")
+        self:v4Prose(function()
+          self:partyInfo(a1, 8, 102, colors.mutedInk, w, "center")
+          self:partyInfo(a2, 8, 113, colors.mutedInk, w, "center")
+        end)
       end
     end
   end
@@ -528,7 +532,9 @@ return function(H, ui, K)
     local x, y, w, h = self:homeEmptyRect()
     local accent = cg(self) and self.tok.acc.M or colors.green
     self:partyInfo(translate("WELCOME TO SILPH LINK"), 7, 50, colors.ink, 226, "center")
-    self:partyInfo(translate("YOUR HOME IS EMPTY"), 7, 61, colors.mutedInk, 226, "center")
+    self:v4Prose(function()
+      self:partyInfo(translate("YOUR HOME IS EMPTY"), 7, 61, colors.mutedInk, 226, "center")
+    end)
     local pressed = self:beginPress(x, y, w, h)
     self:v4Window(x, y, w, h, { radius = 5 })
     R(x + 2, y + 2, w - 4, 3, accent)
@@ -594,11 +600,13 @@ return function(H, ui, K)
       R(hx + 9 + floor(math.cos(a) * 11 + 0.5) - 1, hy + 9 + floor(math.sin(a) * 11 + 0.5) - 1, 2, 2, accent)
     end
     ART(HAND, hx + 4, hy + 4, { o = colors.outline, ["#"] = hex("f8d8b8") })
-    self:partyInfo(translate("YOUR SILPH LINK."), 54, top + 9, colors.ink, 168, "center")
-    self:partyInfo(translate("YOUR HOME SCREEN."), 54, top + 20, accent, 168, "center")
-    for line, value in ipairs({ translate("HOLD AN APP OR WIDGET"), translate("TO CUSTOMIZE YOUR"), translate("HOME SCREEN.") }) do
-      self:partyType(value, 54, top + 24 + line * 9, colors.ink, 168)
-    end
+    self:v4Prose(function()
+      self:partyInfo(translate("YOUR SILPH LINK."), 54, top + 9, colors.ink, 168, "center")
+      self:partyInfo(translate("YOUR HOME SCREEN."), 54, top + 20, accent, 168, "center")
+      for line, value in ipairs({ translate("HOLD AN APP OR WIDGET"), translate("TO CUSTOMIZE YOUR"), translate("HOME SCREEN.") }) do
+        self:partyType(value, 54, top + 24 + line * 9, colors.ink, 168)
+      end
+    end, { "SILPH", "LINK" })
     local pressed = self:beginPress(70, top + 62, 100, 17)
     local off = self:v4Button(70, top + 62, 100, 17, K.rampOf(accent), { radius = 4, lip = 3, chamfer = 4 })
     self:partyType(translate("GOT IT"), 70, top + 63 + off, WHITE, 100)
@@ -617,14 +625,18 @@ return function(H, ui, K)
     if cg(self) then CH(x + 1, y + 1, w - 2, 17, 3, a.M); R(x + 3, y + 2, w - 6, 1, a.Hi)
     else RR(x + 1, y + 1, w - 2, 17, 4, a.D); RR(x + 1, y + 1, w - 2, 15, 4, a.M); R(x + 4, y + 2, w - 8, 1, a.Hi) end
     self:withoutShadow(self.partyType, self, self:fitPartyType(translate(tile.label), w - 6), x + 3, y + 2, WHITE, w - 6)
-    local d = 34
-    local sx, sy = x + floor((w - d) / 2), y + 22
+    -- a lit band already says "ready": only an unusable tool gets a label
+    local d = ready and 42 or 34
+    local sx = x + floor((w - d) / 2)
+    local sy = ready and y + 18 + floor((h - 18 - d) / 2) or y + 22
+    local inset = floor((d - 24) / 2)
     CIRC(sx, sy, d, colors.outline)
     CIRC(sx + 1, sy + 1, d - 2, ready and mix(colors.surface, accent, self.dark and 0.3 or 0.2) or colors.bandLight)
-    K.CIRCrows(sx + 1, sy + 1, d - 2, 17, d - 2, ready and mix(colors.surface, accent, self.dark and 0.42 or 0.32) or colors.band)
-    self:toolIcon(tile.icon, sx + 3, sy + 3, ready and accent or colors.silver)
-    local status = translate(ready and "READY" or "NOT HERE")
-    local ramp = K.rampOf(ready and colors.hp or colors.silverDark)
+    K.CIRCrows(sx + 1, sy + 1, d - 2, floor((d - 2) / 2), d - 2, ready and mix(colors.surface, accent, self.dark and 0.42 or 0.32) or colors.band)
+    self:toolIcon(tile.icon, sx + inset - 2, sy + inset - 2, ready and accent or colors.silver)
+    if ready then return end
+    local status = translate("NOT HERE")
+    local ramp = K.rampOf(colors.silverDark)
     local pw = min(w - 8, self:partyInfoWidth(status) + 10)
     local px = x + floor((w - pw) / 2)
     if cg(self) then CH(px, y + 63, pw, 12, 2, colors.outline); CH(px + 1, y + 64, pw - 2, 10, 1, ramp.M)
@@ -662,7 +674,6 @@ return function(H, ui, K)
     local accent = self:v4AppAccent(id) or self:v4AppAccent(item.icon) or self.tok.acc.M
     local fill = available and nil or mix(colors.surface, colors.silverDark, self.dark and 0.3 or 0.18)
     self:v4Window(x, y, w, 46, { radius = 4, fill = fill })
-    R(x + 1, y + 4, 2, 38, available and accent or colors.silverDark)
     -- seat
     CIRC(x + 5, y + 5, 33, colors.outline)
     CIRC(x + 6, y + 6, 31, mix(colors.surface, accent, self.dark and 0.3 or 0.2))

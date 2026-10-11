@@ -144,9 +144,11 @@ return function(H, ui, K)
     local lines = mon.description or {}
     if #lines == 0 then lines = { translate("NO DETAILS AVAILABLE") } end
     local visible = min(4, #lines)
-    for i = 1, visible do
-      self:partyInfo(self:fitPartyInfo(lines[i], 202), 17, 144 + (i - 1) * 13, colors.ink)
-    end
+    self:v4Prose(function()
+      for i = 1, visible do
+        self:partyInfo(self:fitPartyInfo(lines[i], 202), 17, 144 + (i - 1) * 13, colors.ink)
+      end
+    end)
   end
 
   ---------------------------------------------------------------------------
@@ -361,12 +363,14 @@ return function(H, ui, K)
     if cg(self) then CH(14, 154, 212, 42, 3, colors.outline); CH(15, 155, 210, 40, 2, self.dark and hex("1a222c") or hex("fbfcfd"))
     else RR(14, 154, 212, 42, 4, colors.outline); RR(15, 155, 210, 40, 3, self.dark and hex("26303e") or hex("fbfbf6"))
       for ly = 168, 192, 12 do R(20, ly, 200, 1, self.dark and { 1, 1, 1, 0.05 } or { 0, 0, 0, 0.05 }) end end
-    if lines[2] then
-      self:partyInfo(self:fitPartyInfo(lines[1], 196), 22, 158, colors.ink, 196, "center")
-      self:partyInfo(self:fitPartyInfo(lines[2], 196), 22, 171, colors.ink, 196, "center")
-      if lines[3] then self:partyInfo(self:fitPartyInfo(lines[3], 196), 22, 184, colors.ink, 196, "center") end
-    else
-      self:partyInfo(self:fitPartyInfo(lines[1], 196), 22, 169, colors.ink, 196, "center")
-    end
+    self:v4Prose(function()
+      if lines[2] then
+        self:partyInfo(self:fitPartyInfo(lines[1], 196), 22, 158, colors.ink, 196, "center")
+        self:partyInfo(self:fitPartyInfo(lines[2], 196), 22, 171, colors.ink, 196, "center")
+        if lines[3] then self:partyInfo(self:fitPartyInfo(lines[3], 196), 22, 184, colors.ink, 196, "center") end
+      else
+        self:partyInfo(self:fitPartyInfo(lines[1], 196), 22, 169, colors.ink, 196, "center")
+      end
+    end)
   end
 end

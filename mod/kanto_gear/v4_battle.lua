@@ -283,10 +283,12 @@ return function(H, ui, K)
     if canAdvance then height = height - 14 end
     local step = title and 9 or 10
     local y = top + floor((height - (8 + (#lines - 1) * step)) / 2)
-    for _, line in ipairs(lines) do
-      self:partyInfo(self:fitPartyInfo(line, 200), 16, y, c.ink, 208, "center")
-      y = y + step
-    end
+    self:v4Caps(function()
+      for _, line in ipairs(lines) do
+        self:partyInfo(self:fitPartyInfo(line, 200), 16, y, c.ink, 208, "center")
+        y = y + step
+      end
+    end)
     if canAdvance then self:v4AdvanceArrow(116, 194) end
     self:endPress(pressed)
   end
@@ -301,7 +303,7 @@ return function(H, ui, K)
     G.translate(offsetX or 0, 0)
     self:v4Window(7, y, 226, 31, { radius = 4,
       fill = selected and not disabled and mix(colors.surface, tint, 0.25) or colors.surface })
-    R(8, y + 4, 2, 23, tint)
+    if selected and not disabled then R(8, y + 4, 2, 23, tint) end
     CIRC(12, y + 1, 29, colors.outline)
     CIRC(13, y + 2, 27, mix(colors.surface, tint, self.dark and 0.3 or 0.22))
     K.CIRCrows(13, y + 2, 27, 14, 27, mix(colors.surface, tint, self.dark and 0.42 or 0.32))
@@ -395,7 +397,6 @@ return function(H, ui, K)
     y = y + (offset or 0)
     local pressed = self:beginPress(x, y, w, h)
     self:v4Window(x, y, w, h, { radius = 5 })
-    R(x + 1, y + 4, 3, h - 8, a.M)
     local d = min(h - 8, 30)
     local sx, sy = x + 9, y + floor((h - d) / 2)
     CIRC(sx, sy, d, colors.outline)
