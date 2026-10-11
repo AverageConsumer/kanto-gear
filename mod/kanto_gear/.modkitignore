@@ -118,3 +118,4 @@ tests/pokenav_menu_test.lua
 tests/v4_stamp_test.lua
 tests/pokegear_page_test.lua
 tests/pokegear_native_test.lua
+tests/held_item_test.lua

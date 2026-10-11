@@ -515,6 +515,7 @@ function love.load()
     end
   end
   local gen1 = os.getenv("KANTO_GEAR_PREVIEW_GEN") == "1"
+  if gen1 then for _, mon in ipairs(party) do mon.heldItem = nil end end
   local fontScript = os.getenv("KANTO_GEAR_PREVIEW_FONT")
   if fontScript then
     local names = fontScript == "ko" and { "도감", "지도 설정", "저장 삭제", "한국어", "한글 이름", "ID№12345" }
@@ -2966,11 +2967,12 @@ function love.load()
   elseif screen == "party_actions" or screen == "party_actions_none" then
     theme:partyBackdrop()
     theme:headerBar("PARTY", true, false, -1)
-    local count = 3
+    local count = gen1 and 2 or 3
     drawMon(1, 64, theme:partyActionHeroY(count), true, false, false)
     local rows = { { "STATS", "stats" }, { "SWAP", "swap" },
-      { "ITEM", screen == "party_actions" and "item" or "item",
+      { "ITEM", screen == "party_actions" and "item" or "item_none",
         screen == "party_actions" and "LEFTOVERS" or translate("NO ITEM") } }
+    if gen1 then rows[3] = nil end
     for i, row in ipairs(rows) do
       local x, y, w, h = theme:partyActionRow(i, count)
       theme:actionRow(x, y, w, h, row[1], row[2], 0, false, row[3])

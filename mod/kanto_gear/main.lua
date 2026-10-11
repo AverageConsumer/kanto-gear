@@ -11904,7 +11904,8 @@ return function(mod)
       local ok, Mail = pcall(require, "src.core.gen2.Mail")
       mail = ok and Mail.monHoldsMail(source) or false
     else
-      mail = name:upper():match("MAIL$") ~= nil
+      local ok, Mail = pcall(require, "src.core.game3.mail")
+      mail = ok and Mail.isMailItem(id) or false
     end
     return { id = id, name = name, mail = mail }
   end
@@ -11939,14 +11940,17 @@ return function(mod)
   -- ITEM opens the game's own GIVE / TAKE for that Pokemon; the native menu
   -- (projected on this screen) owns bag choice, swaps, mail and messages.
   function displayRuntime.openHeldItem(slot)
-    if not displayRuntime.canOpenHeldItem() then return false end
+    local mon = game.save.party and game.save.party[slot]
+    if not mon or compat.partyEgg(mon) or not (compat.isGen2() or displayRuntime.gen3)
+        or not displayRuntime.canOpenHeldItem() then return false end
     if displayRuntime.gen3 then
       local session = displayRuntime.gen3.session
       local Party = require("src.ui.game3.screens").get("party", session)
       Party.show(session and session.party, session and (session.move_overlay or session.moveOverlay),
         { session = session })
       Party.cursor = slot
-      displayRuntime.pendingPartyItem = { slot = slot, menu = Party, tries = 0 }
+      displayRuntime.pendingPartyItem = { slot = slot, menu = Party, session = session,
+        layer = displayRuntime.gen3Ui.Stack.top(), tries = 0 }
       displayRuntime.stepPartyItem()
       return true
     end
@@ -11964,7 +11968,10 @@ return function(mod)
     if not pending then return end
     local Party = pending.menu
     pending.tries = pending.tries + 1
-    if not Party.isOpen() or pending.tries > 40 or Party.mode == "item_action" then
+    if not displayRuntime.gen3 or displayRuntime.gen3.session ~= pending.session
+        or displayRuntime.gen3Ui.Stack.top() ~= pending.layer or Party.cursor ~= pending.slot
+        or not Party.isOpen() or pending.tries > 40
+        or Party.mode ~= "list" and Party.mode ~= "action" then
       displayRuntime.pendingPartyItem = nil
       return
     end
@@ -11973,14 +11980,16 @@ return function(mod)
     if Party.mode == "list" and Party.cursor == pending.slot then
       Party.handleInput(confirm)
     elseif Party.mode == "action" then
+      local found = false
       for index, name in ipairs(Party.ACTIONS or {}) do
         if name == "ITEM" or name == "MAIL" then
+          found = true
           Party.actionCursor = index
           Party.handleInput(confirm)
           break
         end
       end
-      if Party.mode ~= "item_action" then displayRuntime.pendingPartyItem = nil end
+      if not found then displayRuntime.pendingPartyItem = nil end
     end
     dirty = true
   end

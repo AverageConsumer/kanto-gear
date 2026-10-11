@@ -344,7 +344,12 @@ return function(H, ui, K)
       ART(i == 1 and CHEV_L or CHEV_R, kx + 7, y + 4, { ["#"] = accent })
       self:endPress(pressed)
     end
-    local n = min(pages, 5)
+    if pages > 5 then
+      self:partyInfoCentered(page .. "/" .. pages, x + PAGER_KEY, y + 1,
+        PAGER_W - 2 * PAGER_KEY, 12, colors.ink)
+      return
+    end
+    local n = pages
     local dw = n * 6 - 2
     local dx = x + PAGER_KEY + floor((PAGER_W - 2 * PAGER_KEY - dw) / 2)
     local current = min(n, page)
@@ -373,8 +378,8 @@ return function(H, ui, K)
         else RR(sx, STRIP_Y, w, STRIP_H, 4, mix(colors.outline, tok.paper2, 0.5)); RR(sx + 1, STRIP_Y + 1, w - 2, STRIP_H - 2, 3, tok.paper) end
       end
       local label = self:fitPartyInfo(translate(seg[1]), w - 6)
-      if on then self:withoutShadow(self.partyInfo, self, label, sx, STRIP_Y, WHITE, w, "center")
-      else self:withoutShadow(self.partyInfo, self, label, sx, STRIP_Y, colors.mutedInk, w, "center") end
+      self:withoutShadow(self.partyInfoCentered, self, label, sx, STRIP_Y, w, STRIP_H,
+        on and WHITE or colors.mutedInk)
       self:endPress(pressed)
     end
   end

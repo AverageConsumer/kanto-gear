@@ -38,6 +38,16 @@ for _, skin in ipairs({ "pokegear", "cgear" }) do
     local action, index = hit(210, 196)
     T.eq(action, "row", "fourth card remains interactive without debug")
     T.eq(index, 4, "fourth card opens the matching encounter")
+    model.pages = 7
+    T.eq(hit(30,146), nil, "selected HERE scope is inert")
+    T.eq(hit(50,128), nil, "selected Wild tab no longer changes the filter")
+    T.eq(hit(164,146), "prev", "separate left page key remains reachable")
+    T.eq(hit(219,146), "next", "separate right page key remains reachable")
+    action,index = hit(210,196)
+    T.eq(action,"row","paging never replaces the fourth encounter")
+    T.eq(index,4,"fourth encounter keeps its identity on a long list")
+    T.eq(theme:explorerPerPage("wild",28),4,"long lists retain four entries per page")
+    model.pages = 1
     local key = theme:explorerMotionKey(model, model.player)
     T.check(key ~= nil, "map motion uses the shared layout in the sandbox")
     local moved = { mapId = "TEST", x = 1, y = 0 }

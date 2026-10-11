@@ -18,6 +18,16 @@ local function hook(key)
 end
 local display=upvalue(hook("input.step"),"displayRuntime")
 local compat=upvalue(display.openPartySummary,"compat")
+local noon=os.time({year=2026,month=1,day=15,hour=12,min=0,sec=0})
+for gen=1,3 do
+  local stamp,period=compat.clockDisplay({save={generation=gen},world={
+    hour=function() return 21 end,minute=function() return 5 end}},"system",noon)
+  T.eq(stamp,noon,"system clock keeps its displayed time in every generation")
+  T.eq(period,"DAY","every generation supplies the matching daytime icon")
+  stamp,period=compat.clockDisplay({save={generation=gen},world={
+    hour=function() return 21 end,minute=function() return 5 end}},"game",noon)
+  T.eq(period,gen==1 and "DAY" or "NITE","game-clock icon follows the displayed time or its real-time fallback")
+end
 assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH").."/tests/summary_details_cases.lua"))()(T,compat.summary.details,generation)
 local theme=upvalue(display.drawContents,"THEME")
 local touchEvent=upvalue(hook("render.compose"),"touchEvent")
