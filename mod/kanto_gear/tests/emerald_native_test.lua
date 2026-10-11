@@ -164,6 +164,33 @@ local function itemSection(id)
     return { sections = { { rows = {} }, { rows = rows[2] }, { rows = {} } } }
   end, { gen3 = true, save = adapter.save, mapId = id }).areas[1].sections[2]
 end
+local eonTicket, ticketLocations = C:id("items", "ITEM_EON_TICKET"), 0
+for id in pairs(maps) do
+  for _, source in ipairs(Progress:catalog(id)[2]) do
+    if source.itemId == eonTicket then
+      ticketLocations = ticketLocations + 1
+      check(source.optional == true, "externally distributed Eon Ticket is a bonus in " .. id)
+      local oldFlag = s.flags[source.event]
+      for _, received in ipairs({ false, true, false }) do
+        Flags.setFlag(s, nil, source.event, received)
+        local ticket
+        for _, row in ipairs(Progress:rows({ id })[2]) do
+          if row.itemId == eonTicket then ticket = row; break end
+        end
+        check(ticket and ticket.done == received, "Eon Ticket keeps its real receipt state in " .. id)
+        local area = Achievements.build({ { id = id, maps = { id } } }, function()
+          return { sections = { { rows = {} }, { rows = { ticket } }, { rows = {} } } }
+        end, { gen3 = true, save = adapter.save, mapId = id }).areas[1]
+        check(area.tier == "gold" and area.sections[2].total == 0,
+          "Eon Ticket alone never blocks Gold in " .. id)
+        check(area.sections[2].optional == 1 and area.sections[2].bonusDone == (received and 1 or 0),
+          "Eon Ticket completion belongs only to the bonus counter in " .. id)
+      end
+      Flags.setFlag(s, nil, source.event, oldFlag == true)
+    end
+  end
+end
+check(ticketLocations > 1, "real shared Eon Ticket distribution appears in multiple locations")
 local rootFlag, clawFlag = C:flag("FLAG_CHOSE_ROOT_FOSSIL"), C:flag("FLAG_CHOSE_CLAW_FOSSIL")
 local underpass = C:flag("FLAG_HIDE_DESERT_UNDERPASS_FOSSIL")
 local mirage = C:var("VAR_MIRAGE_TOWER_STATE")
