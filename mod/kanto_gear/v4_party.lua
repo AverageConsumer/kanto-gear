@@ -102,6 +102,13 @@ return function(H, ui, K)
     self:v4Seat(x + 4, y + 4, 38, fainted, selected)
     local hop = self:v4Hop(mon, (mon.slot or 0) * 0.37)
     drawPortrait(mon, x + 7, y + 7 - hop, 32, fainted)
+    -- held item / mail marker on the seat, like the DS party screen
+    if mon.heldItem then
+      local art = mon.heldItem.mail
+        and { "oooooooo", "owwwwwwo", "oowwwwoo", "owowwowo", "owwoowwo", "oooooooo" }
+        or { "..oooo..", ".oyyyyo.", "oywyyyyo", "oyyyyyyo", "oyyyyddo", ".oyyddo.", "..oooo.." }
+      ART(art, x + 33, y + 34 - #art + 7, { o = colors.outline, w = WHITE, y = hex("f8d048"), d = hex("d09820") })
+    end
     if mon.statusId == "SLP" then
       local t = self:clock()
       self:wantAmbient(0.12)

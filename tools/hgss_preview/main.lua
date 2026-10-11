@@ -81,14 +81,14 @@ end
 local party = {
   { levelText = "L35", hp = 92, maxHp = 117,
     hpText = "92/117", statusId = "PAR", gender = "male", type = "WATER",
-    type2 = "WATER",
+    type2 = "WATER", heldItem = { name = "LEFTOVERS" },
     expProgress = 0.72 },
   { levelText = "L28", hp = 90, maxHp = 90,
     hpText = "90/90", gender = "female", type = "GRASS", type2 = "FLYING",
     expProgress = 0.18 },
   { levelText = "L28", hp = 81, maxHp = 81,
     hpText = "81/81", gender = "male", type = "NORMAL", type2 = "FLYING",
-    expProgress = 0.91 },
+    heldItem = { name = "FLOWER MAIL", mail = true }, expProgress = 0.91 },
   { levelText = "L25", hp = 67, maxHp = 80,
     hpText = "67/80", gender = "male", type = "GROUND", type2 = "GROUND",
     expProgress = 0.47 },
@@ -2963,6 +2963,18 @@ function love.load()
       function(slot, x, y, selected, details)
         drawMon(slot, x, y, selected, details)
       end, transitionProgress, "PARTY", "20:04", "NITE")
+  elseif screen == "party_actions" or screen == "party_actions_none" then
+    theme:partyBackdrop()
+    theme:headerBar("PARTY", true, false, -1)
+    local count = 3
+    drawMon(1, 64, theme:partyActionHeroY(count), true, false, false)
+    local rows = { { "STATS", "stats" }, { "SWAP", "swap" },
+      { "ITEM", screen == "party_actions" and "item" or "item",
+        screen == "party_actions" and "LEFTOVERS" or translate("NO ITEM") } }
+    for i, row in ipairs(rows) do
+      local x, y, w, h = theme:partyActionRow(i, count)
+      theme:actionRow(x, y, w, h, row[1], row[2], 0, false, row[3])
+    end
   elseif battlePartyMenu then
     theme:headerBar("PARTY", true, false, -1)
     theme:headerClock("20:04", "NITE", 139, 72, 6)

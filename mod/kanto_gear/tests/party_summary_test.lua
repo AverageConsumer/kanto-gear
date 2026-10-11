@@ -65,7 +65,14 @@ for _,style in ipairs({"hgss","hgss_dark"}) do
     tap((x+35)/theme.hgssScale,(y+25)/theme.hgssScale)
     T.eq(upvalue(tap,"partyActionSlot"),slot,"touch selects the intended partner")
     local canSwap=api.world and api.world.canReorderParty and api.world:canReorderParty()
-    local rx,ry,rw,rh=theme.hgss:partyActionRow(1,canSwap and 2 or 1)
+    local rows=display.partyActionRows(slot)
+    if generation==2 then
+      T.eq(rows[#rows].id,"item","Gen 2 party actions offer the held item")
+      T.eq(#rows,canSwap and 3 or 2,"stats, swap when allowed, item")
+    else
+      T.eq(#rows,canSwap and 2 or 1,"Gen 1 has no held items")
+    end
+    local rx,ry,rw,rh=theme.hgss:partyActionRow(1,#rows)
     tap((rx+rw/2)/theme.hgssScale,(ry+rh/2)/theme.hgssScale)
     local summary=display.summaryContext()
     T.check(summary~=nil,"Stats opens a companion inspection")
@@ -95,6 +102,25 @@ for _,style in ipairs({"hgss","hgss_dark"}) do
     tap(12/theme.hgssScale,15/theme.hgssScale)
     T.eq(display.localSummary,nil,"Back closes only the companion inspection")
     T.eq(game.stack:top(),world,"closing does not change the game screen")
+    if generation==2 then
+      -- ITEM hands the partner to the game's own GIVE / TAKE menu
+      local canOpen=display.canOpenHeldItem
+      T.eq(canOpen(),false,"no overworld, no item menu")
+      display.canOpenHeldItem=function() return true end
+      T.check(display.openHomeApp("party"),"Party app reopens")
+      tap((x+35)/theme.hgssScale,(y+25)/theme.hgssScale)
+      rows=display.partyActionRows(slot)
+      local ix,iy,iw,ih=theme.hgss:partyActionRow(#rows,#rows)
+      tap((ix+iw/2)/theme.hgssScale,(iy+ih/2)/theme.hgssScale)
+      if rows[#rows].enabled~=false then
+        local top=game.stack:top()
+        T.eq(getmetatable(top),require("src.ui.gen2.HeldItemMenu"),"Item opens the native GIVE / TAKE menu")
+        T.eq(top.slot,slot,"for the chosen partner")
+        T.eq(upvalue(tap,"partyActionSlot"),nil,"the companion action sheet closes")
+        game.stack.states={world}
+      end
+      display.canOpenHeldItem=canOpen
+    end
     T.eq(#queued,0,"closing a local inspection sends no B into gameplay")
   end
 end

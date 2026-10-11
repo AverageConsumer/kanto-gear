@@ -8394,6 +8394,7 @@ return function(mod)
       levelText = THEME:format("L%d", mon.level or 0),
       hpText = THEME:format("%d/%d", mon.hp or 0, maxHp),
       hpLabel = THEME:translate("HP"), expLabel = THEME:translate("EXP"),
+      heldItem = not isEgg and displayRuntime.heldItem(mon) or nil,
     }
   end
 
@@ -8887,10 +8888,8 @@ return function(mod)
     local mon = partyData()[partyActionSlot]
     if not mon then drawNormalParty(); return end
     if THEME.style == "hgss" then
-      local canSwap = #(game.save.party or {}) > 1
-        and mod.world and mod.world.canReorderParty
-        and mod.world:canReorderParty()
-      local count = canSwap and 2 or 1
+      local rows = displayRuntime.partyActionRows(partyActionSlot)
+      local count = #rows
       local offset = THEME.hgss:partyActionOffset(love.timer.getTime())
       header(THEME:translate("PARTY"), true)
       G.push()
@@ -8898,13 +8897,9 @@ return function(mod)
       THEME.hgss:partyBackdrop()
       partyCard(mon, 64, THEME.hgss:partyActionHeroY(count)
         + math.floor(offset / 2), true, false, false, false)
-      local x, y, w, h = THEME.hgss:partyActionRow(1, count)
-      THEME.hgss:actionRow(x, y, w, h, THEME:translate("STATS"),
-        "stats", offset)
-      if canSwap then
-        x, y, w, h = THEME.hgss:partyActionRow(2, count)
-        THEME.hgss:actionRow(x, y, w, h, THEME:translate("SWAP"),
-          "swap", offset)
+      for index, row in ipairs(rows) do
+        local x, y, w, h = THEME.hgss:partyActionRow(index, count)
+        THEME.hgss:actionRow(x, y, w, h, row.label, row.kind, offset, false, row.sub, row.enabled)
       end
       G.pop()
       return
@@ -11887,6 +11882,107 @@ return function(mod)
     end
   end
 
+  -- The item a party Pokemon holds, as the native party screens mark it.
+  function displayRuntime.heldItem(mon)
+    if not displayRuntime.gen3 and not compat.isGen2() then return nil end
+    local source = type(mon) == "table" and (mon.source or mon) or nil
+    local id = source and (source.item or source.heldItem)
+    if id == nil or id == 0 or id == "" or id == "NO_ITEM" or id == "NONE" then return nil end
+    local name
+    if displayRuntime.gen3 then
+      local ok, Items = pcall(require, "src.core.game3.items_data")
+      name = ok and Items.displayName and Items.displayName(id) or nil
+    else
+      local def = game.data and game.data.items and game.data.items[id]
+      name = def and def.name
+    end
+    name = tostring(name or id)
+    local mail
+    if compat.isGen2() then
+      local ok, Mail = pcall(require, "src.core.gen2.Mail")
+      mail = ok and Mail.monHoldsMail(source) or false
+    else
+      mail = name:upper():match("MAIL$") ~= nil
+    end
+    return { id = id, name = name, mail = mail }
+  end
+
+  -- Rows the party app offers for one Pokemon; drawing and taps share them.
+  function displayRuntime.partyActionRows(slot)
+    local mon = game.save.party and game.save.party[slot]
+    local rows = { { id = "stats", kind = "stats", label = THEME:translate("STATS") } }
+    if mon and #(game.save.party or {}) > 1 and mod.world and mod.world.canReorderParty
+        and mod.world:canReorderParty() then
+      rows[#rows + 1] = { id = "swap", kind = "swap", label = THEME:translate("SWAP") }
+    end
+    if mon and (compat.isGen2() or displayRuntime.gen3) and not compat.partyEgg(mon) then
+      local held = displayRuntime.heldItem(mon)
+      rows[#rows + 1] = { id = "item", kind = held and (held.mail and "mail" or "item") or "item_none",
+        label = THEME:translate("ITEM"), sub = held and held.name or THEME:translate("NO ITEM"),
+        enabled = displayRuntime.canOpenHeldItem() }
+    end
+    return rows
+  end
+
+  function displayRuntime.canOpenHeldItem()
+    if battle or screenState() ~= "active" then return false end
+    if displayRuntime.gen3 then
+      local ui = displayRuntime.gen3Ui
+      return not (ui.Stack.top() or ui.Message.isOpen() or ui.Choice.active)
+    end
+    local world = mod.world and mod.world.overworld and mod.world:overworld()
+    return world ~= nil and (not world.acceptsMenuInput or world:acceptsMenuInput())
+  end
+
+  -- ITEM opens the game's own GIVE / TAKE for that Pokemon; the native menu
+  -- (projected on this screen) owns bag choice, swaps, mail and messages.
+  function displayRuntime.openHeldItem(slot)
+    if not displayRuntime.canOpenHeldItem() then return false end
+    if displayRuntime.gen3 then
+      local session = displayRuntime.gen3.session
+      local Party = require("src.ui.game3.screens").get("party", session)
+      Party.show(session and session.party, session and (session.move_overlay or session.moveOverlay),
+        { session = session })
+      Party.cursor = slot
+      displayRuntime.pendingPartyItem = { slot = slot, menu = Party, tries = 0 }
+      displayRuntime.stepPartyItem()
+      return true
+    end
+    require("src.ui.Screens").push(game, "Gen2HeldItemMenu", {
+      save = game.save, slot = slot,
+      onClose = function() game.stack:pop() end,
+    })
+    return true
+  end
+
+  -- Gen 3: walk the open party menu to ITEM the way its buttons do, waiting
+  -- out opening fades instead of forcing its state.
+  function displayRuntime.stepPartyItem()
+    local pending = displayRuntime.pendingPartyItem
+    if not pending then return end
+    local Party = pending.menu
+    pending.tries = pending.tries + 1
+    if not Party.isOpen() or pending.tries > 40 or Party.mode == "item_action" then
+      displayRuntime.pendingPartyItem = nil
+      return
+    end
+    local confirm = { wasPressed = function(_, key) return key == "a" end,
+      isDown = function() return false end }
+    if Party.mode == "list" and Party.cursor == pending.slot then
+      Party.handleInput(confirm)
+    elseif Party.mode == "action" then
+      for index, name in ipairs(Party.ACTIONS or {}) do
+        if name == "ITEM" or name == "MAIL" then
+          Party.actionCursor = index
+          Party.handleInput(confirm)
+          break
+        end
+      end
+      if Party.mode ~= "item_action" then displayRuntime.pendingPartyItem = nil end
+    end
+    dirty = true
+  end
+
   function displayRuntime.openPartySummary(slot)
     local mon = game.save.party and game.save.party[slot]
     if not mon or compat.summary.details.isEgg(mon) and THEME.style ~= "hgss" then return false end
@@ -13350,8 +13446,11 @@ return function(mod)
         and mod.world and mod.world.canReorderParty
         and mod.world:canReorderParty()
       if THEME.style == "hgss" and THEME.hgss.partyActionClosing then return end
-      local action = THEME.style == "hgss" and THEME.hgss:partyActionAt(
-        x * THEME.hgssScale, y * THEME.hgssScale, canSwap and 2 or 1)
+      local rows = THEME.style == "hgss" and displayRuntime.partyActionRows(slot) or {}
+      local index = THEME.style == "hgss" and THEME.hgss:partyActionAt(
+        x * THEME.hgssScale, y * THEME.hgssScale, #rows)
+      local row = index and rows[index]
+      local action = row and (row.id == "stats" and 1 or row.id == "swap" and 2 or row.id)
       if y < HEADER and x < 24 then
         if THEME.style == "hgss" then
           THEME.hgss:endPartyAction(love.timer.getTime())
@@ -13369,6 +13468,8 @@ return function(mod)
           })
         end
         partyActionSlot, partyMoveFrom = nil, slot
+      elseif mon and action == "item" and row.enabled ~= false then
+        if displayRuntime.openHeldItem(slot) then partyActionSlot = nil end
       end
       dirty = true
       return
@@ -15302,6 +15403,7 @@ return function(mod)
         if frame ~= radarFrame then radarFrame, dirty = frame, true end
       end
       displayRuntime.advanceExplorerScan(now)
+      if displayRuntime.pendingPartyItem then displayRuntime.stepPartyItem() end
       local nativeMenu = displayRuntime.startMenu()
       local startCursor = displayRuntime.StartMenu.cursor(nativeMenu or top)
       displayRuntime.startMenuIndex = startCursor and startCursor.index or nil

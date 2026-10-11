@@ -415,15 +415,16 @@ return function(H, ui, K)
 
   -- Party action rows (switch, stats, item...) as lipped buttons with icon seats.
   local baseActionRow = base.actionRow
-  function H:actionRow(x, y, w, h, label, kind, offset, selected)
+  function H:actionRow(x, y, w, h, label, kind, offset, selected, subText, enabled)
     local colors = self.colors
     local accentName = (kind == "swap" or kind == "switch") and "amber" or kind == "release" and "red"
-      or kind == "cancel" and "slate" or "blue"
-    local ramps = { amber = hex("e09a20"), red = hex("e04838"), slate = hex("5a6c88"), blue = hex("3878d0") }
-    local a = K.rampOf(ramps[accentName])
+      or kind == "cancel" and "slate" or (kind == "item" or kind == "mail" or kind == "item_none") and "green" or "blue"
+    local ramps = { amber = hex("e09a20"), red = hex("e04838"), slate = hex("5a6c88"), blue = hex("3878d0"),
+      green = hex("3f9a58") }
+    local a = K.rampOf(enabled == false and hex("8a909c") or ramps[accentName])
     y = y + (offset or 0)
-    local pressed = self:beginPress(x, y, w, h)
-    self:v4Window(x, y, w, h, { radius = 5 })
+    local pressed = self:beginPress(x, y, w, h, enabled ~= false)
+    self:v4Window(x, y, w, h, { radius = 5, fill = enabled == false and colors.bandLight or nil })
     local d = min(h - 8, 30)
     local sx, sy = x + 9, y + floor((h - d) / 2)
     CIRC(sx, sy, d, colors.outline)
@@ -435,8 +436,10 @@ return function(H, ui, K)
       cancel = { "#...#", ".#.#.", "..#..", ".#.#.", "#...#" },
       release = { ".##.##.", "#######", "#######", ".#####.", "..###..", "...#..." },
       stats = { ".....##", ".....##", "..##.##", "..##.##", "##.#.##", "##.#.##", "#######" },
+      item = { "..###..", ".#...#.", "#######", "#.....#", "#.###.#", "#.....#", "#######" },
+      mail = { "#######", "##...##", "#.#.#.#", "#..#..#", "#.....#", "#######" },
     }
-    local g = GLY[(kind == "switch" and "swap") or kind] or GLY.stats
+    local g = GLY[(kind == "switch" and "swap") or (kind == "item_none" and "item") or kind] or GLY.stats
     if kind == "switch" then
       g = { "...#.....", "..##.....", ".########", "..##.....", ".....##..", "########.", ".....##..", ".....#..." }
     end
@@ -445,12 +448,13 @@ return function(H, ui, K)
     G.push(); G.translate(cx - floor(#g[1] * sc / 2), cy - floor(#g * sc / 2)); G.scale(sc, sc)
     ART(g, 0, 0, { ["#"] = WHITE })
     G.pop()
-    local sub = ({ swap = "CHANGE ORDER", switch = "SEND INTO BATTLE", stats = "VIEW SUMMARY",
+    local sub = subText or ({ swap = "CHANGE ORDER", switch = "SEND INTO BATTLE", stats = "VIEW SUMMARY",
       release = "SAY GOODBYE", cancel = "GO BACK" })[kind or "stats"]
     local tx, tw = sx + d + 8, w - (sx + d + 8 - x) - 24
     if sub and h >= 30 then
       self:partyName(self:fitPartyInfo(label, tw), tx, y + floor(h / 2) - 12, colors.ink, tw)
-      self:partyInfo(self:fitPartyInfo(translate(sub), tw), tx, y + floor(h / 2) + 1, colors.mutedInk)
+      self:partyInfo(self:fitPartyInfo(subText and sub or translate(sub), tw), tx, y + floor(h / 2) + 1,
+        subText and enabled ~= false and kind ~= "item_none" and (self.dark and a.L or a.D) or colors.mutedInk)
     else
       self:partyInfo(self:fitPartyInfo(label, tw), tx, y + floor((h - 9) / 2) - 1, colors.ink)
     end
