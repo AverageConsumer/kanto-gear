@@ -313,7 +313,7 @@ do
   end
   paintBattle("independent companion commands")
   T.check(rootMon ~= nil,"FRLG uses the independent lower command layout")
-  T.eq(rootMon.moveIndex,nil,"lower move cards have no D-pad focus")
+  T.eq(rootMon.moveIndex,Ui._moveIndex,"Gear move cards follow the relocated D-pad focus")
   theme.hgss.battleRoot=rootDraw
   local oldSubmit, submitIndex, chosen
   for i=1,debug.getinfo(tapBattle,"u").nups do
@@ -357,8 +357,8 @@ refreshBattle()
 T.eq(display.gen3:messageText(), "POKEMON PKMN", "printer controls are removed and ligatures retained")
 T.eq(upvalue(refreshBattle, "battle").prompt, "locked", "timed stay pages do not promise a continue action")
 Message.reset(); display.gen3.syncScreens(); refreshBattle()
-T.eq(display.gen3Presentation, nil, "native render/input handlers are not wrapped")
-local function nativeVisible() return display.gen3Presentation == nil end
+T.check(display.gen3Presentation ~= nil, "native render/input handlers have guarded battle ownership")
+local function nativeVisible() return not display.gen3Presentation.owns("menu") end
 for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
   run.loader.modOptions.kanto_gear.battle_view = mode
   for index = 1, 4 do
@@ -449,7 +449,7 @@ theme.hgss.battleFullMessage = function(self, lines, ...)
   return oldMessage(self, lines, ...)
 end
 display.drawContents()
-T.eq(displayed,nil,"native move text is not duplicated on the companion")
+T.check(displayed ~= nil,"Full Gear mirrors native move text below")
 theme.hgss.battleFullMessage = oldMessage
 Message.reset(); Anim.busy = busy
 present.displayHp = 7.9; refreshBattle()

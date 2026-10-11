@@ -3,7 +3,7 @@
 local Presentation = {}
 Presentation.__index = Presentation
 
-function Presentation.new(owns, heroDirection)
+function Presentation.new(owns, heroDirection, partyDirection)
   local self = setmetatable({ owns = owns, patches = {} }, Presentation)
   local function wrap(module, name, callback)
     local original = module[name]
@@ -105,12 +105,15 @@ function Presentation.new(owns, heroDirection)
   local oam = require("src.core.game3.oam")
   local party = require("src.ui.game3.party_menu")
   wrap(party, "handleInput", function(next, input, ...)
-    if hidden("partyNavigation") then
-      -- Gear's uniform vertical list has no native left-column shortcut.
-      local source = input
-      input = setmetatable({ wasPressed = function(_, key)
-        return key ~= "left" and key ~= "right" and source:wasPressed(key)
-      end }, { __index = source })
+    if input and partyDirection and hidden("partyNavigation") and
+        (party.mode == "list" or party.mode == "choose" or party.mode == "switch"
+          or party.mode == "battle_switch" or party.mode == "use" or party.mode == "give") then
+      for _, key in ipairs({ "up", "down", "left", "right" }) do
+        if input:wasPressed(key) then
+          party.cursor = partyDirection(party.cursor, #(party._party or {}), key, 7)
+          return true
+        end
+      end
     end
     return next(input, ...)
   end)

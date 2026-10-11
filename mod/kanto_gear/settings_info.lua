@@ -20,6 +20,7 @@ Info.help = {
   overlay_button = "Optional shortcut to hide or show the corner overlay.",
   display_target = "Choose the display used by Gear. Auto uses the host's available second display.",
   screen_swap = "Let the host's Y shortcut exchange the game and Gear views.",
+  battle_view = "Companion keeps the original battle above with touch controls below. Info shows opponent details. Gear moves menus and text below; Full Gear moves HP bars too. Outside battles the game stays unchanged.",
   caught_icon = "Mark wild opponents you have already caught. Uses the current save's Pokedex.",
   type_hints = "Show type effectiveness for your attacks. Does not change which Pokemon or areas are revealed.",
   move_details = "Show attack power, accuracy and effect details in battle and move inspection.",

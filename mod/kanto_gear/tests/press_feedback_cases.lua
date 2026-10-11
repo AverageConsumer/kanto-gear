@@ -33,6 +33,12 @@ return function(T, display, H)
   local move={available=true,name="TACKLE",type="NORMAL",disabled=true,disabledLabel="NO PP",ppText="0/35"}
   at(40,60,function() H:battleMoveCard(move,6,33,true,false) end,0,"empty-PP grid card stays still")
   at(40,60,function() H:battleStandardMoves({moves={move},moveIndex=1}) end,0,"blocked move row stays still")
+  at(40,145,function() H:battleFullMoves({moves={move},details=true}) end,0,"blocked Full Gear move stays still")
+  at(108,125,function() H:battleFullMoves({moves={move},details=true}) end,1,"blocked move may still open its own details")
+  at(108,125,function() H:battleFullMoves({moves={move},details=false}) end,0,"missing move details do not animate the disabled parent")
+  at(40,145,function() H:battleFullMoves({moves={},details=true}) end,0,"empty Full Gear move slots stay still")
+  at(120,70,function() H:enemyInfoOpponents({{id=1,side="enemy",absent=true}},function() end) end,0,
+    "an absent opponent has no press animation")
   move.disabled,move.disabledLabel=false,nil
   at(40,60,function() H:battleMoveCard(move,6,33,false,false) end,1,"usable grid card still responds")
   local quantity={label="POTION",qty=1,max=3}
