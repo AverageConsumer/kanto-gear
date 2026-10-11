@@ -193,9 +193,8 @@ return function(H, ui, K)
   end
 
   ---------------------------------------------------------------------------
-  -- Geometry. Explorer owns its map frame: the hgss map layout helper is
-  -- reached through the stock motion-key closure so movement repaints,
-  -- marker hits and scan cues all agree with what is drawn.
+  -- Geometry. Share the HGSS map helpers explicitly: debug introspection is
+  -- unavailable in the mod sandbox. Drawing, marker hits and motion must agree.
   ---------------------------------------------------------------------------
   local HEADER_Y, HEADER_H = 32, 20
   local MAP_X, MAP_W = 7, 226
@@ -215,18 +214,7 @@ return function(H, ui, K)
     return x, w
   end
 
-  local stockLayout, stockMotionKey
-  do
-    local motion = K.base.explorerMotionKey
-    if motion and debug and debug.getupvalue then
-      for i = 1, 40 do
-        local name, value = debug.getupvalue(motion, i)
-        if not name then break end
-        if name == "mapLayout" then stockLayout = value end
-        if name == "mapMotionKey" then stockMotionKey = value end
-      end
-    end
-  end
+  local stockLayout, stockMotionKey = K.base.mapLayout, K.base.mapMotionKey
 
   local function mapFrame(model)
     if model.mapFull then return MAP_X, FULL_Y, MAP_W, FULL_H end
