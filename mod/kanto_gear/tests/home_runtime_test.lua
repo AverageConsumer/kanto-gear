@@ -639,7 +639,7 @@ T.eq(display.settings.option, nil, "reopening Settings clears its previous expla
 T.eq(display.settings.direct, nil, "reopening Settings clears direct-navigation state")
 T.eq(display.settings.choicePage, 1, "reopening Settings resets its choice pager")
 local settings = display.settingsModel()
-T.eq(#settings.categories, 6,
+T.eq(#(settings.tabs or settings.categories), 6,
   "Settings groups the existing options into six readable sections")
 display.settings.category, display.settings.page = 5, 1
 settings = display.settingsModel()
@@ -690,9 +690,12 @@ T.eq(run.loader.modOptions.kanto_gear.map_motion, "performance", "Settings saves
 display.cycleSetting(mapMotionRow, 1)
 T.eq(run.loader.modOptions.kanto_gear.map_motion, "quality", "Settings can restore quality mode")
 api.options:set("language", "en")
-display.tapSettings(220, 62)
+display.tapSettings(30, 80)
+T.eq(display.settingsModel().selected, "language",
+  "the first tap selects the visible setting and explains it")
+display.tapSettings(170, 80)
 T.eq(display.settingsModel().option, "language",
-  "the visible setting row opens its explanation and choices")
+  "the selected row's value opens its full list of choices")
 T.eq(run.loader.modOptions.kanto_gear.language, "en",
   "opening an explanation does not change the setting")
 display.tapSettings(120, 180)
@@ -708,10 +711,10 @@ T.eq(run.loader.modOptions.kanto_gear.language, "en",
 display.tapSettings(10, 10)
 T.eq(display.settings.option, nil,
   "Back from an explanation returns to the category")
-display.tapSettings(152, 200)
-T.eq(display.settings.page, 2, "the bottom next arrow opens the second Settings page")
-display.tapSettings(88, 200)
-T.eq(display.settings.page, 1, "the bottom previous arrow returns to the first page")
+display.tapSettings(223, 62)
+T.eq(display.settings.page, 2, "the section next arrow opens the second Settings page")
+display.tapSettings(186, 62)
+T.eq(display.settings.page, 1, "the section previous arrow returns to the first page")
 T.eq(theme.hgss:settingsHit(120, 200, settings), nil,
   "the page counter does not change a setting or page")
 T.eq(theme.hgss:settingsHit(37, 15, settings), nil,

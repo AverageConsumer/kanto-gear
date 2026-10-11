@@ -754,7 +754,7 @@ return function(H, ui, K)
   end
 
   function H:settingsChoiceTop(model)
-    local count = min(4, #model.choices - (model.page - 1) * 4)
+    local count = min(4, #(model.choices or {}) - ((model.page or 1) - 1) * 4)
     local height = max(0, count * 25 - 3)
     return 36 + floor((97 - height) / 2)
   end
