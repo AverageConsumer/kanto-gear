@@ -53,11 +53,14 @@ local function exercise(run, display)
   local id = up(display.homeRegionMap, "mapId") or "HERE"
   up(display.homeRegionMap, "mapId", id, true)
   api.options:set("info_level", "enhanced")
-  display.settings.category, display.settings.option = nil, nil
-  display.tapSettings(120, 137)
-  T.eq(display.settingsModel().option, "info_level", "Exploration opens its explanation directly, without a one-row submenu")
+  display.settings.category, display.settings.option, display.settings.selected = nil, nil, nil
+  T.eq(display.settingsModel().tab, 1, "Settings opens on its first tab instead of a submenu list")
+  display.tapSettings(7 + 3 * 38 + 18, 42)
+  T.eq(display.settings.category, 4, "the Exploration tab opens with one tap")
+  display.tapSettings(30, 80)
+  T.eq(display.settingsModel().selected, "info_level", "the first tap selects and explains the setting")
   display.tapSettings(10, 10)
-  T.eq(display.settings.category, nil, "Back from direct exploration returns to the settings overview")
+  T.eq(display.settings.category, nil, "Back from the tabs returns Home")
   for category, group in ipairs(display.settingsCategories) do
     display.settings.category, display.settings.option = category, nil
     local model = display.settingsModel()
@@ -92,15 +95,27 @@ local function exercise(run, display)
     end
   end
   display.settings.category, display.settings.page, display.settings.option = 4, 1, nil
+  display.settings.selected = nil
   local before = api.options:get("info_level")
-  display.tapSettings(120, 53)
-  T.eq(api.options:get("info_level"), before, "opening a setting does not change it")
-  T.eq(display.settingsModel().option, "info_level", "touch opens the discovery explanation")
-  display.tapSettings(120, theme.hgss:settingsChoiceTop(display.settingsModel()) + 11)
+  display.tapSettings(170, 80)
+  T.eq(api.options:get("info_level"), before, "the first tap on a control only selects its row")
+  T.eq(display.settingsModel().selected, "info_level", "touch selects the discovery explanation")
+  local model = display.settingsModel()
+  local tapped
+  for x = 114, 226 do
+    local action, index, extra = theme.hgss:settingsHit(x, 80, model)
+    if action == "set" and model.rows[index].choices[extra][2] == "purist" then
+      display.tapSettings(x, 80); tapped = true; break
+    elseif action == "more" then
+      display.tapSettings(x, 80)
+      display.tapSettings(120, theme.hgss:settingsChoiceTop(display.settingsModel()) + 11)
+      display.tapSettings(10, 10); tapped = true; break
+    end
+  end
+  T.check(tapped, "a selected row exposes an explicit control")
   T.eq(api.options:get("info_level"), "purist", "explicit choice selects Discover")
-  T.check(display.settingsModel().description:find("Known Pokemon", 1, true), "explanation follows the selected mode")
-  display.tapSettings(10, 10)
-  T.eq(display.settings.category, 4, "Back from help returns to the category")
+  T.check(display.settingsModel().rows[1].info:find("Known Pokemon", 1, true), "explanation follows the selected mode")
+  T.eq(display.settings.category, 4, "the category stays open after changing a value")
 
   -- All generation adapters pass through the same final presentation boundary.
   local guide = up(display.explorerModel, "guideData")

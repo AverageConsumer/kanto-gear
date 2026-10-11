@@ -85,7 +85,7 @@ local cases = {
   { "bag", "BAG", function() display.bag.detail = nil; display.bag.pocket = 1 end,
     display.bag, "page", 70, 214 },
   { "settings", "SETTINGS", function() display.settings.category = "display" end,
-    display.settings, "page", 34, 193 },
+    display.settings, "page", 70, 166 },
   { "home", "HOME", function() display.home.library = false; display.home.editing = false end,
     display.home, "page", 30, 199 },
   { "catalog", "HOME", function() display.home.library = true; display.home.libraryKind = "app" end,

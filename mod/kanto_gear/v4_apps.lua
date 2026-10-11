@@ -619,6 +619,7 @@ return function(H, ui, K)
       return
     end
 
+    if model.tabs then return self:v4SettingsTabbed(model) end
     local accent = accentOf(self, model.accent)
     local first = (model.page - 1) * 4 + 1
     for visible = 0, 3 do
@@ -748,6 +749,7 @@ return function(H, ui, K)
   -- Page swipes move only the choices; the help textbox stays put.
   function H:settingsMotionRegion(option, first, last)
     if option then return 34, 134 end
+    if self.v4SettingsTabs then return 70, 166 end
     return first, last
   end
 
@@ -757,7 +759,174 @@ return function(H, ui, K)
     return 36 + floor((97 - height) / 2)
   end
 
+  ---------------------------------------------------------------------------
+  -- Tabbed settings: category tabs, inline controls, help textbox.
+  -- Touch-only safety: the first tap selects a row (and explains it),
+  -- only a selected row changes its value.
+  ---------------------------------------------------------------------------
+  H.v4SettingsTabs = true
+  local TAB_Y, TAB_H, TAB_STEP = 32, 22, 38
+  local ROW_Y, ROW_H, ROW_STEP, CTRL_X, CTRL_W = 71, 22, 24, 114, 113
+
+  local function rowKey(row) return row.key or row.action end
+  local function segmentFits(self, row)
+    local choices = row.choices or {}
+    if #choices < 2 or #choices > 3 then return false end
+    local segW = floor(CTRL_W / #choices)
+    for _, choice in ipairs(choices) do
+      if self:partyInfoWidth(translate(choice[1])) > segW - 5 then return false end
+    end
+    return true
+  end
+
+  local function typewriter(self, text, key, x, y, w, h)
+    local colors = self.colors
+    local lines = self:settingsHelpLines(text)
+    while #lines > 3 do table.remove(lines) end
+    local now = self:clock()
+    if self.v4HelpKey ~= key then self.v4HelpKey, self.v4HelpAt = key, now end
+    local shown = (self.motionEnabled == false or self.frozenTime) and math.huge
+      or floor((now - (self.v4HelpAt or now)) * 70)
+    local total, left = 0, shown
+    for _, line in ipairs(lines) do total = total + #line end
+    local top = y + floor((h - #lines * 11) / 2)
+    for index, line in ipairs(lines) do
+      local part = left >= #line and line or line:sub(1, math.max(0, left))
+      left = left - #line
+      if #part > 0 then self:partyInfo(part, x + 10, top + (index - 1) * 11 - 1, colors.ink) end
+    end
+    if shown < total then self:wantAmbient(0.05, 1 / 30)
+    else self:v4AdvanceArrow(x + w - 22, y + h - 12) end
+  end
+
+  function H:v4SettingsTabbed(model)
+    local colors = self.colors
+    -- category tabs
+    for i, cat in ipairs(model.tabs) do
+      local x = 7 + (i - 1) * TAB_STEP
+      local active = i == model.tab
+      local accent = accentOf(self, cat.accent)
+      local pressed = self:beginPress(x, TAB_Y, TAB_STEP - 2, TAB_H, not active)
+      if active then self:v4Button(x, TAB_Y, TAB_STEP - 2, TAB_H, K.rampOf(accent), { radius = 4, lip = 3, chamfer = 4 })
+      else self:v4Key(x, TAB_Y, TAB_STEP - 2, TAB_H) end
+      local glyph = CAT_GLYPH[tostring(cat.label)] or CAT_GLYPH[tostring(cat.id):upper()]
+      if glyph then
+        local G = ui.graphics
+        G.push(); G.translate(x + 9, TAB_Y + 2); G.scale(0.9, 0.9)
+        glyph(0, 0, active and WHITE or accent, active and mix(accent, WHITE, 0.5) or mix(accent, colors.surface, 0.45))
+        G.pop()
+      end
+      self:endPress(pressed)
+    end
+    -- section line + pager
+    local accent = accentOf(self, model.accent)
+    R(9, 59, 3, 8, accent)
+    self:partyInfo(self:fitPartyInfo(translate(model.label or ""), 140), 15, 56, colors.ink)
+    if model.pages > 1 then
+      local cx = 176
+      self:v4Window(cx, 56, 57, 13, { fill = colors.bandLight, shadow = false })
+      local p = self:beginPress(cx, 55, 20, 14); ART({ "..#", ".##", "###", ".##", "..#" }, cx + 6, 60, { ["#"] = colors.ink }); self:endPress(p)
+      local n = self:beginPress(cx + 37, 55, 20, 14); ART({ "#..", "##.", "###", "##.", "#.." }, cx + 48, 60, { ["#"] = colors.ink }); self:endPress(n)
+      self:partyInfo(model.page .. "/" .. model.pages, cx + 18, 56, colors.green, 21, "center")
+    end
+    -- rows
+    local first = (model.page - 1) * 4 + 1
+    local selectedRow
+    for visible = 0, 3 do
+      local index = first + visible
+      local row = model.rows[index]
+      if row then
+        local y = ROW_Y + visible * ROW_STEP
+        local enabled = row.enabled ~= false
+        local selected = model.selected ~= nil and rowKey(row) == model.selected
+        if selected then selectedRow = row end
+        local pressed = self:beginPress(7, y, 226, ROW_H, enabled and not selected)
+        self:v4Window(7, y, 226, ROW_H, { radius = 3, shadow = false,
+          fill = selected and mix(colors.surface, accent, self.dark and 0.2 or 0.12) or nil })
+        if selected then R(8, y + 3, 2, ROW_H - 6, accent) end
+        self:endPress(pressed)
+        self:partyInfo(self:fitPartyInfo(translate(row.label), 96), 13, y + 5,
+          enabled and colors.ink or colors.disabledInk)
+        local live = enabled and selected
+        if row.action then
+          local warn = model.confirm == row.action
+          local a = K.rampOf(not live and colors.silverDark or warn and hex("e04838") or accent)
+          local bp = self:beginPress(CTRL_X, y + 3, CTRL_W, 16, live)
+          local off = self:v4Button(CTRL_X, y + 3, CTRL_W, 16, a, { radius = 4, lip = 3, chamfer = 3 })
+          self:partyType(self:fitPartyType(translate(row.value), CTRL_W - 8), CTRL_X + 4, y + 4 + off, WHITE, CTRL_W - 8)
+          self:endPress(bp)
+        elseif segmentFits(self, row) then
+          local sp = self:beginPress(CTRL_X, y + 2, CTRL_W, 17, live)
+          self:v4Segments(CTRL_X, y + 2, CTRL_W, row.choices, row.raw, live, accent)
+          self:endPress(sp)
+        else
+          local well = live and mix(colors.surface, accent, self.dark and 0.22 or 0.12) or colors.bandLight
+          if cg(self) then CH(CTRL_X, y + 2, CTRL_W, 17, 3, colors.outline); CH(CTRL_X + 1, y + 3, CTRL_W - 2, 15, 2, well)
+          else RR(CTRL_X, y + 2, CTRL_W, 17, 4, colors.outline); RR(CTRL_X + 1, y + 3, CTRL_W - 2, 15, 3, well) end
+          local ink = live and colors.ink or colors.mutedInk
+          local arrows = live and accent or colors.disabledInk
+          local lp = self:beginPress(CTRL_X, y + 2, 18, 17, live)
+          ART({ "..#", ".##", "###", ".##", "..#" }, CTRL_X + 6, y + 8, { ["#"] = arrows }); self:endPress(lp)
+          local rp = self:beginPress(CTRL_X + CTRL_W - 18, y + 2, 18, 17, live)
+          ART({ "#..", "##.", "###", "##.", "#.." }, CTRL_X + CTRL_W - 9, y + 8, { ["#"] = arrows }); self:endPress(rp)
+          local mp = self:beginPress(CTRL_X + 18, y + 2, CTRL_W - 36, 17, live)
+          self:partyInfo(self:fitPartyInfo(translate(row.value or ""), CTRL_W - 40), CTRL_X + 18, y + 5, ink, CTRL_W - 36, "center")
+          self:endPress(mp)
+        end
+      end
+    end
+    -- help textbox
+    self:v4MessageWindow(6, 168, 228, 44)
+    local text, key
+    if selectedRow then
+      text = translate(selectedRow.info or selectedRow.description or "")
+      key = tostring(rowKey(selectedRow)) .. ":" .. tostring(selectedRow.raw) .. ":" .. tostring(model.confirm)
+    else
+      text = translate(model.detail or "")
+      key = "cat:" .. tostring(model.tab)
+    end
+    typewriter(self, text, key, 6, 168, 228, 44)
+  end
+
+  function H:v4SettingsTabbedHit(x, y, model)
+    if y < 29 and x < 27 then return "back" end
+    if y >= TAB_Y and y < TAB_Y + TAB_H then
+      local i = floor((x - 7) / TAB_STEP) + 1
+      if i >= 1 and i <= #model.tabs and x < 7 + i * TAB_STEP - 2 and i ~= model.tab then return "tab", i end
+      return nil
+    end
+    if model.pages > 1 and y >= 55 and y < 69 then
+      if x >= 176 and x < 196 then return "prev" end
+      if x >= 213 and x < 233 then return "next" end
+      return nil
+    end
+    local first = (model.page - 1) * 4 + 1
+    for visible = 0, 3 do
+      local index = first + visible
+      local row = model.rows[index]
+      local ry = ROW_Y + visible * ROW_STEP
+      if row and x >= 7 and x < 233 and y >= ry and y < ry + ROW_H then
+        if row.enabled == false then return nil end
+        local selected = model.selected ~= nil and rowKey(row) == model.selected
+        if not selected then return "select", index end
+        if x < CTRL_X or x >= CTRL_X + CTRL_W then return nil end
+        if row.action then return "action", index end
+        if segmentFits(self, row) then
+          local segW = floor(CTRL_W / #row.choices)
+          local j = math.min(#row.choices, floor((x - CTRL_X) / segW) + 1)
+          if row.choices[j][2] == row.raw then return nil end
+          return "set", index, j
+        end
+        if x < CTRL_X + 18 then return "cycle", index, -1 end
+        if x >= CTRL_X + CTRL_W - 18 then return "cycle", index, 1 end
+        return "more", index
+      end
+    end
+    return nil
+  end
+
   function H:settingsHit(x, y, model)
+    if model and model.tabs and not model.option then return self:v4SettingsTabbedHit(x, y, model) end
     if not (model and model.option) then return base.settingsHit(self, x, y, model) end
     if y < 29 and x < 27 then return "back" end
     if model.pages > 1 and y >= 135 and y < 147 then

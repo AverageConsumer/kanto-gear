@@ -2825,6 +2825,8 @@ return function(mod)
       end
       state.option = nil
     end
+    local tabs = THEME.style == "hgss" and THEME.hgss.v4SettingsTabs == true
+    if not state.category and tabs then state.category = 1 end
     if not state.category then
       return { categories = displayRuntime.settingsCategories }
     end
@@ -2838,7 +2840,8 @@ return function(mod)
           raw = mod.options:get(key),
           choices = row.type == "toggle" and { { "OFF", false }, { "ON", true } }
             or displayRuntime.optionChoices(row),
-          enabled = type(mod.options.set) == "function", description = SettingsInfo.help[key] }
+          enabled = type(mod.options.set) == "function", description = SettingsInfo.help[key],
+          info = SettingsInfo.description(key, mod.options:get(key)) }
       end
     end
     for _, action in ipairs(category.actions or {}) do
@@ -2851,8 +2854,10 @@ return function(mod)
     end
     local pages = math.max(1, math.ceil(#rows / 4))
     state.page = math.max(1, math.min(pages, state.page or 1))
-    return { category = category.id, label = category.label,
-      accent = category.accent, rows = rows, page = state.page, pages = pages }
+    return { category = category.id, label = category.label, detail = category.detail,
+      accent = category.accent, rows = rows, page = state.page, pages = pages,
+      tabs = tabs and displayRuntime.settingsCategories or nil, tab = state.category,
+      selected = state.selected, confirm = state.confirm }
   end
 
   function displayRuntime.cycleSettingsPage(direction)
@@ -11596,6 +11601,7 @@ return function(mod)
         displayRuntime.settings.confirm = nil, 1, nil
       displayRuntime.settings.option, displayRuntime.settings.direct,
         displayRuntime.settings.choicePage = nil, nil, 1
+      displayRuntime.settings.selected = nil
       page, dirty = "SETTINGS", true
       return true
     end
@@ -11927,7 +11933,7 @@ return function(mod)
   function displayRuntime.tapSettings(x, y)
     local state = displayRuntime.settings
     local model = displayRuntime.settingsModel()
-    local action, index = THEME.hgss:settingsHit(x, y, model)
+    local action, index, extra = THEME.hgss:settingsHit(x, y, model)
     local function open(row)
       state.option, state.choicePage = row.action or row.key, 1
       if not row.action then
@@ -11936,10 +11942,29 @@ return function(mod)
         end
       end
     end
-    if action == "back" then
+    local row = model.rows and index and model.rows[index]
+    if action == "tab" then
+      if state.category ~= index then displayRuntime.requestPageMotion(index > (state.category or 1) and 1 or -1) end
+      state.category, state.page, state.confirm, state.selected = index, 1, nil, nil
+    elseif action == "select" and row then
+      state.selected, state.confirm = row.key or row.action, nil
+    elseif action == "set" and row and row.choices and row.choices[extra] and mod.options.set then
+      mod.options:set(row.key, row.choices[extra][2])
+      displayRuntime.haptic("confirm")
+    elseif action == "cycle" and row then
+      displayRuntime.cycleSetting(row, extra)
+      displayRuntime.haptic("confirm")
+    elseif action == "more" and row then
+      open(row)
+    elseif action == "action" and row and row.action then
+      displayRuntime.runSettingsAction(row.action)
+    elseif action == "back" then
       if state.option then
         state.option, state.confirm = nil, nil
         if state.direct then state.category, state.direct, state.page = nil, nil, 1 end
+      elseif state.category and model.tabs then
+        state.category, state.page, state.confirm, state.selected = nil, 1, nil, nil
+        page, displayRuntime.home.activeApp = "HOME", nil
       elseif state.category then
         state.category, state.page, state.confirm = nil, 1, nil
       else page, displayRuntime.home.activeApp = "HOME", nil end
@@ -11948,6 +11973,7 @@ return function(mod)
       local rows = displayRuntime.settingsModel().rows
       if #rows == 1 and not rows[1].action then open(rows[1]); state.direct = true end
     elseif action == "prev" or action == "next" then
+      state.selected = nil
       displayRuntime.cycleSettingsPage(action == "next" and 1 or -1)
     elseif action == "choice" then
       local choice = model.choices[index]

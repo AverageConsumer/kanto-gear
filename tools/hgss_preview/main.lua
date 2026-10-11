@@ -2019,7 +2019,46 @@ function love.load()
       "EVERYTHING CLOSE AT HAND.",
     }
     theme:storeDetail({ app = detail })
-  elseif settingsRoot then
+  elseif screen:sub(1, 8) == "settings" and screen ~= "settings_option" and not (os.getenv("KANTO_GEAR_PREVIEW_OLD_SETTINGS") == "1") then
+    local TABS = {
+      { id = "appearance", label = "APPEARANCE", detail = "LANGUAGE, THEME AND CLOCK", accent = "blue" },
+      { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT", accent = "green" },
+      { id = "battle", label = "BATTLE", detail = "SEPARATE BATTLE HELPERS", accent = "red" },
+      { id = "research", label = "EXPLORATION", detail = "WHAT GEAR REVEALS", accent = "amber" },
+      { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS", accent = "blue" },
+      { id = "system", label = "SYSTEM", detail = "HELP AND RESET", accent = "green" },
+    }
+    local which = screen == "settings" and "appearance" or screen:match("^settings_(%a+)")
+    local tab = 1
+    for i, t in ipairs(TABS) do if t.id == which then tab = i end end
+    local rows = ({
+      appearance = {
+        { key = "language", label = "LANGUAGE", value = "ENGLISH", raw = "en", choices = { { "EN", "en" }, { "DE", "de" }, { "ES", "es" }, { "FR", "fr" }, { "JA", "ja" } }, info = "Changes the language of every Gear screen." },
+        { key = "theme_v3", label = "THEME", value = "POKEGEAR AUTO", raw = "hgss_auto", choices = { { "A", 1 }, { "B", 2 }, { "C", 3 }, { "D", 4 } }, info = "Choose a light or dark companion. Auto follows the time of day." },
+        { key = "clock_source", label = "CLOCK", value = "GAME", raw = "game", choices = { { "GAME", "game" }, { "DEVICE", "device" } }, info = "Use the in-game clock or your device clock." },
+        { key = "clock_format", label = "FORMAT", value = "24H", raw = "24", choices = { { "12H", "12" }, { "24H", "24" } }, info = "12 or 24 hour clock." },
+        { key = "map_motion", label = "PRESENTATION", value = "QUALITY", raw = "quality", choices = { { "QUALITY", "quality" }, { "SPEED", "performance" } } },
+      },
+      battle = {
+        { key = "battle_view", label = "BATTLE VIEW", value = "STANDARD", raw = "standard", choices = { { "STD", "standard" }, { "GEAR", "gear" }, { "FULL", "full" } }, info = "Which screen shows battles." },
+        { key = "auto_battle_screen", label = "AUTO SCREEN", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
+        { key = "caught_icon", label = "CAUGHT ICON", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
+        { key = "type_hints", label = "TYPE HINTS", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
+      },
+      system = {
+        { action = "home_help", label = "CUSTOMIZE HOME", value = "SHOW ME", description = "Shows how to edit Home." },
+        { action = "reset_home", label = "RESET HOME", value = "RESET" },
+        { action = "reset_options", label = "RESET OPTIONS", value = "TAP AGAIN", description = "Tap again to reset every option." },
+      },
+    })[which] or {
+      { key = "info_level", label = "INFO", value = "ENHANCED", raw = "enhanced", choices = { { "VANILLA", "purist" }, { "MORE", "enhanced" }, { "ALL", "spoiler" } } },
+    }
+    local sel = tonumber(os.getenv("KANTO_GEAR_PREVIEW_SELECT") or "")
+    local selected = sel and rows[sel] and (rows[sel].key or rows[sel].action) or nil
+    theme:settings({ category = which, label = TABS[tab].label, detail = TABS[tab].detail, accent = TABS[tab].accent,
+      tabs = TABS, tab = tab, rows = rows, page = 1, pages = #rows > 4 and 2 or 1, selected = selected,
+      confirm = which == "system" and sel == 3 and "reset_options" or nil })
+  elseif settingsRoot and false then
     theme:settings({ categories = {
       { label = "APPEARANCE", detail = "THEME AND TRANSITIONS",
         accent = "blue" },

@@ -281,10 +281,11 @@ do
   display.settings.category = 6
   T.eq(display.settingsModel().rows[1].action, "home_help",
     "System settings exposes the explanation above the reset actions")
-  display.tapSettings(30, 50)
-  T.eq(display.settingsModel().option, "home_help",
-    "Home help opens its explanation before the explicit action")
-  display.tapSettings(120, theme.hgss:settingsChoiceTop(display.settingsModel()) + 11)
+  display.tapSettings(30, 80)
+  T.eq(display.settingsModel().selected, "home_help",
+    "Home help is selected and explained before the explicit action")
+  T.check(page() == "SETTINGS" and not home.help, "selecting the row alone performs no action")
+  display.tapSettings(170, 80)
   T.check(page() == "HOME" and home.help and not home.editing,
     "Show me reopens the hint with one tap without resetting Home")
   T.eq(#home.layout.tiles, initialTiles, "replaying help preserves every Home tile")
