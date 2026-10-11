@@ -122,6 +122,16 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     if entry.owner=="kanto_gear" then inputHook=entry.callback end
   end
   local runtime=up(inputHook,"hgssRuntime")
+  local selectedCommand
+  local gearRoot,fullRoot=H.battleRoot,H.battleFullRoot
+  H.battleRoot=function(self,mon,portrait,players,enemies,selected,...)
+    selectedCommand=selected
+    return gearRoot(self,mon,portrait,players,enemies,selected,...)
+  end
+  H.battleFullRoot=function(self,mon,player,enemy,portrait,players,enemies,selected,...)
+    selectedCommand=selected
+    return fullRoot(self,mon,player,enemy,portrait,players,enemies,selected,...)
+  end
   for _, mode in ipairs({"standard","info","gear","full"}) do
     options.battle_view=mode
     run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="battle_view"})
@@ -145,19 +155,48 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       T.eq(display.enemyInfoSelection,nil,"an absent opponent cannot open unrelated info")
       st.absent[3]=nil
     end
-    st.double=false
-    for index=1,4 do
-      for _,direction in ipairs({"up","down","left","right"}) do
-        Message.reset();Stack.clear();Ui.openMenu(0);Ui._menuIndex=index;Ui._actionCursor[0]=index;refresh()
-        local semantic=({1,3,2,4})[index]
-        local expected
-        if mode=="gear" then expected=({1,3,2,4})[runtime.rootDirection(semantic,direction)]
-        elseif mode=="full" then expected=({1,3,2,4})[runtime.fullRootDirection(semantic,direction)]
-        else expected=(direction=="left" or direction=="right")
-          and (index%2==1 and index+1 or index-1) or (index<=2 and index+2 or index-2) end
-        Ui.handleInput({wasPressed=function(_,key) return key==direction end})
-        T.eq(Ui._menuIndex,expected,mode.." native input follows its visible command geometry")
-        T.eq(Ui._actionCursor[0],expected,mode.." retains the native action cursor")
+    for _,doubles in ipairs({false,true}) do
+      st.double=doubles
+      for index=1,4 do
+        for _,direction in ipairs({"up","down","left","right"}) do
+          Message.reset();Stack.clear();Ui.openMenu(0);Ui._menuIndex=index;Ui._actionCursor[0]=index;refresh()
+          local semantic=({1,3,2,4})[index]
+          local expected
+          if mode=="gear" then expected=({1,3,2,4})[runtime.rootDirection(semantic,direction)]
+          elseif mode=="full" then expected=({1,3,2,4})[runtime.fullRootDirection(semantic,direction)]
+          else expected=(direction=="left" or direction=="right")
+            and (index%2==1 and index+1 or index-1) or (index<=2 and index+2 or index-2) end
+          if doubles and mode~="gear" then
+            local nativeDirection=mode=="full" and
+              ({left="up",right="down",up="left",down="right"})[direction] or direction
+            if nativeDirection=="left" and index%2==1
+                or nativeDirection=="right" and index%2==0
+                or nativeDirection=="up" and index<=2
+                or nativeDirection=="down" and index>2 then expected=index end
+          end
+          Ui.handleInput({wasPressed=function(_,key) return key==direction end})
+          T.eq(Ui._menuIndex,expected,mode.." native input follows its visible command geometry")
+          T.eq(Ui._actionCursor[0],expected,mode.." retains the native action cursor")
+          tick()
+          if mode=="gear" or mode=="full" then
+            T.eq(selectedCommand,({1,3,2,4})[expected],
+              mode.." highlights the command actually selected by the native handler")
+          end
+        end
+      end
+    end
+    if mode=="gear" or mode=="full" then
+      for _,destination in ipairs({
+        {direction=mode=="gear" and "left" or "down",kind="bag"},
+        {direction="right",kind="party"},
+      }) do
+        Message.reset();Stack.clear();Ui._actionCursor[0]=1;Ui.openMenu(0);refresh()
+        Ui.handleInput({wasPressed=function(_,key) return key==destination.direction end})
+        tick()
+        Ui.handleInput({wasPressed=function(_,key) return key=="a" end})
+        T.eq(Ui._mode,destination.kind,mode.." confirms the visibly selected "..destination.kind)
+        if destination.kind=="bag" then Bag.close()
+        else require("src.ui.game3.party_menu").close() end
       end
     end
     st.double=true
@@ -180,10 +219,25 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     if mode=="full" then
       T.check(cards[0] and cards[1] and cards[2] and cards[3],"Full Gear keeps four HP cards while selecting moves")
     end
+    local moveCount=0
+    for slot=1,4 do
+      local move=st.battlers[0].mon.moves[slot]
+      if move and move~=0 and move~="" then moveCount=moveCount+1 end
+    end
+    for _,direction in ipairs({"right","left","down","up"}) do
+      Ui._moveIndex=1
+      Ui.handleInput({wasPressed=function(_,key) return key==direction end})
+      local target=(direction=="left" or direction=="right") and 2 or 3
+      T.eq(Ui._moveIndex,(direction=="right" or direction=="down") and moveCount>=target and target or 1,
+        mode.." move navigation keeps the native two-column geometry")
+    end
+    Ui.handleInput({wasPressed=function(_,key) return key=="b" end})
+    T.eq(Ui._mode,"menu",mode.." returns from moves to commands")
     Battle._active=false
     T.check(not display.gen3Presentation.owns("menu"),mode.." never suppresses field menus")
     Battle._active=true
   end
+  H.battleRoot,H.battleFullRoot=gearRoot,fullRoot
   options.battle_view="full"
   run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="battle_view"})
   Stack.clear();Message.reset();Ui.openMenu(0);tick()

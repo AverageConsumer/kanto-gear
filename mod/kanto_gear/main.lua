@@ -8985,7 +8985,6 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       local selected = battle.menuIndex
-      if displayRuntime.gen3 then selected = ({ 1, 3, 2, 4 })[selected or 1] end
       if fullBottomBattleUI() then
         THEME.hgss:battleFullRoot(mon, hgssRuntime.battleStatus("player"),
           hgssRuntime.battleStatus("enemy"), hgssRuntime.battlePortrait,
