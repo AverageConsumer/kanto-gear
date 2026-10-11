@@ -120,6 +120,12 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     local key = display.StartMenu.redrawKey(view())
     T.eq(display.StartMenu.redrawKey(view()), key, "unchanged native list preserves its canvas")
     render("index")
+    if list.dexModel.tools then
+      T.eq(click(20, 56), nil, "the Dex lens is static and cannot trigger Search or Option")
+      local x, y, w, h = display.PokedexPage.toolRect(1)
+      T.check(x >= 58 and y >= 49 and y + h <= 64 and x + w < 144,
+        "native Dex controls leave the device lens and status line unobstructed")
+    end
     local Choice = require("src.ui.game3.choice")
     Choice.yesNo(function() end)
     T.check(display.startMenu().choiceState ~= nil,"independent choice overlay retains priority over Dex")

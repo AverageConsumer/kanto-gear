@@ -64,6 +64,9 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.eq(list.dexModel.total, 14, "native catalogue boundary is preserved")
     T.eq(list.dexModel.caught, 1, "native ownership count is preserved")
     T.eq(list.dexModel.entries[2].revealed, false, "unknown entries remain hidden")
+    if list.dexModel.tools then
+      T.eq(click(20, 56), nil, "the Dex lens is static and cannot trigger Search or Option")
+    end
     local key = display.StartMenu.redrawKey(list)
     T.eq(display.StartMenu.redrawKey(view()), key, "unchanged native Dex reuses its canvas")
     T.eq(view().dex.entries,list.dex.entries,"unchanged catalogue reuses its projected rows")

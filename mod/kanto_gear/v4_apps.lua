@@ -15,6 +15,13 @@ return function(H, ui, K)
   ---------------------------------------------------------------------------
   -- Pokédex
   ---------------------------------------------------------------------------
+  -- Native search/options share the device strip with the lens. Keep their
+  -- drawing and touch bounds to its right, below the region and counters.
+  if Dex then
+    function Dex.toolRect(index)
+      return 58 + (index - 1) * 86, 49, 82, 15
+    end
+  end
   -- The device's signature lens and status lights.
   function H:v4DexLens(x, y)
     CIRC(x, y, 18, self.colors.outline)
@@ -37,13 +44,15 @@ return function(H, ui, K)
     local colors = self.colors
     local red = hex("e04838")
     -- device strip
-    box(self, 7, 34, 226, 30)
-    RR(9, 36, 222, 4, 1, mix(red, colors.surface, 0.15))
-    self:v4DexLens(12, 41)
+    local stripY = model.tools and 29 or 34
+    local statusY = model.tools and 36 or 40
+    box(self, 7, stripY, 226, 64 - stripY)
+    RR(9, stripY + 2, 222, 4, 1, mix(red, colors.surface, 0.15))
+    self:v4DexLens(12, model.tools and 37 or 41)
     local region = self:fitPartyType(translate(model.region or "NATIONAL DEX"), 80)
-    self:partyInfo(region, 58, 40, colors.mutedInk)
+    self:partyInfo(region, 58, statusY, colors.mutedInk)
     local count = tostring(model.caught or 0) .. " / " .. tostring(model.total or 0)
-    self:partyInfo(count, 140, 40, colors.ink, 86, "right")
+    self:partyInfo(count, 140, statusY, colors.ink, 86, "right")
     local fraction = max(0, min(1, (tonumber(model.caught) or 0) / max(1, tonumber(model.total) or 1)))
     if model.tools then
       for index, tool in ipairs(model.tools) do
