@@ -203,4 +203,5 @@ return function(H, G, translate)
     end
     self.touchEnabled = touchEnabled
   end
+  if H.v4WrapTyped then H.v4WrapTyped("notes") end
 end

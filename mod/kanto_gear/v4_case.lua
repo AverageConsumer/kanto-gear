@@ -318,5 +318,7 @@ return function(H, ui, K)
       return a, b, c
     end
   end
+  -- Notes installs its renderer after the theme extensions have loaded.
+  H.v4WrapTyped = typedWrap
   for _, name in ipairs({ "notes", "v4NotesList", "v4NoteHeader" }) do typedWrap(name) end
 end
