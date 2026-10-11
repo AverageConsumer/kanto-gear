@@ -219,11 +219,13 @@ return function(H, G, translate, format)
     elseif view == "detail" and area then
       self:panel(6, 34, 228, 55, false)
       self:achievementSeal(37, 61, 22, area.kind, area.tier or area.complete)
-      local nextGoal = area.tier == "gold" and "AREA COMPLETE"
+      local unvisited = area.evidence == false
+      local nextGoal = unvisited and "NOT VISITED" or area.tier == "gold" and "AREA COMPLETE"
         or area.tier == "silver" and "COMPLETE LOCAL POKEDEX"
         or area.tier == "bronze" and "FINISH AREA TASKS" or "KEEP EXPLORING"
       name(translate(nextGoal), 70, 40, 150, 20, accent)
-      label(model.mode == "spoiler" and (area.remaining == 0 and (area.unknown or 0) > 0
+      label(unvisited and translate("VISIT AREA TO EXPLORE")
+        or model.mode == "spoiler" and (area.remaining == 0 and (area.unknown or 0) > 0
           and translate("NOT TRACKED") or format("%d LEFT", area.remaining))
         or translate("YOUR JOURNEY"), 70, 65, 150, 12, quiet, true)
       local titles = { "TRAINERS", "ITEMS", "HIDDEN FINDS", "POKEMON" }

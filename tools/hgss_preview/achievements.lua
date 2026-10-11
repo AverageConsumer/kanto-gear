@@ -38,7 +38,11 @@ return function(theme, screen, gen1, translate, drawPokemon)
     areas[2].sections[2].optional, areas[2].sections[2].bonusDone = 3, 0
     areas[2].sections[4].optional, areas[2].sections[4].bonusDone = 2, 1
   end
-  if screen == "achievements_detail_bronze" then
+  if screen == "achievements_detail_unvisited" then
+    areas[2].tier, areas[2].evidence, areas[2].remaining = "none", false, 0
+    areas[2].sections = { { done = 0, total = 0 }, { done = 0, total = 0 },
+      { done = 0, total = 0 }, { done = 1, total = 1 } }
+  elseif screen == "achievements_detail_bronze" then
     areas[2].tier, areas[2].sections[3].done = "bronze", 0
   elseif screen == "achievements_detail_gold" then
     areas[2].tier, areas[2].complete, areas[2].remaining = "gold", true, 0
