@@ -3,7 +3,7 @@
 Version **3.3.0** adds initial public support for native FireRed
 and LeafGreen on official Recomp **v0.3.20 or newer**. It also retains Gen 1/2
 support. Version **3.4.0** adds Emerald US 1.0 on official
-Recomp **v0.3.33 or newer**. The **4.0 beta** adds Ruby and Sapphire,
+Recomp **v0.3.33 or newer**. Version **4.0.0** adds Ruby and Sapphire,
 tested with official Recomp **v0.3.74** and US/Europe Rev 2 ROMs.
 The FRLG test package passed the user's Thor check; both editions also
 have automated native-data and menu checks. This does not verify every possible
@@ -46,7 +46,7 @@ description without activating native move reordering. Native move selection
 and reordering details retain the native UI.
 Gear/Full Gear also suppress the native Emerald menu skins while Gear owns
 the corresponding menu, including the separately drawn action/move borders.
-Unsupported PokéNav, contest and Frontier screens
+The PokéNav menu has touch controls. Specialized contest and Frontier screens
 retain native controls and presentation.
 
 Stamps and Explorer read Emerald's imported trainer, item, hidden-item and
@@ -95,8 +95,8 @@ The Gen 1/2 start-menu suite also covers visible row changes and Gen 2 pockets,
 item submenus and quantities through the same scheduler.
 
 Normal field scripts and warps retain the current companion page with its
-input-lock dimming. The upper-screen handoff controls are reserved for actual
-unadapted native menus. Native PC lists, item storage, box grids, naming,
+input-lock dimming. Unadapted native menus remain on the upper screen without
+a redundant follow-screen prompt. Native PC lists, item storage, box grids, naming,
 move replacement, shop/Bag quantities and confirmations now mirror their real
 cursor order. Activation remains native input, including VM/HM protection and
 the default NO when releasing a Pokémon. FR/LG have separate title identifiers.
@@ -141,7 +141,7 @@ including GPU completion. It is not an upper-screen FPS or low-end-device test.
 - Live party, all five inventory pockets, trainer and badge data, and the
   Kanto/National Dex with edition-specific encounter locations.
 - Native terrain in Explorer, fullscreen maps and widgets; native player
-  sprites and Kanto/Sevii region maps. Region maps are currently view-only.
+  sprites and Kanto/Sevii region maps. Region maps include validated touch flight selection.
 - Native start, party, bag, TM case, berry pouch and script choices mirrored
   in the same order, keeping the native cursor and confirmation path.
 - Three native summary pages, battle commands/moves, doubles target selection
@@ -155,7 +155,8 @@ reordering retain the native UI.
 
 Stamps, their Home widget and Explorer trainer/item checklists now share native
 progress data. The item radar reads the host's native detection rules.
-Gen 1/2 progress rules are unchanged.
+All generations share the completion rules for missable bonuses and exclusive
+choices, with native NPC gift and trade receipts where their scripts provide evidence.
 
 ## Native route completion
 
@@ -174,8 +175,8 @@ and prevent a false gold stamp.
   Rocket key items require actual ownership in the bag or PC. Choosing one
   fossil excludes the other. Missed S.S. Anne objectives remain visible.
 - Renewable hidden items show their current availability but do not affect
-  permanent gold completion. NPC item gifts and shops are outside the ground
-  pickup checklist, matching the existing Gen 1/2 scope.
+  permanent gold completion. Proven NPC item gifts share the location checklist
+  across generations; ordinary shop purchases are not ground pickups.
 - Pokémon goals combine this edition's wild encounters, static encounters,
   gifts, casino rewards and NPC trades. Global caught evidence counts even
   after releasing or trading a Pokémon. Starter, dojo and fossil alternatives

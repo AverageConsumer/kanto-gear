@@ -7,7 +7,7 @@ Room membership without moving the player to another map. Recomp owns battle
 rules, trade confirmations, save writes and recovery. Friends and chat are
 not implemented.
 
-**Current limitation:** Recomp 0.3.74 classifies mods with permissions, hooks
+**Host limitation (verified against Recomp 0.3.74):** Recomp classifies mods with permissions, hooks
 or event listeners as online gameplay blockers, including Kanto Gear. Live
 invitations therefore remain disabled; the app shows `RECOMP BLOCKS UI MODS`.
 Player browsing and connection persistence still work. An unchanged link
@@ -21,7 +21,7 @@ on cards are server lobby entries; tap one for its full name, edition, location
 and reported status. The visible count excludes yourself and offline entries,
 and is not a claim that every connected user is discoverable.
 
-The browser works in Gen 1, Gen 2, FR/LG and Emerald. Closing the app
+The browser works in Gen 1, Gen 2 and all five supported Gen 3 editions. Closing the app
 leaves the shared connection running. Disconnect is unavailable during an
 active host room, group, tournament, plaza or Direct Corner activity.
 

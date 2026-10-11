@@ -4,52 +4,117 @@
 
 ### Silph Link OS — Your adventure. Reconnected.
 
-A Nintendo DS-inspired companion OS for Pokémon Red, Blue, Yellow, Gold,
-Silver, Crystal, Ruby, Sapphire, FireRed, LeafGreen and Emerald in [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
+A DS-inspired companion for Pokémon **Red, Blue, Yellow, Gold, Silver, Crystal,
+Ruby, Sapphire, FireRed, LeafGreen and Emerald** in
+[Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
 
 <p>
-  <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest Kanto Gear release"></a>
-  <a href="https://github.com/AverageConsumer/kanto-gear/releases"><img src="https://img.shields.io/github/downloads/AverageConsumer/kanto-gear/total?label=downloads&color=2f81f7" alt="Total Kanto Gear downloads"></a>
-  <a href="https://bryanthaboi.github.io/gen1recomp-mod-index/"><img src="https://img.shields.io/badge/official-Mod%20Index-6f42c1" alt="Available in the official Gen1Recomp Mod Index"></a>
+  <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest release"></a>
+  <a href="https://github.com/AverageConsumer/kanto-gear/releases"><img src="https://img.shields.io/github/downloads/AverageConsumer/kanto-gear/total?label=downloads&color=2f81f7" alt="Total downloads"></a>
+  <a href="https://bryanthaboi.github.io/gen1recomp-mod-index/"><img src="https://img.shields.io/badge/official-Mod%20Index-6f42c1" alt="Available in the Mod Index"></a>
 </p>
 
 <p>
-  <img src="screenshots/kanto-gear-hgss-home-light.png" width="49%" alt="Silph Link OS Home in HGSS Light">
-  <img src="screenshots/kanto-gear-hgss-home-dark.png" width="49%" alt="Silph Link OS Home in HGSS Dark">
+  <img src="screenshots/4.0-home-pokegear-light.png" width="24%" alt="Pokégear Light Home">
+  <img src="screenshots/4.0-home-pokegear-dark.png" width="24%" alt="Pokégear Dark Home">
+  <img src="screenshots/4.0-home-cgear-light.png" width="24%" alt="C-Gear Light Home">
+  <img src="screenshots/4.0-home-cgear-dark.png" width="24%" alt="C-Gear Dark Home">
 </p>
 
-<p>
-  <strong><a href="https://bryanthaboi.github.io/gen1recomp-mod-index/">Install from Mod Index</a></strong>
-  · <strong><a href="https://github.com/AverageConsumer/kanto-gear/releases/latest">Download ZIP</a></strong>
-  · <strong><a href="https://github.com/AverageConsumer/kanto-gear/issues">Report a problem</a></strong>
-</p>
+**[Install from Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/)
+· [Download ZIP](https://github.com/AverageConsumer/kanto-gear/releases/latest)
+· [Report a problem](https://github.com/AverageConsumer/kanto-gear/issues)**
 
 </div>
 
 ## Your companion in Kanto, Johto and Hoenn
 
-Keep the adventure on the game screen and everything you need close at hand.
-Kanto Gear brings maps, party information and touch controls together in a
-customizable Home screen, with **HGSS Light, Dark and Auto** themes.
+Keep the adventure on the game screen and your maps, team, notes and progress
+close at hand. Use Kanto Gear on a dual-screen handheld, a phone or your desktop,
+with touch or a mouse.
 
-- **Explore:** follow your live map, find local encounters and check trainers,
-  items and hidden finds. Choose Vanilla, Enhanced or Spoilers to set how much
-  help you want.
-- **Plan your team:** browse your Party, Bag and Pokédex, check move details and
-  find places to catch the Pokémon you are looking for.
-- **Track your adventure:** earn route stamps, see what is left to do and keep
-  your own notes, checklists and colored sketches.
-- **Make it yours:** arrange apps and widgets on Home. Long-press to edit and
-  visit Silph Store to enable the optional tools you want.
-- **Battle your way:** use contextual touch menus, keep the original layout or
-  choose Gear and Full Gear to move more of the battle interface below.
-- **See who is around:** Silph Connect shows online presence in an app and Home
-  widget. It is an early display-only feature; friends, invites, trades,
-  battles and chat need further support from Gen1Recomp.
+Choose **Pokégear** or **C-Gear**, each with Light, Dark and Auto variants.
+Arrange your own Home pages with apps and widgets: long-press to edit, then
+add, move or remove tiles. Silph Store lets you enable the optional apps you want.
+The clock can follow the game or your device.
+
+## Apps and tools
+
+| App | What it does |
+| --- | --- |
+| **Explorer** | A detailed local map with three zoom levels, encounters, trainers, items and hidden finds. “Here” prioritizes catches you can make now; “All” helps plan the rest of the location. Trainer positions stay still for inspection while your player and camera keep moving. |
+| **Map** | Browse the region, inspect places and select an available Fly destination with a movable cursor and a separate confirmation button. |
+| **Party** | Check HP, status, experience, types, held items and moves. Inspect full partner summaries and give or take held items where the game supports them. |
+| **Bag** | Browse pockets, inspect items and use the actions available in the current context, including Use, Give and Toss. A recent-item shortcut stays available while you still own that item. |
+| **Pokédex** | Search your research, read complete entries, check evolution targets and conditions, and find habitats with encounter methods and access requirements. Native cry, size and form pages are adapted where supported. |
+| **Stamps** | Track each location's trainers, items, hidden finds and Pokémon. Open remaining goals to see their location; indoor finds point to the building entrance first, with an option to look inside. |
+| **Notes** | Keep general or location-linked text notes, checklists and colored drawings. QWERTY and QWERTZ are available. |
+| **Field Kit** | Contextual shortcuts for tools and field moves, including rods, Bicycle, Item Radar and travel. Currently usable actions appear first. |
+| **Trainer Card** | Your trainer details, regional badges, play time and native records, including the game's card rank where available. |
+| **Step Counter** | Track movement, milestones and a resettable session counter. |
+| **Silph Connect** | See online players and their reported edition, location and status through Recomp's shared connection. The connection stays active when you leave the app. |
+| **Silph Store** | Manage your installed Gear apps and discover what to add to Home. |
+
+Home widgets cover the live Explorer map, lead partner, whole team, Pokédex,
+region map, Bag, Trainer Card, steps, Stamps, Silph Connect and individual field tools.
 
 <p align="center">
-  <img src="screenshots/kanto-gear-hgss-store-light.png" width="49%" alt="Silph Store">
-  <img src="screenshots/kanto-gear-hgss-party-light.png" width="49%" alt="HGSS Party app">
+  <img src="screenshots/4.0-explorer-layer-pokegear-light.png" width="49%" alt="Explorer map, encounter cards and progress tabs">
+  <img src="screenshots/4.0-party-pokegear-light.png" width="49%" alt="Party with six partner cards, HP, status and experience">
+</p>
+
+## Progress at your pace
+
+Stamps share their checklist data with Explorer, including supported NPC item
+gifts, Pokémon gifts, eggs, trades and prize offers. Explorer covers a location's
+associated buildings as well as its outdoor map.
+
+Gold means the area's required goals are complete **and you have visited it**.
+Caught-species evidence comes from your save's Pokédex, so a Pokémon obtained
+elsewhere can count. Missable encounters and event-only rewards are bonuses;
+exclusive choices do not require obtaining both alternatives. Repeatable or
+untrackable objectives do not become impossible permanent requirements.
+
+Choose how much Gear reveals under **Options → Exploration**:
+
+| Discovery | What you see |
+| --- | --- |
+| **Vanilla** | Known Pokémon, completed trainers and collected items. Habitats stay within visited maps; hidden finds appear after a scan or collection. |
+| **Enhanced** | All local wild Pokémon, available trainers and visible items on visited maps. Unvisited habitats and future story tasks stay hidden. Hidden finds still need a scan or collection. |
+| **Spoilers** | Full Pokémon, habitat and task lists, including hidden finds. Partner Details also reveal friendship, genetics, training and egg progress where the game provides them. |
+
+Native menus also gain matching touch pages for shops, PC storage and item
+storage, dialogue choices, naming, move learning, PP recovery, saving and game
+options. Gen 2 Pokégear and the Gen 3 PokéNav menu have companion controls.
+
+Battle helpers have their own switches for caught markers, effectiveness hints,
+move details and estimated catch odds.
+
+<p align="center">
+  <img src="screenshots/4.0-achievements-stamps-pokegear-light.png" width="49%" alt="Location stamp album">
+  <img src="screenshots/4.0-pokedex-profile-pokegear-light.png" width="49%" alt="Pokédex entry and research navigation">
+</p>
+
+## Battles, your way
+
+Outside battles, the original game screen stays intact. During battles, choose
+how much of the interface moves into Gear:
+
+| Mode | Game screen | Gear screen |
+| --- | --- | --- |
+| **Companion** | Original battle and menus | Touch companion controls; D-pad input stays with the game |
+| **Info** | Original battle and menus | Opponent information; select either opponent in a double battle |
+| **Gear** | Battle scene and HP bars | Battle menus, move choices, party, Bag and text, with D-pad focus below |
+| **Full Gear** | Battle scene | Gear controls plus HP bars, including all four battlers in doubles |
+
+Friendly and opposing targets have explicit labels. Empty PP and unavailable
+moves are marked, and touch feedback only plays when a control can act.
+Specialized, tutorial and native online flows retain the original controls
+when Gear cannot safely take ownership.
+
+<p align="center">
+  <img src="screenshots/4.0-battle-root-cgear-dark.png" width="49%" alt="C-Gear battle command screen">
+  <img src="screenshots/4.0-battle-moves-cgear-dark.png" width="49%" alt="C-Gear move selection">
 </p>
 
 ## Get started
@@ -58,58 +123,68 @@ customizable Home screen, with **HGSS Light, Dark and Auto** themes.
    and import your own supported ROM.
 2. Install **Kanto Gear** from the [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/),
    or import the ZIP from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
-3. Enable the mod, start your game and choose your display layout in Gear's
-   **Options** app.
+3. Enable the mod, start your game and open Gear's **Options** to choose your layout,
+   theme, language and discovery level.
 
-The same mod ZIP works on Android, Windows and Linux. Kanto Gear contains no
-ROM or save file.
+The same ZIP works on Android, Windows and Linux. It includes no ROM or save.
+Use the current Recomp release for host fixes and secondary-screen input support.
 
-| Games | Minimum Gen1Recomp version |
+| Games | Minimum Recomp version |
 | --- | --- |
-| Red, Blue and Yellow | 0.3.20 |
-| Gold, Silver and Crystal | 0.3.20 |
-| FireRed and LeafGreen | 0.3.20 |
+| Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen | 0.3.20 |
 | Emerald (US 1.0) | 0.3.33 |
-| Ruby and Sapphire (US/Europe, 4.0 beta) | 0.3.74 |
+| Ruby and Sapphire (US/Europe) | 0.3.74 |
 
-Ruby and Sapphire join the other supported editions in the **4.0 beta**.
-All Gen 3 games still welcome broader playthrough testing and feedback.
-Some specialized menus stay on the original game screen.
-See [Gen 3 coverage](tools/GEN3.md) for details.
+All Gen 3 games welcome broader playthrough testing and feedback. Some specialized
+contest, Frontier and other native screens remain on the game screen.
+See [Gen 3 coverage](tools/GEN3.md).
 
-## One screen or two
+### One screen or two
 
-| Layout | Best for |
+| Layout | Use it for |
 | --- | --- |
-| **Fullscreen Swap** | Phones and small handhelds; switch between the game and Gear |
-| **Combined Screen** | Both views in one window, stacked, side by side or as an overlay |
-| **Separate Screens** | Dual-screen handhelds, desktop windows and multiple monitors |
+| **Fullscreen Swap** | Switching between the game and Gear on a single screen |
+| **Combined** | Both views in one window: stacked, side by side or as a corner overlay |
+| **Separate** | Dual-screen handhelds, independent desktop windows or multiple monitors |
 
-Use touch or a mouse, swipe between pages or tap the visible arrows. Supported
-native menus also follow the game's D-pad selection. **Auto Battle Screen** can
-switch the main view for battle choices on single-screen layouts.
+**Auto Battle Screen** can switch to Gear for battle choices and back to the game
+for text and animations on single-screen layouts. **Performance** keeps maps smooth
+while disabling UI transitions; **Quality** allows optional interface animations.
+Both preserve map detail.
 
-## Languages and notes
+### Languages and online
 
 English, German, Spanish (Spain), French and Japanese are available under
-**Options → Appearance → Language**. Some newer labels still fall back to
-English. Gear's language setting changes its own interface; translating the
-game itself requires a separate game translation mod.
+**Options → Appearance → Language**. Some newer labels fall back to English.
+Gear translates its own interface; game names and dialogue come from the game
+or a separate translation mod.
 
-Notes supports QWERTY and QWERTZ keyboards, checklists and colored drawing.
-Drawing needs continuous pointer input from the host. If your secondary
-screen reports missing live drawing input, text notes and checklists still
-work. Notes are saved separately for each playthrough.
+Silph Connect is a **presence browser and proof of concept**. Friends, chat and
+live invitations to battles or trades are not available in this release; supported
+access must first be enabled by Gen1Recomp. Its widget shows the visible player
+count and a few names. [More about Silph Connect](tools/PSS.md).
+
+Notes are stored separately for each playthrough. Drawing needs continuous pointer
+input from Recomp; if the host reports that it is missing, text and checklists
+remain available.
+
+<p align="center">
+  <img src="screenshots/4.0-notes-edit-pokegear-light.png" width="49%" alt="Notes with an on-screen keyboard">
+  <img src="screenshots/4.0-home-stamps-silver-cgear-dark.png" width="49%" alt="C-Gear Home with a location progress widget">
+</p>
+
+*Images are rendered previews of the current interface with illustrative game data.
+Artwork and available information vary by edition and settings.*
 
 ## Feedback
 
-Found something that feels wrong? [Open an issue](https://github.com/AverageConsumer/kanto-gear/issues)
-with your game, device, Recomp and Gear versions, display mode and other active
-mods. A screenshot and the steps to reproduce it help a lot.
+[Open an issue](https://github.com/AverageConsumer/kanto-gear/issues) with your game,
+device, Recomp and Gear versions, display and battle modes, other active mods,
+and steps to reproduce the problem. Screenshots and logs are welcome.
 
-For update history, see the [release notes](https://github.com/AverageConsumer/kanto-gear/releases).
-More details: [languages](translations/README.md) · [Silph Connect](tools/PSS.md) ·
-[Gen 3 support](tools/GEN3.md).
+[Release notes](https://github.com/AverageConsumer/kanto-gear/releases)
+· [Translation contributions](translations/README.md)
+· [Font credits](mod/kanto_gear/FONT_CREDITS.txt)
 
 ## Credits
 
@@ -131,8 +206,7 @@ See [font credits and license locations](mod/kanto_gear/FONT_CREDITS.txt).
 The downloadable ZIP includes these credits and the complete font license
 notices. Font assets retain their respective licenses.
 
-The green-and-amber bag icon is an original design drawn directly by Kanto
-Gear's UI code. See [asset notes](mod/kanto_gear/ASSET_CREDITS.txt).
+The UI icons and item props are original designs drawn by Kanto Gear's UI code. See [asset notes](mod/kanto_gear/ASSET_CREDITS.txt).
 
 Pokémon and related names are trademarks of their respective owners. This fan
 project is not affiliated with Nintendo, Game Freak, The Pokémon Company or
