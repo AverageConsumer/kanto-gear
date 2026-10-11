@@ -7301,6 +7301,12 @@ return function(mod)
       emptyHint = displayRuntime.discoveryMode() == "vanilla" and "NO KNOWN POKEMON HERE" or nil,
       itemsText = progress(mapItems),
       trainersText = progress(allTrainers),
+      wildText = (function()
+        local caught = 0
+        for _, row in ipairs(wild) do if row.caught then caught = caught + 1 end end
+        if displayRuntime.discoveryMode() == "vanilla" then return tostring(caught) end
+        return THEME:format("%d/%d", caught, #wild)
+      end)(),
       wildScope = filters.wildScope,
       period = guide.timed ~= false and guide.time or nil,
       trainerIcon = allTrainers[1],

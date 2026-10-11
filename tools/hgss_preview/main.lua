@@ -1032,7 +1032,7 @@ function love.load()
       for index = 1, math.min(#sourceRows, perPage) do
         rows[#rows + 1] = sourceRows[index]
       end
-      local selected = (explorerDetail or explorerItems or explorerItemDetail
+      local selected = os.getenv("KANTO_GEAR_PREVIEW_LIST") ~= "1" and (explorerDetail or explorerItems or explorerItemDetail
         or explorerTrainers or explorerTrainerDetail) and sourceRows[1] or nil
       if selected and view == "items" then
         local status = os.getenv("KANTO_GEAR_PREVIEW_PICKUP_STATUS")
@@ -1087,7 +1087,7 @@ function love.load()
         scanProgress = scanActive and 0.55 or nil,
         showMapStats = true,
         guideEnabled = true, areaEnabled = true,
-        itemsText = data.items, trainersText = data.beaten,
+        itemsText = data.items, trainersText = data.beaten, wildText = "2/4",
         mapFull = explorerMap,
         mapZoom = tonumber(os.getenv("KANTO_GEAR_PREVIEW_MAP_ZOOM")) or 1,
         wildScope = wildScope, trainerIcon = trainerRows[1],

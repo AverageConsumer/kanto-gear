@@ -202,10 +202,18 @@ return function(H, ui, K)
   local MAP_Y, MAP_H = 54, 64          -- overview
   local DETAIL_MAP_H = 40              -- any selection
   local FULL_Y, FULL_H = 74, 136       -- expanded map
-  local TAB_Y, TAB_H, TAB_W, TAB_STEP = 121, 17, 54, 56
-  local PANEL_Y = 137
-  local CARD_W, CARD_H = 109, 33
-  local CARD_POS = { { 10, 141 }, { 121, 141 }, { 10, 176 }, { 121, 176 } }
+  -- Bottom half follows the mockup: three full-width folder tabs with
+  -- progress counts, one paper panel, four 109×36 encounter cards.
+  local TAB_Y, TAB_H = 120, 18
+  local PANEL_Y, PANEL_B = 137, 214
+  local CARD_W, CARD_H = 109, 36
+  local CARD_POS = { { 9, 141 }, { 122, 141 }, { 9, 178 }, { 122, 178 } }
+  local function tabRect(i)
+    local tw = floor(MAP_W / 3)
+    local x = MAP_X + (i - 1) * tw
+    local w = i == 3 and MAP_W - tw * 2 or tw - 1
+    return x, w
+  end
 
   local stockLayout, stockMotionKey
   do
@@ -333,71 +341,94 @@ return function(H, ui, K)
   end
 
   -- Folder tabs joined to the list panel below.
+  local SWAP = { ".#....", "######", ".#....", "....#.", "######", "....#." }
   local function tabs(self, model)
-    local colors = self.colors
-    local counts = { wild = tostring(model.wildCount or model.total or 0),
-      trainers = tostring(model.trainersText or "0"), items = tostring(model.itemsText or "0") }
+    local colors, tok = self.colors, self.tok
     local labels = { wild = "WILD", trainers = "TRAINERS", items = "ITEMS" }
+    local counts = { wild = model.wildText, trainers = model.trainersText, items = model.itemsText }
     local active = model.view
     for i, view in ipairs({ "wild", "trainers", "items" }) do
-      local x = MAP_X + (i - 1) * TAB_STEP
+      local x, w = tabRect(i)
       local on = view == active
-      local pressed = self:beginPress(x, TAB_Y, TAB_W, TAB_H, not on)
-      local fill = on and colors.surface or (self.dark and mix(colors.surface, colors.outline, 0.35) or colors.bandLight)
+      -- the active WILD tab toggles HERE / ALL, so it stays pressable
+      local pressable = not on or view == "wild"
+      local pressed = self:beginPress(x, TAB_Y, w, TAB_H, pressable)
       if cg(self) then
-        CH(x, TAB_Y, TAB_W, TAB_H + (on and 3 or 0), 3, on and self.tok.border or colors.outline)
-        CH(x + 1, TAB_Y + 1, TAB_W - 2, TAB_H + (on and 3 or -2), 2, fill)
-        if on then R(x + 3, TAB_Y + 1, TAB_W - 6, 2, self.tok.acc.M) end
+        CH(x, TAB_Y + 1, w, 16, 3, on and tok.acc.M or tok.paper2)
+        if on then CH(x + 1, TAB_Y + 2, w - 2, 7, 2, tok.acc.L); R(x + 3, TAB_Y + 16, w - 6, 1, tok.acc.D)
+        else R(x + 3, TAB_Y + 16, w - 6, 1, tok.line) end
+      elseif on then
+        RR(x, TAB_Y, w, 18, 3, colors.outline)
+        RR(x + 1, TAB_Y + 1, w - 2, 17, 2, tok.acc.M)
+        RRrows(x + 1, TAB_Y + 1, w - 2, 17, 2, 0, 7, tok.acc.L)
+        R(x + 3, TAB_Y + 1, w - 6, 1, tok.acc.Hi)
       else
-        RR(x, TAB_Y, TAB_W, TAB_H + (on and 4 or 0), 4, colors.outline)
-        RR(x + 1, TAB_Y + 1, TAB_W - 2, TAB_H + (on and 4 or -2), 3, fill)
-        if on then R(x + 4, TAB_Y + 1, TAB_W - 8, 1, WHITE) end
+        RR(x, TAB_Y + 2, w, 16, 3, colors.outline)
+        RR(x + 1, TAB_Y + 3, w - 2, 15, 2, tok.paper2)
+        R(x + 3, TAB_Y + 3, w - 6, 1, self.dark and hex("3a4659") or WHITE)
       end
       local icon = TAB_ICON[view]
-      local tint = hex(icon.tint)
-      if not on then tint = mix(tint, colors.surface, 0.35) end
-      local label = self:fitPartyInfo(translate(labels[view]), TAB_W - 14)
-      local count = counts[view]
-      local lw = self:partyInfoWidth(label)
-      local iconW = #icon.art[1]
-      local total = iconW + 3 + lw
-      local lx = x + floor((TAB_W - total) / 2)
-      ART(icon.art, lx, TAB_Y + floor((TAB_H - #icon.art) / 2), { o = colors.outline, ["#"] = tint, w = on and hex("f8c8a0") or colors.surface })
-      self:partyInfo(label, lx + iconW + 3, TAB_Y + 2, on and colors.ink or colors.mutedInk)
+      local label = translate(view == "wild" and on and model.wildScope == "ROUTE" and "ALL" or labels[view])
+      local count = counts[view] and tostring(counts[view]) or nil
+      local swapW = (view == "wild" and on) and (#SWAP[1] + 3) or 0
+      local iconW = #icon.art[1] + 2
+      local room = w - 6 - iconW - swapW
+      local cw = count and (self:partyInfoWidth(" " .. count)) or 0
+      if self:partyInfoWidth(label) + cw > room then cw = 0; count = nil end
+      label = self:fitPartyInfo(label, room - cw)
+      local total = iconW + self:partyInfoWidth(label) + cw + swapW
+      local lx = x + floor((w - total) / 2)
+      local ty = TAB_Y + (on and 2 or 3)
+      local ink = on and WHITE or colors.mutedInk
+      ART(icon.art, lx, ty + floor((13 - #icon.art) / 2), { o = colors.outline, ["#"] = hex(icon.tint), w = WHITE })
+      lx = lx + iconW
+      self:withoutShadow(self.partyInfo, self, label, lx, ty - 1, ink)
+      lx = lx + self:partyInfoWidth(label)
+      if count then
+        self:withoutShadow(self.partyInfo, self, " " .. count, lx, ty - 1, on and WHITE or colors.mutedInk)
+        lx = lx + cw
+      end
+      if swapW > 0 then ART(SWAP, lx + 3, ty + 3, { ["#"] = on and WHITE or colors.mutedInk }) end
       self:endPress(pressed)
-      model.tabCounts = model.tabCounts or {}
-      model.tabCounts[view] = count
     end
   end
 
   local function panel(self)
-    local colors = self.colors
-    self:v4Window(MAP_X, PANEL_Y, MAP_W, 210 - PANEL_Y)
+    local colors, tok = self.colors, self.tok
+    if cg(self) then
+      CH(MAP_X, PANEL_Y, MAP_W, PANEL_B - PANEL_Y, 4, tok.border)
+      CH(MAP_X + 1, PANEL_Y + 1, MAP_W - 2, PANEL_B - PANEL_Y - 2, 3, tok.paper2)
+    else
+      RR(MAP_X, PANEL_Y, MAP_W, PANEL_B - PANEL_Y, 3, colors.outline)
+      RR(MAP_X + 1, PANEL_Y + 1, MAP_W - 2, PANEL_B - PANEL_Y - 2, 2, tok.paper2)
+      R(MAP_X + 1, PANEL_Y, 74, 1, tok.acc.M)
+    end
   end
 
-  local function scopeSwitch(self, model)
-    -- HERE | ALL lives in the free tab-row space to the right.
-    local x, y, w = MAP_X + 3 * TAB_STEP + 2, TAB_Y + 1, MAP_W - 3 * TAB_STEP - 2
-    local scope = model.wildScope == "ROUTE" and "ROUTE" or "HERE"
-    self:v4Segments(x, y - 1, w, { { "HERE", "HERE" }, { "ALL", "ROUTE" } }, scope, true)
-  end
 
   ---------------------------------------------------------------------------
   -- Cards
   ---------------------------------------------------------------------------
-  local function cardFrame(self, x, y, accent, dim)
-    local colors = self.colors
-    local fill = dim and (self.dark and mix(colors.surface, colors.outline, 0.25) or colors.bandLight)
-      or mix(colors.surface, accent, self.dark and 0.14 or 0.08)
+  local function cardFrame(self, x, y, accent, now)
+    local colors, tok = self.colors, self.tok
     if cg(self) then
-      CH(x, y, CARD_W, CARD_H, 4, colors.outline); CH(x + 1, y + 1, CARD_W - 2, CARD_H - 2, 3, fill)
-      R(x + 1, y + 5, 2, CARD_H - 10, accent)
+      CH(x + 1, y + 2, CARD_W, CARD_H, 3, colors.shadow)
+      CH(x, y, CARD_W, CARD_H, 3, now and tok.acc.M or tok.border)
+      CH(x + 1, y + 1, CARD_W - 2, CARD_H - 2, 2, tok.paper)
     else
-      RR(x, y, CARD_W, CARD_H, 4, colors.outline); RR(x + 1, y + 1, CARD_W - 2, CARD_H - 2, 3, fill)
-      R(x + 4, y + 1, CARD_W - 8, 1, self.dark and mix(fill, WHITE, 0.1) or WHITE)
+      RR(x + 1, y + 2, CARD_W, CARD_H, 3, colors.shadow)
+      RR(x, y, CARD_W, CARD_H, 3, colors.outline)
+      RR(x + 1, y + 1, CARD_W - 2, CARD_H - 2, 2, tok.paper)
+      if now then R(x + 1, y + 3, 2, CARD_H - 6, accent or tok.acc.M) end
     end
   end
-
+  -- "not now" cards fade back like the mock's dim overlay
+  local function dimCard(self, x, y)
+    local tok = self.tok
+    local c = cg(self) and (self.dark and hex("1b232c") or hex("e2e9ee")) or (self.dark and hex("2d3748") or hex("eef2ec"))
+    local veil = { c[1], c[2], c[3], 0.55 }
+    if cg(self) then CH(x + 1, y + 1, CARD_W - 2, CARD_H - 2, 3, veil) else RR(x + 1, y + 1, CARD_W - 2, CARD_H - 2, 3, veil) end
+  end
   local function periodsFor(row)
     local on = {}
     for _, m in ipairs(row.matches or {}) do
@@ -409,45 +440,57 @@ return function(H, ui, K)
   end
 
   local function encounterCard(self, row, x, y, model)
-    local colors = self.colors
-    local typeId = row.type or row.types and row.types[1]
-    local accent = self:typeColor(typeId)
+    local colors, tok = self.colors, self.tok
     local best = row.best or {}
     local now = row.gift and row.available ~= false or best.current
-    local dim = not now
     local pressed = self:beginPress(x, y, CARD_W, CARD_H)
-    cardFrame(self, x, y, accent, dim)
-    self:v4Seat(x + 3, y + 2, 29, false, now)
-    if model.drawPokemon then model.drawPokemon(row, x + 4, y + 3, 27, not row.caught and not row.gift) end
-    local ink, quiet = dim and colors.mutedInk or colors.ink, colors.mutedInk
-    self:partyInfo(self:fitPartyInfo(row.isEgg and translate("EGG") or row.name or "???", 60), x + 35, y + 1, ink)
-    if row.caught then self:v4MiniBall(x + CARD_W - 10, y + 3, "ok")
-    elseif not row.gift then self:v4MiniBall(x + CARD_W - 10, y + 3, "none") end
+    cardFrame(self, x, y, tok.acc.M, now and not best.blocked)
+    self:v4Seat(x + 4, y + 4, 28, false, false)
+    if model.drawPokemon then model.drawPokemon(row, x + 5, y + 5, 26, not row.caught and not row.gift) end
+    self:partyInfo(self:fitPartyInfo(row.isEgg and translate("EGG") or row.name or "???", 60), x + 35, y + 1, colors.ink)
+    if row.caught then self:v4MiniBall(x + CARD_W - 10, y + 4, "ok")
+    elseif not row.gift then self:v4MiniBall(x + CARD_W - 10, y + 4, "none") end
     if row.gift then
       local label = row.trade and "TRADE" or row.loan and "LOAN" or (row.cost or row.coinCost) and "OFFER" or "GIFT"
-      self:v4MethodGlyph("GIFT", x + 35, y + 13)
-      self:v4Pill(label, x + 45, y + 12, hex("d05878"), { maxW = 56 })
+      self:v4MethodGlyph("GIFT", x + 35, y + 14)
+      self:v4Pill(label, x + 45, y + 13, hex("d05878"), { maxW = 56 })
       return self:endPress(pressed)
     end
-    self:v4MethodGlyph(best.method, x + 35, y + 13, dim and colors.silverDark or nil)
-    self:partyInfo(levels(best), x + 45, y + 11, quiet)
+    self:v4MethodGlyph(best.method, x + 35, y + 14)
+    self:partyInfo(levels(best), x + 45, y + 12, colors.mutedInk)
     if best.blocked then
-      self:v4Pill("TOOL", x + CARD_W - 4, y + 12, hex("d89020"), { right = true })
+      -- needs a field tool: orange TOOL badge instead of the period icons
+      local lx, ly = x + CARD_W - 25, y + 12
+      RR(lx - 1, ly, 22, 11, 2, colors.outline); R(lx, ly + 1, 20, 9, hex("e09a20"))
+      self:withoutShadow(self.partyType, self, translate("TOOL"), lx - 1, ly - 1, WHITE, 22)
     elseif model.period then
       local on = periodsFor(row)
       for i, p in ipairs(PERIOD_ORDER) do
-        local px = x + CARD_W - 22 + (i - 1) * 6
-        local c = on[p] and hex(PERIOD_TINT[p]) or (self.dark and hex("3a4450") or hex("d0d6cc"))
-        ART(MINI_PERIOD[p], px, y + 13, { ["#"] = c })
-        if p == model.period then R(px, y + 19, 5, 1, on[p] and c or colors.silver) end
+        local px = x + CARD_W - 24 + (i - 1) * 7
+        local c = on[p] and hex(PERIOD_TINT[p]) or (self.dark and hex("3e4a58") or hex("c4cec8"))
+        ART(MINI_PERIOD[p], px, y + 14, { ["#"] = c })
+        if on[p] and p == model.period then R(px, y + 20, 5, 1, c) end
       end
     end
-    -- chance bar + percentage
-    local pct = tostring(best.chance or 0) .. "%"
-    local pw = self:partyInfoWidth(pct)
-    self:v4ChanceBar(x + 35, y + 25, CARD_W - 41 - pw, dim and 0 or best.chance)
-    if dim then R(x + 36, y + 26, floor((CARD_W - 43 - pw) * math.min(1, (best.chance or 0) / 60)), 1, colors.silverDark) end
-    self:partyInfo(pct, x + CARD_W - 4 - pw, y + 21, ink)
+    -- chance bar (40px) + percentage beside it
+    local chance = tonumber(best.chance) or 0
+    local bx, bw = x + 35, 40
+    R(bx, y + 26, bw, 5, colors.outline)
+    R(bx + 1, y + 27, bw - 2, 3, self.dark and hex("3a4652") or hex("d4ddd6"))
+    local f = max(2, floor((bw - 2) * min(1, chance / 50) + 0.5))
+    local cc = chance >= 25 and colors.hp or chance >= 10 and colors.hpMid or hex("c070f0")
+    R(bx + 1, y + 27, f, 3, cc); R(bx + 1, y + 27, f, 1, mix(cc, WHITE, 0.5))
+    self:partyInfo(tostring(chance) .. "%", x + 78, y + 23, colors.ink)
+    -- rare finds twinkle while they can appear
+    if now and chance > 0 and chance <= 5 and self.motionEnabled ~= false then
+      self:wantAmbient(0.3)
+      if (self:clock() % 1.8) < 0.7 then
+        local sx, sy = x + 6, y + 5
+        P(sx, sy, WHITE); P(sx - 1, sy, hex("f8e070")); P(sx + 1, sy, hex("f8e070"))
+        P(sx, sy - 1, hex("f8e070")); P(sx, sy + 1, hex("f8e070"))
+      end
+    end
+    if not now and not best.blocked then dimCard(self, x, y) end
     self:endPress(pressed)
   end
 
@@ -464,24 +507,26 @@ return function(H, ui, K)
     local status = statusOf(row, kind)
     local done = row.done
     local pressed = self:beginPress(x, y, CARD_W, CARD_H)
-    cardFrame(self, x, y, accent, done)
-    CIRC(x + 3, y + 2, 29, colors.outline)
-    CIRC(x + 4, y + 3, 27, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
-    K.CIRCrows(x + 4, y + 3, 27, 14, 27, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
+    cardFrame(self, x, y, accent, not done)
+    CIRC(x + 4, y + 4, 28, colors.outline)
+    CIRC(x + 5, y + 5, 26, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
+    K.CIRCrows(x + 5, y + 5, 26, 13, 26, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
     if kind == "trainers" then
-      if model.drawActor then model.drawActor(row, x + 17, y + 25, 1, false) end
+      if model.drawActor then model.drawActor(row, x + 18, y + 27, 1, false) end
     else
-      self:battleItemIcon({ icon = row.kind == "hidden" and "item" or row.icon or "item" }, x + 8, y + 8, colors.amberLight)
+      self:v4ItemInSeat({ icon = row.kind == "hidden" and "item" or row.icon or "item",
+        label = row.displayLabel or row.label }, x + 18, y + 18, 28, colors.amberLight)
     end
     local name = row.kind == "hidden" and not done and translate("HIDDEN") or row.displayLabel or row.label or ""
     local a, b = self:splitPartyInfo(name, CARD_W - 40)
     if b and #b > 0 then
-      self:partyInfo(a, x + 35, y + 0, done and colors.mutedInk or colors.ink)
-      self:partyInfo(self:fitPartyInfo(b, CARD_W - 40), x + 35, y + 10, done and colors.mutedInk or colors.ink)
+      self:partyInfo(a, x + 35, y + 1, done and colors.mutedInk or colors.ink)
+      self:partyInfo(self:fitPartyInfo(b, CARD_W - 40), x + 35, y + 11, done and colors.mutedInk or colors.ink)
     else
-      self:partyInfo(self:fitPartyInfo(name, CARD_W - 40), x + 35, y + 3, done and colors.mutedInk or colors.ink)
+      self:partyInfo(self:fitPartyInfo(name, CARD_W - 40), x + 35, y + 4, done and colors.mutedInk or colors.ink)
     end
-    self:v4Pill(status, x + 35, y + 20, statusColor(self, status), { maxW = CARD_W - 40 })
+    self:v4Pill(status, x + 35, y + 22, statusColor(self, status), { maxW = CARD_W - 40 })
+    if done then dimCard(self, x, y) end
     self:endPress(pressed)
   end
 
@@ -510,7 +555,7 @@ return function(H, ui, K)
   function H:explorerMotionRegion(view, selected, full, page, detailPage)
     if full then return nil end
     if selected then return 97, 210, detailPage end
-    return PANEL_Y + 2, 210, page
+    return PANEL_Y + 2, PANEL_B, page
   end
 
   ---------------------------------------------------------------------------
@@ -659,7 +704,6 @@ return function(H, ui, K)
     -- list: tabs + panel + cards
     panel(self)
     tabs(self, model)
-    if view == "wild" then scopeSwitch(self, model) end
     local rows = model.rows or {}
     if #rows == 0 then
       local text = view == "wild" and (model.emptyHint or (model.wildScope == "ROUTE"
@@ -761,14 +805,13 @@ return function(H, ui, K)
     end
     if y >= TAB_Y and y < TAB_Y + TAB_H then
       for i, view in ipairs({ "wild", "trainers", "items" }) do
-        local tx = MAP_X + (i - 1) * TAB_STEP
-        if x >= tx and x < tx + TAB_W then return view ~= model.view and view or nil end
-      end
-      if model.view == "wild" and x >= MAP_X + 3 * TAB_STEP + 2 then
-        local sx = MAP_X + 3 * TAB_STEP + 2
-        local half = floor((MAP_W - 3 * TAB_STEP - 2) / 2)
-        if x < sx + half then return model.wildScope ~= "ROUTE" and nil or "wild_here" end
-        return model.wildScope == "ROUTE" and nil or "wild_route"
+        local tx, tw = tabRect(i)
+        if x >= tx and x < tx + tw then
+          if view ~= model.view then return view end
+          -- tapping the active WILD tab flips HERE / ALL
+          if view == "wild" then return model.wildScope == "ROUTE" and "wild_here" or "wild_route" end
+          return nil
+        end
       end
       return nil
     end
