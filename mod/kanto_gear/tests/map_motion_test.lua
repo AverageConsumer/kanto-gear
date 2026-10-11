@@ -185,19 +185,20 @@ do
 end
 local homeModel = { page = 1, overview = overview,
   tiles = { { widget = "explorer", column = 1, row = 1, columns = 7 } } }
--- The NOW rail changes the viewport; redraw sampling must use the exact
--- layout that is painted, including at fractional player positions.
+-- The NOW window sits on the map; redraw sampling must use the exact layout
+-- that is painted, including at fractional player positions, and a
+-- movement-only repaint must put the window back on top of the map.
 do
   local h = theme.hgss
-  local drawMap, drawRail = h.mapOverview, h.homeNowRail
-  local railDraws, layout = 0, nil
+  local drawMap, drawCorner = h.mapOverview, h.homeNowCorner
+  local cornerDraws, layout = 0, nil
   h.mapOverview = function(self, ...)
     layout = drawMap(self, ...)
     return layout
   end
-  h.homeNowRail = function(self, ...)
-    railDraws = railDraws + 1
-    return drawRail(self, ...)
+  h.homeNowCorner = function(self, ...)
+    cornerDraws = cornerDraws + 1
+    return drawCorner(self, ...)
   end
   for _, skin in ipairs({ "pokegear", "cgear" }) do
     h:setSkin(skin)
@@ -211,12 +212,12 @@ do
         math.floor(layout.top + pos.y * layout.tileSize + 0.5), pos.facing }, ":")
       T.eq(h:homeMotionKey(homeModel, pos), expected,
         skin .. " movement key matches the painted viewport with NOW=" .. tostring(rail))
-      local before = railDraws
+      local before = cornerDraws
       h:homeExplorerMap(homeModel, homeModel.tiles[1], true)
-      T.eq(railDraws, before, "movement-only repaint leaves the NOW rail untouched")
+      T.eq(cornerDraws, before + (rail and 1 or 0), "movement-only repaint keeps the NOW window on top")
     end
   end
-  h.mapOverview, h.homeNowRail = drawMap, drawRail
+  h.mapOverview, h.homeNowCorner = drawMap, drawCorner
   h:setSkin("pokegear")
   homeModel.nowRows, homeModel.player = nil, nil
 end
