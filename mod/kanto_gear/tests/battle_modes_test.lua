@@ -236,6 +236,90 @@ do
   T.check(patchedPoll ~= originalPoll, "real controller polling was wrapped")
 end
 
+-- Drive the real native team update, then inspect the focus actually sent
+-- to the visible cards. Checking the native cursor alone misses lost focus.
+do
+  local NativeParty = require(gen == 2 and "src.ui.gen2.PartyMenu" or "src.ui.PartyMenu")
+  local Input = require("src.core.Input")
+  local input = setmetatable({}, { __index = Input })
+  input:reset()
+  local lateKey
+  input.pollPads = function(self)
+    if lateKey then self.pressQueue[#self.pressQueue + 1] = lateKey; lateKey = nil end
+  end
+  game.input = input
+  local savedParty, savedSnapshot = game.save.party, snapshot.party
+  local six = {}
+  for i = 1, 6 do
+    six[i] = { slot = i, species = mon.species, name = "PARTNER" .. i,
+      level = 10, hp = 20, maxHp = 30, stats = { hp = 30 }, moves = {},
+      active = i == 1 }
+  end
+  game.save.party, snapshot.party = six, six
+  snapshot.prompt, raw.phase = "party", "party"
+  local confirmed
+  local native = setmetatable({ screenId = gen == 2 and "Gen2PartyMenu" or "PartyMenu",
+    game = game, party = six, index = 1, battle = true, clock = 0, pickOnly = true,
+    keepOpen = true, onChoose = function(index) confirmed = index end,
+    onSwitch = function(chosen) confirmed = chosen.slot end }, NativeParty)
+  local H, focused = theme.hgss
+  local drawCard = H.partyCard
+  H.partyCard = function(self, view, x, y, selected, details, portrait, focus, ...)
+    if focus then
+      T.eq(focused, nil, "only one team card can hold D-pad focus")
+      for slot = 1, 6 do
+        local sx, sy = self:partyPosition(slot)
+        if x == sx and y == sy then focused = slot end
+      end
+    end
+    return drawCard(self, view, x, y, selected, details, portrait, focus, ...)
+  end
+  local function edge(key, source)
+    input:reset()
+    if source == "keyboard" then input.pressQueue = { key } else lateKey = key end
+    step(function() end, game, .016)
+    input:step()
+    native:update(.016)
+    refresh()
+  end
+  for _, style in ipairs({ "hgss", "hgss_dark", "cgear", "cgear_dark" }) do
+    options.theme_v3 = style
+    run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
+    up(hook("battle.bottom_ui_visible"), "displayReady", true, true)
+    for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
+      options.battle_view = mode
+      local owns = mode == "gear" or mode == "full"
+      for index = 1, 6 do for _, key in ipairs({ "left", "right", "up", "down" }) do
+        for _, source in ipairs({ "keyboard", "controller" }) do
+          stack.states = { world, raw, native }; native.index = index; refresh()
+          edge(key, source)
+          local expected = index
+          if owns then
+            if key == "left" or key == "right" then expected = index % 2 == 1 and index + 1 or index - 1
+            else expected = (index - 1 + (key == "up" and -2 or 2)) % 6 + 1 end
+          elseif key == "up" or key == "down" then
+            local total = gen == 2 and 7 or 6
+            expected = (index - 1 + (key == "up" and -1 or 1)) % total + 1
+          end
+          T.eq(native.index, expected, mode .. " " .. source .. " native team cursor follows its layout")
+          focused = nil; display.drawContents()
+          T.eq(focused, owns and expected or nil, mode .. " " .. style .. " visible team focus follows the real cursor")
+          if expected <= #six then
+            confirmed = nil; edge("a", source)
+            T.eq(confirmed, expected, "A confirms the same partner that was focused")
+          end
+        end
+      end end
+    end
+  end
+  H.partyCard = drawCard
+  game.save.party, snapshot.party = savedParty, savedSnapshot
+  snapshot.prompt, raw.phase = "menu", "menu"
+  stack.states = { world, raw }
+  game.input.pressQueue = {}
+  refresh()
+end
+
 -- Legacy battle snapshots omit EXP; recover it from the current save slot,
 -- use each species' growth curve, and invalidate a cached team when EXP changes.
 do

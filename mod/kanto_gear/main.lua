@@ -1374,7 +1374,10 @@ local function bottomOwnsBattleUI(enabled, active, available, ready,
 end
 
 local function battleChoice(state)
+  -- Native party pickers also expose onChoose; they are not Yes/No prompts.
   return state and type(state.onChoose) == "function"
+    and state.screenId ~= "PartyMenu" and state.screenId ~= "Gen2PartyMenu"
+    and not state.isPartyMenu
     and type(state.index) == "number" and state.items == nil and state.pending == nil or false
 end
 
@@ -8766,7 +8769,7 @@ return function(mod)
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:partyBackdrop()
       displayRuntime.PartyPage.draw(THEME.hgss, {
-        party = list, selection = partyMoveFrom and selectedSlot or nil,
+        party = list, selection = (partyMoveFrom or THEME.hgss.nativeFocus) and selectedSlot or nil,
         details = paged and not back,
       }, function(slot, x, y, selected, details, focused)
         local mon = list[slot]

@@ -243,12 +243,28 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       Party.show(six,{session=game.session,battle=st,mode="battle_switch"})
       for _=1,120 do Party.update() end
       display.gen3.syncScreens();refresh()
+      local focus, drawTeamCard = nil, H.partyCard
+      H.partyCard = function(self, mon, x, y, selected, details, portrait, focused, ...)
+        if focused then
+          T.eq(focus, nil, "Gen 3 team has only one focused card")
+          for slot = 1, 6 do
+            local sx, sy = self:partyPosition(slot)
+            if x == sx and y == sy then focus = slot end
+          end
+        end
+        return drawTeamCard(self, mon, x, y, selected, details, portrait, focused, ...)
+      end
       Party.cursor=1
       Party.handleInput({wasPressed=function(_,key) return key=="down" end})
       T.eq(Party.cursor,3,"owned team navigation follows the six-card grid")
+      focus=nil;tick()
+      T.eq(focus,3,"Gen 3 visible team focus follows down into the next row")
       Party.cursor=1
       Party.handleInput({wasPressed=function(_,key) return key=="right" end})
       T.eq(Party.cursor,2,"owned team navigation reaches the adjacent card")
+      focus=nil;tick()
+      T.eq(focus,2,"Gen 3 visible team focus reaches the adjacent card")
+      H.partyCard=drawTeamCard
       Party.close();Stack.clear();Ui.openMenu(0)
       -- Shared summary tabs and read-only move details belong to the lower
       -- screen, even when a controller supplies its edge during pollPads.
