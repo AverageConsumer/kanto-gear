@@ -1,4 +1,5 @@
 return {
+  ["COMPANION"] = false,
   ["RUBY"] = "RUBIS",
   ["SAPPHIRE"] = "SAPHIR",
   ["SHOW INSIDE"] = "VOIR L'INTERIEUR",

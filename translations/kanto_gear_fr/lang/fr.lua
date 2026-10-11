@@ -1,4 +1,5 @@
 return {
+  ["COMPANION"] = false,
   ["START GAME"] = "COMMENCER",
   ["TAP TO CONTINUE"] = "TOUCHER POUR AVANCER",
   ["TAP ANYWHERE / A"] = "TOUCHER PARTOUT / A",
