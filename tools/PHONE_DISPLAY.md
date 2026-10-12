@@ -80,20 +80,43 @@ private network only. Do not forward this port on a router.
 QR encoding uses luaqrcode, pinned BSD-3-Clause source in `vendor/qrencode.lua`;
 see its retained license, `vendor/README.txt` and `ASSET_CREDITS.txt`.
 
-Each binary WebSocket message contains `KG02`, big-endian uint16 width/height,
-a big-endian uint32 frame ID and zlib-compressed RGBA8 pixels (compression
-level 1). Incompressible images use `KG01` with raw RGBA8 instead. Frames are
-independent and lossless. A current browser with `DecompressionStream` support
-is required for compressed frames. A trusted private network is required even
-when the browser supports WebCrypto; this transport is still HTTP.
+Video remains pixel-exact and lossless, at up to 60 Hz. A background worker
+compares the new RGBA8 image with its predecessor. Unchanged rows cost nothing;
+changed rows send only their changed span. Exact matching spans from nearby
+rows/columns reuse the preceding image, so moving maps mostly send new boundary
+pixels rather than their entire contents. Scene changes use a full image, and
+identical captures produce no video packet. The game thread never performs
+compression or searches for reusable pixels.
 
-The browser acknowledges the latest frame after presenting it. At most two
-images may be in flight, allowing 60 Hz without a stop-and-wait round trip
-for every image. The browser keeps only the latest packet and decoded image
-instead of building a playback queue. Capture and moving maps run at up to
-60 Hz; unchanged Gear screens do not require new images. GPU capture slots
-are reserved when readback starts so completion can request the next capture
-on the same host frame. Socket reads/writes and input queues have fixed limits.
+Binary WebSocket messages start with four ASCII magic bytes, big-endian uint16
+width/height and a uint32 frame ID. `KG11`/`KG12` carry a full raw/zlib image;
+`KG13`/`KG14` carry compressed/raw row patches; `KG15`/`KG16` carry compressed/raw
+patches with copy spans. A uint32 capture timestamp in milliseconds follows the
+ID. Patches then carry the preceding frame ID and a uint16 command count.
+Each row command contains uint16 y, x and pixel count followed by RGBA8 bytes.
+Copy-capable commands add uint16 source y/x; source y 65535 denotes raw bytes,
+otherwise pixels come from the untouched preceding image. Bounds, ordering,
+non-overlap, exact decoded lengths and dependencies are checked before display.
+Zlib uses level 1; larger compressed payloads fall back to raw bytes. The browser
+also accepts the original untimed `KG01`–`KG06` equivalents for protocol tests.
+A current browser with `DecompressionStream` support is required for compressed
+frames. The transport is still unencrypted local HTTP/WebSocket.
+
+The browser decodes dependencies in WebSocket order even when an intermediate
+presentation is skipped. There are at most eight packets waiting for decode and
+four decoded images awaiting presentation. Capture timestamps preserve cadence;
+a rolling 32-image timing sample chooses 4–32 ms of jitter absorption. Ordinary
+bursts present one image per browser refresh; images over 34 ms past their
+presentation deadline are skipped rather than replayed after a stall. The idle
+browser does not keep requesting animation frames with nothing to paint.
+
+The browser acknowledges an image only after presenting it. The host starts
+with four images in flight and adapts up to eight from measured acknowledgement
+latency, without permitting an unbounded queue. One encode job and one retained
+capture can overlap GPU readback, networking and browser presentation. A full
+window stops new readbacks before they happen. Small host scheduling variations
+have a 3 ms tolerance, so a slightly early tick does not skip a 60 Hz capture or
+map update. None of this changes the physical companion display's rendering.
 Touches reference the acknowledged frame and use its pixel coordinates.
 Phone touches are drained every host frame, independently of game snapshots.
 Heartbeat messages keep idle displays connected without repeated images.
@@ -110,19 +133,38 @@ The browser footer reports measured presentation FPS during continuous motion
 and shows `idle` when the image is unchanged. It does not count unchanged
 screens as sixty newly rendered images.
 
-At 240×216 and 60 Hz, uncompressed traffic would be about 12.4 MB/s before
-network overhead. Actual compression depends on the visible pixels. The
-existing asynchronous readback is used when the host provides it; ordinary
-LÖVE builds use the synchronous fallback. A full transport window stops new
-GPU requests and compression work until the viewer makes progress. A stalled
-viewer loses ownership rather than accumulating old frames. Compression,
-GPU readback, Wi-Fi and browser timing still need measurement on the device.
+At 240×216 and 60 Hz, full raw RGBA traffic would be about 12.4 MB/s.
+Actual savings depend on visible motion; unrelated full-screen changes still
+need more bandwidth than a scrolling map. The existing asynchronous GPU
+readback is used where supported; other LÖVE builds retain their synchronous
+fallback. A stalled viewer loses ownership and releases controls.
+
+A local LÖVE/Chromium comparison used the same 180-image sequences derived from
+repository screenshots, with deterministic simulated map/transition movement:
+
+| Sequence | Full-frame bytes | Incremental bytes | Reduction |
+| --- | ---: | ---: | ---: |
+| Home map | 2,759,963 | 94,146 | 96.6% |
+| Explorer map | 2,691,913 | 118,160 | 95.6% |
+| Page transition | 3,053,139 | 333,638 | 89.1% |
+
+The encoder's median CPU time for those sequences was 0.16–0.54 ms, versus
+0.63–0.67 ms for the original full-image compression, on the test Windows host.
+A local bandwidth/latency proxy with 0.5 Mbit/s, 80 ms RTT and 20 ms jitter
+improved the moving Home fixture from about 4 to 53 presented FPS. These are
+synthetic network tests of the actual server/browser path, not measurements
+of a Thor game, GPU readback, physical Wi-Fi, or Brave's Android scheduler.
+The small presentation buffer adds bounded video latency to absorb jitter;
+controller messages do not wait for it. No finite-bandwidth transport can
+promise full-rate video through arbitrary congestion or an interrupted signal.
 
 ## Checks
 
 `luajit mod/kanto_gear/tests/phone_display_test.lua` exercises the bounded
 protocol and pairing logic without a ROM, including one-use/expired keys,
 authentication gating, origin/peer checks, rate limits and entropy failures.
+`tests/phone_video_test.lua` verifies pixel-exact patches, horizontal/vertical
+copy spans, alpha, resolution changes, scene changes and duplicate suppression.
 `tests/phone_pairing_test.lua` exercises the real OS entropy worker and exports
 a QR fixture for independent decoding (OpenCV was used for the current build). `tests/phone_runtime_test.lua` runs
 in the host modkit harness and checks display routing, readiness, readback
@@ -131,7 +173,11 @@ actual Recomp Input/source bookkeeping for all three generations, including
 simultaneous holds, fast taps, keyboard coexistence and GBA shoulders.
 `node mod/kanto_gear/tests/phone_browser_test.cjs` uses Playwright with a mocked
 host to test pairing, real multitouch events, Dpad sliding, settings persistence,
-capability changes, connection loss and responsive geometry. The layout cases
+capability changes, connection loss and responsive geometry. Video cases cover
+compressed/raw patches, unpainted dependencies, copy source bounds, oversized
+inflation, queue limits and timestamp wrap. Set `KANTO_GEAR_VIDEO_FIXTURE` to a
+local encoded-frame fixture to compare actual LÖVE output with every reconstructed
+RGBA byte using SHA-256. The layout cases
 cover touch/mouse dragging, snapping, rejected collisions/sizes, reset/cancel,
 orientation changes, opt-in storage and all four themes/presets from 320×568 to
 1280×800. Set

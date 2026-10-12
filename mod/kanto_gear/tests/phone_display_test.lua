@@ -52,7 +52,20 @@ local function new()
     pop = function() local value = queued; queued = nil; return value end,
     stop = function() queued = nil end,
   }
-  return assert(Phone.new(mod, runtime, sockets, pairing))
+  local encoded
+  local video = {
+    request = function(_, job)
+      local function u16(n) return string.char(math.floor(n / 256) % 256, n % 256) end
+      local payload = runtime.data.compress("string", "zlib", job.rgba, 1)
+      local compressed = #payload < #job.rgba
+      encoded = { epoch = job.epoch, id = job.id, body = (compressed and "KG02" or "KG01")
+        .. u16(job.w) .. u16(job.h) .. u16(math.floor(job.id / 65536)) .. u16(job.id % 65536)
+        .. (compressed and payload or job.rgba) }
+    end,
+    pop = function() local result = encoded; encoded = nil; return result end,
+    stop = function() encoded = nil end,
+  }
+  return assert(Phone.new(mod, runtime, sockets, pairing, video))
 end
 local labels, boxes = {}, {}
 local graphics = {
@@ -196,16 +209,19 @@ now = now + 1 / 60
 assert(phone:canCapture(), "the second frame does not wait for the first display acknowledgement")
 phone:push(image, 240, 216); phone:poll()
 now = now + 1 / 60
-assert(not phone:canCapture() and #phone.viewer.pending == 2, "a stalled browser is bounded to two frames")
-message(phone, c, "a,2")
-assert(phone.viewer.ack == 2 and #phone.viewer.pending == 0, "displaying the newest frame also retires skipped older frames")
-message(phone, c, "a,1"); assert(phone.viewer.ack == 2, "late acknowledgements cannot roll input back")
+assert(phone:canCapture(), "ordinary Wi-Fi latency does not stop a two-frame pipeline")
+phone:push(image, 240, 216); phone:poll(); now = now + 1 / 60
+phone:push(image, 240, 216); phone:poll(); now = now + 1 / 60
+assert(not phone:canCapture() and #phone.viewer.pending == 4, "a stalled browser is bounded to four frames")
+message(phone, c, "a,4")
+assert(phone.viewer.ack == 4 and #phone.viewer.pending == 0, "displaying the newest frame also retires skipped older frames")
+message(phone, c, "a,1"); assert(phone.viewer.ack == 4, "late acknowledgements cannot roll input back")
 for _ = 1, 60 do
   assert(phone:reserveCapture(), "60 Hz capture reservation must keep pace")
   now = now + 1 / 60
   phone:push(image, 240, 216); phone:poll(); message(phone, c, "a," .. phone.sequence)
 end
-assert(phone.sequence == 62, "asynchronous readback sustains sixty new frames per second")
+assert(phone.sequence == 64, "asynchronous readback sustains sixty new frames per second")
 for _ = 1, 60 do
   local captureAt = now
   now = now + .009
@@ -213,7 +229,13 @@ for _ = 1, 60 do
   phone:push(image, 240, 216); phone:poll(); message(phone, c, "a," .. phone.sequence)
   now = captureAt + 1 / 60
 end
-assert(phone.sequence == 122, "a nine-millisecond draw still leaves sixty capture slots per second")
+assert(phone.sequence == 124, "a nine-millisecond draw still leaves sixty capture slots per second")
+for i = 1, 120 do
+  now = now + 1 / 60 + (i % 2 == 0 and .002 or -.002)
+  assert(phone:reserveCapture(), "normal host scheduling jitter must not halve the stream cadence")
+  phone:push(image,240,216);phone:poll();message(phone,c,"a,"..phone.sequence)
+end
+assert(phone.sequence == 244, "capture keeps sixty Hz despite alternating early and late host ticks")
 runtime.data.compress = function() return "compressed" end
 c.limit = 0
 assert(phone:push(image, 240, 216))
@@ -325,8 +347,44 @@ phone:stop()
 assert(not phone.pin and not phone.secret and not phone.qr, "shutdown clears pairing material")
 local produced
 local async = { request=function() end, pop=function() local p=produced;produced=nil;return p end, stop=function() end }
-phone = assert(Phone.new(mod,runtime,sockets,async))
+phone = assert(Phone.new(mod,runtime,sockets,async,
+  { request=function() error("no unauthenticated video") end, pop=function() end, stop=function() end }))
 assert(not phone.pin and connect(phone,"12345678").closed, "pending entropy never falls back to a guessed code")
 produced = { error = "No secure entropy" }; phone:poll()
 assert(phone.error and not phone.listener and not phone:detected(), "entropy failure shuts the server down")
+phone = new(); c = connect(phone); phone:poll()
+local job, completed
+local request, pop = phone.video.request, phone.video.pop
+phone.video.request = function(_, value) job = value end
+phone.video.pop = function() local result = completed; completed = nil; return result end
+now = now + .02
+phone:push(image,240,216)
+assert(job and not phone.viewer.out and #phone.viewer.pending == 0, "compression never runs on the game thread")
+now = now + .02
+assert(phone:canCapture(), "GPU readback overlaps encoding the preceding image")
+phone:push(image,240,216)
+assert(phone.queuedImage and not phone:canCapture(), "one retained capture bounds a slow encoder")
+request(phone.video,job); completed = pop(phone.video)
+local marker = "heartbeat partly written"
+phone.viewer.out, phone.viewer.sent, c.limit = marker, 0, 0
+phone:poll()
+assert(phone.viewer.out == marker and phone.encoded and phone.sequence == 0, "encoding completion cannot corrupt a partially written control packet")
+c.limit = math.huge; phone:poll(); phone:poll()
+assert(phone.sequence == 1 and job.id == 2, "after the socket drains the next dependent image is encoded")
+local oldEpoch = job.epoch
+phone:drop(phone.viewer); phone.clients = {}
+completed = { epoch = oldEpoch, id = 2, body = "stale" }
+phone:poll(); c = connect(phone); phone:poll()
+assert(not c.output:find("stale",1,true) and not phone.encoding, "reconnection discards old worker results")
+phone:stop()
+phone = new(); c = connect(phone); phone:poll()
+phone:push(image,240,216);now=now+.12;message(phone,c,"a,1")
+assert(phone.viewer.window==8, "valid high-latency acknowledgements expand the bounded transport window")
+message(phone,c,"a,999")
+assert(phone.viewer.window==8 and phone.viewer.ack==1, "forged acknowledgements cannot alter transport pacing")
+phone:stop()
+local pairingStopped = false
+local noWorker = Phone.new(mod,runtime,sockets,
+  { request=function()end,pop=function()end,stop=function()pairingStopped=true end })
+assert(not noWorker and pairingStopped, "an unavailable video worker cleans up the pairing worker")
 print("PASS phone pairing, WebSocket framing, input validation, flow control, heartbeat and cleanup")

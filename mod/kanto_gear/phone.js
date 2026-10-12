@@ -115,7 +115,8 @@ function updateHeld() {
   held.clear(); for (const button of next) held.add(button);
   for (const button of buttons) button.classList.toggle("held", held.has(button.dataset.button));
 }
-let pendingPacket = null, decoding = false, paint = null, animation = 0;
+let pendingPackets = [], decoded = null, decoding = false, presentations = [], animation = 0;
+let timing = [], lastStamp = null, sourceClock = 0;
 let paintedAt = 0, fpsAt = 0, paintedFrames = 0, fps = 0;
 function fit() {
   if (!canvas.width || !canvas.height) return;
@@ -130,7 +131,8 @@ function stop(message) {
   if (socket) { socket.onclose = socket.onopen = socket.onerror = socket.onmessage = null; socket.close(); socket = null; }
   clearInterval(heartbeat);
   cancelAnimationFrame(animation);
-  pendingPacket = paint = null; decoding = false; animation = 0;
+  pendingPackets = []; decoded = null; presentations = []; decoding = false; animation = 0;
+  timing = []; lastStamp = null; sourceClock = 0;
   paintedAt = fpsAt = paintedFrames = fps = 0;
   frame = 0; pointer = null;
   authenticated = false; capability = "none"; controller.hidden = true; refreshControls();
@@ -144,11 +146,20 @@ function stop(message) {
   }
 }
 function paintFrame(current) {
+  if (animation) return;
   animation = requestAnimationFrame(() => {
     animation = 0;
     if (current !== generation || document.hidden) return;
-    if (paint) {
-      const image = paint; paint = null;
+    let due = -1, firstDue = -1;
+    const now = performance.now();
+    for (let i = 0; i < presentations.length; i++) if (!frame || presentations[i].due <= now) {
+      if (firstDue < 0) firstDue = i;
+      due = i;
+    }
+    // Preserve normal 60 Hz cadence through a small burst; skip stale frames after a stall.
+    if (frame && firstDue === 0 && now - presentations[0].due <= 34) due = 0;
+    if (due >= 0) {
+      const image = presentations[due]; presentations.splice(0, due + 1);
       const resized = canvas.width !== image.width || canvas.height !== image.height;
       if (resized) { canvas.width = image.width; canvas.height = image.height; }
       context.putImageData(new ImageData(image.pixels, image.width, image.height), 0, 0);
@@ -167,41 +178,93 @@ function paintFrame(current) {
       status.textContent = `Connected${fps ? ` · ${fps} FPS` : ""} · tap or swipe Gear`;
       send(`a,${frame}`);
     }
-    paintFrame(current);
+    if (presentations.length) paintFrame(current);
   });
+}
+function presentationTime(stamp, arrived) {
+  if (stamp === null) return performance.now();
+  sourceClock = lastStamp === null ? stamp : sourceClock + (stamp - lastStamp + 4294967296) % 4294967296;
+  lastStamp = stamp;
+  timing.push(arrived - sourceClock);
+  if (timing.length > 32) timing.shift();
+  const earliest = Math.min(...timing), jitter = Math.max(...timing) - earliest;
+  // A few milliseconds absorb Wi-Fi bursts; never build a long playback delay.
+  return sourceClock + earliest + Math.min(32, Math.max(4, jitter + 4));
 }
 async function decodeFrames(current) {
   if (decoding) return;
   decoding = true;
   try {
-    while (pendingPacket && current === generation) {
-      const packet = pendingPacket; pendingPacket = null;
+    while (pendingPackets.length && current === generation) {
+      const pending = pendingPackets.shift(), packet = pending.bytes;
       const data = new DataView(packet);
       if (data.byteLength < 12) throw Error("Invalid Gear frame");
-      const magic = data.getUint32(0), width = data.getUint16(4), height = data.getUint16(6), id = data.getUint32(8);
+      let magic = data.getUint32(0);
+      const timed = magic >= 0x4b473131 && magic <= 0x4b473136;
+      if (timed) magic -= 0x100;
+      const width = data.getUint16(4), height = data.getUint16(6), id = data.getUint32(8);
       const size = width * height * 4;
-      if (!width || !height || width > 240 || height > 216 || !id || data.byteLength > size + 12) throw Error("Invalid Gear frame");
-      let pixels;
-      if (magic === 0x4b473032) {
+      const copies = magic === 0x4b473035 || magic === 0x4b473036;
+      const delta = copies || magic === 0x4b473033 || magic === 0x4b473034, baseAt = timed ? 16 : 12;
+      const offset = baseAt + (delta ? 4 : 0);
+      const limit = delta ? size + height * (copies ? 30 : 6) + 2 : size;
+      if (!width || !height || width > 240 || height > 216 || !id || data.byteLength < offset
+          || data.byteLength > limit + offset) throw Error("Invalid Gear frame");
+      if (delta && (!decoded || decoded.id !== data.getUint32(baseAt) || decoded.width !== width || decoded.height !== height))
+        throw Error("Gear frame needs a matching previous image. Reconnect to refresh it.");
+      let body;
+      if (magic === 0x4b473032 || magic === 0x4b473033 || magic === 0x4b473035) {
         if (typeof DecompressionStream !== "function") throw Error("Please use a current browser for compressed Gear frames");
-        pixels = new Uint8ClampedArray(size);
-        const reader = new Blob([packet.slice(12)]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
-        let offset = 0;
+        body = new Uint8Array(limit);
+        const reader = new Blob([new Uint8Array(packet, offset)]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
+        let length = 0;
         try {
           for (;;) {
             const {value, done} = await reader.read();
             if (done) break;
-            if (offset + value.length > size) throw Error("Invalid Gear frame size");
-            pixels.set(value, offset); offset += value.length;
+            if (length + value.length > limit) throw Error("Invalid Gear frame size");
+            body.set(value, length); length += value.length;
           }
-          if (offset !== size) throw Error("Invalid Gear frame size");
+          body = body.subarray(0, length);
         } finally { await reader.cancel(); }
-      } else if (magic === 0x4b473031 && data.byteLength === size + 12) {
-        pixels = new Uint8ClampedArray(packet, 12);
+      } else if (magic === 0x4b473031 || magic === 0x4b473034 || magic === 0x4b473036) {
+        body = new Uint8Array(packet, offset);
       } else throw Error("Invalid Gear frame");
       if (current !== generation) return;
-      if (pendingPacket) continue;
-      paint = {pixels, width, height, id};
+      let pixels;
+      if (delta) {
+        if (body.length < 2) throw Error("Invalid Gear patch");
+        const patches = new DataView(body.buffer, body.byteOffset, body.byteLength), rows = patches.getUint16(0);
+        if (!rows || rows > height * (copies ? 3 : 1)) throw Error("Invalid Gear patch");
+        pixels = new Uint8ClampedArray(decoded.pixels);
+        let at = 2, previousRow = -1, previousEnd = 0;
+        for (let row = 0; row < rows; row++) {
+          if (at + (copies ? 10 : 6) > body.length) throw Error("Invalid Gear patch");
+          const y = patches.getUint16(at), x = patches.getUint16(at + 2), count = patches.getUint16(at + 4); at += 6;
+          const sy = copies ? patches.getUint16(at) : 65535, sx = copies ? patches.getUint16(at + 2) : 0;
+          if (copies) at += 4;
+          const offset = (y * width + x) * 4;
+          if ((!copies && y <= previousRow) || offset < previousEnd || y >= height || !count || x + count > width)
+            throw Error("Invalid Gear patch");
+          if (sy === 65535) {
+            if (at + count * 4 > body.length) throw Error("Invalid Gear patch");
+            pixels.set(body.subarray(at, at + count * 4), offset); at += count * 4;
+          } else {
+            if (sy >= height || sx + count > width) throw Error("Invalid Gear patch");
+            const source = (sy * width + sx) * 4;
+            pixels.set(decoded.pixels.subarray(source, source + count * 4), offset);
+          }
+          previousEnd = offset + count * 4; previousRow = y;
+        }
+        if (at !== body.length) throw Error("Invalid Gear patch");
+      } else {
+        if (body.length !== size) throw Error("Invalid Gear frame size");
+        pixels = new Uint8ClampedArray(body.buffer, body.byteOffset, body.byteLength);
+      }
+      decoded = {pixels, width, height, id};
+      presentations.push({...decoded, due: presentationTime(timed ? data.getUint32(12) : null, pending.arrived)});
+      if (presentations.length > 4) presentations.shift();
+      paintFrame(current);
     }
   } catch (error) {
     if (current === generation) stop(error.message || "Invalid Gear frame");
@@ -241,7 +304,8 @@ form.addEventListener("submit", event => {
       releaseAll(); capability = event.data.slice(2); refreshControls(); fit(); return;
     }
     if (!(event.data instanceof ArrayBuffer)) return;
-    pendingPacket = event.data;
+    if (pendingPackets.length >= 8) { stop("Gear video queue exceeded its limit. Reconnect to refresh it."); return; }
+    pendingPackets.push({bytes:event.data, arrived:performance.now()});
     void decodeFrames(current);
   };
   socket.onclose = () => stop("Disconnected. Scan the current QR or enter its code. Codes expire after 5 minutes and work once.");

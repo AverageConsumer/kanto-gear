@@ -7093,7 +7093,8 @@ return function(mod)
     if not home and displayRuntime.explorer.locationPreview then return false end
     if home and (displayRuntime.home.editing or displayRuntime.home.library) then return false end
     local phoneMode = THEME:displayMode(mod.options) == "phone"
-    if now + 0.000001 < state.nextAt or readbackPending and not phoneMode then return false end
+    local tolerance = phoneMode and .003 or .000001
+    if now + tolerance < state.nextAt or readbackPending and not phoneMode then return false end
     local rate = phoneMode and 60 or 30
     -- Keep the update phase instead of drifting when a host frame
     -- arrives just before the deadline. Missed ticks never cause catch-up work.

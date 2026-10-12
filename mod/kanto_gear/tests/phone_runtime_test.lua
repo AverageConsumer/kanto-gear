@@ -123,6 +123,10 @@ up(pump, "readbackPending", true, true)
 display.updateMapRefresh(now)
 T.check(math.abs(display.mapRefresh.nextAt - now - 1 / 60) < .000001,
   "phone map movement refreshes at sixty Hz even during a pending GPU readback")
+display.mapRefresh.nextAt = now + .002
+display.updateMapRefresh(now)
+T.check(math.abs(display.mapRefresh.nextAt - now - .002 - 1 / 60) < .000001,
+  "a slightly early host tick cannot skip a phone map refresh")
 phone.bridge.push = function() return phone.ready() end
 available = false; frame()
 T.eq(up(compose, "displayReady"), false, "disconnect immediately restores native menu eligibility")

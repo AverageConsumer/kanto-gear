@@ -1,9 +1,10 @@
--- One paired browser, independent lossless frames, and a two-frame transport window.
+-- One paired browser, lossless incremental video, and a bounded transport window.
 local bit = require("bit")
 local Phone = {}
 Phone.__index = Phone
 local HOLDER = "__kanto_gear_phone_display"
 local PORT, MAX_HTTP, MAX_INPUT = 8765, 4096, 128
+local VIDEO_WINDOW, MAX_VIDEO_WINDOW = 4, 8
 local BUTTONS = { up = true, down = true, left = true, right = true,
   a = true, b = true, start = true, select = true, l = true, r = true }
 local function u16(n) return string.char(math.floor(n / 256) % 256, n % 256) end
@@ -26,13 +27,13 @@ local function reply(status, body, kind)
     .. "\r\nConnection: close\r\n\r\n" .. body
 end
 
-function Phone.new(mod, runtime, socket, pairing)
+function Phone.new(mod, runtime, socket, pairing, video)
   socket = socket or require("socket")
   local previous = rawget(socket, HOLDER)
   if previous then previous:stop() end
   local self = setmetatable({ mod = mod, runtime = runtime, socket = socket,
     clients = {}, touches = {}, buttons = {},
-    sequence = 0,
+    sequence = 0, epoch = 0,
     page = assert(mod:read("phone.html")), script = assert(mod:read("phone.js")),
     nextFrame = 0, attempts = 0 }, Phone)
   if not pairing then
@@ -44,15 +45,34 @@ function Phone.new(mod, runtime, socket, pairing)
     pairing = result
   end
   self.pairing = pairing
+  if not video then
+    local started, result = pcall(function()
+      local requests, results = runtime.thread.newChannel(), runtime.thread.newChannel()
+      local worker = runtime.thread.newThread(assert(mod:read("phone_video_worker.lua")))
+      worker:start(requests, results, assert(mod:read("phone_video.lua")))
+      return {
+        request = function(_, job) requests:push(job) end,
+        pop = function()
+          local result = results:pop()
+          if result then return result end
+          if worker:getError() then return { error = "Phone video encoding failed." } end
+        end,
+        stop = function() requests:clear(); requests:push(false); results:clear() end,
+      }
+    end)
+    if not started then pairing:stop(); return nil, "Phone video background worker is unavailable." end
+    video = result
+  end
+  self.video = video
   local listener, err = (socket.tcp4 or socket.tcp)()
-  if not listener then pairing:stop(); return nil, err end
+  if not listener then pairing:stop(); video:stop(); return nil, err end
   listener:settimeout(0)
   -- Windows SO_REUSEADDR would allow another game instance to steal connections.
   if not (jit and jit.os == "Windows") then listener:setoption("reuseaddr", true) end
   local ok
   ok, err = listener:bind("0.0.0.0", PORT)
   if ok then ok, err = listener:listen(4) end
-  if not ok then listener:close(); pairing:stop(); return nil, err end
+  if not ok then listener:close(); pairing:stop(); video:stop(); return nil, err end
   self.listener = listener
   -- UDP connect chooses the local route without sending a packet or doing DNS.
   local route = socket.udp()
@@ -142,44 +162,62 @@ end
 function Phone:ready() return self:detected() and self.viewer.ack ~= nil end
 function Phone:canCapture()
   return self:detected() and not self.captureReserved and not self.viewer.out
-    and #self.viewer.pending < 2 and self:now() + .0001 >= self.nextFrame
+    and not self.queuedImage and #self.viewer.pending + ((self.encoding or self.encoded) and 1 or 0) < (self.viewer.window or VIDEO_WINDOW)
+    -- Host frames are not exact clock ticks. Keep their phase through small jitter.
+    and self:now() + .003 >= self.nextFrame
 end
 function Phone:reserveCapture(at)
   if not self:canCapture() then return false end
   -- Reserve at GPU request time so completing readback can start the next 60 Hz capture.
   self.nextFrame = math.max(self.nextFrame + 1 / 60, at or self:now())
-  self.captureReserved = true
+  self.captureReserved, self.captureAt = true, at or self:now()
   return true
 end
 function Phone:push(image, w, h)
   if not self.captureReserved and not self:reserveCapture() then return false end
   self.captureReserved = nil
-  if not self:detected() or self.viewer.out or #self.viewer.pending >= 2 then return false end
+  if not self:detected() or self.queuedImage then return false end
   if w < 1 or h < 1 or w > 240 or h > 216 then return false end
   local rgba = image:getString()
   if #rgba ~= w * h * 4 then return false end
-  local payload, magic = self.runtime.data.compress("string", "zlib", rgba, 1), "KG02"
-  if #payload >= #rgba then payload, magic = rgba, "KG01" end
-  local c = self.viewer
-  self.sequence = self.sequence % 4294967295 + 1
-  self.width, self.height = w, h
-  c.frame = self.sequence
-  c.out = packet(2, magic .. u16(w) .. u16(h) .. u32(c.frame) .. payload)
-  c.sent = 0
-  c.pending[#c.pending + 1] = { id = c.frame, at = self:now() }
+  self.queuedImage = { rgba = rgba, w = w, h = h, at = math.floor((self.captureAt or self:now()) * 1000) % 4294967296 }
   self:poll()
   return self:ready()
+end
+function Phone:encodeQueued()
+  local c, image = self.viewer, self.queuedImage
+  if not image or self.encoding or self.encoded or not c or c.out or #c.pending >= (c.window or VIDEO_WINDOW) then return end
+  image.id, image.epoch = self.sequence % 4294967295 + 1, self.epoch
+  self.encoding = { id = image.id, epoch = image.epoch, w = image.w, h = image.h }
+  self.queuedImage = nil
+  self.video:request(image)
+end
+function Phone:pollVideo()
+  self:encodeQueued()
+  local result = self.encoded or self.video:pop()
+  if not result then return end
+  local image = result.image or self.encoding
+  self.encoding, self.encoded = nil, nil
+  if result.error then self.error = result.error; self:stop(); return end
+  if not image or result.epoch ~= self.epoch or not self.viewer or not result.body then return end
+  local c = self.viewer
+  if c.out then result.image = image; self.encoded = result; return end
+  self.sequence, self.width, self.height = result.id, image.w, image.h
+  c.frame, c.out, c.sent = result.id, packet(2, result.body), 0
+  c.pending[#c.pending + 1] = { id = c.frame, at = self:now() }
 end
 function Phone:drop(c)
   c.sock:close()
   if self.viewer == c then
     self:releaseControls()
     self.viewer, self.touches = nil, { "cancel,0,0" }
-    self.captureReserved = nil
+    self.captureReserved, self.queuedImage, self.encoded = nil, nil, nil
+    self.epoch = self.epoch + 1
   end
 end
 function Phone:stop()
   if self.pairing then self.pairing:stop() end
+  if self.video then self.video:stop() end
   self.pin, self.secret, self.qr, self.expires = nil, nil, nil, nil
   self:releaseControls()
   for _, c in ipairs(self.clients) do self:drop(c) end
@@ -237,6 +275,7 @@ function Phone:message(c, text)
       return false
     end
     c.alive, c.pending, self.viewer = now, {}, c
+    self.epoch = self.epoch + 1
     c.controls = self:controls()
     -- The HTTP upgrade has already been fully written before auth is read.
     c.out, c.sent = packet(1, "ok"), 0
@@ -266,6 +305,13 @@ function Phone:message(c, text)
       for i, frame in ipairs(c.pending) do
         if id == frame.id then
           c.ack, c.alive = id, self:now()
+          c.roundTrips = c.roundTrips or {}
+          c.roundTrips[#c.roundTrips + 1] = c.alive - frame.at
+          if #c.roundTrips > 32 then table.remove(c.roundTrips,1) end
+          local floor = math.huge
+          for _, elapsed in ipairs(c.roundTrips) do floor = math.min(floor,elapsed) end
+          -- Cover latency, not an unbounded playback queue. Slow links still stop capture.
+          c.window = math.max(VIDEO_WINDOW,math.min(MAX_VIDEO_WINDOW,math.ceil(floor*60)+2))
           for _ = 1, i do table.remove(c.pending, 1) end
           break
         end
@@ -340,6 +386,8 @@ function Phone:poll()
   if not self.listener then return end
   self:updatePairing()
   if not self.listener then return end
+  self:pollVideo()
+  if not self.listener then return end
   local now = self:now()
   for _ = 1, 2 do
     if #self.clients >= 4 then break end
@@ -371,6 +419,7 @@ function Phone:poll()
     end
     if not ok then self:drop(c); table.remove(self.clients, i) end
   end
+  self:encodeQueued()
 end
 
 -- Pairing card on the main screen: a docked Silph Link panel in the active Gear skin.

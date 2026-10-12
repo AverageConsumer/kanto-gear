@@ -174,6 +174,7 @@ for (const file of ['phone.js','phone.html']) new TextDecoder('utf-8', {fatal:tr
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'privacy details fit narrow screens');
     await page.locator('.privacy summary').click();
   }
+  await require('./phone_video_cases.cjs')({page,pair});
   const unsupported = await browser.newContext();
   const noHaptics = await unsupported.newPage();
   await noHaptics.route('http://127.0.0.1:8765/**',route=>{

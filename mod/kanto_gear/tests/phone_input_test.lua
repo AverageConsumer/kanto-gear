@@ -10,7 +10,7 @@ for generation = 1, 3 do
   local input = setmetatable({}, { __index = Input })
   input:init(generation == 3)
   local game = { generation = generation, input = input }
-  local phone = setmetatable({ mod = api, buttons = {}, touches = {},
+  local phone = setmetatable({ mod = api, buttons = {}, touches = {}, epoch = 0,
     runtime = { timer = { getTime = function() return 0 end } } }, Phone)
   phone:setGame(game)
   local c = { alive = 0, sock = { close = function() end } }; phone.viewer = c
