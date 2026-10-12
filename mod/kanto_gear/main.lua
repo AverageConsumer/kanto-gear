@@ -14629,7 +14629,13 @@ return function(mod)
   mod.hooks:wrap("render.hud", function(next, hudGame, viewport)
     local result = next(hudGame, viewport)
     if active and THEME:displayMode(mod.options) == "phone" and displayRuntime.phoneStatus then
-      displayRuntime.Phone.drawStatus(displayRuntime.phoneStatus, G, viewport)
+      local look = displayRuntime.phoneLook or {}
+      displayRuntime.phoneLook = look
+      -- The pairing card follows the Gear skin; non-Gear themes use the dark Pokégear look.
+      look.skin = THEME.style == "hgss" and THEME.hgss.skinName or "pokegear"
+      if THEME.style == "hgss" then look.dark = THEME.hgss.dark == true else look.dark = THEME.style ~= "modern_light" end
+      look.font, look.small, look.large = THEME.hgssFont, THEME.hgssSmallFont, THEME.hgssLargeFont
+      displayRuntime.Phone.drawStatus(displayRuntime.phoneStatus, G, viewport, look)
     end
     return result
   end, -1000)

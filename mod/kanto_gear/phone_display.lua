@@ -373,41 +373,186 @@ function Phone:poll()
   end
 end
 
-function Phone.drawStatus(state, graphics, viewport)
+-- Pairing card on the main screen: a docked Silph Link panel in the active Gear skin.
+-- Drawn in whole "units" so every edge stays on the pixel grid at any window size.
+local SKINS = {
+  pokegear = {
+    light = { rim = "14483c", body = "f8f8f0", body2 = "e8efe6", band = "3a9780", band2 = "14483c",
+      bandInk = "f8f8f0", ink = "283036", muted = "55675d", line = "9abaa7", accent = "2f8c76", plate = "ffffff" },
+    dark = { rim = "0b0f17", body = "2d3748", body2 = "273041", band = "2c7f8f", band2 = "0f3640",
+      bandInk = "e8f4ef", ink = "e6edf2", muted = "9aa8b8", line = "3c4b5d", accent = "73c5a5", plate = "ffffff" },
+  },
+  cgear = {
+    light = { rim = "9fb1bf", body = "fbfcfd", body2 = "eef3f6", band = "1ea5d8", band2 = "f4f7f9",
+      bandInk = "ffffff", ink = "2a3640", muted = "5f6f7c", line = "cfd9e1", accent = "1894c4", plate = "ffffff" },
+    dark = { rim = "0d1116", body = "212a33", body2 = "1b232c", band = "36b4e0", band2 = "0d1116",
+      bandInk = "ffffff", ink = "e2edf4", muted = "8a9aa8", line = "3c4b59", accent = "4cc8f0", plate = "ffffff" },
+  },
+}
+local ERROR = "e05a74"
+local function rgb(hex, a)
+  return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255, a or 1
+end
+
+function Phone.drawStatus(state, graphics, viewport, theme)
   if state.ready and state:ready() then return end
-  graphics.push("all")
-  graphics.origin(); graphics.setScissor(); graphics.setShader()
-  state.font = state.font or graphics.newFont(12)
-  graphics.setFont(state.font)
-  local lines = state.error and { "PHONE DISPLAY UNAVAILABLE", state.error, "Switch display mode to try again." }
-    or { "SCAN TO PAIR", state.url, state.pin and "CODE: " .. state.pin or "Preparing secure pairing...",
-      "Private Wi-Fi only / unencrypted", "Code valid for 5 minutes / one use" }
-  local width, height = graphics.getDimensions()
+  theme = theme or {}
+  local G = graphics
+  G.push("all")
+  G.origin(); G.setScissor(); G.setShader()
+  local width, height = G.getDimensions()
   if viewport then width, height = viewport.width, viewport.height end
-  local qr = not state.error and state.qr
-  local scale = qr and math.min(4, math.floor((height - #lines * 17 - 40) / (qr.size + 8)),
-    math.floor((width - 32) / (qr.size + 8))) or 0
-  if scale < 2 then scale = 0 end
-  local qrWidth = scale > 0 and (qr.size + 8) * scale or 0
-  local boxWidth = math.max(1, math.min(width - 16, math.max(300, qrWidth + 24, state.font:getWidth(lines[2]) + 24)))
-  local boxHeight = #lines * 17 + 16 + (qrWidth > 0 and qrWidth + 8 or 0)
-  local x, y = math.floor((width - boxWidth) / 2), math.max(0, height - boxHeight - 8)
-  graphics.setColor(0.035, 0.05, 0.075, 0.97)
-  graphics.rectangle("fill", x, y, boxWidth, boxHeight)
-  graphics.setColor(1, 1, 1, 1)
-  graphics.printf(lines[1], x, y + 8, boxWidth, "center")
-  if qrWidth > 0 then
-    local qx, qy = math.floor((width - qrWidth) / 2), y + 29
-    graphics.rectangle("fill", qx, qy, qrWidth, qrWidth)
-    graphics.setColor(0, 0, 0, 1)
-    for _, run in ipairs(qr.runs) do
-      graphics.rectangle("fill", qx + (run[1] + 4) * scale, qy + (run[2] + 4) * scale, run[3] * scale, scale)
+  local skinName = theme.skin == "cgear" and "cgear" or "pokegear"
+  local c = SKINS[skinName][theme.dark == false and "light" or "dark"]
+  local cg = skinName == "cgear"
+  local now = state.now and state:now() or 0
+  local timer = rawget(_G, "love") and love.timer and love.timer.getTime() or now
+
+  -- Fonts: the Gear's own pixel fonts when the host provides them.
+  state.fallbackFont = state.fallbackFont or G.newFont(12)
+  local font = theme.font or state.fallbackFont
+  local small = theme.small or font
+  local large = theme.large or font
+  local u = math.max(1, math.floor(height / 270))         -- one panel pixel
+  local fs = math.max(1, math.floor(u / 2))               -- font scale (integer, crisp)
+  local function textW(f, s) return f:getWidth(s) * fs end
+  local function textH(f) return f:getHeight() * fs end
+  local function text(f, s, x, y, col, a)
+    G.setFont(f); G.setColor(rgb(col, a)); G.print(s, math.floor(x), math.floor(y), 0, fs, fs)
+  end
+  local function rect(col, x, y, w, h, r, a)
+    G.setColor(rgb(col, a)); G.rectangle("fill", x, y, w, h, r or 0, r or 0)
+  end
+
+  local failed = state.error ~= nil
+  local connecting = not failed and state.detected and state:detected()
+  local qr = not failed and not connecting and state.qr or nil
+  local title = failed and "PHONE DISPLAY UNAVAILABLE" or connecting and "Phone found" or "Waiting for your phone"
+  local hint = failed and tostring(state.error) or connecting and "Starting the Gear on your phone"
+    or qr and "Scan with the phone camera" or "Preparing secure pairing"
+  local code = not failed and not connecting and state.pin
+    and (state.pin:sub(1, 4) .. " " .. state.pin:sub(5, 8)) or nil
+  local remaining = state.expires and math.max(0, math.floor(state.expires - now)) or nil
+  local footer = failed and "Switch display mode to try again" or connecting and "Keep this game open"
+    or "Same Wi-Fi as this device"
+  local footer2 = not failed and not connecting and remaining and string.format("One-time code · expires in %d:%02d", math.floor(remaining / 60), remaining % 60) or nil
+
+  -- Size the QR as large as the side column allows, then fit the card to it.
+  local pad = 6 * u
+  local m, qrSide = 0, 0
+  local function measure()
+    qrSide = qr and (qr.size + 8) * m or 0
+    local inner = math.max(qrSide, textW(font, title .. "...") + 10 * u, textW(small, hint), textW(small, footer), footer2 and textW(small, footer2) or 0,
+      code and textW(large, code) or 0, textW(small, state.url or ""), 96 * u)
+    local h = textH(font) + 8 * u + pad                     -- header + top padding
+      + math.max(textH(font), 7 * u) + 2 * u + textH(small) + 6 * u -- title + hint
+      + (qr and qrSide + 6 * u or 0)
+      + (code and textH(small) + u + textH(large) + 4 * u or 0)
+      + (state.url and not failed and not connecting and textH(small) + 4 * u or 0)
+      + textH(small) * (footer2 and 2 or 1) + 3 * u + pad
+    return inner + 2 * pad, h
+  end
+  if qr then
+    m = math.max(3, math.floor(height * .36 / (qr.size + 8)))
+    while m > 2 do
+      local w, h = measure()
+      if h <= height - 12 * u and w <= (width >= 640 and width * .42 or width - 16 * u) then break end
+      m = m - 1
     end
-    graphics.setColor(1, 1, 1, 1)
   end
-  for i = 2, #lines do
-    graphics.printf(lines[i], x, y + 8 + (i - 1) * 17 + (qrWidth > 0 and qrWidth + 8 or 0), boxWidth, "center")
+  local cardW, cardH = measure()
+  cardW = math.min(cardW, width - 8 * u)
+  local x = math.floor(width - cardW - 8 * u)
+  local y = math.floor(math.max(6 * u, (height - cardH) / 2))
+  local r = cg and u or 3 * u
+
+  -- Shell: soft drop shadow, dark rim, body.
+  rect("000000", x + 2 * u, y + 3 * u, cardW, cardH, r, .28)
+  rect(c.rim, x - u, y - u, cardW + 2 * u, cardH + 2 * u, r + u)
+  rect(c.body, x, y, cardW, cardH, r)
+  rect(c.body2, x, y + cardH - 4 * u, cardW, 4 * u, r)
+
+  -- Header band.
+  local hh = textH(font) + 8 * u
+  local accent = failed and ERROR or c.accent
+  if cg then
+    rect(c.band2, x, y, cardW, hh, r)
+    local slash = textW(font, "SILPH LINK") + 14 * u
+    G.setColor(rgb(failed and ERROR or c.band))
+    G.polygon("fill", x, y, x + slash, y, x + slash - 4 * u, y + hh, x, y + hh)
+    G.setColor(rgb(failed and ERROR or c.band, .45))
+    G.polygon("fill", x + slash + 2 * u, y, x + slash + 5 * u, y, x + slash + u, y + hh, x + slash - 2 * u, y + hh)
+    rect(failed and ERROR or c.band, x, y + hh - u, cardW, u)
+    rect(c.bandInk, x + 4 * u, y + 4 * u, u, hh - 8 * u)
+    text(font, "SILPH LINK", x + 7 * u, y + 4 * u, c.bandInk)
+  else
+    rect(failed and ERROR or c.band, x, y, cardW, hh, r)
+    rect(failed and ERROR or c.band2, x, y + math.floor(hh / 2), cardW, math.ceil(hh / 2))
+    G.setColor(rgb(failed and ERROR or c.band2))
+    local tooth = 4 * u
+    for i = 0, math.floor(cardW / tooth) - 1 do
+      local tx = x + i * tooth
+      G.polygon("fill", tx, y + hh, tx + tooth, y + hh, tx + tooth / 2, y + hh + 2 * u)
+    end
+    rect("ffffff", x + 5 * u, y + math.floor(hh / 2) - u, 2 * u, 2 * u, u, .55)
+    text(font, "SILPH LINK", x + 10 * u, y + 4 * u, c.bandInk)
   end
-  graphics.pop()
+  -- Signal bars, top right: they fill in turn while waiting (cheap, one cycle per second).
+  local step = failed and 0 or connecting and 3 or math.floor(timer * 3) % 4
+  for i = 1, 3 do
+    local bh = (i + 1) * u
+    local bx, by = x + cardW - (5 + (4 - i) * 3) * u, y + 4 * u + (4 * u - bh) + math.floor((textH(font) - 4 * u) / 2)
+    rect(cg and (failed and ERROR or c.accent) or c.bandInk, bx, by, 2 * u, bh, 0, i <= step and 1 or .3)
+  end
+
+  -- Body.
+  local cy = y + hh + pad
+  local cx = x + pad
+  local innerW = cardW - 2 * pad
+  -- Little phone next to the title: body, screen, speaker slit.
+  local ph = math.max(textH(font), 7 * u)
+  rect(c.ink, cx, cy, 7 * u, ph, u)
+  rect(accent, cx + u, cy + 2 * u, 5 * u, ph - 5 * u)
+  rect(c.body, cx + 2 * u, cy + ph - 2 * u, 3 * u, u)
+  local dots = (failed or connecting) and "" or string.rep(".", math.floor(timer * 2) % 4)
+  text(font, title .. dots, cx + 10 * u, cy + (ph - textH(font)) / 2, failed and ERROR or c.ink)
+  cy = cy + ph + 2 * u
+  text(small, hint, cx, cy, c.muted)
+  cy = cy + textH(small) + 6 * u
+
+  if qr then
+    local qx = math.floor(x + (cardW - qrSide) / 2)
+    rect(cg and accent or c.line, qx - u, cy - u, qrSide + 2 * u, qrSide + 2 * u, cg and 0 or 2 * u)
+    rect(c.plate, qx, cy, qrSide, qrSide, cg and 0 or u)
+    G.setColor(0, 0, 0, 1)
+    for _, run in ipairs(qr.runs) do
+      G.rectangle("fill", qx + (run[1] + 4) * m, cy + (run[2] + 4) * m, run[3] * m, m)
+    end
+    cy = cy + qrSide + 6 * u
+  end
+  if code then
+    text(small, "OR ENTER CODE", cx, cy, c.muted)
+    cy = cy + textH(small) + u
+    text(large, code, x + (cardW - textW(large, code)) / 2, cy, c.ink)
+    cy = cy + textH(large) + 4 * u
+  end
+  if state.url and not failed and not connecting then
+    local url = state.url:gsub("^http://", "")
+    text(small, url, x + (cardW - textW(small, url)) / 2, cy, accent)
+    cy = cy + textH(small) + 4 * u
+  end
+  local fy = y + cardH - pad - textH(small) * (footer2 and 2 or 1)
+  rect(c.line, cx, fy - 3 * u, innerW, math.max(1, math.floor(u / 2)))
+  text(small, footer, x + (cardW - textW(small, footer)) / 2, fy, failed and ERROR or c.muted)
+  if footer2 then text(small, footer2, x + (cardW - textW(small, footer2)) / 2, fy + textH(small), c.muted) end
+
+  if cg then -- corner brackets
+    local L, T = 6 * u, u
+    for _, p in ipairs({ { x - 2 * u, y + cardH + u, 1, -1 }, { x + cardW + 2 * u, y + cardH + u, -1, -1 } }) do
+      rect(c.band, p[3] > 0 and p[1] or p[1] - L, p[2] - T, L, T)
+      rect(c.band, p[3] > 0 and p[1] or p[1] - T, p[2] - L, T, L)
+    end
+  end
+  G.pop()
 end
 return Phone

@@ -54,27 +54,48 @@ local function new()
   }
   return assert(Phone.new(mod, runtime, sockets, pairing))
 end
-local labels, box = {}, nil
+local labels, boxes = {}, {}
 local graphics = {
   push = function() end, pop = function() end, origin = function() end,
   setScissor = function() end, setShader = function() end, setColor = function() end,
-  newFont = function() return { getWidth = function(_, s) return #s * 6 end } end,
+  newFont = function() return { getWidth = function(_, s) return #s * 6 end, getHeight = function() return 12 end } end,
   setFont = function() end, getDimensions = function() return 1240, 1080 end,
   setCanvas = function() error("pairing HUD must preserve the host render target") end,
-  rectangle = function(_, x, y, w, h) if not box then box = { x = x, y = y, w = w, h = h } end end,
-  printf = function(s, x, y, w, align)
-    assert(align == "center"); labels[#labels + 1] = { s = s, x = x, y = y, w = w }
-  end,
+  rectangle = function(_, x, y, w, h) boxes[#boxes + 1] = { x = x, y = y, w = w, h = h } end,
+  polygon = function() end,
+  print = function(s, x, y) labels[#labels + 1] = { s = s, x = x, y = y } end,
 }
+local function shown(text)
+  for _, label in ipairs(labels) do if label.s:find(text, 1, true) then return true end end
+end
 local status = new()
 Phone.drawStatus(status, graphics, { width = 640, height = 576 })
-assert(#labels == 5 and labels[2].s == status.url and labels[3].s:find(status.pin, 1, true))
-assert(box.x * 2 + box.w == 640 and box.y + box.h == 568,
-  "pairing HUD is centered in the current viewport with an eight-pixel bottom gap")
+local card = boxes[3] -- shadow, rim, then the card body
+assert(shown((status.url:gsub("^http://", ""))) and shown(status.pin:sub(1, 4)) and shown(status.pin:sub(5, 8)),
+  "pairing card shows the address and the eight-digit code")
+assert(card.x > 320 and card.x + card.w <= 640 - 8 and card.y >= 0 and card.y + card.h <= 576,
+  "pairing card is docked to the right edge inside the current viewport")
 labels = {}; Phone.drawStatus({ ready = function() return true end }, graphics)
 assert(#labels == 0, "an acknowledged viewer hides the pairing HUD")
 labels = {}; Phone.drawStatus({ error = "no socket" }, graphics)
-assert(labels[1].s == "PHONE DISPLAY UNAVAILABLE", "server failures remain visible")
+assert(shown("PHONE DISPLAY UNAVAILABLE") and shown("no socket"), "server failures remain visible")
+local function pixelFont(width, height)
+  return { getWidth = function(_, s) return #s * width end, getHeight = function() return height end }
+end
+local preview = { url = status.url, pin = status.pin, expires = 300, now = function() return 0 end,
+  qr = { size = 37, runs = { { 0, 0, 37 } } } }
+for _, size in ipairs({ {320,288}, {640,576}, {1280,720}, {1920,1080} }) do
+  for _, skin in ipairs({ "pokegear", "cgear" }) do for _, dark in ipairs({ false, true }) do
+    boxes, labels = {}, {}
+    Phone.drawStatus(preview, graphics, { width = size[1], height = size[2] },
+      { skin = skin, dark = dark, font = pixelFont(6,7), small = pixelFont(5,7), large = pixelFont(12,14) })
+    local body = boxes[3]
+    assert(body.x >= 0 and body.y >= 0 and body.x + body.w <= size[1] and body.y + body.h <= size[2],
+      "pairing card fits small and large viewports in every skin")
+    for _, box in ipairs(boxes) do assert(box.w >= 0 and box.h >= 0, "pixel icons never have negative dimensions") end
+    assert(shown("expires in 5:00"), "expiry stays visible alongside the QR and PIN")
+  end end
+end
 status:stop()
 local function request(path, origin)
   return "GET " .. path .. " HTTP/1.1\r\nHost: 127.0.0.1:8765\r\n"
