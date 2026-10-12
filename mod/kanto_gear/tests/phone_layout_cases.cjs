@@ -127,11 +127,13 @@ module.exports = async function layoutCases({page, touches, center, pair, out}) 
           invalid:visibleModules().filter(el=>!validPlacement(el)).map(el=>el.dataset.module),
           overflow:document.documentElement.scrollWidth>innerWidth || document.documentElement.scrollHeight>innerHeight,
           bar:document.getElementById('layout-editor').getBoundingClientRect().toJSON(),
+          tools:[...document.querySelectorAll('#layout-editor button, #layout-editor select, #layout-editor input')].filter(el=>el.getClientRects().length).map(el=>el.getBoundingClientRect().toJSON()),
           canvas:canvas.getBoundingClientRect().toJSON(), slot:screen.getBoundingClientRect().toJSON()
         }));
         assert.deepEqual(geometry.invalid,[], `${theme}/${preset}/${viewport.width}: preset has no collisions`);
         assert(!geometry.overflow, 'editor does not overflow the viewport');
         assert(geometry.bar.left>=0 && geometry.bar.right<=viewport.width && geometry.bar.top>=0 && geometry.bar.bottom<=viewport.height, 'toolbar fits');
+        assert(geometry.tools.every(r=>r.left>=geometry.bar.left && r.right<=geometry.bar.right && r.top>=geometry.bar.top && r.bottom<=geometry.bar.bottom), 'every toolbar control stays inside the bar');
         const c=geometry.canvas,s=geometry.slot;
         assert(Math.abs(c.width/c.height-240/216)<.01 && Math.abs(c.x-s.x-(s.width-c.width)/2)<1 && Math.abs(c.y-s.y-(s.height-c.height)/2)<1, 'custom Gear is proportional and centered');
         if (preset==='classic') await page.screenshot({path:path.join(out,`editor-${theme}-${viewport.width}.png`)});

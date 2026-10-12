@@ -738,7 +738,7 @@ body:has(#controller[data-layout="custom"]:not([hidden])) .info { display: none;
 /* ── Layout editor (JS shows #layout-editor and sets #controller[data-editing]) ── */
 .editor {
   position: absolute; z-index: 6; top: 6px; left: 50%; translate: -50% 0; max-width: calc(100% - 116px);
-  display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; border-radius: 999px;
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; border-radius: 999px;
   background: linear-gradient(180deg, var(--band), var(--band-2)); color: var(--band-ink);
   box-shadow: 0 0 0 2px var(--rim), 0 6px 16px rgb(0 0 0 / .3); font-size: 13px; font-weight: 650;
 }
