@@ -122,3 +122,4 @@ tests/pokegear_native_test.lua
 tests/held_item_test.lua
 tests/explorer_items_cases.lua
 tests/explorer_items3_test.lua
+tests/gen3_module_cache_test.lua

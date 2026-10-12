@@ -5533,7 +5533,7 @@ return function(mod)
   end
 
   function displayRuntime.startMenu()
-    local nativeTop = displayRuntime.gen3Ui and require("src.ui.game3.stack").top()
+    local nativeTop = displayRuntime.gen3Ui and displayRuntime.gen3Ui.Stack.top()
       or game and game.stack and game.stack:top()
     displayRuntime.nativeDexView = THEME.style == "hgss" and displayRuntime.NativeDex.project(nativeTop, game,
       displayRuntime.gen3Ui and 3 or compat.isGen2() and 2 or 1, displayRuntime.nativeDexView)
@@ -14432,7 +14432,7 @@ return function(mod)
         local menu = displayRuntime.gen3Ui:list(battle)
         local summary = compat.isScreen(top, "summary") and compat.summary.supports(top, game)
         if top ~= raw and not (top and top.isTextBox) and not menu and not summary then return false end
-        if require("src.ui.game3.stat_growth").isOpen() and not (menu and menu.nativeStats) then return false end
+        if displayRuntime.gen3Ui.Stats.isOpen() and not (menu and menu.nativeStats) then return false end
         if kind:sub(1, 7) == "screen:" then
           local layer = displayRuntime.gen3Ui.Stack.top()
           return layer and layer.id == kind:sub(8) and (menu ~= nil or summary ~= nil) or false

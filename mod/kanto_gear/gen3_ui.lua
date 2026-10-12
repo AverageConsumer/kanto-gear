@@ -6,7 +6,8 @@ UI.__index = UI
 
 function UI.new(adapter, layout, choicePage, namingPage, storagePage, itemPage, movePage, keyboardLayout, navigation)
   return setmetatable({ adapter = adapter, layout = layout, choicePage = choicePage, namingPage = namingPage, storagePage = storagePage, itemPage = itemPage, movePage = movePage, keyboardLayout = keyboardLayout, navigation = navigation, Stack = require("src.ui.game3.stack"),
-    Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice") }, UI)
+    Message = require("src.ui.game3.message"), Choice = require("src.ui.game3.choice"),
+    Stats = require("src.ui.game3.stat_growth") }, UI)
 end
 
 function UI:navigate(native, battle, input)
@@ -531,7 +532,7 @@ end
 
 function UI:list(battle)
   self:pumpPokeblockSelection()
-  local stats = require("src.ui.game3.stat_growth")
+  local stats = self.Stats
   if stats.isOpen() then
     local mon, page, oldStats, newStats, callback = stats._mon, stats._page, stats._oldStats, stats._newStats, stats._onDone
     local key = tostring(mon) .. ":stats:" .. page .. ":" .. tostring(oldStats) .. ":" .. tostring(newStats) .. ":" .. tostring(callback)

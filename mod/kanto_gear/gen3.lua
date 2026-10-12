@@ -551,6 +551,9 @@ end
 -- claim a legacy screenId: only explicitly adapted screens may own input.
 function Gen3:gameView()
   if self.view then return self.view end
+  local maps = require("src.core.game3.map")
+  local nativeStack = require("src.ui.game3.stack")
+  local summarySkin
   local world = { player = require("src.core.game3.player"), map = {} }
   if self.profile.clock and self.profile.clock.rtc then
     local rtc = require("src.core.game3.rtc")
@@ -569,13 +572,12 @@ function Gen3:gameView()
   self.syncScreens = function()
     clear(stack.states)
     if self.session and self.game.phase == "field" then
-      local maps = require("src.core.game3.map")
       world.map.id = maps.current or self.session.map
       stack.states[1] = world
       local battle = self:battleState()
       if battle then stack.states[#stack.states + 1] = battle end
       local callOpen = false
-      for _, layer in ipairs(require("src.ui.game3.stack")._layers) do
+      for _, layer in ipairs(nativeStack._layers) do
         local state = layers[layer]
         if not state then
           state = { screenId = "Gen3:" .. tostring(layer.id), nativeModal = true }
@@ -591,9 +593,9 @@ function Gen3:gameView()
             state.pages = 4
             state.moveDetail = native._state ~= "normal"
           elseif self.profile.id == "emerald" then
-            local skin = require("src.ui.game3.rse.summary_menu")
-            state.page, state.pages = skin.page(native) + 1, 4
-            state.moveDetail = skin.detail(native)
+            summarySkin = summarySkin or require("src.ui.game3.rse.summary_menu")
+            state.page, state.pages = summarySkin.page(native) + 1, 4
+            state.moveDetail = summarySkin.detail(native)
           end
         end
         state.phase = layer.mod and layer.mod.mode
