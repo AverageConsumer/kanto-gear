@@ -94,8 +94,10 @@ function Pss:refresh()
       if type(entry) == "table" and entry.id and entry.id ~= me.id
           and entry.online ~= false and not seen[entry.id] then
         seen[entry.id] = true
+        local peer = session and session.peers and session.peers[entry.id]
         rows[#rows + 1] = { id = entry.id, name = clean(entry.name),
           version = clean(entry.version or (entry.profile or {}).version),
+          gender = (entry.avatar or entry.profile or {}).gender or (peer and peer.gender),
           where = clean(entry.where), status = clean(entry.status),
           ready = session and session:peerReady(entry.id) or false,
           canInvite = session and session:canInvite(entry.id) or false }
@@ -107,6 +109,7 @@ function Pss:refresh()
     for id, peer in pairs(session.peers) do
       if not seen[id] then
         rows[#rows + 1] = { id = id, name = clean(peer.name), version = peer.game,
+          gender = peer.gender or (peer.avatar or {}).gender,
           where = "union", status = peer.status, ready = session:peerReady(id),
           canInvite = session:canInvite(id) }
       end

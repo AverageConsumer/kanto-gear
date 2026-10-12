@@ -632,7 +632,8 @@ return function(H, ui, K)
     -- trainer whose sprite this game lacks keeps the DS-device stand-in
     for i, dx in ipairs({ lx, rx }) do
       local cx, foot = dx + floor(dw / 2), ly + dh
-      local who = i == 1 and nil or (peer or false)
+      local who
+      if i ~= 1 then who = peer or false end
       if room >= 34 then floorShadow(self, cx, foot - 1, 22) end
       if not (room >= 34 and trainerSprite(self, who, cx, foot, min(32, room - 2), i == 1 and "right" or "left")) then
         G.push(); G.translate(dx, ly); G.scale(scale, scale)

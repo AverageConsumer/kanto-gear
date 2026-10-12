@@ -1,4 +1,5 @@
 return function(T, display, tap)
+  assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/pss_trainer_cases.lua"))()(T, display)
   local Client = require("src.online.Client")
   local before = Client.state()
   T.eq(display.storeEntry(display.storeById.pss).state, "get", "PSS starts in Silph Store")

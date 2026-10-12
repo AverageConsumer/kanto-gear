@@ -7571,10 +7571,8 @@ return function(mod)
     end,
   })
   do
-  -- Silph Connect shows real trainers: you as your own overworld sprite, and a
-  -- peer as their game's player character when this game ships that sprite
-  -- (Red and Gold live in Gen 2, Brendan/May and Red/Leaf in their Gen 3
-  -- family). Returns false so the skin can fall back to its own glyph.
+  -- Own trainer follows the active game. Peers use Recomp's version-scoped
+  -- imported avatars; missing imports fall back to the skin's person glyph.
   local PSS_FAMILY = { red = "kanto", blue = "kanto", yellow = "kanto", green = "kanto",
     gold = "johto", silver = "johto", crystal = "johto",
     firered = "frlg", leafgreen = "frlg", ruby = "rse", sapphire = "rse", emerald = "rse" }
@@ -7614,10 +7612,42 @@ return function(mod)
       0, flip and -k or k, k)
     return true
   end
+  local avatarsOk, avatars = pcall(require, "src.online.union.Avatars")
+  local importedTrainers = {}
+  local function drawImported(row, x, y, maxH, facing)
+    local gender = (row.gender == 1 or row.gender == "female" or row.gender == "F") and 1 or 0
+    local peer = { game = tostring(row.version or ""):lower(), gender = gender }
+    local key = avatars.key(peer)
+    local spr = importedTrainers[key]
+    if spr == nil then
+      local ok, result = pcall(function()
+        local entry = avatars.resolve(peer, peer.game)
+        if not entry or entry.standin or entry.hostStandin then return nil end
+        local image, quads, data = avatars.image(entry), avatars.quads(entry), avatars.imageData(entry)
+        if not image or not quads or not data then return nil end
+        if entry.layout == "gb" then
+          -- The raw GB sheet is opaque; match Recomp's OBJ colour-zero key
+          -- for visible bounds without changing the shared source ImageData.
+          data = data:clone()
+          data:mapPixel(function(_, _, r, g, b, a)
+            return r, g, b, r > 0.83 and 0 or a
+          end)
+        end
+        return { image = image, quads = quads, imageData = data, entry = entry }
+      end)
+      spr = ok and result or false
+      importedTrainers[key] = spr
+    end
+    if not spr then return false end
+    local frame, flip = avatars.pose(spr.entry, facing, false, false)
+    local quad = spr.quads[frame]
+    return quad and drawCropped(spr, quad, x, y, maxH, flip) or false
+  end
   displayRuntime.pss.drawTrainer = function(row, x, y, maxH, facing)
     facing, maxH = facing or "down", maxH or 16
     local family = row and PSS_FAMILY[tostring(row.version or ""):lower()]
     if row and not family then return false end
+    if row and avatarsOk then return drawImported(row, x, y, maxH, facing) end
     if displayRuntime.gen3 then
       local ok, sprites = pcall(require, "src.core.game3.ow_sprites")
       if not ok then return false end

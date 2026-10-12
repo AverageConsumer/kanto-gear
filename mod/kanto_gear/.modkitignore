@@ -14,6 +14,7 @@ tests/gen3_online_test.lua
 tests/pss_gen1_test.lua
 tests/gen3_pss_trainer_test.lua
 tests/pss_runtime_cases.lua
+tests/pss_trainer_cases.lua
 tests/pss_test.lua
 tests/pss_session_test.lua
 tests/pss_localization_test.lua

@@ -52,7 +52,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display)
   T.eq(reads,512,"repeated draws never rescan pixels")
   T.eq(uploads,1,"same crop reuses its quad")
   flip=true
-  T.check(draw({version=os.getenv("POKEPORT_VERSION")},36,80,38),"peer uses native trainer")
+  T.check(draw(nil,36,80,38),"own trainer fits the large seat")
   call=calls[#calls]
   T.eq(call[3],42,"mirrored trainer remains centered")
   T.eq(call[4],50,"full trainer centered vertically in larger seat")
