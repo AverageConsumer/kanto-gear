@@ -14595,6 +14595,7 @@ return function(mod)
         if not displayRuntime.phone then mod.log:warn("phone display: %s", displayRuntime.phoneStatus.error) end
       end
       if displayRuntime.phone then
+        displayRuntime.phone:setGame(displayRuntime.sourceGame)
         displayRuntime.phone:poll()
         displayReady = displayRuntime.phone:ready()
         if displayRuntime.phoneConnected ~= displayRuntime.phone:detected() then
@@ -14699,6 +14700,7 @@ return function(mod)
     displayRuntime.legacyRegion, displayRuntime.regionCursor = nil, {}
     game = payload.game
     displayRuntime.sourceGame = game
+    if displayRuntime.phone then displayRuntime.phone:setGame(game) end
     local spriteProvider = game.generation ~= 3 and mod.find("g9-battle-sprites")
     local frontArt = spriteProvider and spriteProvider.exports and spriteProvider.exports.frontArt
     displayRuntime.frontArt = type(frontArt) == "function" and frontArt or nil

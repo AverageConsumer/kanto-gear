@@ -4,6 +4,8 @@ local Phone = {}
 Phone.__index = Phone
 local HOLDER = "__kanto_gear_phone_display"
 local PORT, MAX_HTTP, MAX_INPUT = 8765, 4096, 128
+local BUTTONS = { up = true, down = true, left = true, right = true,
+  a = true, b = true, start = true, select = true, l = true, r = true }
 local function u16(n) return string.char(math.floor(n / 256) % 256, n % 256) end
 local function u32(n) return u16(math.floor(n / 65536)) .. u16(n % 65536) end
 local function packet(op, body)
@@ -25,9 +27,11 @@ function Phone.new(mod, runtime, socket)
   socket = socket or require("socket")
   local previous = rawget(socket, HOLDER)
   if previous then previous:stop() end
-  local self = setmetatable({ runtime = runtime, socket = socket, clients = {}, touches = {},
+  local self = setmetatable({ mod = mod, runtime = runtime, socket = socket,
+    clients = {}, touches = {}, buttons = {},
     sequence = 0, pin = string.format("%08d", runtime.math.random(0, 99999999)),
-    page = assert(mod:read("phone.html")), nextFrame = 0, attempts = 0 }, Phone)
+    page = assert(mod:read("phone.html")), script = assert(mod:read("phone.js")),
+    nextFrame = 0, attempts = 0 }, Phone)
   local listener, err = (socket.tcp4 or socket.tcp)()
   if not listener then return nil, err end
   listener:settimeout(0)
@@ -58,6 +62,43 @@ function Phone.new(mod, runtime, socket)
 end
 
 function Phone:now() return self.runtime.timer.getTime() end
+function Phone:controls()
+  local input = self.game and self.game.input
+  local scripted = self.mod.input
+  local direct = input and input.sourcePress and input.sourceRelease
+  if not input or not (direct or scripted and scripted.press and scripted.release) then return "none" end
+  -- The current public mod.input API accepts eight GB buttons. GBA shoulders
+  -- use the same source bookkeeping directly until that whitelist expands.
+  return self.game.generation == 3 and direct and "gba" or "gb"
+end
+function Phone:releaseControls()
+  for button, held in pairs(self.buttons) do
+    if held.input then held.input:sourceRelease(button, held.source)
+    else self.mod.input:release(held.token) end
+    self.buttons[button] = nil
+  end
+end
+function Phone:setGame(game)
+  if self.game == game then return end
+  self:releaseControls()
+  self.game = game
+  if self.viewer then self.viewer.controls = self:controls() end
+end
+function Phone:button(button, down)
+  if down == (self.buttons[button] ~= nil) then return end
+  if not down then
+    local held = self.buttons[button]
+    if held.input then held.input:sourceRelease(button, held.source)
+    else self.mod.input:release(held.token) end
+    self.buttons[button] = nil
+  elseif button ~= "l" and button ~= "r" and self.mod.input and self.mod.input.press and self.mod.input.release then
+    self.buttons[button] = { token = self.mod.input:press(self.game, button) }
+  else
+    local input, source = self.game.input, "kanto_gear:phone:" .. button
+    input:sourcePress(button, source)
+    self.buttons[button] = { input = input, source = source }
+  end
+end
 function Phone:detected()
   local c = self.viewer
   return c ~= nil and self:now() - c.alive < 1.5
@@ -96,11 +137,13 @@ end
 function Phone:drop(c)
   c.sock:close()
   if self.viewer == c then
+    self:releaseControls()
     self.viewer, self.touches = nil, { "cancel,0,0" }
     self.captureReserved = nil
   end
 end
 function Phone:stop()
+  self:releaseControls()
   for _, c in ipairs(self.clients) do self:drop(c) end
   self.clients = {}
   if self.listener then self.listener:close(); self.listener = nil end
@@ -119,6 +162,8 @@ function Phone:request(c, header)
   if method ~= "GET" or not host:match("^%d+%.%d+%.%d+%.%d+:8765$") then return false end
   if path == "/" then
     c.out = reply("200 OK", self.page, "text/html; charset=utf-8")
+  elseif path == "/phone.js" then
+    c.out = reply("200 OK", self.script, "text/javascript; charset=utf-8")
   elseif path:match("^/gear%?pin=%d%d%d%d%d%d%d%d$") then
     if headers.origin ~= "http://" .. host then return false end
     local now = self:now()
@@ -139,6 +184,7 @@ function Phone:request(c, header)
       c.out = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade"
         .. "\r\nSec-WebSocket-Accept: " .. accept .. "\r\n\r\n"
       c.ws, c.alive, c.pending, self.viewer = true, now, {}, c
+      c.controls = self:controls()
     end
   else c.out = reply("404 Not Found", "Not found.") end
   c.sent = 0
@@ -146,6 +192,22 @@ function Phone:request(c, header)
 end
 
 function Phone:message(c, text)
+  if text == "release" then
+    self:releaseControls()
+    c.touch, self.touches = false, { "cancel,0,0" }
+    return true
+  end
+  local button, down = text:match("^b,(%a+),([01])$")
+  if button then
+    if not BUTTONS[button] then return false end
+    local controls = self:controls()
+    if self.viewer == c and self:detected() and controls ~= "none"
+        and (button ~= "l" and button ~= "r" or controls == "gba") then
+      -- Game input never waits for a Gear repaint or a frame acknowledgement.
+      self:button(button, down == "1")
+    end
+    return true
+  end
   local kind, id = text:match("^([ha]),(%d+)$")
   if kind then
     id = tonumber(id)
@@ -239,6 +301,9 @@ function Phone:poll()
     local ok = now - (c.alive or c.opened) < (c.ws and 1.5 or 3)
       and not (c.pending and c.pending[1] and now - c.pending[1].at > 1)
     if ok and (c.ws or not c.out) then ok = self:read(c) end
+    if ok and c.controls and not c.out then
+      c.out, c.sent, c.controls = packet(1, "c," .. c.controls), 0, nil
+    end
     if ok and c.heartbeat and not c.out then c.out, c.sent, c.heartbeat = packet(1, "h"), 0, nil end
     if ok and c.out then
       local last, err, partial = c.sock:send(c.out, c.sent + 1, math.min(#c.out, c.sent + 262144))

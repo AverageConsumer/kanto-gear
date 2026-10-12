@@ -2,168 +2,104 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Kanto Gear · Phone prototype</title>
+<title>Kanto Gear · Wi-Fi Controller</title>
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: #090d14; color: #eef2f8; font: 16px system-ui, sans-serif; }
-  body { display: grid; grid-template-rows: 1fr auto; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); gap: 12px; }
+  html, body { margin: 0; height: 100%; }
+  body { --bg: #101e23; --panel: #1d3438; --ink: #edf6ee; --accent: #7bceb4;
+    --edge: #518174; background: var(--bg); color: var(--ink); font: 16px system-ui, sans-serif;
+    height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); gap: 8px; }
+  body[data-theme="pokegear-light"] { --bg: #d1ead8; --panel: #f4f6e9; --ink: #203f36; --accent: #4c9b81; --edge: #557e6b; }
+  body[data-theme="cgear-dark"] { --bg: #101720; --panel: #202d38; --ink: #edf6ff; --accent: #57c7eb; --edge: #42718c; }
+  body[data-theme="cgear-light"] { --bg: #e9f2f6; --panel: #fff; --ink: #213d51; --accent: #138bb4; --edge: #7ca2b9; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   main { display: grid; place-items: center; min-height: 0; min-width: 0; }
   form { width: min(100%, 340px); text-align: center; }
   h1 { margin: 0 0 8px; font-size: 24px; } p { line-height: 1.5; }
-  label { display: block; margin-bottom: 8px; }
-  input, button { width: 100%; min-height: 48px; border: 1px solid #566276; border-radius: 8px; font: inherit; text-align: center; }
-  input { background: #182130; color: inherit; letter-spacing: 4px; }
-  button { margin-top: 12px; background: #8fbb76; color: #10210b; cursor: pointer; font-weight: 650; }
-  button:disabled { opacity: .5; cursor: default; }
+  input, button, select { min-height: 44px; border: 2px solid var(--edge); border-radius: 8px;
+    font: inherit; color: var(--ink); background: var(--panel); }
+  button { cursor: pointer; font-weight: 650; padding: 8px 16px; }
+  button:disabled { opacity: .4; cursor: default; }
+  input { width: 100%; text-align: center; letter-spacing: 4px; }
+  form label { display: block; margin-bottom: 8px; }
+  form button { width: 100%; margin-top: 12px; }
+  #controller { --button-scale: 1; width: 100%; height: 100%; min-height: 0; display: grid;
+    grid-template-columns: clamp(140px, 20vw, 220px) minmax(0, 1fr) clamp(140px, 20vw, 220px);
+    gap: 12px; background: var(--panel); border: 2px solid var(--edge); border-radius: 24px; padding: 12px; }
+  #gear-slot { display: grid; place-items: center; min-width: 0; min-height: 0; }
   canvas { display: none; image-rendering: pixelated; touch-action: none; user-select: none; }
-  footer { text-align: center; color: #b5c1d2; font-size: 14px; min-height: 20px; }
+  .controls { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+  [data-button] { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    width: max(44px, calc(44px * var(--button-scale))); height: max(44px, calc(44px * var(--button-scale))); padding: 0;
+    display: grid; place-items: center; }
+  [data-button].held { background: var(--accent); color: var(--bg); }
+  [data-shoulder] { width: calc(88px * var(--button-scale)); }
+  #dpad { display: grid; grid-template-columns: repeat(3, max(44px, calc(44px * var(--button-scale)))); grid-template-rows: repeat(3, max(44px, calc(44px * var(--button-scale)))); }
+  [data-button="up"] { grid-area: 1 / 2; } [data-button="left"] { grid-area: 2 / 1; }
+  [data-button="right"] { grid-area: 2 / 3; } [data-button="down"] { grid-area: 3 / 2; }
+  .actions { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .actions [data-button] { border-radius: 50%; width: max(44px, calc(52px * var(--button-scale))); height: max(44px, calc(52px * var(--button-scale))); }
+  .system { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .system [data-button] { width: auto; padding: 0 8px; font-size: 12px; }
+  #controller[data-layout="stacked"] { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+  #controller[data-layout="stacked"] #gear-slot { grid-area: 1 / 1 / 2 / 3; }
+  #controller[data-layout="stacked"] #left-controls { grid-area: 2 / 1; }
+  #controller[data-layout="stacked"] #right-controls { grid-area: 2 / 2; }
+  @media (max-aspect-ratio: 5/4) {
+    #controller[data-layout="auto"] { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+    #controller[data-layout="auto"] #gear-slot { grid-area: 1 / 1 / 2 / 3; }
+    #controller[data-layout="auto"] #left-controls { grid-area: 2 / 1; }
+    #controller[data-layout="auto"] #right-controls { grid-area: 2 / 2; }
+  }
+  #controller[data-controls="false"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  #controller[data-controls="false"] .controls { display: none; }
+  #controller[data-controls="false"] #gear-slot { grid-area: 1 / 1; }
+  dialog { width: min(92vw, 420px); max-height: 90dvh; overflow: auto; background: var(--panel); color: var(--ink); border: 2px solid var(--edge); border-radius: 16px; padding: 20px; }
+  dialog::backdrop { background: #0009; }
+  dialog label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 14px 0; }
+  dialog input[type="checkbox"] { width: 24px; height: 24px; min-height: 24px; }
+  dialog select { max-width: 60%; }
+  .dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  footer { text-align: center; font-size: 12px; min-height: 16px; }
   [hidden] { display: none !important; }
 </style>
-<main id="screen">
+<header><strong>Kanto Gear</strong><button id="settings-open" type="button">Settings</button></header>
+<main>
   <form id="pair">
-    <h1>Kanto Gear</h1>
-    <p>Phone display prototype<br>Keep the game open on the same Wi-Fi.</p>
+    <h1>Connect your Gear</h1>
+    <p>Keep the game open on the same Wi-Fi.</p>
     <label for="pin">Pairing code shown in the game</label>
     <input id="pin" name="pin" inputmode="numeric" autocomplete="off" pattern="[0-9]{8}" maxlength="8" minlength="8" required aria-describedby="status">
     <button id="connect" type="submit">Connect</button>
   </form>
-  <canvas id="gear" aria-label="Kanto Gear touch display"></canvas>
+  <section id="controller" data-layout="auto" data-controls="true" aria-label="Wi-Fi controller" hidden>
+    <div id="left-controls" class="controls">
+      <button type="button" data-button="l" data-shoulder hidden disabled>L</button>
+      <div id="dpad" aria-label="Directional pad">
+        <button type="button" data-button="up" data-dpad aria-label="Up" disabled>▲</button>
+        <button type="button" data-button="left" data-dpad aria-label="Left" disabled>◀</button>
+        <button type="button" data-button="right" data-dpad aria-label="Right" disabled>▶</button>
+        <button type="button" data-button="down" data-dpad aria-label="Down" disabled>▼</button>
+      </div>
+    </div>
+    <div id="gear-slot"><canvas id="gear" aria-label="Kanto Gear touch display"></canvas></div>
+    <div id="right-controls" class="controls">
+      <button type="button" data-button="r" data-shoulder hidden disabled>R</button>
+      <div class="actions"><button type="button" data-button="b" disabled>B</button><button type="button" data-button="a" disabled>A</button></div>
+      <div class="system"><button type="button" data-button="select" disabled>Select</button><button type="button" data-button="start" disabled>Start</button></div>
+    </div>
+  </section>
 </main>
 <footer id="status" role="status" aria-live="polite">Waiting for pairing</footer>
-<script>
-"use strict";
-const screen = document.getElementById("screen"), form = document.getElementById("pair");
-const canvas = document.getElementById("gear"), context = canvas.getContext("2d", { alpha: false });
-const status = document.getElementById("status"), connect = document.getElementById("connect");
-let socket, frame = 0, pointer = null, lastContact = 0, heartbeat, generation = 0;
-let pendingPacket = null, decoding = false, paint = null, animation = 0;
-let paintedAt = 0, fpsAt = 0, paintedFrames = 0, fps = 0;
-function fit() {
-  const scale = Math.min(screen.clientWidth / canvas.width, screen.clientHeight / canvas.height);
-  canvas.style.width = `${canvas.width * scale}px`;
-  canvas.style.height = `${canvas.height * scale}px`;
-}
-function send(text) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(text); }
-function stop(message) {
-  generation++;
-  if (socket) { socket.onclose = socket.onopen = socket.onerror = socket.onmessage = null; socket.close(); socket = null; }
-  clearInterval(heartbeat);
-  cancelAnimationFrame(animation);
-  pendingPacket = paint = null; decoding = false; animation = 0;
-  paintedAt = fpsAt = paintedFrames = fps = 0;
-  frame = 0; pointer = null;
-  canvas.style.display = "none"; form.hidden = false; connect.disabled = false;
-  status.textContent = message;
-}
-function paintFrame(current) {
-  animation = requestAnimationFrame(() => {
-    animation = 0;
-    if (current !== generation || document.hidden) return;
-    if (paint) {
-      const image = paint; paint = null;
-      if (canvas.width !== image.width || canvas.height !== image.height) { canvas.width = image.width; canvas.height = image.height; }
-      context.putImageData(new ImageData(image.pixels, image.width, image.height), 0, 0);
-      frame = image.id; lastContact = performance.now();
-      if (lastContact - paintedAt > 250) { fpsAt = lastContact; paintedFrames = 0; fps = 0; }
-      paintedFrames++;
-      if (lastContact - fpsAt >= 1000) {
-        fps = Math.round((paintedFrames - 1) * 1000 / (lastContact - fpsAt));
-        fpsAt = lastContact; paintedFrames = 1;
-      }
-      paintedAt = lastContact;
-      form.hidden = true; canvas.style.display = "block"; fit();
-      status.textContent = `Connected${fps ? ` · ${fps} FPS` : ""} · tap or swipe Gear`;
-      send(`a,${frame}`);
-    }
-    paintFrame(current);
-  });
-}
-async function decodeFrames(current) {
-  if (decoding) return;
-  decoding = true;
-  try {
-    while (pendingPacket && current === generation) {
-      const packet = pendingPacket; pendingPacket = null;
-      const data = new DataView(packet);
-      if (data.byteLength < 12) throw Error("Invalid Gear frame");
-      const magic = data.getUint32(0), width = data.getUint16(4), height = data.getUint16(6), id = data.getUint32(8);
-      const size = width * height * 4;
-      if (!width || !height || width > 240 || height > 216 || !id || data.byteLength > size + 12) throw Error("Invalid Gear frame");
-      let pixels;
-      if (magic === 0x4b473032) {
-        if (typeof DecompressionStream !== "function") throw Error("Please use a current browser for compressed Gear frames");
-        pixels = new Uint8ClampedArray(size);
-        const reader = new Blob([packet.slice(12)]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
-        let offset = 0;
-        try {
-          for (;;) {
-            const {value, done} = await reader.read();
-            if (done) break;
-            if (offset + value.length > size) throw Error("Invalid Gear frame size");
-            pixels.set(value, offset); offset += value.length;
-          }
-          if (offset !== size) throw Error("Invalid Gear frame size");
-        } finally { await reader.cancel(); }
-      } else if (magic === 0x4b473031 && data.byteLength === size + 12) {
-        pixels = new Uint8ClampedArray(packet, 12);
-      } else throw Error("Invalid Gear frame");
-      if (current !== generation) return;
-      if (pendingPacket) continue;
-      paint = {pixels, width, height, id};
-    }
-  } catch (error) {
-    if (current === generation) stop(error.message || "Invalid Gear frame");
-  } finally { if (current === generation) decoding = false; }
-}
-form.addEventListener("submit", event => {
-  event.preventDefault();
-  if (!form.reportValidity()) return;
-  stop("Connecting…"); connect.disabled = true;
-  const current = generation;
-  socket = new WebSocket(`ws://${location.host}/gear?pin=${document.getElementById("pin").value}`);
-  socket.binaryType = "arraybuffer";
-  socket.onopen = () => {
-    lastContact = performance.now();
-    paintFrame(current);
-    send("h,0");
-    heartbeat = setInterval(() => {
-      if (performance.now() - lastContact > 1500) { stop("Connection lost. Check the game, then reconnect."); return; }
-      send(`h,${frame}`);
-      if (frame && performance.now() - paintedAt > 500) status.textContent = "Connected · idle · tap or swipe Gear";
-    }, 250);
-    status.textContent = "Connected · waiting for Gear";
-  };
-  socket.onmessage = event => {
-    if (current !== generation) return;
-    if (event.data === "h") { lastContact = performance.now(); return; }
-    if (!(event.data instanceof ArrayBuffer)) return;
-    pendingPacket = event.data;
-    void decodeFrames(current);
-  };
-  socket.onclose = () => stop("Disconnected. Check the pairing code and that no other browser is connected.");
-  socket.onerror = () => stop("Could not connect. Check the code, Wi-Fi and game. After repeated attempts, wait one minute.");
-});
-function touch(action, event) {
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - rect.left) * canvas.width / rect.width)));
-  const y = Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - rect.top) * canvas.height / rect.height)));
-  send(`${action},${x},${y},${frame}`);
-}
-canvas.addEventListener("pointerdown", event => {
-  if (!frame || pointer !== null || event.button !== 0) return;
-  event.preventDefault(); pointer = event.pointerId;
-  canvas.setPointerCapture(pointer); touch("down", event);
-});
-canvas.addEventListener("pointermove", event => {
-  if (pointer === event.pointerId) { event.preventDefault(); touch("move", event); }
-});
-for (const [name, action] of [["pointerup", "up"], ["pointercancel", "cancel"], ["lostpointercapture", "cancel"]]) {
-  canvas.addEventListener(name, event => {
-    if (pointer !== event.pointerId) return;
-    event.preventDefault(); touch(action, event); pointer = null;
-  });
-}
-document.addEventListener("visibilitychange", () => { if (document.hidden) stop("Page paused. Return to the game, then reconnect."); });
-new ResizeObserver(fit).observe(screen);
-</script>
+<dialog id="settings" aria-labelledby="settings-title">
+  <h1 id="settings-title">Browser settings</h1>
+  <label>Show controller buttons <input id="setting-controls" type="checkbox" checked></label>
+  <label>Layout <select id="setting-layout"><option value="auto">Automatic</option><option value="wide">Sides</option><option value="stacked">Below Gear</option></select></label>
+  <label>Button size <select id="setting-size"><option value="0.8">Small</option><option value="1">Normal</option><option value="1.2">Large</option><option value="1.4">Extra large</option></select></label>
+  <label>Theme <select id="setting-theme"><option value="pokegear-light">Pokégear · Light</option><option value="pokegear-dark">Pokégear · Dark</option><option value="cgear-light">C-Gear · Light</option><option value="cgear-dark">C-Gear · Dark</option></select></label>
+  <p>Saved only in this browser. Game and Gear settings stay separate.</p>
+  <div class="dialog-actions"><button id="fullscreen" type="button">Fullscreen</button><button id="disconnect" type="button">Disconnect</button><button id="settings-close" type="button">Done</button></div>
+</dialog>
+<script src="/phone.js" defer></script>
 </html>

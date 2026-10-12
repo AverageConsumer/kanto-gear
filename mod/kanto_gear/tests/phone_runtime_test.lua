@@ -33,6 +33,7 @@ local available, acknowledged, capture, pushed, stopped, now = false, false, tru
 love.timer.getTime = function() return now end
 local queue = {}
 local phone = {
+  setGame = function(_, bound) T.eq(bound, game, "phone controls bind the real game input") end,
   poll = function() end, detected = function() return available end,
   ready = function() return available and acknowledged end,
   canCapture = function() return available and capture end,

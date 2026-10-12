@@ -35,7 +35,10 @@ local runtime = { timer = { getTime = function() return now end },
       return "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
     end,
   } }
-local mod = { read = function(_, name) assert(name == "phone.html"); return "<html>Gear</html>" end }
+local mod = { read = function(_, name)
+  assert(name == "phone.html" or name == "phone.js")
+  return name == "phone.html" and "<html>Gear</html>" or "/* phone controller */"
+end }
 local function new() return assert(Phone.new(mod, runtime, sockets)) end
 local labels, box = {}, nil
 local graphics = {
@@ -81,6 +84,10 @@ local http = sock(); http.input = request("/")
 incoming[1] = http; phone:poll()
 assert(http.closed and http.output:find("200 OK", 1, true) and http.output:find("<html>", 1, true))
 assert(not phone:detected() and not phone:canCapture())
+local script = sock(); script.input = request("/phone.js")
+incoming[1] = script; phone:poll()
+assert(script.closed and script.output:find("text/javascript", 1, true)
+  and script.output:find("/* phone controller */", 1, true), "browser logic is served locally")
 local bad = connect(phone, "00000000")
 assert(bad.closed and bad.output:find("403 Forbidden", 1, true) and not phone:detected())
 local cross = connect(phone, nil, "http://evil.example")
@@ -191,4 +198,65 @@ now = now + 61; c = connect(phone); assert(phone:detected())
 local old = phone; phone = new()
 assert(c.closed and not old.listener, "restarting the mod closes its previous listener")
 phone:stop(); assert(not phone.listener)
+-- Game buttons have their own held sources, independent of video and Gear touch.
+local function game(generation)
+  local input = { sources = {}, presses = 0 }
+  function input:sourcePress(button, source)
+    self.sources[button] = self.sources[button] or {}
+    self.sources[button][source] = true
+    self.presses = self.presses + 1
+  end
+  function input:sourceRelease(button, source)
+    self.sources[button][source] = nil
+  end
+  function input:down(button) return self.sources[button] and next(self.sources[button]) ~= nil end
+  return { generation = generation, input = input }
+end
+mod.input = {
+  press = function(_, game, button)
+    assert(button ~= "l" and button ~= "r", "the public API only accepts GB buttons")
+    local token = { input = game.input, button = button }
+    game.input:sourcePress(button, token)
+    return token
+  end,
+  release = function(_, token) token.input:sourceRelease(token.button, token) end,
+}
+phone = new(); local g = game(3); phone:setGame(g); c = connect(phone)
+phone:poll()
+assert(c.output:find("c,gba", 1, true), "the browser learns which buttons are supported")
+message(phone, c, "b,left,1"); message(phone, c, "b,b,1")
+assert(g.input:down("left") and g.input:down("b") and not phone:ready(),
+  "walking and running do not wait for the first video acknowledgement")
+message(phone, c, "b,left,1")
+assert(g.input.presses == 2, "duplicate downs never accumulate input tokens")
+g.input:sourcePress("left", "keyboard")
+message(phone, c, "b,left,0")
+assert(g.input:down("left") and not phone.buttons.left, "remote release preserves physical input")
+message(phone, c, "b,l,1"); message(phone, c, "b,r,1")
+assert(g.input:down("l") and g.input:down("r"), "GBA shoulders use independent engine sources")
+message(phone, c, "release")
+assert(not g.input:down("b") and not g.input:down("l") and not g.input:down("r")
+  and g.input:down("left"), "opening settings releases only the phone's holds")
+message(phone, c, "b,a,1"); message(phone, c, "b,a,0")
+assert(not g.input:down("a"), "a fast tap is released even without a rendered frame")
+message(phone, c, "b,down,1")
+local g2 = game(2); phone:setGame(g2); phone:poll()
+assert(not g.input:down("down") and c.output:find("c,gb", 1, true), "changing games clears holds and capabilities")
+message(phone, c, "b,l,1"); assert(not g2.input:down("l"), "GB games cannot receive GBA-only shoulders")
+message(phone, c, "b,a,1"); now = now + 1.51; phone:poll()
+assert(c.closed and not g2.input:down("a"), "heartbeat timeout releases every game button")
+phone = new(); phone:setGame(g2); c = connect(phone)
+message(phone, c, "b,a,1"); message(phone, c, "b,execute,1")
+assert(c.closed and not g2.input:down("a"), "invalid input disconnects and releases held buttons")
+phone = new(); phone:setGame(g2); c = connect(phone)
+message(phone, c, "b,start,1"); phone:stop()
+assert(not g2.input:down("start"), "mode changes and shutdown cannot leave Start held")
+phone = new(); phone:setGame(g2); c = connect(phone)
+message(phone, c, "b,select,1"); local old = phone; phone = new()
+assert(not g2.input:down("select") and not old.listener, "reloading releases the previous mod's holds")
+mod.input = nil
+phone:setGame({ generation = 1, input = {} }); c = connect(phone); phone:poll()
+assert(c.output:find("c,none", 1, true), "an older host without safe input keeps display-only mode")
+message(phone, c, "b,a,1"); assert(not c.closed and not next(phone.buttons))
+phone:stop()
 print("PASS phone pairing, WebSocket framing, input validation, flow control, heartbeat and cleanup")
