@@ -18,29 +18,41 @@ local function reply(status, body, kind)
   return "HTTP/1.1 " .. status .. "\r\nContent-Type: " .. (kind or "text/plain")
     .. "\r\nContent-Length: " .. #body
     .. "\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff"
-    .. "\r\nContent-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; "
-    .. "style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
+    .. "\r\nReferrer-Policy: no-referrer\r\nX-Frame-Options: DENY"
+    .. "\r\nPermissions-Policy: camera=(), microphone=(), geolocation=()"
+    .. "\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; "
+    .. "style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; "
+    .. "form-action 'self'; object-src 'none'; frame-ancestors 'none'"
     .. "\r\nConnection: close\r\n\r\n" .. body
 end
 
-function Phone.new(mod, runtime, socket)
+function Phone.new(mod, runtime, socket, pairing)
   socket = socket or require("socket")
   local previous = rawget(socket, HOLDER)
   if previous then previous:stop() end
   local self = setmetatable({ mod = mod, runtime = runtime, socket = socket,
     clients = {}, touches = {}, buttons = {},
-    sequence = 0, pin = string.format("%08d", runtime.math.random(0, 99999999)),
+    sequence = 0,
     page = assert(mod:read("phone.html")), script = assert(mod:read("phone.js")),
     nextFrame = 0, attempts = 0 }, Phone)
+  if not pairing then
+    local ok, result = pcall(function()
+      local Pairing = assert(load(mod:read("phone_pairing.lua"), "@kanto_gear/phone_pairing.lua"))()
+      return Pairing.new(mod, runtime)
+    end)
+    if not ok then return nil, "Secure pairing needs this host's background-compute support." end
+    pairing = result
+  end
+  self.pairing = pairing
   local listener, err = (socket.tcp4 or socket.tcp)()
-  if not listener then return nil, err end
+  if not listener then pairing:stop(); return nil, err end
   listener:settimeout(0)
   -- Windows SO_REUSEADDR would allow another game instance to steal connections.
   if not (jit and jit.os == "Windows") then listener:setoption("reuseaddr", true) end
   local ok
   ok, err = listener:bind("0.0.0.0", PORT)
   if ok then ok, err = listener:listen(4) end
-  if not ok then listener:close(); return nil, err end
+  if not ok then listener:close(); pairing:stop(); return nil, err end
   self.listener = listener
   -- UDP connect chooses the local route without sending a packet or doing DNS.
   local route = socket.udp()
@@ -51,6 +63,8 @@ function Phone.new(mod, runtime, socket)
     route:close()
   end
   self.url = "http://" .. (ip and ip ~= "0.0.0.0" and ip or "127.0.0.1") .. ":" .. PORT
+  self:rotatePairing()
+  self:updatePairing()
   self.bridge = {
     detected = function() return self:detected() end,
     pollTouch = function() return table.remove(self.touches, 1) end,
@@ -62,6 +76,28 @@ function Phone.new(mod, runtime, socket)
 end
 
 function Phone:now() return self.runtime.timer.getTime() end
+function Phone:rotatePairing()
+  self.pin, self.secret, self.qr, self.expires = nil, nil, nil, nil
+  self.pairing:request(self.url)
+end
+function Phone:updatePairing()
+  local result = self.pairing:pop()
+  if result then
+    if result.error then self.error = result.error; self:stop(); return end
+    self.pin, self.secret, self.qr = result.pin, result.secret, result
+    self.expires = self:now() + 300
+  end
+  if self.expires and self:now() >= self.expires and not self.viewer then self:rotatePairing() end
+end
+-- Accept only loopback/private/link-local IPv4 peers and Host values. No DNS,
+-- port forwarding or router discovery; a LAN proxy still needs a pairing key.
+local function localIp(ip)
+  local a,b,c,d = (ip or ""):match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
+  a,b,c,d = tonumber(a),tonumber(b),tonumber(c),tonumber(d)
+  if not d or a > 255 or b > 255 or c > 255 or d > 255 then return false end
+  return a == 127 or a == 10 or a == 192 and b == 168
+    or a == 172 and b >= 16 and b <= 31 or a == 169 and b == 254
+end
 function Phone:controls()
   local input = self.game and self.game.input
   local scripted = self.mod.input
@@ -143,6 +179,8 @@ function Phone:drop(c)
   end
 end
 function Phone:stop()
+  if self.pairing then self.pairing:stop() end
+  self.pin, self.secret, self.qr, self.expires = nil, nil, nil, nil
   self:releaseControls()
   for _, c in ipairs(self.clients) do self:drop(c) end
   self.clients = {}
@@ -159,19 +197,16 @@ function Phone:request(c, header)
     headers[name] = value
   end
   local host = headers.host or ""
-  if method ~= "GET" or not host:match("^%d+%.%d+%.%d+%.%d+:8765$") then return false end
+  if method ~= "GET" or not localIp(host:match("^(.-):8765$")) then return false end
   if path == "/" then
     c.out = reply("200 OK", self.page, "text/html; charset=utf-8")
   elseif path == "/phone.js" then
     c.out = reply("200 OK", self.script, "text/javascript; charset=utf-8")
-  elseif path:match("^/gear%?pin=%d%d%d%d%d%d%d%d$") then
+  elseif path == "/gear" then
     if headers.origin ~= "http://" .. host then return false end
     local now = self:now()
     if now >= (self.attemptReset or 0) then self.attempts, self.attemptReset = 0, now + 60 end
     if self.attempts >= 6 then c.out = reply("429 Too Many Requests", "Wait one minute.")
-    elseif path ~= "/gear?pin=" .. self.pin then
-      self.attempts = self.attempts + 1
-      c.out = reply("403 Forbidden", "Incorrect pairing code.")
     elseif self.viewer then c.out = reply("409 Conflict", "One browser is already connected.")
     elseif (headers.upgrade or ""):lower() ~= "websocket"
         or not (headers.connection or ""):lower():match("upgrade")
@@ -183,8 +218,7 @@ function Phone:request(c, header)
         self.runtime.data.hash("sha1", headers["sec-websocket-key"] .. "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
       c.out = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade"
         .. "\r\nSec-WebSocket-Accept: " .. accept .. "\r\n\r\n"
-      c.ws, c.alive, c.pending, self.viewer = true, now, {}, c
-      c.controls = self:controls()
+      c.ws, c.opened = true, now
     end
   else c.out = reply("404 Not Found", "Not found.") end
   c.sent = 0
@@ -192,6 +226,23 @@ function Phone:request(c, header)
 end
 
 function Phone:message(c, text)
+  if self.viewer ~= c then
+    local credential = text:match("^auth,(%x+)$")
+    local now = self:now()
+    if now >= (self.attemptReset or 0) then self.attempts, self.attemptReset = 0, now + 60 end
+    if self.attempts >= 6 then return false end
+    if self.viewer or not credential or not self.expires or now >= self.expires
+        or not (credential == self.pin or credential == self.secret) then
+      self.attempts = self.attempts + 1
+      return false
+    end
+    c.alive, c.pending, self.viewer = now, {}, c
+    c.controls = self:controls()
+    -- The HTTP upgrade has already been fully written before auth is read.
+    c.out, c.sent = packet(1, "ok"), 0
+    self:rotatePairing() -- consume both the QR key and the manual code together
+    return true
+  end
   if text == "release" then
     self:releaseControls()
     c.touch, self.touches = false, { "cancel,0,0" }
@@ -287,6 +338,8 @@ end
 
 function Phone:poll()
   if not self.listener then return end
+  self:updatePairing()
+  if not self.listener then return end
   local now = self:now()
   for _ = 1, 2 do
     if #self.clients >= 4 then break end
@@ -294,13 +347,15 @@ function Phone:poll()
     if not sock then break end
     sock:settimeout(0)
     sock:setoption("tcp-nodelay", true)
-    self.clients[#self.clients + 1] = { sock = sock, input = "", opened = now }
+    if localIp(sock:getpeername()) then
+      self.clients[#self.clients + 1] = { sock = sock, input = "", opened = now }
+    else sock:close() end
   end
   for i = #self.clients, 1, -1 do
     local c = self.clients[i]
-    local ok = now - (c.alive or c.opened) < (c.ws and 1.5 or 3)
+    local ok = now - (c.alive or c.opened) < (self.viewer == c and 1.5 or 3)
       and not (c.pending and c.pending[1] and now - c.pending[1].at > 1)
-    if ok and (c.ws or not c.out) then ok = self:read(c) end
+    if ok and (self.viewer == c or not c.out) then ok = self:read(c) end
     if ok and c.controls and not c.out then
       c.out, c.sent, c.controls = packet(1, "c," .. c.controls), 0, nil
     end
@@ -324,17 +379,35 @@ function Phone.drawStatus(state, graphics, viewport)
   graphics.origin(); graphics.setScissor(); graphics.setShader()
   state.font = state.font or graphics.newFont(12)
   graphics.setFont(state.font)
-  local lines = state.error and { "PHONE DISPLAY UNAVAILABLE", "Check Wi-Fi and port 8765.", "Switch display mode to try again." }
-    or { "PHONE / BROWSER PROTOTYPE", state.url, "PAIRING CODE: " .. state.pin }
+  local lines = state.error and { "PHONE DISPLAY UNAVAILABLE", state.error, "Switch display mode to try again." }
+    or { "SCAN TO PAIR", state.url, state.pin and "CODE: " .. state.pin or "Preparing secure pairing...",
+      "Private Wi-Fi only / unencrypted", "Code valid for 5 minutes / one use" }
   local width, height = graphics.getDimensions()
   if viewport then width, height = viewport.width, viewport.height end
-  local boxWidth = math.max(1, math.min(width - 16, math.max(260, state.font:getWidth(lines[2]) + 24)))
-  local boxHeight = #lines * 17 + 16
+  local qr = not state.error and state.qr
+  local scale = qr and math.min(4, math.floor((height - #lines * 17 - 40) / (qr.size + 8)),
+    math.floor((width - 32) / (qr.size + 8))) or 0
+  if scale < 2 then scale = 0 end
+  local qrWidth = scale > 0 and (qr.size + 8) * scale or 0
+  local boxWidth = math.max(1, math.min(width - 16, math.max(300, qrWidth + 24, state.font:getWidth(lines[2]) + 24)))
+  local boxHeight = #lines * 17 + 16 + (qrWidth > 0 and qrWidth + 8 or 0)
   local x, y = math.floor((width - boxWidth) / 2), math.max(0, height - boxHeight - 8)
-  graphics.setColor(0.035, 0.05, 0.075, 0.94)
+  graphics.setColor(0.035, 0.05, 0.075, 0.97)
   graphics.rectangle("fill", x, y, boxWidth, boxHeight)
   graphics.setColor(1, 1, 1, 1)
-  for i, line in ipairs(lines) do graphics.printf(line, x, y + 8 + (i - 1) * 17, boxWidth, "center") end
+  graphics.printf(lines[1], x, y + 8, boxWidth, "center")
+  if qrWidth > 0 then
+    local qx, qy = math.floor((width - qrWidth) / 2), y + 29
+    graphics.rectangle("fill", qx, qy, qrWidth, qrWidth)
+    graphics.setColor(0, 0, 0, 1)
+    for _, run in ipairs(qr.runs) do
+      graphics.rectangle("fill", qx + (run[1] + 4) * scale, qy + (run[2] + 4) * scale, run[3] * scale, scale)
+    end
+    graphics.setColor(1, 1, 1, 1)
+  end
+  for i = 2, #lines do
+    graphics.printf(lines[i], x, y + 8 + (i - 1) * 17 + (qrWidth > 0 and qrWidth + 8 or 0), boxWidth, "center")
+  end
   graphics.pop()
 end
 return Phone

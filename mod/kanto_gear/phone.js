@@ -6,15 +6,25 @@ let socket, frame = 0, pointer = null, lastContact = 0, heartbeat, generation = 
 const controller = document.getElementById("controller"), settings = document.getElementById("settings");
 const buttons = [...document.querySelectorAll("[data-button]")];
 const pointers = new Map(), held = new Set();
-let capability = "none";
-const defaults = { controls: true, layout: "auto", size: "1", theme: "pokegear-dark" };
+let capability = "none", authenticated = false;
+// Fragments are not sent in HTTP requests. Remove the bearer key before rendering
+// or opening a socket; it lives only in this page's memory until Connect.
+function readPairingLink() {
+  const key = /^#pair=([a-f0-9]{32})$/.exec(location.hash)?.[1] || null;
+  if (location.hash) history.replaceState(null, "", location.pathname);
+  return key;
+}
+let qrCredential = readPairingLink();
+let remember = false;
+const defaults = { controls: true, motion: true, frame: true, layout: "auto", size: "1", theme: "pokegear-dark" };
 const choices = { layout: ["auto", "wide", "stacked"], size: ["0.8", "1", "1.2", "1.4"],
   theme: ["pokegear-light", "pokegear-dark", "cgear-light", "cgear-dark"] };
 let preferences = { ...defaults };
 try {
   const saved = JSON.parse(localStorage.getItem("kanto-gear-phone-settings"));
-  if (saved && typeof saved === "object") {
-    if (typeof saved.controls === "boolean") preferences.controls = saved.controls;
+  if (saved && saved.remember === true) {
+    remember = true;
+    for (const key of ["controls", "motion", "frame"]) if (typeof saved[key] === "boolean") preferences[key] = saved[key];
     for (const key of Object.keys(choices)) if (choices[key].includes(saved[key])) preferences[key] = saved[key];
   }
 } catch (_) { /* Private browsing may refuse persistent storage. */ }
@@ -25,8 +35,10 @@ function applyPreferences() {
   controller.style.setProperty("--button-scale", preferences.size);
   for (const key of Object.keys(defaults)) {
     const field = document.getElementById(`setting-${key}`);
-    if (key === "controls") field.checked = preferences[key]; else field.value = preferences[key];
+    if (typeof defaults[key] === "boolean") field.checked = preferences[key]; else field.value = preferences[key];
   }
+  document.getElementById("setting-remember").checked = remember;
+  document.getElementById("forget-settings").disabled = !remember;
   refreshControls(); fit();
 }
 function usable(button) {
@@ -69,9 +81,15 @@ function stop(message) {
   pendingPacket = paint = null; decoding = false; animation = 0;
   paintedAt = fpsAt = paintedFrames = fps = 0;
   frame = 0; pointer = null;
-  capability = "none"; controller.hidden = true; refreshControls();
+  authenticated = false; capability = "none"; controller.hidden = true; refreshControls();
   canvas.style.display = "none"; form.hidden = false; connect.disabled = false;
   status.textContent = message;
+  if (!qrCredential) {
+    document.getElementById("pin").required = true;
+    document.querySelector(".code").hidden = false;
+    document.querySelector(".pin-label").hidden = false;
+    document.querySelector("#pair h1").textContent = "Pair your Gear";
+  }
 }
 function paintFrame(current) {
   animation = requestAnimationFrame(() => {
@@ -140,23 +158,31 @@ async function decodeFrames(current) {
 form.addEventListener("submit", event => {
   event.preventDefault();
   if (!form.reportValidity()) return;
+  let credential = qrCredential || document.getElementById("pin").value;
+  qrCredential = null;
+  document.getElementById("pin").value = "";
   stop("Connecting…"); connect.disabled = true;
   const current = generation;
-  socket = new WebSocket(`ws://${location.host}/gear?pin=${document.getElementById("pin").value}`);
+  socket = new WebSocket(`ws://${location.host}/gear`);
   socket.binaryType = "arraybuffer";
   socket.onopen = () => {
     lastContact = performance.now();
-    paintFrame(current);
-    send("h,0");
+    send(`auth,${credential}`); credential = null;
     heartbeat = setInterval(() => {
       if (performance.now() - lastContact > 1500) { stop("Connection lost. Check the game, then reconnect."); return; }
-      send(`h,${frame}`);
+      if (authenticated) send(`h,${frame}`);
       if (frame && performance.now() - paintedAt > 500) status.textContent = "Connected · idle · tap or swipe Gear";
     }, 250);
     status.textContent = "Connected · waiting for Gear";
   };
   socket.onmessage = event => {
     if (current !== generation) return;
+    if (event.data === "ok" && !authenticated) {
+      authenticated = true; lastContact = performance.now();
+      paintFrame(current); send("h,0");
+      status.textContent = "Connected � waiting for Gear"; return;
+    }
+    if (!authenticated) return;
     if (event.data === "h") { lastContact = performance.now(); return; }
     if (["c,gb", "c,gba", "c,none"].includes(event.data)) {
       releaseAll(); capability = event.data.slice(2); refreshControls(); fit(); return;
@@ -165,7 +191,7 @@ form.addEventListener("submit", event => {
     pendingPacket = event.data;
     void decodeFrames(current);
   };
-  socket.onclose = () => stop("Disconnected. Check the pairing code and that no other browser is connected.");
+  socket.onclose = () => stop("Disconnected. Scan the current QR or enter its code. Codes expire after 5 minutes and work once.");
   socket.onerror = () => stop("Could not connect. Check the code, Wi-Fi and game. After repeated attempts, wait one minute.");
 });
 function touch(action, event) {
@@ -228,11 +254,26 @@ document.getElementById("settings-close").addEventListener("click", () => settin
 settings.addEventListener("close", refreshControls);
 settings.addEventListener("change", event => {
   const key = event.target.id.replace("setting-", "");
-  if (!(key in defaults)) return;
-  const value = key === "controls" ? event.target.checked : event.target.value;
-  if (key !== "controls" && !choices[key].includes(value)) return;
-  releaseAll(); preferences[key] = value; applyPreferences();
-  try { localStorage.setItem("kanto-gear-phone-settings", JSON.stringify(preferences)); } catch (_) {}
+  if (key === "remember") {
+    remember = event.target.checked; savePreferences(); applyPreferences(); return;
+  }
+  if (!Object.hasOwn(defaults, key)) return;
+  const toggle = typeof defaults[key] === "boolean";
+  const value = toggle ? event.target.checked : event.target.value;
+  if (!toggle && !choices[key].includes(value)) return;
+  releaseAll(); preferences[key] = value; savePreferences(); applyPreferences();
+});
+function savePreferences() {
+  try {
+    if (remember) localStorage.setItem("kanto-gear-phone-settings", JSON.stringify({ ...preferences, remember: true }));
+    else localStorage.removeItem("kanto-gear-phone-settings");
+  } catch (_) {
+    remember = false; status.textContent = "This browser could not save settings. They stay in memory.";
+  }
+}
+document.getElementById("forget-settings").addEventListener("click", () => {
+  if (!remember) return;
+  releaseAll(); remember = false; preferences = { ...defaults }; savePreferences(); applyPreferences();
 });
 document.getElementById("disconnect").addEventListener("click", () => {
   settings.close(); stop("Disconnected. Enter the code to reconnect.");
@@ -250,3 +291,18 @@ window.addEventListener("blur", releaseAll);
 window.addEventListener("pagehide", () => stop("Page closed. Reconnect to play."));
 window.addEventListener("resize", releaseAll);
 applyPreferences();
+
+function showPairingLink() {
+  document.getElementById("pin").required = false;
+  document.querySelector(".code").hidden = true;
+  document.querySelector(".pin-label").hidden = true;
+  document.querySelector("#pair h1").textContent = "Ready to pair";
+  status.textContent = "QR received � tap Connect to share Gear and enable controls";
+}
+
+if (qrCredential) showPairingLink();
+window.addEventListener("hashchange", () => {
+  const key = readPairingLink();
+  if (!key) return;
+  qrCredential = key; stop("QR received"); showPairingLink();
+});

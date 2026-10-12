@@ -6,6 +6,7 @@ local now, incoming = 0, {}
 local function sock()
   return { input = "", output = "", limit = math.huge,
     settimeout = function() end, setoption = function() end,
+    getpeername = function() return "192.168.1.42" end,
     bind = function() return true end, listen = function() return true end,
     accept = function() return table.remove(incoming, 1) end,
     close = function(self) self.closed = true end,
@@ -39,7 +40,20 @@ local mod = { read = function(_, name)
   assert(name == "phone.html" or name == "phone.js")
   return name == "phone.html" and "<html>Gear</html>" or "/* phone controller */"
 end }
-local function new() return assert(Phone.new(mod, runtime, sockets)) end
+local unique = 0
+local function new()
+  local queued
+  local pairing = {
+    request = function(_, url)
+      unique = unique + 1
+      queued = { pin = string.format("%08d", 12345678 + unique), secret = string.format("%032x", unique),
+        size = 21, runs = { { 0, 0, 7 } } }
+    end,
+    pop = function() local value = queued; queued = nil; return value end,
+    stop = function() queued = nil end,
+  }
+  return assert(Phone.new(mod, runtime, sockets, pairing))
+end
 local labels, box = {}, nil
 local graphics = {
   push = function() end, pop = function() end, origin = function() end,
@@ -47,14 +61,14 @@ local graphics = {
   newFont = function() return { getWidth = function(_, s) return #s * 6 end } end,
   setFont = function() end, getDimensions = function() return 1240, 1080 end,
   setCanvas = function() error("pairing HUD must preserve the host render target") end,
-  rectangle = function(_, x, y, w, h) box = { x = x, y = y, w = w, h = h } end,
+  rectangle = function(_, x, y, w, h) if not box then box = { x = x, y = y, w = w, h = h } end end,
   printf = function(s, x, y, w, align)
     assert(align == "center"); labels[#labels + 1] = { s = s, x = x, y = y, w = w }
   end,
 }
 local status = new()
 Phone.drawStatus(status, graphics, { width = 640, height = 576 })
-assert(#labels == 3 and labels[2].s == status.url and labels[3].s:find(status.pin, 1, true))
+assert(#labels == 5 and labels[2].s == status.url and labels[3].s:find(status.pin, 1, true))
 assert(box.x * 2 + box.w == 640 and box.y + box.h == 568,
   "pairing HUD is centered in the current viewport with an eight-pixel bottom gap")
 labels = {}; Phone.drawStatus({ ready = function() return true end }, graphics)
@@ -67,16 +81,18 @@ local function request(path, origin)
     .. "Origin: " .. (origin or "http://127.0.0.1:8765") .. "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
     .. "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n"
 end
-local function connect(phone, pin, origin)
-  local c = sock(); c.input = request("/gear?pin=" .. (pin or phone.pin), origin)
-  incoming[#incoming + 1] = c; phone:poll(); return c
-end
 local function masked(text, op)
   local chars = {}
   for i = 1, #text do chars[i] = string.char(bit.bxor(text:byte(i), (i - 1) % 4 + 1)) end
   return string.char(128 + (op or 1), 128 + #text, 1, 2, 3, 4) .. table.concat(chars)
 end
 local function message(phone, c, text) c.input = c.input .. masked(text); phone:poll() end
+local function connect(phone, pin, origin, noAuth)
+  local c = sock(); c.input = request("/gear", origin)
+  incoming[#incoming + 1] = c; phone:poll()
+  if not c.closed and not noAuth then message(phone, c, "auth," .. (pin or phone.pin)) end
+  return c
+end
 local image = { getString = function() return string.rep("\255\0\0\255", 240 * 216) end }
 
 local phone = new()
@@ -89,7 +105,7 @@ incoming[1] = script; phone:poll()
 assert(script.closed and script.output:find("text/javascript", 1, true)
   and script.output:find("/* phone controller */", 1, true), "browser logic is served locally")
 local bad = connect(phone, "00000000")
-assert(bad.closed and bad.output:find("403 Forbidden", 1, true) and not phone:detected())
+assert(bad.closed and not phone:detected())
 local cross = connect(phone, nil, "http://evil.example")
 assert(cross.closed and not phone:detected())
 local rebinding = sock(); rebinding.input = request("/"):gsub("Host: 127.0.0.1", "Host: attacker.example")
@@ -97,6 +113,7 @@ incoming[1] = rebinding; phone:poll(); assert(rebinding.closed)
 local c = connect(phone)
 assert(c.output:find("101 Switching Protocols", 1, true))
 assert(hashInput == "dGhlIHNhbXBsZSBub25jZQ==258EAFA5-E914-47DA-95CA-C5AB0DC85B11" and encodeInput == "hash")
+phone:poll()
 assert(phone:detected() and not phone:ready())
 local other = connect(phone)
 assert(other.closed and other.output:find("409 Conflict", 1, true))
@@ -259,4 +276,36 @@ phone:setGame({ generation = 1, input = {} }); c = connect(phone); phone:poll()
 assert(c.output:find("c,none", 1, true), "an older host without safe input keeps display-only mode")
 message(phone, c, "b,a,1"); assert(not c.closed and not next(phone.buttons))
 phone:stop()
+phone = new()
+local pin, secret = phone.pin, phone.secret
+c = connect(phone, nil, nil, true)
+assert(not phone:detected() and not phone:canCapture() and not c.output:find("c,",1,true),
+  "an HTTP upgrade alone never grants frames, inputs or capabilities")
+message(phone, c, "b,a,1"); assert(c.closed and not phone:detected(), "input before authentication is rejected")
+c = connect(phone, secret); assert(phone:detected(), "QR keys authenticate without appearing in the HTTP path")
+phone:updatePairing()
+assert(phone.pin ~= pin and phone.secret ~= secret, "successful auth consumes both credentials")
+message(phone,c,"release"); phone:drop(phone.viewer); phone.clients = {}
+assert(connect(phone, secret).closed and connect(phone, pin).closed, "used keys and PINs cannot reconnect")
+phone = new(); pin = phone.pin; now = now + 300
+assert(connect(phone,pin).closed and not phone:detected(), "expired codes cannot authenticate")
+phone = new(); c = connect(phone,nil,nil,true); now = now + 3.01; phone:poll()
+assert(c.closed, "unauthenticated sockets have a fixed deadline")
+phone = new()
+local public = sock(); public.getpeername = function() return "8.8.8.8" end
+incoming[1] = public; phone:poll(); assert(public.closed, "nonlocal peers cannot reach the server")
+http = sock(); http.input = request("/"); incoming[1] = http; phone:poll()
+assert(http.output:find("Referrer-Policy: no-referrer",1,true)
+  and http.output:find("script-src 'self';",1,true)
+  and http.output:find("Cache-Control: no-store",1,true), "pages refuse caching, referrers and inline scripts")
+local query = sock(); query.input = request("/gear?pin=" .. phone.pin); incoming[1] = query; phone:poll()
+assert(query.closed and query.output:find("404 Not Found",1,true), "query-string credentials are not accepted")
+phone:stop()
+assert(not phone.pin and not phone.secret and not phone.qr, "shutdown clears pairing material")
+local produced
+local async = { request=function() end, pop=function() local p=produced;produced=nil;return p end, stop=function() end }
+phone = assert(Phone.new(mod,runtime,sockets,async))
+assert(not phone.pin and connect(phone,"12345678").closed, "pending entropy never falls back to a guessed code")
+produced = { error = "No secure entropy" }; phone:poll()
+assert(phone.error and not phone.listener and not phone:detected(), "entropy failure shuts the server down")
 print("PASS phone pairing, WebSocket framing, input validation, flow control, heartbeat and cleanup")

@@ -132,3 +132,4 @@ tests/phone_display_test.lua
 tests/phone_runtime_test.lua
 tests/phone_browser_test.cjs
 tests/phone_input_test.lua
+tests/phone_pairing_test.lua

@@ -13,12 +13,14 @@ const root = path.resolve(__dirname, '..');
   await page.addInitScript(() => {
     class Socket {
       static OPEN = 1;
-      constructor() {
+      constructor(url) {
+        this.url = url;
         this.readyState = 0; this.messages = []; window.testSocket = this;
         setTimeout(() => { this.readyState = 1; this.onopen?.(); }, 0);
       }
       send(text) {
         this.messages.push(text);
+        if (text.startsWith('auth,')) queueMicrotask(() => this.deliver('ok'));
         if (text.startsWith('h,') && !this.stalled) queueMicrotask(() => this.deliver('h'));
       }
       close() { this.readyState = 3; }
@@ -41,6 +43,8 @@ const root = path.resolve(__dirname, '..');
     await page.waitForSelector('#controller:not([hidden])');
   };
   await pair();
+  assert(await page.evaluate(() => testSocket.url === 'ws://127.0.0.1:8765/gear'), 'credentials never enter WebSocket URLs');
+  assert(await page.evaluate(() => testSocket.messages[0] === 'auth,12345678'), 'authentication is the first message');
   const messages = () => page.evaluate(() => window.testSocket.messages.filter(s => s.startsWith('b,')));
   const center = async selector => {
     const b = await page.locator(selector).boundingBox();
@@ -68,6 +72,7 @@ const root = path.resolve(__dirname, '..');
   assert((await messages()).slice(before).join('|') === 'b,a,1|b,a,0', 'accessible activation makes a bounded tap');
   await page.click('#settings-open');
   assert(await page.locator('[data-button=a]').isDisabled(), 'modal disables game buttons');
+  await page.check('#setting-remember'); await page.uncheck('#setting-motion');
   await page.uncheck('#setting-controls'); await page.selectOption('#setting-theme', 'cgear-light');
   await page.selectOption('#setting-size','1.4'); await page.click('#settings-close');
   assert(await page.locator('#left-controls').isHidden(), 'controls may be hidden');
@@ -75,6 +80,7 @@ const root = path.resolve(__dirname, '..');
   assert(full.width > shell.width * .9, 'display-only mode gives Gear the available width');
   await page.reload(); await pair();
   assert(await page.locator('#left-controls').isHidden(), 'browser preferences survive reload');
+  assert(!(await page.locator('#setting-motion').isChecked()), 'press-motion preference survives reload');
   assert(await page.locator('body').getAttribute('data-theme') === 'cgear-light');
   await page.click('#settings-open'); await page.check('#setting-controls'); await page.selectOption('#setting-size','1'); await page.click('#settings-close');
   await page.evaluate(() => testSocket.deliver('c,gb'));
@@ -115,6 +121,28 @@ const root = path.resolve(__dirname, '..');
   await page.click('#settings-open'); await page.click('#disconnect');
   assert(await page.locator('#pair').isVisible());
   assert(await page.evaluate(() => testSocket.messages.includes('release')), 'disconnect resets all holds');
+  await page.click('#settings-open'); await page.click('#forget-settings'); await page.click('#settings-close');
+  assert(await page.evaluate(() => localStorage.getItem('kanto-gear-phone-settings') === null), 'forget deletes saved preferences');
+  await page.goto('about:blank');
+  await page.goto('http://127.0.0.1:8765/#pair=0123456789abcdef0123456789abcdef');
+  assert(await page.evaluate(() => location.hash === ''), 'QR key is removed from the address immediately');
+  assert(await page.locator('#pin').isHidden(), 'scanning skips manual code entry');
+  assert(await page.locator('.privacy summary').isVisible(), 'connection information is available before consent');
+  assert(await page.evaluate(() => !window.testSocket), 'QR scanning does not connect before the user confirms');
+  await page.click('#connect');
+  await page.waitForFunction(() => testSocket?.messages[0] === 'auth,0123456789abcdef0123456789abcdef');
+  await page.evaluate(() => testFrame()); await page.waitForSelector('#controller:not([hidden])');
+  await page.click('#settings-open'); await page.selectOption('#setting-theme','cgear-light'); await page.click('#settings-close');
+  assert(await page.evaluate(() => localStorage.getItem('kanto-gear-phone-settings') === null), 'preferences remain memory-only without opt-in');
+  await page.reload();
+  assert(await page.locator('body').getAttribute('data-theme') === 'pokegear-dark', 'memory-only settings reset on reload');
+  assert(await page.evaluate(() => !window.testSocket), 'reloading cannot reuse the consumed QR credential');
+  for (const viewport of [{width:390,height:844},{width:844,height:390},{width:667,height:375}]) {
+    await page.setViewportSize(viewport); await page.screenshot({path:path.join(out,`pair-${viewport.width}x${viewport.height}.png`)});
+    await page.locator('.privacy summary').click();
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'privacy details fit narrow screens');
+    await page.locator('.privacy summary').click();
+  }
   assert.deepEqual(errors,[]);
   await browser.close();
   console.log('PASS browser pairing, multitouch, Dpad slide, Gear touch, modal, settings persistence, capabilities and responsive geometry');
