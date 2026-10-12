@@ -1006,12 +1006,19 @@ return function(ui)
       { "MOVES", model.movesText or translate("LEARNSET"), colors.amber },
       { "EVOLUTIONS", translate("METHOD + CONDITIONS"), colors.red },
     }
+    if model.cards then
+      local allowed, byName = {}, {}
+      for _, card in ipairs(cards) do byName[card[1]:lower()] = card end
+      for _, key in ipairs(model.cards) do allowed[#allowed + 1] = byName[key] end
+      cards = allowed
+    end
     for index, card in ipairs(cards) do
-      local left, top, width, height = PokedexPage.cardRect(index)
+      local left, top, width, height = PokedexPage.cardRect(index, #cards)
       local pressed = self:beginPress(left, top, width, height, model.canUse ~= false)
       self:homeTile(left, top, width, height, card[3], false)
-      self:partyInfoCentered(self:fitPartyInfo(translate(card[1]), width - 10), left + 5, top + 3, width - 10, 10, colors.ink)
-      self:partyInfoCentered(self:fitPartyInfo(card[2], width - 10), left + 5, top + 14, width - 10, 8, quiet)
+      local textY = top + math.floor((height - 20) / 2)
+      self:partyInfoCentered(self:fitPartyInfo(translate(card[1]), width - 10), left + 5, textY, width - 10, 10, colors.ink)
+      self:partyInfoCentered(self:fitPartyInfo(card[2], width - 10), left + 5, textY + 12, width - 10, 8, quiet)
       self:endPress(pressed)
     end
   end
@@ -1224,6 +1231,7 @@ return function(ui)
         self:partyType(self:fitPartyType(row.status, 150), 14, top + 22,
           row.current and ink or row.matches and colors.green or quiet, 150)
       end
+      if row.details ~= false then
       local condition = table.concat({ translate(row.time or "ANY TIME"),
         translate(row.method or "WILD"), tostring(row.chance or "--") .. "%" },
         " · ")
@@ -1231,6 +1239,7 @@ return function(ui)
         14, top + (row.status and 11 or 19), row.current and ink or colors.green, 150)
       self:partyInfo(row.levels or "L--", 171, top + 16,
         ink, 48, "center")
+      end
     end
     if #(model.rows or {}) == 0 then
       self:partyInfo(translate("NO WILD ENCOUNTERS"),
@@ -3338,6 +3347,11 @@ return function(ui)
   function H:mapOverview(overview, x, y, w, h, opts)
     opts = opts or {}
     local G, colors = ui.graphics, self.colors
+    if overview and overview.disabled then
+      self:panel(x, y, w, h, false)
+      self:partyInfoCentered(self:fitPartyInfo(translate("LIVE MAP DISABLED"), w - 8), x + 4, y, w - 8, h, colors.mutedInk)
+      return nil
+    end
     local snapshot = opts.snapshot
     if snapshot then
       local layout = mapLayout(overview, x, y, w, h, opts)
@@ -3678,7 +3692,7 @@ return function(ui)
   function H:explorer(model)
     local colors, view, selected = self.colors, model.view, model.selected
     local function mapToggle(x, y, collapse)
-      local pressed = self:beginPress(x, y, 19, 14)
+      local pressed = self:beginPress(x, y, 19, 14, not (model.overview and model.overview.disabled))
       self:panel(x, y, 19, 14, false)
       if collapse then
         box("fill", x + 5, y + 3, 4, 1, colors.ink)
@@ -3815,6 +3829,7 @@ return function(ui)
           19, 190, colors.green, 202)
         return
       end
+      if model.encounterDetails == false then return end
       if model.detailPages > 1 then
         pager(166, 106, 58, model.detailPage, model.detailPages)
       else
@@ -3962,7 +3977,7 @@ return function(ui)
         if row.gift then
           self:partyType(translate(row.trade and "TRADE" or row.loan and "LOAN" or (row.cost or row.coinCost) and "OFFER" or "GIFT"),
             x - 9, baseY + 36, row.available and colors.ink or colors.mutedInk, 52)
-        elseif row.best then
+        elseif row.best and model.encounterDetails ~= false then
           local odds = tostring(row.best.chance or 0) .. "%"
           local method = self:fitPartyType(translate(row.best.method),
             52 - fontWidth(partyTypeFont, odds) - 4)
@@ -3989,7 +4004,7 @@ return function(ui)
     local mapH = model.mapFull and 138
       or view == "wild" and (selected and 42 or 84)
       or 84
-    if x >= 202 and x < 232 and y >= 32 and y < 50 then
+    if not (model.overview and model.overview.disabled) and x >= 202 and x < 232 and y >= 32 and y < 50 then
       return "map_toggle"
     end
     if model.mapFull and y >= 53 and y < 69 then
@@ -5188,7 +5203,7 @@ return function(ui)
       155, 78, mon.dvs and colors.green or colors.disabledInk, 65)
     self:endPress(dvsPressed)
 
-    local profilePressed = self:beginPress(7, 105, 226, 39)
+    local profilePressed = self:beginPress(7, 105, 226, 39, mon.profileAvailable ~= false)
     self:homeTile(7, 105, 226, 39, colors.blue, false)
     self:partyInfo(translate("POKEDEX"), 17, 112,
       colors.ink, 130, "center")
@@ -5204,11 +5219,11 @@ return function(ui)
         accent = colors.green },
     }
     for _, card in ipairs(cards) do
-      local pressed = self:beginPress(card.x, 149, 110, 61)
+      local pressed = self:beginPress(card.x, 149, 110, 61, mon.matchupsAvailable ~= false)
       self:homeTile(card.x, 149, 110, 61, card.accent, false)
       self:partyType(translate(card.key), card.x + 7, 158,
         colors.ink, 96)
-      self:partyInfo(tostring(#card.rows), card.x + 7, 176,
+      self:partyInfo(mon.matchupsAvailable == false and "--" or tostring(#card.rows), card.x + 7, 176,
         colors.ink, 96, "center")
       self:partyType(translate("MATCHUP"), card.x + 7, 192,
         colors.green, 80)
@@ -5321,12 +5336,12 @@ return function(ui)
     end
   end
 
-  function H:enemyInfoHit(x, y, hasDvs)
+  function H:enemyInfoHit(x, y, hasDvs, info)
     if hasDvs and x >= 151 and x < 224 and y >= 72 and y < 93 then
       return "dvs"
     end
-    if x >= 7 and x < 233 and y >= 105 and y < 144 then return "profile" end
-    if y >= 149 and y < 210 then
+    if (not info or info.profileAvailable ~= false) and x >= 7 and x < 233 and y >= 105 and y < 144 then return "profile" end
+    if (not info or info.matchupsAvailable ~= false) and y >= 149 and y < 210 then
       if x >= 7 and x < 117 then return "weak" end
       if x >= 123 and x < 233 then return "resist" end
     end
@@ -5990,6 +6005,7 @@ return function(ui)
   end
 
   function H:moveHasStab(mon, move)
+    if mon and mon.typeHints == false then return false end
     if not (mon and move and move.type)
         or move.power == 0 or move.powerText == "--" then return false end
     local moveType = tostring(move.type):upper()
@@ -6422,6 +6438,7 @@ return function(ui)
   end
 
   function H:typeBadges(mon, x, y, fainted)
+    if not mon.type then return end
     local dual = mon.type2 and mon.type2 ~= mon.type
     local left, leftInk, leftText = typeBadgeStyle(
       self, mon.type, mon.typeLabel, fainted, dual and 20 or 23)

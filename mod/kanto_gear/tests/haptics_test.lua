@@ -254,7 +254,7 @@ game.save.inventory.ITEMFINDER = 0
 scan(0, "no Itemfinder means no success feedback")
 game.save.inventory.ITEMFINDER = 1
 api.options:set("info_level", "purist")
-scan(1, "Discover permits Itemfinder feedback after acquiring the tool")
+scan(0, "Strict Vanilla disables Gear map scans even with an Itemfinder")
 api.options:set("info_level", "spoiler")
 scan(0, "Spoiler has no active scanner feedback")
 api.options:set("info_level", "enhanced")

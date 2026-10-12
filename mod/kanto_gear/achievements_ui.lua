@@ -270,10 +270,10 @@ return function(H, G, translate, format)
       pager(34)
       for i, row in ipairs(model.entries or {}) do
         local top = 58 + (i - 1) * 36
-        local canLocate = model.mode == "spoiler" and row.mapId ~= nil
+        local canLocate = (model.canLocate == true or model.canLocate == nil and model.mode == "spoiler") and row.mapId ~= nil
           and row.x ~= nil and row.y ~= nil
         local action = canLocate and "locate"
-          or row.wild and "habitat" or nil
+          or row.wild and model.canHabitat ~= false and "habitat" or nil
         card(6, top, 228, 32, action, row, function()
           if not self.v4FindRow then name(row.isEgg and translate("EGG") or row.label, 13, top + 2, 171, 19) end
           local status = translate(row.state == "unavailable" and "NO LONGER AVAILABLE"

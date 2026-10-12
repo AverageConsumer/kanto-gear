@@ -7,10 +7,13 @@ return function(services)
     if not view then return nil end
     local mon, def = view.mon, view.def
     if view.egg then
-      local egg = view.spoilers and services.summary.details.egg(mon, view.generation, game.save, native) or {}
+      local policy = view.disclosure
+      local progress = policy and policy.egg_progress or not policy and view.spoilers
+      local contents = policy and policy.egg_species or not policy and view.spoilers
+      local egg = progress and services.summary.details.egg(mon, view.generation, game.save, native) or {}
       return { source = mon, isEgg = true, name = services.theme:translate("EGG"),
-        egg = egg, spoilers = view.spoilers,
-        hatchName = view.spoilers and (def.name or mon.species) or nil }, view
+        egg = egg, spoilers = progress or contents, eggProgress = progress, eggContents = contents,
+        hatchName = contents and (def.name or mon.species) or nil }, view
     end
     local types = view.types or {}
     local level = view.level or 0
@@ -71,6 +74,18 @@ return function(services)
     }
     if summary.page == summary.hiddenPage then
       out.details = services.summary.details.read(mon, summary.generation)
+      local policy = summary.disclosure
+      if policy then
+        out.details.showFriendship, out.details.showGenes, out.details.showTraining =
+          policy.friendship, policy.genes, policy.training
+        if not policy.friendship then out.details.friendship = nil end
+        if not policy.genes then out.details.power, out.details.type = nil, nil end
+        if not policy.training then out.details.total = nil end
+        for _, row in ipairs(out.details.rows) do
+          if not policy.genes then row.gene = nil end
+          if not policy.training then row.effort = nil end
+        end
+      end
       for _, row in ipairs(out.details.rows) do row.label = services.theme:translate(row.label) end
       out.details.typeLabel = out.details.type and services.theme:typeName(out.details.type, services.content)
     end
@@ -105,9 +120,9 @@ return function(services)
         ppText = source.id and services.theme:format("%d/%d",
           source.pp or 0, view.moves[slot].maxPp or move.pp or 0) or "--",
         powerLabel = services.theme:translate("PWR"),
-        powerText = move.power and move.power > 0 and tostring(move.power) or "--",
+        powerText = (summary.generation > 1 or out.moveDetails) and move.power and move.power > 0 and tostring(move.power) or "--",
         accuracyLabel = services.theme:translate("ACC"),
-        accuracyText = move.accuracy and tostring(move.accuracy) or "--",
+        accuracyText = (summary.generation > 1 or out.moveDetails) and move.accuracy and tostring(move.accuracy) or "--",
       }
     end
     if view.contest then

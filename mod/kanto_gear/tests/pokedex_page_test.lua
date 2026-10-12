@@ -214,6 +214,20 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     for entry, revealed in pairs(original) do entry.revealed = revealed end
   end
   -- Boundary cases independent of the size of any particular ROM catalogue.
+  for count = 0, 4 do
+    local cards = {}; for i = 1, count do cards[i] = Page.cards[i] end
+    local profile = { view = "profile", cards = cards }
+    for i, action in ipairs(cards) do
+      local x,y,w,h = Page.cardRect(i,count)
+      T.eq(Page.hit(profile,x+w/2,y+h/2),action,"custom research door uses its visible touch geometry")
+      T.check(x>=7 and x+w<=233 and y>=156 and y+h<=210,"custom research door fits its available region")
+    end
+    if count == 0 then T.eq(Page.hit(profile,120,180),nil,"disabled research creates no hidden touch door") end
+    if count == 3 then
+      local x,_,w = Page.cardRect(3,count)
+      T.eq(x,math.floor((240-w)/2),"last research door centers independently in an incomplete row")
+    end
+  end
   for _, point in ipairs({{7,108},{232,151},{120,140}}) do
     T.eq(Page.inDescription({view="profile"},point[1],point[2]),true,
       "description swipe zone includes the complete text frame and its pager")

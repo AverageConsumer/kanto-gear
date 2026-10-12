@@ -698,7 +698,7 @@ return function(H, ui, K)
         local a = K.rampOf(tone)
         self:v4Button(x, y, w, h, a, { radius = 5, lip = 4, chamfer = 5 })
         local ink = move.disabled and c.disabledInk or WHITE
-        local stab = not move.disabled and self:moveHasStab(mon, move)
+        local stab = mon.typeHints ~= false and not move.disabled and self:moveHasStab(mon, move)
         local starX = x + w - (mon.details and 26 or 15)
         self:partyName(move.name, x + 7, y + 4, ink, stab and starX - x - 10 or w - 29)
         if stab then ART(STAR, starX, y + 6, { ["#"] = hex("f8e070") }) end

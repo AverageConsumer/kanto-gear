@@ -272,13 +272,17 @@ function M.presentArea(area, mode, visible)
     count(section, category)
     out.sections[category] = section
   end
+  if type(mode) == "table" and not mode.stamp_totals then
+    out.tier, out.complete, out.remaining, out.availableRemaining = nil, false, nil, nil
+    out.total, out.unknown, out.untracked = nil, nil, nil
+  end
   return out
 end
 
-function M.visible(result, mode)
+function M.visible(result, mode, policy)
   local areas, goals, earned = {}, {}, {}
   for _, area in ipairs(result.areas) do
-    if mode == "spoiler" or area.evidence then areas[#areas + 1] = area end
+    if (policy and policy.unvisited_maps or not policy and mode == "spoiler") or area.evidence then areas[#areas + 1] = area end
   end
   for _, area in ipairs(result.goals) do
     local open = area.sections[1].total - area.sections[1].done

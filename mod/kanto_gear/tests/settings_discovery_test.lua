@@ -46,6 +46,39 @@ T.eq(presented.sections[1].total, 1, "disclosed stamp counts exclude unknown tas
 T.eq(presented.tier, "bronze", "filtering cannot award a false gold stamp")
 T.eq(#area.sections[1].rows, 2, "presentation never changes completion evidence")
 
+-- Every preset and every independent switch share a single permission model.
+for _, preset in ipairs({ "purist", "enhanced", "spoiler" }) do
+  local policy = Policy.resolve(function(k) if k == "info_level" then return preset end end)
+  for _, row in ipairs(Policy.options) do
+    T.eq(policy[row[1]], preset == "spoiler" or preset == "enhanced" and row[4] or false,
+      preset .. " controls " .. row[1])
+  end
+end
+for _, selected in ipairs(Policy.options) do
+  local policy = Policy.resolve(function(k)
+    if k == "info_level" then return "custom" end
+    return k == Policy.key(selected[1])
+  end)
+  for _, row in ipairs(Policy.options) do
+    T.eq(policy[row[1]], row == selected, "Custom does not couple " .. selected[1] .. " to " .. row[1])
+  end
+end
+local vanilla = Policy.resolve(function(k) if k == "info_level" then return "purist" end end)
+local guidePolicy = Policy.resolve(function(k) if k == "info_level" then return "enhanced" end end)
+local function enemy(policy, caught)
+  return Policy.enemy({ caught = caught, types = { "FIRE" }, kind = "SECRET", height = "10",
+    descriptionText = "SECRET", description = { "SECRET" }, dvs = {}, weak = { {} }, resist = { {} } }, policy)
+end
+local foe = enemy(vanilla, false)
+T.eq(foe.kind, nil, "Vanilla redacts uncaught opponent facts")
+T.eq(#foe.types, 0, "Vanilla redacts opponent types")
+T.eq(foe.dvs, nil, "Vanilla redacts opponent genes")
+T.eq(foe.profileAvailable, false, "redacted profile cannot react to a tap")
+T.eq(foe.matchupsAvailable, false, "redacted matchups cannot react to a tap")
+T.eq(enemy(vanilla, true).kind, "SECRET", "caught native Dex facts remain available")
+guidePolicy.enemy_details = false
+T.eq(enemy(guidePolicy, false).kind, nil, "uncaught Dex permission does not override opponent-data permission")
+
 local function exercise(run, display)
   local api = up(display.saveHome, "mod")
   local theme = up(display.drawContents, "THEME")
@@ -114,10 +147,56 @@ local function exercise(run, display)
     end
   end
   T.check(tapped, "a selected row exposes an explicit control")
-  T.eq(api.options:get("info_level"), "purist", "explicit choice selects Discover")
-  T.check(display.settingsModel().rows[1].info:find("Known Pokemon", 1, true), "explanation follows the selected mode")
+  T.eq(api.options:get("info_level"), "purist", "explicit choice selects Vanilla")
+  T.check(display.settingsModel().rows[1].info:find("Original-game information only", 1, true), "explanation follows the selected mode")
   T.eq(display.settings.category, 4, "the category stays open after changing a value")
 
+  api.options:set("info_level", "purist")
+  local projected = { screenId = "Gen3Menu", update = function() end, valid = function() return true end,
+    index = 1, items = { { label = "TARGET", effectiveness = 20, catchChance = 75 } } }
+  local entry = display.startMenuModel(projected).entries[1]
+  T.eq(entry.effectiveness, nil, "Vanilla hides native target effectiveness")
+  T.eq(entry.catchChance, nil, "Vanilla hides native target catch odds")
+  api.options:set("type_hints", true)
+  entry = display.startMenuModel(projected).entries[1]
+  T.eq(entry.effectiveness, 20, "independent type hints restore native effectiveness")
+  T.eq(entry.catchChance, nil, "type hints do not restore catch odds")
+  api.options:set("type_hints", false); api.options:set("catch_odds", true)
+  entry = display.startMenuModel(projected).entries[1]
+  T.eq(entry.effectiveness, nil, "catch odds do not restore effectiveness")
+  T.eq(entry.catchChance, 75, "independent catch odds restore native target estimate")
+  T.eq(projected.items[1].catchChance, 75, "redaction never mutates the host menu")
+  api.options:set("info_level", "purist")
+  api.options:set("info_level", "custom")
+  for _, group in ipairs(Policy.groups) do
+    api.options:set("discovery_section", group[2])
+    display.settings.category, display.settings.page, display.settings.option = 4, 1, nil
+    local custom = display.settingsModel()
+    T.eq(custom.detail, group[1], "the current information group remains visible on every page")
+    for _, option in ipairs(custom.rows) do
+      T.check(not option.source.discoveryGroup or option.source.discoveryGroup == group[2],
+        "custom categories never mix unrelated switches")
+      for _, language in ipairs({ "en", "de", "es", "fr", "ja" }) do
+        api.options:set("language", language)
+        local lines = theme.hgss:settingsHelpLines(theme:translate(option.info or option.description))
+        T.check(#lines <= 3, "custom help fits: " .. option.key .. " in " .. language)
+        for _, line in ipairs(lines) do T.eq(theme.hgss:fitPartyType(line, 210), line, "custom help is not clipped") end
+      end
+      api.options:set("language", "en")
+    end
+  end
+  for _, flag in ipairs(Policy.options) do
+    api.options:set("info_level", "purist")
+    api.options:set(Policy.key(flag[1]), true)
+    T.eq(api.options:get("info_level"), "custom", "a single override enters Custom: " .. flag[1])
+    local current = display.discoveryPolicy()
+    for _, other in ipairs(Policy.options) do
+      T.eq(current[other[1]], other == flag, "runtime keeps independent permissions: " .. other[1])
+    end
+    T.eq(display.pokedex.data, nil, "disclosure changes invalidate Dex snapshots")
+    T.eq(display.home.widgetCache, nil, "disclosure changes invalidate Home widgets")
+  end
+  api.options:set("info_level", "enhanced")
   -- All generation adapters pass through the same final presentation boundary.
   local guide = up(display.explorerModel, "guideData")
   local areaData = up(display.explorerModel, "areaData")
@@ -167,7 +246,8 @@ local function exercise(run, display)
     local widget = display.currentAchievement()
     T.eq(widget.area.sections[3].total, mode == "spoiler" and 1 or 0,
       "stamp widget does not leak hidden-item totals")
-    T.eq(widget.area.tier, "bronze", "stamp widget retains the true completion tier")
+    if mode == "purist" then T.eq(widget.area.tier, nil, "Vanilla hides completion tiers")
+    else T.eq(widget.area.tier, "bronze", "guides retain the true completion tier") end
     display.achievements.selected, display.achievements.view, display.achievements.category = id, "finds", 3
     local album = display.achievementModel()
     T.eq(#album.entries, mode == "spoiler" and 1 or 0, "stamp detail does not expose hidden item names")
@@ -180,9 +260,15 @@ local function exercise(run, display)
     if dex.bySpecies[first] and dex.bySpecies[second] then
       display.pokedex.selected, display.pokedex.view = first, "habitat"
       local habitat = display.pokedexModel()
-      T.eq(habitat.summary, theme:format("%d AREAS", mode == "spoiler" and 2 or 1),
-        "habitat counts do not disclose unvisited areas")
-      T.eq(#habitat.rows, mode == "spoiler" and 2 or 1, "habitat names and rows obey the same boundary")
+      if mode == "purist" then
+        T.eq(habitat.view, "profile", "Vanilla cannot keep a detailed habitat page open")
+        T.eq(#(habitat.cards or {}), 0, "Vanilla hides research pages")
+        T.eq(habitat.pokemon.type, nil, "seen but uncaught species do not acquire a fake Normal type")
+      else
+        T.eq(habitat.summary, theme:format("%d AREAS", mode == "spoiler" and 2 or 1),
+          "habitat counts do not disclose unvisited areas")
+        T.eq(#habitat.rows, mode == "spoiler" and 2 or 1, "habitat names and rows obey the same boundary")
+      end
       T.check(dex.bySpecies[first].revealed, "seen species remains accessible")
       T.eq(dex.bySpecies[second].revealed, mode ~= "purist", "unknown species honors discovery mode")
       if mode == "purist" then
@@ -195,10 +281,12 @@ local function exercise(run, display)
   end
   api.options:set("type_hints", false); api.options:set("catch_odds", false)
   api.options:set("info_level", "spoiler")
-  T.eq(api.options:get("type_hints"), false, "discovery does not switch battle helpers on")
+  T.eq(api.options:get("type_hints"), true, "Everything includes battle helpers")
   api.options:set("info_level", "purist")
   api.options:set("move_details", true)
-  T.eq(api.options:get("move_details"), true, "Discover can retain attack details")
+  T.eq(api.options:get("move_details"), true, "individual attack details can be enabled")
+  T.eq(api.options:get("info_level"), "custom", "individual changes switch to Custom")
+  T.eq(display.discoveryPolicy().area_map, false, "Custom starts with the previous Vanilla map boundary")
   display.explorer.selected, display.explorer.scanRevealed = "old-secret", { secret = true }
   display.pokedex.habitatPlan = { rows = { "old-secret" } }
   api.options:set("info_level", "enhanced")
@@ -214,7 +302,7 @@ end
 
 if os.getenv("KANTO_GEAR_TEST_GEN") == "3" then
   _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display) exercise(run, display) end
-  dofile(root .. (os.getenv("POKEPORT_VERSION") == "emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+  dofile(root .. "/tests/gen3_fixture.lua")
 else
   local gen = tonumber(os.getenv("KANTO_GEAR_TEST_GEN")) or 2
   local run = T.sdk.loadMod(root, { generation = gen, data = T.fixtures.load() })

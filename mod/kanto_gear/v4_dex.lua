@@ -120,15 +120,25 @@ return function(H, ui, K)
       { "MOVES", model.movesText or translate("LEARNSET") },
       { "EVOLUTIONS", model.evolutionsText or translate("HOW IT EVOLVES") },
     }
+    if model.cards then
+      local allowed, byName = {}, {}
+      for _, card in ipairs(cards) do byName[card[1]:lower()] = card end
+      for _, key in ipairs(model.cards) do allowed[#allowed + 1] = byName[key] end
+      cards = allowed
+    end
     for index, card in ipairs(cards) do
-      local left, top, width, height = Dex.cardRect(index)
+      local left, top, width, height = Dex.cardRect(index, #cards)
       local spec = CARD[card[1]]
       local tint = hex(spec.tint)
       local pressed = self:beginPress(left, top, width, height, model.canUse ~= false)
       self:v4Key(left, top, width, height)
       -- icon badge
       local d = min(height - 5, 21)
-      local bx, by = left + 4, top + floor((height - 2 - d) / 2)
+      local title = self:fitPartyInfo(translate(card[1]), width - d - 12)
+      local subtitle = self:fitPartyInfo(card[2], width - d - 12)
+      local tw = max(self:partyInfoWidth(title), self:partyInfoWidth(subtitle))
+      local bx = left + floor((width - d - 6 - tw) / 2)
+      local by = top + floor((height - d) / 2)
       CIRC(bx, by, d, colors.outline)
       CIRC(bx + 1, by + 1, d - 2, mix(colors.surface, tint, self.dark and 0.35 or 0.22))
       -- the glyph at 2x so the four research doors read at a glance
@@ -139,9 +149,9 @@ return function(H, ui, K)
       G.scale(2, 2)
       ART(art, 0, 0, { ["#"] = mix(tint, { 0, 0, 0, 1 }, self.dark and 0 or 0.12) })
       G.pop()
-      local tx, tw = left + d + 8, width - d - 12
-      self:partyInfo(self:fitPartyInfo(translate(card[1]), tw), tx, top + 1, colors.ink)
-      self:partyInfo(self:fitPartyInfo(card[2], tw), tx, top + 11, colors.mutedInk)
+      local tx, ty = bx + d + 6, top + floor((height - 21) / 2)
+      self:partyInfoCentered(title, tx, ty, tw, 10, colors.ink)
+      self:partyInfoCentered(subtitle, tx, ty + 11, tw, 10, colors.mutedInk)
       self:endPress(pressed)
     end
   end
@@ -256,6 +266,7 @@ return function(H, ui, K)
       if here then self:focusFrame(7, top, 226, 33) end
       self:partyInfo(self:fitPartyInfo(row.area or translate("UNKNOWN AREA"), 150), 13, top + 2,
         row.matches == false and colors.mutedInk or colors.ink)
+      if row.details ~= false then
       local x = 13
       if row.time and K.periodIcon and K.periodIcon(row.time, x, top + 18, colors.mutedInk) then x = x + 10 end
       self:v4MethodGlyph(row.method, x, top + 18)
@@ -263,6 +274,7 @@ return function(H, ui, K)
       self:partyInfo(cond, x + 10, top + 16, colors.green)
       self:v4ChanceBar(118, top + 21, 40, row.chance)
       self:partyInfo(row.levels or "L--", 168, top + 2, colors.ink, 56, "right")
+      end
       if row.status then
         self:v4Pill(self:fitPartyType(row.status, 64), 226, top + 18,
           here and colors.hp or row.matches and hex("4888e0") or colors.silverDark, { right = true, raw = true })

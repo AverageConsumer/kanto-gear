@@ -49,11 +49,18 @@ function Page.draw(H, state, mon, portrait, translate)
     H:panel(6, 82, 228, 128, false, nil, c.greenLight)
     H:partyInfo(translate("HATCHING"), 14, 91, c.green, 212, "center")
     if mon.spoilers then
-      H:partyInfo(translate("ESTIMATED STEPS"), 14, 111, c.green, 212, "center")
-      H:partyInfo(mon.egg.steps and ("~%d"):format(mon.egg.steps) or "--", 14, 126, c.ink, 212, "center")
-      H:partyInfo(translate("HATCHES INTO"), 14, 155, c.green, 212, "center")
-      H:partyInfo(H:fitPartyInfo(mon.hatchName or "--", 212), 14, 170, c.ink, 212, "center")
-      H:partyType(translate("HATCH CYCLES") .. " " .. tostring(mon.egg.cycles or "--"), 14, 195, c.green, 212)
+      local both = mon.eggProgress ~= false and mon.eggContents ~= false
+      if mon.eggProgress ~= false then
+        local y = both and 111 or 130
+        H:partyInfo(translate("ESTIMATED STEPS"), 14, y, c.green, 212, "center")
+        H:partyInfo(mon.egg.steps and ("~%d"):format(mon.egg.steps) or "--", 14, y + 15, c.ink, 212, "center")
+        H:partyType(translate("HATCH CYCLES") .. " " .. tostring(mon.egg.cycles or "--"), 14, both and 195 or 172, c.green, 212)
+      end
+      if mon.eggContents ~= false then
+        local y = both and 155 or 130
+        H:partyInfo(translate("HATCHES INTO"), 14, y, c.green, 212, "center")
+        H:partyInfo(H:fitPartyInfo(mon.hatchName or "--", 212), 14, y + 15, c.ink, 212, "center")
+      end
     else
       H:partyInfo(translate("KEEP THE EGG IN YOUR PARTY."), 14, 128, c.ink, 212, "center")
       H:partyInfo(translate("WALK TO HELP IT HATCH."), 14, 145, c.ink, 212, "center")
@@ -69,25 +76,42 @@ function Page.draw(H, state, mon, portrait, translate)
   if state.page == state.hiddenPage then
     local details = mon.details
     H:panel(6, 82, 228, 128, false, nil, c.blueLight)
-    if state.generation > 1 then
-      H:partyInfo(translate("FRIENDSHIP"), 14, 89, c.green, 83, "center")
-      H:partyInfo(details.friendship and ("%d/255"):format(details.friendship) or "--", 99, 89, c.ink, 42, "center")
-      if details.total then
-        H:partyType(("EV %d/510"):format(details.total), 147, 91, c.green, 79)
+    local genes, training = details.showGenes ~= false, details.showTraining ~= false
+    if state.generation > 1 and details.showFriendship ~= false then
+      local value = details.friendship and ("%d/255"):format(details.friendship) or "--"
+      if not genes and not training then
+        H:partyInfo(translate("FRIENDSHIP"), 14, 130, c.green, 212, "center")
+        H:partyInfo(value, 14, 150, c.ink, 212, "center")
+      else
+        local width = details.total and 132 or 212
+        local label = translate("FRIENDSHIP")
+        local labelWidth, valueWidth = H:partyInfoWidth(label), H:partyInfoWidth(value)
+        local left = 14 + math.floor((width - labelWidth - 8 - valueWidth) / 2)
+        H:partyInfo(label, left, 89, c.green)
+        H:partyInfo(value, left + labelWidth + 8, 89, c.ink)
+        if details.total then H:partyType(("EV %d/510"):format(details.total), 147, 91, c.green, 79) end
       end
-    else
-      H:partyInfo(translate("GENETICS AND TRAINING"), 14, 89, c.green, 212, "center")
+    elseif genes or training then
+      H:partyInfo(details.total and ("EV %d/510"):format(details.total) or translate("DETAILS"),
+        14, 89, c.green, 212, "center")
     end
-    H:partyInfo(translate("STAT"), 14, 108, c.green, 83, "center")
-    H:partyInfo(translate(details.geneLabel), 104, 108, c.green, 43, "center")
-    H:partyInfo(translate(details.effortLabel), 151, 108, c.green, 75, "center")
-    for i, row in ipairs(details.rows) do
-      local y = 121 + (6 - #details.rows) * 6 + (i - 1) * 12
-      H:partyInfo(H:fitPartyInfo(row.label, 83), 14, y, c.ink, 83, "center")
-      H:partyInfo(row.gene == nil and "--" or tostring(row.gene), 104, y, c.ink, 43, "center")
-      H:partyInfo(row.effort == nil and "--" or tostring(row.effort), 151, y, c.ink, 75, "center")
+    if genes or training then
+      local columns = { { label = "STAT", field = "label" } }
+      if genes then columns[#columns + 1] = { label = details.geneLabel, field = "gene" } end
+      if training then columns[#columns + 1] = { label = details.effortLabel, field = "effort" } end
+      for index, column in ipairs(columns) do
+        local left = 14 + math.floor((index - 1) * 212 / #columns)
+        local width = 14 + math.floor(index * 212 / #columns) - left
+        H:partyInfo(translate(column.label), left, 108, c.green, width, "center")
+        for i, row in ipairs(details.rows) do
+          local y = 121 + (6 - #details.rows) * 6 + (i - 1) * 12
+          local value = row[column.field]
+          H:partyInfo(H:fitPartyInfo(value == nil and "--" or tostring(value), width - 2),
+            left + 1, y, c.ink, width - 2, "center")
+        end
+      end
     end
-    if state.generation > 1 then
+    if state.generation > 1 and details.showGenes ~= false then
       H:partyType(translate("HIDDEN POWER"), 14, 199, c.green, 96)
       H:partyType(details.power and ("%s / %d"):format(details.typeLabel, details.power) or "--", 114, 199, c.ink, 112)
     end

@@ -1101,6 +1101,7 @@ return function(H, ui, K)
     end,
   }
   CAT_GLYPH.EXPLORATION = CAT_GLYPH.RESEARCH
+  CAT_GLYPH.DISCOVERY = CAT_GLYPH.RESEARCH
   local function accentOf(self, name)
     local map = { blue = hex("3878d0"), green = hex("3ea04c"), red = hex("e04838"), amber = hex("e09a20") }
     return map[name or ""] or self.tok.acc.M

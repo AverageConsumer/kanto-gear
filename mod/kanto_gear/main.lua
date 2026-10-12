@@ -2216,22 +2216,37 @@ return function(mod)
   infoDefault = Discovery.mode(infoDefault, mod.options:get("local_map"))
   if infoDefault == "vanilla" then infoDefault = "purist" end
   local infoChoices = {
-    { "DISCOVER", "purist" }, { "ROUTE GUIDE", "enhanced" },
-    { "SHOW EVERYTHING", "spoiler" },
+    { "VANILLA", "purist" }, { "GUIDE", "enhanced" },
+    { "EVERYTHING", "spoiler" }, { "CUSTOM", "custom" },
   }
-  local helperStored = {}
-  local function helperDefault(key)
-    local saved = mod.options:get(key)
-    helperStored[key] = saved
-    if saved ~= nil then return saved == true end
-    local old = mod.options:get("info_level") or mod.options:get("profile")
-    return old ~= "purist" and old ~= "vanilla" and old ~= "legacy" and old ~= "custom"
+  if mod.options:get("info_level") == "custom" then infoDefault = "custom" end
+  Discovery.initialPolicy = Discovery.resolve(function(key)
+    if key == "info_level" then return infoDefault end
+    return mod.options:get(key)
+  end)
+  -- Older releases stored battle helpers separately. Preserve explicit differences
+  -- as Custom instead of discarding a user's choices during the upgrade.
+  Discovery.migrateHelpers = false
+  if mod.options:get("reveal_area_map") == nil and infoDefault ~= "custom" then
+    for _, key in ipairs({ "type_hints", "move_details", "catch_odds" }) do
+      local saved = mod.options:get(key)
+      if saved ~= nil and saved ~= Discovery.initialPolicy[key] then Discovery.migrateHelpers = true end
+    end
+    if Discovery.migrateHelpers then
+      for _, key in ipairs({ "type_hints", "move_details", "catch_odds" }) do
+        local saved = mod.options:get(key)
+        if saved ~= nil then Discovery.initialPolicy[key] = saved == true end
+      end
+      infoDefault, migrateInfo = "custom", true
+    end
   end
+  for _, row in ipairs(Discovery.options) do SettingsInfo.help[Discovery.key(row[1])] = row[5] end
+  SettingsInfo.help.discovery_section = "Choose an information category to customize. Changes apply across Gear."
 
   THEME.displayModeDefault, THEME.combinedLayoutDefault = THEME:displayDefaults(
     function(key) return mod.options:get(key) end)
 
-  THEME.optionSchema = {
+  THEME.optionSchema = Discovery.define({
     { key = "language", label = "LANGUAGE", type = "choice",
       default = "en", choices = {
         { "ENGLISH", "en" }, { "DEUTSCH", "de" },
@@ -2349,12 +2364,6 @@ return function(mod)
       type = "toggle", default = false, visible_if = {
         key = "display_mode", one_of = { "separate", "combined" },
       } },
-    { key = "type_hints", label = "TYPE MATCHUPS", type = "toggle",
-      default = helperDefault("type_hints"), reset_default = true },
-    { key = "move_details", label = "ATTACK DETAILS", type = "toggle",
-      default = helperDefault("move_details"), reset_default = true },
-    { key = "catch_odds", label = "CATCH CHANCES", type = "toggle",
-      default = helperDefault("catch_odds"), reset_default = true },
     { key = "battle_view", label = "BATTLE VIEW", type = "choice",
       default = "standard", choices = {
         { "COMPANION", "standard" }, { "INFO", "info" },
@@ -2370,7 +2379,7 @@ return function(mod)
       type = "toggle", default = false, visible_if = {
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto", "cgear", "cgear_dark", "cgear_auto" },
       } },
-  }
+  }, Discovery.initialPolicy)
 
   -- Recomp's stock menu only understands equals/not_equals visibility and
   -- resets to default (not reset_default). Give it a compatible copy; keep
@@ -2396,15 +2405,18 @@ return function(mod)
 
   for _, row in ipairs(THEME.optionSchema) do
     row.description = SettingsInfo.help[row.key]
-    if mod.options.set and (row.reset_default ~= nil and row.default ~= row.reset_default
-        or (row.key == "type_hints" or row.key == "move_details" or row.key == "catch_odds")
-          and helperStored[row.key] == nil) then
+    if mod.options.set and row.reset_default ~= nil and row.default ~= row.reset_default then
       -- Keep migrated/current values separate from the native reset defaults.
-      -- Materialize inherited helpers once so Discovery cannot reset them.
+      -- Discovery's preset controls the information toggles independently.
       mod.options:set(row.key, row.default)
     end
   end
   if migrateInfo and mod.options.set then
+    if Discovery.migrateHelpers then
+      for _, row in ipairs(Discovery.options) do
+        mod.options:set(Discovery.key(row[1]), Discovery.initialPolicy[row[1]])
+      end
+    end
     mod.options:set("info_level", infoDefault)
   end
   if mod.options:get("local_map") == "enhanced" and mod.options.set then
@@ -2426,14 +2438,44 @@ return function(mod)
   end)
 
   local displayRuntime, dirty, compat
+  local discoveryPolicy = Discovery.resolve(function(key) return mod.options:get(key) end)
+  Discovery.updating = false
   local function assist(key)
-    if key == "spoilers" then
-      return Discovery.mode(mod.options:get("info_level"), mod.options:get("local_map")) == "spoiler"
-    end
-    if key == "type_hints" or key == "move_details" or key == "catch_odds" then
-      return mod.options:get(key) == true
-    end
+    Discovery.current()
+    if key == "spoilers" then return discoveryPolicy.future_tasks end
+    if key == "guide" then return discoveryPolicy.wild end
+    if key == "area" then return discoveryPolicy.trainers or discoveryPolicy.items end
+    if key == "item_radar" then return discoveryPolicy.items end
+    if discoveryPolicy[key] ~= nil then return discoveryPolicy[key] == true end
     return true
+  end
+  function Discovery.changed(key, value)
+    if Discovery.updating then return false end
+    Discovery.updating = true
+    local feature = Discovery.byKey[key]
+    if (feature and value ~= discoveryPolicy[feature[1]] and mod.options:get("info_level") ~= "custom")
+        or key == "info_level" and value == "custom" and discoveryPolicy.preset ~= "custom" then
+      local previous = discoveryPolicy
+      mod.options:set("info_level", "custom")
+      for _, row in ipairs(Discovery.options) do
+        local option, selected = Discovery.key(row[1]), previous[row[1]]
+        if feature and option == key then selected = value end
+        mod.options:set(option, selected)
+      end
+    end
+    discoveryPolicy = Discovery.resolve(function(option) return mod.options:get(option) end)
+    if key == "info_level" and value ~= "custom" then
+      for _, row in ipairs(Discovery.options) do
+        mod.options:set(Discovery.key(row[1]), discoveryPolicy[row[1]])
+      end
+    end
+    Discovery.updating = false
+    return key == "info_level" or feature ~= nil
+  end
+  function Discovery.current()
+    local preset = mod.options:get("info_level")
+    if not Discovery.updating and preset ~= discoveryPolicy.preset then Discovery.changed("info_level", preset) end
+    return discoveryPolicy
   end
 
   local function currentBattleUIMode()
@@ -2834,15 +2876,18 @@ return function(mod)
         "combined_layout", "combined_primary", "secondary_size",
         "bottom_safe_area", "overlay_corner", "overlay_button",
         "display_target", "screen_swap" } },
-    { id = "battle", label = "BATTLE", detail = "SEPARATE BATTLE HELPERS",
-      accent = "red", keys = { "battle_view", "auto_battle_screen", "caught_icon", "type_hints", "move_details", "catch_odds" } },
-    { id = "research", label = "EXPLORATION", detail = "WHAT GEAR REVEALS",
-      accent = "amber", keys = { "info_level" } },
+    { id = "battle", label = "BATTLE", detail = "BATTLE VIEW AND CONTROLS",
+      accent = "red", keys = { "battle_view", "auto_battle_screen", "caught_icon" } },
+    { id = "research", label = "DISCOVERY", detail = "CHOOSE WHAT GEAR REVEALS",
+      accent = "amber", keys = { "info_level", "discovery_section" } },
     { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS",
       accent = "blue", keys = { "ui_haptics", "keyboard_layout" } },
     { id = "system", label = "SYSTEM", detail = "HELP AND RESET",
       accent = "green", actions = { "home_help", "reset_home", "reset_options" } },
   }
+  for _, row in ipairs(Discovery.options) do
+    table.insert(displayRuntime.settingsCategories[4].keys, Discovery.key(row[1]))
+  end
   displayRuntime.defaultHomeTiles = {
     { id = "explorer_widget", page = 1, column = 1, row = 1 },
     { id = "party_widget", page = 1, column = 8, row = 1 },
@@ -2859,6 +2904,7 @@ return function(mod)
   end
 
   function displayRuntime.optionVisible(row)
+    if row and row.discoveryGroup and row.discoveryGroup ~= mod.options:get("discovery_section") then return false end
     if row and row.key == "ui_motion" and mod.options:get("map_motion") == "performance" then return false end
     if row and (row.key == "overlay_corner" or row.key == "overlay_button")
         and mod.options:get("combined_layout") ~= "overlay" then return false end
@@ -2953,7 +2999,13 @@ return function(mod)
     end
     local pages = math.max(1, math.ceil(#rows / 4))
     state.page = math.max(1, math.min(pages, state.page or 1))
-    return { category = category.id, label = category.label, detail = category.detail,
+    local detail = category.detail
+    if state.category == 4 and mod.options:get("info_level") == "custom" then
+      for _, group in ipairs(Discovery.groups) do
+        if group[2] == mod.options:get("discovery_section") then detail = group[1]; break end
+      end
+    end
+    return { category = category.id, label = state.category == 4 and mod.options:get("info_level") == "custom" and detail or category.label, detail = detail,
       accent = category.accent, rows = rows, page = state.page, pages = pages,
       tabs = tabs and displayRuntime.settingsCategories or nil, tab = state.category,
       selected = state.selected, confirm = state.confirm }
@@ -3103,21 +3155,25 @@ return function(mod)
   local themeKey = nil
 
   function displayRuntime.discoveryMode()
-    return Discovery.mode(mod.options:get("info_level"), mod.options:get("local_map"))
+    Discovery.current()
+    return discoveryPolicy.stamp_totals and (discoveryPolicy.hidden_items and "spoiler" or "enhanced") or "vanilla"
   end
+  function displayRuntime.discoveryPolicy() return Discovery.current() end
   function displayRuntime.knownMap(id)
-    return Discovery.map(displayRuntime.discoveryMode(), id, mapId,
+    Discovery.current()
+    return Discovery.map(discoveryPolicy, id, mapId,
       mod.save:get("achievement_visits", {}), game and game.save)
   end
   function displayRuntime.knownSpecies(species)
+    Discovery.current()
     local save = game and game.save or {}
-    return Discovery.species(displayRuntime.discoveryMode(), species,
+    return Discovery.species(discoveryPolicy, species,
       save.pokedex and save.pokedex.seen, compat.caughtDex(save))
   end
   function displayRuntime.visibleAreaSections(sections)
     for category, section in ipairs(sections) do
       section.rows = Discovery.filter(section.rows, function(row)
-        return Discovery.row(displayRuntime.discoveryMode(), row, category,
+        return Discovery.row(discoveryPolicy, row, category,
           displayRuntime.knownMap(row.mapId or mapId))
       end)
     end
@@ -4012,7 +4068,7 @@ return function(mod)
       end
     end
     -- The Itemfinder lives in the Field Kit too: its card opens the radar.
-    if assist("item_radar") and not assist("spoilers")
+    if assist("item_radar") and not assist("hidden_items")
         and ((save and save.inventory or {}).ITEMFINDER or 0) > 0 then
       result[#result + 1] = {
         id = "itemfinder", icon = "itemfinder", radar = true, ready = true,
@@ -4489,7 +4545,7 @@ return function(mod)
         sections = sections, pokemon = rows[4], remaining = Area.remaining(sections) }
     end
     local pokemon = {}
-    local showFuture = completion or assist("spoilers")
+    local showFuture = completion or assist("future_tasks")
     for _, id in ipairs(maps) do
       if checkpoint then checkpoint() end
       local map = data.maps and data.maps[id]
@@ -4692,14 +4748,15 @@ return function(mod)
   end
 
   function displayRuntime.presentAchievement(area)
-    return displayRuntime.Achievements.presentArea(area, displayRuntime.discoveryMode(), function(row, category)
+    Discovery.current()
+    return displayRuntime.Achievements.presentArea(area, discoveryPolicy, function(row, category)
       if category == 4 then
         if row.gift then
-          return Discovery.row(displayRuntime.discoveryMode(), row, category, displayRuntime.knownMap(row.mapId))
+          return Discovery.row(discoveryPolicy, row, category, displayRuntime.knownMap(row.mapId))
         end
-        return displayRuntime.knownMap(row.mapId) and displayRuntime.knownSpecies(row.species)
+        return (assist("wild") or row.done) and displayRuntime.knownMap(row.mapId) and displayRuntime.knownSpecies(row.species)
       end
-      return Discovery.row(displayRuntime.discoveryMode(), row, category, displayRuntime.knownMap(row.mapId))
+      return Discovery.row(discoveryPolicy, row, category, displayRuntime.knownMap(row.mapId))
     end)
   end
 
@@ -4708,27 +4765,29 @@ return function(mod)
     local mode = displayRuntime.discoveryMode()
     local data = displayRuntime.achievementData()
     if not data then return { loading = true, view = state.view, mode = mode, pages = 1 } end
-    if state.presentSource ~= data or state.presentMode ~= mode then
+    if state.presentSource ~= data or state.presentMode ~= discoveryPolicy.signature then
       local presented = { areas = {}, goals = {}, earned = {}, byId = {} }
       for _, area in ipairs(data.areas) do presented.byId[area.id] = displayRuntime.presentAchievement(area) end
       for _, key in ipairs({ "areas", "goals", "earned" }) do
         for _, area in ipairs(data[key]) do presented[key][#presented[key] + 1] = presented.byId[area.id] end
       end
-      state.presentSource, state.presentMode, state.presented = data, mode, presented
+      state.presentSource, state.presentMode, state.presented = data, discoveryPolicy.signature, presented
     end
     local presented = state.presented
-    local areas, goals, earned = Progress.visible(presented, mode)
+    local areas, goals, earned = Progress.visible(presented, mode, discoveryPolicy)
     local area = state.selected and presented.byId[state.selected]
-    if area and mode ~= "spoiler" and not area.evidence then area = nil end
+    if area and not assist("unvisited_maps") and not area.evidence then area = nil end
     if not area and state.view ~= "album" and state.view ~= "goals" then state.view = "album" end
-    if mode ~= "spoiler" and state.view == "location" then
+    if state.view == "location" and (not assist("area_map") or not state.location
+        or not Discovery.row(discoveryPolicy, state.location, state.category,
+          displayRuntime.knownMap(state.location.mapId))) then
       state.view, state.location, state.locationEntrance, state.locationPoint = "detail", nil, nil, nil
     end
     if state.view == "location" and state.location then
       displayRuntime.loadAchievementLocation(state.locationPoint or state.location)
     end
     if state.view == "habitat" and state.habitat then
-      if not displayRuntime.knownSpecies(state.habitat.species) then
+      if not assist("habitats") or not displayRuntime.knownSpecies(state.habitat.species) then
         state.view, state.habitat = "finds", nil
       else
         local plan = displayRuntime.pokedexHabitatPlan(state.habitat)
@@ -4743,7 +4802,7 @@ return function(mod)
       end
     end
     local entries = (state.view == "finds" or state.view == "location") and area
-      and Progress.visibleRows(area, state.category, mode) or areas
+      and Progress.visibleRows(area, state.category, "filtered") or areas
     local size = (state.view == "finds" or state.view == "location")
       and (state.category == 4 and 3 or 4) or 6
     local pages = math.max(1, math.ceil(#entries / size))
@@ -4754,7 +4813,7 @@ return function(mod)
     end
     return { view = state.view, page = state.page, pages = pages, area = area,
       goal = goals[1], earned = earned, entries = shown, mode = mode,
-      category = state.category, canExplore = area and area.current and assist("guide"),
+      category = state.category, canHabitat = assist("habitats"), canLocate = assist("area_map"), canExplore = area and area.current and assist("guide"),
       location = state.location,
       locationPoint = state.locationPoint or state.location,
       entrance = state.locationEntrance,
@@ -4821,7 +4880,7 @@ return function(mod)
         explorer.data = nil
       end
     elseif action == "page" then displayRuntime.cycleAchievements(value)
-    elseif action == "locate" and displayRuntime.achievementModel().mode == "spoiler" then
+    elseif action == "locate" and assist("area_map") then
       state.location, state.view = value, "location"
       state.locationEntrance = displayRuntime.LocationPreview.entrance(
         compat.isGen2() and game.data.gen2Maps or game.data.maps, value,
@@ -4829,10 +4888,10 @@ return function(mod)
       state.locationPoint = state.locationEntrance or value
       displayRuntime.loadAchievementLocation(state.locationPoint)
     elseif action == "location_scope" and state.view == "location" and state.locationEntrance
-        and displayRuntime.achievementModel().mode == "spoiler" then
+        and assist("area_map") then
       state.locationPoint = state.locationPoint == state.location and state.locationEntrance or state.location
       displayRuntime.loadAchievementLocation(state.locationPoint)
-    elseif action == "habitat" and displayRuntime.knownSpecies(value.species) then
+    elseif action == "habitat" and assist("habitats") and displayRuntime.knownSpecies(value.species) then
       local area = displayRuntime.achievementModel().area
       if area then
         for _, row in ipairs(guideData(area.maps, true).rows) do
@@ -5532,7 +5591,7 @@ return function(mod)
         or not active or THEME.style ~= "hgss" or page ~= "LOCAL" or battle
         or displayRuntime.overlayHidden or screenState() ~= "active"
         or displayRuntime.explorer.scanMapId ~= mapId
-        or assist("spoilers") or not assist("item_radar")
+        or assist("hidden_items") or not assist("item_radar")
         or not hasItemfinder() then return end
     if #radarSignals() > 0 then displayRuntime.haptic("discover") end
   end
@@ -5708,8 +5767,12 @@ return function(mod)
 
   function displayRuntime.startMenuModel(top)
     local model = displayRuntime.StartMenu.model(top)
-    if model and not assist("type_hints") then
-      for _, entry in ipairs(model.entries) do entry.effectiveness = nil end
+    if model then
+      local hints, odds = assist("type_hints"), assist("catch_odds")
+      for _, entry in ipairs(model.entries) do
+        if not hints then entry.effectiveness = nil end
+        if not odds then entry.catchChance = nil end
+      end
     end
     return model
   end
@@ -6996,6 +7059,12 @@ return function(mod)
   end
 
   local function loadLocalMap()
+    if not assist("area_map") then
+      if not Discovery.emptyMap or Discovery.emptyMap.mapId ~= mapId then
+        Discovery.emptyMap = { mapId = mapId, width = 1, height = 1, rows = { " " }, markers = {}, disabled = true }
+      end
+      return Discovery.emptyMap
+    end
     if displayRuntime.gen3 then
       if not displayRuntime.gen3Map then
         displayRuntime.gen3Map = assert(load(mod:read("gen3_map.lua"),
@@ -7155,6 +7224,7 @@ return function(mod)
   end
 
   function displayRuntime.updateMapRefresh(now)
+    if not assist("area_map") then return false end
     local state = displayRuntime.mapRefresh
     if (page ~= "LOCAL" and page ~= "HOME") or THEME.style ~= "hgss"
         or displayRuntime.overlayHidden then return false end
@@ -7253,11 +7323,11 @@ return function(mod)
       cached = { mapId = id, at = now,
         mapOnly = mapOnly == true,
         guideEnabled = guideEnabled, areaEnabled = areaEnabled,
-        fruits = areaEnabled and compat.isGen2()
+        fruits = assist("berries") and compat.isGen2()
           and displayRuntime.fruitTrees.rows(game.data, id) or {},
         guide = guideEnabled and not mapOnly and guideData()
           or { rows = {}, caught = 0, time = "DAY", timed = false },
-        area = (areaEnabled or guideEnabled) and areaData(mapOnly and { id } or areaMaps(id), true)
+        area = (areaEnabled or guideEnabled or assist("gifts")) and areaData(mapOnly and { id } or areaMaps(id), true)
           or { sections = { { rows = {} }, { rows = {} }, { rows = {} } } },
       }
       explorer.data = cached
@@ -7268,7 +7338,7 @@ return function(mod)
     local renderKey = table.concat({ tostring(explorer.view), tostring(explorer.selected),
       tostring(explorer.page), tostring(explorer.detailPage or 1), tostring(explorer.mapFull),
       tostring(explorer.mapZoom), tostring(explorer.filters.wildScope), tostring(explorer.scanFrame),
-      tostring(assist("spoilers")), tostring(assist("item_radar")), tostring(themeKey), tostring(mapOnly == true),
+      discoveryPolicy.signature, tostring(assist("item_radar")), tostring(themeKey), tostring(mapOnly == true),
       displayRuntime.fruitTrees.stateKey(game.save, cached.fruits) }, ":")
     if explorer.renderModel and explorer.renderData == cached
         and explorer.renderOverview == overview and explorer.renderKey == renderKey
@@ -7281,11 +7351,11 @@ return function(mod)
       { rows = {} } }
     local allTrainers, allItems, wild = Discovery.filter(areaEnabled and sections[1].rows or {}, function(row)
       return (row.mapId == nil or row.mapId == id)
-        and Discovery.row(displayRuntime.discoveryMode(), row, 1, displayRuntime.knownMap(row.mapId or id))
+        and Discovery.row(discoveryPolicy, row, 1, displayRuntime.knownMap(row.mapId or id))
     end), {}, {}
     for _, row in ipairs(areaEnabled and sections[2].rows or {}) do allItems[#allItems + 1] = row end
     for _, row in ipairs(areaEnabled and sections[3].rows or {}) do allItems[#allItems + 1] = row end
-    for _, row in ipairs(guideEnabled and area.pokemon or {}) do allItems[#allItems + 1] = row end
+    for _, row in ipairs(assist("gifts") and area.pokemon or {}) do allItems[#allItems + 1] = row end
 
     local filters = explorer.filters
     filters.wildScope = filters.wildScope == "ROUTE" and "ROUTE" or "HERE"
@@ -7343,7 +7413,7 @@ return function(mod)
       end
       row.key = "trainer:" .. tostring(row.id or row.label)
     end
-    local enhanced = assist("spoilers")
+    local enhanced = assist("hidden_items")
     local canScan = not enhanced and assist("item_radar") and hasItemfinder()
     if explorer.scanMapId ~= id then
       explorer.scanMapId, explorer.scanFrame, explorer.scanRevealed =
@@ -7384,7 +7454,7 @@ return function(mod)
         and "USE ITEMFINDER" or row.gift and "TALK TO NPC" or "MARKED ON MAP")
     end
     allItems = Discovery.filter(allItems, function(row)
-      return Discovery.row(displayRuntime.discoveryMode(), row, (row.species or row.isEgg) and 4 or row.kind == "hidden" and 3 or 2,
+      return Discovery.row(discoveryPolicy, row, (row.species or row.isEgg) and 4 or row.kind == "hidden" and 3 or 2,
         displayRuntime.knownMap(row.mapId or id))
     end)
     local gifts, items = {}, {}
@@ -7432,9 +7502,9 @@ return function(mod)
     local mapItems = Discovery.filter(allItems, function(row) return not row.outsideMap and (not row.remote or row.entrance) end)
     for _, row in ipairs(wild) do
       local def = game.data.pokemon and game.data.pokemon[row.species] or {}
-      local types = row.types or def.types or {}
-      local type1 = types[1] or def.type1 or "NORMAL"
-      local type2 = types[2] or def.type2 or type1
+      local types = (assist("dex_types") or row.caught) and (row.types or def.types or {}) or {}
+      local type1 = types[1] or (assist("dex_types") or row.caught) and def.type1 or nil
+      local type2 = types[2] or (assist("dex_types") or row.caught) and def.type2 or type1
       row.type, row.type2 = type1, type2
       row.typeLabel = THEME:typeName(type1, mod.content)
       row.type2Label = THEME:typeName(type2, mod.content)
@@ -7516,6 +7586,7 @@ return function(mod)
         detailRows[#detailRows + 1] = selected.matches[index]
       end
     end
+    if not assist("encounter_details") then detailRows = {} end
     local mapCacheKeys
     if snapshot then
       mapCacheKeys = { tostring(themeKey), tostring(explorer.mapFull),
@@ -7541,9 +7612,9 @@ return function(mod)
       mapZoom = explorer.mapZoom or 1,
       filters = filters,
       detailPage = explorer.detailPage, detailRows = detailRows,
-      detailPages = selected and selected.detailPages or 1,
+      detailPages = assist("encounter_details") and selected and selected.detailPages or 1,
       enhanced = enhanced,
-      canScan = canScan,
+      canScan = canScan and assist("area_map"), encounterDetails = assist("encounter_details"),
       scanHint = canScan and not explorer.scanHintSeen,
       scanProgress = scanProgress,
       showMapStats = areaEnabled,
@@ -7587,7 +7658,7 @@ return function(mod)
   end
 
   function loadLocalMapImage(overview, rows, width, height, density)
-    if overview.drawTerrain then return nil end
+    if overview.disabled or overview.drawTerrain then return nil end
     if localMapImage ~= nil then return localMapImage or nil end
     if not (love.image and love.image.newImageData) then
       localMapImage = false
@@ -7884,7 +7955,7 @@ return function(mod)
   end
 
   local function drawLocalMap()
-    local enhanced = assist("spoilers")
+    local enhanced = assist("hidden_items")
     local overview = loadLocalMap()
     if THEME.style == "hgss" then
       header(THEME:translate("EXPLORER"),
@@ -7897,7 +7968,7 @@ return function(mod)
         THEME.hgss:achievements(displayRuntime.explorerLocationModel())
       elseif not overview then
         THEME.hgss:panel(7, 32, 226, 178, false)
-        THEME.hgss:partyInfo(THEME:translate("HOST UPDATE REQUIRED"), 31, 112,
+        THEME.hgss:partyInfo(THEME:translate(not assist("area_map") and "LIVE MAP DISABLED" or "HOST UPDATE REQUIRED"), 31, 112,
           THEME.hgss.colors.ink, 178, "center")
       else
         local model = displayRuntime.explorerModel(overview)
@@ -7912,8 +7983,8 @@ return function(mod)
       return
     end
     header(THEME:translate("LOCAL"), false, true)
-    if not overview then
-      centered(THEME:translate("HOST UPDATE REQUIRED"), 62, DARK)
+    if not overview or overview.disabled then
+      centered(THEME:translate(not assist("area_map") and "LIVE MAP DISABLED" or "HOST UPDATE REQUIRED"), 62, DARK)
     else
       local rows, width, height, density = localMapGrid(overview)
       local pos = mod.world:current()
@@ -8277,12 +8348,12 @@ return function(mod)
     box("fill", 82, 109, 74, 29, PAPER)
     outline(82, 109, 74, 29, INK)
     text(THEME:translate("STEPS"), 86, 113, DARK)
-    text(fit(compactSteps(steps), 8), 86, 125, INK)
+    text(fit(assist("journey_stats") and compactSteps(steps) or "--", 8), 86, 125, INK)
     text(">", 146, 120, DARK)
   end
 
   local function drawStepsDetail()
-    local exact = ("%.0f"):format(steps)
+    local exact = assist("journey_stats") and ("%.0f"):format(steps) or "--"
     header(THEME:translate("STEPS"), true)
     if THEME.style == "hgss" then
       G.push()
@@ -8354,7 +8425,7 @@ return function(mod)
         drawSprite(row.species, "front", 5, y + 1, 27, 27, tint)
         text(fit(row.name, 11) .. ">", 35, y + 3, INK)
         local caughtBall = row.caught and drawCaughtBall(147, y + 2)
-        if guide.timed and (not row.caught or caughtBall) then
+        if assist("encounter_details") and guide.timed and (not row.caught or caughtBall) then
           local times = {}
           for _, time in ipairs({ "MORN", "DAY", "NITE" }) do
             times[#times + 1] = (row.mapAllTimes or row.mapTimes[time])
@@ -8365,6 +8436,7 @@ return function(mod)
         if row.caught and not caughtBall then
           text(fit(THEME:translate("CAUGHT"), 7), 113, y + 3, DARK)
         end
+        if assist("encounter_details") then
         local minLevel = row.currentMinLevel or row.minLevel
         local maxLevel = row.currentMaxLevel or row.maxLevel
         local levels = minLevel == maxLevel and THEME:format("L%d", minLevel)
@@ -8389,6 +8461,7 @@ return function(mod)
         text(methods1, 35, y + 13, DARK)
         text(methods2, 35, y + 21, DARK)
         text(levels, 156 - #glyphList(levels) * 6, y + 15, DARK)
+        end
       end
     end
   end
@@ -8418,6 +8491,7 @@ return function(mod)
         box("fill", 3, y, 154, 31, appearance.rank == 1 and MID or PAPER)
         outline(3, y, 154, 31, INK)
         text(fit(appearance.section, 23), 7, y + 4, INK)
+        if assist("encounter_details") then
         local time = THEME:translate(appearance.time or "ALL")
         local method = THEME:translate(appearance.method)
         text(fit(THEME:format("%s %s %d%%", time, method,
@@ -8426,6 +8500,7 @@ return function(mod)
           and THEME:format("L%d", appearance.minLevel)
           or THEME:format("L%d-%d", appearance.minLevel, appearance.maxLevel)
         text(levels, 156 - #glyphList(levels) * 6, y + 15, DARK)
+        end
       end
     end
   end
@@ -8845,12 +8920,13 @@ return function(mod)
     local model = {
       page = home.page, pages = pages, tiles = tiles, slots = slots,
       help = displayRuntime.homeHelpActive(), editing = home.editing,
-      dragging = home.swapSource, steps = compactSteps(steps),
+      dragging = home.swapSource, steps = assist("journey_stats") and compactSteps(steps) or "--",
       route = explorer.route or "UNKNOWN AREA",
       overview = overview, image = explorer.image,
       player = explorer.player, markers = explorer.markers,
       drawPlayer = explorer.drawPlayer, drawTrainer = explorer.drawTrainer,
-      nowRows = overview and displayRuntime.homeNowRows(overview) or nil,
+      mapDisabled = not assist("area_map"),
+      nowRows = overview and assist("wild") and displayRuntime.homeNowRows(overview) or nil,
       -- Gen 3 menu icons are 32px boxes and draw 1:1; older games pass sprites
       nowIconBox = displayRuntime.gen3 ~= nil,
       drawNowIcon = function(row, x, y, size, dim)
@@ -9037,7 +9113,7 @@ return function(mod)
     elseif entry.id == "trainer" then
       entry.preview = displayRuntime.trainerSummary()
     elseif entry.id == "steps" then
-      entry.preview = { steps = compactSteps(steps) }
+      entry.preview = { steps = assist("journey_stats") and compactSteps(steps) or "--" }
     end
     return entry
   end
@@ -9248,10 +9324,11 @@ return function(mod)
       or type(move) == "table" and move or {}
     local def = game.data.moves[source.id] or {}
     local moveType = source.type or def.type
-    local power = source.displayPower
+    local details = assist("move_details")
+    local power = details and source.displayPower or nil
     if power == nil then power = source.power or def.power end
     if power == 0 then power = nil end
-    local accuracy = source.hitChance
+    local accuracy = details and source.hitChance or nil
     if accuracy == nil then accuracy = source.accuracy or def.accuracy end
     local maxPp = source.maxPp or def.pp or source.pp or 0
     local unavailable = THEME:moveUnavailableReason(source)
@@ -9265,9 +9342,9 @@ return function(mod)
       ppText = THEME:format("%d/%d", source.pp or maxPp, maxPp),
       powerLabel = THEME:translate("PWR"),
       power = power or 0,
-      powerText = hgssRuntime.numberLabel(power),
+      powerText = (details or compat.isGen2() or displayRuntime.gen3) and hgssRuntime.numberLabel(power) or "--",
       accuracyLabel = THEME:translate("ACC"),
-      accuracyText = hgssRuntime.numberLabel(accuracy),
+      accuracyText = (details or compat.isGen2() or displayRuntime.gen3) and hgssRuntime.numberLabel(accuracy) or "--",
       stabLabel = "STAB",
       matchupLabel = THEME:translate("MATCHUP"),
       effectiveness = assist("type_hints") and (source.effectiveness or enemyTypes
@@ -9276,8 +9353,8 @@ return function(mod)
       disabledLabel = unavailable and THEME:translate(unavailable),
       disabledLines = unavailable and THEME:descriptionLines(
         source.disabledReason or THEME:translate(unavailable), 34, 3, 196),
-      descriptionLines = compat.moveInfoLines(source, def,
-        battleState() and battleState().ruleset),
+      descriptionLines = details and compat.moveInfoLines(source, def,
+        battleState() and battleState().ruleset) or {},
     }
   end
 
@@ -9293,7 +9370,7 @@ return function(mod)
       partyLabel = THEME:translate("POKEMON"),
       runLabel = THEME:translate("RUN"),
       moveIndex = customBattleLayout() and battle.moveIndex or nil,
-      details = assist("move_details"),
+      details = assist("move_details"), typeHints = assist("type_hints"),
       moves = {},
     }
     for slot = 1, 4 do
@@ -9849,8 +9926,9 @@ return function(mod)
   end
 
   function displayRuntime.pokedexHabitatPlan(selected)
+    Discovery.current()
     local state, now = displayRuntime.pokedex, love.timer.getTime()
-    local mode = displayRuntime.discoveryMode()
+    local mode = Discovery.current().signature
     local period = compat.timePeriod(game.world) or "DAY"
     local cached = state.habitatPlan
     if cached and cached.source == selected and cached.map == mapId and cached.mode == mode
@@ -9877,11 +9955,11 @@ return function(mod)
   end
 
   function displayRuntime.pokedexPokemon(species, name)
-    local info = compat.enemyInfo({ species = species, name = name }, game.data, game.save)
-    info.type = info.types[1] or "NORMAL"
+    local info = Discovery.dex(compat.enemyInfo({ species = species, name = name }, game.data, game.save), discoveryPolicy)
+    info.type = info.types[1]
     info.type2 = info.types[2] or info.type
-    info.typeLabel = THEME:typeName(info.type, mod.content)
-    info.type2Label = THEME:typeName(info.type2, mod.content)
+    info.typeLabel = info.type and THEME:typeName(info.type, mod.content)
+    info.type2Label = info.type2 and THEME:typeName(info.type2, mod.content)
     info.kind = info.kind or THEME:translate("UNKNOWN")
     info.height, info.weight = info.heightValue or "--", info.weightValue or "--"
     if info.descriptionText then info.description = THEME:pokedexDescriptionLines(info.descriptionText) end
@@ -9916,6 +9994,9 @@ return function(mod)
       state.view = "index"
       return displayRuntime.pokedexModel()
     end
+    local permitted = { stats = assist("dex_stats"), habitat = assist("habitats"),
+      moves = assist("dex_moves"), evolutions = assist("dex_evolutions") }
+    if permitted[state.view] == false then state.view = "profile" end
     local def = game.data.pokemon[selected.species] or {}
     local info = displayRuntime.pokedexPokemon(selected.species, selected.name)
     info.index = selected.index
@@ -9930,10 +10011,13 @@ return function(mod)
     for _ in pairs(areas) do areaCount = areaCount + 1 end
     local common = {
       pokemon = info, drawPokemon = drawPokemon,
-      statsText = THEME:format("BST %d", bst),
-      habitatText = THEME:format("%d AREAS", areaCount),
-      movesText = THEME:format("%d MOVES", #moves),
+      statsText = assist("dex_stats") and THEME:format("BST %d", bst) or nil,
+      habitatText = assist("habitats") and THEME:format("%d AREAS", areaCount) or nil,
+      movesText = assist("dex_moves") and THEME:format("%d MOVES", #moves) or nil, cards = {},
     }
+    for _, card in ipairs(displayRuntime.PokedexPage.cards) do
+      if permitted[card] then common.cards[#common.cards + 1] = card end
+    end
     if state.view == "profile" then
       common.view = "profile"
       displayRuntime.PokedexPage.description(state, common)
@@ -10002,6 +10086,7 @@ return function(mod)
         area = area .. " - " .. section
       end
       rows[#rows + 1] = {
+        details = assist("encounter_details"),
         area = area, current = planned.current, matches = planned.matches,
         status = planned.status == "ONLY %s"
           and THEME:format("ONLY %s", THEME:translate(planned.period))
@@ -10077,6 +10162,7 @@ return function(mod)
   end
 
   function displayRuntime.bagDescription(id, def)
+    if not assist("item_details") and not compat.isGen2() and not displayRuntime.gen3 then return {} end
     local moveId = def and (def.teaches
       or def.machine and def.machine.move)
     local move = moveId and game.data.moves and game.data.moves[moveId]
@@ -10539,7 +10625,7 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:battleMoveInfoBody(info,
-        THEME.hgss:moveHasStab({ types = view and view.types }, info))
+        assist("type_hints") and THEME.hgss:moveHasStab({ types = view and view.types }, info))
       G.pop()
       return
     end
@@ -10557,7 +10643,7 @@ return function(mod)
       G.push()
       G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       THEME.hgss:battleMoveInfoBody(info,
-        THEME.hgss:moveHasStab({ types = ownerTypes }, info))
+        assist("type_hints") and THEME.hgss:moveHasStab({ types = ownerTypes }, info))
       G.pop()
       return
     end
@@ -10849,7 +10935,7 @@ return function(mod)
       if battle or (game.save.party or {})[localState.slot] ~= localState.mon then
         displayRuntime.localSummary, moveInfo, dirty = nil, nil, true
       elseif game.stack:top() == game.world or game.stack:top() == game.overworld then
-        return compat.summary.configure(localState, assist("spoilers"))
+        return compat.summary.configure(localState, Discovery.current())
       end
     end
     if native and native.screenId == "GearSummaryMenu" then native = native.owner end
@@ -10871,7 +10957,7 @@ return function(mod)
         and displayRuntime.gen3Presentation.owns("menu")
         or bottomOwnsBattleUI(customBattleLayout(), active,
           hasDisplay(), displayReady, battleState(), battle)) or false
-    return compat.summary.configure(state, assist("spoilers"))
+    return compat.summary.configure(state, Discovery.current())
   end
 
   local function drawBattleSummary(summary)
@@ -11251,7 +11337,7 @@ return function(mod)
       end
     end
     local mon = source and (source.mon or source)
-    local info = compat.enemyInfo(enemy, game.data, game.save, mon)
+    local info = Discovery.enemy(compat.enemyInfo(enemy, game.data, game.save, mon), discoveryPolicy)
     info.source = enemy
     return info
   end
@@ -11269,12 +11355,12 @@ return function(mod)
           for _, row in ipairs(rows) do
             if row.side == "enemy" and not row.absent then
               local ok, info = pcall(compat.enemyInfo, row, game.data, game.save)
-              if ok and info and info.types[1] then
+              if ok and info and info.types[1] and assist("enemy_details") then
                 row.type, row.type2 = info.types[1], info.types[2] or info.types[1]
                 row.typeLabel = THEME:typeName(row.type, mod.content)
                 row.type2Label = THEME:typeName(row.type2, mod.content)
                 row.weak = {}
-                for index, weak in ipairs(info.weak or {}) do
+                for index, weak in ipairs(assist("type_hints") and info.weak or {}) do
                   if index > 4 then break end
                   row.weak[index] = { type = weak.type, typeLabel = THEME:typeName(weak.type, mod.content),
                     effectLabel = effectLabel(weak.multiplier), multiplier = weak.multiplier }
@@ -11429,10 +11515,10 @@ return function(mod)
       centered(THEME:translate("BASE MATCHUP"), 81, DARK)
       box("fill", 79, 90, 1, 52, MID)
       text(fit(THEME:translate("WEAK"), 7), 5, 91, DARK)
-      text(tostring(#info.weak), 57, 91, DARK)
+      text(info.matchupsAvailable and tostring(#info.weak) or "--", 57, 91, DARK)
       text(">", 71, 91, DARK)
       text(fit(THEME:translate("RESIST"), 7), 84, 91, DARK)
-      text(tostring(#info.resist), 136, 91, DARK)
+      text(info.matchupsAvailable and tostring(#info.resist) or "--", 136, 91, DARK)
       text(">", 150, 91, DARK)
       for column, rows in ipairs({ info.weak, info.resist }) do
         local x = column == 1 and 5 or 84
@@ -12378,7 +12464,7 @@ return function(mod)
     end
     local state = compat.summary.inspection(mon, game, displayRuntime.gen3 and 3
       or compat.isGen2() and 2 or 1, displayRuntime.gen3 and displayRuntime.gen3.hoenn)
-    compat.summary.configure(state, assist("spoilers"))
+    compat.summary.configure(state, Discovery.current())
     state.slot = slot
     displayRuntime.localSummary, moveInfo, hgssRuntime.animation, dirty = state, nil, nil, true
     return true
@@ -12638,7 +12724,8 @@ return function(mod)
     elseif action == "species" then
       displayRuntime.selectPokedexSpecies(model.entries[index].index)
     elseif action == "stats" or action == "habitat" or action == "moves" or action == "evolutions" then
-      state.view, state.habitatPage, state.movePage, state.evolutionPage, dirty = action, 1, 1, 1, true
+      local permission = ({ stats = "dex_stats", habitat = "habitats", moves = "dex_moves", evolutions = "dex_evolutions" })[action]
+      if assist(permission) then state.view, state.habitatPage, state.movePage, state.evolutionPage, dirty = action, 1, 1, 1, true end
     end
   end
 
@@ -12942,7 +13029,7 @@ return function(mod)
           if hy < 30 and hx < 27 then battleInfoDetail, dirty = nil, true end
         else
           local info = displayRuntime.enemyInfo()
-          local action = THEME.hgss:enemyInfoHit(hx, hy, info.dvs ~= nil)
+          local action = THEME.hgss:enemyInfoHit(hx, hy, info.dvs ~= nil, info)
           if action then battleInfoDetail, dirty = action, true end
         end
         return
@@ -12951,9 +13038,9 @@ return function(mod)
         if y < HEADER and x < 22 then battleInfoDetail, dirty = nil, true end
       elseif y >= 52 and y < 72 and x >= 118 and displayRuntime.enemyInfo().dvs then
         battleInfoDetail, dirty = "dvs", true
-      elseif y >= HEADER and y < 79 then
+      elseif y >= HEADER and y < 79 and displayRuntime.enemyInfo().profileAvailable then
         battleInfoDetail, dirty = "profile", true
-      elseif y >= 90 then
+      elseif y >= 90 and assist("type_hints") then
         battleInfoDetail, dirty = x < 80 and "weak" or "resist", true
       end
       return
@@ -14086,7 +14173,7 @@ return function(mod)
       dirty = true
       return
     end
-    if page == "LOCAL" and inside(x, y, 126, 18, 34, 30) then
+    if page == "LOCAL" and assist("area_map") and inside(x, y, 126, 18, 34, 30) then
       localMapZoom = localMapZoom % 3 + 1
       dirty = true
       return
@@ -14952,6 +15039,8 @@ return function(mod)
 
   function displayRuntime.optionsChanged(payload)
     if payload and payload.mod == "kanto_gear" then
+      if Discovery.updating then return end
+      local discoveryChanged = Discovery.changed(payload.key, payload.value)
       displayRuntime.home.widgetCache = nil
       if payload.key == "map_motion" then displayRuntime.mapRefresh.nextAt = 0 end
       if payload.key == "ui_haptics" and payload.value == true then
@@ -15015,7 +15104,7 @@ return function(mod)
       end
       if not assist("item_radar") then radarOpen = false end
       displayRuntime.explorer.data = nil
-      if payload.key == "info_level" then
+      if discoveryChanged then
         displayRuntime.pokedex.data, displayRuntime.pokedex.habitatPlan = nil, nil
         displayRuntime.pokedex.view = "index"
         displayRuntime.explorer.selected, displayRuntime.explorer.scanRevealed = nil, {}
@@ -15023,6 +15112,11 @@ return function(mod)
         displayRuntime.achievements.view = "album"
         displayRuntime.guideDetail = nil
         radarOpen = false
+        displayRuntime.achievements.presentSource = nil
+        displayRuntime.explorer.renderModel, displayRuntime.mapRefresh.homeModel = nil, nil
+        displayRuntime.mapRefresh.paintedPage = nil
+        battleInfoDetail = nil
+        if displayRuntime.localSummary then compat.summary.configure(displayRuntime.localSummary, discoveryPolicy) end
       end
       dirty = true
     end

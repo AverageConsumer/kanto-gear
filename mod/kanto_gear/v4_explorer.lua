@@ -128,6 +128,7 @@ return function(H, ui, K)
       self:partyType(lv, 15, 192, colors.green, 210)
       return
     end
+    if model.encounterDetails == false then return end
     -- habitats: a label, and page keys only when there is more than one page
     if model.detailPages > 1 then
       self:v4PageKeys(226, 105, model.detailPage, model.detailPages)
@@ -282,7 +283,7 @@ return function(H, ui, K)
     self:v4Window(MAP_X, HEADER_Y, MAP_W, HEADER_H)
     ART(PIN, 12, HEADER_Y + 7, { o = colors.outline, ["#"] = hex("e05848"), w = WHITE })
     -- expand / collapse key (hit 202..232)
-    local pressed = self:beginPress(208, HEADER_Y + 3, 21, 14)
+    local pressed = self:beginPress(208, HEADER_Y + 3, 21, 14, not (model.overview and model.overview.disabled))
     self:v4Key(208, HEADER_Y + 3, 21, 14)
     ART(model.mapFull and COLLAPSE or EXPAND, 215, HEADER_Y + 6, { ["#"] = colors.ink })
     self:endPress(pressed)
@@ -499,6 +500,7 @@ return function(H, ui, K)
       self:v4Pill(label, x + 29, y + 13, hex("d05878"), { maxW = 60 })
       return self:endPress(pressed)
     end
+    if model.encounterDetails == false then return self:endPress(pressed) end
     -- one quiet line: levels on the left, the odds on the right
     self:partyInfo(levels(best), x + 29, y + 12, colors.mutedInk)
     if best.blocked then
@@ -794,7 +796,7 @@ return function(H, ui, K)
   function H:explorerHit(x, y, model)
     if not OWN then return baseHit(self, x, y, model) end
     x, y = x * 1.5, y * 1.5
-    if x >= 202 and x < 233 and y >= HEADER_Y and y < HEADER_Y + HEADER_H then return "map_toggle" end
+    if not model.overview.disabled and x >= 202 and x < 233 and y >= HEADER_Y and y < HEADER_Y + HEADER_H then return "map_toggle" end
     if model.mapFull and y >= 54 and y < 71 then
       if x >= 11 and x < 29 and (model.mapZoom or 1) > 1 then return "zoom_out" end
       if x >= 64 and x < 82 and (model.mapZoom or 1) < 3 then return "zoom_in" end
@@ -816,7 +818,7 @@ return function(H, ui, K)
     if marker then return "marker", marker end
     if model.mapFull then return nil end
     if model.selected then
-      if model.view == "items" and model.selected.remote and not model.selected.outsideMap
+      if not model.overview.disabled and model.view == "items" and model.selected.remote and not model.selected.outsideMap
           and model.selected.x ~= nil and model.selected.y ~= nil
           and x >= 123 and x < 227 and y >= 158 and y < 204 then return "locate" end
       if model.view == "wild" and (model.detailPages or 1) > 1 and y >= 103 and y < 123 then

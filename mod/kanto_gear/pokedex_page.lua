@@ -10,8 +10,13 @@ function Page.entryRect(index, count)
   return left + (index - 1) % 3 * (72 + gap), 68 + row * 43, 72, 41
 end
 
-function Page.cardRect(index)
-  return Page.actionRect(index, #Page.cards)
+function Page.cardRect(index, count)
+  count = count or #Page.cards
+  if count == 3 then
+    if index < 3 then return Page.actionRect(index, 4) end
+    return 64, 185, 111, 25
+  end
+  return Page.actionRect(index, count)
 end
 
 function Page.actionRect(index, count, compact)
@@ -180,8 +185,8 @@ function Page.hit(model, x, y)
       if inside(x, y, Page.pagerRect(1, true)) then return "description_next" end
     end
     if not model.actions then
-      for index, action in ipairs(Page.cards) do
-        if inside(x, y, Page.cardRect(index)) then return action end
+      for index, action in ipairs(model.cards or Page.cards) do
+        if inside(x, y, Page.cardRect(index, #(model.cards or Page.cards))) then return action end
       end
     end
   elseif model.view == "index" then

@@ -55,8 +55,10 @@ function Summary.inspection(mon, game, generation, contests)
 end
 
 function Summary.configure(state, spoilers)
-  state.spoilers = spoilers == true
-  state.hiddenPage = state.spoilers and not Summary.isEgg(state.mon)
+  state.disclosure = type(spoilers) == "table" and spoilers or nil
+  state.spoilers = spoilers == true or state.disclosure ~= nil and
+    (spoilers.friendship or spoilers.genes or spoilers.training or spoilers.egg_progress or spoilers.egg_species)
+  state.hiddenPage = state.spoilers and (not state.disclosure or state.generation > 1 and spoilers.friendship or spoilers.genes or spoilers.training) and not Summary.isEgg(state.mon)
     and state.basePages + 1 or nil
   state.pages = Summary.isEgg(state.mon) and 1 or state.hiddenPage or state.basePages
   state.page = math.min(state.page or 1, state.pages)
@@ -127,7 +129,7 @@ function Summary.view(state, game)
   local def = definition(game, "pokemon", mon.species) or {}
   if Summary.isEgg(mon) then
     return { mon = mon, def = def, egg = true, page = page, pages = pages,
-      generation = state.generation, spoilers = state.spoilers }
+      generation = state.generation, spoilers = state.spoilers, disclosure = state.disclosure }
   end
   local save = game and game.save or {}
   local player = save.player or {}

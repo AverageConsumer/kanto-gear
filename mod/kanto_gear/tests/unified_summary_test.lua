@@ -138,6 +138,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
     state=display.summaryContext()
     T.eq(state.hiddenPage,nil,"leaving spoiler mode removes hidden Gen 3 details")
     T.eq(summaryView(state).details,nil,"hidden data cannot linger in the visible model")
+    dofile(path .. "/tests/discovery_partner_cases.lua")(T, path, compat.summary, state, summaryView, theme.hgss, display.SummaryPage, game)
     display.localSummary=nil
   end
 end

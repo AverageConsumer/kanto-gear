@@ -7,7 +7,7 @@ Info.help = {
   clock_format = "Show 12-hour or 24-hour time. System follows your device preference.",
   ui_motion = "Short page transitions in Quality mode. Performance disables UI animations. Turn off for immediate changes in both modes.",
   map_motion = "Both keep maps smooth at up to 30 updates a second. Performance disables UI animations; Quality allows transitions. Map detail stays the same.",
-  info_level = "Controls exploration hints and hidden partner details. Battle helpers are separate.",
+  info_level = "Choose a complete information preset, or Custom to control exploration, Dex, battle, partner data and stamps separately. Game controls stay available.",
   local_map = "Show the area map in older themes. Discovery is controlled separately.",
   display_mode = "Separate uses two displays. Combined shows both views together. Fullscreen switches views. Phone uses a paired browser on the same Wi-Fi.",
   fullscreen_start = "Choose which view appears first in fullscreen mode.",
@@ -32,9 +32,10 @@ Info.help = {
   reset_options = "Restore Gear's default settings, including discovery and battle helpers. Notes and game saves are kept. Tap Reset twice to confirm.",
 }
 Info.discovery = {
-  purist = "Known Pokemon only; completed trainers and collected items. Habitats stay within visited maps. Hidden items appear after an Itemfinder scan or collection. Stamps show recorded progress.",
-  enhanced = "All wild Pokemon, available trainers and visible items on visited maps. Hidden items appear after an Itemfinder scan or collection. Unvisited habitats and future story tasks stay hidden.",
-  spoiler = "Reveal all Pokemon, habitats, tasks and hidden items. Stamps show full checklists. Partner Details show friendship, genes, training and egg progress.",
+  purist = "Original-game information only. No live area map, encounter guide, extra battle hints, completion totals or hidden Pokemon values. Touch controls and your notes stay available.",
+  enhanced = "Guides for visited places, encounter chances, Dex research and battle hints. Hidden items, unvisited places, future tasks and hidden partner values stay concealed.",
+  spoiler = "Enable every information switch, including hidden items, unvisited places, future tasks, genes and egg contents. This does not unlock anything in the game.",
+  custom = "Start from your preset. Set each category's facts for all apps and widgets.",
 }
 function Info.description(key, value)
   return key == "info_level" and Info.discovery[value] or Info.help[key]

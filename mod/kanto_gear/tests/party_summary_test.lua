@@ -173,5 +173,8 @@ if generation==2 then
   game.save.stepCount=128
   T.check(compat.summary.redrawKey(state,game)~=key,"walking invalidates the visible egg count")
 end
+display.openPartySummary(1)
+assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH").."/tests/discovery_partner_cases.lua"))()(T, os.getenv("KANTO_GEAR_MOD_PATH"), compat.summary,
+  display.summaryContext(), runtime.summaryView, theme.hgss, display.SummaryPage, game)
 assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH").."/tests/explorer_items_cases.lua"))()(T,run,display)
 T.finish("Unified Party Summary Gen "..generation)

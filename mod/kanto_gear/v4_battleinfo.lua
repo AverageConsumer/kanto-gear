@@ -94,7 +94,7 @@ return function(H, ui, K)
     end
     self:endPress(pressed)
     -- Pokédex card (7..233 × 105..144)
-    local profile = self:beginPress(7, 105, 226, 39)
+    local profile = self:beginPress(7, 105, 226, 39, mon.profileAvailable ~= false)
     local dexAccent = hex("d04838")
     self:v4Window(7, 105, 226, 39, { fill = mix(colors.surface, dexAccent, self.dark and 0.12 or 0.06) })
     if cg(self) then R(8, 109, 2, 31, dexAccent) else R(11, 106, 218, 2, dexAccent) end
@@ -114,12 +114,12 @@ return function(H, ui, K)
       { key = "WEAK", rows = mon.weak or {}, x = 7, accent = RED, icon = ARROW_DN },
       { key = "RESIST", rows = mon.resist or {}, x = 123, accent = BLUE, icon = SHIELD },
     }) do
-      local p = self:beginPress(card.x, 149, 110, 61)
+      local p = self:beginPress(card.x, 149, 110, 61, mon.matchupsAvailable ~= false)
       self:v4Window(card.x, 149, 110, 61, { fill = mix(colors.surface, card.accent, self.dark and 0.12 or 0.06) })
       if cg(self) then R(card.x + 1, 153, 2, 53, card.accent) else R(card.x + 4, 150, 102, 2, card.accent) end
       ART(card.icon, card.x + 7, 156, { ["#"] = card.accent })
       self:partyInfo(translate(card.key), card.x + 16, 153, colors.ink)
-      local count = tostring(#card.rows)
+      local count = mon.matchupsAvailable == false and "--" or tostring(#card.rows)
       self:partyInfo(count, card.x + 90 - self:partyInfoWidth(count), 153, colors.mutedInk)
       ART({ "#..", "##.", "###", "##.", "#.." }, card.x + 99, 156, { ["#"] = colors.mutedInk })
       miniMatchups(self, card.rows, card.x + 7, 172, 98)

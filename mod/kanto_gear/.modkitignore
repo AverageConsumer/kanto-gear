@@ -138,3 +138,5 @@ tests/phone_video_test.lua
 tests/phone_video_cases.cjs
 
 tests/settings_native_test.lua
+
+tests/discovery_partner_cases.lua

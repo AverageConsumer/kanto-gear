@@ -161,7 +161,7 @@ local restartedApi = upvalue(runtime(restarted).saveHome, "mod")
 T.eq(restartedApi.options:get("ui_haptics"), true, "haptics survive a new mod instance")
 T.eq(restartedApi.options:get("keyboard_layout"), "qwertz", "keyboard layout survives restarting")
 T.eq(restartedApi.options:get("info_level"), "purist", "discovery choice survives restarting")
-T.eq(restartedApi.options:get("type_hints"), true, "changing discovery cannot silently change battle hints after restart")
+T.eq(restartedApi.options:get("type_hints"), false, "strict Vanilla disables battle hints across restart")
 T.eq(restartedTheme.i18n:language(), "ja", "Japanese survives loading a new mod instance")
 T.eq(restartedTheme:translate("JAPANESE"), "にほんご", "new instance immediately renders the saved language")
 T.eq(restartedTheme:translate("NOTES"), "ノート", "new Japanese translations survive restarting")
@@ -170,19 +170,22 @@ T.check(restartedApi.options:set("language", "de"), "Japanese can be switched ba
 T.eq(restartedTheme:translate("JAPANESE"), "JAPANISCH", "language switch clears Japanese rendering")
 
 for _, case in ipairs({
+  { cache = { ["options/info_level"] = "senhanced", ["options/type_hints"] = "b0" },
+      mode = "custom", hint = false, map = true },
   { cache = { ["options/profile"] = "spurist" }, mode = "purist", hint = false },
   { cache = { ["options/info_level"] = "slegacy", ["options/local_map"] = "senhanced",
       ["options/type_hints"] = "b1" }, mode = "spoiler", hint = true },
   { cache = { ["options/info_level"] = "slegacy", ["options/local_map"] = "b1" },
       mode = "purist", hint = false },
   { cache = { ["options/profile"] = "scustom", ["options/local_map"] = "senhanced" },
-      mode = "spoiler", hint = false },
+      mode = "spoiler", hint = true },
 }) do
   local legacy = loadWithoutNativeSetter(case.cache)
   legacy.loader.events:emit("game.ready", { game = gameFor(legacy) })
   local migrated = upvalue(runtime(legacy).saveHome, "mod")
   T.eq(migrated.options:get("info_level"), case.mode, "old custom/purist mode has one documented replacement")
   T.eq(migrated.options:get("type_hints"), case.hint, "old helper preference survives migration independently")
+  if case.map then T.eq(runtime(legacy).discoveryPolicy().area_map, true, "migration preserves the former Guide map") end
   if case.cache["options/local_map"] then
     T.eq(migrated.options:get("local_map"), true, "old map toggle no longer carries a hidden spoiler override")
   end
@@ -190,6 +193,8 @@ for _, case in ipairs({
   local again = loadWithoutNativeSetter(case.cache)
   local reloaded = upvalue(runtime(again).saveHome, "mod")
   T.eq(reloaded.options:get("info_level"), case.mode, "migrated discovery survives normalizing the old map setting")
+  T.eq(reloaded.options:get("type_hints"), case.hint, "independent battle preference survives restart")
+  if case.map then T.eq(runtime(again).discoveryPolicy().area_map, true, "migrated Custom map survives restart") end
   again.release()
 end
 

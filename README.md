@@ -75,20 +75,21 @@ elsewhere can count. Missable encounters and event-only rewards are bonuses;
 exclusive choices do not require obtaining both alternatives. Repeatable or
 untrackable objectives do not become impossible permanent requirements.
 
-Choose how much Gear reveals under **Options → Exploration**:
+Choose what Gear reveals under **Options → Discovery**:
 
-| Discovery | What you see |
+| Preset | What you see |
 | --- | --- |
-| **Vanilla** | Known Pokémon, completed trainers and collected items. Habitats stay within visited maps; hidden finds appear after a scan or collection. |
-| **Enhanced** | All local wild Pokémon, available trainers and visible items on visited maps. Unvisited habitats and future story tasks stay hidden. Hidden finds still need a scan or collection. |
-| **Spoilers** | Full Pokémon, habitat and task lists, including hidden finds. Partner Details also reveal friendship, genetics, training and egg progress where the game provides them. |
+| **Vanilla** | Strict original-game information. No live area map, encounter guide, extra battle hints, completion totals or hidden partner values. Touch controls, caught Dex entries and your notes remain available. |
+| **Guide** | Help for visited places, wild encounters, Dex research and battles. Hidden items still need a scan or collection; unvisited places, future tasks and hidden partner values stay concealed. |
+| **Everything** | All information, including hidden items, unvisited locations, future tasks, genes and egg contents. This does not unlock anything in the game. |
+| **Custom** | Start from your current preset and choose individual information switches in Exploration, Pokédex, Battle, Partner Data and Stamps. Each switch has an explanation and applies across apps, widgets and battle views. |
 
 Native menus also gain matching touch pages for shops, PC storage and item
 storage, dialogue choices, naming, move learning, PP recovery, saving and game
 options. Gen 2 Pokégear and the Gen 3 PokéNav menu have companion controls.
 
-Battle helpers have their own switches for caught markers, effectiveness hints,
-move details and estimated catch odds.
+Discovery includes separate switches for effectiveness hints, extra move data
+and estimated catch odds. Battle layout and caught markers stay under Battle.
 
 <p align="center">
   <img src="screenshots/4.0-achievements-stamps-pokegear-light.png" width="49%" alt="Location stamp album">
