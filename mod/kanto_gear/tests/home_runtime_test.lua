@@ -41,9 +41,9 @@ T.eq(optionByKey.battle_view.default, "standard",
   "the optional battle modes preserve Companion as the default")
 T.eq(#optionByKey.battle_view.choices, 4,
   "all four battle views remain available alongside the v4 themes")
-T.check(optionByKey.ui_motion.visible_if.one_of
-    and optionByKey.local_map.visible_if.not_one_of,
-  "HGSS transitions and the legacy area map are mutually exclusive options")
+T.check(optionByKey.ui_motion.visible_if == nil
+    and optionByKey.local_map.visible_if == nil,
+  "native menus keep options reachable without unsupported list conditions")
 run.loader.modOptions.kanto_gear = { theme = "kanto" }
 
 local world = { map = { id = "PALLET_TOWN" } }
@@ -88,6 +88,11 @@ end
 local home, catalog, store = display.home, display.homeCatalog,
   display.storeById
 local theme = upvalue(display.drawContents, "THEME")
+local gearOptions = {}
+for _, row in ipairs(theme.optionSchema) do gearOptions[row.key] = row end
+T.check(gearOptions.ui_motion.visible_if.one_of
+    and gearOptions.local_map.visible_if.not_one_of,
+  "Gear keeps contextual filtering for transitions and the legacy area map")
 do
   local pixels = upvalue(theme.hgss.silphEmblem, "emblemPixels")
   for _, hexShape in ipairs({ false, true }) do
