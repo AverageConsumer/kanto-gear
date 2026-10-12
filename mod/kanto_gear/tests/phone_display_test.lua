@@ -114,10 +114,25 @@ assert(phone.bridge.pollTouch() == "up,121,109" and not phone.bridge.pollTouch()
 message(phone, c, "down,1,1,1"); assert(phone.bridge.pollTouch() == "down,1,1")
 assert(phone:push(image, 240, 216)); phone:poll()
 message(phone, c, "up,1,1,1")
-assert(phone.bridge.pollTouch() == "cancel,0,0", "release of an old frame cannot leave a held control")
+assert(phone.bridge.pollTouch() == "up,1,1", "a frame in flight cannot cancel an ordinary tap")
+message(phone, c, "down,120,108,1")
+message(phone, c, "move,140,108,1")
+message(phone, c, "up,140,108,1")
+assert(phone.bridge.pollTouch() == "down,120,108"
+  and phone.bridge.pollTouch() == "move,140,108"
+  and phone.bridge.pollTouch() == "up,140,108", "the displayed frame stays touchable during transmission")
 message(phone, c, "a,999"); assert(phone.viewer.awaiting, "forged acknowledgement cannot clear backpressure")
 message(phone, c, "a,2")
-for i = 1, 10 do now = i * .2; message(phone, c, "h,2") end
+message(phone, c, "down,10,20,2"); assert(phone.bridge.pollTouch() == "down,10,20")
+now = .068; assert(phone:push(image, 240, 216)); phone:poll(); message(phone, c, "a,3")
+message(phone, c, "move,30,20,3"); message(phone, c, "up,30,20,3")
+assert(phone.bridge.pollTouch() == "move,30,20" and phone.bridge.pollTouch() == "up,30,20",
+  "a gesture can finish on the next displayed frame")
+message(phone, c, "down,10,20,2"); assert(not phone.bridge.pollTouch(), "superseded frame IDs remain invalid")
+message(phone, c, "down,10,20,3"); assert(phone.bridge.pollTouch() == "down,10,20")
+message(phone, c, "up,10,20,2")
+assert(phone.bridge.pollTouch() == "cancel,0,0", "an invalid release still clears held controls")
+for i = 1, 10 do now = i * .2; message(phone, c, "h,3") end
 assert(phone:detected() and not phone.viewer.out, "idle clients stay alive without new images")
 now = 3.6; phone:poll()
 assert(c.closed and not phone:detected() and phone.bridge.pollTouch() == "cancel,0,0")

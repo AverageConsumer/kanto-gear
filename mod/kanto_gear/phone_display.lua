@@ -145,7 +145,8 @@ function Phone:message(c, text)
   local action, sx, sy, frame = text:match("^(%a+),(%d+),(%d+),(%d+)$")
   local x, y = tonumber(sx), tonumber(sy)
   if not ({ down = true, up = true, move = true, cancel = true })[action] then return false end
-  if tonumber(frame) ~= c.ack or c.ack ~= c.frame or not self:ready() then
+  -- The browser still displays its acknowledged frame while the next one is in flight.
+  if tonumber(frame) ~= c.ack or not self:ready() then
     if c.touch and (action == "up" or action == "cancel") then
       c.touch = false
       self.touches = { "cancel,0,0" }
