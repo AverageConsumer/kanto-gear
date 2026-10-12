@@ -11,6 +11,12 @@ end
 local function module(name)
   return assert(Sandbox.compile(read(name), "@" .. name, env))()
 end
+-- The headless graphics stub does not implement LÖVE's table colour overload.
+local setColor = love.graphics.setColor
+love.graphics.setColor = function(r, ...)
+  if type(r) == "table" then return setColor(unpack(r)) end
+  return setColor(r, ...)
+end
 local ui = { graphics = love.graphics, color = love.graphics.setColor, glyphs = function(value)
   local glyphs = {}
   for glyph in tostring(value):gmatch("[%z\1-\127\194-\244][\128-\191]*") do
@@ -62,6 +68,26 @@ for _, skin in ipairs({ "pokegear", "cgear" }) do
     T.check(shown["7 Steps"] or shown["7 STEPS"],
       "smooth fractional player positions display a whole-step distance")
     ui.graphics.print, ui.graphics.printf = print, printf
+    local portraits = {}
+    local trainers = { view = "trainers", rows = { { label = "TRAINER" } },
+      page = 1, pages = 1, markers = {},
+      overview = { width = 2, height = 2, rows = { "..", ".." } },
+      drawActor = function(_, x, y, scale, feet, limit)
+        portraits[#portraits + 1] = { x, y, scale, feet, limit }
+      end }
+    local drawMap = theme.explorerMap
+    theme.explorerMap = function() end -- Only the portrait cards are under test.
+    theme:explorer(trainers)
+    theme.explorerMap = drawMap
+    T.eq(portraits[1][1], 23, "trainer list portrait uses the circle's horizontal center")
+    T.eq(portraits[1][2], 170, "trainer list portrait uses the circle's vertical center")
+    T.eq(portraits[1][4], false, "list portraits use center anchoring")
+    T.eq(portraits[1][5], 20, "list portraits fit the circle's inner diameter")
+    theme:v4ExplorerDetail(trainers, trainers.rows[1], "trainers")
+    T.eq(portraits[2][1], 36, "trainer detail portrait uses the circle's horizontal center")
+    T.eq(portraits[2][2], 126, "trainer detail portrait uses the circle's vertical center")
+    T.eq(portraits[2][5], 40, "detail portraits leave breathing room inside the circle")
   end
 end
+love.graphics.setColor = setColor
 T.finish("Explorer in the production sandbox")

@@ -3468,10 +3468,10 @@ return function(mod)
     THEME:drawMapMarker(x, y)
   end
 
-  function compat.drawMapActor(actor, x, y, scale, feetAnchored, tint)
+  function compat.drawMapActor(actor, x, y, scale, feetAnchored, tint, maxSize)
     if not actor then return false end
     if displayRuntime.gen3 then
-      return displayRuntime.gen3:drawActor(G, actor, x, y, scale, feetAnchored, tint)
+      return displayRuntime.gen3:drawActor(G, actor, x, y, scale, feetAnchored, tint, maxSize)
     end
     return compat.drawMapSprite(actor.spriteId,
       actor.id or "kanto-gear-actor", { palette = actor.palette },
@@ -7482,8 +7482,8 @@ return function(mod)
         return compat.drawMapActor(marker.actor, x, y, tileSize / 16, true,
           marker.state ~= "open" and { 0.45, 0.45, 0.45, 1 } or nil)
       end,
-      drawActor = function(row, x, y, scale, feet)
-        return compat.drawMapActor(row.actor or row, x, y, scale, feet)
+      drawActor = function(row, x, y, scale, feet, maxSize)
+        return compat.drawMapActor(row.actor or row, x, y, scale, feet, nil, maxSize)
       end,
       drawPokemon = function(row, x, y, size, uncaught)
         if row.isEgg then

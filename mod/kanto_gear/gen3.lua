@@ -87,7 +87,7 @@ function Gen3:mapActor(row)
     facing = live and live.facing or row.facing or "down", visible = visible }
 end
 
-function Gen3:drawActor(g, actor, x, y, scale, feet, tint)
+function Gen3:drawActor(g, actor, x, y, scale, feet, tint, maxSize)
   local sprites = require("src.core.game3.ow_sprites")
   local spr = actor.graphicsId ~= nil and sprites.getDraw(actor.graphicsId)
   if not spr then return false end
@@ -95,6 +95,8 @@ function Gen3:drawActor(g, actor, x, y, scale, feet, tint)
   local quad = spr.quads[frame]
   if not quad then return false end
   scale = scale or 1
+  -- UI portrait seats have a fixed size; map actors keep their native scale.
+  if maxSize then scale = math.min(scale, maxSize / math.max(spr.width, spr.height)) end
   if tint then g.setColor(unpack(tint)) else g.setColor(1, 1, 1, 1) end
   g.draw(spr.image, quad, x + (flip and 0.5 or -0.5) * spr.width * scale,
     y - (feet and spr.height or spr.height / 2) * scale,

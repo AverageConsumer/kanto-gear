@@ -544,7 +544,7 @@ return function(H, ui, K)
     CIRC(x + 4, y + 3, 20, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
     K.CIRCrows(x + 4, y + 3, 20, 10, 20, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
     if kind == "trainers" then
-      if model.drawActor then model.drawActor(row, x + 14, y + 21, 1, false) end
+      if model.drawActor then model.drawActor(row, x + 14, y + 13, 1, false, 20) end
     else
       self:v4ItemInSeat({ icon = row.kind == "hidden" and "item" or row.icon or "item",
         label = row.displayLabel or row.label }, x + 14, y + 13, 22, colors.amberLight)
@@ -780,7 +780,7 @@ return function(H, ui, K)
       local where = selected.missed and "UNAVAILABLE" or selected.status == "LATER" and "STORY EVENT"
         or selected.location or "ON THIS MAP"
       infoCard(self, hex("e05848"), function(cx, cy)
-        if model.drawActor then model.drawActor(selected, cx, cy + 8, 2, false) end
+        if model.drawActor then model.drawActor(selected, cx, cy, 2, false, 40) end
       end, selected.label or "", status, statusColor(self, status), "TRAINER", where, function(x, y)
         ART({ ".ooo.", "o###o", ".ooo.", "o###o", "o###o" }, x, y - 1, { o = colors.outline, ["#"] = hex("e05848") })
       end, model.player, selected)
