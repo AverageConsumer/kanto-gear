@@ -15,7 +15,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
     if entry.owner == "kanto_gear" then compose = entry.callback end
   end
-  local tap = up(up(compose, "touchEvent"), "tap")
+  local touchEvent = up(compose, "touchEvent")
+  local tap, swipe = up(touchEvent, "tap"), up(touchEvent, "swipe")
   local queued, closed = nil, 0
   api.input.tap = function(_, target, key) T.eq(target, game, "Dex input retains its game identity"); queued = key end
   local function tick(key)
@@ -347,17 +348,41 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local done = 0
   if generation == 1 then
     local Entry = require("src.ui.DexEntryMenu")
+    game.data.text.DEX_TEXT = string.rep("REGISTRATION TEXT ", 8) .. "\fSECOND PAGE"
     local entry = Entry.new(game, { species = order[3], forceOwned = true }, function() done = done + 1 end)
     game.stack:push(entry)
     for _ = 1, 40 do tick() end
     T.check(view().dexModel.pokemon.height ~= "--", "scripted preview honors native forceOwned")
     T.check(#view().dexModel.pokemon.description > 0, "scripted preview keeps its native description")
+    local nativePage = entry.page
+    queued = nil
+    swipe(-40,{x=80,y=85})
+    T.eq(view().dexModel.descriptionPage,2,"Gen1 registration swipe advances local text")
+    swipe(40,{x=80,y=85})
+    T.eq(view().dexModel.descriptionPage,1,"Gen1 registration reverse swipe restores local text")
+    T.eq(entry.page,nativePage,"Gen1 swipes never advance native registration")
+    T.eq(queued,nil,"Gen1 swipes never queue confirmation")
+    T.eq(done,0,"Gen1 swipes never close registration")
     click(120,183);click(120,183)
   else
+    entries[order[1]].text = string.rep("REGISTRATION TEXT ", 8)
     local entry = Native.new(game,{ entrySpecies = order[1], newEntry = true,
       onClose = function() game.stack:pop(); done = done + 1 end })
     game.stack:push(entry)
     T.eq(#view().items,1,"new registration only offers its native Continue action")
+    local registration = view()
+    T.eq(registration.dexModel.descriptionPages,2,"registration fixture has two local text pages")
+    local nativePage = entry.page
+    queued = nil
+    display.pageChoice()
+    T.eq(view().dexModel.descriptionPage,1,"gesture capability probe does not advance text")
+    swipe(-40,{x=80,y=85})
+    T.eq(view().dexModel.descriptionPage,2,"registration swipe shows the next local text page")
+    swipe(40,{x=80,y=85})
+    T.eq(view().dexModel.descriptionPage,1,"reverse registration swipe restores the first text page")
+    T.eq(entry.page,nativePage,"description swipes leave the native registration page intact")
+    T.eq(queued,nil,"description swipes never queue native confirmation")
+    T.eq(done,0,"description swipes do not close registration")
     click(120,183)
     T.eq(entry.page,2,"registration advances its actual second description page")
     click(120,183)

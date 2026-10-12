@@ -13911,7 +13911,12 @@ return function(mod)
     if native and not native.choiceState then
       local menu = displayRuntime.StartMenu
       if native.dexModel then
-        if direction and displayRuntime.NativeDex.page(native, direction) then dirty = true end
+        if direction and native.valid() then
+          local changed = native.dexModel.view == "profile"
+            and displayRuntime.PokedexPage.cycleDescription(native, native.dexModel, direction)
+            or displayRuntime.NativeDex.page(native, direction)
+          if changed then dirty = true end
+        end
         return true
       end
       if native.trainer then

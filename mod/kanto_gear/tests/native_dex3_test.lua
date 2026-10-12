@@ -39,6 +39,11 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local Stack, Hud = require("src.ui.game3.stack"), require("src.ui.game3.hud")
   local Pokemon, Dex = display.gen3.Pokemon, display.gen3.Dex
   local api = up(display.saveHome, "mod")
+  local compose
+  for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
+    if entry.owner == "kanto_gear" then compose = entry.callback end
+  end
+  local swipe = up(up(compose, "touchEvent"), "swipe")
   local oldTap, oldInput, oldDex = api.input.tap, game.input, game.session.dex
   local newQuad = love.graphics.newQuad
   love.graphics.newQuad = function(x, y, w, h, ...)
@@ -473,6 +478,18 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     else Native.showRegistration(first,{session=game.session,onDone=function() closed=closed+1 end}) end
     local registration = view()
     T.eq(#registration.items,1,"registration offers only the genuine continue action")
+    local nativePage = hoenn and Native.active().descriptionPage or Native.dataPage
+    local pages = registration.dexModel.descriptionPages
+    queued = nil
+    display.pageChoice()
+    T.eq(view().dexModel.descriptionPage,1,"gesture capability probe leaves registration text unchanged")
+    swipe(-40,{x=80,y=85})
+    T.eq(view().dexModel.descriptionPage,pages > 1 and 2 or 1,"registration swipe follows its local description pager")
+    swipe(40,{x=80,y=85})
+    T.eq(view().dexModel.descriptionPage,1,"reverse registration swipe restores the first description")
+    T.eq(hoenn and Native.active().descriptionPage or Native.dataPage,nativePage,"swiping never advances native registration")
+    T.eq(queued,nil,"swiping never queues a native confirm key")
+    T.eq(closed,done,"swiping never runs the registration completion callback")
     render("registration")
     action(1)
     if rs then
