@@ -526,10 +526,12 @@ do
     T.eq(current, clipped, "portrait draws inside the corner clip")
   end }, 10, 20, 80, 60)
   T.eq(drawn, 1, "corner draws one portrait")
-  T.eq(clipped[1], 191, "corner clip follows horizontal display transform")
-  T.eq(clipped[2], 158, "corner clip follows vertical display transform")
-  T.eq(clipped[3], 84, "corner clip scales its width")
-  T.eq(clipped[4], 93, "corner clip scales its height")
+  -- the portrait now sits in a rail right of the map (map 10,20,80,60):
+  -- a 26px window at (95,31) in Gear pixels
+  T.eq(clipped[1], 296, "corner clip follows horizontal display transform")
+  T.eq(clipped[2], 110, "corner clip follows vertical display transform")
+  T.eq(clipped[3], 78, "corner clip scales its width")
+  T.eq(clipped[4], 78, "corner clip scales its height")
   T.eq(current, parent, "corner restores the surrounding map clip")
   T.eq(#stack, 0, "corner balances graphics pushes")
   for name, fn in pairs(saved) do G[name] = fn end

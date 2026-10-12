@@ -111,9 +111,14 @@ return function(H, ui, K)
     R(x + 9, y + 5, 2, 10, d); R(x + 4, y + 13, 12, 2, d)
     for _, p in ipairs({ { 7, 1 }, { 1, 12 }, { 13, 12 } }) do RR(x + p[1], y + p[2], 6, 6, 2, c) end
   end
-  K.GLYPH = GLYPH
+  -- The C-Gear skin now shows the same pixel-art app icons as the Pokégear
+  -- skin inside its ring seats: the flat line glyphs read as a generic icon
+  -- set, not Gen 5. They stay defined (and reachable as K.LINE_GLYPH) but
+  -- no surface draws them; every GLYPH lookup falls through to the pixel icon.
+  K.LINE_GLYPH = GLYPH
+  K.GLYPH = {}
   function H:v4Glyph(id, x, y, c, d)
-    local glyph = GLYPH[id or ""]
+    local glyph = K.GLYPH[id or ""]
     if glyph then glyph(x, y, c, d or mix(c, self.colors.surface, 0.45)); return true end
     return false
   end
@@ -302,9 +307,16 @@ return function(H, ui, K)
   end
 
   -- The map fills the widget below its header.
+  -- With "now" Pokémon to show, a 30px rail beside the map holds them, so
+  -- nothing ever covers the map itself.
+  local RAIL = 33
+  local function hasRail(model, w)
+    return model and model.nowRows and #model.nowRows > 0 and w >= 110
+  end
   function H:homeExplorerRect(model, tile)
     local x, y, w, h = self:homeRect(tile)
-    return x + 5, y + 22, w - 10, h - 27, false
+    local rail = hasRail(model, w)
+    return x + 5, y + 22, w - 10 - (rail and RAIL or 0), h - 27, rail
   end
 
   local function nowSprite(model, row, x, y)
@@ -328,27 +340,32 @@ return function(H, ui, K)
     local index = floor(t / 2.5) % #rows + 1
     if #rows > 1 then self:wantAmbient(2.5 - (t % 2.5)) end
     local row = rows[index]
-    local s = 28
-    local bx, by = mx + mw - s - 2, my + mh - s - 2 - (#rows > 1 and 3 or 0)
-    if cg(self) then CH(bx - 1, by - 1, s + 2, s + 2 + (#rows > 1 and 4 or 0), 3, colors.outline); CH(bx, by, s, s + (#rows > 1 and 4 or 0), 2, colors.surface)
-    else RR(bx - 1, by - 1, s + 2, s + 2 + (#rows > 1 and 4 or 0), 4, colors.outline); RR(bx, by, s, s + (#rows > 1 and 4 or 0), 3, colors.surface) end
+    -- the rail right of the map: who can appear here now
+    local bx, by, bw, bh = mx + mw + 3, my - 1, RAIL - 3, mh + 2
+    if cg(self) then CH(bx, by, bw, bh, 2, self.tok.border); CH(bx + 1, by + 1, bw - 2, bh - 2, 1, colors.surface)
+    else RR(bx, by, bw, bh, 2, colors.outline); RR(bx + 1, by + 1, bw - 2, bh - 2, 1, colors.surface) end
+    self:withoutShadow(self.partyType, self, translate("NOW"), bx, by + 1,
+      cg(self) and self.tok.acc.M or colors.green, bw)
+    local s = 26
+    local sx, sy = bx + floor((bw - s) / 2), by + 12
     local G = ui.graphics
     G.push("all")
-    local left, top, right, bottom = bx, by, bx + s, by + s + 3
+    local left, top, right, bottom = sx, sy, sx + s, sy + s
     if G.transformPoint then
       left, top = G.transformPoint(left, top)
       right, bottom = G.transformPoint(right, bottom)
     end
     if G.intersectScissor then G.intersectScissor(left, top, right - left, bottom - top)
     else G.setScissor(left, top, right - left, bottom - top) end
-    nowSprite(model, row, bx + 3, by + 3)
+    nowSprite(model, row, sx + 2, sy + 2)
     G.pop()
-    caughtBall(row, bx + s - 7, by + s - 8)
+    caughtBall(row, sx + s - 7, sy + s - 7)
     if #rows > 1 then
-      local dw = min(#rows, 6) * 4 - 2
-      local dx = bx + floor((s - dw) / 2)
-      for i = 1, min(#rows, 6) do
-        R(dx + (i - 1) * 4, by + s + 1, 2, 2, i == index and (cg(self) and self.tok.acc.M or colors.green) or colors.band)
+      local n = min(#rows, 6)
+      local dw = n * 4 - 2
+      local dx = bx + floor((bw - dw) / 2)
+      for i = 1, n do
+        R(dx + (i - 1) * 4, by + bh - 6, 2, 2, i == index and (cg(self) and self.tok.acc.M or colors.green) or colors.band)
       end
     end
   end
@@ -706,8 +723,8 @@ return function(H, ui, K)
     CIRC(x + 5, y + 5, 33, colors.outline)
     CIRC(x + 6, y + 6, 31, mix(colors.surface, accent, self.dark and 0.3 or 0.2))
     K.CIRCrows(x + 6, y + 6, 31, 16, 31, mix(colors.surface, accent, self.dark and 0.42 or 0.32))
-    if item.kind == "app" and cg(self) and id and GLYPH[id] then
-      GLYPH[id](x + 12, y + 12, accent, mix(accent, colors.surface, 0.5))
+    if item.kind == "app" and cg(self) and id and K.GLYPH[id] then
+      K.GLYPH[id](x + 12, y + 12, accent, mix(accent, colors.surface, 0.5))
     elseif item.kind == "app" and icon then drawIcon(icon, x + 7, y + 7, 29)
     else self:homeWidgetLibraryIcon(item.widget, x + 7, y + 7, item) end
     local tx, tw = x + 41, w - 44

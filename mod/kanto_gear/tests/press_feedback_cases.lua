@@ -32,7 +32,8 @@ return function(T, display, H)
     H.clock = function() return now end
     H.settingsHelpLines = function() return { "日本語" } end
     H.partyInfo = function(self, text, x, y, ...)
-      if y >= 168 then rendered = text end
+      -- the help panel rises to meet short categories; its text starts at x 16
+      if x == 16 then rendered = text end
       return partyInfo(self, text, x, y, ...)
     end
     H:setTouch()

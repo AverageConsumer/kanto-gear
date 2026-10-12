@@ -503,23 +503,46 @@ return function(H, ui, K)
   end
 
   ---------------------------------------------------------------------------
-  -- Silph Store: lipped pills, app tiles, segmented nav
+  -- Silph Store as a Silph Co. counter, not a phone app store: a bulletin
+  -- board for news, a catalog of Game Pak-style cards, the apps on your
+  -- Gear. Keys are DS keys with a glyph (install / open / locked).
   ---------------------------------------------------------------------------
+  local SILPH_RED = hex("d84860")
+  local SILPH_LOGO = { "....o....", "...ooo...", "..oo#oo..", ".oo###oo.", "oo##w##oo",
+    ".oo###oo.", "..oo#oo..", "...ooo...", "....o...." }
+  local KEY_G = {
+    get = { "..o..", "..o..", "ooooo", ".ooo.", "..o..", "ooooo" },
+    open = { "o....", "oo...", "ooo..", "oo...", "o...." },
+    soon = { ".ooo.", "o...o", "ooooo", "oo.oo", "ooooo" },
+  }
+  local function silphLogo(self, x, y)
+    ART(SILPH_LOGO, x, y, { o = SILPH_RED, ["#"] = mix(SILPH_RED, { 0, 0, 0, 1 }, 0.3), w = WHITE })
+  end
+  H.v4SilphLogo = silphLogo
   local function stateRamp(self, state)
     if state == "soon" then return K.rampOf(self.colors.silverDark) end
     if state == "open" then return K.rampOf(cg(self) and hex("3a8ee8") or hex("3878d0")) end
     return K.rampOf(cg(self) and hex("1ea5d8") or hex("3ea04c"))
   end
+  local function keyFace(self, x, y, w, h, label, state, off)
+    local glyph = KEY_G[state == "soon" and "soon" or state == "open" and "open" or "get"]
+    local text = self:fitPartyType(translate(label), w - 14)
+    local tw = self:partyInfoWidth(text)
+    local gx = x + floor((w - (#glyph[1] + 3 + tw)) / 2)
+    ART(glyph, gx, y + floor((h - 3 - #glyph) / 2) + off, { o = WHITE })
+    self:withoutShadow(self.partyType, self, text, gx + #glyph[1] + 3, y + floor((h - 3 - 9) / 2) - 1 + off, WHITE, tw)
+  end
   function H:storeAction(x, y, w, label, state)
     local pressed = self:beginPress(x, y, w, 15, state ~= "soon")
-    local off = self:v4Button(x, y, w, 15, stateRamp(self, state), { radius = 4, lip = 3, chamfer = 3 })
-    self:partyType(translate(label), x + 2, y + 1 + off, WHITE, w - 4)
+    local off = self:v4Button(x, y, w, 15, stateRamp(self, state), { radius = 2, lip = 3, chamfer = 2 })
+    keyFace(self, x, y + 1, w, 15, label, state, off)
     self:endPress(pressed)
   end
   function H:storeMiniAction(x, y, w, label, state, enabled)
     local pressed = self:beginPress(x, y, w, 11, enabled == true or state ~= "soon")
-    local off = self:v4Button(x, y, w, 11, stateRamp(self, state), { radius = 3, lip = 2, chamfer = 2 })
-    self:partyType(translate(label), x + 1, y - 1 + off, WHITE, w - 2)
+    local off = self:v4Button(x, y, w, 11, stateRamp(self, state), { radius = 2, lip = 2, chamfer = 2 })
+    local text = self:fitPartyType(translate(label), w - 4)
+    self:withoutShadow(self.partyType, self, text, x + 1, y - 1 + off, WHITE, w - 2)
     self:endPress(pressed)
   end
   function H:storeNewBadge(x, y, w)
@@ -559,19 +582,22 @@ return function(H, ui, K)
     local colors = self.colors
     local blocked = app.state == "soon" and self:isPressed(x + 36, y + 28, 43, 11)
     local pressed = self:beginPress(x, y, w, 42, not blocked)
-    self:v4Window(x, y, w, 42, { radius = 4 })
     local accent = self:v4AppAccent(K.iconId and K.iconId(icons[app.icon or app.id])) or self.tok.acc.M
-    storeIcon(self, app, icons, x + 5, y + 7, 27, true)
+    self:v4Window(x, y, w, 42, { radius = 4 })
+    -- the Game Pak label: an accent panel holding the icon
+    local lab = mix(colors.surface, accent, self.dark and 0.28 or 0.18)
+    if cg(self) then CH(x + 3, y + 3, 30, 36, 2, mix(lab, colors.outline, 0.25)); CH(x + 4, y + 4, 28, 34, 1, lab)
+    else RR(x + 3, y + 3, 30, 36, 2, mix(lab, colors.outline, 0.25)); RR(x + 4, y + 4, 28, 34, 1, lab) end
+    R(x + 5, y + 5, 26, 1, mix(lab, WHITE, 0.5))
+    storeIcon(self, app, icons, x + 5, y + 8, 26, false)
     local tw = w - 39
-    local title = self:fitPartyInfo(translate(app.label), tw)
-    self:partyInfo(title, x + 37, y + 3, colors.ink)
+    self:partyInfo(self:fitPartyInfo(translate(app.label), tw), x + 37, y + 3, colors.ink)
     if app.new then
       self:storeNewBadge(x + 37, y + 15, 25)
     else
       self:partyInfo(self:fitPartyInfo(translate(app.category), tw), x + 37, y + 14, colors.mutedInk)
     end
     self:storeMiniAction(x + 36, y + 28, 43, app.action or (app.state == "open" and "OPEN" or "GET"), app.state)
-    self:detailChevron(x + w - 9, y + 30, colors.green)
     self:endPress(pressed)
   end
   H.v4StoreIcon = storeIcon
@@ -652,20 +678,22 @@ return function(H, ui, K)
     self:endPress(pressed)
   end
 
-  -- Today: featured card with a ribbon header, recommendations as cards.
-  local STAR = { "...#...", "..###..", "#######", ".#####.", "..###..", ".##.##.", ".#...#." }
+  -- News: the featured app is a Silph Co. bulletin (red ribbon with the
+  -- company mark), the staff picks are index cards pinned under it.
+  local PIN = { ".ooo.", "o###o", "o###o", ".ooo.", "..o..", "..o.." }
   function H:storeRecommendation(x, y, w, app, icons)
     local colors = self.colors
     local pressed = self:beginPress(x, y, w, 47)
     local id = K.iconId and K.iconId(icons[app.icon or app.id])
     local accent = self:v4AppAccent(id) or self.tok.acc.M
     self:v4Window(x, y, w, 47, { radius = 4 })
-    storeIcon(self, app, icons, x + 6, y + 9, 27, true)
-    local tx, tw = x + 38, w - 41
-    self:partyInfo(self:fitPartyInfo(translate(app.label), tw), tx, y + 3, colors.ink)
+    R(x + 1, y + 4, 2, 39, accent)
+    ART(PIN, x + floor(w / 2) - 2, y - 3, { o = colors.outline, ["#"] = SILPH_RED })
+    storeIcon(self, app, icons, x + 7, y + 9, 27, true)
+    local tx, tw = x + 39, w - 42
+    self:partyInfo(self:fitPartyInfo(translate(app.label), tw), tx, y + 4, colors.ink)
     self:partyInfo(self:fitPartyInfo(translate(app.reason), tw), tx, y + 15, colors.mutedInk)
     self:storeMiniAction(tx, y + 31, 44, app.action or (app.state == "open" and "OPEN" or "VIEW"), app.state or "open")
-    self:detailChevron(x + w - 9, y + 33, colors.green)
     self:endPress(pressed)
   end
 
@@ -678,17 +706,13 @@ return function(H, ui, K)
     local blocked = featured.state == "soon" and self:isPressed(57, 83, 56, 15)
     local pressed = self:beginPress(7, 32, 226, 89, not blocked)
     self:v4Window(7, 32, 226, 89, { radius = 5 })
-    -- ribbon header
-    local band = K.rampOf(cg(self) and self.tok.acc.M or hex("3878d0"))
+    -- Silph Co. ribbon
+    local band = K.rampOf(SILPH_RED)
     if cg(self) then CH(9, 34, 222, 15, 3, band.M); R(11, 35, 218, 1, band.Hi)
     else RR(9, 34, 222, 15, 4, band.D); RR(9, 34, 222, 13, 4, band.M); R(12, 35, 216, 1, band.Hi) end
-    local title = translate("APP OF THE DAY")
-    local tw = self:partyInfoWidth(title)
-    local group = 9 + tw + (featured.new and 30 or 0)
-    local left = 120 - floor(group / 2)
-    ART(STAR, left, 38, { ["#"] = hex("f8e070") })
-    self:withoutShadow(self.partyType, self, title, left + 10, 35, WHITE, tw)
-    if featured.new then self:storeNewBadge(left + 14 + tw, 36, 25) end
+    ART(SILPH_LOGO, 13, 36, { o = WHITE, ["#"] = band.L, w = band.M })
+    self:withoutShadow(self.partyType, self, translate("SILPH BULLETIN"), 26, 35, WHITE, 120)
+    if featured.new then self:storeNewBadge(201, 36, 25) end
     -- featured app
     if cg(self) and id and K.GLYPH and K.GLYPH[id] then
       storeIcon(self, featured, icons, 12, 54, 39)
@@ -699,16 +723,16 @@ return function(H, ui, K)
       storeIcon(self, featured, icons, 17, 59, 29)
     end
     self:partyInfo(self:fitPartyInfo(translate(featured.label or "APP"), 62), 55, 53, colors.ink)
-    self:v4Pill(translate(featured.category or "UTILITY"), 55, 67, accent, { raw = true, maxW = 62 })
+    self:partyInfo(self:fitPartyInfo(translate(featured.reason or featured.category or "UTILITY"), 62), 55, 66, colors.mutedInk)
     self:storeAction(57, 83, 56, featured.action or "GET", featured.state)
     self:storePreview(featured, 121, 53, 106, 62)
     self:endPress(pressed)
-    -- section label
-    local label = translate("RECOMMENDED FOR YOU")
+    -- staff picks
+    local label = translate("STAFF PICKS")
     local lw = self:partyInfoWidth(label)
     local lx = 120 - floor(lw / 2)
     R(12, 131, lx - 18, 1, colors.band); R(lx + lw + 6, 131, 228 - lx - lw - 6, 1, colors.band)
-    self:partyInfo(label, lx, 125, cg(self) and self.tok.acc.M or colors.green)
+    self:partyInfo(label, lx, 125, SILPH_RED)
     for index, app in ipairs(model.recommended or {}) do
       if index > 2 then break end
       self:storeRecommendation(7 + (index - 1) * 115, 142, 111, app, icons)
@@ -721,7 +745,7 @@ return function(H, ui, K)
   local BOX_G = { "ooooooooo", "o#######o", "ooooooooo", "o.......o", "o..ooo..o", "o.......o", "ooooooooo" }
   local function storeHeader(self, label, glyph, h, pages, page)
     local colors = self.colors
-    local accent = hex("d84860")
+    local accent = SILPH_RED
     self:v4Window(7, 32, 226, h, { radius = 4 })
     R(8, 34, 2, h - 4, accent)
     ART(glyph, 14, 32 + floor((h - #glyph) / 2), { o = colors.outline, ["#"] = accent, ["."] = nil })
@@ -732,7 +756,7 @@ return function(H, ui, K)
   end
   function H:storeApps(model)
     local icons = self.homeIconTable and self:homeIconTable() or {}
-    storeHeader(self, "DISCOVER APPS", SHOP_G, 17, model.pages, model.page)
+    storeHeader(self, "SILPH CATALOG", SHOP_G, 17, model.pages, model.page)
     if (tonumber(model.pages) or 1) <= 1 then
       self:partyInfo(translate("SILPH VERIFIED"), 122, 35, cg(self) and self.tok.acc.M or self.colors.green, 106, "right")
     end
@@ -761,25 +785,45 @@ return function(H, ui, K)
     self:storeNav("library")
   end
 
+  -- On your Gear: a PC-box style list, slot number, icon, name, key.
   function H:storeInstalledRow(x, y, w, app, icons)
     local colors = self.colors
     local blocked = app.state == "soon" and self:isPressed(x + w - 54, y + 9, 44, 11)
     local pressed = self:beginPress(x, y, w, 30, not blocked)
+    local id = K.iconId and K.iconId(icons[app.icon or app.id])
+    local accent = self:v4AppAccent(id) or self.tok.acc.M
     self:v4Window(x, y, w, 30, { radius = 3 })
-    storeIcon(self, app, icons, x + 5, y + 3, 24, true)
+    R(x + 1, y + 4, 2, 22, accent)
+    storeIcon(self, app, icons, x + 7, y + 3, 24, true)
     local title = self:fitPartyInfo(translate(app.label), app.new and 100 or 130)
-    self:partyInfo(title, x + 36, y + 3, colors.ink)
-    if app.new then self:storeNewBadge(x + 40 + self:partyInfoWidth(title), y + 4, 25) end
-    self:partyInfo(self:fitPartyInfo(translate(app.category), 130), x + 36, y + 15, colors.mutedInk)
+    self:partyInfo(title, x + 38, y + 3, colors.ink)
+    if app.new then self:storeNewBadge(x + 42 + self:partyInfoWidth(title), y + 4, 25) end
+    self:partyInfo(self:fitPartyInfo(translate(app.category), 130), x + 38, y + 15, colors.mutedInk)
     self:storeMiniAction(x + w - 54, y + 9, 44, app.action or "OPEN", app.state)
     self:endPress(pressed)
   end
+  -- Counter tabs: glyph + word, the lit one in Silph red.
+  local NAV_G = {
+    today = { "o.o.o", ".ooo.", "ooooo", ".ooo.", "o.o.o" },
+    apps = { "ooooo", "o.o.o", "ooooo", "o.o.o", "ooooo" },
+    library = { ".ooo.", "ooooo", "o...o", "o...o", "ooooo" },
+  }
   function H:storeNav(active)
-    local items = { { "today", "TODAY" }, { "apps", "APPS" }, { "library", "MY APPS" } }
+    local colors = self.colors
+    local items = { { "today", "NEWS" }, { "apps", "CATALOG" }, { "library", "MY GEAR" } }
     for index, item in ipairs(items) do
       local x, selected = 7 + (index - 1) * 76, active == item[1]
       local pressed = self:beginPress(x, 195, 73, 18, not selected)
-      self:tab(x, 195, 73, 18, translate(item[2]), selected, false, false)
+      local off = 0
+      if selected then off = self:v4Button(x, 195, 73, 18, K.rampOf(SILPH_RED), { radius = 4, lip = 3, chamfer = 3 })
+      else self:v4Key(x, 195, 73, 18) end
+      local label = self:fitPartyInfo(translate(item[2]), 56)
+      local lw = self:partyInfoWidth(label)
+      local gx = x + floor((73 - (5 + 4 + lw)) / 2)
+      local ink = selected and WHITE or colors.ink
+      ART(NAV_G[item[1]], gx, 199 + off + (selected and 0 or 1), { o = selected and WHITE or SILPH_RED })
+      if selected then self:withoutShadow(self.partyInfo, self, label, gx + 9, 195 + off + 1, ink)
+      else self:partyInfo(label, gx + 9, 196, ink) end
       self:endPress(pressed)
     end
   end
@@ -1110,10 +1154,10 @@ return function(H, ui, K)
     return true
   end
 
-  local function typewriter(self, text, key, x, y, w, h)
+  local function typewriter(self, text, key, x, y, w, h, maxLines)
     local colors = self.colors
     local lines = self:settingsHelpLines(text)
-    while #lines > 3 do table.remove(lines) end
+    while #lines > (maxLines or 3) do table.remove(lines) end
     local now = self:clock()
     if self.v4HelpKey ~= key then self.v4HelpKey, self.v4HelpAt = key, now end
     local shown = (self.motionEnabled == false or self.frozenTime) and math.huge
@@ -1123,7 +1167,8 @@ return function(H, ui, K)
       characters[index] = ui.glyphs(line)
       total = total + #characters[index]
     end
-    local top = y + floor((h - #lines * 11) / 2)
+    -- a tall help panel reads from the top like a message window
+    local top = (maxLines or 3) > 3 and y + 9 or y + floor((h - #lines * 11) / 2)
     for index, line in ipairs(lines) do
       local chars = characters[index]
       local part = left >= #chars and line
@@ -1234,17 +1279,30 @@ return function(H, ui, K)
       end
       if row and dx ~= 0 then G.pop() end
     end
-    -- help textbox
-    self:v4MessageWindow(6, 168, 228, 44)
+    -- help panel: it rises to meet the last row, so a short category
+    -- (Exploration, Controls, System) gets a full explainer, not a gap
+    local shownRows = 0
+    for visible = 0, 3 do if model.rows[first + visible] then shownRows = visible + 1 end end
+    local helpY = shownRows < 4 and ROW_Y + shownRows * ROW_STEP + 4 or 168
+    local helpH = 212 - helpY
+    self:v4MessageWindow(6, helpY, 228, helpH)
     local text, key
     if selectedRow then
       text = translate(selectedRow.info or selectedRow.description or "")
       key = tostring(rowKey(selectedRow)) .. ":" .. tostring(selectedRow.raw) .. ":" .. tostring(model.confirm)
     else
       text = translate(model.detail or "")
+      local only = shownRows == 1 and model.rows[first]
+      local about = only and (only.info or only.description)
+      if helpH >= 70 and about and about ~= "" then
+        -- a one-setting category explains that setting straight away
+        text = text .. "\n" .. translate(about)
+      elseif helpH >= 70 then
+        text = text .. "\n" .. translate("TAP A SETTING TO SEE WHAT IT DOES.")
+      end
       key = "cat:" .. tostring(model.tab)
     end
-    typewriter(self, text, key, 6, 168, 228, 44)
+    typewriter(self, text, key, 6, helpY, 228, helpH, max(3, floor((helpH - 10) / 11)))
   end
 
   function H:v4SettingsTabbedHit(x, y, model)
