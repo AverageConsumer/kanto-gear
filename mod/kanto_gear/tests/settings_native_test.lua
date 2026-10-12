@@ -70,6 +70,7 @@ for generation = 1, 3 do
   local run, api, schema, native, manager, find, saved, options = load(cache, {}, generation)
   T.eq(native[1].key, "display_mode", "display recovery is the first native option")
   T.eq(find("display_mode").value(), "PHONE / BROWSER", "native menu reflects cached phone mode")
+  api.options:set("info_level", "custom")
   local found = {}
   for _, mode in ipairs({ "phone", "separate", "combined", "fullscreen" }) do
     api.options:set("display_mode", mode)
@@ -127,5 +128,11 @@ for generation = 1, 3 do
   T.eq(restartedApi.options:get("display_mode"), "fullscreen", "launcher recovery beats stale phone cache")
   T.eq(restartedFind("display_mode").value(), "FULLSCREEN SWAP", "both surfaces agree after restart")
   restarted.release()
+  local legacy, migrated, _, _, _, _, legacySaved = load({},
+    { info_level = "enhanced", type_hints = false }, generation)
+  T.eq(migrated.options:get("info_level"), "custom", "legacy native helper differences migrate to Custom")
+  T.eq(migrated.options:get("type_hints"), false, "migration preserves the disabled native helper")
+  T.eq(legacySaved().info_level, "custom", "migrated preset reaches host persistence")
+  legacy.release()
 end
 T.finish("Kanto Gear native options parity and recovery")

@@ -2160,13 +2160,16 @@ function THEME:installOptionFallback(mod)
         local native = nativeValues()
         local value = native and native[row.key]
         if value ~= nil then
+          if row.migrate_from ~= nil and value == row.migrate_from then
+            value, changed = row.default, true
+          end
           -- Explicit launcher/menu choices override the older fallback cache.
           if values[row.key] ~= nil then self:syncExternal(row.key, value) end
         else
           value = self:get(row.key)
-          publish(row.key, value)
           changed = true
         end
+        publish(row.key, value)
       end
       if changed and source.writeOptions then source:writeOptions() end
     end
@@ -2227,6 +2230,7 @@ return function(mod)
   -- Older releases stored battle helpers separately. Preserve explicit differences
   -- as Custom instead of discarding a user's choices during the upgrade.
   Discovery.migrateHelpers = false
+  Discovery.previousPreset = mod.options:get("info_level")
   if mod.options:get("reveal_area_map") == nil and infoDefault ~= "custom" then
     for _, key in ipairs({ "type_hints", "move_details", "catch_odds" }) do
       local saved = mod.options:get(key)
@@ -2284,7 +2288,8 @@ return function(mod)
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto", "cgear", "cgear_dark", "cgear_auto" },
       } },
     { key = "info_level", label = "DISCOVERY", type = "choice",
-      default = infoDefault, reset_default = "enhanced", choices = infoChoices },
+      default = infoDefault, reset_default = "enhanced", choices = infoChoices,
+      migrate_from = Discovery.migrateHelpers and Discovery.previousPreset or nil },
     { key = "local_map", label = "AREA MAP",
       type = "choice", default = false, choices = {
         { "OFF", false }, { "MAP", true },
@@ -14919,6 +14924,7 @@ return function(mod)
     displayRuntime.legacyRegion, displayRuntime.regionCursor = nil, {}
     game = payload.game
     if mod.options.bindGame then mod.options:bindGame(game, THEME.optionSchema) end
+    discoveryPolicy = Discovery.resolve(function(key) return mod.options:get(key) end)
     displayRuntime.sourceGame = game
     if displayRuntime.phone then displayRuntime.phone:setGame(game) end
     local spriteProvider = game.generation ~= 3 and mod.find("g9-battle-sprites")
