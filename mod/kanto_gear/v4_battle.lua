@@ -606,6 +606,31 @@ return function(H, ui, K)
     if player then self:partyInfo(mon.hpText or "--/--", x + 58, y + 24, colors.ink, 49, "right") end
   end
 
+  -- What the picker is opened for: the foe's types beside its status, and
+  -- the strongest types against it under the HP bar.
+  function H:opponentFacts(mon, x, y)
+    local colors = self.colors
+    if not mon.type then return end
+    local fainted = mon.statusId == "FNT" or (mon.hp or 0) <= 0
+    local tx = x + (mon.statusId and 26 or 0)
+    local dual = mon.type2 and mon.type2 ~= mon.type
+    self:v4TypePill(mon.type, mon.typeLabel, tx, y + 24, 30, fainted)
+    if dual then self:v4TypePill(mon.type2, mon.type2Label, tx + 32, y + 24, 30, fainted) end
+    local weak = mon.weak or {}
+    if #weak == 0 then return end
+    local label = translate("WEAK")
+    self:partyInfo(label, x, y + 57, colors.mutedInk)
+    local px = x + self:partyInfoWidth(label) + 6
+    for _, row in ipairs(weak) do
+      local style = self:matchupStyle(row.multiplier or 20)
+      local ew = self:partyInfoWidth(row.effectLabel or "")
+      if px + 28 + ew + 2 > 214 then break end
+      self:v4TypePill(row.type, row.typeLabel, px, y + 60, 26, fainted)
+      self:partyInfo(row.effectLabel or "", px + 28, y + 57, style.pill)
+      px = px + 28 + ew + 7
+    end
+  end
+
   function H:enemyInfoOpponents(battlers, drawPortrait)
     for _, mon in ipairs(battlers or {}) do
       if mon.side == "enemy" then
@@ -616,6 +641,7 @@ return function(H, ui, K)
           self:partyInfo("--", 6, y + 33, self.colors.disabledInk, 228, "center")
         else
           self:battleStatusCard(mon, 6, y, 228, false, drawPortrait)
+          self:opponentFacts(mon, 68, y)
           ART({ "#..", "##.", "###", "##.", "#.." }, 222, y + 64, { ["#"] = self.colors.mutedInk })
         end
         self:endPress(pressed)

@@ -777,11 +777,12 @@ return function(H, ui, K)
         self:withoutShadow(self.partyType, self, short, x + 66 - cw, y + 5, WHITE, cw)
         local stText = tr(ready and "READY" or row.where == "launcher" and "IN MENU" or "ONLINE")
         local dot = ready and c.hp or row.where == "launcher" and c.silverDark or hex("3878d0")
-        local st = self:fitPartyInfo(stText, 40)
+        -- keep both lines inside the card's 2px inner margin
+        local st = self:fitPartyInfo(stText, 38)
         local sw = self:partyInfoWidth(st)
-        self:partyInfo(st, x + 68 - sw, y + 17, ready and c.green or c.mutedInk)
-        if sw <= 34 then R(x + 64 - sw, y + 21, 3, 3, dot) end
-        self:partyInfo(self:fitPartyInfo(row.name or "", 66), x + 3, y + 30, c.ink, 66, "center")
+        self:partyInfo(st, x + 67 - sw, y + 17, ready and c.green or c.mutedInk)
+        if sw <= 32 then R(x + 62 - sw, y + 21, 3, 3, dot) end
+        self:partyInfo(self:fitPartyInfo(row.name or "", 62), x + 5, y + 30, c.ink, 62, "center")
         self:endPress(pressed)
         if dy ~= 0 then G.pop() end
         hit(x, y, 72, 44, "player", row.id)

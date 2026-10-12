@@ -2777,7 +2777,7 @@ function love.load()
         or pokedexCry and { { label = "AREA" }, { label = "SIZE" }, { label = "BACK" } }
         or { { label = "CRY" }, { label = "SIZE" }, { label = "BACK" } }
       model.canUse = true
-      model.compactActions = pokedexArea
+      model.compactActions = true
       local sprite = dexSprites.gyarados
       local function silhouette(x, y, scale)
         return { image = sprite.image, x = x, y = y, scale = scale }
@@ -2810,7 +2810,7 @@ function love.load()
         for i = 0, 15 do model.wave[i] = math.floor(math.sin(i * 0.9) * 50 * (1 - i / 20)) % 256 end
       else
         model.caption = "GYARADOS IS 21'04\" TALL"
-        model.comparison = { silhouette(100, 118, 0.45), silhouette(150, 108, 0.75) }
+        model.comparison = { silhouette(100, 132, 0.6), silhouette(160, 118, 1) }
         model.pokemon.height = "21'04\""
       end
     end
@@ -3055,6 +3055,12 @@ function love.load()
       for k, v in pairs(enemy) do e2[k] = v end
       enemy.side, enemy.id = "enemy", 1
       e2.side, e2.id, e2.name, e2.statusId, e2.statusLabel = "enemy", 3, "SPEAROW", nil, nil
+      enemy.type, enemy.type2, enemy.typeLabel, enemy.type2Label = "NORMAL", "NORMAL", "NOR", "NOR"
+      enemy.weak = { { type = "FIGHTING", typeLabel = "FIG", effectLabel = "2X", multiplier = 20 } }
+      e2.type, e2.type2, e2.typeLabel, e2.type2Label = "NORMAL", "FLYING", "NOR", "FLY"
+      e2.weak = { { type = "ELECTRIC", typeLabel = "ELE", effectLabel = "2X", multiplier = 20 },
+        { type = "ICE", typeLabel = "ICE", effectLabel = "2X", multiplier = 20 },
+        { type = "ROCK", typeLabel = "ROC", effectLabel = "2X", multiplier = 20 } }
       theme:enemyInfoOpponents({ enemy, e2 }, portrait)
     elseif screen == "battle_full_message" then
       theme:battleFullStatuses(player, enemy, portrait, playerTeam, enemyTeam)

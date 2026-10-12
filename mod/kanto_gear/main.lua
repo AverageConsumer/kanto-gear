@@ -11023,7 +11023,26 @@ return function(mod)
         header(THEME:translate("ENEMY INFO"))
         if THEME.style == "hgss" then
           G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-          THEME.hgss:enemyInfoOpponents(hgssRuntime.battleStatuses(), hgssRuntime.battlePortrait)
+          -- each foe card also carries its types and what it is weak to,
+          -- so the picker already answers the question it is opened for
+          local rows = hgssRuntime.battleStatuses() or {}
+          for _, row in ipairs(rows) do
+            if row.side == "enemy" and not row.absent then
+              local ok, info = pcall(compat.enemyInfo, row, game.data, game.save)
+              if ok and info and info.types[1] then
+                row.type, row.type2 = info.types[1], info.types[2] or info.types[1]
+                row.typeLabel = THEME:typeName(row.type, mod.content)
+                row.type2Label = THEME:typeName(row.type2, mod.content)
+                row.weak = {}
+                for index, weak in ipairs(info.weak or {}) do
+                  if index > 4 then break end
+                  row.weak[index] = { type = weak.type, typeLabel = THEME:typeName(weak.type, mod.content),
+                    effectLabel = effectLabel(weak.multiplier), multiplier = weak.multiplier }
+                end
+              end
+            end
+          end
+          THEME.hgss:enemyInfoOpponents(rows, hgssRuntime.battlePortrait)
           G.pop()
         else
           for _, mon in ipairs(battle.battlers or {}) do

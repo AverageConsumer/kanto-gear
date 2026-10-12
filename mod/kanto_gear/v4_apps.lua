@@ -901,8 +901,8 @@ return function(H, ui, K)
         left = left - #chars
         if #part > 0 then self:partyInfo(part, 16, top + (index - 1) * 9 - 1, colors.ink) end
       end
-      if shown < total then self:wantAmbient(0.05, 1 / 30)
-      else self:v4AdvanceArrow(214, 199) end
+      -- help text types itself out; no advance arrow, there is nothing to advance
+      if shown < total then self:wantAmbient(0.05, 1 / 30) end
       return
     end
 
@@ -1131,8 +1131,7 @@ return function(H, ui, K)
       left = left - #chars
       if #part > 0 then self:partyInfo(part, x + 10, top + (index - 1) * 11 - 1, colors.ink) end
     end
-    if shown < total then self:wantAmbient(0.05, 1 / 30)
-    else self:v4AdvanceArrow(x + w - 22, y + h - 12) end
+    if shown < total then self:wantAmbient(0.05, 1 / 30) end
   end
 
   function H:v4SettingsTabbed(model)

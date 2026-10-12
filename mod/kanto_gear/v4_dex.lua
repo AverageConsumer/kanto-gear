@@ -452,13 +452,14 @@ return function(H, ui, K)
   function H:pokedexCry(model)
     local G = ui.graphics
     hero(self, model, hex("4888e0"), translate("CRY"), translate(model.playing and "PLAYING" or "READY"))
-    screenWell(self, 7, 76, 226, 75, LCD_BG)
-    local x0, y0, w0, h0 = 36, 82, 190, 62
+    local tall = model.compactActions and 29 or 0
+    screenWell(self, 7, 76, 226, 75 + tall, LCD_BG)
+    local x0, y0, w0, h0 = 36, 82, 190, 62 + tall
     for gx = x0, x0 + w0, 10 do R(gx, y0, 1, h0, mix(LCD_BG, LCD_MID, 0.35)) end
     for gy = y0, y0 + h0, 10 do R(x0, gy, w0 + 1, 1, mix(LCD_BG, LCD_MID, 0.35)) end
     local mid = y0 + floor(h0 / 2)
     R(x0, mid, w0 + 1, 1, LCD_MID)
-    for sy = 81, 146, 2 do R(11, sy, 218, 1, { 0, 0, 0, 0.03 }) end
+    for sy = 81, 146 + tall, 2 do R(11, sy, 218, 1, { 0, 0, 0, 0.03 }) end
     -- speaker with sound arcs
     local playing = model.playing
     local beat = playing and floor(self:clock() / 0.15) % 3 or -1
@@ -475,7 +476,7 @@ return function(H, ui, K)
     for i = 0, 15 do
       local v = model.wave and (model.wave[i] or 0) % 256 or 0
       if v >= 128 then v = v - 256 end
-      local y = mid - floor(max(-60, min(60, v)) * 28 / 60 + 0.5)
+      local y = mid - floor(max(-60, min(60, v)) * (28 + floor(tall / 2)) / 60 + 0.5)
       local x = x0 + floor(i * w0 / 15 + 0.5)
       points[#points + 1] = { x, y }
     end
@@ -513,22 +514,24 @@ return function(H, ui, K)
     local mon = model.pokemon or {}
     hero(self, model, hex("e8a030"), translate("SIZE"), mon.height or "--")
     local wall = mix(colors.surface, hex("e8c890"), self.dark and 0.12 or 0.22)
-    screenWell(self, 7, 76, 226, 75, wall)
-    for gx = 19, 225, 8 do R(gx, 80, 1, 53, mix(wall, colors.outline, 0.08)) end
-    for gy = 80, 132, 8 do R(19, gy, 207, 1, mix(wall, colors.outline, 0.08)) end
+    local tall = model.compactActions and 29 or 0
+    local floorY = 133 + tall
+    screenWell(self, 7, 76, 226, 75 + tall, wall)
+    for gx = 19, 225, 8 do R(gx, 80, 1, floorY - 80, mix(wall, colors.outline, 0.08)) end
+    for gy = 80, floorY - 1, 8 do R(19, gy, 207, 1, mix(wall, colors.outline, 0.08)) end
     -- ruler down the left edge
-    R(11, 80, 7, 53, mix(wall, hex("e8a030"), 0.5))
-    for i = 0, 7 do
-      local ty = 132 - i * 7
+    R(11, 80, 7, floorY - 80, mix(wall, hex("e8a030"), 0.5))
+    for i = 0, floor((floorY - 81) / 7) do
+      local ty = floorY - 1 - i * 7
       R(11, ty, i % 2 == 0 and 6 or 3, 1, colors.outline)
     end
-    R(18, 80, 1, 53, colors.outline)
+    R(18, 80, 1, floorY - 80, colors.outline)
     -- floor the silhouettes stand on, and a caption plate with room to breathe
-    R(11, 133, 218, 1, colors.outline)
-    R(11, 134, 218, 13, mix(wall, colors.outline, self.dark and 0.3 or 0.12))
+    R(11, floorY, 218, 1, colors.outline)
+    R(11, floorY + 1, 218, 13, mix(wall, colors.outline, self.dark and 0.3 or 0.12))
     self:pokedexComparison(model)
     self:v4Prose(function()
-      self:partyInfoCentered(self:fitPartyInfo(model.caption or "", 206), 17, 135, 206, 11, colors.ink)
+      self:partyInfoCentered(self:fitPartyInfo(model.caption or "", 206), 17, floorY + 2, 206, 11, colors.ink)
     end)
     self:pokedexActions(model)
   end

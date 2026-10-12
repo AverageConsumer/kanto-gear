@@ -219,7 +219,9 @@ function Dex.model(view, Page, pokemon, drawPokemon, lines)
     info.description = state.owned and lines(info.descriptionText or "") or {}
     local model = { view = state.kind, pokemon = info, actions = view.items,
       drawPokemon = state.waiting and function() return false end or drawPokemon, canUse = view.valid(),
-      compactActions = state.compactActions }
+      -- cry and size use the slim key row too, so every research page shares
+      -- one control bar and the instrument gets the room
+      compactActions = state.compactActions or state.kind == "cry" or state.kind == "size" }
     if state.kind == "area" then
       model.area, model.region = state.area, state.region
       if state.comparison then
@@ -232,7 +234,7 @@ function Dex.model(view, Page, pokemon, drawPokemon, lines)
       model.playing, model.wave = state.playing, state.wave
       return model
     elseif state.kind == "size" then
-      model.caption, model.comparison = state.caption, Page.comparison(state.comparison, 15, 81, 210, 51)
+      model.caption, model.comparison = state.caption, Page.comparison(state.comparison, 15, 81, 210, 78)
       return model
     end
     return Page.description(view, model)
