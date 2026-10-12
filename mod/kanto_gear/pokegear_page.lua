@@ -175,6 +175,8 @@ end
 Page.BODY = 60
 function Page.phoneRow(i) return 7, Page.BODY + 2 + (i - 1) * 30, 226, 28 end
 Page.PHONE_PAGE = 4
+-- CALL / DELETE / CANCEL keys, clear of the fourth contact row (ends at 180)
+Page.SUBMENU_Y, Page.SUBMENU_H = 183, 28
 function Page.stationRect(i)
   local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
   return 7 + col * 116, 112 + row * 25, 110, 22
@@ -208,7 +210,7 @@ function Page.hit(m, x, y)
       local n = #p.submenu.entries
       local w = math.floor((226 - (n - 1) * 6) / n)
       for i = 1, n do
-        if inside(x, y, 7 + (i - 1) * (w + 6), 176, w, 30) then return "submenu", i end
+        if inside(x, y, 7 + (i - 1) * (w + 6), Page.SUBMENU_Y, w, Page.SUBMENU_H) then return "submenu", i end
       end
       return
     end

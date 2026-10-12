@@ -232,7 +232,7 @@ function Dex.model(view, Page, pokemon, drawPokemon, lines)
       model.playing, model.wave = state.playing, state.wave
       return model
     elseif state.kind == "size" then
-      model.caption, model.comparison = state.caption, Page.comparison(state.comparison, 15, 82, 210, 53)
+      model.caption, model.comparison = state.caption, Page.comparison(state.comparison, 15, 81, 210, 51)
       return model
     end
     return Page.description(view, model)

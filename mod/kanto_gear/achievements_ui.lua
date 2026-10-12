@@ -93,14 +93,23 @@ return function(H, G, translate, format)
         or tostring(section.done) .. "/" .. tostring(section.total))
         or format("%d RECORDED", section.done)
       if known and (section.untracked or 0) > 0 then count = count .. " +?" end
-      self:partyType(self:fitPartyType(translate(title), cellWidth - 4),
-        cx + 2, cy - 1, c.mutedInk, cellWidth - 4)
-      self:partyType(self:fitPartyType(count, cellWidth - 4),
-        cx + 2, cy + 7, complete and accent or c.ink, cellWidth - 4)
-      rect(cx + 4, cy + 18, cellWidth - 8, 2, c.band)
+      local name = translate(title)
+      local barY = cy + 18
+      if self:partyInfoWidth(name) + self:partyInfoWidth(count) + 6 <= cellWidth - 4 then
+        -- one calm row: label left, count right, the bar underneath
+        self:partyInfo(name, cx + 2, cy + 2, c.mutedInk)
+        self:partyInfo(count, cx + 2, cy + 2, complete and accent or c.ink, cellWidth - 4, "right")
+        barY = cy + 15
+      else
+        self:partyType(self:fitPartyType(name, cellWidth - 4),
+          cx + 2, cy - 1, c.mutedInk, cellWidth - 4)
+        self:partyType(self:fitPartyType(count, cellWidth - 4),
+          cx + 2, cy + 7, complete and accent or c.ink, cellWidth - 4)
+      end
+      rect(cx + 2, barY, cellWidth - 4, 3, c.band)
       if known and section.total > 0 then
-        rect(cx + 4, cy + 18, math.floor((cellWidth - 8) * section.done / section.total),
-          2, complete and accent or c.amber)
+        rect(cx + 2, barY, math.floor((cellWidth - 4) * section.done / section.total),
+          3, complete and accent or c.amber)
       end
     end
   end

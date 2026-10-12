@@ -628,10 +628,11 @@ return function(H, ui, K)
     end
     ART(HAND, hx + 4, hy + 4, { o = colors.outline, ["#"] = hex("f8d8b8") })
     self:v4Prose(function()
-      self:partyInfo(translate("YOUR SILPH LINK."), 54, top + 9, colors.ink, 168, "center")
-      self:partyInfo(translate("YOUR HOME SCREEN."), 54, top + 20, accent, 168, "center")
+      -- five lines and the key in an 84px window: keep a clear row above it
+      self:partyInfo(translate("YOUR SILPH LINK."), 54, top + 6, colors.ink, 168, "center")
+      self:partyInfo(translate("YOUR HOME SCREEN."), 54, top + 17, accent, 168, "center")
       for line, value in ipairs({ translate("HOLD AN APP OR WIDGET"), translate("TO CUSTOMIZE YOUR"), translate("HOME SCREEN.") }) do
-        self:partyType(value, 54, top + 24 + line * 9, colors.ink, 168)
+        self:partyType(value, 54, top + 21 + line * 9, colors.ink, 168)
       end
     end, { "SILPH", "LINK" })
     local pressed = self:beginPress(70, top + 62, 100, 17)

@@ -101,7 +101,7 @@ return function(H, ui, K)
     local visible = min(2, #lines)
     local paged = (model.descriptionPages or 1) > 1
     -- Keep the text inside the inset frame, above the description pager.
-    local firstY = 113 + floor(((paged and 23 or 34) - visible * 11) / 2)
+    local firstY = 112 + floor(((paged and 24 or 34) - visible * 11) / 2)
     self:v4Prose(function()
       for index = 1, visible do
         self:partyInfoCentered(lines[index], 18, firstY + (index - 1) * 11, 204, 11, colors.ink)
@@ -131,8 +131,14 @@ return function(H, ui, K)
       local bx, by = left + 4, top + floor((height - 2 - d) / 2)
       CIRC(bx, by, d, colors.outline)
       CIRC(bx + 1, by + 1, d - 2, mix(colors.surface, tint, self.dark and 0.35 or 0.22))
+      -- the glyph at 2x so the four research doors read at a glance
       local art = spec.art
-      ART(art, bx + floor((d - #art[1]) / 2), by + floor((d - #art) / 2), { ["#"] = tint })
+      local G = ui.graphics
+      G.push()
+      G.translate(bx + floor((d - #art[1] * 2) / 2), by + floor((d - #art * 2) / 2))
+      G.scale(2, 2)
+      ART(art, 0, 0, { ["#"] = mix(tint, { 0, 0, 0, 1 }, self.dark and 0 or 0.12) })
+      G.pop()
       local tx, tw = left + d + 8, width - d - 12
       self:partyInfo(self:fitPartyInfo(translate(card[1]), tw), tx, top + 1, colors.ink)
       self:partyInfo(self:fitPartyInfo(card[2], tw), tx, top + 11, colors.mutedInk)
@@ -508,21 +514,21 @@ return function(H, ui, K)
     hero(self, model, hex("e8a030"), translate("SIZE"), mon.height or "--")
     local wall = mix(colors.surface, hex("e8c890"), self.dark and 0.12 or 0.22)
     screenWell(self, 7, 76, 226, 75, wall)
-    for gx = 19, 225, 8 do R(gx, 80, 1, 56, mix(wall, colors.outline, 0.08)) end
-    for gy = 80, 135, 8 do R(19, gy, 207, 1, mix(wall, colors.outline, 0.08)) end
+    for gx = 19, 225, 8 do R(gx, 80, 1, 53, mix(wall, colors.outline, 0.08)) end
+    for gy = 80, 132, 8 do R(19, gy, 207, 1, mix(wall, colors.outline, 0.08)) end
     -- ruler down the left edge
-    R(11, 80, 7, 56, mix(wall, hex("e8a030"), 0.5))
+    R(11, 80, 7, 53, mix(wall, hex("e8a030"), 0.5))
     for i = 0, 7 do
-      local ty = 135 - i * 7
+      local ty = 132 - i * 7
       R(11, ty, i % 2 == 0 and 6 or 3, 1, colors.outline)
     end
-    R(18, 80, 1, 56, colors.outline)
-    -- floor the silhouettes stand on
-    R(11, 136, 218, 1, colors.outline)
-    R(11, 137, 218, 10, mix(wall, colors.outline, self.dark and 0.3 or 0.12))
+    R(18, 80, 1, 53, colors.outline)
+    -- floor the silhouettes stand on, and a caption plate with room to breathe
+    R(11, 133, 218, 1, colors.outline)
+    R(11, 134, 218, 13, mix(wall, colors.outline, self.dark and 0.3 or 0.12))
     self:pokedexComparison(model)
     self:v4Prose(function()
-      self:partyInfo(self:fitPartyInfo(model.caption or "", 206), 17, 137, colors.ink, 206, "center")
+      self:partyInfoCentered(self:fitPartyInfo(model.caption or "", 206), 17, 135, 206, 11, colors.ink)
     end)
     self:pokedexActions(model)
   end

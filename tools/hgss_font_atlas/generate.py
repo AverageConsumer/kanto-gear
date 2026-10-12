@@ -43,6 +43,26 @@ def render(source: Path, size: int, value: str, output: Path) -> None:
     image.save(output, optimize=True)
 
 
+# The small source draws "¥" as a barred hash; redraw it as the yen sign the
+# regular face uses, so money reads the same on every font.
+SMALL_OVERRIDES = {"¥": ["#...#", ".#.#.", "#####", "..#..", "#####", "..#..", "..#.."]}
+
+
+def override(output: Path, value: str, shapes: dict[str, list[str]], top: int) -> None:
+    image = Image.open(output).convert("RGBA")
+    marks = [x for x in range(image.width) if image.getpixel((x, 0)) == (255, 0, 255, 255)]
+    for char, rows in shapes.items():
+        left, right = marks[value.index(char)] + 1, marks[value.index(char) + 1]
+        for x in range(left, right):
+            for y in range(image.height):
+                image.putpixel((x, y), (0, 0, 0, 0))
+        for row, line in enumerate(rows):
+            for column, pixel in enumerate(line):
+                if pixel == "#" and left + column < right:
+                    image.putpixel((left + column, top + row), (255, 255, 255, 255))
+    image.save(output, optimize=True)
+
+
 def main() -> None:
     main_source = SOURCES / "hgss_pixel.ttf"
     small_source = SOURCES / "hgss_small.ttf"
@@ -55,6 +75,7 @@ def main() -> None:
     )
     render(main_source, 10, value, MOD / "hgss_font.png")
     render(small_source, 11, value, MOD / "hgss_small_font.png")
+    override(MOD / "hgss_small_font.png", value, SMALL_OVERRIDES, 2)
     render(main_source, 20, value, MOD / "hgss_large_font.png")
 
 

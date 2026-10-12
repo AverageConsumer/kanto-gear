@@ -260,9 +260,21 @@ return function(H, ui, K)
     self:wantAmbient(0.2, 1 / 15)
   end
 
+  -- Prompts pop in: the dim fades up while the window grows from 90% with a
+  -- small overshoot. Touch targets stay where the settled window draws them.
+  local promptBody
   function H:toolPrompt(action)
+    local p = self:v4Enter("tool_prompt", tostring(action.label) .. ":" .. tostring(action.prompt), 0.2)
+    self:systemOverlay((self.dark and 0.62 or 0.48) * min(1, p * 2), false)
+    if p >= 1 then return promptBody(self, action) end
+    local G = ui.graphics
+    local k = 0.9 + 0.1 * K.easeBack(p)
+    G.push(); G.translate(120, 108); G.scale(k, k); G.translate(-120, -108)
+    promptBody(self, action)
+    G.pop()
+  end
+  function promptBody(self, action)
     local colors = self.colors
-    self:systemOverlay(self.dark and 0.62 or 0.48, false)
     local accent = self:toolAccent(action.icon)
     self:v4MessageWindow(25, 52, 190, 112)
     CIRC(37, 66, 44, colors.outline)

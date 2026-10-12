@@ -522,7 +522,38 @@ return function(H, ui, K)
   end
 
   -- Native focus: a pulsing frame (Pokégear) or breathing corner brackets (C-Gear).
+  -- The D-pad focus glides from the previous item to the next one like the
+  -- DS cursor. It only glides between same-sized items it was just drawn on;
+  -- a new screen, a page slide or a second frame in one paint snaps it.
+  local focusGlide = {}
+  local function glideFocus(self, x, y, w, h)
+    if self:v4MotionOff() then return x, y end
+    local t = self:clock()
+    local g = focusGlide
+    local recent = g.seen and t - g.seen < 0.3 and g.seen ~= t
+    local sliding = self.v4SlideAt and t - self.v4SlideAt < 0.06
+    if g.tx ~= x or g.ty ~= y or g.w ~= w or g.h ~= h then
+      if recent and not sliding and g.w == w and g.h == h then
+        local p = min(1, (t - (g.t0 or -1e9)) / 0.12)
+        local e = K.easeOut(p)
+        g.fx = floor((g.fx or g.tx) + (g.tx - (g.fx or g.tx)) * e + 0.5)
+        g.fy = floor((g.fy or g.ty) + (g.ty - (g.fy or g.ty)) * e + 0.5)
+        g.t0 = t
+      else
+        g.fx, g.fy, g.t0 = x, y, -1e9
+      end
+      g.tx, g.ty, g.w, g.h = x, y, w, h
+    end
+    g.seen = t
+    local p = (t - (g.t0 or -1e9)) / 0.12
+    if p >= 1 then return x, y end
+    self:wantAmbient(0.14, 1 / 60)
+    local e = K.easeOut(max(0, p))
+    return floor(g.fx + (x - g.fx) * e + 0.5), floor(g.fy + (y - g.fy) * e + 0.5)
+  end
+
   function H:focusFrame(x, y, w, h)
+    x, y = glideFocus(self, x, y, w, h)
     local on = K.blink(self, 0.26)
     local colors = self.colors
     if cg(self) then

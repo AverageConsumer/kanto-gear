@@ -61,7 +61,8 @@ function Page.areaTransform(area, viewport)
 end
 
 function Page.pagerRect(direction, description)
-  return direction < 0 and 82 or 140, description and 140 or 199, 18, description and 11 or 12
+  -- the description pager sits inside its window's inset frame
+  return direction < 0 and 82 or 140, description and 137 or 199, 18, description and 11 or 12
 end
 
 function Page.window(rows, number, count)

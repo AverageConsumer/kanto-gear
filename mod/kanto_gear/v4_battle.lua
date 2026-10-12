@@ -230,6 +230,48 @@ return function(H, ui, K)
   local CROSS = { "#...#", ".#.#.", "..#..", ".#.#.", "#...#" }
   local STAR = { "...#...", "..###..", "#######", ".#####.", "..###..", ".##.##.", ".#...#." }
 
+  -- Battle back affordances: a small key with the return glyph instead of a
+  -- bare left arrow, so "back" never reads like the pocket arrows beside it.
+  local BACK_GLYPH = { "..o....", ".oo....", "ooooooo", ".oo...o", "..o...o", "......o", "..oooo." }
+  function H:v4BackKey(x, y, w, h)
+    local pressed = self:beginPress(x, y, w, h)
+    local off = 0
+    self:v4Key(x, y, w, h)
+    ART(BACK_GLYPH, x + floor((w - 7) / 2), y + floor((h - 3 - 7) / 2) + off,
+      { o = self.dark and self.tok.acc.L or cg(self) and self.tok.acc.M or self.tok.acc.D })
+    self:endPress(pressed)
+  end
+  local function withBackKey(self, fn, ...)
+    local chevron = self.chevron
+    self.chevron = function(me, x, y, right)
+      if right then return chevron(me, x, y, right) end
+      return me:v4BackKey(x - 8, y - 9, 18, 19)
+    end
+    local ok, err = pcall(fn, self, ...)
+    self.chevron = chevron
+    if not ok then error(err, 0) end
+  end
+  local baseTeamStrip, baseBagHeader = H.battleTeamStrip, H.battleBagHeader
+  function H:battleTeamStrip(...) return withBackKey(self, baseTeamStrip, ...) end
+  function H:battleBagHeader(...) return withBackKey(self, baseBagHeader, ...) end
+
+  -- One matchup language on every battle surface: the red family for super
+  -- effective (the type-chart convention of the enemy info pages), blue for
+  -- resisted, grey for no effect and a quiet neutral otherwise.
+  function H:matchupStyle(effectiveness)
+    if effectiveness == nil then return nil end
+    if effectiveness == 0 then
+      return { bg = hex("c8ccd0"), fg = hex("3a3a40"), pill = hex("808890"), icon = CROSS }
+    elseif effectiveness > 10 then
+      return { bg = hex("f8d8d0"), fg = hex("a82818"), icon = UP2, strong = true,
+        pill = effectiveness >= 40 and hex("c02818") or hex("e05040") }
+    elseif effectiveness < 10 then
+      return { bg = hex("d4e2f4"), fg = hex("204a90"), icon = DOWN, weak = true,
+        pill = effectiveness <= 2.5 and hex("2850a0") or hex("3878d0") }
+    end
+    return { bg = hex("e8eef0"), fg = hex("2a3640"), pill = hex("8890a0") }
+  end
+
   function H:battleMoveCard(move, x, y, selected, stab)
     if not move or move.available == false then return end
     local colors = self.colors
@@ -243,20 +285,27 @@ return function(H, ui, K)
     self:partyName(move.name or "-", x + 7, y + 4, ink, 88)
     if stab and not disabled then ART(STAR, x + 98, y + 6, { ["#"] = hex("f8e070") })
     else self:detailChevron(x + 101, y + 8, ink) end
-    local label = a.D
+    -- labels follow the summary rows: dark on light types, pale on dark ones,
+    -- and power/accuracy sit in a recessed well that reads on every colour
+    local lum = a.L[1] * 0.3 + a.L[2] * 0.59 + a.L[3] * 0.11
+    local label = lum > 0.45 and mix(a.D, { 0, 0, 0, 1 }, 0.15) or mix(a.Hi, WHITE, 0.2)
+    local wellLabel = mix(a.Hi, WHITE, 0.2)
     RR(x + 7, y + 20, 44, 10, 3, mix(a.D, { 0, 0, 0, 1 }, 0.25))
     RR(x + 8, y + 21, 42, 8, 2, a.D)
     local typeText = self:fitPartyInfo(move.typeLabel or move.type or "---", 40)
     self:partyInfo(typeText, x + 7 + floor((44 - self:partyInfoWidth(typeText)) / 2) + 1, y + 18, WHITE)
-    self:partyInfo(move.ppLabel or translate("PP"), x + 55, y + 19, label)
+    self:withoutShadow(self.partyInfo, self, move.ppLabel or translate("PP"), x + 55, y + 19, label)
     local ppLow = move.pp and move.maxPp and move.maxPp > 0 and move.pp / move.maxPp <= 0.25
     self:partyInfo(move.ppText or "--", x + 70, y + 19,
       disabled and colors.redLight or (ppLow and hex("f8e070") or ink), 35, "right")
-    R(x + 7, y + 34, 98, 1, mix(a.D, a.M, 0.4))
-    self:partyInfo(move.powerLabel or translate("PWR"), x + 7, y + 38, label)
+    RR(x + 5, y + 37, 102, 14, 3, mix(a.D, { 0, 0, 0, 1 }, 0.2))
+    RR(x + 6, y + 38, 100, 12, 2, mix(a.D, a.M, 0.25))
+    self:withoutShadow(function()
+      self:partyInfo(move.powerLabel or translate("PWR"), x + 10, y + 38, wellLabel)
+      self:partyInfo(move.accuracyLabel or translate("ACC"), x + 59, y + 38, wellLabel)
+    end)
     self:partyInfo(move.powerText or "--", x + 30, y + 38, ink, 22, "right")
-    self:partyInfo(move.accuracyLabel or translate("ACC"), x + 58, y + 38, label)
-    self:partyInfo(move.accuracyText or "--", x + 82, y + 38, ink, 23, "right")
+    self:partyInfo(move.accuracyText or "--", x + 80, y + 38, ink, 23, "right")
     local cy = y + 56
     if disabled then
       RR(x + 9, cy, 94, 12, 3, colors.outline)
@@ -264,14 +313,8 @@ return function(H, ui, K)
       self:partyInfoCentered(move.disabledLabel or translate("DISABLED"), x + 9, cy, 94, 12, WHITE)
     else
       local effectLabel, effectiveness = self:battleEffectLabel(move)
-      local icon = effectiveness == 0 and CROSS
-        or effectiveness and effectiveness > 10 and UP2
-        or effectiveness and effectiveness < 10 and DOWN or nil
-      local bg = effectiveness == 0 and hex("c8ccd0")
-        or effectiveness and effectiveness > 10 and hex("f8f0b0")
-        or effectiveness and effectiveness < 10 and hex("f0d8c8") or hex("e8eef0")
-      local fg = effectiveness and effectiveness > 10 and hex("8a4a00")
-        or effectiveness == 0 and hex("3a3a40") or hex("2a3640")
+      local style = self:matchupStyle(effectiveness) or self:matchupStyle(10)
+      local icon, bg, fg = style.icon, style.bg, style.fg
       local tw = self:partyInfoWidth(effectLabel)
       local iw = icon and (#icon[1] + 3) or 0
       local cw = tw + iw + 12
@@ -532,6 +575,37 @@ return function(H, ui, K)
     if player and mon.expProgress then self:expBar(infoX, y + 69, infoW, mon.expProgress) end
   end
 
+  -- Double-battle card (112×37): the singles card in miniature. Seat and
+  -- portrait, name and level, the tagged HP bar with EXP welded under it on
+  -- your side, then status and HP numbers. The active battler is lit.
+  function H:battleCompactStatus(mon, x, y, drawPortrait)
+    local colors, player = self.colors, mon.side == "player"
+    local accent = player and hex("3ea04c") or hex("d84838")
+    if cg(self) then accent = player and hex("1ea5d8") or hex("e05a48") end
+    local lit = mon.active and not mon.absent
+    self:v4Window(x, y, 112, 37, { fill = mon.absent and colors.bandLight
+      or lit and mix(colors.surface, accent, self.dark and 0.22 or 0.14) or nil,
+      edge = lit and K.rampOf(accent).D or nil })
+    if mon.absent then
+      self:partyInfo("--", x, y + 13, colors.disabledInk, 112, "center")
+      return
+    end
+    R(x + 1, y + 4, 2, 29, lit and accent or mix(colors.surface, accent, 0.55))
+    local fainted = mon.statusId == "FNT" or (mon.hp or 0) <= 0
+    self:v4Seat(x + 5, y + 6, 26, fainted)
+    drawPortrait(mon, x + 6, y + 7, 24, fainted)
+    local level = mon.levelText or "L--"
+    local lw = self:partyInfoWidth(level)
+    self:partyInfo(self:fitPartyInfo(mon.name or translate("POKEMON"), 72 - lw), x + 35, y + 1, colors.ink, 72 - lw)
+    self:partyInfo(level, x + 107 - lw, y + 1, player and colors.green or colors.mutedInk)
+    self:v4HpBar(x + 35, y + 14, 72, mon.hp, mon.maxHp)
+    -- EXP shares the HP bar's bottom outline, under the bar (not the tag)
+    local tag = cg(self) and 12 or 14
+    if player and mon.expProgress then self:expBar(x + 35 + tag, y + 20, 72 - tag, mon.expProgress) end
+    if mon.statusId then self:v4StatusPill(mon.statusId, x + 35, y + 27) end
+    if player then self:partyInfo(mon.hpText or "--/--", x + 58, y + 24, colors.ink, 49, "right") end
+  end
+
   function H:enemyInfoOpponents(battlers, drawPortrait)
     for _, mon in ipairs(battlers or {}) do
       if mon.side == "enemy" then
@@ -555,18 +629,36 @@ return function(H, ui, K)
     local label, effectiveness = self:battleEffectLabel(move)
     if effectiveness == nil then return end
     local strong, weak = effectiveness > 10, effectiveness < 10
-    local bg = effectiveness == 0 and hex("c8ccd0") or strong and hex("f8f0b0")
-      or weak and hex("f0d8c8") or a.D
-    local fg = effectiveness == 0 and hex("3a3a40") or strong and hex("8a4a00")
-      or weak and hex("2a3640") or WHITE
+    local style = self:matchupStyle(effectiveness)
+    local plain = not strong and not weak and effectiveness ~= 0
+    local bg, fg = plain and a.D or style.bg, plain and WHITE or style.fg
     local cw = max(18, self:partyInfoWidth(label) + 8)
-    if strong or weak then RR(x, y + 1, cw, 11, 2, { 0, 0, 0, 0.3 }) end
+    if not plain then RR(x, y + 1, cw, 11, 2, { 0, 0, 0, 0.3 }) end
     RR(x, y, cw, 11, 2, bg)
-    if strong or weak then
+    if not plain then
       self:withoutShadow(function() self:partyInfo(label, x, y - 2, fg, cw, "center") end)
     else
       self:partyInfo(label, x, y - 2, fg, cw, "center")
     end
+  end
+
+  -- Target picker badge: side on top, the matchup as the shared chip below.
+  function H:battleTargetLabels(entry, x, y, w, h)
+    local colors = self.colors
+    local side = self:fitPartyInfo(translate(entry.right), w - 8)
+    if entry.effectiveness == nil then
+      self:partyInfoCentered(side, x, y, w, h, colors.ink)
+      return
+    end
+    local label, effectiveness = self:battleEffectLabel(entry)
+    local style = self:matchupStyle(effectiveness) or self:matchupStyle(10)
+    local top = y + floor((h - 23) / 2)
+    self:partyInfoCentered(side, x, top, w, 9, colors.ink)
+    local cw = max(22, self:partyInfoWidth(label) + 10)
+    local cx = x + floor((w - cw) / 2)
+    RR(cx, top + 12, cw, 11, 2, { 0, 0, 0, 0.25 })
+    RR(cx, top + 11, cw, 11, 2, style.pill)
+    self:partyInfo(label, cx, top + 9, WHITE, cw, "center")
   end
 
   function H:battleFullMoves(mon)

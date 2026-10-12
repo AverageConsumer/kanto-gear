@@ -353,11 +353,10 @@ return function(H, ui, K)
       if eff ~= nil then
         self:v4Window(122, 111, 104, 38, { fill = colors.bandLight, shadow = false })
         self:partyInfo(move.matchupLabel or translate("MATCHUP"), 122, 114, colors.mutedInk, 104, "center")
-        local ec = eff == 0 and GREY
-          or eff > 10 and hex("e05040") or eff < 10 and hex("4878c8") or hex("8890a0")
+        local ec = self:matchupStyle(eff).pill
         self:v4Pill(label:gsub("X", "×"), 154, 131, ec, { raw = true, w = 40 })
-        if eff > 10 then ART(ARROW_UP, 142, 134, { ["#"] = hex("e05040") }); if eff >= 40 then ART(ARROW_UP, 142, 138, { ["#"] = hex("e05040") }) end
-        elseif eff > 0 and eff < 10 then ART(ARROW_DN, 142, 135, { ["#"] = hex("4878c8") })
+        if eff > 10 then ART(ARROW_UP, 142, 134, { ["#"] = ec }); if eff >= 40 then ART(ARROW_UP, 142, 138, { ["#"] = ec }) end
+        elseif eff > 0 and eff < 10 then ART(ARROW_DN, 142, 135, { ["#"] = ec })
         elseif eff == 0 then ART(CROSS, 142, 134, { ["#"] = GREY }) end
       end
     end

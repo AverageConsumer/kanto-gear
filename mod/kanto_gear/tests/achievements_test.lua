@@ -393,25 +393,35 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
     display.tapAchievements(12, 12)
     T.eq(upvalue(display.openHomeApp, "page"), "HOME", version .. " widget event fixture is on Home")
     local x, y, w, h = theme.hgss:homeRect(tile)
-    local drawText = theme.hgss.partyType
+    local drawText, drawInfo = theme.hgss.partyType, theme.hgss.partyInfo
     for _, mode in ipairs({ "spoiler", "enhanced", "vanilla" }) do
       run.loader.modOptions.kanto_gear.info_level = mode
       local model = display.currentAchievement()
       T.eq(model.mode, mode, version .. " widget follows " .. mode .. " setting")
-      local counts = {}
-      theme.hgss.partyType = function(self, text, tx, ty, ...)
-        if ty == y + 42 or ty == y + 64 then counts[tx .. ":" .. ty] = text end
-        return drawText(self, text, tx, ty, ...)
+      -- a cell shows its count either on the label's row (short counts) or
+      -- on its own row under the label (long ones); collect both places
+      local drawn = {}
+      local function spy(draw)
+        return function(self, text, tx, ty, ...)
+          if tx == x + 66 then drawn[ty] = drawn[ty] or {}; table.insert(drawn[ty], text) end
+          return draw(self, text, tx, ty, ...)
+        end
       end
+      theme.hgss.partyType, theme.hgss.partyInfo = spy(drawText), spy(drawInfo)
       theme.hgss:homeAchievements({ stamps = model }, tile, false)
-      local hidden = counts[(x + 66) .. ":" .. (y + 64)]
-      local trainers = counts[(x + 66) .. ":" .. (y + 42)]
-      T.eq(hidden, mode == "spoiler" and "0/1" or "0 RECORDED",
+      theme.hgss.partyType, theme.hgss.partyInfo = drawText, drawInfo
+      local function cell(row)
+        for _, ty in ipairs(row == 1 and { y + 37, y + 42 } or { y + 59, y + 64 }) do
+          for _, text in ipairs(drawn[ty] or {}) do
+            if text:find("%d") then return text end
+          end
+        end
+      end
+      T.eq(cell(2), mode == "spoiler" and "0/1" or "0 RECORDED",
         version .. " " .. mode .. " does not leak hidden totals")
-      T.eq(trainers, mode == "vanilla" and "1 RECORDED" or "1/1",
+      T.eq(cell(1), mode == "vanilla" and "1 RECORDED" or "1/1",
         version .. " " .. mode .. " preserves recorded-only progress")
     end
-    theme.hgss.partyType = drawText
     run.loader.modOptions.kanto_gear.info_level = "spoiler"
     home.widgetCache = nil
     display.homeWidgetData({ achievements = true })

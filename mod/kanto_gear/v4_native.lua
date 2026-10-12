@@ -1060,6 +1060,41 @@ return function(H, ui, K)
     self:endPress(pressed)
   end
 
+  -- GSC splits the day in three: MORN 4-10, DAY 10-18, NITE 18-4. A 24h
+  -- LCD track shows the bands with the current one lit and a marker on now.
+  local PERIODS = { { "NITE", 0, 4 }, { "MORN", 4, 10 }, { "DAY", 10, 18 }, { "NITE", 18, 24 } }
+  local MARK = { "#####", ".###.", "..#.." }
+  function H:pokegearDayTrack(clock, x, y, w, h)
+    lcdPanel(self, x, y, w, h)
+    local _, bg, on, ghost = lcdColors(self)
+    local hour = (clock.hour or 0) + (clock.minute or 0) / 60
+    local current
+    for _, band in ipairs(PERIODS) do
+      if hour >= band[2] and hour < band[3] then current = band[1] end
+    end
+    local tx, tw, ty = x + 10, w - 20, y + 10
+    local function at(t) return tx + floor(tw * t / 24 + 0.5) end
+    for _, band in ipairs(PERIODS) do
+      local lit = band[1] == current
+      local bx0, bx1 = at(band[2]), at(band[3])
+      R(bx0, ty, bx1 - bx0 - (band[3] < 24 and 1 or 0), 4, lit and on or mix(bg, on, 0.3))
+    end
+    local mx = at(hour)
+    ART(MARK, mx - 2, ty - 5, { ["#"] = on })
+    self:withoutShadow(function()
+      for i = 2, 4 do
+        local band = PERIODS[i]
+        local lit = band[1] == current
+        local cx = floor((at(band[2]) + at(band[3])) / 2)
+        local label = translate(band[1])
+        local lw = self:partyInfoWidth(label)
+        local gx = cx - floor((lw + 11) / 2)
+        K.periodIcon(band[1], gx, ty + 10, lit and on or ghost)
+        self:partyInfo(label, gx + 11, ty + 7, lit and on or mix(bg, on, 0.45))
+      end
+    end)
+  end
+
   function H:pokegearScreen(m, Page)
     local c = self.colors
     local G = ui.graphics
@@ -1076,9 +1111,11 @@ return function(H, ui, K)
         local off = 0
         if lit then off = self:v4Button(x, y, w, h, K.rampOf(accent), { radius = 6, lip = 3, chamfer = 5 })
         else self:v4Window(x, y, w, h, { radius = 5 }) end
-        local d = 34
-        seatIcon(self, card.icon, x + floor((w - d) / 2), y + 5 + off, d, accent, lit)
-        litText(self, lit, self:fitPartyInfo(card.label, w - 8), x + 4, y + h - 18 + off, c.ink, w - 8, "center")
+        -- icon and name sit together in the middle, whatever the tile height
+        local d = h >= 100 and 46 or 34
+        local top = y + floor((h - (d + 16)) / 2) - 1
+        seatIcon(self, card.icon, x + floor((w - d) / 2), top + off, d, accent, lit)
+        litText(self, lit, self:fitPartyInfo(card.label, w - 8), x + 4, top + d + 3 + off, c.ink, w - 8, "center")
         if self.nativeFocus and lit then self:focusFrame(x, y, w, h) end
         self:endPress(pressed)
         if dy ~= 0 then G.pop() end
@@ -1134,6 +1171,7 @@ return function(H, ui, K)
       self:wantAmbient(1)
       bigLcd(self, string.format("%d:%02d", clock.h12, clock.minute), 120, 94, 5, colon)
       self:withoutShadow(function() self:partyInfo(clock.pm and "PM" or "AM", 7, 146, on, 226, "center") end)
+      self:pokegearDayTrack(clock, 7, 172, 226, 38)
     elseif m.phone then
       local p = m.phone
       if p.call then
@@ -1185,13 +1223,14 @@ return function(H, ui, K)
           for i, label in ipairs(p.submenu.entries) do
             local x = 7 + (i - 1) * (w + 6)
             local lit = i == p.submenu.cursor
-            local pressed = self:beginPress(x, 176, w, 30, true)
+            local by, bh = Page.SUBMENU_Y, Page.SUBMENU_H
+            local pressed = self:beginPress(x, by, w, bh, true)
             local off = 0
-            if lit then off = self:v4Button(x, 176, w, 30, K.rampOf(accent), { radius = 6, lip = 3, chamfer = 5 })
-            else self:v4Key(x, 176, w, 30) end
+            if lit then off = self:v4Button(x, by, w, bh, K.rampOf(accent), { radius = 6, lip = 3, chamfer = 5 })
+            else self:v4Key(x, by, w, bh) end
             local shown = self:fitPartyInfo(label, w - 8)
-            if lit then self:withoutShadow(self.partyInfoCentered, self, shown, x, 176 + off, w, 26, WHITE)
-            else self:partyInfoCentered(shown, x, 176, w, 26, c.ink) end
+            if lit then self:withoutShadow(self.partyInfoCentered, self, shown, x, by + off, w, bh - 4, WHITE)
+            else self:partyInfoCentered(shown, x, by, w, bh - 4, c.ink) end
             self:endPress(pressed)
           end
         end
@@ -1225,9 +1264,17 @@ return function(H, ui, K)
           local off = 0
           if lit then off = self:v4Button(x, y, w, h, K.rampOf(accent), { radius = 4, lip = 2, chamfer = 3 })
           else self:v4Window(x, y, w, h, { radius = 3 }) end
+          -- the show's name owns the tile; the frequency (already on the dial
+          -- above) rides along only when the whole name still fits
           local ink = lit and WHITE or c.mutedInk
-          self:withoutShadow(self.partyInfo, self, row.frequency, x + 5, y + 4 + off, ink, 28)
-          litText(self, lit, self:fitPartyInfo(row.name, w - 40), x + 35, y + 4 + off, c.ink, w - 40)
+          local nameW = self:partyInfoWidth(row.name)
+          local freqW = self:partyInfoWidth(row.frequency)
+          if nameW + freqW + 8 <= w - 10 then
+            litText(self, lit, row.name, x + 5, y + 4 + off, c.ink, w - 10)
+            self:withoutShadow(self.partyInfo, self, row.frequency, x + w - 5 - freqW, y + 4 + off, ink)
+          else
+            litText(self, lit, self:fitPartyInfo(row.name, w - 10), x + 5, y + 4 + off, c.ink, w - 10)
+          end
           self:endPress(pressed)
         end
       end
@@ -1241,8 +1288,17 @@ return function(H, ui, K)
         self:v4Icon("map", 18, 116)
         self:partyInfo(self:fitPartyInfo(map.player, 170), 46, 122, c.mutedInk, 170)
       end
-      arrowKey(self, 7, 150, 110, 40, DOWN)
-      arrowKey(self, 123, 150, 110, 40, UP)
+      local function mapKey(x, art, label, enabled)
+        local pressed = self:beginPress(x, 150, 110, 40, enabled ~= false)
+        self:v4Key(x, 150, 110, 40)
+        local tw = self:partyInfoWidth(label)
+        local gx = x + floor((110 - (11 + 6 + tw)) / 2)
+        ART(art, gx, 166, { ["#"] = accent })
+        self:partyInfo(label, gx + 17, 160, c.ink)
+        self:endPress(pressed)
+      end
+      mapKey(7, DOWN, translate("PREV"))
+      mapKey(123, UP, translate("NEXT"))
     end
     if dy ~= 0 then G.pop() end
   end
