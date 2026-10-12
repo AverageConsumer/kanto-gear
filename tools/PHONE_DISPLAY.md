@@ -1,4 +1,4 @@
-# Phone display prototype
+# Phone / Browser display
 
 Select **DISPLAY MODE → PHONE / BROWSER** in Kanto Gear's settings or the native
 mod options. Scan the displayed QR with a phone in the same private Wi-Fi network,
@@ -14,7 +14,7 @@ Native mod options and Gear's Options app share persistent values. Recomp's olde
 in-game menu cannot interpret list-based visibility conditions, so those settings
 remain available there; Gear keeps its contextual filtering. Existing explicit
 launcher values take precedence over the older touch-only fallback cache.
-Return to a normal Kanto Gear package to remove the experimental option.
+Phone mode is optional and experimental; other display modes remain available.
 
 The game stays on its own display. Y swapping is unavailable in phone mode.
 The phone reuses Gear's existing touch handling, including swipes and Notes.

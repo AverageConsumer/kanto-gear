@@ -147,11 +147,33 @@ See [Gen 3 coverage](tools/GEN3.md).
 | **Fullscreen Swap** | Switching between the game and Gear on a single screen |
 | **Combined** | Both views in one window: stacked, side by side or as a corner overlay |
 | **Separate** | Dual-screen handhelds, independent desktop windows or multiple monitors |
+| **Phone / Browser** | Gear and optional touch controller buttons on a phone over your local Wi-Fi |
 
 **Auto Battle Screen** can switch to Gear for battle choices and back to the game
 for text and animations on single-screen layouts. **Performance** keeps maps smooth
 while disabling UI transitions; **Quality** allows optional interface animations.
 Both preserve map detail.
+
+### Gear on your phone
+
+**Phone / Browser** is an optional, experimental display mode. Keep your phone
+and game device on the same trusted Wi-Fi, choose the mode in Gear's Options,
+and scan the QR code. Tap **Connect**; the QR supplies the one-time credential,
+so no PIN is needed. You can also open the shown address and enter its code.
+
+The browser can show Gear alone or add game controls. Choose a matching theme,
+use a left-handed or one-hand preset, or arrange and resize the controls yourself.
+Portrait and landscape layouts are separate. **Remember settings** saves these
+preferences only in that browser; it never saves pairing credentials.
+
+To return to a local display without your phone, open Recomp's
+**Mods → Kanto Gear → Options → Display Mode** and choose another mode.
+
+This uses a local, **unencrypted** connection, with no account or external service.
+Use a private network you trust. Visible Gear content, including open notes, is
+sent to the paired browser. Streaming smoothness depends on the devices, browser
+and Wi-Fi; feedback is welcome. Use the latest official Recomp and allow the
+mod's Network and Compute permissions. [Pairing, privacy and controls](tools/PHONE_DISPLAY.md).
 
 ### Languages and online
 
@@ -208,6 +230,8 @@ The downloadable ZIP includes these credits and the complete font license
 notices. Font assets retain their respective licenses.
 
 The UI icons and item props are original designs drawn by Kanto Gear's UI code. See [asset notes](mod/kanto_gear/ASSET_CREDITS.txt).
+Local QR generation uses **luaqrcode** by **Patrick Gundlach and contributors**
+under BSD-3-Clause; its full notice is included in the ZIP.
 
 Pokémon and related names are trademarks of their respective owners. This fan
 project is not affiliated with Nintendo, Game Freak, The Pokémon Company or
