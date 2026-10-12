@@ -1,10 +1,10 @@
--- One paired browser, lossless incremental video, and a bounded transport window.
+-- One paired browser, lossless incremental video, and bounded transport queues.
 local bit = require("bit")
 local Phone = {}
 Phone.__index = Phone
 local HOLDER = "__kanto_gear_phone_display"
 local PORT, MAX_HTTP, MAX_INPUT = 8765, 4096, 128
-local VIDEO_WINDOW, MAX_VIDEO_WINDOW = 4, 8
+local VIDEO_QUEUE, VIDEO_BYTES, HISTORY = 3, 512 * 1024, 128
 local BUTTONS = { up = true, down = true, left = true, right = true,
   a = true, b = true, start = true, select = true, l = true, r = true }
 local function u16(n) return string.char(math.floor(n / 256) % 256, n % 256) end
@@ -22,7 +22,7 @@ local function reply(status, body, kind)
     .. "\r\nReferrer-Policy: no-referrer\r\nX-Frame-Options: DENY"
     .. "\r\nPermissions-Policy: camera=(), microphone=(), geolocation=()"
     .. "\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; "
-    .. "style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; "
+    .. "style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; base-uri 'none'; "
     .. "form-action 'self'; object-src 'none'; frame-ancestors 'none'"
     .. "\r\nConnection: close\r\n\r\n" .. body
 end
@@ -35,6 +35,7 @@ function Phone.new(mod, runtime, socket, pairing, video)
     clients = {}, touches = {}, buttons = {},
     sequence = 0, epoch = 0,
     page = assert(mod:read("phone.html")), script = assert(mod:read("phone.js")),
+    decoder = assert(mod:read("phone_decoder.js")),
     nextFrame = 0, attempts = 0 }, Phone)
   if not pairing then
     local ok, result = pcall(function()
@@ -138,6 +139,7 @@ function Phone:setGame(game)
   if self.game == game then return end
   self:releaseControls()
   self.game = game
+  self.sourceFrame, self.capturedFrame = nil, nil
   if self.viewer then self.viewer.controls = self:controls() end
 end
 function Phone:button(button, down)
@@ -160,33 +162,42 @@ function Phone:detected()
   return c ~= nil and self:now() - c.alive < 1.5
 end
 function Phone:ready() return self:detected() and self.viewer.ack ~= nil end
+-- input.step follows the same fixed-step clock as all three generations.
+function Phone:step(dt)
+  self.sourceFrame = (self.sourceFrame or 0) + 1
+  self.sourceTime = (self.sourceTime or self:now()) + (dt or 1 / 60) / math.max(1, self.game and self.game._frameSpeed or 1)
+end
+local function transportRoom(c)
+  return #(c.videoQueue or {}) < VIDEO_QUEUE and (c.videoBytes or 0) < VIDEO_BYTES
+end
 function Phone:canCapture()
-  return self:detected() and not self.captureReserved and not self.viewer.out
-    and not self.queuedImage and #self.viewer.pending + ((self.encoding or self.encoded) and 1 or 0) < (self.viewer.window or VIDEO_WINDOW)
-    -- Host frames are not exact clock ticks. Keep their phase through small jitter.
-    and self:now() + .003 >= self.nextFrame
+  if not self:detected() or self.captureReserved or not transportRoom(self.viewer) then return false end
+  if self.sourceFrame then return self.sourceFrame ~= self.capturedFrame end
+  -- Preview/older hosts without input.step retain a bounded clock fallback.
+  return self:now() + .003 >= self.nextFrame
 end
 function Phone:reserveCapture(at)
   if not self:canCapture() then return false end
-  -- Reserve at GPU request time so completing readback can start the next 60 Hz capture.
   self.nextFrame = math.max(self.nextFrame + 1 / 60, at or self:now())
-  self.captureReserved, self.captureAt = true, at or self:now()
+  self.capturedFrame = self.sourceFrame
+  self.captureReserved, self.captureAt = true, self.sourceTime or at or self:now()
   return true
 end
 function Phone:push(image, w, h)
   if not self.captureReserved and not self:reserveCapture() then return false end
   self.captureReserved = nil
-  if not self:detected() or self.queuedImage then return false end
+  if not self:detected() then return false end
   if w < 1 or h < 1 or w > 240 or h > 216 then return false end
   local rgba = image:getString()
   if #rgba ~= w * h * 4 then return false end
+  -- An unscheduled capture has no delta dependants: retain the newest one only.
   self.queuedImage = { rgba = rgba, w = w, h = h, at = math.floor((self.captureAt or self:now()) * 1000) % 4294967296 }
   self:poll()
   return self:ready()
 end
 function Phone:encodeQueued()
   local c, image = self.viewer, self.queuedImage
-  if not image or self.encoding or self.encoded or not c or c.out or #c.pending >= (c.window or VIDEO_WINDOW) then return end
+  if not image or self.encoding or not c or not transportRoom(c) then return end
   image.id, image.epoch = self.sequence % 4294967295 + 1, self.epoch
   self.encoding = { id = image.id, epoch = image.epoch, w = image.w, h = image.h }
   self.queuedImage = nil
@@ -194,24 +205,27 @@ function Phone:encodeQueued()
 end
 function Phone:pollVideo()
   self:encodeQueued()
-  local result = self.encoded or self.video:pop()
-  if not result then return end
-  local image = result.image or self.encoding
-  self.encoding, self.encoded = nil, nil
+  local result = self.video:pop()
+  if not result then self:encodeQueued(); return end
+  local image = self.encoding
+  self.encoding = nil
   if result.error then self.error = result.error; self:stop(); return end
-  if not image or result.epoch ~= self.epoch or not self.viewer or not result.body then return end
-  local c = self.viewer
-  if c.out then result.image = image; self.encoded = result; return end
-  self.sequence, self.width, self.height = result.id, image.w, image.h
-  c.frame, c.out, c.sent = result.id, packet(2, result.body), 0
-  c.pending[#c.pending + 1] = { id = c.frame, at = self:now() }
+  if image and result.epoch == self.epoch and self.viewer and result.body then
+    local c = self.viewer
+    self.sequence, self.width, self.height = result.id, image.w, image.h
+    local value = { id = result.id, bytes = packet(2, result.body), w = image.w, h = image.h }
+    c.videoQueue = c.videoQueue or {}
+    c.videoQueue[#c.videoQueue + 1] = value
+    c.videoBytes = (c.videoBytes or 0) + #value.bytes
+  end
+  self:encodeQueued()
 end
 function Phone:drop(c)
   c.sock:close()
   if self.viewer == c then
     self:releaseControls()
     self.viewer, self.touches = nil, { "cancel,0,0" }
-    self.captureReserved, self.queuedImage, self.encoded = nil, nil, nil
+    self.captureReserved, self.queuedImage = nil, nil
     self.epoch = self.epoch + 1
   end
 end
@@ -238,8 +252,8 @@ function Phone:request(c, header)
   if method ~= "GET" or not localIp(host:match("^(.-):8765$")) then return false end
   if path == "/" then
     c.out = reply("200 OK", self.page, "text/html; charset=utf-8")
-  elseif path == "/phone.js" then
-    c.out = reply("200 OK", self.script, "text/javascript; charset=utf-8")
+  elseif path == "/phone.js" or path == "/phone_decoder.js" then
+    c.out = reply("200 OK", path == "/phone.js" and self.script or self.decoder, "text/javascript; charset=utf-8")
   elseif path == "/gear" then
     if headers.origin ~= "http://" .. host then return false end
     local now = self:now()
@@ -298,21 +312,18 @@ function Phone:message(c, text)
     end
     return true
   end
-  local kind, id = text:match("^([ha]),(%d+)$")
+  local kind, id = text:match("^([hra]),(%d+)$")
   if kind then
     id = tonumber(id)
-    if kind == "a" then
+    if kind == "a" or kind == "r" then
       for i, frame in ipairs(c.pending) do
         if id == frame.id then
-          c.ack, c.alive = id, self:now()
-          c.roundTrips = c.roundTrips or {}
-          c.roundTrips[#c.roundTrips + 1] = c.alive - frame.at
-          if #c.roundTrips > 32 then table.remove(c.roundTrips,1) end
-          local floor = math.huge
-          for _, elapsed in ipairs(c.roundTrips) do floor = math.min(floor,elapsed) end
-          -- Cover latency, not an unbounded playback queue. Slow links still stop capture.
-          c.window = math.max(VIDEO_WINDOW,math.min(MAX_VIDEO_WINDOW,math.ceil(floor*60)+2))
-          for _ = 1, i do table.remove(c.pending, 1) end
+          c.alive = self:now()
+          if kind == "r" then c.rtt = c.alive - frame.at
+          elseif not c.ack or id == c.ack or (id - c.ack + 4294967295) % 4294967295 < 2147483647 then
+            c.ack, c.ackWidth, c.ackHeight = id, frame.w, frame.h
+            for _ = 1, i - 1 do table.remove(c.pending, 1) end
+          end
           break
         end
       end
@@ -333,7 +344,7 @@ function Phone:message(c, text)
     end
     return true
   end
-  if x >= self.width or y >= self.height then return false end
+  if x >= (c.ackWidth or self.width) or y >= (c.ackHeight or self.height) then return false end
   if action == "down" then c.touch = true
   elseif not c.touch then return true end
   if action == "up" or action == "cancel" then c.touch = false end
@@ -402,20 +413,29 @@ function Phone:poll()
   for i = #self.clients, 1, -1 do
     local c = self.clients[i]
     local ok = now - (c.alive or c.opened) < (self.viewer == c and 1.5 or 3)
-      and not (c.pending and c.pending[1] and now - c.pending[1].at > 1)
     if ok and (self.viewer == c or not c.out) then ok = self:read(c) end
     if ok and c.controls and not c.out then
       c.out, c.sent, c.controls = packet(1, "c," .. c.controls), 0, nil
     end
     if ok and c.heartbeat and not c.out then c.out, c.sent, c.heartbeat = packet(1, "h"), 0, nil end
-    if ok and c.out then
+    -- Drain completed packets in this poll; partial writes always retain ownership.
+    for _ = 1, VIDEO_QUEUE + 1 do
+      if not ok then break end
+      if not c.out and c.videoQueue and #c.videoQueue > 0 then
+        local value = table.remove(c.videoQueue, 1)
+        c.videoBytes = c.videoBytes - #value.bytes
+        c.out, c.sent, c.frame = value.bytes, 0, value.id
+        c.pending[#c.pending + 1] = { id = value.id, at = now, w = value.w, h = value.h }
+        if #c.pending > HISTORY then table.remove(c.pending, 1) end
+      end
+      if not c.out then break end
       local last, err, partial = c.sock:send(c.out, c.sent + 1, math.min(#c.out, c.sent + 262144))
       c.sent = last or partial or c.sent
       if err and err ~= "timeout" then ok = false end
       if c.sent == #c.out then
         c.out = nil
         if not c.ws then ok = false end
-      end
+      else break end
     end
     if not ok then self:drop(c); table.remove(self.clients, i) end
   end

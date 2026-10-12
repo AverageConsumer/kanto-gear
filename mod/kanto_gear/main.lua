@@ -7093,13 +7093,17 @@ return function(mod)
     if not home and displayRuntime.explorer.locationPreview then return false end
     if home and (displayRuntime.home.editing or displayRuntime.home.library) then return false end
     local phoneMode = THEME:displayMode(mod.options) == "phone"
-    local tolerance = phoneMode and .003 or .000001
-    if now + tolerance < state.nextAt or readbackPending and not phoneMode then return false end
-    local rate = phoneMode and 60 or 30
-    -- Keep the update phase instead of drifting when a host frame
-    -- arrives just before the deadline. Missed ticks never cause catch-up work.
-    state.nextAt = state.nextAt
-      + (math.floor(math.max(0, now - state.nextAt) * rate) + 1) / rate
+    if phoneMode and displayRuntime.phone and displayRuntime.phone.sourceFrame then
+      local frame = displayRuntime.phone.sourceFrame
+      if state.phoneFrame == frame then return false end
+      state.phoneFrame = frame
+    else
+      local tolerance = phoneMode and .003 or .000001
+      if now + tolerance < state.nextAt or readbackPending and not phoneMode then return false end
+      local rate = phoneMode and 60 or 30
+      state.nextAt = state.nextAt
+        + (math.floor(math.max(0, now - state.nextAt) * rate) + 1) / rate
+    end
     if screenState() ~= "active" or battle or moveInfo or fieldChoice or radarOpen then
       return false
     end
@@ -15220,6 +15224,7 @@ return function(mod)
 
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
     local measured = displayRuntime.perf:start()
+    if stepGame == displayRuntime.sourceGame and displayRuntime.phone then displayRuntime.phone:step(dt) end
     if stepGame == displayRuntime.sourceGame then displayRuntime.syncCompanionDetails() end
     if stepGame == displayRuntime.sourceGame and displayRuntime.levelUp:scan(game.save,
         game.stack and game.stack:top()) then dirty = true end

@@ -2,15 +2,15 @@ const { chromium } = require(process.env.KANTO_GEAR_NODE_MODULES + '/playwright'
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 // Decode exactly as UTF-8 before the browser could hide invalid bytes with U+FFFD.
-for (const file of ['phone.js','phone.html']) new TextDecoder('utf-8', {fatal:true}).decode(fs.readFileSync(path.join(root,file)));
+for (const file of ['phone.js','phone_decoder.js','phone.html']) new TextDecoder('utf-8', {fatal:true}).decode(fs.readFileSync(path.join(root,file)));
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.KANTO_GEAR_CHROMIUM });
   const context = await browser.newContext({ viewport: { width: 960, height: 540 }, hasTouch: true, deviceScaleFactor: 1 });
   const page = await context.newPage();
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.route('http://127.0.0.1:8765/**', route => {
-    const js = route.request().url().endsWith('/phone.js');
-    return route.fulfill({ contentType: js ? 'text/javascript' : 'text/html', body: fs.readFileSync(path.join(root, js ? 'phone.js' : 'phone.html')) });
+    const file = route.request().url().endsWith('/phone_decoder.js') ? 'phone_decoder.js' : route.request().url().endsWith('/phone.js') ? 'phone.js' : 'phone.html';
+    return route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : 'text/html', body: fs.readFileSync(path.join(root,file)) });
   });
   await page.addInitScript(() => {
     window.testVibrations = [];

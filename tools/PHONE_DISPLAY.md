@@ -102,21 +102,33 @@ also accepts the original untimed `KG01`–`KG06` equivalents for protocol tests
 A current browser with `DecompressionStream` support is required for compressed
 frames. The transport is still unencrypted local HTTP/WebSocket.
 
-The browser decodes dependencies in WebSocket order even when an intermediate
-presentation is skipped. There are at most eight packets waiting for decode and
-four decoded images awaiting presentation. Capture timestamps preserve cadence;
-a rolling 32-image timing sample chooses 4–32 ms of jitter absorption. Ordinary
-bursts present one image per browser refresh; images over 34 ms past their
-presentation deadline are skipped rather than replayed after a stall. The idle
-browser does not keep requesting animation frames with nothing to paint.
+The browser inflates and reconstructs dependencies in a dedicated Worker, in
+WebSocket order, even when an intermediate presentation is skipped. Two decode
+buffers and a pool of at most ten transferable presentation buffers are reused;
+the canvas reuses one ImageData for each resolution. At most 32 packets may be
+waiting for decode and eight images for presentation. A stable 60 ms playout
+reserve absorbs short radio bursts; the initial clock estimate settles quickly,
+then changes slowly. The frame nearest the current display slot is presented.
+A long stall or full presentation queue rebases playback instead of indefinitely
+replaying old movement. Display rates that are not multiples of the source rate
+still repeat pictures unevenly; this does not interpolate new game frames.
+The idle browser does not request animation frames with nothing to paint.
 
-The browser acknowledges an image only after presenting it. The host starts
-with four images in flight and adapts up to eight from measured acknowledgement
-latency, without permitting an unbounded queue. One encode job and one retained
-capture can overlap GPU readback, networking and browser presentation. A full
-window stops new readbacks before they happen. Small host scheduling variations
-have a 3 ms tolerance, so a slightly early tick does not skip a 60 Hz capture or
-map update. None of this changes the physical companion display's rendering.
+Capture and phone map invalidation follow Recomp's input.step fixed-step clock,
+not an independent wall-clock gate on every monitor refresh. The captured source
+clock is carried in the timed frame header. Hosts/previews without input.step
+retain a clock fallback. Fast-forward is normalized by the game's frame speed;
+only the latest visible game frame is captured after several catch-up steps.
+
+Socket writes, background encoding and readback may overlap. There is one encode
+job, one replaceable latest capture and at most three queued video packets, with
+a 512 KiB queue budget (one completing result may exceed it). A partially written
+packet is never replaced or interleaved. Decoder receipt `r,<id>` measures round
+trip time; display receipt `a,<id>` selects the touch coordinate frame. Neither
+receipt gates capture. A bounded 128-frame metadata history rejects unknown
+receipts. Heartbeats still enforce disconnect cleanup. OS TCP buffers and actual
+network congestion remain outside this Lua queue budget; the stream cannot
+recover pixels that have not arrived. Native companion rendering is unchanged.
 Touches reference the acknowledged frame and use its pixel coordinates.
 Phone touches are drained every host frame, independently of game snapshots.
 Heartbeat messages keep idle displays connected without repeated images.
@@ -137,7 +149,7 @@ At 240×216 and 60 Hz, full raw RGBA traffic would be about 12.4 MB/s.
 Actual savings depend on visible motion; unrelated full-screen changes still
 need more bandwidth than a scrolling map. The existing asynchronous GPU
 readback is used where supported; other LÖVE builds retain their synchronous
-fallback. A stalled viewer loses ownership and releases controls.
+fallback. A viewer that stops sending valid heartbeats loses ownership and releases controls.
 
 A local LÖVE/Chromium comparison used the same 180-image sequences derived from
 repository screenshots, with deterministic simulated map/transition movement:
@@ -154,9 +166,26 @@ A local bandwidth/latency proxy with 0.5 Mbit/s, 80 ms RTT and 20 ms jitter
 improved the moving Home fixture from about 4 to 53 presented FPS. These are
 synthetic network tests of the actual server/browser path, not measurements
 of a Thor game, GPU readback, physical Wi-Fi, or Brave's Android scheduler.
-The small presentation buffer adds bounded video latency to absorb jitter;
+The fixed presentation reserve adds video latency to absorb jitter;
 controller messages do not wait for it. No finite-bandwidth transport can
 promise full-rate video through arbitrary congestion or an interrupted signal.
+
+A timing comparison against phone.9 used eight-second measurements after one
+second of warmup, the same 60 Hz moving screenshot fixture, a real LÖVE server
+and Chromium, and a deterministic local TCP latency/bandwidth proxy:
+
+| Scenario | phone.9 → phone.10 presented FPS | p95 image interval | Skipped source frames |
+| --- | --- | --- | --- |
+| Clean 60 Hz host | 59.8 → 60.0 | 19.5 → 16.8 ms | 2 → 0 |
+| Clean 144 Hz host | 59.8 → 59.9 | 22.6 → 19.5 ms | 107 → 0 |
+| 200 ms upstream acknowledgement spikes | 49.9 → 60.0 | 33.4 → 19.4 ms | 80 → 0 |
+| 1 Mbit/s, 40 ms RTT, jitter and 50 ms downlink stalls | 54.0 → 58.9 | 44.4 → 24.5 ms | 48 → 9 |
+
+The 144 Hz phone.9 run also displayed 105 repeated source states; phone.10
+repeated none. The fixed reserve increases median frame age in these tests
+(e.g. 39 → 75 ms on the clean 60 Hz link; 72 → 87 ms on the stalled link).
+Controller delivery does not use this reserve. These results do not include GPU
+readback or actual Thor/Brave Wi-Fi behavior, and do not promise zero hitches.
 
 ## Checks
 
@@ -174,7 +203,8 @@ simultaneous holds, fast taps, keyboard coexistence and GBA shoulders.
 `node mod/kanto_gear/tests/phone_browser_test.cjs` uses Playwright with a mocked
 host to test pairing, real multitouch events, Dpad sliding, settings persistence,
 capability changes, connection loss and responsive geometry. Video cases cover
-compressed/raw patches, unpainted dependencies, copy source bounds, oversized
+Worker-only inflation, transferable-buffer exhaustion/recovery, stable playout
+under quantized arrivals, ImageData reuse, compressed/raw patches, unpainted dependencies, copy source bounds, oversized
 inflation, queue limits and timestamp wrap. Set `KANTO_GEAR_VIDEO_FIXTURE` to a
 local encoded-frame fixture to compare actual LÖVE output with every reconstructed
 RGBA byte using SHA-256. The layout cases

@@ -115,8 +115,9 @@ function updateHeld() {
   held.clear(); for (const button of next) held.add(button);
   for (const button of buttons) button.classList.toggle("held", held.has(button.dataset.button));
 }
-let pendingPackets = [], decoded = null, decoding = false, presentations = [], animation = 0;
-let timing = [], lastStamp = null, sourceClock = 0;
+let decoder = null, decoding = 0, decoded = null, presentations = [], animation = 0, paintImage = null;
+let timing = [], lastStamp = null, sourceClock = 0, playoutOffset = null, lastArrival = 0;
+let vsyncAt = 0, vsyncPeriod = 1000 / 60;
 let paintedAt = 0, fpsAt = 0, paintedFrames = 0, fps = 0;
 function fit() {
   if (!canvas.width || !canvas.height) return;
@@ -131,8 +132,9 @@ function stop(message) {
   if (socket) { socket.onclose = socket.onopen = socket.onerror = socket.onmessage = null; socket.close(); socket = null; }
   clearInterval(heartbeat);
   cancelAnimationFrame(animation);
-  pendingPackets = []; decoded = null; presentations = []; decoding = false; animation = 0;
-  timing = []; lastStamp = null; sourceClock = 0;
+  if (decoder) decoder.terminate(); decoder = null;
+  decoded = null; presentations = []; decoding = 0; animation = 0; paintImage = null;
+  timing = []; lastStamp = null; sourceClock = 0; playoutOffset = null; lastArrival = 0; vsyncAt = 0; vsyncPeriod = 1000 / 60;
   paintedAt = fpsAt = paintedFrames = fps = 0;
   frame = 0; pointer = null;
   authenticated = false; capability = "none"; controller.hidden = true; refreshControls();
@@ -145,24 +147,38 @@ function stop(message) {
     document.querySelector("#pair h1").textContent = "Pair your Gear";
   }
 }
+function recycleImage(image) {
+  if (decoder && image && image !== decoded && image.pixels.byteLength) {
+    const bytes = image.pixels.buffer;
+    decoder.postMessage({recycle:bytes}, [bytes]);
+  }
+}
 function paintFrame(current) {
   if (animation) return;
-  animation = requestAnimationFrame(() => {
+  animation = requestAnimationFrame(now => {
     animation = 0;
     if (current !== generation || document.hidden) return;
-    let due = -1, firstDue = -1;
-    const now = performance.now();
-    for (let i = 0; i < presentations.length; i++) if (!frame || presentations[i].due <= now) {
-      if (firstDue < 0) firstDue = i;
-      due = i;
+    const elapsed = now - vsyncAt;
+    if (vsyncAt && elapsed > 4 && elapsed < 40) vsyncPeriod += (elapsed - vsyncPeriod) * .1;
+    vsyncAt = now;
+    // A genuine stall cannot be replayed at normal speed without retaining its latency.
+    if (frame && presentations.length > 1 && now - presentations[0].due > 120) {
+      while (presentations.length > 1) recycleImage(presentations.shift());
+      const newest = presentations[0];
+      playoutOffset += now - newest.due;
+      newest.due = now;
     }
-    // Preserve normal 60 Hz cadence through a small burst; skip stale frames after a stall.
-    if (frame && firstDue === 0 && now - presentations[0].due <= 34) due = 0;
-    if (due >= 0) {
-      const image = presentations[due]; presentations.splice(0, due + 1);
+    if (presentations.length && (!frame || presentations[0].due <= now + vsyncPeriod * .45)) {
+      // Present the slot nearest this vsync; never replay expired slots after an underrun.
+      while (presentations.length > 1 && presentations[1].due <= now + vsyncPeriod * .45) {
+        recycleImage(presentations.shift());
+      }
+      const image = presentations.shift();
       const resized = canvas.width !== image.width || canvas.height !== image.height;
-      if (resized) { canvas.width = image.width; canvas.height = image.height; }
-      context.putImageData(new ImageData(image.pixels, image.width, image.height), 0, 0);
+      if (resized) { canvas.width = image.width; canvas.height = image.height; paintImage = null; }
+      if (!paintImage) paintImage = new ImageData(image.width, image.height);
+      paintImage.data.set(image.pixels);
+      context.putImageData(paintImage, 0, 0);
       frame = image.id; lastContact = performance.now();
       if (lastContact - paintedAt > 250) { fpsAt = lastContact; paintedFrames = 0; fps = 0; }
       paintedFrames++;
@@ -177,98 +193,51 @@ function paintFrame(current) {
       if (first || resized) fit();
       status.textContent = `Connected${fps ? ` · ${fps} FPS` : ""} · tap or swipe Gear`;
       send(`a,${frame}`);
+      recycleImage(image);
     }
     if (presentations.length) paintFrame(current);
   });
 }
 function presentationTime(stamp, arrived) {
-  if (stamp === null) return performance.now();
+  if (stamp === null) return arrived;
   sourceClock = lastStamp === null ? stamp : sourceClock + (stamp - lastStamp + 4294967296) % 4294967296;
   lastStamp = stamp;
+  // A stable 60 ms playout reserve absorbs ordinary radio bursts without chasing each arrival.
+  if (!lastArrival || arrived - lastArrival > 250) { timing = []; playoutOffset = null; }
+  lastArrival = arrived;
   timing.push(arrived - sourceClock);
-  if (timing.length > 32) timing.shift();
-  const earliest = Math.min(...timing), jitter = Math.max(...timing) - earliest;
-  // A few milliseconds absorb Wi-Fi bursts; never build a long playback delay.
-  return sourceClock + earliest + Math.min(32, Math.max(4, jitter + 4));
+  if (timing.length > 120) timing.shift();
+  const target = Math.min(...timing) + 60;
+  const previous = playoutOffset;
+  if (playoutOffset === null || timing.length < 30 && target < playoutOffset) playoutOffset = target;
+  else playoutOffset += Math.max(-.1, Math.min(.1, target - playoutOffset));
+  if (previous !== null) for (const image of presentations) image.due += playoutOffset - previous;
+  return sourceClock + playoutOffset;
 }
-async function decodeFrames(current) {
-  if (decoding) return;
-  decoding = true;
-  try {
-    while (pendingPackets.length && current === generation) {
-      const pending = pendingPackets.shift(), packet = pending.bytes;
-      const data = new DataView(packet);
-      if (data.byteLength < 12) throw Error("Invalid Gear frame");
-      let magic = data.getUint32(0);
-      const timed = magic >= 0x4b473131 && magic <= 0x4b473136;
-      if (timed) magic -= 0x100;
-      const width = data.getUint16(4), height = data.getUint16(6), id = data.getUint32(8);
-      const size = width * height * 4;
-      const copies = magic === 0x4b473035 || magic === 0x4b473036;
-      const delta = copies || magic === 0x4b473033 || magic === 0x4b473034, baseAt = timed ? 16 : 12;
-      const offset = baseAt + (delta ? 4 : 0);
-      const limit = delta ? size + height * (copies ? 30 : 6) + 2 : size;
-      if (!width || !height || width > 240 || height > 216 || !id || data.byteLength < offset
-          || data.byteLength > limit + offset) throw Error("Invalid Gear frame");
-      if (delta && (!decoded || decoded.id !== data.getUint32(baseAt) || decoded.width !== width || decoded.height !== height))
-        throw Error("Gear frame needs a matching previous image. Reconnect to refresh it.");
-      let body;
-      if (magic === 0x4b473032 || magic === 0x4b473033 || magic === 0x4b473035) {
-        if (typeof DecompressionStream !== "function") throw Error("Please use a current browser for compressed Gear frames");
-        body = new Uint8Array(limit);
-        const reader = new Blob([new Uint8Array(packet, offset)]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
-        let length = 0;
-        try {
-          for (;;) {
-            const {value, done} = await reader.read();
-            if (done) break;
-            if (length + value.length > limit) throw Error("Invalid Gear frame size");
-            body.set(value, length); length += value.length;
-          }
-          body = body.subarray(0, length);
-        } finally { await reader.cancel(); }
-      } else if (magic === 0x4b473031 || magic === 0x4b473034 || magic === 0x4b473036) {
-        body = new Uint8Array(packet, offset);
-      } else throw Error("Invalid Gear frame");
-      if (current !== generation) return;
-      let pixels;
-      if (delta) {
-        if (body.length < 2) throw Error("Invalid Gear patch");
-        const patches = new DataView(body.buffer, body.byteOffset, body.byteLength), rows = patches.getUint16(0);
-        if (!rows || rows > height * (copies ? 3 : 1)) throw Error("Invalid Gear patch");
-        pixels = new Uint8ClampedArray(decoded.pixels);
-        let at = 2, previousRow = -1, previousEnd = 0;
-        for (let row = 0; row < rows; row++) {
-          if (at + (copies ? 10 : 6) > body.length) throw Error("Invalid Gear patch");
-          const y = patches.getUint16(at), x = patches.getUint16(at + 2), count = patches.getUint16(at + 4); at += 6;
-          const sy = copies ? patches.getUint16(at) : 65535, sx = copies ? patches.getUint16(at + 2) : 0;
-          if (copies) at += 4;
-          const offset = (y * width + x) * 4;
-          if ((!copies && y <= previousRow) || offset < previousEnd || y >= height || !count || x + count > width)
-            throw Error("Invalid Gear patch");
-          if (sy === 65535) {
-            if (at + count * 4 > body.length) throw Error("Invalid Gear patch");
-            pixels.set(body.subarray(at, at + count * 4), offset); at += count * 4;
-          } else {
-            if (sy >= height || sx + count > width) throw Error("Invalid Gear patch");
-            const source = (sy * width + sx) * 4;
-            pixels.set(decoded.pixels.subarray(source, source + count * 4), offset);
-          }
-          previousEnd = offset + count * 4; previousRow = y;
-        }
-        if (at !== body.length) throw Error("Invalid Gear patch");
-      } else {
-        if (body.length !== size) throw Error("Invalid Gear frame size");
-        pixels = new Uint8ClampedArray(body.buffer, body.byteOffset, body.byteLength);
-      }
-      decoded = {pixels, width, height, id};
-      presentations.push({...decoded, due: presentationTime(timed ? data.getUint32(12) : null, pending.arrived)});
-      if (presentations.length > 4) presentations.shift();
-      paintFrame(current);
+function startDecoder(current) {
+  decoder = new Worker("/phone_decoder.js");
+  decoder.onerror = () => { if (current === generation) stop("Gear video decoder failed. Reconnect to refresh it."); };
+  decoder.onmessage = event => {
+    if (current !== generation) return;
+    const image = event.data;
+    if (image.error) { stop(image.error); return; }
+    decoding--;
+    send(`r,${image.id}`);
+    if (!image.pixels) return;
+    const old = decoded;
+    image.pixels = new Uint8ClampedArray(image.pixels);
+    image.due = presentationTime(image.stamp, image.arrived);
+    decoded = image;
+    if (old && !presentations.includes(old)) recycleImage(old);
+    presentations.push(image);
+    while (presentations.length > 8) recycleImage(presentations.shift());
+    if (presentations.length === 8 && presentations[0].due > performance.now()) {
+      const correction = performance.now() - presentations[0].due;
+      playoutOffset += correction;
+      for (const queued of presentations) queued.due += correction;
     }
-  } catch (error) {
-    if (current === generation) stop(error.message || "Invalid Gear frame");
-  } finally { if (current === generation) decoding = false; }
+    paintFrame(current);
+  };
 }
 form.addEventListener("submit", event => {
   event.preventDefault();
@@ -294,6 +263,7 @@ form.addEventListener("submit", event => {
     if (current !== generation) return;
     if (event.data === "ok" && !authenticated) {
       authenticated = true; lastContact = performance.now();
+      startDecoder(current);
       paintFrame(current); send("h,0");
       status.textContent = "Connected · waiting for Gear"; return;
     }
@@ -304,9 +274,9 @@ form.addEventListener("submit", event => {
       releaseAll(); capability = event.data.slice(2); refreshControls(); fit(); return;
     }
     if (!(event.data instanceof ArrayBuffer)) return;
-    if (pendingPackets.length >= 8) { stop("Gear video queue exceeded its limit. Reconnect to refresh it."); return; }
-    pendingPackets.push({bytes:event.data, arrived:performance.now()});
-    void decodeFrames(current);
+    if (decoding >= 32) { stop("Gear video queue exceeded its limit. Reconnect to refresh it."); return; }
+    decoding++;
+    decoder.postMessage({bytes:event.data, arrived:performance.now()}, [event.data]);
   };
   socket.onclose = () => stop("Disconnected. Scan the current QR or enter its code. Codes expire after 5 minutes and work once.");
   socket.onerror = () => stop("Could not connect. Check the code, Wi-Fi and game. After repeated attempts, wait one minute.");

@@ -34,7 +34,7 @@ love.timer.getTime = function() return now end
 local queue = {}
 local phone = {
   setGame = function(_, bound) T.eq(bound, game, "phone controls bind the real game input") end,
-  poll = function() end, detected = function() return available end,
+  step = function() end, poll = function() end, detected = function() return available end,
   ready = function() return available and acknowledged end,
   canCapture = function() return available and capture end,
   reserveCapture = function() return available and capture end,
@@ -47,6 +47,10 @@ phone.bridge = {
 }
 display.phone, display.phoneStatus = phone, phone
 up(compose, "page", "NOTES", true)
+local sourceSteps = 0
+phone.step = function(_, dt) sourceSteps = sourceSteps + 1; T.eq(dt,1/60,"source timestamp uses Recomp's fixed step") end
+hook("input.step")(function() end, game, 1/60)
+T.eq(sourceSteps,1,"phone capture clock advances once per game input step")
 local canvas = up(up(compose, "pumpDisplay"), "canvas")
 canvas.requestImageData, canvas.pollImageData = nil, nil
 local captures = 0

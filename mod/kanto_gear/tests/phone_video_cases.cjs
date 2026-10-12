@@ -18,7 +18,9 @@ module.exports = async ({page, pair}) => {
   };
   const painted = id => page.waitForFunction(id=>testSocket.messages.includes(`a,${id}`),id);
   await pair();
+  await page.evaluate(()=>{window.originalInflate=DecompressionStream;window.DecompressionStream=class {constructor(){throw Error('UI-thread inflate is forbidden');}};});
   await send(frame('KG02',4,4,2,deflateSync(Buffer.alloc(64,255)))); await painted(2);
+  await page.evaluate(()=>{window.DecompressionStream=originalInflate;});
   const red=patch(2,1,[255,0,0,255]), blue=patch(0,3,[0,0,255,255]);
   // Both patches arrive before rAF; decoding still needs the unpainted predecessor.
   await page.evaluate(bytes=>{for(const packet of bytes)testSocket.deliver(Uint8Array.from(packet).buffer);},
@@ -37,6 +39,13 @@ module.exports = async ({page, pair}) => {
   assert.deepEqual(copied.slice(0,4),[22,33,44,255]);
   // The opaque canvas composites alpha 80, so compare via the decoder's exact buffer.
   assert(await page.evaluate(()=>decoded.pixels.slice(8).every(n=>n===80)), 'copy commands use the untouched previous frame');
+  // Exhaust transferable buffers in one burst, then verify the next frame recovers without changing its pixels.
+  await page.evaluate(packets=>{for(const bytes of packets)testSocket.deliver(Uint8Array.from(bytes).buffer);},
+    Array.from({length:24},(_,i)=>[...frame('KG01',1,1,100+i,Buffer.from([i,0,0,255]))]));
+  await page.waitForFunction(()=>testSocket.messages.includes('r,123'));
+  await new Promise(r=>setTimeout(r,150));
+  await send(frame('KG01',2,2,124,Buffer.alloc(16,255)));await painted(124);
+  assert(await page.evaluate(()=>decoded.pixels.every(v=>v===255)), 'buffer pressure and resolution changes recover exact pixels');
   const bad = [
     frame('KG04',2,2,6,patch(0,0,[1,2,3,255]),99),
     frame('KG04',240,216,6,patch(216,0,[1,2,3,255]),1),
@@ -55,22 +64,36 @@ module.exports = async ({page, pair}) => {
   await pair();
   await page.evaluate(()=>{
     const bytes=new ArrayBuffer(13),v=new DataView(bytes);v.setUint32(0,0x4b473032);v.setUint16(4,1);v.setUint16(6,1);v.setUint32(8,2);
-    for(let i=0;i<12;i++)testSocket.deliver(bytes.slice(0));
+    for(let i=0;i<40;i++)testSocket.deliver(bytes.slice(0));
   });
   await page.waitForFunction(()=>document.querySelector('#controller').hidden);
   assert(await page.locator('#status').evaluate(el=>el.textContent.includes('queue exceeded')), 'decoder cannot accumulate an unbounded backlog');
   await pair();
   const clock=await page.evaluate(()=>{
-    timing=[];lastStamp=null;sourceClock=0;
+    timing=[];lastStamp=null;sourceClock=0;playoutOffset=null;lastArrival=0;
     const now=performance.now();presentationTime(4294967290,now);const first=sourceClock;
     const target=presentationTime(6,now+20);
     return {elapsed:sourceClock-first,delay:target-(now+12)};
   });
   assert.equal(clock.elapsed,12,'capture timestamps survive uint32 wrap');
-  assert(clock.delay>=4&&clock.delay<=32,'jitter absorption has a fixed upper bound');
+  assert(clock.delay>=59&&clock.delay<=61,'jitter absorption has a fixed upper bound');
+  const pacer = await page.evaluate(() => {
+    timing=[];lastStamp=null;sourceClock=0;playoutOffset=null;lastArrival=0;
+    const due=[];
+    for(let i=0;i<240;i++) {
+      const stamp=Math.round(i*1000/60);
+      // 144 Hz capture opportunities and radio bursts disturb arrivals, not the source cadence.
+      const quantized=Math.ceil(stamp/(1000/144))*1000/144;
+      due.push(presentationTime(stamp,1000+quantized+(i%30===0?25:0)));
+    }
+    return due.slice(31).map((v,i)=>v-due[i+30]);
+  });
+  assert(pacer.every(gap=>gap>=15.8&&gap<=17.2),'arrival jitter cannot become 14/21 ms presentation intervals');
+  assert(await page.evaluate(()=>testSocket.messages.some(s=>s.startsWith('r,'))), 'decode receipts are independent of display acknowledgements');
   if(process.env.KANTO_GEAR_VIDEO_FIXTURE){
     const fs=require('node:fs'),crypto=require('node:crypto'),fixture=fs.readFileSync(process.env.KANTO_GEAR_VIDEO_FIXTURE);
     let at=0,count=0;
+    await page.evaluate(()=>{window.imageAllocations=0;window.NativeImageData=ImageData;window.ImageData=class extends NativeImageData {constructor(...args){super(...args);imageAllocations++;}};});
     while(at<fixture.length){
       const size=fixture.readUInt32BE(at);at+=4;const packet=fixture.subarray(at,at+size);at+=size;
       const length=fixture.readUInt32BE(at);at+=4;const rgba=fixture.subarray(at,at+length);at+=length;
@@ -83,6 +106,8 @@ module.exports = async ({page, pair}) => {
       assert.equal(Buffer.from(actual).toString('hex'),crypto.createHash('sha256').update(rgba).digest('hex'),'actual Lua encoder and browser decoder preserve every RGBA byte');
       count++;
     }
+    assert(await page.evaluate(()=>imageAllocations)<=1,'same-resolution playback reuses a single ImageData');
+    await page.evaluate(()=>{window.ImageData=NativeImageData;});
     console.log(`PASS ${count} actual LÖVE-encoded frames match browser reconstruction byte for byte`);
   }
   console.log('PASS browser lossless delta reconstruction, skipped presentations, resize, validation and bounded decode queue');

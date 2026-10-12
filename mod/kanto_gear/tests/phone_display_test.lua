@@ -37,7 +37,7 @@ local runtime = { timer = { getTime = function() return now end },
     end,
   } }
 local mod = { read = function(_, name)
-  assert(name == "phone.html" or name == "phone.js")
+  assert(name == "phone.html" or name == "phone.js" or name == "phone_decoder.js")
   return name == "phone.html" and "<html>Gear</html>" or "/* phone controller */"
 end }
 local unique = 0
@@ -184,7 +184,7 @@ message(phone, c, "up,140,108,1")
 assert(phone.bridge.pollTouch() == "down,120,108"
   and phone.bridge.pollTouch() == "move,140,108"
   and phone.bridge.pollTouch() == "up,140,108", "the displayed frame stays touchable during transmission")
-message(phone, c, "a,999"); assert(#phone.viewer.pending == 1, "forged acknowledgement cannot clear backpressure")
+message(phone, c, "a,999"); assert(#phone.viewer.pending == 2 and phone.viewer.ack == 1, "forged acknowledgement cannot select a displayed frame")
 message(phone, c, "a,2")
 message(phone, c, "down,10,20,2"); assert(phone.bridge.pollTouch() == "down,10,20")
 now = .068; assert(phone:push(image, 240, 216)); phone:poll(); message(phone, c, "a,3")
@@ -201,8 +201,8 @@ now = 3.6; phone:poll()
 assert(c.closed and not phone:detected() and phone.bridge.pollTouch() == "cancel,0,0")
 
 phone = new(); c = connect(phone)
-phone:push(image, 240, 216); phone:poll(); now = now + 1.01; phone:poll()
-assert(c.closed and not phone:detected(), "a browser that stops displaying frames is disconnected")
+phone:push(image, 240, 216); phone:poll(); now = now + 1.51; phone:poll()
+assert(c.closed and not phone:detected(), "a browser that stops sending heartbeats is disconnected")
 phone = new(); c = connect(phone)
 phone:push(image, 240, 216); phone:poll()
 now = now + 1 / 60
@@ -212,9 +212,9 @@ now = now + 1 / 60
 assert(phone:canCapture(), "ordinary Wi-Fi latency does not stop a two-frame pipeline")
 phone:push(image, 240, 216); phone:poll(); now = now + 1 / 60
 phone:push(image, 240, 216); phone:poll(); now = now + 1 / 60
-assert(not phone:canCapture() and #phone.viewer.pending == 4, "a stalled browser is bounded to four frames")
+assert(phone:canCapture() and #phone.viewer.pending == 4, "delayed display acknowledgements do not stall capture")
 message(phone, c, "a,4")
-assert(phone.viewer.ack == 4 and #phone.viewer.pending == 0, "displaying the newest frame also retires skipped older frames")
+assert(phone.viewer.ack == 4 and #phone.viewer.pending == 1, "displaying the newest frame also retires skipped older frames")
 message(phone, c, "a,1"); assert(phone.viewer.ack == 4, "late acknowledgements cannot roll input back")
 for _ = 1, 60 do
   assert(phone:reserveCapture(), "60 Hz capture reservation must keep pace")
@@ -363,12 +363,12 @@ assert(job and not phone.viewer.out and #phone.viewer.pending == 0, "compression
 now = now + .02
 assert(phone:canCapture(), "GPU readback overlaps encoding the preceding image")
 phone:push(image,240,216)
-assert(phone.queuedImage and not phone:canCapture(), "one retained capture bounds a slow encoder")
+assert(phone.queuedImage, "one retained capture bounds a slow encoder")
 request(phone.video,job); completed = pop(phone.video)
 local marker = "heartbeat partly written"
 phone.viewer.out, phone.viewer.sent, c.limit = marker, 0, 0
 phone:poll()
-assert(phone.viewer.out == marker and phone.encoded and phone.sequence == 0, "encoding completion cannot corrupt a partially written control packet")
+assert(phone.viewer.out == marker and #phone.viewer.videoQueue == 1 and phone.sequence == 1, "encoding completion cannot corrupt a partially written control packet")
 c.limit = math.huge; phone:poll(); phone:poll()
 assert(phone.sequence == 1 and job.id == 2, "after the socket drains the next dependent image is encoded")
 local oldEpoch = job.epoch
@@ -378,10 +378,53 @@ phone:poll(); c = connect(phone); phone:poll()
 assert(not c.output:find("stale",1,true) and not phone.encoding, "reconnection discards old worker results")
 phone:stop()
 phone = new(); c = connect(phone); phone:poll()
-phone:push(image,240,216);now=now+.12;message(phone,c,"a,1")
-assert(phone.viewer.window==8, "valid high-latency acknowledgements expand the bounded transport window")
+phone:push(image,240,216);now=now+.12;message(phone,c,"r,1")
+assert(phone.viewer.rtt >= .12 and not phone.viewer.ack, "decode receipt measures RTT without changing the displayed touch frame")
 message(phone,c,"a,999")
-assert(phone.viewer.window==8 and phone.viewer.ack==1, "forged acknowledgements cannot alter transport pacing")
+assert(not phone.viewer.ack, "forged acknowledgements cannot select an unknown touch frame")
+message(phone,c,"a,1");assert(phone:ready())
+for _ = 1, 200 do
+  now = now + 1 / 60
+  assert(phone:canCapture(), "missing display acknowledgements must not block a healthy transport")
+  phone:push(image,240,216);phone:poll();message(phone,c,"h,1")
+end
+assert(#phone.viewer.pending <= 128, "acknowledgement metadata remains bounded")
+phone:stop()
+phone = new(); c = connect(phone); phone:poll();phone:step(1/60)
+assert(phone:reserveCapture())
+phone:push(image,240,216);phone:poll()
+now = now + .5
+assert(not phone:canCapture(), "wall time cannot create an extra game-frame capture")
+phone:step(1/60);assert(phone:canCapture(), "a produced game frame opens the next capture immediately")
+phone:stop()
+-- The radio may stop accepting writes; capture/encoding must stay bounded and resume at the newest image.
+phone = new(); c = connect(phone);phone:poll();c.limit = 0
+local captures = 0
+for i = 1, 40 do
+  now = now + 1/60;phone:step(1/60)
+  if phone:canCapture() then captures = captures + 1;phone:push(image,240,216) end
+  phone:poll()
+end
+assert(captures > 1 and captures <= 5 and #phone.viewer.videoQueue <= 3,
+  "a partial socket write allows overlap but bounds the video backlog")
+local queuedBytes = phone.viewer.videoBytes
+assert(queuedBytes <= 512*1024 + 240*216*4+64, "a single final worker result is the only byte-budget overshoot")
+c.limit=math.huge;phone:poll();phone:poll()
+now=now+1/60;phone:step(1/60)
+assert(phone:canCapture(), "draining the socket immediately opens the next game frame")
+phone:stop()
+-- Sampling follows produced frames, independent of 144 Hz render opportunities.
+phone = new();c=connect(phone);phone:poll()
+local logical, count = 0, 0
+for host = 1, 288 do
+  now=now+1/144
+  local target=math.floor(host*60/144)
+  while logical<target do logical=logical+1;phone:step(1/60) end
+  if phone.sourceFrame and phone:canCapture() then
+    count=count+1;phone:push(image,240,216);phone:poll();message(phone,c,"h,0")
+  end
+end
+assert(count==120, "144 Hz hosts capture each of the 120 produced frames exactly once")
 phone:stop()
 local pairingStopped = false
 local noWorker = Phone.new(mod,runtime,sockets,
