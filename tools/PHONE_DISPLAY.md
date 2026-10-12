@@ -17,7 +17,14 @@ button size, disable press animations or the frame, choose light/dark PokÃ©gear 
 Preferences stay in memory by default. Enable **Remember settings** to store
 only these choices in this browser; **Forget saved settings** removes them
 and restores defaults. Game/Gear settings and pairing keys are never stored there.
-The page uses locally bundled Pokégear and C-Gear controller designs.
+The page uses locally bundled PokÃ©gear and C-Gear controller designs.
+Where the browser exposes `navigator.vibrate`, Settings also offers Haptics.
+An active controller button produces one short eight-millisecond pulse on press
+or when sliding to a new Dpad direction. Holds, disabled buttons and Gear's
+bitmap surface do not trigger extra pulses. Opening Settings, disconnecting or
+leaving the page cancels phone vibration. Unsupported browsers hide the option;
+a browser/OS refusal never blocks game input. Hardware support, silent mode and
+browser restrictions can still prevent vibration even when the API exists.
 Closing or hiding the browser releases game buttons, cancels touch input and restores native game UI.
 A stalled connection loses display ownership within approximately 1.5 seconds
 while the game runs. The browser also hides stale content when the game pauses.
@@ -132,6 +139,6 @@ must enlarge the available Gear area. Real Wi-Fi latency still needs this check.
 - DSK, Orientierungshilfe Digitale Dienste (November 2024): https://www.datenschutzkonferenz-online.de/orientierungshilfen.html
 
 These inform the implementation; automated tests cannot certify legal compliance.
-The integration check used an actual LÖVE 11.5 local server and Chromium (no ROM):
+The integration check used an actual LÃ–VE 11.5 local server and Chromium (no ROM):
 authentication, CSP, compressed frames, input capability and disconnect passed.
 Real phone scanning and Wi-Fi gameplay latency still need the user's device check.

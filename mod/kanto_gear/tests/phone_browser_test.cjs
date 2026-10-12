@@ -1,6 +1,8 @@
 const { chromium } = require(process.env.KANTO_GEAR_NODE_MODULES + '/playwright');
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
+// Decode exactly as UTF-8 before the browser could hide invalid bytes with U+FFFD.
+for (const file of ['phone.js','phone.html']) new TextDecoder('utf-8', {fatal:true}).decode(fs.readFileSync(path.join(root,file)));
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.KANTO_GEAR_CHROMIUM });
   const context = await browser.newContext({ viewport: { width: 960, height: 540 }, hasTouch: true, deviceScaleFactor: 1 });
@@ -11,6 +13,12 @@ const root = path.resolve(__dirname, '..');
     return route.fulfill({ contentType: js ? 'text/javascript' : 'text/html', body: fs.readFileSync(path.join(root, js ? 'phone.js' : 'phone.html')) });
   });
   await page.addInitScript(() => {
+    window.testVibrations = [];
+    Object.defineProperty(navigator,'vibrate',{configurable:true,value(duration) {
+      if (window.vibrationMode === 'throw') throw new Error('Vibration denied');
+      window.testVibrations.push(duration);
+      return window.vibrationMode !== 'deny';
+    }});
     class Socket {
       static OPEN = 1;
       constructor(url) {
@@ -42,6 +50,7 @@ const root = path.resolve(__dirname, '..');
     await page.evaluate(() => window.testFrame());
     await page.waitForSelector('#controller:not([hidden])');
   };
+  assert(await page.locator('#setting-haptics').evaluate(el=>!el.closest('label').hidden), 'supported browsers expose Haptics');
   await pair();
   assert(await page.evaluate(() => testSocket.url === 'ws://127.0.0.1:8765/gear'), 'credentials never enter WebSocket URLs');
   assert(await page.evaluate(() => testSocket.messages[0] === 'auth,12345678'), 'authentication is the first message');
@@ -57,6 +66,7 @@ const root = path.resolve(__dirname, '..');
   await touches('touchStart', [left,b]);
   let sent = await messages(); assert(sent.includes('b,left,1') && sent.includes('b,b,1'), 'walking and B are held simultaneously');
   await touches('touchStart', [left,b,gear]);
+  assert(await page.evaluate(()=>testVibrations.filter(n=>n===8).length===2), 'new controller holds pulse once; held fingers and Gear touch do not repeat');
   assert(await page.evaluate(() => testSocket.messages.some(s => s.startsWith('down,'))), 'Gear accepts a third finger');
   await touches('touchEnd', []);
   sent = await messages(); assert(sent.includes('b,left,0') && sent.includes('b,b,0'), 'lifting fingers releases buttons');
@@ -72,7 +82,15 @@ const root = path.resolve(__dirname, '..');
   assert((await messages()).slice(before).join('|') === 'b,a,1|b,a,0', 'accessible activation makes a bounded tap');
   await page.click('#settings-open');
   assert(await page.locator('[data-button=a]').isDisabled(), 'modal disables game buttons');
-  await page.check('#setting-remember'); await page.uncheck('#setting-motion');
+  const pulses=await page.evaluate(()=>testVibrations.length);
+  await page.evaluate(()=>document.querySelector('[data-button=a]').dispatchEvent(new PointerEvent('pointerdown',{button:0,pointerId:999})));
+  assert(await page.evaluate(()=>testVibrations.length)===pulses, 'a modal-covered button never vibrates');
+  await page.uncheck('#setting-haptics'); await page.click('#settings-close');
+  await page.evaluate(()=>document.querySelector('[data-button=a]').click());
+  assert(await page.evaluate(()=>testVibrations.length)===pulses, 'disabling Haptics silences active buttons');
+  await page.click('#settings-open'); await page.check('#setting-haptics');
+
+  await page.check('#setting-remember'); await page.uncheck('#setting-motion'); await page.uncheck('#setting-haptics');
   await page.uncheck('#setting-controls'); await page.selectOption('#setting-theme', 'cgear-light');
   await page.selectOption('#setting-size','1.4'); await page.click('#settings-close');
   assert(await page.locator('#left-controls').isHidden(), 'controls may be hidden');
@@ -81,16 +99,25 @@ const root = path.resolve(__dirname, '..');
   await page.reload(); await pair();
   assert(await page.locator('#left-controls').isHidden(), 'browser preferences survive reload');
   assert(!(await page.locator('#setting-motion').isChecked()), 'press-motion preference survives reload');
+  assert(!(await page.locator('#setting-haptics').isChecked()), 'Haptics preference survives reload with opt-in');
   assert(await page.locator('body').getAttribute('data-theme') === 'cgear-light');
-  await page.click('#settings-open'); await page.check('#setting-controls'); await page.selectOption('#setting-size','1'); await page.click('#settings-close');
+  await page.click('#settings-open'); await page.check('#setting-controls'); await page.check('#setting-haptics'); await page.selectOption('#setting-size','1'); await page.click('#settings-close');
   await page.evaluate(() => testSocket.deliver('c,gb'));
   assert(await page.locator('[data-button=l]').isHidden(), 'GB games hide GBA shoulders');
   await page.evaluate(() => testSocket.deliver('c,none'));
+  const inactive=await page.evaluate(()=>testVibrations.length);
+  await page.evaluate(()=>document.querySelector('[data-button=a]').dispatchEvent(new PointerEvent('pointerdown',{button:0,pointerId:998})));
+  assert(await page.evaluate(()=>testVibrations.length)===inactive, 'unsupported game controls do not vibrate');
   assert(await page.locator('[data-button=a]').isDisabled(), 'display-only hosts cannot animate game buttons');
   await page.evaluate(() => testSocket.deliver('c,gba'));
+  const beforeDenied=(await messages()).length;
+  await page.evaluate(()=>{vibrationMode='throw';document.querySelector('[data-button=a]').click();vibrationMode='deny';document.querySelector('[data-button=b]').click();vibrationMode=null;});
+  assert((await messages()).length===beforeDenied+4, 'denied or throwing vibration never blocks game input');
   const out = path.resolve(root, '../../diagnostics/browser-previews'); fs.mkdirSync(out,{recursive:true});
   for (const generation of [1,2]) for (const theme of ['pokegear-light','pokegear-dark','cgear-light','cgear-dark']) {
-    await page.click('#settings-open'); await page.selectOption('#setting-theme',theme); await page.click('#settings-close');
+    await page.click('#settings-open'); await page.selectOption('#setting-theme',theme);
+    await page.screenshot({path:path.join(out,`settings-gen${generation}-${theme}.png`)});
+    await page.click('#settings-close');
     await page.evaluate(()=>testSocket.deliver('c,gb'));
     await page.screenshot({path:path.join(out,`gen${generation}-${theme}.png`)});
   }
@@ -117,6 +144,7 @@ const root = path.resolve(__dirname, '..');
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   assert(await page.locator('[data-button=b]').evaluate(el=>!el.classList.contains('held')), 'losing focus clears visual holds');
   assert(await page.evaluate(() => testSocket.messages.at(-1)==='release'), 'losing focus releases host buttons');
+  assert(await page.evaluate(()=>testVibrations.at(-1)===0), 'losing focus cancels vibration');
   await touches('touchEnd', []);
   await page.click('#settings-open'); await page.click('#disconnect');
   assert(await page.locator('#pair').isVisible());
@@ -126,6 +154,8 @@ const root = path.resolve(__dirname, '..');
   await page.goto('about:blank');
   await page.goto('http://127.0.0.1:8765/#pair=0123456789abcdef0123456789abcdef');
   assert(await page.evaluate(() => location.hash === ''), 'QR key is removed from the address immediately');
+  assert((await page.locator('#status').textContent()).includes('QR received \u00b7 tap Connect'), 'QR status renders the intended separator');
+  assert(!(await page.locator('#status').textContent()).includes('\ufffd'), 'QR status has no replacement characters');
   assert(await page.locator('#pin').isHidden(), 'scanning skips manual code entry');
   assert(await page.locator('.privacy summary').isVisible(), 'connection information is available before consent');
   assert(await page.evaluate(() => !window.testSocket), 'QR scanning does not connect before the user confirms');
@@ -143,7 +173,19 @@ const root = path.resolve(__dirname, '..');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'privacy details fit narrow screens');
     await page.locator('.privacy summary').click();
   }
+  const unsupported = await browser.newContext();
+  const noHaptics = await unsupported.newPage();
+  await noHaptics.route('http://127.0.0.1:8765/**',route=>{
+    const js=route.request().url().endsWith('/phone.js');
+    return route.fulfill({contentType:js?'text/javascript':'text/html',body:fs.readFileSync(path.join(root,js?'phone.js':'phone.html'))});
+  });
+  await noHaptics.addInitScript(()=>Object.defineProperty(navigator,'vibrate',{value:undefined}));
+  await noHaptics.goto('http://127.0.0.1:8765/');
+  await noHaptics.click('#settings-open');
+  assert(await noHaptics.locator('#setting-haptics').isHidden(), 'browsers without vibration hide the option');
+  assert(await noHaptics.locator('#setting-haptics').isDisabled(), 'unsupported vibration cannot be toggled');
+  await unsupported.close();
   assert.deepEqual(errors,[]);
   await browser.close();
-  console.log('PASS browser pairing, multitouch, Dpad slide, Gear touch, modal, settings persistence, capabilities and responsive geometry');
+  console.log('PASS browser pairing, multitouch, Dpad slide, Gear touch, modal, settings persistence, capabilities, haptics, UTF-8 and responsive geometry');
 })().catch(error => { console.error(error); process.exit(1); });

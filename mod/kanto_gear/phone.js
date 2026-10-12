@@ -15,8 +15,9 @@ function readPairingLink() {
   return key;
 }
 let qrCredential = readPairingLink();
-let remember = false;
-const defaults = { controls: true, motion: true, frame: true, layout: "auto", size: "1", theme: "pokegear-dark" };
+let remember = false, hapticActive = false;
+const canVibrate = typeof navigator.vibrate === "function";
+const defaults = { controls: true, motion: true, haptics: true, frame: true, layout: "auto", size: "1", theme: "pokegear-dark" };
 const choices = { layout: ["auto", "wide", "stacked"], size: ["0.8", "1", "1.2", "1.4"],
   theme: ["pokegear-light", "pokegear-dark", "cgear-light", "cgear-dark"] };
 let preferences = { ...defaults };
@@ -24,7 +25,7 @@ try {
   const saved = JSON.parse(localStorage.getItem("kanto-gear-phone-settings"));
   if (saved && saved.remember === true) {
     remember = true;
-    for (const key of ["controls", "motion", "frame"]) if (typeof saved[key] === "boolean") preferences[key] = saved[key];
+    for (const key of ["controls", "motion", "haptics", "frame"]) if (typeof saved[key] === "boolean") preferences[key] = saved[key];
     for (const key of Object.keys(choices)) if (choices[key].includes(saved[key])) preferences[key] = saved[key];
   }
 } catch (_) { /* Private browsing may refuse persistent storage. */ }
@@ -39,6 +40,9 @@ function applyPreferences() {
   }
   document.getElementById("setting-remember").checked = remember;
   document.getElementById("forget-settings").disabled = !remember;
+  const haptics = document.getElementById("setting-haptics");
+  haptics.closest("label").hidden = !canVibrate;
+  haptics.disabled = !canVibrate;
   refreshControls(); fit();
 }
 function usable(button) {
@@ -52,7 +56,15 @@ function refreshControls() {
     if (button.dataset.shoulder !== undefined) button.hidden = capability !== "gba";
   }
 }
+function pulse() {
+  if (!canVibrate || !preferences.haptics || document.hidden) return;
+  try { hapticActive = navigator.vibrate(8) === true; } catch (_) { /* Input must still work if vibration is denied. */ }
+}
 function releaseAll() {
+  if (hapticActive) {
+    try { navigator.vibrate(0); } catch (_) {}
+    hapticActive = false;
+  }
   send("release");
   pointers.clear(); held.clear(); pointer = null;
   for (const button of buttons) button.classList.remove("held");
@@ -60,7 +72,9 @@ function releaseAll() {
 function updateHeld() {
   const next = new Set([...pointers.values()].filter(Boolean));
   for (const button of held) if (!next.has(button)) send(`b,${button},0`);
-  for (const button of next) if (!held.has(button)) send(`b,${button},1`);
+  let pressed = false;
+  for (const button of next) if (!held.has(button)) { send(`b,${button},1`); pressed = true; }
+  if (pressed) pulse();
   held.clear(); for (const button of next) held.add(button);
   for (const button of buttons) button.classList.toggle("held", held.has(button.dataset.button));
 }
@@ -180,7 +194,7 @@ form.addEventListener("submit", event => {
     if (event.data === "ok" && !authenticated) {
       authenticated = true; lastContact = performance.now();
       paintFrame(current); send("h,0");
-      status.textContent = "Connected · waiting for Gear"; return;
+      status.textContent = "Connected Â· waiting for Gear"; return;
     }
     if (!authenticated) return;
     if (event.data === "h") { lastContact = performance.now(); return; }
@@ -244,7 +258,7 @@ for (const button of buttons) {
   // Keyboard/screen-reader activation is a bounded tap, not a latched hold.
   button.addEventListener("click", event => {
     if (event.detail !== 0 || !usable(button.dataset.button) || held.has(button.dataset.button)) return;
-    send(`b,${button.dataset.button},1`); send(`b,${button.dataset.button},0`);
+    send(`b,${button.dataset.button},1`); send(`b,${button.dataset.button},0`); pulse();
   });
 }
 document.getElementById("settings-open").addEventListener("click", () => {
@@ -297,7 +311,7 @@ function showPairingLink() {
   document.querySelector(".code").hidden = true;
   document.querySelector(".pin-label").hidden = true;
   document.querySelector("#pair h1").textContent = "Ready to pair";
-  status.textContent = "QR received · tap Connect to share Gear and enable controls";
+  status.textContent = "QR received \u00b7 tap Connect to share Gear and enable controls";
 }
 
 if (qrCredential) showPairingLink();
