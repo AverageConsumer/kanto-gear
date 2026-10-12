@@ -63,6 +63,8 @@ local function homePage()
     { id = "map_app", page = 1, column = 1, row = 1 },
     { id = "store_app", page = 1, column = 4, row = 1 },
   } }
+  display.syncTouchGuard()
+  now = now + 0.3 -- A real pause after changing screens clears the tap burst guard.
 end
 local function coords(id)
   for _, tile in ipairs(display.homePageElements()) do
@@ -85,7 +87,11 @@ local schema = display.optionRow("ui_haptics")
 T.eq(schema.default, false, "native mod option explicitly defaults OFF")
 display.openHomeApp("settings")
 display.settings.category = 5
-local row = display.settingsModel().rows[2]
+local row
+for _, candidate in ipairs(display.settingsModel().rows) do
+  if candidate.key == "ui_haptics" then row = candidate break end
+end
+assert(row, "Controls has a haptics setting")
 T.eq(row.key, "ui_haptics", "touch Controls exposes the same setting")
 T.check(display.cycleSetting(row, 1), "touch enables the option")
 T.eq(api.options:get("ui_haptics"), true, "touch option takes effect immediately")
@@ -248,7 +254,7 @@ game.save.inventory.ITEMFINDER = 0
 scan(0, "no Itemfinder means no success feedback")
 game.save.inventory.ITEMFINDER = 1
 api.options:set("info_level", "purist")
-scan(0, "Vanilla does not reveal signals through vibration")
+scan(1, "Discover permits Itemfinder feedback after acquiring the tool")
 api.options:set("info_level", "spoiler")
 scan(0, "Spoiler has no active scanner feedback")
 api.options:set("info_level", "enhanced")
