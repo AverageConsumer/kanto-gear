@@ -7578,23 +7578,40 @@ return function(mod)
   local PSS_FAMILY = { red = "kanto", blue = "kanto", yellow = "kanto", green = "kanto",
     gold = "johto", silver = "johto", crystal = "johto",
     firered = "frlg", leafgreen = "frlg", ruby = "rse", sapphire = "rse", emerald = "rse" }
-  -- Draws at the largest whole-pixel scale that fits maxH, bottom at y. A
-  -- sprite taller than maxH at 1x (Gen 3's 16x32) shows its top maxH rows,
-  -- a head-and-shoulders bust, instead of shrinking off the pixel grid.
+  -- Fit the visible pixels, not the padded overworld frame. Keep integer
+  -- scaling; crop a bust only when the visible trainer is taller than the seat.
+  -- Cache each sprite frame's bounds from existing CPU data, never a GPU readback.
   local pssQuads = setmetatable({}, { __mode = "k" })
-  local function drawCropped(image, quad, x, y, maxH, flip, natW, natH)
-    local k = math.max(1, math.floor(maxH / natH))
-    local rows = math.min(natH, math.floor(maxH / k))
-    if rows < natH then
-      local qx, qy, qw = quad:getViewport()
-      local byQuad = pssQuads[quad] or {}
-      pssQuads[quad] = byQuad
-      byQuad[rows] = byQuad[rows] or G.newQuad(qx, qy, qw, rows, image:getDimensions())
-      quad = byQuad[rows]
+  local function drawCropped(spr, quad, x, y, maxH, flip)
+    local bounds = pssQuads[quad]
+    if bounds == nil then
+      local data = spr.imageData
+      if not data then return false end
+      local qx, qy, qw, qh = quad:getViewport()
+      local left, top, right, bottom = qw, qh, -1, -1
+      for py = 0, qh - 1 do
+        for px = 0, qw - 1 do
+          local _, _, _, alpha = data:getPixel(qx + px, qy + py)
+          if alpha > 0 then
+            left, top = math.min(left, px), math.min(top, py)
+            right, bottom = math.max(right, px), math.max(bottom, py)
+          end
+        end
+      end
+      bounds = right >= left and { x = qx + left, y = qy + top,
+        w = right - left + 1, h = bottom - top + 1, quads = {} } or false
+      pssQuads[quad] = bounds
     end
+    if not bounds then return false end
+    local k = math.max(1, math.floor(maxH / math.max(bounds.w, bounds.h)))
+    local rows = math.min(bounds.h, math.floor(maxH / k))
+    bounds.quads[rows] = bounds.quads[rows] or G.newQuad(bounds.x, bounds.y,
+      bounds.w, rows, spr.image:getDimensions())
+    local left = math.floor(x - bounds.w * k / 2)
+    local top = math.floor(y - (maxH + rows * k) / 2)
     color({ 1, 1, 1, 1 })
-    G.draw(image, quad, flip and x + natW * k / 2 or x - natW * k / 2, y - rows * k, 0,
-      flip and -k or k, k)
+    G.draw(spr.image, bounds.quads[rows], flip and left + bounds.w * k or left, top,
+      0, flip and -k or k, k)
     return true
   end
   displayRuntime.pss.drawTrainer = function(row, x, y, maxH, facing)
@@ -7615,7 +7632,7 @@ return function(mod)
       local frame, flip = sprites.pose(spr, facing, false, false)
       local quad = spr.quads and spr.quads[frame]
       if not quad then return false end
-      return drawCropped(spr.image, quad, x, y, maxH, flip, spr.width, spr.height)
+      return drawCropped(spr, quad, x, y, maxH, flip)
     end
     local spriteId
     if not row then
