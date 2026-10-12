@@ -4138,6 +4138,21 @@ return function(ui)
     end
   end
 
+  function H:battleTargetLabels(entry, x, y, w, h)
+    local c = self.colors
+    local side = self:fitPartyInfo(translate(entry.right), w - 8)
+    if entry.effectiveness == nil then
+      self:partyInfoCentered(side, x, y, w, h, c.ink)
+      return
+    end
+    local label, effect = self:battleEffectLabel(entry)
+    local tint = effect == 0 and c.red or effect < 10 and c.amber
+      or effect > 10 and c.green or c.mutedInk
+    local top = y + math.floor((h - 20) / 2)
+    self:partyInfoCentered(side, x, top, w, 9, c.ink)
+    self:partyInfoCentered(label, x, top + 11, w, 9, tint)
+  end
+
   function H:startMenu(model)
     local c = self.colors
     for _, entry in ipairs(model.entries) do
@@ -4157,8 +4172,7 @@ return function(ui)
         local badgeX, badgeY, badgeW, badgeH = x + w - 94, y + 5, 86, h - 10
         clipped(badgeX, badgeY, badgeW, badgeH, mixed(c.surface, targetAccent, self.dark and 0.32 or 0.18))
         border(badgeX, badgeY, badgeW, badgeH, targetAccent)
-        self:partyInfoCentered(self:fitPartyInfo(translate(entry.right), badgeW - 8),
-          badgeX, badgeY, badgeW, badgeH, c.ink)
+        self:battleTargetLabels(entry, badgeX, badgeY, badgeW, badgeH)
       elseif entry.right then
         self:partyInfoCentered(self:fitPartyInfo(entry.right, 72), x + w - 80,
           y, 72, h, c.ink)
@@ -5967,7 +5981,7 @@ return function(ui)
       or effectiveness == 0 and "0X"
       or effectiveness >= 40 and "4X"
       or effectiveness > 10 and "2X"
-      or effectiveness <= 2 and "1/4"
+      or effectiveness <= 2.5 and "1/4"
       or effectiveness < 10 and "1/2"
       or "1X"
     return effectLabel, effectiveness

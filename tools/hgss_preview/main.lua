@@ -559,7 +559,7 @@ function love.load()
   local explorerRadar = screen == "explorer_radar"
   local regionMapFly = screen == "region_map_fly"
   local regionMap = screen == "region_map" or regionMapFly
-  local startMenu = screen == "start_menu" or screen == "start_menu_more"
+  local startMenu = screen == "battle_targets" or screen == "start_menu" or screen == "start_menu_more"
     or screen == "start_menu_early"
   local pokenavMenu = screen == "pokenav" or screen == "pokenav_condition" or screen == "pokenav_search"
     or screen == "pokenav_early" or screen == "pokenav_mc"
@@ -667,7 +667,7 @@ function love.load()
     or explorerRadar and "ITEM RADAR"
     or explorer and "EXPLORER"
     or regionMap and (gen1 and "KANTO MAP" or "JOHTO MAP")
-    or startMenu and "CHOOSE ACTION"
+    or screen == "battle_targets" and "CHOOSE TARGET" or startMenu and "CHOOSE ACTION"
     or pokenavMenu and "POKéNAV"
     or pokegearScreen and "POKéGEAR"
     or legacyNaming and "NAME INPUT"
@@ -1956,6 +1956,13 @@ function love.load()
       for i = 1, 3 do native.items[#native.items + 1] = { label = "EXTRA MOD " .. i } end
     elseif screen == "start_menu_early" then
       native.items = { native.items[2], native.items[3], native.items[#native.items - 1] }
+    elseif screen == "battle_targets" then
+      native.index, native.battleTargets = 2, { 2, 3, 1 }
+      native.items = {
+        { label = "CHARIZARD", value = "pokemon", targetSide = "player", right = "YOUR SIDE", effectiveness = 5 },
+        { label = "SCIZOR", value = "pokemon", targetSide = "enemy", right = "FOE", effectiveness = 40 },
+        { label = "MILTANK", value = "pokemon", targetSide = "enemy", right = "FOE", effectiveness = 10 },
+      }
     end
     theme:startMenu(menu.model(native))
   elseif pokegearScreen then

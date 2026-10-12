@@ -132,7 +132,7 @@ return function(H, ui, K)
         local fill = mix(c.surface, target, self.dark and 0.32 or 0.2)
         if cg(self) then CH(bx, by, bw, bh, 3, target); CH(bx + 1, by + 1, bw - 2, bh - 2, 2, fill)
         else RR(bx, by, bw, bh, 3, target); RR(bx + 1, by + 1, bw - 2, bh - 2, 2, fill) end
-        self:partyInfoCentered(self:fitPartyInfo(translate(entry.right), bw - 8), bx, by, bw, bh, c.ink)
+        self:battleTargetLabels(entry, bx, by, bw, bh)
       elseif entry.right then
         local right = self:fitPartyInfo(entry.right, 72)
         self:partyInfo(right, x + w - 10 - self:partyInfoWidth(right), y + floor((h - 2 - 9) / 2) - 1, ink)

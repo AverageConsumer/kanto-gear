@@ -5632,7 +5632,11 @@ return function(mod)
   end
 
   function displayRuntime.startMenuModel(top)
-    return displayRuntime.StartMenu.model(top)
+    local model = displayRuntime.StartMenu.model(top)
+    if model and not assist("type_hints") then
+      for _, entry in ipairs(model.entries) do entry.effectiveness = nil end
+    end
+    return model
   end
 
   function displayRuntime.startMenuPartyViews(top)
@@ -5809,7 +5813,8 @@ return function(mod)
       end
       for _, entry in ipairs(model.entries) do
         button(entry.x / 1.5, entry.y / 1.5, entry.w / 1.5, entry.h / 1.5,
-          entry.targetSide and (entry.label .. " / " .. THEME:translate(entry.right)) or entry.label,
+          entry.targetSide and (entry.label .. " / " .. THEME:translate(entry.right)
+            .. (entry.effectiveness ~= nil and " / " .. THEME.hgss:battleEffectLabel(entry) or "")) or entry.label,
           entry.selected, not entry.disabled)
         if entry.rawMon and entry.label == "" then
           local icon = displayRuntime.gen3.Pokemon.monIcon(entry.rawMon)

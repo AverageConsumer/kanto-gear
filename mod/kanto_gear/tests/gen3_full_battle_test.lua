@@ -52,6 +52,81 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     nativePresent[id]=Anim.present(id)
     nativePresent[id].displayHp=10+id+0.8
   end
+  do
+    local Menu=assert(loadfile(path.."/start_menu.lua"))()
+    local saved, hints={},options.type_hints
+    for id=0,3 do
+      local b=st.battlers[id]
+      saved[id]={b.type1,b.type2,b.mon.moves[1]}
+    end
+    local function setHints(value)
+      options.type_hints=value
+      run.loader.events:emit("mod.options_changed",{mod="kanto_gear",key="type_hints",value=value})
+    end
+    setHints(true)
+    -- Fire versus Grass/Steel, Water and a neutral ally. Deliberately use
+    -- live types different from the fixture's species, as after Conversion.
+    st.battlers[0].mon.moves[1]=53
+    st.battlers[1].type1,st.battlers[1].type2=12,8
+    st.battlers[3].type1,st.battlers[3].type2=11,11
+    st.battlers[2].type1,st.battlers[2].type2=0,0
+    T.check(Ui.chooseTarget(st,0,1),"matchup preview opens native doubles targets")
+    local function targets()
+      refresh()
+      local view=assert(display.startMenu())
+      return view,display.startMenuModel(view)
+    end
+    local view,model=targets()
+    local expected={[1]=40,[3]=5,[2]=10}
+    for i,row in ipairs(model.entries) do
+      T.eq(row.effectiveness,expected[view.battleTargets[i]],"each target has its own live type matchup")
+      T.eq(row.right,view.battleTargets[i]%2==0 and "YOUR SIDE" or "FOE","matchups preserve friend/foe labels")
+      T.eq(Menu.hit(view,row.x+10,row.y+row.h-1),i,"the complete taller target row accepts touch")
+      T.eq(Menu.hit(view,row.x+10,row.y+row.h),nil,"target row gaps do not select adjacent targets")
+    end
+    local key=Menu.redrawKey(view)
+    st.battlers[1].type1,st.battlers[1].type2=10,5
+    view,model=targets()
+    T.check(Menu.redrawKey(view)~=key,"changed defensive types invalidate the target canvas")
+    for i,row in ipairs(model.entries) do
+      if view.battleTargets[i]==1 then
+        T.eq(row.effectiveness,2.5,"dual resistance is a quarter, not a half")
+        T.eq(theme.hgss:battleEffectLabel(row),"1/4","quarter resistance has the correct label")
+      end
+    end
+    st.battlers[0].mon.moves[1]=85
+    st.battlers[1].type1,st.battlers[1].type2=4,4
+    view,model=targets()
+    for i,row in ipairs(model.entries) do
+      if view.battleTargets[i]==1 then
+        T.eq(row.effectiveness,0,"target immunity stays visible as zero")
+        T.eq(theme.hgss:battleEffectLabel(row),"0X","immunity uses the existing move-card label")
+      end
+    end
+    setHints(false)
+    view,model=targets()
+    for _,row in ipairs(model.entries) do T.eq(row.effectiveness,nil,"disabled type hints hide all target factors") end
+    setHints(true)
+    for _,move in ipairs({86,237,311}) do
+      st.battlers[0].mon.moves[1]=move
+      view,model=targets()
+      for _,row in ipairs(model.entries) do T.eq(row.effectiveness,nil,"status and unresolved variable-type moves have no damage factor") end
+    end
+    Ui.openMenu(2)
+    st.battlers[2].mon.moves[1]=53
+    st.battlers[0].type1,st.battlers[0].type2=11,11
+    T.check(Ui.chooseTarget(st,2,1),"second partner opens its own move targets")
+    view,model=targets()
+    for i,row in ipairs(model.entries) do
+      if view.battleTargets[i]==0 then T.eq(row.effectiveness,5,"second partner previews its move against the first partner") end
+    end
+    for id=0,3 do
+      local b=st.battlers[id]
+      b.type1,b.type2,b.mon.moves[1]=unpack(saved[id])
+    end
+    setHints(hints)
+    Ui.openMenu(0);refresh()
+  end
   local H=theme.hgss
   local drawCard,drawMessage,gearMessage=H.battleCompactStatus,H.battleFullMessage,H.battleMessage
   local opponents,drawOpponents=nil,H.enemyInfoOpponents

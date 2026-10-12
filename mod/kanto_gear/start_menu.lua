@@ -1,6 +1,11 @@
 -- The live native menu owns order, availability, focus and activation.
 local Menu = { visible = 5, x = 7, y = 33, width = 226, height = 28, step = 31 }
 
+local function rowGeometry(top)
+  if top.battleTargets then return Menu.y, 43, 40 end
+  return top.recentBag and 70 or Menu.y, top.recentBag and 30 or Menu.step, Menu.height
+end
+
 function Menu.cursor(top, preview)
   if type(top) ~= "table" or type(top.update) ~= "function"
       or type(top.items) ~= "table" or #top.items == 0 then return nil end
@@ -55,6 +60,7 @@ function Menu.redrawKey(top)
     parts[#parts + 1] = tostring(item.label)
     parts[#parts + 1] = tostring(item.right)
     parts[#parts + 1] = tostring(item.targetSide)
+    parts[#parts + 1] = tostring(item.effectiveness)
     parts[#parts + 1] = tostring(item.catchChance)
     parts[#parts + 1] = tostring(item.disabled)
     parts[#parts + 1] = tostring(item.inert)
@@ -130,10 +136,9 @@ function Menu.hit(top, x, y)
     if x >= 177 and x < 233 and first + count <= #top.items then return "next" end
   end
   if x < Menu.x or x >= Menu.x + Menu.width then return nil end
-  local topY = top.recentBag and 70 or Menu.y
-  local step = top.recentBag and 30 or Menu.step
+  local topY, step, height = rowGeometry(top)
   local row = math.floor((y - topY) / step)
-  if row >= 0 and row < count and y < topY + row * step + Menu.height then
+  if row >= 0 and row < count and y < topY + row * step + height then
     local index = first + row
     if not top.items[index].inert then return index end
   end
@@ -153,11 +158,13 @@ function Menu.model(top)
   local first, count, selected = Menu.window(top, true)
   if not first then return nil end
   local entries = {}
+  local topY, step, height = rowGeometry(top)
   for row = 1, count do
     local index = first + row - 1
     local item = top.items[index]
-    local r = item.rect or { Menu.x, (top.recentBag and 70 or Menu.y) + (row - 1) * (top.recentBag and 30 or Menu.step), Menu.width, Menu.height }
+    local r = item.rect or { Menu.x, topY + (row - 1) * step, Menu.width, height }
     entries[row] = { label = Menu.label(item), right = item.right, targetSide = item.targetSide,
+      effectiveness = item.effectiveness,
       catchChance = item.catchChance, selected = index == selected,
       kind = item.value or item.id or kinds[item.label], itemId = item.itemId, itemSprite = item.itemSprite,
       rawMon = item.rawMon, disabled = item.inert or top.screenId == "Gen2StartMenu" and item.disabled,

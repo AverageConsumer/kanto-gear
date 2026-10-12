@@ -601,6 +601,7 @@ function UI:list(battle)
       and owner.battle.battlers[2] or owner.battle.player)
     local move = active and active.mon.moves and active.mon.moves[target.slot]
     local def = move and self.adapter.Moves.get(move)
+    local moveName = move and self.adapter.Moves.constName(move)
     local selfTarget = math.floor((tonumber(def and def.target) or 0) / 2) % 2 == 1
     local allowed = {}
     for _, id in ipairs(battle.targets or {}) do allowed[id] = true end
@@ -608,8 +609,16 @@ function UI:list(battle)
     for _, id in ipairs({ 0, 2, 3, 1 }) do
       for _, mon in ipairs(battle.battlers or {}) do
         if allowed[id] and mon.id == id and (id ~= target.battler or selfTarget) then
+          local defender = owner and owner.battle and owner.battle.battlers[id]
+          -- Match the move cards: preview the current defensive types, not
+          -- species defaults or the opponent last highlighted by the cursor.
+          local effectiveness
+          if defender and def and (def.power or 0) > 0
+              and moveName ~= "HIDDEN_POWER" and moveName ~= "WEATHER_BALL" then
+            effectiveness = self.adapter.Types.effectiveness(def.type, defender.type1, defender.type2) * 10
+          end
           items[#items + 1], ids[#ids + 1] = { label = mon.name or "POKEMON",
-            targetSide = mon.side, value = "pokemon",
+            targetSide = mon.side, value = "pokemon", effectiveness = effectiveness,
             right = (mon.side == "player" and "YOUR SIDE" or "FOE") }, id
           if target.cursor == id then selected = #items end
         end

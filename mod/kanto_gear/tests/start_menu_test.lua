@@ -45,6 +45,13 @@ local beforeSide = Menu.redrawKey(target)
 target.items[1].targetSide = "enemy"
 eq(Menu.redrawKey(target) ~= beforeSide, true, "allegiance changes invalidate a cached target row")
 eq(Menu.model(lockedBack).entries[1].targetSide, nil, "ordinary menus have no target styling")
+target.battleTargets={0,2,3,1}
+for i=2,4 do target.items[i]={label="TARGET "..i,targetSide="enemy",right="FOE"} end
+for i,row in ipairs(Menu.model(target).entries) do
+  eq(row.y+row.h<=216,true,"all four taller target rows fit below the header")
+  eq(Menu.hit(target,row.x+row.w-1,row.y+row.h-1),i,"right edge of each target badge selects its own row")
+  eq(Menu.hit(target,row.x+10,row.y+row.h),nil,"taller target rows retain an inactive gap")
+end
 local ItemPage=dofile("mod/kanto_gear/item_page.lua")
 local actions={screenId="CompanionMenu",update=function() end,valid=function() return true end,index=1,
   fixedLayout=true,items={{label="USE"},{label="GIVE"},{label="TOSS"},{label="CANCEL"}}}
