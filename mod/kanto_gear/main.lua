@@ -9014,6 +9014,24 @@ return function(mod)
       (page - 1 + direction) % pages + 1
   end
 
+  function displayRuntime.setStorePage(view, target)
+    local _, _, current, pages = displayRuntime.storeSelection(view)
+    target = math.max(1, math.min(pages, target))
+    if target == current then return false end
+    displayRuntime.home.storePages[view] = target
+    displayRuntime.home[view == "library" and "storeGearSel" or "storeSel"] = nil
+    dirty = true
+    return true
+  end
+
+  function displayRuntime.dragStoreScroll(down, y)
+    local home = displayRuntime.home
+    if page ~= "STORE" or home.storeView ~= down.storeView
+        or home.storeConfirm or home.storeReceived then return false end
+    return displayRuntime.setStorePage(down.storeView,
+      THEME.hgss:storeScrollPage(y, down.storePages, down.storeGrab))
+  end
+
   function displayRuntime.storeSwipeTarget(view, y, pages)
     return (view == "apps" or view == "library")
       and (pages or 1) > 1 and y >= 58 and y < 170
@@ -12670,6 +12688,8 @@ return function(mod)
         displayRuntime.requestPageMotion(order[target] > (order[view] or 1) and 1 or -1)
         home.storeView = target
       end
+    elseif action == "scroll" then
+      displayRuntime.setStorePage(view, index)
     elseif action == "page_prev" or action == "page_next" then
       displayRuntime.cycleStorePage(view, action == "page_next" and 1 or -1)
       home[view == "library" and "storeGearSel" or "storeSel"] = nil
@@ -14452,11 +14472,23 @@ return function(mod)
     end
   end
 
-  local function swipeVertical(dy)
+  local function swipeVertical(dy, down)
     if battle and currentBattleUIMode() == "info" then return end
     if displayRuntime.pageChoice(dy < 0 and 1 or -1) then return end
     if displayRuntime.startMenu() then return end
     if radarOpen then return end
+    if THEME.style == "hgss" and page == "STORE" then
+      local home, view = displayRuntime.home, displayRuntime.home.storeView
+      if not home.storeConfirm and not home.storeReceived and (view == "apps" or view == "library") then
+        local _, _, current, pages = displayRuntime.storeSelection(view)
+        local x, y = (down.x or 0) * THEME.hgssScale, (down.y or 0) * THEME.hgssScale
+        if x >= 7 and x < (view == "apps" and 150 or 233)
+            and displayRuntime.storeSwipeTarget(view, y, pages) then
+          displayRuntime.setStorePage(view, current + (dy < 0 and 1 or -1))
+        end
+      end
+      return
+    end
     if page == "LOCAL" and THEME.style == "hgss" then return end
     if THEME.style ~= "hgss" and page == "TOOLS" and #tools > 6 then
       local pages = math.ceil(#tools / 6)
@@ -14638,6 +14670,19 @@ return function(mod)
           or (emptyHome and hy >= 30 and "__empty" or nil)
       end
       touchDown.homeHelp = displayRuntime.homeHelpActive()
+      if mode == "active" and not battle and page == "STORE" and THEME.style == "hgss"
+          and displayRuntime.home.storeView == "apps" and not displayRuntime.home.storeConfirm
+          and not displayRuntime.home.storeReceived then
+        local _, _, current, pages = displayRuntime.storeSelection("apps")
+        if pages > 1 then
+          local _, _, _, _, thumbY, thumbH = THEME.hgss:storeScrollGeometry(current, pages)
+          if THEME.hgss:storeScrollHit(mapX, mapY, pages) then
+            touchDown.storeView, touchDown.storePages = "apps", pages
+            touchDown.storeGrab = mapY >= thumbY and mapY < thumbY + thumbH and mapY - thumbY or thumbH / 2
+            displayRuntime.dragStoreScroll(touchDown, mapY)
+          end
+        end
+      end
       if mode == "active" and not battle and page == "MAP" and THEME.style == "hgss"
           and not pendingFly and not pendingAction and not fieldChoice then
         local model = displayRuntime.regionMapModel()
@@ -14652,6 +14697,9 @@ return function(mod)
       dirty = true
     elseif (action == "move" or action == "moved") and x and touchDown then
       touchDown.currentX, touchDown.currentY = x, y
+      if touchDown.storeView and guard:allow(love.timer.getTime(), touchDown.epoch) then
+        displayRuntime.dragStoreScroll(touchDown, mapY)
+      end
       if touchDown.mapModel then
         touchDown.mapPointerX, touchDown.mapPointerY = mapX, mapY
         displayRuntime.RegionPage.select(displayRuntime.regionCursor, touchDown.mapModel, mapX, mapY)
@@ -14681,6 +14729,10 @@ return function(mod)
       if not guard:allow(love.timer.getTime(), down.epoch) then
         textSpeedReleasePending = false
         holdTextSpeed(false)
+        return
+      end
+      if down.storeView then
+        displayRuntime.dragStoreScroll(down, mapY)
         return
       end
       if down.mapModel then
@@ -14718,7 +14770,7 @@ return function(mod)
         end
       elseif math.abs(dy) >= 24 and math.abs(dy) > math.abs(dx) * 1.25 then
         displayRuntime.touchDispatch = true
-        swipeVertical(dy)
+        swipeVertical(dy, down)
         displayRuntime.touchDispatch = false
         displayRuntime.syncTouchGuard()
       elseif (dialogueChoice() or displayRuntime.startMenu())

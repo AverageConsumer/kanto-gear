@@ -769,6 +769,19 @@ return function(H, ui, K)
   -- BUY: the catalog list on the left, the picked Game Pak with its one
   -- key on the right, its description in the message window below.
   H.STORE_ROWS, H.STORE_ROW_Y, H.STORE_ROW_STEP = 4, 62, 25
+  function H:storeScrollGeometry(page, pages)
+    local height = max(10, floor(98 / pages))
+    return 150, 62, 11, 98, 62 + floor((98 - height) * (page - 1) / max(1, pages - 1)), height
+  end
+  function H:storeScrollPage(y, pages, grab)
+    if pages <= 1 then return 1 end
+    local _, top, _, height, _, thumb = self:storeScrollGeometry(1, pages)
+    local ratio = (y - top - (grab or thumb / 2)) / (height - thumb)
+    return max(1, min(pages, floor(ratio * (pages - 1) + 0.5) + 1))
+  end
+  function H:storeScrollHit(x, y, pages)
+    return pages > 1 and x >= 150 and x < 161 and y >= 58 and y < 164
+  end
   function H:storeBuy(model)
     local colors = self.colors
     local icons = self.homeIconTable and self:homeIconTable() or {}
@@ -803,11 +816,9 @@ return function(H, ui, K)
     end
     if paged then
       -- a page rail: the thumb shows where this page sits in the catalog
-      local pages, page = tonumber(model.pages), tonumber(model.page) or 1
-      R(152, 62, 4, 98, colors.bandLight)
-      local th = max(10, floor(98 / pages))
-      local ty = 62 + floor((98 - th) * (page - 1) / max(1, pages - 1))
-      R(152, ty, 4, th, mix(colors.surface, SILPH_RED, 0.75))
+      local x, y, _, height, thumbY, thumbH = self:storeScrollGeometry(tonumber(model.page) or 1, tonumber(model.pages))
+      R(x + 2, y, 4, height, colors.bandLight)
+      R(x + 2, thumbY, 4, thumbH, mix(colors.surface, SILPH_RED, 0.75))
     end
     -- the picked Game Pak
     local id = K.iconId and K.iconId(icons[selected.icon or selected.id])
@@ -1043,8 +1054,8 @@ return function(H, ui, K)
     end
     if view == "apps" then
       local paged = (tonumber(model.pages) or 1) > 1
-      if paged and inside(150, 58, 11, 106) then
-        return y < 111 and "page_prev" or "page_next"
+      if paged and self:storeScrollHit(x, y, model.pages) then
+        return "scroll", self:storeScrollPage(y, model.pages)
       end
       for index = 1, H.STORE_ROWS do
         local top = H.STORE_ROW_Y + (index - 1) * H.STORE_ROW_STEP - 1

@@ -582,6 +582,64 @@ world.phase = "quantity"
 T.check(display.motionKey() ~= phaseKey,
   "an in-place context phase change receives a distinct redraw identity")
 world.screenId, world.phase, world.index = nil, nil, nil
+do
+  local clock, oldTime = 1, love.timer.getTime
+  local savedGuard = {}; for k,v in pairs(display.touchGuard) do savedGuard[k]=v end
+  love.timer.getTime = function() return clock end
+  home.storeView, home.storeConfirm, home.storeReceived = "apps", nil, nil
+  home.storePages.apps = 1
+  local _, _, _, pages = display.storeSelection("apps")
+  T.check(pages > 1, "Store fixture has multiple catalog pages")
+  local function pointer(action, x, y)
+    touchEvent(("%s,%d,%d"):format(action,x,y),240,216)
+  end
+  local function ready()
+    display.syncTouchGuard(); clock = clock + 1
+  end
+  local function swipe(x, from, to)
+    ready(); pointer("down",x,from); pointer("up",x,to)
+  end
+  swipe(80,145,75)
+  T.eq(home.storePages.apps,2,"upward content swipe advances BUY")
+  T.eq(home.storeConfirm,nil,"content swipe never purchases an app")
+  swipe(80,75,145)
+  T.eq(home.storePages.apps,1,"downward content swipe returns BUY")
+  swipe(80,75,145)
+  T.eq(home.storePages.apps,1,"scrolling before the beginning does not wrap")
+  home.storePages.apps=pages; swipe(80,145,75)
+  T.eq(home.storePages.apps,pages,"scrolling past the end does not wrap")
+  swipe(195,145,75)
+  T.eq(home.storePages.apps,pages,"the app preview is not a list swipe target")
+  home.storeConfirm="notes"; swipe(80,75,145)
+  T.eq(home.storePages.apps,pages,"confirmation blocks list swipes")
+  T.eq(home.storeConfirm,"notes","swiping does not dismiss confirmation")
+  home.storeConfirm=nil; home.storePages.apps=1; ready()
+  local _,_,_,_,thumbY,thumbH=theme.hgss:storeScrollGeometry(1,pages)
+  pointer("down",154,thumbY+math.floor(thumbH/2))
+  T.eq(home.storePages.apps,1,"grabbing the thumb does not jump pages")
+  pointer("move",154,159)
+  T.eq(home.storePages.apps,pages,"dragging the rail updates before release")
+  pointer("up",154,159)
+  T.eq(home.storePages.apps,pages,"release does not cycle an extra page")
+  T.eq(home.storeView,"apps","rail dragging never switches Store tabs")
+  T.eq(home.storeReceived,nil,"rail dragging never installs an app")
+  ready(); pointer("down",154,159); pointer("move",154,0); pointer("up",154,0)
+  T.eq(home.storePages.apps,1,"dragging above the rail clamps to the first page")
+  ready(); pointer("tap",154,159)
+  T.eq(home.storePages.apps,pages,"tap-only input jumps to the touched rail position")
+  ready(); pointer("tap",154,62)
+  T.eq(home.storePages.apps,1,"tap-only input can return to the first page")
+  local entries=display.storeEntries
+  display.storeEntries=function() return {entries()[1]} end
+  swipe(80,145,75)
+  T.eq(home.storePages.apps,1,"a single-page catalog ignores scrolling")
+  T.check(theme.hgss:storeHit(154,100,"apps",{pages=1})~="scroll","a single-page catalog has no rail hit target")
+  T.eq(theme.hgss:storeScrollPage(100,1),1,"a single-page rail has no invalid division")
+  display.storeEntries=entries; love.timer.getTime=oldTime
+  for k in pairs(display.touchGuard) do display.touchGuard[k]=nil end
+  for k,v in pairs(savedGuard) do display.touchGuard[k]=v end
+  home.storeView="today"
+end
 local oldRodSurface = catalog.surfaces.tool_widget_old_rod
 display.refreshToolSurfaces({})
 T.check(oldRodSurface.hidden,
