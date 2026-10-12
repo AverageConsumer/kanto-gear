@@ -453,12 +453,12 @@ body[data-theme^="cgear"] [data-shoulder].held:not(:disabled) { color: var(--ab)
 }
 
 /* Disabled controls: flat, quiet, no feedback. */
-[data-button]:disabled .px { opacity: .38; }
-[data-button="a"]:disabled, [data-button="b"]:disabled { box-shadow: 0 0 0 2px var(--ab-ring), 0 1px 0 var(--ab-2); background: var(--ab); filter: saturate(.35); }
-body[data-theme^="cgear"] [data-button="a"]:disabled, body[data-theme^="cgear"] [data-button="b"]:disabled { box-shadow: inset 0 0 0 2px var(--line), 0 1px 0 var(--ab-2); background: var(--ab); filter: none; }
-[data-shoulder]:disabled::before { filter: saturate(.35); box-shadow: 0 0 0 2px var(--ab-ring), 0 1px 0 var(--ab-2); }
-[data-button="select"]:disabled::before, [data-button="start"]:disabled::before { opacity: .55; box-shadow: 0 0 0 2px var(--well); }
-.dpad:not(:has([data-dpad]:not(:disabled))) .cross { opacity: .6; filter: none; }
+#controller:not([data-editing="true"]) [data-button]:disabled .px { opacity: .38; }
+#controller:not([data-editing="true"]) [data-button="a"]:disabled, #controller:not([data-editing="true"]) [data-button="b"]:disabled { box-shadow: 0 0 0 2px var(--ab-ring), 0 1px 0 var(--ab-2); background: var(--ab); filter: saturate(.35); }
+body[data-theme^="cgear"] #controller:not([data-editing="true"]) [data-button="a"]:disabled, body[data-theme^="cgear"] #controller:not([data-editing="true"]) [data-button="b"]:disabled { box-shadow: inset 0 0 0 2px var(--line), 0 1px 0 var(--ab-2); background: var(--ab); filter: none; }
+#controller:not([data-editing="true"]) [data-shoulder]:disabled::before { filter: saturate(.35); box-shadow: 0 0 0 2px var(--ab-ring), 0 1px 0 var(--ab-2); }
+#controller:not([data-editing="true"]) [data-button="select"]:disabled::before, #controller:not([data-editing="true"]) [data-button="start"]:disabled::before { opacity: .55; box-shadow: 0 0 0 2px var(--well); }
+#controller:not([data-editing="true"]) .dpad:not(:has([data-dpad]:not(:disabled))) .cross { opacity: .6; filter: none; }
 
 /* ── Settings dialog ────────────────────────────────────────────── */
 dialog {
@@ -626,16 +626,16 @@ body[data-theme^="cgear"] #forget-settings { border-radius: 4px; }
    --screen-x/-y/-w/-h (top-left + size) and --{dpad,a,b,select,start,l,r}-x/-y (centre) + optional -s (scale).
    The values below are only a fallback for a layout without saved positions. ── */
 .ab-bridge { display: none; }
-#controller[data-layout="custom"] { display: block; position: relative; --cap: 9999px; }
+#controller[data-layout="custom"] { display: block; position: relative; --s: 1; --cap: min(56px, 6cqw); }
 /* Presets: complete position sets per orientation. Saved user positions (inline vars) override them;
    "Reset" simply removes the inline vars. Landscape first, portrait below. */
 #controller[data-layout="custom"], #controller[data-layout="custom"][data-preset="classic"] {
-  --screen-x: .2; --screen-y: 0; --screen-w: .6; --screen-h: 1;
+  --screen-x: .25; --screen-y: 0; --screen-w: .5; --screen-h: 1;
   --dpad-x: .12; --dpad-y: .56; --l-x: .11; --l-y: .22; --select-x: .11; --select-y: .92;
   --a-x: .92; --a-y: .47; --b-x: .81; --b-y: .6; --r-x: .89; --r-y: .22; --start-x: .89; --start-y: .92;
 }
 #controller[data-layout="custom"][data-preset="lefty"] {
-  --screen-x: .2; --screen-y: 0; --screen-w: .6; --screen-h: 1;
+  --screen-x: .25; --screen-y: 0; --screen-w: .5; --screen-h: 1;
   --dpad-x: .88; --dpad-y: .56; --l-x: .11; --l-y: .22; --select-x: .11; --select-y: .92;
   --a-x: .08; --a-y: .47; --b-x: .19; --b-y: .6; --r-x: .89; --r-y: .22; --start-x: .89; --start-y: .92;
 }
@@ -653,26 +653,35 @@ body[data-theme^="cgear"] #forget-settings { border-radius: 4px; }
   #controller[data-layout="custom"], #controller[data-layout="custom"][data-preset="classic"] {
     --screen-x: .02; --screen-y: .06; --screen-w: .96; --screen-h: .44;
     --l-x: .16; --l-y: .55; --r-x: .84; --r-y: .55; --dpad-x: .26; --dpad-y: .73;
-    --a-x: .86; --a-y: .69; --b-x: .68; --b-y: .78; --select-x: .38; --select-y: .94; --start-x: .62; --start-y: .94;
+    --a-x: .86; --a-y: .69; --b-x: .68; --b-y: .78; --select-x: .34; --select-y: .94; --start-x: .66; --start-y: .94;
   }
   #controller[data-layout="custom"][data-preset="lefty"] {
     --screen-x: .02; --screen-y: .06; --screen-w: .96; --screen-h: .44;
     --l-x: .16; --l-y: .55; --r-x: .84; --r-y: .55; --dpad-x: .74; --dpad-y: .73;
-    --a-x: .14; --a-y: .69; --b-x: .32; --b-y: .78; --select-x: .38; --select-y: .94; --start-x: .62; --start-y: .94;
+    --a-x: .14; --a-y: .69; --b-x: .32; --b-y: .78; --select-x: .34; --select-y: .94; --start-x: .66; --start-y: .94;
   }
   #controller[data-layout="custom"][data-preset="one-right"] {
     --screen-x: .02; --screen-y: .06; --screen-w: .96; --screen-h: .4;
     --l-x: .3; --l-y: .52; --r-x: .76; --r-y: .52; --dpad-x: .4; --dpad-y: .68; --dpad-s: .85;
-    --a-x: .88; --a-y: .7; --b-x: .76; --b-y: .8; --select-x: .5; --select-y: .93; --start-x: .78; --start-y: .94;
+    --a-x: .88; --a-y: .7; --b-x: .76; --b-y: .8; --select-x: .47; --select-y: .93; --start-x: .78; --start-y: .94;
   }
   #controller[data-layout="custom"][data-preset="one-left"] {
     --screen-x: .02; --screen-y: .06; --screen-w: .96; --screen-h: .4;
     --l-x: .24; --l-y: .52; --r-x: .7; --r-y: .52; --dpad-x: .6; --dpad-y: .68; --dpad-s: .85;
-    --a-x: .12; --a-y: .7; --b-x: .24; --b-y: .8; --select-x: .22; --select-y: .94; --start-x: .5; --start-y: .93;
+    --a-x: .12; --a-y: .7; --b-x: .24; --b-y: .8; --select-x: .22; --select-y: .94; --start-x: .53; --start-y: .93;
   }
+}
+@media (max-width: 640px) and (min-aspect-ratio: 1/1) {
+  #controller[data-layout="custom"] { --dpad-s: .85; }
+  #controller[data-layout="custom"]:is([data-preset="classic"], [data-preset="lefty"]) {
+    --l-y: .26; --r-y: .26; --select-y: .9; --start-y: .9;
+  }
+  #controller[data-layout="custom"][data-preset="one-right"] { --dpad-s: .8; --r-x: .83; --a-x: .94; --b-x: .87; }
+  #controller[data-layout="custom"][data-preset="one-left"] { --dpad-s: .8; --a-x: .14; }
 }
 #controller[data-layout="custom"] .actions { display: contents; }
 #controller[data-layout="custom"] .actions::before { display: none; }
+#controller[data-layout="custom"] [data-shoulder] { width: clamp(76px, 12cqw, 100px); }
 #controller[data-layout="custom"] [data-module] {
   position: absolute; margin: 0; z-index: 1;
   left: calc(var(--mx) * 100cqw); top: calc(var(--my) * 100cqh); translate: -50% -50%; scale: var(--ms, 1);
@@ -708,10 +717,11 @@ body[data-theme^="cgear"] #controller[data-layout="custom"] .ab-bridge { border-
 body[data-theme^="cgear"] #controller[data-layout="custom"] :is([data-button="a"], [data-button="b"]) { outline-offset: 1px; }
 /* Edit mode (set by JS while arranging): dotted work surface, dashed module bounds, no press feedback. */
 #controller[data-editing="true"] {
+  touch-action: none;
   background: radial-gradient(circle, color-mix(in srgb, var(--label) 45%, transparent) 1px, transparent 1.5px) 0 0 / 16px 16px;
   border-radius: 12px;
 }
-#controller[data-editing="true"] [data-module] { cursor: grab; }
+#controller[data-editing="true"] :is([data-module], [data-button]) { cursor: grab; }
 /* Module bounds drawn with ::after, so the controls keep their own look while arranging. */
 #controller[data-editing="true"] [data-module]::after {
   content: ""; position: absolute; inset: -7px; border-radius: 14px; pointer-events: none;
@@ -761,7 +771,8 @@ body[data-theme^="cgear"] .editor :is(button, select) { border-radius: 4px; }
 body[data-theme^="cgear"] .editor button { background: var(--panel-2); box-shadow: inset 0 0 0 2px var(--line); }
 .editor #layout-done { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
 body[data-theme^="cgear"] .editor #layout-done { background: var(--accent-2); color: #fff; }
-.editor button:active { translate: 0 1px; }
+.editor button:active:not(:disabled) { translate: 0 1px; }
+.editor button:disabled { opacity: .45; cursor: default; }
 .editor :is(button, select, input):focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 /* Global tools vs. tools for the selected module (JS sets data-selection="true"). */
 .editor .for-module { display: none; }
@@ -844,13 +855,13 @@ body:has(#setting-frame:not(:checked)) :is(.dpad, .actions)::before { opacity: .
         <svg class="hero" viewBox="0 0 32 12" aria-hidden="true"><path class="hero-ink" d="M0 0h13v1h-13zM0 1h1v1h-1zM12 1h1v1h-1zM0 2h1v1h-1zM12 2h1v1h-1zM0 3h1v1h-1zM12 3h1v1h-1zM0 4h1v1h-1zM12 4h1v1h-1zM0 5h1v1h-1zM12 5h1v1h-1zM0 6h1v1h-1zM12 6h1v1h-1zM0 7h1v1h-1zM12 7h1v1h-1zM0 8h13v1h-13zM6 9h1v1h-1zM5 10h3v1h-3zM3 11h7v1h-7zM24 0h7v1h-7zM23 1h1v1h-1zM31 1h1v1h-1zM23 2h1v1h-1zM31 2h1v1h-1zM23 3h1v1h-1zM31 3h1v1h-1zM23 4h1v1h-1zM31 4h1v1h-1zM23 5h1v1h-1zM31 5h1v1h-1zM23 6h1v1h-1zM31 6h1v1h-1zM23 7h1v1h-1zM26 7h1v1h-1zM31 7h1v1h-1zM23 8h1v1h-1zM25 8h3v1h-3zM29 8h1v1h-1zM31 8h1v1h-1zM23 9h1v1h-1zM26 9h1v1h-1zM28 9h1v1h-1zM31 9h1v1h-1zM23 10h1v1h-1zM31 10h1v1h-1zM24 11h7v1h-7z"/><path class="hero-acc" d="M2 1h9v1h-9zM1 2h11v1h-11zM1 3h11v1h-11zM1 4h11v1h-11zM1 5h11v1h-11zM1 6h11v1h-11zM2 7h9v1h-9zM25 2h5v1h-5zM25 3h5v1h-5zM25 4h5v1h-5zM25 5h5v1h-5zM15 5h1v1h-1zM17 5h1v1h-1zM19 5h1v1h-1zM21 5h1v1h-1z"/></svg>
         <h1>Pair your Gear</h1>
         <ol class="steps">
-          <li data-n="1"><span>On the PC, set Kanto Gear's <b>Display mode</b> to <b>Phone / Browser</b>.</span></li>
+          <li data-n="1"><span>In the game, set Kanto Gear's <b>Display mode</b> to <b>Phone / Browser</b>.</span></li>
           <li data-n="2"><span>Scan the QR shown over the game, or enter its 8-digit code.</span></li>
         </ol>
         <label class="pin-label" for="pin">Pairing code</label>
         <div class="code"><input id="pin" name="pin" inputmode="numeric" autocomplete="off" pattern="[0-9]{8}" maxlength="8" minlength="8" required aria-describedby="status" spellcheck="false" enterkeyhint="go"></div>
         <button id="connect" type="submit"><span class="idle">Connect</span><span class="busy" aria-hidden="true">Connecting…</span></button>
-        <p class="hint">Private Wi-Fi only. This local connection is unencrypted.</p>
+        <p class="hint">Phone and game device on the same Wi-Fi</p>
       </div>
     </form>
     <section id="controller" data-layout="auto" data-controls="true" aria-label="Wi-Fi controller" hidden>

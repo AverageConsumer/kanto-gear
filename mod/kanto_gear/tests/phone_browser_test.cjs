@@ -114,6 +114,7 @@ for (const file of ['phone.js','phone.html']) new TextDecoder('utf-8', {fatal:tr
   await page.evaluate(()=>{vibrationMode='throw';document.querySelector('[data-button=a]').click();vibrationMode='deny';document.querySelector('[data-button=b]').click();vibrationMode=null;});
   assert((await messages()).length===beforeDenied+4, 'denied or throwing vibration never blocks game input');
   const out = path.resolve(root, '../../diagnostics/browser-previews'); fs.mkdirSync(out,{recursive:true});
+  await require('./phone_layout_cases.cjs')({page,touches,center,pair,out});
   for (const generation of [1,2]) for (const theme of ['pokegear-light','pokegear-dark','cgear-light','cgear-dark']) {
     await page.click('#settings-open'); await page.selectOption('#setting-theme',theme);
     await page.screenshot({path:path.join(out,`settings-gen${generation}-${theme}.png`)});

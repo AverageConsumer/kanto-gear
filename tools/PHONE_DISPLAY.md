@@ -18,6 +18,20 @@ Preferences stay in memory by default. Enable **Remember settings** to store
 only these choices in this browser; **Forget saved settings** removes them
 and restores defaults. Game/Gear settings and pairing keys are never stored there.
 The page uses locally bundled Pokégear and C-Gear controller designs.
+**Custom → Arrange** moves and resizes Gear and each control independently.
+Choose Classic, Left-handed, One hand · right or One hand · left as the base;
+portrait and landscape have separate presets and overrides. Drag a module to
+select it, adjust Size (0.7–1.6×), then Back for the global tools. Snap aligns
+visible edges/centers and shows guides. Overlaps and the reserved settings corner
+turn red; releasing an invalid drag restores its starting position. Reset removes
+only the current orientation's overrides; Cancel restores the entire edit session.
+The ⇅ button docks the toolbar at the other edge. Editing sends no game/Gear
+input or haptic feedback. All modules, including GBA shoulders, can be arranged
+in GB games too; shoulders remain hidden during normal GB play. In Custom mode,
+individual module sizes replace the general Button size setting.
+Done applies the layout in memory. Remember settings is required to keep it across
+reloads, only in this browser. Rotation restores the matching orientation; an
+unfinished drag is cancelled on rotation, focus loss or connection/game changes.
 Where the browser exposes `navigator.vibrate`, Settings also offers Haptics.
 An active controller button produces one short eight-millisecond pulse on press
 or when sliding to a new Dpad direction. Holds, disabled buttons and Gear's
@@ -117,7 +131,10 @@ actual Recomp Input/source bookkeeping for all three generations, including
 simultaneous holds, fast taps, keyboard coexistence and GBA shoulders.
 `node mod/kanto_gear/tests/phone_browser_test.cjs` uses Playwright with a mocked
 host to test pairing, real multitouch events, Dpad sliding, settings persistence,
-capability changes, connection loss and responsive geometry. Set
+capability changes, connection loss and responsive geometry. The layout cases
+cover touch/mouse dragging, snapping, rejected collisions/sizes, reset/cancel,
+orientation changes, opt-in storage and all four themes/presets from 320×568 to
+1280×800. Set
 `KANTO_GEAR_NODE_MODULES` to a Node modules directory containing Playwright and
 optionally `KANTO_GEAR_CHROMIUM` to the test Chromium executable.
 The `settings_option` preview accepts
