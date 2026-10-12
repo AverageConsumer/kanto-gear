@@ -108,10 +108,8 @@ local cases = {
     display.explorer, "page", 156, 214 },
   { "explorer details", "LOCAL", function() display.explorer.selected = "mon" end,
     display.explorer, "detailPage", 97, 210 },
-  { "store apps", "STORE", function() display.home.storeView = "apps"; display.home.storeDetail = nil end,
-    display.home.storePages or {}, "apps", 51, 191 },
-  { "store library", "STORE", function() display.home.storeView = "library"; display.home.storeDetail = nil end,
-    display.home.storePages or {}, "library", 55, 191 },
+  { "store apps", "STORE", function() display.home.storeView = "apps"; display.home.storeConfirm = nil end,
+    display.home.storePages or {}, "apps", 58, 164 },
   { "notes list", "NOTES", function() display.notes.view = "list" end,
     display.notes, "page", 57, 149 },
   { "notes text", "NOTES", function() display.notes.view = "text" end,
@@ -172,10 +170,10 @@ still("Apps to Widgets", function() display.home.libraryKind = "widget"; display
 still("library closing", function() display.home.library = false end)
 still("Home edit controls", function() display.home.editing = true end)
 display.home.editing = false
-settle(function() page("STORE"); display.home.storeView = "library"; display.home.storePages.library = 2 end)
+settle(function() page("STORE"); display.home.storeView = "apps"; display.home.storePages.apps = 2 end)
 still("Store tab", function() display.home.storeView = "today" end)
-still("Store detail", function() display.home.storeDetail = "notes" end)
-still("Store back", function() display.home.storeDetail = nil end)
+still("Store confirm", function() display.home.storeView = "apps"; display.home.storeConfirm = "notes" end)
+still("Store confirm closed", function() display.home.storeConfirm = nil end)
 settle(function() page("POKEDEX"); display.pokedex.view = "habitat"; display.pokedex.habitatPage = 2 end)
 still("Dex tab resets pages", function() display.pokedex.view = "moves"; display.pokedex.movePage = 1 end)
 still("Dex species selection", function() display.pokedex.selected = 2 end)

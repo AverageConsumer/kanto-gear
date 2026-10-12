@@ -192,8 +192,9 @@ display.activateStoreEntry(display.storeEntry(display.storeById.bag))
 T.eq(#pulses, 8, "successful Store installation confirms once")
 T.eq(pulses[8], 0.020, "Store installation uses the confirmation cue")
 now = now + 1
-display.home.storeDetail = "bag"
-display.tapStore(180, 65)
+display.home.storeView, display.home.storeGearSel = "library", "bag"
+display.tapStore(196, 190)
+display.tapStore(60, 188)
 T.eq(#pulses, 9, "successful Store removal confirms once")
 T.eq(pulses[9], 0.020, "Store removal uses the confirmation cue")
 now = now + 1

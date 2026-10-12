@@ -320,28 +320,32 @@ function love.load()
       "Field Kit touch targets follow visible ready cards and rod rows")
   end
   if screen:sub(1, 5) == "store" then
-    local action = theme:storeHit(180, 55, "detail")
-    local remove = theme:storeHit(180, 65, "detail")
-    local featured = theme:storeHit(20, 60, "today")
-    local featuredAction = theme:storeHit(70, 90, "today")
-    local recommendation, index = theme:storeHit(150, 160, "today")
-    local app, appIndex = theme:storeHit(150, 110, "apps")
-    local installed, installedIndex = theme:storeHit(20, 135, "library")
-    local storePagePrevious = theme:storeHit(160, 42, "apps")
-    local storePageNext = theme:storeHit(220, 42, "library")
-    local tab, tabIndex = theme:storeHit(170, 202, "today")
+    local tab, tabIndex = theme:storeHit(170, 40, "apps", { pages = 3 })
+    local row, rowIndex = theme:storeHit(60, 140, "apps", { pages = 3 })
+    local pageUp = theme:storeHit(154, 70, "apps", { pages = 3 })
+    local pageDown = theme:storeHit(154, 150, "apps", { pages = 3 })
+    local buy = theme:storeHit(190, 140, "apps", { pages = 3 })
+    local yes = theme:storeHit(60, 190, "apps", { confirm = "pss" })
+    local no = theme:storeHit(200, 190, "apps", { confirm = "pss" })
+    local blocked = theme:storeHit(60, 140, "apps", { confirm = "pss" })
+    local slot, slotIndex = theme:storeHit(130, 140, "library")
+    local toHome = theme:storeHit(120, 190, "library")
+    local remove = theme:storeHit(200, 190, "library")
+    local note, noteIndex = theme:storeHit(150, 180, "today")
+    local openNow = theme:storeHit(60, 190, "received")
+    local later = theme:storeHit(200, 190, "received")
     local previous = theme:storeHit(34, 13, "today")
     local nextPage = theme:storeHit(130, 13, "today")
-    assert(action == "action" and remove == "remove"
-        and featured == "featured" and featuredAction == "featured_action"
-        and recommendation == "recommendation" and index == 2
-        and app == "app" and appIndex == 4
-        and installed == "installed" and installedIndex == 3
-        and storePagePrevious == "page_prev"
-        and storePageNext == "page_next"
-        and tab == "tab" and tabIndex == 3
+    assert(tab == "tab" and tabIndex == 3
+        and row == "row" and rowIndex == 4
+        and pageUp == "page_prev" and pageDown == "page_next"
+        and buy == "action" and yes == "yes" and no == "no" and blocked == nil
+        and slot == "slot" and slotIndex == 11
+        and toHome == "home" and remove == "remove"
+        and note == "note" and noteIndex == 2
+        and openNow == "open" and later == "later"
         and previous == "prev" and nextPage == "next"
-        and theme:storeHit(34, 13, "detail") == nil,
+        and theme:storeHit(34, 13, "received") == nil,
       "Silph Store touch targets match every visible control")
   end
   assert(theme:battleEffectLabel({ powerText = "95", effectiveness = 20 })
@@ -614,9 +618,9 @@ function love.load()
   local bag = bagOverview or bagDetail
   local home = homePreview
   local homeEdit, homeAdd = screen == "home-edit", screen == "home-add"
-  local storeToday, storeApps = screen == "store", screen == "store-apps"
-  local storeLibrary, storeDetail = screen == "store-library",
-    screen == "store-detail"
+  local storeToday, storeApps = screen == "store-news", screen == "store" or screen == "store-confirm"
+  local storeLibrary, storeDetail = screen == "store-library" or screen == "store-remove",
+    screen == "store-received"
   local trainerScreen, trainerSteps = screen == "trainer",
     screen == "trainer_steps"
   local toolsScreen = screen == "tools"
@@ -657,9 +661,7 @@ function love.load()
   local statsTitle = format("STATS %d/%d", 1, gen1 and 2 or 3)
   local movesTitle = format("MOVES %d/%d", 2, gen1 and 2 or 3)
   local pssScreen = screen:sub(1, 3) == "pss"
-  local title = pssScreen and screen ~= "pss-home" and screen:sub(1, 10) ~= "pss-widget" and "SILPH CONNECT" or storeDetail and
-      (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "pss" and "SILPH CONNECT"
-        or (os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "NOTES"):upper())
+  local title = pssScreen and screen ~= "pss-home" and screen:sub(1, 10) ~= "pss-widget" and "SILPH CONNECT"
     or store and "SILPH STORE"
     or homeAdd and "ADD TO HOME"
     or homeEdit and "EDIT HOME"
@@ -755,7 +757,7 @@ function love.load()
         or context or summary
         or moves or memo or memoTransition or summaryMoveInfo
         or transition or movesTransition,
-      not pssScreen and (store and not storeDetail
+      not pssScreen and (store and not storeDetail and screen ~= "store-confirm" and screen ~= "store-remove"
         or pokedexProfile or pokedexHabitat or pokedexStats or pokedexMoves
         or not home and not store and not explorer and not regionMap
         and not legacy and not summaryMoveInfo
@@ -2127,52 +2129,38 @@ function love.load()
         label = gen1 and "FUCHSIA CITY" or "GOLDENROD CITY" })
     end
   elseif storeToday then
-    theme:storeToday({
-      featured = storeCatalog[4],
-      recommended = {
-        { id = "party", icon = "party", label = "PARTY",
-          reason = "TEAM STATUS", state = "open" },
-        { id = "bag", icon = "bag", label = "BAG",
-          reason = "ITEM POCKETS", action = "GET", state = "get" },
-      },
-    })
+    local byId = {}
+    for _, app in ipairs(storeCatalog) do byId[app.id] = app end
+    theme:storeNews({ featured = byId.pss, pick = byId.pokedex, second = byId.achievements })
   elseif storeApps then
-    local page, size = tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1, 6
+    local page, size = tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1, 4
     local pages, apps = math.ceil(#storeCatalog / size), {}
     page = math.max(1, math.min(pages, page))
     for index = (page - 1) * size + 1,
         math.min(#storeCatalog, page * size) do
       apps[#apps + 1] = storeCatalog[index]
     end
-    theme:storeApps({ apps = apps, page = page, pages = pages })
+    local pick = tonumber(os.getenv("KANTO_GEAR_PREVIEW_STORE_ROW")) or 1
+    theme:storeBuy({ apps = apps, selected = apps[pick] or apps[1], page = page, pages = pages,
+      confirm = screen == "store-confirm" and (apps[pick] or apps[1]).id or nil, confirmKind = "install" })
   elseif storeLibrary then
-    local installed = {
-      storeCatalog[1], storeCatalog[2], storeCatalog[3], storeCatalog[5],
-      storeCatalog[6], storeCatalog[7], storeCatalog[8],
-    }
-    local page, size = tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1, 4
-    local pages, apps = math.ceil(#installed / size), {}
-    page = math.max(1, math.min(pages, page))
-    for index = (page - 1) * size + 1, math.min(#installed, page * size) do
-      apps[#apps + 1] = installed[index]
+    local installed = {}
+    for _, app in ipairs(storeCatalog) do
+      if app.state == "open" then installed[#installed + 1] = app end
     end
-    theme:storeMyApps({
-      summary = format("%d APPS READY", #installed), apps = apps,
-      page = page, pages = pages,
-    })
+    local pick = tonumber(os.getenv("KANTO_GEAR_PREVIEW_STORE_ROW")) or 3
+    local selected = installed[pick] or installed[1]
+    selected.removable = selected.id ~= "explorer" and selected.id ~= "map"
+    theme:storeGear({ apps = installed, selected = selected, page = 1, pages = 1,
+      onHome = pick == 1, canPlace = true,
+      confirm = screen == "store-remove" and selected.id or nil })
   elseif storeDetail then
-    local detailId = os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "notes"
+    local detailId = os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") or "pss"
     local detail
     for _, app in ipairs(storeCatalog) do
       if app.id == detailId then detail = app break end
     end
-    detail = detail or storeCatalog[#storeCatalog]
-    detail.publisher = "SILPH CO."
-    detail.description = detail.description or {
-      "A REAL LOOK INSIDE THE APP.", "BUILT FOR THE TOUCH SCREEN.",
-      "EVERYTHING CLOSE AT HAND.",
-    }
-    theme:storeDetail({ app = detail })
+    theme:storeReceived({ app = detail or storeCatalog[1] })
   elseif screen:sub(1, 8) == "settings" and screen ~= "settings_option" and not (os.getenv("KANTO_GEAR_PREVIEW_OLD_SETTINGS") == "1") then
     local TABS = {
       { id = "appearance", label = "APPEARANCE", detail = "LANGUAGE, THEME AND CLOCK", accent = "blue" },

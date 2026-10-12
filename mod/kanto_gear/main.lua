@@ -2749,7 +2749,7 @@ return function(mod)
     displayRuntime.storeById[app.id] = app
   end
   displayRuntime.home = {
-    page = 1, storeView = "today", storePages = {}, libraryKind = "app",
+    page = 1, storeView = "apps", storePages = {}, libraryKind = "app",
   }
   displayRuntime.settings = { page = 1 }
   displayRuntime.settingsCategories = {
@@ -5919,7 +5919,8 @@ return function(mod)
       home.library and ("library-" .. tostring(home.libraryKind)
         .. "-" .. tostring(home.libraryPage)) or "",
       page == "HOME" and tostring(home.page) or "",
-      page == "STORE" and tostring(home.storeDetail or home.storeView) or "",
+      page == "STORE" and table.concat({ tostring(home.storeView), tostring(home.storeSel),
+        tostring(home.storeGearSel), tostring(home.storeConfirm), tostring(home.storeReceived) }, ":") or "",
       page == "STORE" and tostring((home.storePages or {})[home.storeView or "today"]) or "",
       page == "SETTINGS" and tostring(displayRuntime.settings.category) or "",
       page == "SETTINGS" and tostring(displayRuntime.settings.page) or "",
@@ -6034,8 +6035,8 @@ return function(mod)
     elseif page == "STORE" then
       local home = displayRuntime.home
       local view = home.storeView or "today"
-      if not home.storeDetail and (view == "apps" or view == "library") then
-        region(view, (home.storePages or {})[view], view == "apps" and 51 or 55, 191)
+      if not home.storeConfirm and not home.storeReceived and (view == "apps" or view == "library") then
+        region(view, (home.storePages or {})[view], 58, view == "apps" and 164 or 170)
       end
     elseif page == "TOOLS" then region("tools", tools.page, 30, 199)
     end
@@ -8774,7 +8775,7 @@ return function(mod)
     return apps
   end
 
-  displayRuntime.storePageSizes = { apps = 6, library = 4 }
+  displayRuntime.storePageSizes = { apps = 4, library = 12 }
   function displayRuntime.storePageSlice(entries, page, size)
     local pages = math.max(1, math.ceil(#entries / size))
     page = math.max(1, math.min(pages, tonumber(page) or 1))
@@ -8811,12 +8812,12 @@ return function(mod)
 
   function displayRuntime.storeSwipeTarget(view, y, pages)
     return (view == "apps" or view == "library")
-      and (pages or 1) > 1 and y >= 53 and y < 195
+      and (pages or 1) > 1 and y >= 58 and y < 170
   end
-  assert(displayRuntime.storeSwipeTarget("apps", 53, 2)
-      and displayRuntime.storeSwipeTarget("library", 194, 3)
-      and not displayRuntime.storeSwipeTarget("apps", 52, 2)
-      and not displayRuntime.storeSwipeTarget("apps", 195, 2)
+  assert(displayRuntime.storeSwipeTarget("apps", 58, 2)
+      and displayRuntime.storeSwipeTarget("library", 169, 3)
+      and not displayRuntime.storeSwipeTarget("apps", 57, 2)
+      and not displayRuntime.storeSwipeTarget("apps", 170, 2)
       and not displayRuntime.storeSwipeTarget("apps", 100, 1)
       and not displayRuntime.storeSwipeTarget("today", 100, 2),
     "Silph Store app-grid swipes target paginated app lists")
@@ -8858,7 +8859,7 @@ return function(mod)
 
   function displayRuntime.cycleStoreView(direction)
     local home = displayRuntime.home
-    local views = { "today", "apps", "library" }
+    local views = { "apps", "library", "today" }
     local current = 1
     for index, view in ipairs(views) do
       if view == home.storeView then current = index break end
@@ -8913,32 +8914,83 @@ return function(mod)
     return entry
   end
 
+  -- The store's picked app per tab, kept on the page being shown.
+  function displayRuntime.storeSelection(view)
+    local home = displayRuntime.home
+    local entries = displayRuntime.storeEntries(view == "library")
+    local shown, page, pages, offset = displayRuntime.storePage(view, entries)
+    local key = view == "library" and "storeGearSel" or "storeSel"
+    local selected
+    for _, entry in ipairs(shown) do
+      if entry.id == home[key] then selected = entry end
+    end
+    selected = selected or shown[1]
+    home[key] = selected and selected.id or nil
+    return selected, shown, page, pages, offset, entries
+  end
+  -- Jump BUY to an app: its page, its row.
+  function displayRuntime.storeShow(id)
+    local home = displayRuntime.home
+    home.storeView, home.storeSel = "apps", id
+    for index, entry in ipairs(displayRuntime.storeEntries()) do
+      if entry.id == id then
+        home.storePages = home.storePages or {}
+        home.storePages.apps = math.ceil(index / displayRuntime.storePageSizes.apps)
+      end
+    end
+  end
+  function displayRuntime.storeOnHome(id)
+    for _, tile in ipairs(displayRuntime.home.layout.tiles or {}) do
+      local surface = displayRuntime.homeCatalog.surfaces[tile.id]
+      if surface and surface.package == id then return true end
+    end
+    return false
+  end
+  -- First free spot for the app's home key: existing pages, then a new one.
+  function displayRuntime.storeHomeSpot(id)
+    local Home, layout = displayRuntime.Home, displayRuntime.home.layout
+    local surface = id .. "_app"
+    if not displayRuntime.homeCatalog.surfaces[surface] then return nil end
+    for homePage = 1, Home.pageCount(layout) + 1 do
+      for row = 1, Home.rows do
+        for column = 1, Home.columns do
+          if Home.canPlace(layout, displayRuntime.homeCatalog, surface, homePage, column, row) then
+            return surface, homePage, column, row
+          end
+        end
+      end
+    end
+  end
+  -- NEWS: the featured app, then the two apps you don't have yet.
+  function displayRuntime.storeNewsEntries()
+    local today = displayRuntime.storeTodayEntries()
+    local featured, picks = today[1], {}
+    for _, entry in ipairs(displayRuntime.storeEntries()) do
+      if #picks < 2 and entry.id ~= featured.id and entry.state == "get" then picks[#picks + 1] = entry end
+    end
+    picks[1] = picks[1] or today[2]
+    picks[2] = picks[2] or today[3]
+    return featured, picks[1], picks[2]
+  end
+
   function displayRuntime.drawStore()
     local home, view = displayRuntime.home, displayRuntime.home.storeView
-    local detail = home.storeDetail and displayRuntime.enrichStorePreview(
-      displayRuntime.storeEntry(displayRuntime.storeById[home.storeDetail]))
-    header(THEME:translate(detail and detail.label or "SILPH STORE"),
-      true, not detail)
+    header(THEME:translate("SILPH STORE"), true, not home.storeConfirm and not home.storeReceived)
     G.push(); G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-    if detail then
-      THEME.hgss:storeDetail({ app = detail })
-    elseif view == "apps" then
-      local apps, page, pages = displayRuntime.storePage(
-        view, displayRuntime.storeEntries())
-      THEME.hgss:storeApps({ apps = apps, page = page, pages = pages })
+    if home.storeReceived then
+      THEME.hgss:storeReceived({ app = displayRuntime.storeEntry(displayRuntime.storeById[home.storeReceived]) })
     elseif view == "library" then
-      local all = displayRuntime.storeEntries(true)
-      local apps, page, pages = displayRuntime.storePage(view, all)
-      THEME.hgss:storeMyApps({
-        summary = THEME:format("%d APPS READY", #all), apps = apps,
-        page = page, pages = pages,
-      })
+      local selected, apps, pagesShown, pages = displayRuntime.storeSelection(view)
+      THEME.hgss:storeGear({ apps = apps, selected = selected, page = pagesShown, pages = pages,
+        confirm = home.storeConfirm, onHome = selected and displayRuntime.storeOnHome(selected.id),
+        canPlace = selected and displayRuntime.storeHomeSpot(selected.id) ~= nil })
+    elseif view == "today" then
+      local featured, pick, second = displayRuntime.storeNewsEntries()
+      THEME.hgss:storeNews({ featured = featured, pick = pick, second = second })
     else
-      local today = displayRuntime.storeTodayEntries()
-      displayRuntime.enrichStorePreview(today[1])
-      THEME.hgss:storeToday({
-        featured = today[1], recommended = { today[2], today[3] },
-      })
+      local selected, apps, pagesShown, pages = displayRuntime.storeSelection("apps")
+      THEME.hgss:storeBuy({ apps = apps, selected = selected, page = pagesShown, pages = pages,
+        confirm = home.storeConfirm, confirmKind = home.storeConfirmKind })
     end
     G.pop()
   end
@@ -12009,7 +12061,8 @@ return function(mod)
     home.swapSource = nil
     home.activeApp = id
     if id == "store" then
-      home.storeView, home.storeDetail, page = "today", nil, "STORE"
+      home.storeView, page = "apps", "STORE"
+      home.storeDetail, home.storeConfirm, home.storeReceived = nil, nil, nil
       dirty = true
       return true
     end
@@ -12349,60 +12402,89 @@ return function(mod)
   function displayRuntime.tapStore(x, y)
     local home = displayRuntime.home
     if y < 30 and x < 22 then
-      if home.storeDetail then home.storeDetail = nil
+      if home.storeConfirm then home.storeConfirm = nil
+      elseif home.storeReceived then home.storeReceived = nil
       else page, home.activeApp = "HOME", nil end
       dirty = true
       return
     end
-    local detail = home.storeDetail and displayRuntime.storeEntry(
-      displayRuntime.storeById[home.storeDetail])
-    local view = detail and "detail" or home.storeView
-    local action, index = THEME.hgss:storeHit(x, y, view)
-    if action == "prev" or action == "next" then
-      displayRuntime.cycleStoreView(action == "next" and 1 or -1)
+    local view = home.storeReceived and "received" or home.storeView
+    local selected, _, _, pages = nil, nil, nil, 1
+    if view == "apps" or view == "library" then
+      selected, _, _, pages = displayRuntime.storeSelection(view)
+    end
+    local action, index = THEME.hgss:storeHit(x, y, view,
+      { pages = pages, confirm = home.storeConfirm })
+    if not action then return end
+    if view == "received" then
+      local id = home.storeReceived
+      home.storeReceived = nil
+      if action == "open" and displayRuntime.openHomeApp(id) then
+        displayRuntime.haptic("open")
+      end
       dirty = true
       return
     end
-    if action == "page_prev" or action == "page_next" then
-      displayRuntime.cycleStorePage(view,
-        action == "page_next" and 1 or -1)
-      dirty = true
-      return
-    end
-    if view == "detail" then
-      if action == "remove" and detail.removable then
-        if displayRuntime.setPackageInstalled(detail.id, false) then
+    if home.storeConfirm then
+      local id, kind = home.storeConfirm, home.storeConfirmKind
+      home.storeConfirm, home.storeConfirmKind = nil, nil
+      if action == "yes" then
+        if kind == "remove" then
+          if displayRuntime.setPackageInstalled(id, false) then displayRuntime.haptic("confirm") end
+        elseif displayRuntime.setPackageInstalled(id, true) then
+          home.storeReceived = id
           displayRuntime.haptic("confirm")
         end
-      elseif action == "action" then
-        displayRuntime.activateStoreEntry(detail)
       end
+      dirty = true
       return
     end
-    if action == "tab" then
-      home.storeView = ({ "today", "apps", "library" })[index]
-    elseif view == "today" then
-      local entries = displayRuntime.storeTodayEntries()
-      if action == "featured_action" then
-        displayRuntime.activateStoreEntry(entries[1])
-      elseif action == "featured" then home.storeDetail = entries[1].id
-      elseif action == "recommendation" then
-        home.storeDetail = entries[index + 1].id
+    if action == "prev" or action == "next" then
+      local direction = action == "next" and 1 or -1
+      displayRuntime.requestPageMotion(direction)
+      displayRuntime.cycleStoreView(direction)
+    elseif action == "tab" then
+      local target = ({ "apps", "library", "today" })[index]
+      if target ~= view then
+        local order = { apps = 1, library = 2, today = 3 }
+        displayRuntime.requestPageMotion(order[target] > (order[view] or 1) and 1 or -1)
+        home.storeView = target
       end
-    elseif view == "apps" then
-      local entries = displayRuntime.storeEntries()
-      local _, _, _, offset = displayRuntime.storePage(view, entries)
-      local entry = index and entries[offset + index]
-      if action == "app_action" then
-        displayRuntime.activateStoreEntry(entry)
-      elseif action == "app" and entry then home.storeDetail = entry.id end
-    elseif view == "library" then
-      local entries = displayRuntime.storeEntries(true)
-      local _, _, _, offset = displayRuntime.storePage(view, entries)
-      local entry = index and entries[offset + index]
-      if action == "installed_action" then
-        displayRuntime.activateStoreEntry(entry)
-      elseif action == "installed" and entry then home.storeDetail = entry.id end
+    elseif action == "page_prev" or action == "page_next" then
+      displayRuntime.cycleStorePage(view, action == "page_next" and 1 or -1)
+      home[view == "library" and "storeGearSel" or "storeSel"] = nil
+    elseif action == "row" or action == "slot" then
+      local _, shown = displayRuntime.storeSelection(view)
+      local entry = shown[index]
+      if not entry then return end
+      home[view == "library" and "storeGearSel" or "storeSel"] = entry.id
+      displayRuntime.haptic()
+    elseif view == "apps" and action == "action" and selected then
+      if selected.state == "get" then
+        home.storeConfirm, home.storeConfirmKind = selected.id, "install"
+      elseif selected.state == "open" and displayRuntime.openHomeApp(selected.id) then
+        displayRuntime.haptic("open")
+      end
+    elseif view == "library" and selected then
+      if action == "open" then
+        if displayRuntime.openHomeApp(selected.id) then displayRuntime.haptic("open") end
+      elseif action == "home" and not displayRuntime.storeOnHome(selected.id) then
+        local surface, homePage, column, row = displayRuntime.storeHomeSpot(selected.id)
+        if surface and displayRuntime.Home.place(displayRuntime.home.layout,
+            displayRuntime.homeCatalog, surface, homePage, column, row) then
+          displayRuntime.saveHome()
+          displayRuntime.haptic("confirm")
+        end
+      elseif action == "remove" and selected.removable then
+        home.storeConfirm, home.storeConfirmKind = selected.id, "remove"
+      end
+    elseif view == "today" and action == "note" then
+      local featured, pick, second = displayRuntime.storeNewsEntries()
+      local entry = ({ featured, pick, second })[index]
+      if entry then
+        displayRuntime.requestPageMotion(-1)
+        displayRuntime.storeShow(entry.id)
+      end
     end
     dirty = true
   end
@@ -13335,8 +13417,10 @@ return function(mod)
       return
     elseif THEME.style == "hgss" and page == "STORE" then
       local home = displayRuntime.home
-      if home.storeDetail then home.storeDetail = nil
-      else displayRuntime.cycleStoreView(direction) end
+      if not home.storeConfirm and not home.storeReceived then
+        displayRuntime.requestPageMotion(direction)
+        displayRuntime.cycleStoreView(direction)
+      end
       dirty = true
       return
     elseif THEME.style == "hgss" and page == "POKEDEX" then
@@ -14103,7 +14187,7 @@ return function(mod)
         or view == "apps" and displayRuntime.storeEntries()
       local pages = entries and select(3,
         displayRuntime.storePage(view, entries)) or 1
-      if not home.storeDetail and displayRuntime.storeSwipeTarget(view,
+      if not home.storeConfirm and not home.storeReceived and displayRuntime.storeSwipeTarget(view,
           (down.y or 0) * THEME.hgssScale, pages) then
         displayRuntime.cycleStorePage(view, direction)
         dirty = true

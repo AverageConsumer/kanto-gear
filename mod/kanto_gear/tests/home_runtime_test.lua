@@ -187,11 +187,14 @@ local function tapStoreAppAction(id)
   end
   assert(type(absolute) == "number", "missing Store app " .. id)
   local size = display.storePageSizes.apps
-  home.storeView = "apps"
+  home.storeView, home.storeConfirm = "apps", nil
   home.storePages.apps = math.ceil(absolute / size)
   local visible = (absolute - 1) % size
-  local column, row = visible % 2, math.floor(visible / 2)
-  display.tapStore(7 + column * 115 + 57, 53 + row * 44 + 33)
+  -- touch the app's row, its key on the picked pak, then YES
+  display.tapStore(60, 62 + visible * 25 + 8)
+  display.tapStore(198, 140)
+  display.tapStore(60, 188)
+  home.storeReceived = nil
 end
 local appWidgets = {
   pokedex = { id = "pokedex_widget", columns = 5 },
@@ -384,8 +387,9 @@ display.setPackageInstalled("tools", false)
 tapStoreAppAction("tools")
 T.eq(display.storeEntry(store.tools).state, "open",
   "the visible GET button enables its matching app")
-home.storeDetail = "tools"
-display.tapStore(180, 65)
+home.storeView, home.storeGearSel = "library", "tools"
+display.tapStore(196, 190)
+display.tapStore(60, 188)
 T.eq(display.storeEntry(store.tools).state, "get",
   "the detail REMOVE button disables its matching app")
 display.setPackageInstalled("tools", true)
@@ -557,7 +561,7 @@ T.check(pcall(display.drawContents),
   "the real Store runtime model renders without an exception")
 display.prepareMotion()
 local storeMotionKey = display.motionKey()
-home.storeView = "apps"
+home.storeView = "library"
 T.check(display.motionKey() ~= storeMotionKey,
   "Store subviews receive distinct redraw identities")
 display.prepareMotion()
