@@ -120,9 +120,39 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     for i,row in ipairs(model.entries) do
       if view.battleTargets[i]==0 then T.eq(row.effectiveness,5,"second partner previews its move against the first partner") end
     end
+    local presence={}
+    for id=0,3 do
+      local b=st.battlers[id]
+      presence[id]={hp=b.mon.hp,fainted=b.fainted,absent=st.absent[id]}
+    end
+    for _,active in ipairs({0,2}) do
+      for _,foe in ipairs({1,3}) do
+        for id=0,3 do
+          local b=st.battlers[id]
+          local alive=id==active or id==foe
+          st.absent[id],b.fainted,b.mon.hp=not alive,not alive,alive and 20 or 0
+        end
+        st.battlers[active].mon.moves[1]=53
+        st.battlers[foe].type1,st.battlers[foe].type2=12,8
+        local otherFoe=foe==1 and 3 or 1
+        st.battlers[otherFoe].type1,st.battlers[otherFoe].type2=11,11
+        Ui.openMenu(active);Ui._openMoveMenu();refresh()
+        T.eq(up(refresh,"battle").target,nil,"one-versus-one preview does not invent a selected cursor")
+        T.eq(up(refresh,"battle").moves[1].effectiveness,40,"either survivor pair shows its live foe's matchup on move cards")
+        local partner=(active+2)%4
+        st.absent[partner],st.battlers[partner].fainted,st.battlers[partner].mon.hp=false,false,20
+        refresh()
+        T.eq(up(refresh,"battle").moves[1].effectiveness,nil,"a returning partner makes the move-card target ambiguous again")
+        st.absent[partner],st.battlers[partner].fainted,st.battlers[partner].mon.hp=true,true,0
+        st.absent[otherFoe],st.battlers[otherFoe].fainted,st.battlers[otherFoe].mon.hp=false,false,20
+        refresh()
+        T.eq(up(refresh,"battle").moves[1].effectiveness,nil,"a second living foe restores per-target matchup selection")
+      end
+    end
     for id=0,3 do
       local b=st.battlers[id]
       b.type1,b.type2,b.mon.moves[1]=unpack(saved[id])
+      b.mon.hp,b.fainted,st.absent[id]=presence[id].hp,presence[id].fainted,presence[id].absent
     end
     setHints(hints)
     Ui.openMenu(0);refresh()

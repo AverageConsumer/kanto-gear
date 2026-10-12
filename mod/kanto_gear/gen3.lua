@@ -762,15 +762,29 @@ function Gen3:battleSnapshot(snapshot)
       out.hp, out.maxHp = math.floor(hp), maxHp
     end
   end
+  -- A double battle can finish as one versus one. Use the sole living foe
+  -- only when no ally or second opponent remains as another possible target.
+  local target = st.double and snapshot.target ~= nil and st.battlers[snapshot.target]
+    or not st.double and st.enemy
+  if st.double and not target then
+    local players, enemies = 0, 0
+    for id = 0, 3 do
+      local candidate = st.battlers and st.battlers[id]
+      if candidate and not (st.absent and st.absent[id]) and not candidate.fainted
+          and (tonumber(candidate.mon and candidate.mon.hp) or 0) > 0 then
+        if id % 2 == 0 then players = players + 1
+        else enemies, target = enemies + 1, candidate end
+      end
+    end
+    if players ~= 1 or enemies ~= 1 then target = nil end
+  end
   for index, move in ipairs(snapshot.moves or {}) do
     if snapshot.prompt == "moves" then
       local reason = require("src.core.game3.battle.commands").selectionError(st, move.slot or index, snapshot.active)
       move.disabled, move.disabledReason = reason ~= nil, reason and self:plainText((reason:gsub("\\[pl]", " ")))
     end
     move.id = self.Moves.constName(move.id)
-    -- Base type matchup, as in the other editions. Doubles need an explicit target.
-    local target = st.double and snapshot.target ~= nil and st.battlers[snapshot.target]
-      or not st.double and st.enemy
+    -- Base type matchup, as in the other editions.
     if target and move.id ~= "HIDDEN_POWER" and move.id ~= "WEATHER_BALL" then
       move.effectiveness = self.Types.effectiveness(move.type, target.type1, target.type2) * 10
     end
