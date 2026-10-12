@@ -6502,7 +6502,7 @@ return function(mod)
         typeLabel = THEME:typeName(types[1], mod.content), type2Label = THEME:typeName(types[2] or types[1], mod.content) },
       newMove = hgssRuntime.moveView(learn.newMoveId), newLabel = THEME:translate("NEW"),
       details = assist("move_details"), choices = question and choices,
-      selection = question and compat.choiceIndex(choice, field),
+      selection = question and compat.choiceIndex(choice, field or "index"),
       enabled = choice ~= nil, prompt = question and question.prompt,
       drawPokemon = function(x, y, size)
         drawSprite(mon.species, "front", x, y, size, size, nil, learn.rawMon or mon.source or mon)
@@ -9132,6 +9132,24 @@ return function(mod)
     elseif battle.enemy then
       enemyTeam[1] = teamState(battle.enemy)
     end
+    -- The engine computes damage before its HP drain. Team balls must follow
+    -- the same displayed battler as the HUD, including both doubles partners.
+    local function shownTeam(side, team, party)
+      local native = raw and (raw[side] or raw.battle and raw.battle[side])
+      for _, shown in ipairs(battle.double and battle.battlers or { battle[side] }) do
+        if not battle.double or shown.side == side then
+          local slot = shown.partyIndex
+          if not slot and native then
+            for index, mon in ipairs(party or {}) do
+              if mon == (native.mon or native) then slot = index; break end
+            end
+          end
+          if slot and team[slot] then team[slot] = teamState(shown) end
+        end
+      end
+    end
+    shownTeam("player", playerTeam, game.save.party)
+    shownTeam("enemy", enemyTeam, enemies)
     if battle.kind == "wild" or battle.wild then
       local enemy = battle.enemy or {}
       local def = game.data.pokemon[enemy.species] or {}
@@ -11661,7 +11679,10 @@ return function(mod)
           local shown = raw.shownHp and raw.shownHp[side]
           copy.hp = math.max(0, math.floor(copy.nativeShownHp or source.shownHP or shown
             or mon.hp or copy.hp or 0))
-          copy.status = source.shownStatus or copy.status
+          if source.shownStatus ~= nil then copy.status = source.shownStatus end
+          if raw.shownStatus and raw.shownStatus[side] ~= nil then
+            copy.status = raw.shownStatus[side]
+          end
           if side == "player" and compat.isGen2() then
             copy.level = raw.shownLevel or copy.level
           end
@@ -11685,6 +11706,8 @@ return function(mod)
         (battle.player and battle.player.hp) ~= (nextBattle.player and nextBattle.player.hp)
         or (battle.player and battle.player.level) ~= (nextBattle.player and nextBattle.player.level)
         or (battle.player and battle.player.maxHp) ~= (nextBattle.player and nextBattle.player.maxHp)
+        or (battle.player and battle.player.status) ~= (nextBattle.player and nextBattle.player.status)
+        or (battle.enemy and battle.enemy.status) ~= (nextBattle.enemy and nextBattle.enemy.status)
         or (battle.enemy and battle.enemy.hp) ~= (nextBattle.enemy and nextBattle.enemy.hp)
         or (battle.enemy and battle.enemy.level) ~= (nextBattle.enemy and nextBattle.enemy.level)
         or (battle.enemy and battle.enemy.maxHp) ~= (nextBattle.enemy and nextBattle.enemy.maxHp)

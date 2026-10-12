@@ -375,5 +375,32 @@ do
   def.growthRate = savedGrowth
   api.battle.snapshot = originalSnapshot
 end
+-- Native damage is final before the HP drain and status text are displayed.
+do
+  local foe = { species=mon.species, hp=0, status="PSN", level=10 }
+  mon.hp=0; mon.status="PSN"
+  snapshot.party={ {species=mon.species,hp=0,status="PSN",slot=1} }
+  snapshot.player={species=mon.species,hp=0,maxHp=30,status="PSN",level=10}
+  snapshot.enemy={species=mon.species,hp=0,maxHp=30,status="PSN",level=10}
+  if gen==1 then
+    raw.player,raw.enemy={mon=mon,shownHP=12,shownStatus=false},{mon=foe,shownHP=9,shownStatus=false}
+    raw.enemyParty={foe}
+  else
+    raw.battle={player=mon,enemy=foe,party={mon},enemyParty={foe}}
+    raw.shownHp={player=12,enemy=9};raw.shownStatus={player=false,enemy=false}
+  end
+  refresh()
+  local players,enemies=runtime.battleTeams()
+  T.eq(players[1].alive,true,"team ball follows displayed player HP")
+  T.eq(enemies[1].alive,true,"team ball follows displayed enemy HP")
+  T.check(not players[1].status,"unshown player status does not leak")
+  T.check(not enemies[1].status,"unshown foe status does not leak")
+  if gen==1 then raw.player.shownHP,raw.enemy.shownHP=0,0
+  else raw.shownHp.player,raw.shownHp.enemy=0,0 end
+  refresh();players,enemies=runtime.battleTeams()
+  T.eq(players[1].alive,false,"team ball faints with the player HP bar")
+  T.eq(enemies[1].alive,false,"team ball faints with the enemy HP bar")
+end
+
 run.release()
 T.finish("Battle modes Gen " .. gen)

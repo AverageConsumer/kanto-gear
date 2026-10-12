@@ -124,3 +124,5 @@ tests/explorer_items_cases.lua
 tests/explorer_items3_test.lua
 tests/gen3_module_cache_test.lua
 tests/gen3_inventory_projection_test.lua
+
+tests/gen3_battle_presentation_test.lua

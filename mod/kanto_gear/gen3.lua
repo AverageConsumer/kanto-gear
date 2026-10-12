@@ -788,6 +788,11 @@ function Gen3:battleSnapshot(snapshot)
       out.hp, out.maxHp = math.floor(hp), maxHp
       out.level = level or out.level
       out.nativeShownHp = out.hp
+      out.partyIndex = nil
+      for index, mon in ipairs(side == "player" and st.playerParty or st.foeParty or {}) do
+        if shown and shown.mon == mon then out.partyIndex = index; break end
+      end
+      if out.hp > 0 and out.status == "FNT" then out.status = nil end
     end
   end
   -- The four slots keep battlefield identity even when the active command
@@ -803,6 +808,11 @@ function Gen3:battleSnapshot(snapshot)
       local _, level = self.Anim.displayExpRatio(key, shown)
       out.hp, out.maxHp = math.floor(hp), maxHp
       out.level = level or out.level
+      out.partyIndex = nil
+      for index, mon in ipairs(out.side == "player" and st.playerParty or st.foeParty or {}) do
+        if shown and shown.mon == mon then out.partyIndex = index; break end
+      end
+      if out.hp > 0 and out.status == "FNT" then out.status = nil end
     end
   end
   -- A double battle can finish as one versus one. Use the sole living foe
