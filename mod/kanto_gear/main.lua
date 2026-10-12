@@ -7092,8 +7092,9 @@ return function(mod)
     local home = page == "HOME"
     if not home and displayRuntime.explorer.locationPreview then return false end
     if home and (displayRuntime.home.editing or displayRuntime.home.library) then return false end
-    if now + 0.000001 < state.nextAt or readbackPending then return false end
-    local rate = 30
+    local phoneMode = THEME:displayMode(mod.options) == "phone"
+    if now + 0.000001 < state.nextAt or readbackPending and not phoneMode then return false end
+    local rate = phoneMode and 60 or 30
     -- Keep the update phase instead of drifting when a host frame
     -- arrives just before the deadline. Missed ticks never cause catch-up work.
     state.nextAt = state.nextAt
@@ -11741,6 +11742,7 @@ return function(mod)
   end
 
   local function pumpDisplay()
+    local captureAt = love.timer.getTime()
     if THEME:displayMode(mod.options) == "phone" and not readbackPending
         and not (displayRuntime.phone and displayRuntime.phone:canCapture()) then return false end
     local shown = false
@@ -11753,6 +11755,7 @@ return function(mod)
       local ok, image = pcall(displayRuntime.perf.call, displayRuntime.perf,
         "readback_sync", canvas.newImageData, canvas)
       if not ok or not image then return false end
+      if THEME:displayMode(mod.options) == "phone" then displayRuntime.phone:reserveCapture(captureAt) end
       shown = displayRuntime.perf:present(companion.push, image, canvas:getWidth(), canvas:getHeight(),
         displayRuntime.backgroundColor(),
         displayPreference())
@@ -11791,6 +11794,7 @@ return function(mod)
         or displayRuntime.phone and displayRuntime.phone:canCapture()) then
       draw()
       if displayRuntime.perf:call("readback_request", canvas.requestImageData, canvas) then
+        if THEME:displayMode(mod.options) == "phone" then displayRuntime.phone:reserveCapture(captureAt) end
         -- Keep the border paired with this captured frame during async readback.
         displayRuntime.readbackBackground = displayRuntime.backgroundColor()
         readbackPending = true
@@ -15737,20 +15741,20 @@ return function(mod)
     end
 
     local now = love.timer.getTime()
-    -- Drain the native touch queue once per rendered frame while Notes owns
-    -- the Gear surface; the expensive game snapshots stay on their 50ms tick.
-    if displayRuntime.notesShown() then
+    -- Phone input and Notes run every rendered frame; game snapshots keep their 50ms tick.
+    local notesActive = displayRuntime.notesShown()
+    local phoneMode = THEME:displayMode(mod.options) == "phone"
+    if notesActive or phoneMode then
       if not inline and not bottomOnHandheld() then
         for _ = 1, 128 do
           local event = companion.pollTouch()
           if not event then break end
           touchEvent(event, canvas:getWidth(), canvas:getHeight())
-          if not displayRuntime.notesShown() then break end
+          if notesActive and not displayRuntime.notesShown() then break end
         end
       end
-    else
-      displayRuntime.notes:suspend()
     end
+    if not displayRuntime.notesShown() then displayRuntime.notes:suspend() end
     displayRuntime.perf:call("notes_flush", displayRuntime.notes.flush, displayRuntime.notes)
     if displayRuntime.notes:takeChanged() then dirty = true end
     displayRuntime.updateHomeLongPress(now)
@@ -15767,7 +15771,7 @@ return function(mod)
       refreshTheme()
       displayRuntime.perf:call("battle_snapshot", refreshBattle)
       displayRuntime.syncTouchGuard()
-      if not inline and not displayRuntime.notesShown() then
+      if not inline and not phoneMode and not displayRuntime.notesShown() then
         for _ = 1, 32 do
           local event = companion.pollTouch()
           if not event then break end

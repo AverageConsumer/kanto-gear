@@ -36,6 +36,7 @@ local phone = {
   poll = function() end, detected = function() return available end,
   ready = function() return available and acknowledged end,
   canCapture = function() return available and capture end,
+  reserveCapture = function() return available and capture end,
   stop = function() stopped = stopped + 1 end,
 }
 phone.bridge = {
@@ -100,8 +101,28 @@ pump()
 T.eq(requests, 1, "the async path requests one allowed frame")
 up(compose, "dirty", true, true)
 pump()
-T.eq(requests, 1, "completing readback cannot request another frame before browser acknowledgement")
+T.eq(requests, 1, "a full transport window prevents another GPU request")
 T.eq(up(compose, "dirty"), true, "async backpressure also retains the latest scene change")
+capture = true
+phone.bridge.push = function() pushed = pushed + 1; return true end
+local beforeRequests = requests
+for _ = 1, 60 do
+  up(compose, "dirty", true, true)
+  pump()
+  now = now + 1 / 60
+end
+T.eq(requests - beforeRequests, 60, "readback completion can reserve the next capture on the same host frame")
+up(compose, "page", "HOME", true)
+up(compose, "nextPoll", now + 1, true)
+queue[#queue + 1] = "cancel,0,0"
+frame()
+T.eq(#queue, 0, "phone input is drained between the slower game snapshot ticks")
+display.mapRefresh.nextAt = now
+up(pump, "readbackPending", true, true)
+display.updateMapRefresh(now)
+T.check(math.abs(display.mapRefresh.nextAt - now - 1 / 60) < .000001,
+  "phone map movement refreshes at sixty Hz even during a pending GPU readback")
+phone.bridge.push = function() return phone.ready() end
 available = false; frame()
 T.eq(up(compose, "displayReady"), false, "disconnect immediately restores native menu eligibility")
 T.eq(up(compose, "touchDown"), nil, "disconnect clears held touch state")

@@ -25,6 +25,10 @@ local sockets = { tcp4 = sock, udp = function() end }
 local hashInput, encodeInput
 local runtime = { timer = { getTime = function() return now end },
   math = { random = function() return 12345678 end }, data = {
+    compress = function(container, format, value, level)
+      assert(container == "string" and format == "zlib" and level == 1)
+      return value
+    end,
     hash = function(kind, value) assert(kind == "sha1"); hashInput = value; return "hash" end,
     encode = function(container, encoding, value)
       assert(container == "string" and encoding == "base64"); encodeInput = value
@@ -89,8 +93,9 @@ assert(hashInput == "dGhlIHNhbXBsZSBub25jZQ==258EAFA5-E914-47DA-95CA-C5AB0DC85B1
 assert(phone:detected() and not phone:ready())
 local other = connect(phone)
 assert(other.closed and other.output:find("409 Conflict", 1, true))
+c.limit = 0
 assert(phone:canCapture() and not phone:push(image, 240, 216))
-assert(not phone:canCapture(), "no second frame before browser acknowledgement")
+assert(not phone:canCapture(), "a partially written frame prevents another capture")
 c.output = ""; c.limit = 1000; phone:poll()
 assert(#c.output == 1000 and phone.viewer.sent == 1000, "short socket writes keep absolute progress")
 local bytes = phone.viewer.out
@@ -121,7 +126,7 @@ message(phone, c, "up,140,108,1")
 assert(phone.bridge.pollTouch() == "down,120,108"
   and phone.bridge.pollTouch() == "move,140,108"
   and phone.bridge.pollTouch() == "up,140,108", "the displayed frame stays touchable during transmission")
-message(phone, c, "a,999"); assert(phone.viewer.awaiting, "forged acknowledgement cannot clear backpressure")
+message(phone, c, "a,999"); assert(#phone.viewer.pending == 1, "forged acknowledgement cannot clear backpressure")
 message(phone, c, "a,2")
 message(phone, c, "down,10,20,2"); assert(phone.bridge.pollTouch() == "down,10,20")
 now = .068; assert(phone:push(image, 240, 216)); phone:poll(); message(phone, c, "a,3")
@@ -140,6 +145,36 @@ assert(c.closed and not phone:detected() and phone.bridge.pollTouch() == "cancel
 phone = new(); c = connect(phone)
 phone:push(image, 240, 216); phone:poll(); now = now + 1.01; phone:poll()
 assert(c.closed and not phone:detected(), "a browser that stops displaying frames is disconnected")
+phone = new(); c = connect(phone)
+phone:push(image, 240, 216); phone:poll()
+now = now + 1 / 60
+assert(phone:canCapture(), "the second frame does not wait for the first display acknowledgement")
+phone:push(image, 240, 216); phone:poll()
+now = now + 1 / 60
+assert(not phone:canCapture() and #phone.viewer.pending == 2, "a stalled browser is bounded to two frames")
+message(phone, c, "a,2")
+assert(phone.viewer.ack == 2 and #phone.viewer.pending == 0, "displaying the newest frame also retires skipped older frames")
+message(phone, c, "a,1"); assert(phone.viewer.ack == 2, "late acknowledgements cannot roll input back")
+for _ = 1, 60 do
+  assert(phone:reserveCapture(), "60 Hz capture reservation must keep pace")
+  now = now + 1 / 60
+  phone:push(image, 240, 216); phone:poll(); message(phone, c, "a," .. phone.sequence)
+end
+assert(phone.sequence == 62, "asynchronous readback sustains sixty new frames per second")
+for _ = 1, 60 do
+  local captureAt = now
+  now = now + .009
+  assert(phone:reserveCapture(captureAt), "drawing time must not shift capture onto every other host frame")
+  phone:push(image, 240, 216); phone:poll(); message(phone, c, "a," .. phone.sequence)
+  now = captureAt + 1 / 60
+end
+assert(phone.sequence == 122, "a nine-millisecond draw still leaves sixty capture slots per second")
+runtime.data.compress = function() return "compressed" end
+c.limit = 0
+assert(phone:push(image, 240, 216))
+assert(phone.viewer.out:find("KG02", 1, true) and phone.viewer.out:sub(-10) == "compressed",
+  "compressible pixels use the lossless wire format")
+runtime.data.compress = function(_, _, value) return value end
 phone = new(); c = connect(phone)
 c.input = string.char(129, 4) .. "h,0"; phone:poll()
 assert(c.closed, "unmasked WebSocket traffic is refused")

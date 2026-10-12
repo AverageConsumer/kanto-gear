@@ -23,18 +23,33 @@ If the displayed address belongs to a VPN, use the game device's Wi-Fi IPv4
 address with port 8765 instead. Desktop firewalls may need to allow the host on
 the private network.
 
-Each binary WebSocket message contains `KG01`, big-endian uint16 width/height,
-a big-endian uint32 frame ID and tightly packed RGBA8 pixels. The browser
-acknowledges a frame after presenting it. Only one image may be in flight;
-capture is limited to 30 Hz and unchanged Gear screens do not require new
-images. Socket reads/writes and input queues have fixed per-update limits.
-Touches reference the acknowledged frame and use its pixel coordinates.
-Heartbeat messages keep idle displays connected without repeated images.
+Each binary WebSocket message contains `KG02`, big-endian uint16 width/height,
+a big-endian uint32 frame ID and zlib-compressed RGBA8 pixels (compression
+level 1). Incompressible images use `KG01` with raw RGBA8 instead. Frames are
+independent and lossless. A current browser with `DecompressionStream` support
+is required for compressed frames.
 
-At 240×216 and 30 Hz, raw pixel traffic is about 6.2 MB/s before network
-overhead. GPU readback, allocation, Wi-Fi traffic and browser drawing still
-cost resources. The existing asynchronous readback is used when the host
-provides it; ordinary LÖVE builds use the synchronous fallback.
+The browser acknowledges the latest frame after presenting it. At most two
+images may be in flight, allowing 60 Hz without a stop-and-wait round trip
+for every image. The browser keeps only the latest packet and decoded image
+instead of building a playback queue. Capture and moving maps run at up to
+60 Hz; unchanged Gear screens do not require new images. GPU capture slots
+are reserved when readback starts so completion can request the next capture
+on the same host frame. Socket reads/writes and input queues have fixed limits.
+Touches reference the acknowledged frame and use its pixel coordinates.
+Phone touches are drained every host frame, independently of game snapshots.
+Heartbeat messages keep idle displays connected without repeated images.
+The browser footer reports measured presentation FPS during continuous motion
+and shows `idle` when the image is unchanged. It does not count unchanged
+screens as sixty newly rendered images.
+
+At 240×216 and 60 Hz, uncompressed traffic would be about 12.4 MB/s before
+network overhead. Actual compression depends on the visible pixels. The
+existing asynchronous readback is used when the host provides it; ordinary
+LÖVE builds use the synchronous fallback. A full transport window stops new
+GPU requests and compression work until the viewer makes progress. A stalled
+viewer loses ownership rather than accumulating old frames. Compression,
+GPU readback, Wi-Fi and browser timing still need measurement on the device.
 
 ## Checks
 

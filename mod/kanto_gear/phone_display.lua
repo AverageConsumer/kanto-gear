@@ -1,4 +1,4 @@
--- One paired browser, raw RGBA frames, and no queued video backlog.
+-- One paired browser, independent lossless frames, and a two-frame transport window.
 local bit = require("bit")
 local Phone = {}
 Phone.__index = Phone
@@ -64,27 +64,40 @@ function Phone:detected()
 end
 function Phone:ready() return self:detected() and self.viewer.ack ~= nil end
 function Phone:canCapture()
-  return self:detected() and not self.viewer.out and not self.viewer.awaiting
-    and self:now() >= self.nextFrame
+  return self:detected() and not self.captureReserved and not self.viewer.out
+    and #self.viewer.pending < 2 and self:now() + .0001 >= self.nextFrame
+end
+function Phone:reserveCapture(at)
+  if not self:canCapture() then return false end
+  -- Reserve at GPU request time so completing readback can start the next 60 Hz capture.
+  self.nextFrame = math.max(self.nextFrame + 1 / 60, at or self:now())
+  self.captureReserved = true
+  return true
 end
 function Phone:push(image, w, h)
-  if not self:canCapture() then return false end
+  if not self.captureReserved and not self:reserveCapture() then return false end
+  self.captureReserved = nil
+  if not self:detected() or self.viewer.out or #self.viewer.pending >= 2 then return false end
   if w < 1 or h < 1 or w > 240 or h > 216 then return false end
   local rgba = image:getString()
   if #rgba ~= w * h * 4 then return false end
+  local payload, magic = self.runtime.data.compress("string", "zlib", rgba, 1), "KG02"
+  if #payload >= #rgba then payload, magic = rgba, "KG01" end
   local c = self.viewer
   self.sequence = self.sequence % 4294967295 + 1
   self.width, self.height = w, h
   c.frame = self.sequence
-  c.out = packet(2, "KG01" .. u16(w) .. u16(h) .. u32(c.frame) .. rgba)
-  c.sent, c.awaiting, c.frameAt = 0, true, self:now()
-  self.nextFrame = self:now() + 1 / 30
+  c.out = packet(2, magic .. u16(w) .. u16(h) .. u32(c.frame) .. payload)
+  c.sent = 0
+  c.pending[#c.pending + 1] = { id = c.frame, at = self:now() }
+  self:poll()
   return self:ready()
 end
 function Phone:drop(c)
   c.sock:close()
   if self.viewer == c then
     self.viewer, self.touches = nil, { "cancel,0,0" }
+    self.captureReserved = nil
   end
 end
 function Phone:stop()
@@ -125,7 +138,7 @@ function Phone:request(c, header)
         self.runtime.data.hash("sha1", headers["sec-websocket-key"] .. "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
       c.out = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade"
         .. "\r\nSec-WebSocket-Accept: " .. accept .. "\r\n\r\n"
-      c.ws, c.alive, self.viewer = true, now, c
+      c.ws, c.alive, c.pending, self.viewer = true, now, {}, c
     end
   else c.out = reply("404 Not Found", "Not found.") end
   c.sent = 0
@@ -136,7 +149,15 @@ function Phone:message(c, text)
   local kind, id = text:match("^([ha]),(%d+)$")
   if kind then
     id = tonumber(id)
-    if id == c.frame and kind == "a" then c.ack, c.awaiting, c.alive = id, false, self:now() end
+    if kind == "a" then
+      for i, frame in ipairs(c.pending) do
+        if id == frame.id then
+          c.ack, c.alive = id, self:now()
+          for _ = 1, i do table.remove(c.pending, 1) end
+          break
+        end
+      end
+    end
     if kind == "h" and (id == c.ack or id == 0 and not c.ack) then
       c.alive, c.heartbeat = self:now(), true
     end
@@ -216,7 +237,7 @@ function Phone:poll()
   for i = #self.clients, 1, -1 do
     local c = self.clients[i]
     local ok = now - (c.alive or c.opened) < (c.ws and 1.5 or 3)
-      and not (c.awaiting and now - c.frameAt > 1)
+      and not (c.pending and c.pending[1] and now - c.pending[1].at > 1)
     if ok and (c.ws or not c.out) then ok = self:read(c) end
     if ok and c.heartbeat and not c.out then c.out, c.sent, c.heartbeat = packet(1, "h"), 0, nil end
     if ok and c.out then

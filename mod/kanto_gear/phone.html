@@ -36,6 +36,8 @@ const screen = document.getElementById("screen"), form = document.getElementById
 const canvas = document.getElementById("gear"), context = canvas.getContext("2d", { alpha: false });
 const status = document.getElementById("status"), connect = document.getElementById("connect");
 let socket, frame = 0, pointer = null, lastContact = 0, heartbeat, generation = 0;
+let pendingPacket = null, decoding = false, paint = null, animation = 0;
+let paintedAt = 0, fpsAt = 0, paintedFrames = 0, fps = 0;
 function fit() {
   const scale = Math.min(screen.clientWidth / canvas.width, screen.clientHeight / canvas.height);
   canvas.style.width = `${canvas.width * scale}px`;
@@ -46,9 +48,72 @@ function stop(message) {
   generation++;
   if (socket) { socket.onclose = socket.onopen = socket.onerror = socket.onmessage = null; socket.close(); socket = null; }
   clearInterval(heartbeat);
+  cancelAnimationFrame(animation);
+  pendingPacket = paint = null; decoding = false; animation = 0;
+  paintedAt = fpsAt = paintedFrames = fps = 0;
   frame = 0; pointer = null;
   canvas.style.display = "none"; form.hidden = false; connect.disabled = false;
   status.textContent = message;
+}
+function paintFrame(current) {
+  animation = requestAnimationFrame(() => {
+    animation = 0;
+    if (current !== generation || document.hidden) return;
+    if (paint) {
+      const image = paint; paint = null;
+      if (canvas.width !== image.width || canvas.height !== image.height) { canvas.width = image.width; canvas.height = image.height; }
+      context.putImageData(new ImageData(image.pixels, image.width, image.height), 0, 0);
+      frame = image.id; lastContact = performance.now();
+      if (lastContact - paintedAt > 250) { fpsAt = lastContact; paintedFrames = 0; fps = 0; }
+      paintedFrames++;
+      if (lastContact - fpsAt >= 1000) {
+        fps = Math.round((paintedFrames - 1) * 1000 / (lastContact - fpsAt));
+        fpsAt = lastContact; paintedFrames = 1;
+      }
+      paintedAt = lastContact;
+      form.hidden = true; canvas.style.display = "block"; fit();
+      status.textContent = `Connected${fps ? ` · ${fps} FPS` : ""} · tap or swipe Gear`;
+      send(`a,${frame}`);
+    }
+    paintFrame(current);
+  });
+}
+async function decodeFrames(current) {
+  if (decoding) return;
+  decoding = true;
+  try {
+    while (pendingPacket && current === generation) {
+      const packet = pendingPacket; pendingPacket = null;
+      const data = new DataView(packet);
+      if (data.byteLength < 12) throw Error("Invalid Gear frame");
+      const magic = data.getUint32(0), width = data.getUint16(4), height = data.getUint16(6), id = data.getUint32(8);
+      const size = width * height * 4;
+      if (!width || !height || width > 240 || height > 216 || !id || data.byteLength > size + 12) throw Error("Invalid Gear frame");
+      let pixels;
+      if (magic === 0x4b473032) {
+        if (typeof DecompressionStream !== "function") throw Error("Please use a current browser for compressed Gear frames");
+        pixels = new Uint8ClampedArray(size);
+        const reader = new Blob([packet.slice(12)]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
+        let offset = 0;
+        try {
+          for (;;) {
+            const {value, done} = await reader.read();
+            if (done) break;
+            if (offset + value.length > size) throw Error("Invalid Gear frame size");
+            pixels.set(value, offset); offset += value.length;
+          }
+          if (offset !== size) throw Error("Invalid Gear frame size");
+        } finally { await reader.cancel(); }
+      } else if (magic === 0x4b473031 && data.byteLength === size + 12) {
+        pixels = new Uint8ClampedArray(packet, 12);
+      } else throw Error("Invalid Gear frame");
+      if (current !== generation) return;
+      if (pendingPacket) continue;
+      paint = {pixels, width, height, id};
+    }
+  } catch (error) {
+    if (current === generation) stop(error.message || "Invalid Gear frame");
+  } finally { if (current === generation) decoding = false; }
 }
 form.addEventListener("submit", event => {
   event.preventDefault();
@@ -59,10 +124,12 @@ form.addEventListener("submit", event => {
   socket.binaryType = "arraybuffer";
   socket.onopen = () => {
     lastContact = performance.now();
+    paintFrame(current);
     send("h,0");
     heartbeat = setInterval(() => {
       if (performance.now() - lastContact > 1500) { stop("Connection lost. Check the game, then reconnect."); return; }
       send(`h,${frame}`);
+      if (frame && performance.now() - paintedAt > 500) status.textContent = "Connected · idle · tap or swipe Gear";
     }, 250);
     status.textContent = "Connected · waiting for Gear";
   };
@@ -70,19 +137,8 @@ form.addEventListener("submit", event => {
     if (current !== generation) return;
     if (event.data === "h") { lastContact = performance.now(); return; }
     if (!(event.data instanceof ArrayBuffer)) return;
-    const data = new DataView(event.data);
-    if (data.byteLength < 12 || data.getUint32(0) !== 0x4b473031) { stop("Invalid Gear frame"); return; }
-    const width = data.getUint16(4), height = data.getUint16(6), id = data.getUint32(8);
-    if (!width || !height || width > 240 || height > 216 || data.byteLength !== 12 + width * height * 4) { stop("Invalid Gear frame"); return; }
-    requestAnimationFrame(() => {
-      if (current !== generation || document.hidden) return;
-      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-      context.putImageData(new ImageData(new Uint8ClampedArray(event.data, 12), width, height), 0, 0);
-      frame = id; lastContact = performance.now();
-      form.hidden = true; canvas.style.display = "block"; fit();
-      status.textContent = "Connected · tap or swipe Gear";
-      send(`a,${id}`);
-    });
+    pendingPacket = event.data;
+    void decodeFrames(current);
   };
   socket.onclose = () => stop("Disconnected. Check the pairing code and that no other browser is connected.");
   socket.onerror = () => stop("Could not connect. Check the code, Wi-Fi and game. After repeated attempts, wait one minute.");
