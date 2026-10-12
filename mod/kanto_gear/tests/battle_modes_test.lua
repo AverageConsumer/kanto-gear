@@ -377,6 +377,13 @@ do
 end
 -- Native damage is final before the HP drain and status text are displayed.
 do
+  api.battle.snapshot=function()
+    local function copy(value)
+      if type(value)~="table" then return value end
+      local out={};for key,item in pairs(value) do out[key]=copy(item) end;return out
+    end
+    return copy(snapshot)
+  end
   local foe = { species=mon.species, hp=0, status="PSN", level=10 }
   mon.hp=0; mon.status="PSN"
   snapshot.party={ {species=mon.species,hp=0,status="PSN",slot=1} }
@@ -395,6 +402,19 @@ do
   T.eq(enemies[1].alive,true,"team ball follows displayed enemy HP")
   T.check(not players[1].status,"unshown player status does not leak")
   T.check(not enemies[1].status,"unshown foe status does not leak")
+  if gen==2 then
+    raw.shownLevel=10
+    for _,pixels in ipairs({0,20,64,0,32}) do
+      raw.shownExp=pixels
+      up(refresh,"dirty",false,true);refresh()
+      T.eq(runtime.battleStatus("player").expProgress,pixels/64,"Gen 2 follows native EXP pixels, including level resets")
+      T.check(up(refresh,"dirty"),"native EXP crawl redraws the lower HUD")
+      up(refresh,"dirty",false,true);refresh()
+      T.check(not up(refresh,"dirty"),"unchanged EXP retains the cached HUD")
+    end
+  else
+    T.eq(runtime.battleStatus("player").expProgress,nil,"Gen 1 does not invent an EXP bar from prematurely awarded experience")
+  end
   if gen==1 then raw.player.shownHP,raw.enemy.shownHP=0,0
   else raw.shownHp.player,raw.shownHp.enemy=0,0 end
   refresh();players,enemies=runtime.battleTeams()

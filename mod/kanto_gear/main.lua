@@ -9072,25 +9072,8 @@ return function(mod)
     local maxHp = source.maxHp or source.stats and source.stats.hp or hp
     local statusId = hp <= 0 and "FNT"
       or THEME:statusName(source.status, mod.content)
-    local expProgress
-    if side == "player" then
-      -- the snapshot carries no experience; read the live party member
-      local saveParty = game.save and game.save.party or {}
-      local index = source.partyIndex
-      if not index then
-        for _, row in ipairs(battle and battle.party or {}) do
-          if row.active then index = row.slot break end
-        end
-      end
-      local live = index and saveParty[index]
-      if live and (live.species == source.species or live.species == source.gen3Species
-          or displayRuntime.gen3) then
-        local ok, ratio = pcall(displayRuntime.partyExpProgress, live)
-        expProgress = ok and ratio or nil
-      end
-    end
     return {
-      expProgress = expProgress,
+      expProgress = side == "player" and source.expProgress or nil,
       species = source.species,
       id = source.id, absent = source.absent, side = side,
       active = battle and battle.double and (battle.prompt == "menu" or battle.prompt == "moves")
@@ -11703,6 +11686,8 @@ return function(mod)
           end
           if side == "player" and compat.isGen2() then
             copy.level = raw.shownLevel or copy.level
+            -- Gold/Silver/Crystal expose the native eight-cell EXP crawl.
+            if raw.shownExp ~= nil then copy.expProgress = raw.shownExp / 64 end
           end
         end
       end
@@ -11722,6 +11707,7 @@ return function(mod)
       or (battle and nextBattle and prepareBattleSnapshot(battle, nextBattle))
       or (battle and nextBattle and (
         (battle.player and battle.player.hp) ~= (nextBattle.player and nextBattle.player.hp)
+        or (battle.player and battle.player.expProgress) ~= (nextBattle.player and nextBattle.player.expProgress)
         or (battle.player and battle.player.level) ~= (nextBattle.player and nextBattle.player.level)
         or (battle.player and battle.player.maxHp) ~= (nextBattle.player and nextBattle.player.maxHp)
         or (battle.player and battle.player.status) ~= (nextBattle.player and nextBattle.player.status)
@@ -11745,7 +11731,8 @@ return function(mod)
         if not before or before.id ~= mon.id or before.hp ~= mon.hp
             or before.maxHp ~= mon.maxHp or before.species ~= mon.species
             or before.name ~= mon.name or before.status ~= mon.status or before.absent ~= mon.absent
-            or before.level ~= mon.level or battle.active ~= nextBattle.active then changed = true end
+            or before.level ~= mon.level or before.expProgress ~= mon.expProgress
+            or battle.active ~= nextBattle.active then changed = true end
       end
     end
     if THEME.style == "hgss" and battle and nextBattle then

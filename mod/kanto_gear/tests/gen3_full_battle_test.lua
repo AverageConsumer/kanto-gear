@@ -167,7 +167,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   end
   local cards,compact={},nil
   H.battleCompactStatus=function(self,mon,x,y,...)
-    cards[mon.id]={hp=mon.hp,name=mon.name,active=mon.active,absent=mon.absent,x=x,y=y}
+    cards[mon.id]={hp=mon.hp,expProgress=mon.expProgress,name=mon.name,active=mon.active,absent=mon.absent,x=x,y=y}
     return drawCard(self,mon,x,y,...)
   end
   H.battleFullMessage=function(self,lines,advance,...)
@@ -216,6 +216,20 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.check(draws>before,"partner HP animation invalidates the cached frame")
   T.eq(up(refresh,"battle").battlers[4].hp,4,"native second foe HP remains correct")
   before=draws;tick();tick();T.eq(draws,before,"unchanged doubles HUD stays cached")
+  -- The final experience is already saved; the lower bar follows each native
+  -- fill/reset segment and remains cached between actual changes.
+  for _,id in ipairs({0,2}) do
+    local savedExp=nativePresent[id].displayExp
+    for _,ratio in ipairs({0.2,0.6,1,0,0.4}) do
+      before,revision=draws,up(refresh,"battle").revision
+      nativePresent[id].displayExp=ratio;tick()
+      T.eq(up(refresh,"battle").revision,revision,"EXP crawl does not require a native revision")
+      T.eq(cards[id].expProgress,ratio,"Full Gear shows the native EXP fill/reset")
+      T.check(draws>before,"EXP crawl invalidates its cached HUD")
+      before=draws;tick();T.eq(draws,before,"unchanged EXP keeps the HUD cached")
+    end
+    nativePresent[id].displayExp=savedExp;tick()
+  end
   st.absent[3]=true;tick();T.check(up(refresh,"battle").battlers[4].absent,"native absent opponent remains represented")
   st.absent[3]=nil
   local shown=nativePresent[2].shown

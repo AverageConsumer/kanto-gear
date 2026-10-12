@@ -784,9 +784,10 @@ function Gen3:battleSnapshot(snapshot)
       local shown = self.Anim.shownBattler(key, source)
       enrich(out, shown and shown.mon)
       local _, hp, maxHp = self.Anim.displayHpRatio(key, shown)
-      local _, level = self.Anim.displayExpRatio(key, shown)
+      local exp, level = self.Anim.displayExpRatio(key, shown)
       out.hp, out.maxHp = math.floor(hp), maxHp
       out.level = level or out.level
+      out.expProgress = exp
       out.nativeShownHp = out.hp
       out.partyIndex = nil
       for index, mon in ipairs(side == "player" and st.playerParty or st.foeParty or {}) do
@@ -805,9 +806,10 @@ function Gen3:battleSnapshot(snapshot)
       local shown = self.Anim.shownBattler(key, source)
       enrich(out, shown and shown.mon)
       local _, hp, maxHp = self.Anim.displayHpRatio(key, shown)
-      local _, level = self.Anim.displayExpRatio(key, shown)
+      local exp, level = self.Anim.displayExpRatio(key, shown)
       out.hp, out.maxHp = math.floor(hp), maxHp
       out.level = level or out.level
+      out.expProgress = exp
       out.partyIndex = nil
       for index, mon in ipairs(out.side == "player" and st.playerParty or st.foeParty or {}) do
         if shown and shown.mon == mon then out.partyIndex = index; break end

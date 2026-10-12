@@ -17,11 +17,6 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     if entry.owner == "kanto_gear" then compose = entry.callback end
   end
   local refresh = up(compose, "refreshBattle")
-  local tap = up(up(compose, "touchEvent"), "tap")
-  local H = up(display.drawContents, "THEME").hgss
-  local api = up(display.saveHome, "mod")
-  local Summary = require("src.ui.game3.summary_menu")
-  local Screens = require("src.ui.game3.screens")
   local Stack = require("src.ui.game3.stack")
   local Message = require("src.ui.game3.message")
   local Choice = require("src.ui.game3.choice")
@@ -32,7 +27,6 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local Pokemon = require("src.core.game3.pokemon")
   local mon = game.session.party[1]
   local savedMoves, savedPp, savedMax, savedBonus = mon.moves, mon.pp, mon.maxPp, mon.ppBonusesPacked
-  local queued
   local now = 100
   love.timer.getTime = function() now = now + 0.06; return now end
   up(compose, "nextClock", math.huge)
@@ -43,10 +37,6 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     detected = function() return true end, pollTouch = function() end,
     push = function() return true end,
   } }
-  api.input.tap = function(_, target, key)
-    T.eq(target, game, "move learning forwards input to original game")
-    queued = key
-  end
   local function input(key)
     return { wasPressed = function(_, k) return k == key end, isDown = function() return false end }
   end
@@ -111,7 +101,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local Schema=require("src.core.game3.save_schema_firered")
   local Party=require("src.core.game3.party")
   local foes=Schema.newGame({version=os.getenv("POKEPORT_VERSION"),name="FOE",rngSeed=4080})
-  for _=1,2 do Party.giveMon(foes,Pokemon.speciesFromNational(19),20) end
+  for _=1,3 do Party.giveMon(foes,Pokemon.speciesFromNational(19),20) end
   while #game.session.party<2 do Party.giveMon(game.session,Pokemon.speciesFromNational(25),20) end
   options.battle_view="full"
   for _,doubles in ipairs({false,true}) do
@@ -133,11 +123,33 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     end
     sync()
     local players,enemies=runtime.battleTeams()
+    T.check(runtime.battleStatus("player").statusId~="FNT","player portrait does not reveal final faint status")
+    T.check(runtime.battleStatus("enemy").statusId~="FNT","enemy portrait does not reveal final faint status")
+    local xpKey=doubles and 0 or "player"
+    for _,ratio in ipairs({0.2,0.8,1,0,0.35}) do
+      Anim.present(xpKey).displayExp=ratio
+      sync()
+      T.eq(runtime.battleStatus("player").expProgress,ratio,"single and double active HUD follows displayed EXP")
+    end
+    Anim.present(xpKey).displayExp=nil
     for slot=1,doubles and 2 or 1 do
       T.eq(players[slot].alive,true,"player team ball waits for displayed HP")
       T.eq(enemies[slot].alive,true,"foe team ball waits for displayed HP")
       T.eq(players[slot].status,nil,"player team ball does not leak final faint status")
       T.eq(enemies[slot].status,nil,"foe team ball does not leak final faint status")
+    end
+    if not doubles then
+      local outgoing=st.enemy
+      st.enemy=State.makeBattler(foes.party[3],"enemy",{id=1,partyIndex=3})
+      Anim.present("enemy").shown=outgoing
+      sync();players,enemies=runtime.battleTeams()
+      T.eq(enemies[1].alive,true,"same-species replacement retains the outgoing foe's shown HP")
+      T.eq(enemies[3].alive,true,"incoming reserve does not borrow outgoing HP")
+      Anim.present("enemy").shown=nil;Anim.present("enemy").displayHp=foes.party[3].hp
+      sync();players,enemies=runtime.battleTeams()
+      T.eq(enemies[1].alive,false,"outgoing foe settles once the native switch appears")
+      T.eq(enemies[3].alive,true,"incoming foe keeps its own team slot")
+      st.enemy=outgoing
     end
     for _,key in ipairs(keys) do Anim.present(key).displayHp=0 end
     sync();players,enemies=runtime.battleTeams()
