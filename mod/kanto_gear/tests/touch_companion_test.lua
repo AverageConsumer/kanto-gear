@@ -230,6 +230,26 @@ else
     } }
   api.battle = api.battle or {}
   api.battle.snapshot = function() return state end
+  do
+    local snapshot=api.battle.snapshot
+    raw.battle={player=party[1],enemy=party[1]}
+    api.battle.snapshot=function()
+      local out={}
+      for key,value in pairs(state) do out[key]=value end
+      out.player={}
+      for key,value in pairs(party[1]) do out.player[key]=value end
+      return out
+    end
+    for level=7,10 do
+      raw.shownLevel=level
+      refresh()
+      T.eq(up(refresh,"battle").player.level,gen==2 and level or 10,"lower HUD follows native Gen 2 level presentation")
+      T.eq(party[1].level,10,"displayed level never mutates actual party progress")
+    end
+    api.battle.snapshot=snapshot
+    raw.battle,raw.shownLevel=nil,nil
+    refresh()
+  end
   local tapped = {}
   api.input.tap = function(_, target, key) T.eq(target, game, "touch targets native game"); tapped[#tapped + 1] = key end
   for _, style in ipairs({ "hgss", "hgss_dark" }) do

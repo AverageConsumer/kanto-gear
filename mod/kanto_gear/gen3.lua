@@ -38,6 +38,7 @@ function Gen3.new(game)
   self.Types = require("src.core.game3.battle.types")
   self.Battle = require("src.core.game3.battle")
   self.BattleUI = require("src.core.game3.battle.ui")
+  self.ExpSeq = require("src.core.game3.battle.exp_seq")
   self.Anim = require("src.core.game3.battle.anim")
   self.Field = require("src.core.game3.field")
   self.Warp = require("src.core.game3.warp")
@@ -745,7 +746,9 @@ function Gen3:battleSnapshot(snapshot)
       local shown = self.Anim.shownBattler(key, source)
       enrich(out, shown and shown.mon)
       local _, hp, maxHp = self.Anim.displayHpRatio(key, shown)
+      local _, level = self.Anim.displayExpRatio(key, shown)
       out.hp, out.maxHp = math.floor(hp), maxHp
+      out.level = level or out.level
       out.nativeShownHp = out.hp
     end
   end
@@ -759,7 +762,9 @@ function Gen3:battleSnapshot(snapshot)
       local shown = self.Anim.shownBattler(key, source)
       enrich(out, shown and shown.mon)
       local _, hp, maxHp = self.Anim.displayHpRatio(key, shown)
+      local _, level = self.Anim.displayExpRatio(key, shown)
       out.hp, out.maxHp = math.floor(hp), maxHp
+      out.level = level or out.level
     end
   end
   -- A double battle can finish as one versus one. Use the sole living foe

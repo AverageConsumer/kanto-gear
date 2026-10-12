@@ -11662,6 +11662,9 @@ return function(mod)
           copy.hp = math.max(0, math.floor(copy.nativeShownHp or source.shownHP or shown
             or mon.hp or copy.hp or 0))
           copy.status = source.shownStatus or copy.status
+          if side == "player" and compat.isGen2() then
+            copy.level = raw.shownLevel or copy.level
+          end
         end
       end
       if compat.isGen2() and nextBattle.enemy then
@@ -11680,7 +11683,11 @@ return function(mod)
       or (battle and nextBattle and prepareBattleSnapshot(battle, nextBattle))
       or (battle and nextBattle and (
         (battle.player and battle.player.hp) ~= (nextBattle.player and nextBattle.player.hp)
+        or (battle.player and battle.player.level) ~= (nextBattle.player and nextBattle.player.level)
+        or (battle.player and battle.player.maxHp) ~= (nextBattle.player and nextBattle.player.maxHp)
         or (battle.enemy and battle.enemy.hp) ~= (nextBattle.enemy and nextBattle.enemy.hp)
+        or (battle.enemy and battle.enemy.level) ~= (nextBattle.enemy and nextBattle.enemy.level)
+        or (battle.enemy and battle.enemy.maxHp) ~= (nextBattle.enemy and nextBattle.enemy.maxHp)
         or (battle.player and battle.player.presentationSprite)
           ~= (nextBattle.player and nextBattle.player.presentationSprite)
         or (battle.enemy and battle.enemy.presentationSprite)

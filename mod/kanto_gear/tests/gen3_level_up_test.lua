@@ -71,5 +71,66 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
   end
   T.eq(completed,8,"each native growth sequence completes exactly once")
   mon.nickname,mon.name=nickname,name
+  -- Real ROM growth calculations mutate the mon to its final level before
+  -- ExpSeq presents each intermediate level and its captured stats.
+  local Schema=require("src.core.game3.save_schema_firered")
+  local Party=require("src.core.game3.party")
+  local P=require("src.core.game3.pokemon")
+  local Experience=require("src.core.game3.battle.experience")
+  local ExpSeq=require("src.core.game3.battle.exp_seq")
+  local Battle=require("src.core.game3.battle")
+  local State=require("src.core.game3.battle.state")
+  local Anim=require("src.core.game3.battle.anim")
+  local Ui=require("src.core.game3.battle.ui")
+  for _,active in ipairs({0,2,"bench"}) do
+    local session=Schema.newGame({version=os.getenv("POKEPORT_VERSION"),name="GROWTH",rngSeed=701})
+    local foes=Schema.newGame({version=os.getenv("POKEPORT_VERSION"),name="FOE",rngSeed=702})
+    for _,s in ipairs({session,foes}) do
+      for _,dex in ipairs({4,25}) do Party.giveMon(s,P.speciesFromNational(dex),5) end
+    end
+    local st=State.new({playerParty=session.party,foeParty=foes.party,double=active==2})
+    local battler=st.battlers[active]
+    local growing=battler and battler.mon or session.party[2]
+    Battle._active,Battle._phase,Battle._st=true,"exp",st
+    Ui.reset({headless=true});Ui.bindState(st,session);Ui.openMenu(active=="bench" and 0 or active)
+    Anim.reset({headless=true});Anim.syncDisplayFromState(st)
+    local result=Experience.apply(growing,Experience.expForLevel(Experience.growthRate(growing),8)-growing.exp)
+    T.eq(result.toLevel,8,"real award calculates three levels before presentation")
+    ExpSeq.begin({{mon=growing,battler=battler,partyIndex=active==0 and 1 or 2,result=result}},function() end,{}, {double=st.double})
+    refresh()
+    T.eq(up(refresh,"battle").player.level,5,"battle HUD retains the pre-award displayed level")
+    local count=0
+    for index,step in ipairs(ExpSeq._steps) do
+      if step.kind=="level" then
+        count=count+1
+        ExpSeq._i=index
+        local d=step.data
+        if battler then
+          local present=Anim.present(st.double and active or "player")
+          present.displayLevel,present.displayMaxHp,present.displayHp=d.level,d.maxHp,d.hp
+        end
+        Growth.open(growing,d.oldStats,d.newStats,function() end)
+        for page=1,2 do
+          display.gen3.syncScreens();refresh()
+          local view=assert(display.startMenu())
+          T.eq(view.levelStats.mon.level,d.level,"growth heading follows its current native step")
+          T.eq(view.levelStats.gain.from,d.level-1,"growth heading starts at the preceding displayed level")
+          T.eq(view.levelStats.stats.hp,d.newStats.maxHp,"growth totals belong to this step, not the final mon")
+          T.eq(view.levelStats.gain.deltas.hp,d.newStats.maxHp-d.oldStats.maxHp,"growth delta covers only this step")
+          local snap=up(refresh,"battle")
+          T.eq(snap.player.level,battler and d.level or 5,"active HUD follows the native displayed level")
+          T.eq(snap.player.maxHp,battler and d.maxHp or st.player.mon.maxHp,"active HUD follows the native intermediate HP maximum")
+          for _,shown in ipairs(snap.battlers) do
+            if shown.id==active then T.eq(shown.level,d.level,"double-battle card uses the same displayed level") end
+          end
+          T.eq(growing.level,8,"presentation never rewinds actual game progress")
+          Growth.handleInput(input("a"))
+        end
+      end
+    end
+    T.eq(count,3,"every real intermediate level is presented separately")
+    ExpSeq.reset();Anim.reset({headless=true})
+    Battle._active,Battle._st=false,nil;Ui.reset({headless=true})
+  end
 end
 dofile(path .. "/tests/gen3_fixture.lua")

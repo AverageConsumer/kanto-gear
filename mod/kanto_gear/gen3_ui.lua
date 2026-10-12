@@ -537,11 +537,18 @@ function UI:list(battle)
     local key = tostring(mon) .. ":stats:" .. page .. ":" .. tostring(oldStats) .. ":" .. tostring(newStats) .. ":" .. tostring(callback)
     if not self.statsView or self.statsView.nativeKey ~= key then
       local normalized = self.adapter:mon(mon)
+      local sequence = self.adapter.ExpSeq
+      local step = sequence and sequence._steps and sequence._steps[sequence._i]
+      local growth = step and step.kind == "level" and step.data
+      -- The live mon has already gained every level. Bind the heading to the
+      -- same queued step that owns these exact native stat snapshots.
+      local level = growth and growth.mon == mon and growth.oldStats == oldStats
+        and growth.newStats == newStats and tonumber(growth.level) or nil
       self.statsView = { screenId = "Gen3Menu", title = "LEVEL UP", nativeKey = key,
         nativeStats = stats, items = labels({ "CONTINUE" }), index = 1, update = function() end,
-        levelStats = { mon = { species = normalized.species, level = normalized.level, types = normalized.types,
+        levelStats = { mon = { species = normalized.species, level = level or normalized.level, types = normalized.types,
           name = self.adapter.Pokemon.displayMonName(mon) }, source = mon,
-          stats = { splitSpecial = true }, gain = { deltas = {} } },
+          stats = { splitSpecial = true }, gain = { from = level and level - 1, deltas = {} } },
         valid = function() return stats.isOpen() and stats._mon == mon and stats._page == page
           and stats._oldStats == oldStats and stats._newStats == newStats and stats._onDone == callback end }
     end
