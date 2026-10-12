@@ -425,8 +425,11 @@ function Gen3:refresh()
     for _, slot in ipairs(session.bag and session.bag.pockets[pocket] or {}) do
       local id, qty = self.Items.toNumericId(slot.id), tonumber(slot.qty) or 0
       if id and qty > 0 then
-        if save.inventory[id] == nil then save.bagOrder[#save.bagOrder + 1] = id end
-        save.inventory[id] = (save.inventory[id] or 0) + qty
+        -- id is already normalized; the public alias lookup would normalize
+        -- every missing numeric key twice more while rebuilding this table.
+        local previous = rawget(save.inventory, id)
+        if previous == nil then save.bagOrder[#save.bagOrder + 1] = id end
+        save.inventory[id] = (previous or 0) + qty
       end
     end
   end

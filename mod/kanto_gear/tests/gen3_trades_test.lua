@@ -151,32 +151,41 @@ for _, hook in ipairs(run.loader.hooks.chains["input.step"]) do
   if hook.owner == "kanto_gear" then display = up(hook.callback, "displayRuntime") end
 end
 run.loader.modOptions.kanto_gear = { info_level = "spoiler", theme_v3 = "hgss" }
-local offer = offers[1]
-session.map = offer.map
-session.party = { { species = offer.source.needsSpecies, level = 20 } }
-display.gen3:refresh()
-display.gen3Progress.adapter.Space.bundle = Space.bundle
-local area = up(display.achievementData, "areaData")({ offer.map }, true)
-check(find(area.pokemon, offer.source.tradeId).available, "shared area forwards ready native trades to Explorer")
-display.knownMap = function() return true end
-display.explorerMethods = function() return {} end
-display.explorerWildRows = function() return {} end
-local explorer = display.explorer
-explorer.view, explorer.filters.wildScope = "wild", "HERE"
-local overview = { mapId = offer.map, width = 16, height = 16, rows = {}, markers = {} }
-for y = 1, 16 do overview.rows[y] = string.rep(".", 16) end
-local function explorerModel()
-  explorer.data, explorer.renderModel = nil, nil
-  return display.explorerModel(overview)
+for _, offer in ipairs(offers) do
+  session.map = offer.map
+  session.party = { { species = offer.source.needsSpecies, level = 20 } }
+  display.gen3:refresh()
+  display.gen3Progress.adapter.Space.bundle = Space.bundle
+  local area = up(display.achievementData, "areaData")({ offer.map }, true)
+  check(find(area.pokemon, offer.source.tradeId).available, "shared area forwards ready native trades to Explorer")
+  display.knownMap = function() return true end
+  display.explorerMethods = function() return {} end
+  display.explorerWildRows = function() return {} end
+  local explorer = display.explorer
+  explorer.view, explorer.filters.wildScope = "wild", "HERE"
+  local overview = { mapId = offer.map, width = 16, height = 16, rows = {}, markers = {} }
+  for y = 1, 16 do overview.rows[y] = string.rep(".", 16) end
+  local function explorerModel()
+    explorer.data, explorer.renderModel = nil, nil
+    return display.explorerModel(overview)
+  end
+  local function explorerTrade()
+    local model = explorerModel()
+    for page = 1, model.pages do
+      explorer.page = page
+      local row = find(explorerModel().rows, offer.source.tradeId)
+      if row then return row end
+    end
+  end
+  local presented = assert(explorerTrade())
+  check(presented.method == "NPC TRADE" and presented.needsSpeciesName == adapter.data.pokemon[offer.source.needsSpecies].name,
+    "Explorer presents the requested species and trade context")
+  session.party = {}
+  display.gen3:refresh()
+  check(not explorerTrade(), "HERE NOW removes the offer after its partner leaves the party")
+  explorer.filters.wildScope = "ROUTE"
+  check(explorerTrade(), "WHOLE ROUTE retains unavailable trade in Spoiler mode, including later pages")
 end
-local presented = assert(find(explorerModel().rows, offer.source.tradeId))
-check(presented.method == "NPC TRADE" and presented.needsSpeciesName == adapter.data.pokemon[offer.source.needsSpecies].name,
-  "Explorer presents the requested species and trade context")
-session.party = {}
-display.gen3:refresh()
-check(not find(explorerModel().rows, offer.source.tradeId), "HERE NOW removes the offer after its partner leaves the party")
-explorer.filters.wildScope = "ROUTE"
-check(find(explorerModel().rows, offer.source.tradeId), "WHOLE ROUTE retains unavailable trade in Spoiler mode")
-if _G.KANTO_GEAR_RENDER_CAPTURE then _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, offer) end
+if _G.KANTO_GEAR_RENDER_CAPTURE then _G.KANTO_GEAR_RENDER_CAPTURE(run, display, raw, offers[1]) end
 print("GEN3_NATIVE_TRADES", edition, #offers)
 print(checks .. " checks passed")
