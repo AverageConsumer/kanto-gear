@@ -155,6 +155,10 @@ local function inside(x, y, left, top, width, height)
   return x >= left and x < left + width and y >= top and y < top + height
 end
 
+function Page.inDescription(model, x, y)
+  return model.view == "profile" and inside(x, y, 7, 108, 226, 44)
+end
+
 function Page.hit(model, x, y)
   if model.canUse == false then return end
   if y >= 0 and y < 28 then

@@ -128,7 +128,25 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       T.eq(requests,before,"description paging does not slide unrelated content")
       click(91,145)
       T.eq(state.descriptionPage,1,"reverse description paging restores page one")
+      swipe(-30,{x=100/1.5,y=120/1.5})
+      T.eq(state.descriptionPage,2,"swiping inside the description advances only its text")
+      T.eq(state.selected,species,"description swipe keeps the selected Pokemon")
+      T.eq(requests,before,"description swipe leaves the surrounding profile still")
+      swipe(30,{x=100/1.5,y=120/1.5})
+      T.eq(state.descriptionPage,1,"reverse description swipe restores the text page")
+      T.eq(state.selected,species,"reverse text swipe never changes Pokemon")
     end
+    local describe = theme.pokedexDescriptionLines
+    theme.pokedexDescriptionLines = function() return { "SHORT DESCRIPTION" } end
+    before = requests
+    swipe(-30,{x=100/1.5,y=120/1.5})
+    T.eq(state.selected,species,"a single-page description never switches Pokemon on swipe")
+    T.eq(requests,before,"a single-page description has no swipe animation")
+    theme.pokedexDescriptionLines = describe
+    swipe(-30,{x=100/1.5,y=107/1.5})
+    T.eq(state.selected,dex.entries[2].species,"swiping above the description switches Pokemon")
+    swipe(30,{x=100/1.5,y=152/1.5})
+    T.eq(state.selected,species,"swiping below the description switches back")
     click(81, 183)
     T.eq(state.view, "profile", "research-card breathing room has no action")
     for index, action in ipairs(Page.cards) do
@@ -196,6 +214,15 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     for entry, revealed in pairs(original) do entry.revealed = revealed end
   end
   -- Boundary cases independent of the size of any particular ROM catalogue.
+  for _, point in ipairs({{7,108},{232,151},{120,140}}) do
+    T.eq(Page.inDescription({view="profile"},point[1],point[2]),true,
+      "description swipe zone includes the complete text frame and its pager")
+  end
+  for _, point in ipairs({{6,120},{233,120},{120,107},{120,152}}) do
+    T.eq(Page.inDescription({view="profile"},point[1],point[2]),false,
+      "outside the text frame swipes retain species navigation")
+  end
+  T.eq(Page.inDescription({view="stats"},120,120),false,"other research pages retain their own swipe navigation")
   local rows = { { species = "A", revealed = true, index = 1 } }
   local dex = { entries = rows, bySpecies = { A = rows[1] }, caught = 0, total = 1 }
   local state = { view = "index", page = 9 }

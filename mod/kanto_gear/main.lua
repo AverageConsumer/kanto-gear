@@ -13941,7 +13941,12 @@ return function(mod)
       return
     end
     if THEME.style == "hgss" and page == "POKEDEX" then
-      displayRuntime.cyclePokedex(dx < 0 and 1 or -1)
+      local direction, Page = dx < 0 and 1 or -1, displayRuntime.PokedexPage
+      local model = displayRuntime.pokedexModel()
+      if Page.inDescription(model, (down.x or 0) * THEME.hgssScale,
+          (down.y or 0) * THEME.hgssScale) then
+        if Page.cycleDescription(displayRuntime.pokedex, model, direction) then dirty = true end
+      else displayRuntime.cyclePokedex(direction) end
       return
     end
     if THEME.style == "hgss" and page == "ACHIEVEMENTS" then
