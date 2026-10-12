@@ -231,15 +231,16 @@ function Phone:poll()
   end
 end
 
-function Phone.drawStatus(state, graphics)
+function Phone.drawStatus(state, graphics, viewport)
   if state.ready and state:ready() then return end
   graphics.push("all")
-  graphics.origin(); graphics.setScissor(); graphics.setShader(); graphics.setCanvas()
+  graphics.origin(); graphics.setScissor(); graphics.setShader()
   state.font = state.font or graphics.newFont(12)
   graphics.setFont(state.font)
   local lines = state.error and { "PHONE DISPLAY UNAVAILABLE", "Check Wi-Fi and port 8765.", "Switch display mode to try again." }
     or { "PHONE / BROWSER PROTOTYPE", state.url, "PAIRING CODE: " .. state.pin }
   local width, height = graphics.getDimensions()
+  if viewport then width, height = viewport.width, viewport.height end
   local boxWidth = math.max(1, math.min(width - 16, math.max(260, state.font:getWidth(lines[2]) + 24)))
   local boxHeight = #lines * 17 + 16
   local x, y = math.floor((width - boxWidth) / 2), math.max(0, height - boxHeight - 8)

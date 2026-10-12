@@ -14621,10 +14621,10 @@ return function(mod)
     return next()
   end, 1000)
 
-  mod.hooks:wrap("render.window", function(next, ...)
-    local result = next(...)
+  mod.hooks:wrap("render.hud", function(next, hudGame, viewport)
+    local result = next(hudGame, viewport)
     if active and THEME:displayMode(mod.options) == "phone" and displayRuntime.phoneStatus then
-      displayRuntime.Phone.drawStatus(displayRuntime.phoneStatus, G)
+      displayRuntime.Phone.drawStatus(displayRuntime.phoneStatus, G, viewport)
     end
     return result
   end, -1000)

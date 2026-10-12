@@ -57,6 +57,16 @@ local native = { detected = function() return true end,
 local context = { secondScreen = native }
 local sentinel = {}
 local function next() return sentinel end
+local statusDraws, viewport = 0, { width = 640, height = 576 }
+display.Phone = { drawStatus = function(state, graphics, context)
+  T.eq(state, phone, "HUD receives the live phone status")
+  T.eq(graphics, love.graphics, "HUD uses the host graphics context")
+  T.eq(context, viewport, "HUD keeps the host viewport geometry")
+  statusDraws = statusDraws + 1
+end }
+T.eq(hook("render.hud")(next, game, viewport), sentinel,
+  "pairing HUD preserves the host return value")
+T.eq(statusDraws, 1, "pairing status is drawn without a render.window capture")
 local function frame()
   T.eq(update(next, game, 1 / 60), sentinel, "phone update preserves the host return value")
   T.eq(compose(next, {}, context), sentinel, "phone composition preserves the host return value")

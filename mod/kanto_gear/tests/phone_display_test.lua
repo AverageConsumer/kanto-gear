@@ -33,6 +33,28 @@ local runtime = { timer = { getTime = function() return now end },
   } }
 local mod = { read = function(_, name) assert(name == "phone.html"); return "<html>Gear</html>" end }
 local function new() return assert(Phone.new(mod, runtime, sockets)) end
+local labels, box = {}, nil
+local graphics = {
+  push = function() end, pop = function() end, origin = function() end,
+  setScissor = function() end, setShader = function() end, setColor = function() end,
+  newFont = function() return { getWidth = function(_, s) return #s * 6 end } end,
+  setFont = function() end, getDimensions = function() return 1240, 1080 end,
+  setCanvas = function() error("pairing HUD must preserve the host render target") end,
+  rectangle = function(_, x, y, w, h) box = { x = x, y = y, w = w, h = h } end,
+  printf = function(s, x, y, w, align)
+    assert(align == "center"); labels[#labels + 1] = { s = s, x = x, y = y, w = w }
+  end,
+}
+local status = new()
+Phone.drawStatus(status, graphics, { width = 640, height = 576 })
+assert(#labels == 3 and labels[2].s == status.url and labels[3].s:find(status.pin, 1, true))
+assert(box.x * 2 + box.w == 640 and box.y + box.h == 568,
+  "pairing HUD is centered in the current viewport with an eight-pixel bottom gap")
+labels = {}; Phone.drawStatus({ ready = function() return true end }, graphics)
+assert(#labels == 0, "an acknowledged viewer hides the pairing HUD")
+labels = {}; Phone.drawStatus({ error = "no socket" }, graphics)
+assert(labels[1].s == "PHONE DISPLAY UNAVAILABLE", "server failures remain visible")
+status:stop()
 local function request(path, origin)
   return "GET " .. path .. " HTTP/1.1\r\nHost: 127.0.0.1:8765\r\n"
     .. "Origin: " .. (origin or "http://127.0.0.1:8765") .. "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
