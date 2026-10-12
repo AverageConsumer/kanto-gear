@@ -34,11 +34,52 @@ local function snapshotEntries(source)
   return snapshot
 end
 
+local function refreshInventory(self)
+  local items, cached = self.Items, self.inventorySource
+  local unchanged = cached and cached.normalize == items.toNumericId
+  local pockets = self.session.bag and self.session.bag.pockets or {}
+  local count = 0
+  for _, pocket in ipairs(items.POCKET_ORDER) do
+    for _, slot in ipairs(pockets[pocket] or {}) do
+      count = count + 1
+      local old = cached and cached[count]
+      if not old or old.rawId ~= slot.id or old.qty ~= slot.qty then
+        unchanged = false
+      -- Named IDs can be remapped in place by another mod. Numeric native
+      -- stacks need no repeated string parsing while their reader is unchanged.
+      elseif type(slot.id) ~= "number" and items.toNumericId(slot.id) ~= old.id then
+        unchanged = false
+      end
+    end
+  end
+  if unchanged and count == #cached then return end
+
+  local save = self.save
+  clear(save.inventory)
+  clear(save.bagOrder)
+  cached = { normalize = items.toNumericId }
+  -- Native pockets are authoritative. Bag.listPocket sanitizes on read;
+  -- stacks contains duplicate numeric/string aliases and must not be summed.
+  for _, pocket in ipairs(items.POCKET_ORDER) do
+    for _, slot in ipairs(pockets[pocket] or {}) do
+      local id, qty = items.toNumericId(slot.id), tonumber(slot.qty) or 0
+      cached[#cached + 1] = { rawId = slot.id, qty = slot.qty, id = id }
+      if id and qty > 0 then
+        local previous = rawget(save.inventory, id)
+        if previous == nil then save.bagOrder[#save.bagOrder + 1] = id end
+        save.inventory[id] = (previous or 0) + qty
+      end
+    end
+  end
+  self.inventorySource = cached
+end
+
 local pockets = { ITEMS = "ITEM", KEY_ITEMS = "KEY_ITEM",
   POKE_BALLS = "BALL", TM_CASE = "TM_HM", BERRY_POUCH = "BERRY" }
 local statFields = { hp = "maxHp", attack = "attack", defense = "defense",
   speed = "speed", specialAttack = "spAtk", specialDefense = "spDef" }
 local geneticFields = { "hp", "atk", "def", "spe", "spa", "spd" }
+local statusNames = { "PSN", "PAR", "SLP", "FRZ", "BRN", "PKRS", "FNT" }
 
 function Gen3.new(game)
   assert(game.generation == 3, "native Gen 3 game required")
@@ -323,8 +364,7 @@ function Gen3:mon(source)
   out.speciesNumbering = P.NUMBERING_INTERNAL
   out.nickname = source.nickname ~= "" and source.nickname or nil
   out.hp, out.maxHp = source.hp, source.maxHp
-  out.status = ({ "PSN", "PAR", "SLP", "FRZ", "BRN", "PKRS", "FNT" })[
-    self.Summary.statusAilment(source)]
+  out.status = statusNames[self.Summary.statusAilment(source)]
   out.isEgg = P.isEgg(source)
   out.friendship, out.happiness = source.friendship, source.happiness
   out.eggCycles, out.isBadEgg = source.eggCycles, source.isBadEgg
@@ -397,6 +437,7 @@ function Gen3:refresh()
   if session ~= self.session then
     self.session = session
     self.dexSource = nil
+    self.inventorySource = nil
     self.mons = setmetatable({}, { __mode = "k" })
     self.save = session and { generation = 3, player = {}, party = {},
       inventory = {}, bagOrder = {}, pokedex = { seen = {}, caught = {} } } or nil
@@ -417,22 +458,7 @@ function Gen3:refresh()
   for slot = 1, math.max(#save.party, #(session.party or {})) do
     save.party[slot] = self:mon((session.party or {})[slot])
   end
-  clear(save.inventory)
-  clear(save.bagOrder)
-  -- bag.stacks contains duplicate numeric/string aliases. The native pockets
-  -- are authoritative; do not call Bag.listPocket, which sanitizes on read.
-  for _, pocket in ipairs(self.Items.POCKET_ORDER) do
-    for _, slot in ipairs(session.bag and session.bag.pockets[pocket] or {}) do
-      local id, qty = self.Items.toNumericId(slot.id), tonumber(slot.qty) or 0
-      if id and qty > 0 then
-        -- id is already normalized; the public alias lookup would normalize
-        -- every missing numeric key twice more while rebuilding this table.
-        local previous = rawget(save.inventory, id)
-        if previous == nil then save.bagOrder[#save.bagOrder + 1] = id end
-        save.inventory[id] = (previous or 0) + qty
-      end
-    end
-  end
+  refreshInventory(self)
   local dex = session.dex or {}
   local dexChanged = save.pokedex.national ~= (dex.national == true)
   local cached = self.dexSource
