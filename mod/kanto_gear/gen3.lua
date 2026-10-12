@@ -13,6 +13,27 @@ local function clear(t)
   for key in pairs(t) do t[key] = nil end
 end
 
+local function sameEntries(source, snapshot)
+  if type(source) ~= "table" then return snapshot == nil end
+  -- Virtual flag tables can change without any raw entries changing.
+  if not snapshot or getmetatable(source) then return false end
+  local count = 0
+  for key, value in pairs(source) do
+    if snapshot.values[key] ~= value then return false end
+    count = count + 1
+  end
+  return count == snapshot.count
+end
+
+local function snapshotEntries(source)
+  if type(source) ~= "table" then return nil end
+  local snapshot = { values = {}, count = 0 }
+  for key, value in pairs(source) do
+    snapshot.values[key], snapshot.count = value, snapshot.count + 1
+  end
+  return snapshot
+end
+
 local pockets = { ITEMS = "ITEM", KEY_ITEMS = "KEY_ITEM",
   POKE_BALLS = "BALL", TM_CASE = "TM_HM", BERRY_POUCH = "BERRY" }
 local statFields = { hp = "maxHp", attack = "attack", defense = "defense",
@@ -375,6 +396,7 @@ function Gen3:refresh()
   local session = self.game.session
   if session ~= self.session then
     self.session = session
+    self.dexSource = nil
     self.mons = setmetatable({}, { __mode = "k" })
     self.save = session and { generation = 3, player = {}, party = {},
       inventory = {}, bagOrder = {}, pokedex = { seen = {}, caught = {} } } or nil
@@ -410,10 +432,21 @@ function Gen3:refresh()
   end
   local dex = session.dex or {}
   local dexChanged = save.pokedex.national ~= (dex.national == true)
-  for id in pairs(self.data.pokemon) do
-    local seen, caught = self.Dex.isSeen(dex, id) or nil, self.Dex.isCaught(dex, id) or nil
-    dexChanged = dexChanged or seen ~= save.pokedex.seen[id] or caught ~= save.pokedex.caught[id]
-    save.pokedex.seen[id], save.pokedex.caught[id] = seen, caught
+  local cached = self.dexSource
+  -- Compare contents, not table identities: native captures and other mods
+  -- update flags in place. Keep the native readers authoritative on change.
+  if not cached or cached.dex ~= dex or cached.species ~= self.data.pokemon
+      or cached.isSeen ~= self.Dex.isSeen or cached.isCaught ~= self.Dex.isCaught
+      or getmetatable(dex) or not sameEntries(dex.seen, cached.seen)
+      or not sameEntries(dex.caught, cached.caught) or not sameEntries(dex.owned, cached.owned) then
+    for id in pairs(self.data.pokemon) do
+      local seen, caught = self.Dex.isSeen(dex, id) or nil, self.Dex.isCaught(dex, id) or nil
+      dexChanged = dexChanged or seen ~= save.pokedex.seen[id] or caught ~= save.pokedex.caught[id]
+      save.pokedex.seen[id], save.pokedex.caught[id] = seen, caught
+    end
+    self.dexSource = { dex = dex, species = self.data.pokemon,
+      isSeen = self.Dex.isSeen, isCaught = self.Dex.isCaught,
+      seen = snapshotEntries(dex.seen), caught = snapshotEntries(dex.caught), owned = snapshotEntries(dex.owned) }
   end
   if dexChanged then self.dexRevision = (self.dexRevision or 0) + 1 end
   save.pokedex.national = dex.national == true
