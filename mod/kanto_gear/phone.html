@@ -737,7 +737,7 @@ body:has(#controller[data-layout="custom"]:not([hidden])) .info { display: none;
 
 /* ── Layout editor (JS shows #layout-editor and sets #controller[data-editing]) ── */
 .editor {
-  position: absolute; z-index: 6; top: 6px; left: 50%; translate: -50% 0; max-width: calc(100% - 116px);
+  position: absolute; z-index: 6; top: 6px; left: 50%; translate: -50% 0; width: max-content; max-width: calc(100% - 116px);
   display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; border-radius: 999px;
   background: linear-gradient(180deg, var(--band), var(--band-2)); color: var(--band-ink);
   box-shadow: 0 0 0 2px var(--rim), 0 6px 16px rgb(0 0 0 / .3); font-size: 13px; font-weight: 650;
@@ -779,7 +779,7 @@ body[data-theme^="cgear"] .editor #layout-done { background: var(--accent-2); co
 .editor[data-selection="true"] .for-module { display: flex; }
 .editor[data-selection="true"] .for-global { display: none; }
 @media (max-aspect-ratio: 1/1) {
-  .editor { top: 54px; left: 8px; right: 8px; translate: none; max-width: none; flex-wrap: wrap; justify-content: center; border-radius: 18px; padding: 6px 8px; }
+  .editor { top: 54px; left: 8px; right: 8px; translate: none; width: auto; max-width: none; flex-wrap: wrap; justify-content: center; border-radius: 18px; padding: 6px 8px; }
   .editor-title { width: 100%; text-align: center; }
 }
 @media (max-height: 460px) { .editor-title { display: none; } }
