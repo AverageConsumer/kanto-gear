@@ -5,6 +5,15 @@ mod options. Scan the displayed QR with a phone in the same private Wi-Fi networ
 or open the address shown over the game and enter the code. In either case,
 tap Connect. Keep the game open.
 Only one browser may connect. Switch to another display mode to stop the server.
+Without the phone, open Recomp's **Mods → Kanto Gear → Options**: **DISPLAY MODE**
+is the first row. Change **PHONE / BROWSER** to **SEPARATE SCREENS**, **COMBINED SCREEN**
+or **FULLSCREEN SWAP**. This stops the server, releases phone controls and restores
+local Gear output. The launcher's mod options work too. **RESET DEFAULTS** always
+selects Separate Screens, never the previously saved Phone mode.
+Native mod options and Gear's Options app share persistent values. Recomp's older
+in-game menu cannot interpret list-based visibility conditions, so those settings
+remain available there; Gear keeps its contextual filtering. Existing explicit
+launcher values take precedence over the older touch-only fallback cache.
 Return to a normal Kanto Gear package to remove the experimental option.
 
 The game stays on its own display. Y swapping is unavailable in phone mode.

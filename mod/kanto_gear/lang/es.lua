@@ -1,4 +1,6 @@
 return {
+  ["COMPANION"] = "COMPAÑERO",
+  ["PHONE / BROWSER"] = "TELÉFONO / NAVEGADOR",
   ["UNKNOWN ITEM"] = "OBJETO DESCONOCIDO",
   ["NONE HERE"] = "NINGUNO",
   ["NEST"] = "NIDO",
@@ -30,7 +32,6 @@ return {
   ["TAP TO GO ON"] = "TOCA PARA SEGUIR",
   ["TOOL"] = "FALTA",
   ["BERRY TREE"] = "ÁRBOL BAYA",
-  ["COMPANION"] = false,
   ["RUBY"] = "RUBÍ",
   ["SAPPHIRE"] = "ZAFIRO",
   ["SHOW INSIDE"] = "VER INTERIOR",

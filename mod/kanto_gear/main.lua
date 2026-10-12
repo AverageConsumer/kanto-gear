@@ -2093,7 +2093,28 @@ function THEME:installOptionFallback(mod)
       and type(mod.cache.read) == "function"
       and type(mod.cache.write) == "function" then
     local nativeGet, loaded, values = mod.options.get, {}, {}
+    local boundGame
+    local function nativeValues()
+      local loader = boundGame and boundGame.mods
+      return loader and loader.modOptions and loader.modOptions.kanto_gear
+    end
+    local function publish(key, value)
+      if not boundGame then return end
+      local loader = boundGame.mods
+      local options = boundGame.options or (boundGame.save and boundGame.save.options)
+      if loader then
+        loader.modOptions = loader.modOptions or {}
+        loader.modOptions.kanto_gear = loader.modOptions.kanto_gear or {}
+        loader.modOptions.kanto_gear[key] = value
+      end
+      if options then
+        options.modOptions = options.modOptions or {}
+        options.modOptions.kanto_gear = options.modOptions.kanto_gear or {}
+        options.modOptions.kanto_gear[key] = value
+      end
+    end
     local function store(key, value)
+      if loaded[key] and values[key] == value then return true end
       local kind, encoded = type(value)
       if kind == "boolean" then encoded = value and "b1" or "b0"
       elseif kind == "number" then encoded = "n" .. tostring(value)
@@ -2104,6 +2125,8 @@ function THEME:installOptionFallback(mod)
       return true
     end
     function mod.options:get(key)
+      local native = nativeValues()
+      if native and native[key] ~= nil then return native[key] end
       if not loaded[key] then
         local raw = mod.cache:read("options/" .. key)
         if raw == "b1" or raw == "b0" then
@@ -2120,9 +2143,32 @@ function THEME:installOptionFallback(mod)
     end
     function mod.options:set(key, value)
       if not store(key, value) then return false end
+      publish(key, value)
+      if boundGame and boundGame.writeOptions then boundGame:writeOptions() end
       mod.events:emit("mod.kanto_gear.options_changed",
         { mod = "kanto_gear", key = key, value = value })
       return true
+    end
+    function mod.options:bindGame(source, schema)
+      -- The stock host has no options:set. Keep its menu/profile values and
+      -- global options file in sync with touch settings, without polling.
+      boundGame = nil
+      for _, row in ipairs(schema) do self:get(row.key) end
+      boundGame = source
+      local changed = false
+      for _, row in ipairs(schema) do
+        local native = nativeValues()
+        local value = native and native[row.key]
+        if value ~= nil then
+          -- Explicit launcher/menu choices override the older fallback cache.
+          if values[row.key] ~= nil then self:syncExternal(row.key, value) end
+        else
+          value = self:get(row.key)
+          publish(row.key, value)
+          changed = true
+        end
+      end
+      if changed and source.writeOptions then source:writeOptions() end
     end
     function mod.options:syncExternal(key, value)
       if type(key) ~= "string" or value == nil then return false end
@@ -2185,7 +2231,7 @@ return function(mod)
   THEME.displayModeDefault, THEME.combinedLayoutDefault = THEME:displayDefaults(
     function(key) return mod.options:get(key) end)
 
-  THEME.optionSchema = mod.options:define({
+  THEME.optionSchema = {
     { key = "language", label = "LANGUAGE", type = "choice",
       default = "en", choices = {
         { "ENGLISH", "en" }, { "DEUTSCH", "de" },
@@ -2324,14 +2370,37 @@ return function(mod)
       type = "toggle", default = false, visible_if = {
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto", "cgear", "cgear_dark", "cgear_auto" },
       } },
-  })
+  }
+
+  -- Recomp's stock menu only understands equals/not_equals visibility and
+  -- resets to default (not reset_default). Give it a compatible copy; keep
+  -- the richer contextual schema for Gear's own Options app.
+  do
+    local nativeSchema = {}
+    for _, row in ipairs(THEME.optionSchema) do
+      local native = {}
+      for key, value in pairs(row) do native[key] = value end
+      native.description = SettingsInfo.help[row.key]
+      if row.reset_default ~= nil then native.default = row.reset_default end
+      if native.visible_if and (native.visible_if.one_of or native.visible_if.not_one_of) then
+        native.visible_if = nil
+      end
+      if row.key == "display_mode" then
+        table.insert(nativeSchema, 1, native) -- recovery must not require a phone
+      else
+        nativeSchema[#nativeSchema + 1] = native
+      end
+    end
+    mod.options:define(nativeSchema)
+  end
 
   for _, row in ipairs(THEME.optionSchema) do
     row.description = SettingsInfo.help[row.key]
-    if (row.key == "type_hints" or row.key == "move_details" or row.key == "catch_odds")
-        and helperStored[row.key] == nil and mod.options.set then
-      -- Materialize inherited choices once. Changing discovery must not change
-      -- the helper defaults again on the next launch.
+    if mod.options.set and (row.reset_default ~= nil and row.default ~= row.reset_default
+        or (row.key == "type_hints" or row.key == "move_details" or row.key == "catch_odds")
+          and helperStored[row.key] == nil) then
+      -- Keep migrated/current values separate from the native reset defaults.
+      -- Materialize inherited helpers once so Discovery cannot reset them.
       mod.options:set(row.key, row.default)
     end
   end
@@ -14710,6 +14779,7 @@ return function(mod)
     if displayRuntime.gen3Region then displayRuntime.gen3Region:release(); displayRuntime.gen3Region = nil end
     displayRuntime.legacyRegion, displayRuntime.regionCursor = nil, {}
     game = payload.game
+    if mod.options.bindGame then mod.options:bindGame(game, THEME.optionSchema) end
     displayRuntime.sourceGame = game
     if displayRuntime.phone then displayRuntime.phone:setGame(game) end
     local spriteProvider = game.generation ~= 3 and mod.find("g9-battle-sprites")

@@ -1,4 +1,6 @@
 return {
+  ["COMPANION"] = "COMPAGNON",
+  ["PHONE / BROWSER"] = "TÉLÉPHONE / NAVIGATEUR",
   ["UNKNOWN ITEM"] = "OBJET INCONNU",
   ["NONE HERE"] = "AUCUN ICI",
   ["NEST"] = "NID",
@@ -30,7 +32,6 @@ return {
   ["TAP TO GO ON"] = "TOUCHE POUR CONTINUER",
   ["TOOL"] = "REQUIS",
   ["BERRY TREE"] = "ARBRE À BAIES",
-  ["COMPANION"] = false,
   ["RUBY"] = "RUBIS",
   ["SAPPHIRE"] = "SAPHIR",
   ["SHOW INSIDE"] = "VOIR L'INTERIEUR",

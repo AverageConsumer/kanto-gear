@@ -19,7 +19,7 @@ local function up(fn, key, replacement, set)
   error("missing upvalue " .. key)
 end
 local world = { map = { id = "PALLET_TOWN" } }
-local game = { data = run.data, world = world, overworld = world,
+local game = { mods = run.loader, data = run.data, world = world, overworld = world,
   input = { pressQueue = {}, held = {} },
   save = { generation = generation, player = { name = "RED", id = 7, map = "PALLET_TOWN" },
     party = {}, inventory = {}, boxes = {}, pokedex = { seen = {}, caught = {} } },
@@ -138,9 +138,33 @@ T.eq(up(compose, "touchDown"), nil, "disconnect clears held touch state")
 run.loader.modOptions.kanto_gear.display_mode = "combined"; frame()
 T.eq(stopped, 1, "changing display mode closes the phone server")
 T.eq(display.phone, nil, "changing mode removes the phone bridge")
+local Manager = require("src.mods.ManagerState")
+game.save.options = { modOptions = run.loader.modOptions }
+local manager = Manager.new(game)
+manager.notify = function() end
+local api = up(display.saveHome, "mod")
+for _, mode in ipairs({ "fullscreen", "combined", "separate" }) do
+  api.options:set("display_mode", "phone")
+  display.phone, display.phoneStatus = phone, phone
+  local previous = stopped
+  manager:setOption("kanto_gear", "display_mode", mode)
+  display.updatePhone()
+  T.eq(stopped, previous + 1, "native recovery to " .. mode .. " closes the server without a phone")
+  T.eq(display.phoneStatus, nil, "native recovery clears pairing UI")
+end
+api.options:set("display_mode", "phone")
+display.phone, display.phoneStatus = phone, phone
+local previous = stopped
+for _, row in ipairs(manager:buildOptionRows({ id = "kanto_gear" }, run.loader.optionSchemas.kanto_gear)) do
+  if row.id == "__reset" then row.activate() end
+end
+display.updatePhone()
+T.eq(stopped, previous + 1, "native Reset Defaults shuts down the wireless server")
+T.eq(api.options:get("display_mode"), "separate", "native reset restores local Gear output")
+previous = stopped
 display.phone, display.phoneStatus = phone, phone
 T.eq(hook("core.quit_to_launcher")(next), sentinel, "returning to the launcher preserves its result")
-T.eq(stopped, 2, "returning to the launcher closes the listening socket")
+T.eq(stopped, previous + 1, "returning to the launcher closes the listening socket")
 T.eq(#run.errors, 0, "phone lifecycle leaves no loader errors")
 run.release()
 T.finish("Kanto Gear phone runtime Gen " .. generation)
