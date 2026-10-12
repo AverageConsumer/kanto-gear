@@ -603,6 +603,8 @@ body:has(#pair[hidden]) main > .privacy { display: none; }
 body:has(#pair:not([hidden])) main { grid-template-rows: 1fr auto auto auto 1fr; }
 body:has(#pair:not([hidden])) #status { grid-row: 3; }
 body:has(#pair:not([hidden])) .privacy { grid-row: 4; }
+.row-button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 650; background: var(--panel-2); color: var(--ink); box-shadow: inset 0 0 0 2px var(--line); }
+body[data-theme^="cgear"] .row-button { border-radius: 4px; }
 #forget-settings {
   width: 100%; min-height: 44px; margin-top: 10px; border: 0; border-radius: 12px; cursor: pointer;
   font-size: 14px; font-weight: 650; background: transparent; color: var(--danger);
@@ -624,11 +626,50 @@ body[data-theme^="cgear"] #forget-settings { border-radius: 4px; }
    --screen-x/-y/-w/-h (top-left + size) and --{dpad,a,b,select,start,l,r}-x/-y (centre) + optional -s (scale).
    The values below are only a fallback for a layout without saved positions. ── */
 .ab-bridge { display: none; }
-#controller[data-layout="custom"] {
-  display: block; position: relative; --cap: 9999px;
+#controller[data-layout="custom"] { display: block; position: relative; --cap: 9999px; }
+/* Presets: complete position sets per orientation. Saved user positions (inline vars) override them;
+   "Reset" simply removes the inline vars. Landscape first, portrait below. */
+#controller[data-layout="custom"], #controller[data-layout="custom"][data-preset="classic"] {
   --screen-x: .2; --screen-y: 0; --screen-w: .6; --screen-h: 1;
   --dpad-x: .12; --dpad-y: .56; --l-x: .11; --l-y: .22; --select-x: .11; --select-y: .92;
   --a-x: .92; --a-y: .47; --b-x: .81; --b-y: .6; --r-x: .89; --r-y: .22; --start-x: .89; --start-y: .92;
+}
+#controller[data-layout="custom"][data-preset="lefty"] {
+  --screen-x: .2; --screen-y: 0; --screen-w: .6; --screen-h: 1;
+  --dpad-x: .88; --dpad-y: .56; --l-x: .11; --l-y: .22; --select-x: .11; --select-y: .92;
+  --a-x: .08; --a-y: .47; --b-x: .19; --b-y: .6; --r-x: .89; --r-y: .22; --start-x: .89; --start-y: .92;
+}
+#controller[data-layout="custom"][data-preset="one-right"] {
+  --screen-x: 0; --screen-y: 0; --screen-w: .58; --screen-h: 1;
+  --dpad-x: .7; --dpad-y: .42; --dpad-s: .9; --l-x: .68; --l-y: .1; --r-x: .86; --r-y: .1;
+  --a-x: .93; --a-y: .5; --b-x: .85; --b-y: .66; --select-x: .69; --select-y: .9; --start-x: .88; --start-y: .9;
+}
+#controller[data-layout="custom"][data-preset="one-left"] {
+  --screen-x: .42; --screen-y: .13; --screen-w: .58; --screen-h: .87;
+  --dpad-x: .3; --dpad-y: .42; --dpad-s: .9; --l-x: .14; --l-y: .1; --r-x: .32; --r-y: .1;
+  --a-x: .15; --a-y: .5; --b-x: .07; --b-y: .66; --select-x: .12; --select-y: .9; --start-x: .31; --start-y: .9;
+}
+@media (max-aspect-ratio: 1/1) {
+  #controller[data-layout="custom"], #controller[data-layout="custom"][data-preset="classic"] {
+    --screen-x: .02; --screen-y: .06; --screen-w: .96; --screen-h: .44;
+    --l-x: .16; --l-y: .55; --r-x: .84; --r-y: .55; --dpad-x: .26; --dpad-y: .73;
+    --a-x: .86; --a-y: .69; --b-x: .68; --b-y: .78; --select-x: .38; --select-y: .94; --start-x: .62; --start-y: .94;
+  }
+  #controller[data-layout="custom"][data-preset="lefty"] {
+    --screen-x: .02; --screen-y: .06; --screen-w: .96; --screen-h: .44;
+    --l-x: .16; --l-y: .55; --r-x: .84; --r-y: .55; --dpad-x: .74; --dpad-y: .73;
+    --a-x: .14; --a-y: .69; --b-x: .32; --b-y: .78; --select-x: .38; --select-y: .94; --start-x: .62; --start-y: .94;
+  }
+  #controller[data-layout="custom"][data-preset="one-right"] {
+    --screen-x: .02; --screen-y: .06; --screen-w: .96; --screen-h: .4;
+    --l-x: .3; --l-y: .52; --r-x: .76; --r-y: .52; --dpad-x: .4; --dpad-y: .68; --dpad-s: .85;
+    --a-x: .88; --a-y: .7; --b-x: .76; --b-y: .8; --select-x: .5; --select-y: .93; --start-x: .78; --start-y: .94;
+  }
+  #controller[data-layout="custom"][data-preset="one-left"] {
+    --screen-x: .02; --screen-y: .06; --screen-w: .96; --screen-h: .4;
+    --l-x: .24; --l-y: .52; --r-x: .7; --r-y: .52; --dpad-x: .6; --dpad-y: .68; --dpad-s: .85;
+    --a-x: .12; --a-y: .7; --b-x: .24; --b-y: .8; --select-x: .22; --select-y: .94; --start-x: .5; --start-y: .93;
+  }
 }
 #controller[data-layout="custom"] .actions { display: contents; }
 #controller[data-layout="custom"] .actions::before { display: none; }
@@ -671,11 +712,74 @@ body[data-theme^="cgear"] #controller[data-layout="custom"] :is([data-button="a"
   border-radius: 12px;
 }
 #controller[data-editing="true"] [data-module] { cursor: grab; }
-#controller[data-editing="true"] [data-module]:not(.screen) {
-  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent);
+/* Module bounds drawn with ::after, so the controls keep their own look while arranging. */
+#controller[data-editing="true"] [data-module]::after {
+  content: ""; position: absolute; inset: -7px; border-radius: 14px; pointer-events: none;
+  border: 2px dashed color-mix(in srgb, var(--accent) 75%, transparent);
 }
-#controller[data-editing="true"] .dpad, #controller[data-editing="true"] .screen { outline: 2px dashed var(--accent); outline-offset: 6px; }
+#controller[data-editing="true"] :is([data-module="a"], [data-module="b"])::after { border-radius: 50%; inset: calc(var(--abs) * -.2); }
+#controller[data-editing="true"] [data-module].selected::after { border: 3px solid var(--accent); box-shadow: 0 0 14px var(--accent); }
+#controller[data-editing="true"] [data-module].blocked::after { border: 3px solid var(--danger); box-shadow: 0 0 14px var(--danger); }
 #controller[data-editing="true"] [data-module].dragging { cursor: grabbing; z-index: 5; filter: drop-shadow(0 8px 10px rgb(0 0 0 / .3)); }
+
+/* Custom layouts free the brand corner; only the options button stays reserved (top-right). */
+body:has(#controller[data-layout="custom"]:not([hidden])) .info { display: none; }
+
+/* ── Layout editor (JS shows #layout-editor and sets #controller[data-editing]) ── */
+.editor {
+  position: absolute; z-index: 6; top: 6px; left: 50%; translate: -50% 0; max-width: calc(100% - 116px);
+  display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; border-radius: 999px;
+  background: linear-gradient(180deg, var(--band), var(--band-2)); color: var(--band-ink);
+  box-shadow: 0 0 0 2px var(--rim), 0 6px 16px rgb(0 0 0 / .3); font-size: 13px; font-weight: 650;
+}
+body[data-theme^="cgear"] .editor { border-radius: 6px; background: var(--panel); color: var(--ink); box-shadow: 0 0 0 2px var(--accent-2), 0 6px 16px rgb(0 0 0 / .25); }
+.editor[data-dock="bottom"] { top: auto; bottom: 6px; }
+.editor-title { white-space: nowrap; opacity: .85; }
+.editor-title .for-portrait { display: none; }
+@media (max-aspect-ratio: 1/1) { .editor-title .for-portrait { display: inline; } .editor-title .for-landscape { display: none; } }
+.editor label { display: flex; align-items: center; gap: 6px; white-space: nowrap; min-height: 40px; }
+.editor select {
+  appearance: none; -webkit-appearance: none; min-height: 36px; padding: 0 28px 0 10px; border: 0; border-radius: 999px;
+  font: inherit; color: var(--ink);
+  background: linear-gradient(45deg, transparent 50%, var(--accent) 50%) calc(100% - 15px) 50% / 5px 5px no-repeat,
+    linear-gradient(-45deg, transparent 50%, var(--accent) 50%) calc(100% - 10px) 50% / 5px 5px no-repeat, var(--panel);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.editor input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; margin: 0; width: 40px; height: 24px; border-radius: 999px; position: relative; cursor: pointer;
+  background: rgb(0 0 0 / .25); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .2);
+}
+.editor input[type="checkbox"]::before { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: currentColor; opacity: .6; transition: translate .12s; }
+.editor input[type="checkbox"]:checked { background: var(--accent); }
+.editor input[type="checkbox"]:checked::before { translate: 16px 0; opacity: 1; background: #fff; }
+.editor input[type="range"] { width: 120px; accent-color: var(--accent); }
+.editor button {
+  min-height: 36px; min-width: 44px; padding: 0 12px; border: 0; border-radius: 999px; cursor: pointer;
+  font: inherit; color: inherit; background: rgb(0 0 0 / .18); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .16);
+}
+body[data-theme^="cgear"] .editor :is(button, select) { border-radius: 4px; }
+body[data-theme^="cgear"] .editor button { background: var(--panel-2); box-shadow: inset 0 0 0 2px var(--line); }
+.editor #layout-done { background: var(--accent); color: var(--accent-ink); box-shadow: none; }
+body[data-theme^="cgear"] .editor #layout-done { background: var(--accent-2); color: #fff; }
+.editor button:active { translate: 0 1px; }
+.editor :is(button, select, input):focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* Global tools vs. tools for the selected module (JS sets data-selection="true"). */
+.editor .for-module { display: none; }
+.editor[data-selection="true"] .for-module { display: flex; }
+.editor[data-selection="true"] .for-global { display: none; }
+@media (max-aspect-ratio: 1/1) {
+  .editor { top: 54px; left: 8px; right: 8px; translate: none; max-width: none; flex-wrap: wrap; justify-content: center; border-radius: 18px; padding: 6px 8px; }
+  .editor-title { width: 100%; text-align: center; }
+}
+@media (max-height: 460px) { .editor-title { display: none; } }
+/* Edit surface: reserved corners, selection, blocked placement, snap guides. */
+body:has(#controller[data-editing="true"]) #settings-open { outline: 2px dashed color-mix(in srgb, var(--label) 70%, transparent); outline-offset: 3px; border-radius: 8px; }
+#controller[data-editing="true"]::before, #controller[data-editing="true"]::after {
+  content: ""; position: absolute; z-index: 4; pointer-events: none; display: none; background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+}
+#controller[data-editing="true"][data-guide-x]::before { display: block; top: 0; bottom: 0; width: 2px; left: calc(var(--guide-x, .5) * 100cqw - 1px); }
+#controller[data-editing="true"][data-guide-y]::after { display: block; left: 0; right: 0; height: 2px; top: calc(var(--guide-y, .5) * 100cqh - 1px); }
 
 /* ── Press motion: quick press, softer release, D-pad tilts toward the held arm.
    Only operable buttons move; nothing animates at rest. Off via "Button animations" or reduced motion. ── */
@@ -769,6 +873,17 @@ body:has(#setting-frame:not(:checked)) :is(.dpad, .actions)::before { opacity: .
         <button type="button" data-module="start" data-button="start" aria-label="Start" disabled><svg class="px" style="--w:29;--h:7" aria-hidden="true"><use href="#g-start"/></svg></button>
       </div>
     </section>
+    <div id="layout-editor" class="editor" role="toolbar" aria-label="Layout editor" data-dock="top" hidden>
+      <span class="editor-title for-global"><span class="for-landscape">Landscape layout</span><span class="for-portrait">Portrait layout</span></span>
+      <label class="for-global">Preset <select id="layout-preset"><option value="classic">Classic</option><option value="lefty">Left-handed</option><option value="one-right">One hand · right</option><option value="one-left">One hand · left</option></select></label>
+      <label class="for-global">Snap <input id="layout-snap" type="checkbox" checked></label>
+      <button id="layout-reset" class="for-global" type="button">Reset</button>
+      <label class="for-module">Size <input id="layout-size" type="range" min="0.7" max="1.6" step="0.05" value="1"></label>
+      <button id="layout-deselect" class="for-module" type="button">Back</button>
+      <button id="layout-dock" type="button" aria-label="Move toolbar">⇅</button>
+      <button id="layout-cancel" type="button">Cancel</button>
+      <button id="layout-done" type="button">Done</button>
+    </div>
     <p id="status" role="status" aria-live="polite">Waiting for pairing</p>
     <details class="privacy"><summary>Privacy &amp; connection</summary><p>Connect shares Gear's visible screen (including names and Notes) with this phone and sends your touches and controller buttons to the game. ROM and save files are not transferred.</p><p>Everything is served by your game device over local HTTP/WebSocket. No accounts, analytics, cookies, access logs, cloud relay or third-party page requests. Live network addresses and inputs stay in memory; this feature does not record the screen.</p><p>Only use a trusted private network: HTTP does not encrypt or protect traffic from someone monitoring or modifying your Wi-Fi. Do not expose port 8765 to the internet. The QR key and code expire after five minutes and work once. Disconnect in Settings, close this page, or change Gear's display mode to stop sharing.</p><p>Preferences stay in memory unless you enable “Remember settings”. You can remove saved preferences with “Forget saved settings”. Pairing keys are never saved in browser storage. Your browser or QR scanner may keep its own history.</p></details>
   </main>
@@ -777,14 +892,15 @@ body:has(#setting-frame:not(:checked)) :is(.dpad, .actions)::before { opacity: .
   <div class="dialog-head"><svg class="px" style="--w:9;--h:9" aria-hidden="true"><use href="#g-cog"/></svg><h2 id="settings-title">Browser settings</h2></div>
   <div class="dialog-body">
     <label class="row">Show controller buttons <input id="setting-controls" type="checkbox" checked></label>
-    <label class="row needs-controls">Layout <select id="setting-layout"><option value="auto">Automatic</option><option value="wide">Sides</option><option value="stacked">Below Gear</option></select></label>
+    <label class="row needs-controls">Layout <select id="setting-layout"><option value="auto">Automatic</option><option value="wide">Sides</option><option value="stacked">Below Gear</option><option value="custom" hidden>Custom</option></select></label>
+    <div class="row needs-controls" hidden>Custom layout <button id="layout-edit" type="button" class="row-button">Arrange…</button></div>
     <label class="row needs-controls">Button size <select id="setting-size"><option value="0.8">Small</option><option value="1">Normal</option><option value="1.2">Large</option><option value="1.4">Extra large</option></select></label>
     <label class="row needs-controls">Button animations <input id="setting-motion" type="checkbox" checked></label>
     <label class="row needs-controls" hidden>Haptics <input id="setting-haptics" type="checkbox" checked></label>
     <label class="row">Handheld frame <input id="setting-frame" type="checkbox" checked></label>
     <label class="row">Theme <select id="setting-theme"><option value="pokegear-light">Pokégear · Light</option><option value="pokegear-dark">Pokégear · Dark</option><option value="cgear-light">C-Gear · Light</option><option value="cgear-dark">C-Gear · Dark</option></select></label>
     <label class="row">Remember settings on this browser <input id="setting-remember" type="checkbox"></label>
-    <p class="note">Off by default. Saves only controls, layout, size and theme locally; never a pairing key.</p>
+    <p class="note">Off by default. Saves only controller and appearance preferences locally; never a pairing key.</p>
     <button id="forget-settings" type="button" disabled>Forget saved settings</button>
     <div class="dialog-actions"><button id="fullscreen" type="button">Fullscreen</button><button id="disconnect" type="button">Disconnect</button><button id="settings-close" type="button">Done</button></div>
   </div>
