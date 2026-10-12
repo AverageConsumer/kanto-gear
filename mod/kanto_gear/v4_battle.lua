@@ -529,6 +529,7 @@ return function(H, ui, K)
     end
     self:v4HpBar(infoX, y + 44, infoW, mon.hp, mon.maxHp)
     if player then self:partyInfo(mon.hpText or "--/--", infoX, y + 56, colors.ink, infoW, "right") end
+    if player and mon.expProgress then self:expBar(infoX, y + 69, infoW, mon.expProgress) end
   end
 
   function H:enemyInfoOpponents(battlers, drawPortrait)
@@ -548,6 +549,26 @@ return function(H, ui, K)
     end
   end
 
+  -- The gear card's matchup chip, condensed to the gap between the type pill
+  -- and PP. Hidden when the matchup is unknown (assist off, status moves).
+  function H:fullMoveMatchup(move, x, y, a)
+    local label, effectiveness = self:battleEffectLabel(move)
+    if effectiveness == nil then return end
+    local strong, weak = effectiveness > 10, effectiveness < 10
+    local bg = effectiveness == 0 and hex("c8ccd0") or strong and hex("f8f0b0")
+      or weak and hex("f0d8c8") or a.D
+    local fg = effectiveness == 0 and hex("3a3a40") or strong and hex("8a4a00")
+      or weak and hex("2a3640") or WHITE
+    local cw = max(18, self:partyInfoWidth(label) + 8)
+    if strong or weak then RR(x, y + 1, cw, 11, 2, { 0, 0, 0, 0.3 }) end
+    RR(x, y, cw, 11, 2, bg)
+    if strong or weak then
+      self:withoutShadow(function() self:partyInfo(label, x, y - 2, fg, cw, "center") end)
+    else
+      self:partyInfo(label, x, y - 2, fg, cw, "center")
+    end
+  end
+
   function H:battleFullMoves(mon)
     local c = self.colors
     for slot, rect in ipairs(self.fullBattleActions) do
@@ -559,12 +580,16 @@ return function(H, ui, K)
         local a = K.rampOf(tone)
         self:v4Button(x, y, w, h, a, { radius = 5, lip = 4, chamfer = 5 })
         local ink = move.disabled and c.disabledInk or WHITE
-        self:partyName(move.name, x + 7, y + 4, ink, w - 29)
+        local stab = not move.disabled and self:moveHasStab(mon, move)
+        local starX = x + w - (mon.details and 26 or 15)
+        self:partyName(move.name, x + 7, y + 4, ink, stab and starX - x - 10 or w - 29)
+        if stab then ART(STAR, starX, y + 6, { ["#"] = hex("f8e070") }) end
         if move.disabled then
           self:partyInfo(move.disabledLabel or "", x + 7, y + 22, WHITE)
         else
           RR(x + 6, y + 23, 44, 11, 2, a.D)
           self:partyInfo(self:fitPartyInfo(move.typeLabel or move.type or "", 40), x + 6, y + 21, WHITE, 44, "center")
+          self:fullMoveMatchup(move, x + 52, y + 23, a)
         end
         self:partyInfo(move.ppText or "", x + w - 49, y + 21, ink, 42, "right")
         if self.nativeFocus and mon.moveIndex == slot and not move.disabled then self:focusFrame(x, y, w, h) end

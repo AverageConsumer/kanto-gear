@@ -536,6 +536,7 @@ function love.load()
   local battleParty = screen == "battle_party" or screen == "battle_item_target"
   local battleFull = screen == "battle_full" or screen == "battle_full_message"
     or screen == "battle_full_moves" or screen == "battle_full_safari" or screen == "battle_opponents"
+    or screen == "battle_full_doubles"
   local battleMessage = screen == "battle_message"
   local battlePartyTransition = screen == "battle_party_transition"
   local battlePartyMenu = screen == "battle_party_menu"
@@ -3025,6 +3026,22 @@ function love.load()
       for _, move in ipairs(mon.moves) do move.available = true end
       mon.moves[4].disabled, mon.moves[4].disabledLabel = true, "NO PP"
       mon.details = true
+      mon.types = { "WATER" }
+      mon.moves[1].effectiveness, mon.moves[2].effectiveness, mon.moves[3].effectiveness = 20, 5, 10
+      theme:battleFullMoves(mon)
+    elseif screen == "battle_full_doubles" then
+      local function copy(src, side, id, name)
+        local out = {}
+        for k, v in pairs(src) do out[k] = v end
+        out.side, out.id, out.name = side, id, name or src.name
+        return out
+      end
+      local p2 = copy(party[2], "player", 2)
+      p2.levelText, p2.hpText = "L" .. tostring(p2.level or 0), string.format("%d/%d", p2.hp, p2.maxHp)
+      local battlers = { copy(player, "player", 0), copy(enemy, "enemy", 1), p2, copy(enemy, "enemy", 3, "SPEAROW") }
+      battlers[1].active = true
+      theme:battleFullStatuses(player, enemy, portrait, playerTeam, enemyTeam, nil, battlers)
+      for _, move in ipairs(mon.moves) do move.available = true end
       theme:battleFullMoves(mon)
     elseif screen == "battle_full_safari" then
       theme:battleFullStatuses(player, enemy, portrait, playerTeam, enemyTeam)

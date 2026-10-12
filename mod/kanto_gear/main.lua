@@ -9072,7 +9072,25 @@ return function(mod)
     local maxHp = source.maxHp or source.stats and source.stats.hp or hp
     local statusId = hp <= 0 and "FNT"
       or THEME:statusName(source.status, mod.content)
+    local expProgress
+    if side == "player" then
+      -- the snapshot carries no experience; read the live party member
+      local saveParty = game.save and game.save.party or {}
+      local index = source.partyIndex
+      if not index then
+        for _, row in ipairs(battle and battle.party or {}) do
+          if row.active then index = row.slot break end
+        end
+      end
+      local live = index and saveParty[index]
+      if live and (live.species == source.species or live.species == source.gen3Species
+          or displayRuntime.gen3) then
+        local ok, ratio = pcall(displayRuntime.partyExpProgress, live)
+        expProgress = ok and ratio or nil
+      end
+    end
     return {
+      expProgress = expProgress,
       species = source.species,
       id = source.id, absent = source.absent, side = side,
       active = battle and battle.double and (battle.prompt == "menu" or battle.prompt == "moves")

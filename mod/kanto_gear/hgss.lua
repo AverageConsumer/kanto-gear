@@ -4869,6 +4869,8 @@ return function(ui)
     self:partyInfo(mon.levelText, x + 107 - levelWidth, y + 3, c.green)
     drawPortrait(mon, x + 4, y + 12, 22, (mon.hp or 0) <= 0)
     self:hpBar(x + 31, y + 17, 75, mon.hp, mon.maxHp)
+    -- welded under the HP bar, sharing its bottom outline
+    if player and mon.expProgress then self:expBar(x + 31, y + 21, 75, mon.expProgress) end
     if mon.statusId then self:statusIcon(mon.statusId, x + 31, y + 27) end
     if player then self:partyInfo(mon.hpText, x + 58, y + 26, c.ink, 48, "right") end
   end
