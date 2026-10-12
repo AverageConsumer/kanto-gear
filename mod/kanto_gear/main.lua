@@ -7569,6 +7569,66 @@ return function(mod)
         generation = raw and raw.generation or (compat.isGen2() and 2 or 1) }
     end,
   })
+  do
+  -- Silph Connect shows real trainers: you as your own overworld sprite, and a
+  -- peer as their game's player character when this game ships that sprite
+  -- (Red and Gold live in Gen 2, Brendan/May and Red/Leaf in their Gen 3
+  -- family). Returns false so the skin can fall back to its own glyph.
+  local PSS_FAMILY = { red = "kanto", blue = "kanto", yellow = "kanto", green = "kanto",
+    gold = "johto", silver = "johto", crystal = "johto",
+    firered = "frlg", leafgreen = "frlg", ruby = "rse", sapphire = "rse", emerald = "rse" }
+  -- Draws at the largest whole-pixel scale that fits maxH, bottom at y. A
+  -- sprite taller than maxH at 1x (Gen 3's 16x32) shows its top maxH rows,
+  -- a head-and-shoulders bust, instead of shrinking off the pixel grid.
+  local pssQuads = setmetatable({}, { __mode = "k" })
+  local function drawCropped(image, quad, x, y, maxH, flip, natW, natH)
+    local k = math.max(1, math.floor(maxH / natH))
+    local rows = math.min(natH, math.floor(maxH / k))
+    if rows < natH then
+      local qx, qy, qw = quad:getViewport()
+      local byQuad = pssQuads[quad] or {}
+      pssQuads[quad] = byQuad
+      byQuad[rows] = byQuad[rows] or G.newQuad(qx, qy, qw, rows, image:getDimensions())
+      quad = byQuad[rows]
+    end
+    color({ 1, 1, 1, 1 })
+    G.draw(image, quad, flip and x + natW * k / 2 or x - natW * k / 2, y - rows * k, 0,
+      flip and -k or k, k)
+    return true
+  end
+  displayRuntime.pss.drawTrainer = function(row, x, y, maxH, facing)
+    facing, maxH = facing or "down", maxH or 16
+    local family = row and PSS_FAMILY[tostring(row.version or ""):lower()]
+    if row and not family then return false end
+    if displayRuntime.gen3 then
+      local ok, sprites = pcall(require, "src.core.game3.ow_sprites")
+      if not ok then return false end
+      local id
+      if not row then
+        id = sprites.playerGraphicsId and sprites.playerGraphicsId(displayRuntime.sourceGame or game)
+      elseif family == (displayRuntime.gen3.hoenn and "rse" or "frlg") then
+        id = sprites.avatarGraphicsId and sprites.avatarGraphicsId("NORMAL", false)
+      end
+      local spr = id and sprites.getDraw(id)
+      if not spr then return false end
+      local frame, flip = sprites.pose(spr, facing, false, false)
+      local quad = spr.quads and spr.quads[frame]
+      if not quad then return false end
+      return drawCropped(spr.image, quad, x, y, maxH, flip, spr.width, spr.height)
+    end
+    local spriteId
+    if not row then
+      local playerSprites = (game and game.data and game.data.field or {}).playerSprites or {}
+      spriteId = compat.isGen2() and "SPRITE_CHRIS" or playerSprites.walk or "SPRITE_RED"
+    else
+      spriteId = (family == "kanto" or family == "frlg") and "SPRITE_RED"
+        or family == "johto" and "SPRITE_CHRIS" or nil
+    end
+    if not spriteId then return false end
+    local k = math.max(1, math.floor(maxH / 16))
+    return compat.drawMapSprite(spriteId, "pss:" .. spriteId, nil, x, y, k, true, facing)
+  end
+  end
   -- Host session teardown also drops subscriptions when returning to the launcher.
   -- A weak reference keeps its process-wide release registry from retaining Gear.
   do

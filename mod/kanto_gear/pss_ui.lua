@@ -55,6 +55,8 @@ return function(H, G, tr, fmt)
   function H:pss(state)
     local c = self.colors
     state.hits = {}
+    -- the skin draws real trainer sprites through this hook (see main.lua)
+    self.pssDrawTrainer = state.drawTrainer
     local function hit(x,y,w,h,action,value)
       state.hits[#state.hits+1]={x=x,y=y,w=w,h=h,action=action,value=value}
     end
@@ -88,7 +90,7 @@ return function(H, G, tr, fmt)
       if self.v4PssCard then
         self:v4PssCard(inv.from and inv.from.name or tr("YOUR TRAINER"), nil,
           tr(inv.mode == "trade" and "TRADE INVITATION" or "BATTLE INVITATION"), inv.mode,
-          tr(state.canAccept and "ACCEPT TO OPEN LINK SETUP" or "FINISH YOUR CURRENT ACTION"), 110)
+          tr(state.canAccept and "ACCEPT TO OPEN LINK SETUP" or "FINISH YOUR CURRENT ACTION"), 110, nil, inv.from)
       else
       self:panel(7,33,226,110)
       person(120,45,c.blue)
@@ -107,7 +109,7 @@ return function(H, G, tr, fmt)
         self:v4PssCard(pending.peer and pending.peer.name or tr("YOUR TRAINER"), nil,
           tr(pending.mode == "trade" and "TRADE" or "BATTLE"), pending.mode,
           tr(state.activity and "LINK SESSION OPEN" or pending.room
-            and "FINISH YOUR CURRENT ACTION" or "INVITATION SENT"), 145, not state.activity)
+            and "FINISH YOUR CURRENT ACTION" or "INVITATION SENT"), 145, not state.activity, pending.peer)
       else
       self:panel(7,33,226,145)
       person(120,48,c.blue)
@@ -128,7 +130,7 @@ return function(H, G, tr, fmt)
         self:v4PssCard(row and row.name or tr(state.state == "online" and "PLAYER LEFT"
             or states[state.state] or "OFFLINE"), row and tr(versions[row.version] or "UNKNOWN GAME"),
           row and tr(row.ready and "READY" or statuses[row.status] or "ONLINE"), row and (row.ready and "ready" or "online") or "offline",
-          reason and tr(reason), 110)
+          reason and tr(reason), 110, nil, row)
       else
       self:panel(7,33,226,110)
       person(120,43,row and c.blue or c.disabledInk)

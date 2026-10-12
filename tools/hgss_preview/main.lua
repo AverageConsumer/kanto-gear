@@ -247,7 +247,7 @@ function love.load()
       and theme:stepsHit(20, 80) == nil,
     "Step Counter reset hitbox matches its visible button")
   if screen:sub(1, 8) == "explorer" or homePreview or storeExplorerPreview
-      or screen:sub(1, 7) == "trainer" then
+      or screen:sub(1, 7) == "trainer" or screen:sub(1, 3) == "pss" then
     local typeLabels = {
       { "HERE NOW", 68 }, { "WHOLE ROUTE", 70 }, { "HABITAT", 52 },
       { "FOUND", 74 },
@@ -439,7 +439,7 @@ function love.load()
   end
   local overworld = {}
   if screen:sub(1, 8) == "explorer" or homePreview or storeExplorerPreview
-      or screen:sub(1, 7) == "trainer" then
+      or screen:sub(1, 7) == "trainer" or screen:sub(1, 3) == "pss" then
     for _, name in ipairs({ "player", "trainer1", "trainer2", "trainer3" }) do
       local image = love.graphics.newImage(
         "local/overworld/" .. name .. ".png")
@@ -1693,6 +1693,14 @@ function love.load()
     assert(loadfile(root .. "/mod/kanto_gear/pss_ui.lua"))()(theme, love.graphics, translate, format)
     local state = { name = "RED#123", state = "online", page = 1, pages = 2, rows = {},
       ready = true, enabled = true, session = {} }
+    -- the preview only owns the player sprite: draw it for you and for
+    -- Kanto peers, everyone else keeps the skin's glyph
+    state.drawTrainer = function(row, x, y, maxH)
+      if row and not ({ red = true, firered = true, blue = true })[row.version] then return false end
+      local k = math.max(1, math.floor(maxH / 16))
+      drawOverworld("player", x, y, k)
+      return true
+    end
     local names = { "AverageConsumer", "Theeohn", "RED", "コトネ", "BLUE#018", "SILVER", "LEAF" }
     local versions = { "firered", "crystal", "red", "gold", "blue", "silver", "leafgreen" }
     for i, name in ipairs(names) do

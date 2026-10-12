@@ -552,9 +552,36 @@ return function(H, ui, K)
       { o = c.outline, ["#"] = mix(tint, { 0, 0, 0, 1 }, 0.25), s = skin, B = tint })
   end
 
+  -- A trainer in a seat or on the link stage: the real overworld sprite when
+  -- the game has it (main.lua picks a whole-pixel scale, or a bust when the
+  -- sprite is taller than the room), else the Silph person glyph. row = nil
+  -- is you; row = false forces the glyph.
+  local function trainerSprite(self, row, cx, bottom, maxH, facing)
+    local draw = self.pssDrawTrainer
+    if row == false or not draw then return false end
+    local ok, drawn = pcall(draw, row, cx, bottom, maxH, facing)
+    return ok and drawn and true or false
+  end
+  local function trainerFigure(self, row, cx, bottom, maxH, facing, tint)
+    if trainerSprite(self, row, cx, bottom, maxH, facing) then return true end
+    local k = maxH >= 24 and 2 or 1
+    local G = ui.graphics
+    G.push(); G.translate(cx, bottom - 11 * k); G.scale(k, k)
+    self:v4Person(0, 1, tint)
+    G.pop()
+    return false
+  end
+  -- soft floor shadow a figure stands on
+  local function floorShadow(self, cx, y, w)
+    local s = { 0, 0, 0, self.dark and 0.32 or 0.16 }
+    local half = floor(w / 2)
+    R(cx - half + 2, y, w - 4, 1, s); R(cx - half, y + 1, w, 1, s); R(cx - half + 2, y + 2, w - 4, 1, s)
+  end
+  H.v4TrainerFigure = trainerFigure
+
   -- Silph Connect profile card: avatar seat, name, game chip, status pill,
   -- an animated link line while waiting.
-  function H:v4PssCard(name, game, status, mode, note, height, waiting)
+  function H:v4PssCard(name, game, status, mode, note, height, waiting, peer)
     local c = self.colors
     local accent = mode == "trade" and hex("3878d0") or mode == "battle" and hex("e05040")
       or mode == "ready" and c.hp or mode == "offline" and c.silverDark or (cg(self) and self.tok.acc.M or hex("3878d0"))
@@ -563,10 +590,8 @@ return function(H, ui, K)
     CIRC(14, 40, 44, c.outline)
     CIRC(15, 41, 42, mix(c.surface, accent, self.dark and 0.32 or 0.2))
     K.CIRCrows(15, 41, 42, 21, 42, mix(c.surface, accent, self.dark and 0.45 or 0.32))
-    local G = ui.graphics
-    G.push(); G.translate(36, 52); G.scale(2, 2)
-    self:v4Person(0, 0, accent)
-    G.pop()
+    -- the peer in the seat; with no peer (left, unknown) the plain glyph
+    trainerFigure(self, peer or false, 36, 80, 38, "down", accent)
     self:partyName(self:fitPartyInfo(name or "", 150), 66, 42, c.ink, 150)
     local x = 66
     if game then x = x + self:v4Pill(game, x, 58, hex("6a7a90"), { raw = true, maxW = 90 }) + 4 end
@@ -603,10 +628,17 @@ return function(H, ui, K)
     local lx = 120 - floor((dw * 2 + gap) / 2)
     local rx = lx + dw + gap
     local G = ui.graphics
+    -- you on the left facing right, the peer on the right facing left; a
+    -- trainer whose sprite this game lacks keeps the DS-device stand-in
     for i, dx in ipairs({ lx, rx }) do
-      G.push(); G.translate(dx, ly); G.scale(scale, scale)
-      ART(DEV, 0, 0, { o = c.outline, ["#"] = i == 1 and devC or accent, w = hex("d8f0e0") })
-      G.pop()
+      local cx, foot = dx + floor(dw / 2), ly + dh
+      local who = i == 1 and nil or (peer or false)
+      if room >= 34 then floorShadow(self, cx, foot - 1, 22) end
+      if not (room >= 34 and trainerSprite(self, who, cx, foot, min(32, room - 2), i == 1 and "right" or "left")) then
+        G.push(); G.translate(dx, ly); G.scale(scale, scale)
+        ART(DEV, 0, 0, { o = c.outline, ["#"] = i == 1 and devC or accent, w = hex("d8f0e0") })
+        G.pop()
+      end
     end
     local t = self:clock()
     local on = mode == "ready" or mode == "trade" or mode == "battle"
@@ -697,7 +729,7 @@ return function(H, ui, K)
     R(8, 37, 2, 24, accent)
     CIRC(13, 36, 26, c.outline)
     CIRC(14, 37, 24, mix(c.surface, accent, self.dark and 0.32 or 0.2))
-    self:v4Person(26, 41, accent)
+    trainerFigure(self, nil, 26, 59, 21, "down", accent)
     self:partyInfo(self:fitPartyInfo(state.name or tr("YOUR TRAINER"), 100), 43, 34, c.ink)
     local st = tr(state.ready and "READY" or data.states[state.state] or "OFFLINE")
     self:v4Pill(st, 43, 49, accent, { raw = true, maxW = 98 })
@@ -738,16 +770,20 @@ return function(H, ui, K)
     -- players
     if #state.rows == 0 then
       self:v4Window(7, 94, 226, 93, { radius = 4 })
-      -- sonar rings around a lone trainer
+      -- sonar rings around you, kept inside the box: they grow from the
+      -- trainer and fade before they could reach its edge
       local t = self.motionEnabled == false and 0 or self:clock()
-      local k = (t % 1.6) / 1.6
+      local k = (t % 1.8) / 1.8
       if self.motionEnabled ~= false then self:wantAmbient(0.1, 1 / 15) end
-      local ring = mix(c.surface, accent, 0.35)
+      local cx, cy = 120, 124
       for i = 0, 2 do
-        local d = 14 + floor(((k + i / 3) % 1) * 40) * 2
-        RING(120 - floor(d / 2), 118 - floor(d / 2), d, 1, ring)
+        local p = (k + i / 3) % 1
+        local d = 16 + floor(p * 18) * 2
+        local fade = 1 - p
+        RING(cx - floor(d / 2), cy - floor(d / 2), d, 1, mix(c.surface, accent, 0.15 + 0.35 * fade))
       end
-      self:v4Person(120, 112, c.silverDark)
+      floorShadow(self, cx, cy + 9, 18)
+      trainerFigure(self, nil, cx, cy + 10, 21, "down", c.silverDark)
       local message = state.error and "CONNECTION FAILED" or online and "NO PLAYERS VISIBLE"
         or pending and "CONNECTING" or state.state == "unavailable" and "HOST UPDATE NEEDED"
         or "CONNECT TO SEE PLAYERS"
@@ -768,7 +804,7 @@ return function(H, ui, K)
         R(x + 4, y + 1, 64, 2, gt)
         CIRC(x + 4, y + 5, 22, c.outline)
         CIRC(x + 5, y + 6, 20, mix(c.surface, ready and c.hp or hex("3878d0"), self.dark and 0.3 or 0.2))
-        self:v4Person(x + 15, y + 9, ready and c.hp or hex("3878d0"))
+        trainerFigure(self, row, x + 15, y + 25, 19, "down", ready and c.hp or hex("3878d0"))
         -- game chip
         local short = data.short[row.version] or "?"
         local cw = max(18, self:partyInfoWidth(short) + 8)
@@ -788,8 +824,9 @@ return function(H, ui, K)
         hit(x, y, 72, 44, "player", row.id)
       end
     end
-    -- pager
+    -- pager, only when there is a second page
     local pages = state.pages or 1
+    if pages <= 1 then return end
     local canPrev, canNext = state.page > 1, state.page < pages
     for _, p in ipairs({ { 7, -1, canPrev, { "..#", ".##", "###", ".##", "..#" } }, { 175, 1, canNext, { "#..", "##.", "###", "##.", "#.." } } }) do
       H.v4PagerKey(self, p[1], 190, 58, 21, p[2] < 0, p[3], true)
