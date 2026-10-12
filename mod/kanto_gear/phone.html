@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kanto Gear · Phone prototype</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #090d14; color: #eef2f8; font: 16px system-ui, sans-serif; }
+  body { display: grid; grid-template-rows: 1fr auto; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); gap: 12px; }
+  main { display: grid; place-items: center; min-height: 0; min-width: 0; }
+  form { width: min(100%, 340px); text-align: center; }
+  h1 { margin: 0 0 8px; font-size: 24px; } p { line-height: 1.5; }
+  label { display: block; margin-bottom: 8px; }
+  input, button { width: 100%; min-height: 48px; border: 1px solid #566276; border-radius: 8px; font: inherit; text-align: center; }
+  input { background: #182130; color: inherit; letter-spacing: 4px; }
+  button { margin-top: 12px; background: #8fbb76; color: #10210b; cursor: pointer; font-weight: 650; }
+  button:disabled { opacity: .5; cursor: default; }
+  canvas { display: none; image-rendering: pixelated; touch-action: none; user-select: none; }
+  footer { text-align: center; color: #b5c1d2; font-size: 14px; min-height: 20px; }
+  [hidden] { display: none !important; }
+</style>
+<main id="screen">
+  <form id="pair">
+    <h1>Kanto Gear</h1>
+    <p>Phone display prototype<br>Keep the game open on the same Wi-Fi.</p>
+    <label for="pin">Pairing code shown in the game</label>
+    <input id="pin" name="pin" inputmode="numeric" autocomplete="off" pattern="[0-9]{8}" maxlength="8" minlength="8" required aria-describedby="status">
+    <button id="connect" type="submit">Connect</button>
+  </form>
+  <canvas id="gear" aria-label="Kanto Gear touch display"></canvas>
+</main>
+<footer id="status" role="status" aria-live="polite">Waiting for pairing</footer>
+<script>
+"use strict";
+const screen = document.getElementById("screen"), form = document.getElementById("pair");
+const canvas = document.getElementById("gear"), context = canvas.getContext("2d", { alpha: false });
+const status = document.getElementById("status"), connect = document.getElementById("connect");
+let socket, frame = 0, pointer = null, lastContact = 0, heartbeat, generation = 0;
+function fit() {
+  const scale = Math.min(screen.clientWidth / canvas.width, screen.clientHeight / canvas.height);
+  canvas.style.width = `${canvas.width * scale}px`;
+  canvas.style.height = `${canvas.height * scale}px`;
+}
+function send(text) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(text); }
+function stop(message) {
+  generation++;
+  if (socket) { socket.onclose = socket.onopen = socket.onerror = socket.onmessage = null; socket.close(); socket = null; }
+  clearInterval(heartbeat);
+  frame = 0; pointer = null;
+  canvas.style.display = "none"; form.hidden = false; connect.disabled = false;
+  status.textContent = message;
+}
+form.addEventListener("submit", event => {
+  event.preventDefault();
+  if (!form.reportValidity()) return;
+  stop("Connecting…"); connect.disabled = true;
+  const current = generation;
+  socket = new WebSocket(`ws://${location.host}/gear?pin=${document.getElementById("pin").value}`);
+  socket.binaryType = "arraybuffer";
+  socket.onopen = () => {
+    lastContact = performance.now();
+    send("h,0");
+    heartbeat = setInterval(() => {
+      if (performance.now() - lastContact > 1500) { stop("Connection lost. Check the game, then reconnect."); return; }
+      send(`h,${frame}`);
+    }, 250);
+    status.textContent = "Connected · waiting for Gear";
+  };
+  socket.onmessage = event => {
+    if (current !== generation) return;
+    if (event.data === "h") { lastContact = performance.now(); return; }
+    if (!(event.data instanceof ArrayBuffer)) return;
+    const data = new DataView(event.data);
+    if (data.byteLength < 12 || data.getUint32(0) !== 0x4b473031) { stop("Invalid Gear frame"); return; }
+    const width = data.getUint16(4), height = data.getUint16(6), id = data.getUint32(8);
+    if (!width || !height || width > 240 || height > 216 || data.byteLength !== 12 + width * height * 4) { stop("Invalid Gear frame"); return; }
+    requestAnimationFrame(() => {
+      if (current !== generation || document.hidden) return;
+      if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+      context.putImageData(new ImageData(new Uint8ClampedArray(event.data, 12), width, height), 0, 0);
+      frame = id; lastContact = performance.now();
+      form.hidden = true; canvas.style.display = "block"; fit();
+      status.textContent = "Connected · tap or swipe Gear";
+      send(`a,${id}`);
+    });
+  };
+  socket.onclose = () => stop("Disconnected. Check the pairing code and that no other browser is connected.");
+  socket.onerror = () => stop("Could not connect. Check the code, Wi-Fi and game. After repeated attempts, wait one minute.");
+});
+function touch(action, event) {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - rect.left) * canvas.width / rect.width)));
+  const y = Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - rect.top) * canvas.height / rect.height)));
+  send(`${action},${x},${y},${frame}`);
+}
+canvas.addEventListener("pointerdown", event => {
+  if (!frame || pointer !== null || event.button !== 0) return;
+  event.preventDefault(); pointer = event.pointerId;
+  canvas.setPointerCapture(pointer); touch("down", event);
+});
+canvas.addEventListener("pointermove", event => {
+  if (pointer === event.pointerId) { event.preventDefault(); touch("move", event); }
+});
+for (const [name, action] of [["pointerup", "up"], ["pointercancel", "cancel"], ["lostpointercapture", "cancel"]]) {
+  canvas.addEventListener(name, event => {
+    if (pointer !== event.pointerId) return;
+    event.preventDefault(); touch(action, event); pointer = null;
+  });
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) stop("Page paused. Return to the game, then reconnect."); });
+new ResizeObserver(fit).observe(screen);
+</script>
+</html>

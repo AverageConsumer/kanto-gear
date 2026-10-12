@@ -1,0 +1,106 @@
+local T = require("tests.modkit")
+local generation = tonumber(os.getenv("KANTO_GEAR_TEST_GEN")) or 2
+local run = T.sdk.loadMod(assert(os.getenv("KANTO_GEAR_MOD_PATH")),
+  { generation = generation, data = T.fixtures.fresh() })
+T.eq(run.mod and run.mod.state, "loaded", "phone prototype loads as a complete mod")
+local function hook(name)
+  for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
+    if entry.owner == "kanto_gear" then return entry.callback end
+  end
+end
+local function up(fn, key, replacement, set)
+  for i = 1, debug.getinfo(fn, "u").nups do
+    local name, value = debug.getupvalue(fn, i)
+    if name == key then
+      if set then debug.setupvalue(fn, i, replacement) end
+      return value
+    end
+  end
+  error("missing upvalue " .. key)
+end
+local world = { map = { id = "PALLET_TOWN" } }
+local game = { data = run.data, world = world, overworld = world,
+  input = { pressQueue = {}, held = {} },
+  save = { generation = generation, player = { name = "RED", id = 7, map = "PALLET_TOWN" },
+    party = {}, inventory = {}, boxes = {}, pokedex = { seen = {}, caught = {} } },
+  stack = { states = { world }, top = function(self) return self.states[#self.states] end } }
+run.loader.modOptions.kanto_gear = { theme_v3 = "hgss", display_mode = "phone",
+  display_target = "handheld", screen_swap = true, ui_motion = false }
+run.loader.events:emit("game.ready", { game = game })
+local compose, update = hook("render.compose"), hook("core.update")
+local display = up(compose, "displayRuntime")
+local available, acknowledged, capture, pushed, stopped, now = false, false, true, 0, 0, 1
+love.timer.getTime = function() return now end
+local queue = {}
+local phone = {
+  poll = function() end, detected = function() return available end,
+  ready = function() return available and acknowledged end,
+  canCapture = function() return available and capture end,
+  stop = function() stopped = stopped + 1 end,
+}
+phone.bridge = {
+  detected = phone.detected, setEnabled = function() end,
+  pollTouch = function() return table.remove(queue, 1) end,
+  push = function() pushed = pushed + 1; return phone.ready() end,
+}
+display.phone, display.phoneStatus = phone, phone
+up(compose, "page", "NOTES", true)
+local canvas = up(up(compose, "pumpDisplay"), "canvas")
+canvas.requestImageData, canvas.pollImageData = nil, nil
+local captures = 0
+canvas.newImageData = function() captures = captures + 1; return {} end
+local enabled, nativePush, nativeTouch = {}, 0, 0
+local native = { detected = function() return true end,
+  setEnabled = function(value) enabled[#enabled + 1] = value end,
+  push = function() nativePush = nativePush + 1; return true end,
+  pollTouch = function() nativeTouch = nativeTouch + 1 end }
+local context = { secondScreen = native }
+local sentinel = {}
+local function next() return sentinel end
+local function frame()
+  T.eq(update(next, game, 1 / 60), sentinel, "phone update preserves the host return value")
+  T.eq(compose(next, {}, context), sentinel, "phone composition preserves the host return value")
+  now = now + .06
+end
+frame()
+T.eq(enabled[1], false, "phone mode disables the physical companion display")
+T.eq(captures, 0, "no viewer means no image readback")
+T.check(not up(compose, "hasDisplay")(), "a physical display cannot masquerade as the phone")
+T.check(not up(compose, "inlineDisplay")(), "phone mode keeps the game viewport intact")
+T.check(not up(compose, "bottomOnHandheld")(), "saved handheld preference cannot move Gear onto the game screen")
+available = true; frame()
+T.check(pushed > 0, "Gear's existing canvas reaches the phone transport")
+T.eq(up(compose, "displayReady"), false, "native UI stays present until the browser acknowledges its frame")
+acknowledged = true; frame()
+T.eq(up(compose, "displayReady"), true, "an acknowledged browser becomes a usable display")
+T.eq(nativePush, 0, "phone frames never reach the native companion")
+T.eq(nativeTouch, 0, "phone mode never consumes physical display touches")
+local before = captures
+capture = false; up(compose, "dirty", true, true); frame()
+T.eq(captures, before, "backpressure prevents readback work before it happens")
+T.eq(up(compose, "dirty"), true, "the newest dirty frame remains available")
+local pending, requests = false, 0
+canvas.requestImageData = function() pending = true; requests = requests + 1; return true end
+canvas.pollImageData = function() if pending then pending = false; return {} end end
+phone.bridge.push = function() capture = false; return true end
+capture = true
+up(compose, "nextPresentAttempt", 0, true)
+local pump = up(compose, "pumpDisplay")
+pump()
+T.eq(requests, 1, "the async path requests one allowed frame")
+up(compose, "dirty", true, true)
+pump()
+T.eq(requests, 1, "completing readback cannot request another frame before browser acknowledgement")
+T.eq(up(compose, "dirty"), true, "async backpressure also retains the latest scene change")
+available = false; frame()
+T.eq(up(compose, "displayReady"), false, "disconnect immediately restores native menu eligibility")
+T.eq(up(compose, "touchDown"), nil, "disconnect clears held touch state")
+run.loader.modOptions.kanto_gear.display_mode = "combined"; frame()
+T.eq(stopped, 1, "changing display mode closes the phone server")
+T.eq(display.phone, nil, "changing mode removes the phone bridge")
+display.phone, display.phoneStatus = phone, phone
+T.eq(hook("core.quit_to_launcher")(next), sentinel, "returning to the launcher preserves its result")
+T.eq(stopped, 2, "returning to the launcher closes the listening socket")
+T.eq(#run.errors, 0, "phone lifecycle leaves no loader errors")
+run.release()
+T.finish("Kanto Gear phone runtime Gen " .. generation)

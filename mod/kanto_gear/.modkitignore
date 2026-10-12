@@ -128,3 +128,5 @@ tests/gen3_module_cache_test.lua
 tests/gen3_inventory_projection_test.lua
 
 tests/gen3_battle_presentation_test.lua
+tests/phone_display_test.lua
+tests/phone_runtime_test.lua

@@ -2235,6 +2235,7 @@ return function(mod)
         { "FULLSCREEN SWAP", "fullscreen" },
         { "COMBINED SCREEN", "combined" },
         { "SEPARATE SCREENS", "separate" },
+        { "PHONE / BROWSER", "phone" },
       } },
     { key = "fullscreen_start", label = "START SCREEN", type = "choice",
       default = "game", visible_if = {
@@ -2300,7 +2301,7 @@ return function(mod)
       } },
     { key = "screen_swap", label = "QUICK SWAP (Y)",
       type = "toggle", default = false, visible_if = {
-        key = "display_mode", not_equals = "fullscreen",
+        key = "display_mode", one_of = { "separate", "combined" },
       } },
     { key = "type_hints", label = "TYPE MATCHUPS", type = "toggle",
       default = helperDefault("type_hints"), reset_default = true },
@@ -2440,9 +2441,11 @@ return function(mod)
   end
 
   local function inlineDisplay()
-    return THEME:displayMode(mod.options) ~= "separate"
+    local mode = THEME:displayMode(mod.options)
+    return mode == "fullscreen" or mode == "combined"
   end
   local function bottomOnHandheld()
+    if THEME:displayMode(mod.options) == "phone" then return false end
     local handheld = mod.options:get("display_target") == "handheld"
     if displayRuntime.swapped then return not handheld end
     return handheld
@@ -3531,6 +3534,9 @@ return function(mod)
 
   displayRuntime.displayBridge = {}
   local function hasDisplay()
+    if THEME:displayMode(mod.options) == "phone" then
+      return displayRuntime.phone ~= nil and displayRuntime.phone:detected()
+    end
     if inlineDisplay() then
       return THEME:displayMode(mod.options) ~= "fullscreen"
         or displayRuntime.gearPrimary()
@@ -11735,6 +11741,8 @@ return function(mod)
   end
 
   local function pumpDisplay()
+    if THEME:displayMode(mod.options) == "phone" and not readbackPending
+        and not (displayRuntime.phone and displayRuntime.phone:canCapture()) then return false end
     local shown = false
     if not canvas.requestImageData or not canvas.pollImageData then
       if dirty then
@@ -11779,7 +11787,8 @@ return function(mod)
         end
       end
     end
-    if not readbackPending and dirty then
+    if not readbackPending and dirty and (THEME:displayMode(mod.options) ~= "phone"
+        or displayRuntime.phone and displayRuntime.phone:canCapture()) then
       draw()
       if displayRuntime.perf:call("readback_request", canvas.requestImageData, canvas) then
         -- Keep the border paired with this captured frame during async readback.
@@ -13570,8 +13579,9 @@ return function(mod)
 
   local function pollScreenSwap()
     local down, overlayDown = false, false
-    local swapEnabled = THEME:displayMode(mod.options) == "fullscreen"
-      or mod.options:get("screen_swap") == true
+    local swapEnabled = THEME:displayMode(mod.options) ~= "phone"
+      and (THEME:displayMode(mod.options) == "fullscreen"
+        or mod.options:get("screen_swap") == true)
     local overlayButton = mod.options:get("overlay_button") or "off"
     local overlayEnabled = THEME:displayMode(mod.options) == "combined"
       and THEME:windowMode(mod.options) == "overlay"
@@ -14568,6 +14578,56 @@ return function(mod)
     holdTextSpeed(false)
     dirty = true
   end
+
+  function displayRuntime.updatePhone()
+    if active and THEME:displayMode(mod.options) == "phone" then
+      displayRuntime.Phone = displayRuntime.Phone or assert(load(mod:read("phone_display.lua"),
+        "@kanto_gear/phone_display.lua"))()
+      if not displayRuntime.phone and not displayRuntime.phoneStatus then
+        local ok, phone, err = pcall(displayRuntime.Phone.new, mod, love)
+        displayRuntime.phone = ok and phone or nil
+        displayRuntime.phoneStatus = displayRuntime.phone
+          or { error = tostring(ok and err or phone):sub(1, 100) }
+        if not displayRuntime.phone then mod.log:warn("phone display: %s", displayRuntime.phoneStatus.error) end
+      end
+      if displayRuntime.phone then
+        displayRuntime.phone:poll()
+        displayReady = displayRuntime.phone:ready()
+        if displayRuntime.phoneConnected ~= displayRuntime.phone:detected() then
+          touchEvent("cancel,0,0", canvas:getWidth(), canvas:getHeight())
+          resetSwapState()
+          displayRuntime.phoneConnected = displayRuntime.phone:detected()
+          displayRuntime.displayBridge.checkedAt = nil
+        end
+      end
+    elseif displayRuntime.phoneStatus then
+      if displayRuntime.phone then displayRuntime.phone:stop() end
+      displayRuntime.phone, displayRuntime.phoneStatus, displayRuntime.phoneConnected = nil, nil, nil
+      displayRuntime.nativePhoneOwner = nil
+      resetSwapState()
+    end
+  end
+
+  mod.hooks:wrap("core.update", function(next, updateGame, dt)
+    displayRuntime.updatePhone()
+    return next(updateGame, dt)
+  end, 1000)
+
+  mod.hooks:wrap("core.quit_to_launcher", function(next)
+    if displayRuntime.phone then displayRuntime.phone:stop() end
+    displayRuntime.phone, displayRuntime.phoneStatus, displayRuntime.phoneConnected = nil, nil, nil
+    displayRuntime.nativePhoneOwner = nil
+    resetSwapState()
+    return next()
+  end, 1000)
+
+  mod.hooks:wrap("render.window", function(next, ...)
+    local result = next(...)
+    if active and THEME:displayMode(mod.options) == "phone" and displayRuntime.phoneStatus then
+      displayRuntime.Phone.drawStatus(displayRuntime.phoneStatus, G)
+    end
+    return result
+  end, -1000)
 
   function displayRuntime.autoBattleSelection(raw, top)
     if top == raw then
@@ -15636,6 +15696,14 @@ return function(mod)
     end
     local inline = inlineDisplay()
     companion = context and context.secondScreen
+    if THEME:displayMode(mod.options) == "phone" then
+      if companion and companion.setEnabled and displayRuntime.nativePhoneOwner ~= companion then
+        companion.setEnabled(false)
+        displayRuntime.nativePhoneOwner = companion
+      end
+      companion = displayRuntime.phone and displayRuntime.phone.bridge
+      displayReady = displayRuntime.phone ~= nil and displayRuntime.phone:ready()
+    end
     displayRuntime.syncDisplayBridge(love.timer.getTime(), inline)
     local downstream = displayRuntime.perf:start()
     local handled = next(renderer, context)

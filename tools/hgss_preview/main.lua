@@ -2247,11 +2247,20 @@ function love.load()
         { "VANILLA", "purist" }, { "ENHANCED", "enhanced" }, { "SPOILERS", "spoiler" } } },
     } })
   elseif screen == "settings_option" then
-    theme:settings({ category = "option", option = "theme_v3", label = "THEME", accent = "blue",
-      description = "Choose a light or dark companion. Auto follows the time of day.",
-      choices = { { "POKEGEAR LIGHT", "hgss" }, { "POKEGEAR DARK", "hgss_dark" },
-        { "POKEGEAR AUTO", "hgss_auto" }, { "C-GEAR LIGHT", "cgear" } },
-      value = "hgss_auto", page = 1, pages = 2 })
+    if os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "display_mode" then
+      local info = assert(loadfile(root .. "/mod/kanto_gear/settings_info.lua"))()
+      theme:settings({ category = "option", option = "display_mode", label = "DISPLAY MODE", accent = "green",
+        description = info.help.display_mode, choices = {
+          { "FULLSCREEN SWAP", "fullscreen" }, { "COMBINED SCREEN", "combined" },
+          { "SEPARATE SCREENS", "separate" }, { "PHONE / BROWSER", "phone" },
+        }, value = "phone", page = 1, pages = 1 })
+    else
+      theme:settings({ category = "option", option = "theme_v3", label = "THEME", accent = "blue",
+        description = "Choose a light or dark companion. Auto follows the time of day.",
+        choices = { { "POKEGEAR LIGHT", "hgss" }, { "POKEGEAR DARK", "hgss_dark" },
+          { "POKEGEAR AUTO", "hgss_auto" }, { "C-GEAR LIGHT", "cgear" } },
+        value = "hgss_auto", page = 1, pages = 2 })
+    end
   elseif settingsControls then
     theme:settings({ category = "controls", accent = "blue", page = 1,
       pages = 1, rows = {
