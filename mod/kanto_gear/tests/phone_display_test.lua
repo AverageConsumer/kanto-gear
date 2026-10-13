@@ -205,39 +205,40 @@ phone:push(image, 240, 216); phone:poll(); now = now + 1.51; phone:poll()
 assert(c.closed and not phone:detected(), "a browser that stops sending heartbeats is disconnected")
 phone = new(); c = connect(phone)
 phone:push(image, 240, 216); phone:poll()
-now = now + 1 / 60
+now = now + 1 / 30
 assert(phone:canCapture(), "the second frame does not wait for the first display acknowledgement")
 phone:push(image, 240, 216); phone:poll()
-now = now + 1 / 60
+now = now + 1 / 30
 assert(phone:canCapture(), "ordinary Wi-Fi latency does not stop a two-frame pipeline")
-phone:push(image, 240, 216); phone:poll(); now = now + 1 / 60
-phone:push(image, 240, 216); phone:poll(); now = now + 1 / 60
+phone:push(image, 240, 216); phone:poll(); now = now + 1 / 30
+phone:push(image, 240, 216); phone:poll(); now = now + 1 / 30
 assert(phone:canCapture() and #phone.viewer.pending == 4, "delayed display acknowledgements do not stall capture")
 message(phone, c, "a,4")
 assert(phone.viewer.ack == 4 and #phone.viewer.pending == 1, "displaying the newest frame also retires skipped older frames")
 message(phone, c, "a,1"); assert(phone.viewer.ack == 4, "late acknowledgements cannot roll input back")
-for _ = 1, 60 do
-  assert(phone:reserveCapture(), "60 Hz capture reservation must keep pace")
-  now = now + 1 / 60
+for _ = 1, 30 do
+  assert(phone:reserveCapture(), "30 Hz capture reservation must keep pace")
+  now = now + 1 / 30
   phone:push(image, 240, 216); phone:poll(); message(phone, c, "a," .. phone.sequence)
 end
-assert(phone.sequence == 64, "asynchronous readback sustains sixty new frames per second")
-for _ = 1, 60 do
+assert(phone.sequence == 34, "asynchronous readback sustains thirty new frames per second")
+for _ = 1, 30 do
   local captureAt = now
   now = now + .009
-  assert(phone:reserveCapture(captureAt), "drawing time must not shift capture onto every other host frame")
+  assert(phone:reserveCapture(captureAt), "drawing time must not consume the next capture slot")
   phone:push(image, 240, 216); phone:poll(); message(phone, c, "a," .. phone.sequence)
-  now = captureAt + 1 / 60
+  now = captureAt + 1 / 30
 end
-assert(phone.sequence == 124, "a nine-millisecond draw still leaves sixty capture slots per second")
-for i = 1, 120 do
-  now = now + 1 / 60 + (i % 2 == 0 and .002 or -.002)
+assert(phone.sequence == 64, "a nine-millisecond draw still leaves thirty capture slots per second")
+for i = 1, 60 do
+  now = now + 1 / 30 + (i % 2 == 0 and .002 or -.002)
   assert(phone:reserveCapture(), "normal host scheduling jitter must not halve the stream cadence")
   phone:push(image,240,216);phone:poll();message(phone,c,"a,"..phone.sequence)
 end
-assert(phone.sequence == 244, "capture keeps sixty Hz despite alternating early and late host ticks")
+assert(phone.sequence == 124, "capture keeps thirty Hz despite alternating early and late host ticks")
 runtime.data.compress = function() return "compressed" end
 c.limit = 0
+now = now + 1 / 30
 assert(phone:push(image, 240, 216))
 assert(phone.viewer.out:find("KG02", 1, true) and phone.viewer.out:sub(-10) == "compressed",
   "compressible pixels use the lossless wire format")
@@ -360,7 +361,7 @@ phone.video.pop = function() local result = completed; completed = nil; return r
 now = now + .02
 phone:push(image,240,216)
 assert(job and not phone.viewer.out and #phone.viewer.pending == 0, "compression never runs on the game thread")
-now = now + .02
+now = now + 1 / 30
 assert(phone:canCapture(), "GPU readback overlaps encoding the preceding image")
 phone:push(image,240,216)
 assert(phone.queuedImage, "one retained capture bounds a slow encoder")
@@ -384,7 +385,7 @@ message(phone,c,"a,999")
 assert(not phone.viewer.ack, "forged acknowledgements cannot select an unknown touch frame")
 message(phone,c,"a,1");assert(phone:ready())
 for _ = 1, 200 do
-  now = now + 1 / 60
+  now = now + 1 / 30
   assert(phone:canCapture(), "missing display acknowledgements must not block a healthy transport")
   phone:push(image,240,216);phone:poll();message(phone,c,"h,1")
 end
@@ -413,19 +414,27 @@ c.limit=math.huge;phone:poll();phone:poll()
 now=now+1/60;phone:step(1/60)
 assert(phone:canCapture(), "draining the socket immediately opens the next game frame")
 phone:stop()
--- Sampling follows produced frames, independent of 144 Hz render opportunities.
-phone = new();c=connect(phone);phone:poll()
-local logical, count = 0, 0
-for host = 1, 288 do
-  now=now+1/144
-  local target=math.floor(host*60/144)
-  while logical<target do logical=logical+1;phone:step(1/60) end
-  if phone.sourceFrame and phone:canCapture() then
-    count=count+1;phone:push(image,240,216);phone:poll();message(phone,c,"h,0")
+-- The wall-clock cap also applies to high-refresh hosts and fast-forward input.
+for _, hostRate in ipairs({60,144}) do for _, sourceRate in ipairs({60,120}) do
+  phone = new();c=connect(phone);phone:poll()
+  phone.game = { _frameSpeed = sourceRate/60 }
+  local logical, count = 0, 0
+  for host = 1, hostRate*2 do
+    now=now+1/hostRate
+    local target=math.floor(host*sourceRate/hostRate)
+    while logical<target do logical=logical+1;phone:step(1/60) end
+    if phone.sourceFrame and phone:canCapture() then
+      count=count+1;phone:push(image,240,216);phone:poll();message(phone,c,"h,0")
+    end
   end
-end
-assert(count==120, "144 Hz hosts capture each of the 120 produced frames exactly once")
-phone:stop()
+  assert(count==60, "two seconds produce thirty-FPS capture on normal, high-refresh and fast-forward hosts")
+  now = now + 1
+  phone:step(1/60);assert(phone:canCapture())
+  phone:push(image,240,216)
+  now = now + 1/60;phone:step(1/60)
+  assert(not phone:canCapture(), "resuming after a stall cannot create a catch-up capture burst")
+  phone:stop()
+end end
 local pairingStopped = false
 local Performance = assert(loadfile(root .. "/core/performance.lua"))()
 local profile = Performance.new(function() return now end, function() end, true)

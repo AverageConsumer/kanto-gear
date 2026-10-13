@@ -174,14 +174,14 @@ local function transportRoom(c)
 end
 function Phone:canCapture()
   if not self:detected() or self.captureReserved or not transportRoom(self.viewer) then return false end
-  if self.sourceFrame then return self.sourceFrame ~= self.capturedFrame end
-  -- Host path [all games]: without input.step, limit capture cadence by nextFrame instead of native fixed-step frame identity.
-  -- Preview/older hosts without input.step retain a bounded clock fallback.
+  if self.sourceFrame and self.sourceFrame == self.capturedFrame then return false end
+  -- Limit capture work to 30 Hz independently of input speed and host refresh.
   return self:now() + .003 >= self.nextFrame
 end
 function Phone:reserveCapture(at)
   if not self:canCapture() then return false end
-  self.nextFrame = math.max(self.nextFrame + 1 / 60, at or self:now())
+  local capturedAt, scheduled = at or self:now(), self.nextFrame + 1 / 30
+  self.nextFrame = scheduled > capturedAt and scheduled or capturedAt + 1 / 30
   self.capturedFrame = self.sourceFrame
   self.captureReserved, self.captureAt = true, self.sourceTime or at or self:now()
   self.capturedAt = self.perf and self.perf:start()
