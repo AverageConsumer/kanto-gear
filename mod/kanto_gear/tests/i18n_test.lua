@@ -75,31 +75,28 @@ for code, catalog in pairs(catalogs) do
 end
 
 local reference, referenceCount = catalogs.de, 0
-for key, value in pairs(catalogs.ja) do
-  check(reference[key] ~= nil, "ja has no unknown key: " .. key)
-  check(value == false or type(value) == "string" and value ~= "", "ja has a translation or an explicit fallback: " .. key)
-end
 for key in pairs(reference) do referenceCount = referenceCount + 1 end
-local pendingPath = root .. "/../../translations/ja-missing.lua"
-local pending = assert(loadfile(pendingPath))()
-for key in pairs(reference) do
-  check((type(catalogs.ja[key]) ~= "string") == (pending[key] == false), "Japanese completion file matches coverage: " .. key)
-end
-for key in pairs(pending) do check(reference[key] ~= nil, "Japanese completion key exists: " .. key) end
 
-for _, language in ipairs({ "es", "fr" }) do
-  local count = 0
+for _, language in ipairs({ "de", "es", "fr", "ja" }) do
+  local count, expectedMissing = 0, {}
+  local localized = I18N.new(function(code) return catalogs[code] end,
+    function() return language end)
   for key, value in pairs(catalogs[language]) do
     count = count + 1
     check(reference[key] ~= nil, language .. " has no extra key: " .. key)
     check(value == false or type(value) == "string" and value ~= "",
       language .. " has a translation or an explicit fallback: " .. key)
+    check(localized:text(key) == (value or key), language .. " resolves its translation or English fallback: " .. key)
+    if value == false then expectedMissing[#expectedMissing + 1] = key end
   end
   check(count == referenceCount, language .. " catalog key count matches")
   for key in pairs(reference) do
     check(catalogs[language][key] ~= nil,
       language .. " contains key: " .. key)
   end
+  table.sort(expectedMissing)
+  check(table.concat(localized:coverage(language), "|") == table.concat(expectedMissing, "|"),
+    language .. " missing translations come directly from its catalog")
 end
 
 for key, value in pairs(reference) do

@@ -3231,14 +3231,11 @@ function love.load()
   love.graphics.setCanvas()
   local data = preview:newImageData():encode("png")
   local missing = i18n:coverage(languageCode)
-  if i18n:language() == "ja" then
-    local pending = assert(loadfile(root .. "/translations/ja-missing.lua"))()
+  if os.getenv("KANTO_GEAR_PREVIEW_LAX") ~= "1" then
+    local catalog = i18n.catalogs[i18n:language()]
     for _, key in ipairs(missing) do
-      assert(pending[key] == false, "undocumented Japanese fallback: " .. key)
+      assert(catalog[key] == false, "uncatalogued " .. i18n:language() .. " translation: " .. key)
     end
-  elseif os.getenv("KANTO_GEAR_PREVIEW_LAX") ~= "1" then
-    assert(#missing == 0, "missing " .. languageCode
-      .. " translations: " .. table.concat(missing, ", "))
   end
   local file = assert(io.open(output, "wb"))
   file:write(data:getString())

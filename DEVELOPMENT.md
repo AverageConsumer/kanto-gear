@@ -25,9 +25,8 @@ These paths are relative to `mod/kanto_gear/`.
 | `phone/` | Local pairing, browser display, transport and video decoding. |
 | `tests/` | Automated fixtures; excluded from the mod ZIP. |
 
-At the repository root, `tools/` holds verification and preview tools,
-`translations/` retains historical language packs, and `screenshots/` holds
-README images. Large catalogs and `ui/skins/icon_art.lua` are mostly data.
+At the repository root, `tools/` holds verification and preview tools, and
+`screenshots/` holds README images. Large catalogs and `ui/skins/icon_art.lua` are mostly data.
 The QR library under `vendor/` is third-party code with its own license.
 
 ## Contracts to preserve
@@ -104,10 +103,10 @@ Use `THEME:translate` or `THEME:format` explicitly for Gear-owned labels.
 Render game-provided names and dialogue directly; shared drawing helpers must
 not translate arbitrary text or translate the same label twice.
 
-`translations/ja-missing.lua` records Japanese fallback context. Coverage is
-not linguistic validation. Historical `kanto_gear_de`, `_es` and `_fr` packs
-are unnecessary with built-in languages and receive no new UI strings.
-Full-game translation mods are independent.
+Use `false` for an untranslated entry in any catalog; it falls back to English.
+Tests and previews derive missing translations directly from these markers.
+Coverage is not linguistic validation. Older standalone UI packs remain in
+Git history; full-game translation mods are independent.
 
 Run the `i18n_test` suite through `tools/test.py`. Generated full-game packs
 have a separate integration runner:

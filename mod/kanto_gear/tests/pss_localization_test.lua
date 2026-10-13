@@ -1,6 +1,5 @@
 local root=os.getenv("KANTO_GEAR_MOD_PATH") or "mod/kanto_gear"
 local I18N=assert(loadfile(root.."/i18n/init.lua"))()
-local pending=assert(loadfile(root.."/../../translations/ja-missing.lua"))()
 local keys={"ACCEPT","DECLINE","GO BUSY","GO READY","INVITATION SENT","INVITATION CLOSED",
   "BATTLE INVITATION","TRADE INVITATION","ACCEPT TO OPEN LINK SETUP","FINISH YOUR CURRENT ACTION",
   "SET YOUR STATUS TO READY","PLAYER NOT READY","LINK SESSION OPEN","YOU CAN KEEP PLAYING",
@@ -11,13 +10,9 @@ for _,code in ipairs({"de","es","fr","ja"}) do
     function() return code end)
   local catalog=assert(loadfile(root.."/i18n/catalogs/"..code..".lua"))()
   for _,key in ipairs(keys) do
-    if code=="ja" then
-      assert(pending[key]==false,"new Japanese fallback is documented: "..key)
-      assert(i18n:text(key)==key,"Japanese fallback remains readable: "..key)
-    else
-      assert(type(catalog[key])=="string" and catalog[key]~="","missing "..code..": "..key)
-      assert(i18n:text(key)==catalog[key],"new label resolves in "..code..": "..key)
-    end
+    assert(catalog[key]==false or type(catalog[key])=="string" and catalog[key]~="",
+      "missing translation or explicit fallback in "..code..": "..key)
+    assert(i18n:text(key)==(catalog[key] or key),"label resolves in "..code..": "..key)
     checks=checks+2
   end
 end
