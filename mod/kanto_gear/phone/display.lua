@@ -249,9 +249,13 @@ function Phone:pollVideo()
   end
   self:encodeQueued()
 end
-function Phone:drop(c)
+function Phone:drop(c, reason)
   c.sock:close()
   if self.viewer == c then
+    if self.perf then
+      self.perf:count("phone_disconnect_" .. (reason or "cleanup"))
+      if self.mod.log then self.mod.log:warn("phone disconnected: %s", reason or "cleanup") end
+    end
     self:releaseControls()
     self.viewer, self.touches = nil, { "cancel,0,0" }
     self.captureReserved, self.queuedImage = nil, nil
@@ -263,7 +267,7 @@ function Phone:stop()
   if self.video then self.video:stop() end
   self.pin, self.secret, self.qr, self.expires = nil, nil, nil, nil
   self:releaseControls()
-  for _, c in ipairs(self.clients) do self:drop(c) end
+  for _, c in ipairs(self.clients) do self:drop(c, "server_stop") end
   self.clients = {}
   if self.listener then self.listener:close(); self.listener = nil end
   if rawget(self.socket, HOLDER) == self then rawset(self.socket, HOLDER, nil) end
@@ -408,12 +412,14 @@ function Phone:message(c, text)
 end
 
 function Phone:read(c)
-  local data, err, partial = c.sock:receive(c.ws and 1024 or MAX_HTTP)
+  -- Drain coalesced messages across polls without overflowing the parser buffer.
+  local size = c.ws and math.min(1024, math.max(0, 2048 - #c.input)) or MAX_HTTP
+  local data, err, partial = c.sock:receive(size)
   c.input = c.input .. (data or partial or "")
-  if err and err ~= "timeout" then return false end
+  if err and err ~= "timeout" then return false, "read_error" end
   if not c.ws then
     local last = c.input:find("\r\n\r\n", 1, true)
-    if #c.input > MAX_HTTP then return false end
+    if #c.input > MAX_HTTP then return false, "http_buffer" end
     if last then
       local header = c.input:sub(1, last + 3)
       c.input = c.input:sub(last + 4)
@@ -422,24 +428,24 @@ function Phone:read(c)
     return true
   end
   -- Client messages are small, unfragmented, masked text/control frames only.
-  if #c.input > 2048 then return false end
+  if #c.input > 2048 then return false, "websocket_buffer" end
   for _ = 1, 16 do
     if #c.input < 2 then break end
     local a, b = c.input:byte(1, 2)
     local op, n = a % 16, b % 128
     if a < 128 or bit.band(a, 112) ~= 0 or b < 128 or n > MAX_INPUT
-        or n >= 126 or (op ~= 1 and op ~= 8 and op ~= 9 and op ~= 10) then return false end
+        or n >= 126 or (op ~= 1 and op ~= 8 and op ~= 9 and op ~= 10) then return false, "websocket_header" end
     if #c.input < n + 6 then break end
     local key, chars = { c.input:byte(3, 6) }, {}
     for i = 1, n do chars[i] = string.char(bit.bxor(c.input:byte(i + 6), key[(i - 1) % 4 + 1])) end
     local text = table.concat(chars)
     c.input = c.input:sub(n + 7)
-    if op == 8 then return false
+    if op == 8 then return false, "peer_closed"
     elseif op == 9 then
       -- Never insert control bytes halfway through a partially sent frame.
-      if c.out then return false end
+      if c.out then return false, "ping_during_write" end
       c.out, c.sent = packet(10, text), 0
-    elseif op == 1 and not self:message(c, text) then return false end
+    elseif op == 1 and not self:message(c, text) then return false, "client_message" end
   end
   return true
 end
@@ -464,7 +470,8 @@ function Phone:poll()
   for i = #self.clients, 1, -1 do
     local c = self.clients[i]
     local ok = now - (c.alive or c.opened) < (self.viewer == c and 1.5 or 3)
-    if ok and (self.viewer == c or not c.out) then ok = self:read(c) end
+    local reason = not ok and "timeout" or nil
+    if ok and (self.viewer == c or not c.out) then ok, reason = self:read(c) end
     if ok and c.profilePending and not c.out then
       c.out, c.sent, c.profilePending = packet(1, "p,1"), 0, nil
     end
@@ -492,13 +499,13 @@ function Phone:poll()
         self.perf:count("phone_wire_bytes", c.sent - before)
         if err == "timeout" then self.perf:count("phone_partial_writes") end
       end
-      if err and err ~= "timeout" then ok = false end
+      if err and err ~= "timeout" then ok, reason = false, "write_error" end
       if c.sent == #c.out then
         c.out = nil
         if not c.ws then ok = false end
       else break end
     end
-    if not ok then self:drop(c); table.remove(self.clients, i) end
+    if not ok then self:drop(c, reason); table.remove(self.clients, i) end
   end
   self:encodeQueued()
 end

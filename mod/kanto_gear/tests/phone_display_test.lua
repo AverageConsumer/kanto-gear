@@ -447,6 +447,29 @@ assert(profile.counters.phone_captured == 1 and profile.counters.phone_source_by
 assert(not phone:message(phone.viewer,"p,1,1.000,10001.000,0.200,16.667"),
   "unbounded browser timings are rejected")
 phone:stop()
+phone = new(profile); c = connect(phone); phone:poll()
+local burst = masked("h,0") .. masked("r,0") .. masked("a,0")
+  .. masked("p,0,0.100,60.000,0.100,16.667")
+c.input = string.rep(burst,60)
+for _ = 1, 40 do
+  phone:poll()
+  assert(not c.closed and phone.viewer, "a valid coalesced input burst must not disconnect the viewer")
+  assert(#phone.viewer.input <= 2048, "coalesced input still respects the bounded parser buffer")
+end
+assert(c.input == "" and phone.viewer.input == "", "a valid burst is completely drained")
+phone:stop()
+phone = new(profile); c = connect(phone); phone:poll()
+local closed = profile.counters.phone_disconnect_peer_closed or 0
+c.input = masked("",8); phone:poll()
+assert(c.closed and profile.counters.phone_disconnect_peer_closed == closed + 1,
+  "diagnostics distinguish a browser close from a parser failure")
+phone:stop()
+phone = new(profile); c = connect(phone); phone:poll()
+local invalid = profile.counters.phone_disconnect_client_message or 0
+message(phone,c,"bad")
+assert(c.closed and profile.counters.phone_disconnect_client_message == invalid + 1,
+  "diagnostics record rejected input without logging the message contents")
+phone:stop()
 local noWorker = Phone.new(mod,runtime,sockets,
   { request=function()end,pop=function()end,stop=function()pairingStopped=true end })
 assert(not noWorker and pairingStopped, "an unavailable video worker cleans up the pairing worker")
