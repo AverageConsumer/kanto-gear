@@ -175,6 +175,8 @@ and Wi-Fi; feedback is welcome. Use the latest official Recomp and allow the
 mod's Network and Compute permissions. Do not expose its port to the internet.
 One browser can pair at a time; credentials expire after five minutes and are
 single-use. Disconnecting or changing display mode releases phone controls.
+If the game device's Wi-Fi address changes, Gear updates the pairing address
+and QR code automatically. Reconnect using the new code; no game restart is needed.
 The phone stream is capped at 30 FPS to reduce device load; game and controller
 input keep their normal update rate.
 If the shown address belongs to a VPN, use the game device's private Wi-Fi
