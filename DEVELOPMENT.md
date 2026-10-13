@@ -1,134 +1,154 @@
 # Working on Kanto Gear
 
-Kanto Gear is a Lua mod for Recomp. Its entry point is
-[`mod/kanto_gear/main.lua`](mod/kanto_gear/main.lua). It connects the modules in
-a defined order; screen and game logic live in the directories below.
+Kanto Gear is a Lua mod for Recomp. `mod/kanto_gear/main.lua` connects its
+modules in a defined order. Start with the responsible module below rather
+than adding screen or game logic to the entry point.
 
-| Directory | Look here when changing… |
+## Project map
+
+These paths are relative to `mod/kanto_gear/`.
+
+| Directory | Responsibility |
 | --- | --- |
-| `core/` | Fonts, colors, layout rules, settings, Discovery, touch guards or shared menu contracts. |
-| `runtime/` | App navigation, game-state updates, input, rendering and Recomp hooks. |
-| `adapters/gen1_2/` | Native menus from Red through Crystal. These adapters, previously named `legacy_*`, remain necessary. |
-| `adapters/gen3/` | Integration with FireRed, LeafGreen, Ruby, Sapphire or Emerald. |
-| `adapters/` | Shared native start-menu, map and Pokédex interfaces. |
-| `features/` | Notes, Stamps, PSS, gifts, berries and their rules. |
-| `models/` | Pokémon information, evolutions, habitats and summaries. |
+| `core/` | Fonts, colors, layout rules, settings, Discovery and touch guards. |
+| `runtime/` | Session state, app navigation, input, rendering and Recomp hooks. App wiring is in `bootstrap.lua`; hooks are in `hooks.lua`. |
+| `adapters/gen1_2/` | Active native GB/GBC menus from Red through Crystal, previously named `legacy_*`. |
+| `adapters/gen3/` | Native FireRed, LeafGreen, Ruby, Sapphire and Emerald integration. `models/` reads data; `ui/menus/` builds menu projections; `progress/` evaluates objectives. |
+| `adapters/` | Shared start-menu, map and Pokédex interfaces. |
+| `features/` | Notes, Stamps, Silph Connect, gifts and berries. |
+| `models/` | Pokémon information, summaries, evolutions and habitats. |
 | `ui/pages/` | Shared screen geometry and interactions. |
-| `ui/skins/` | Pokégear or C-Gear drawing. App screens live under `apps/`; native companion views under `native/`. |
-| `ui/base/` | Shared drawing helpers and base methods that are still used. |
-| `ui/fonts/`, `fonts/` | Bitmap fonts, metrics, TrueType fallbacks and their licenses. |
-| `i18n/` | Translations and language selection. |
-| `phone/` | Browser display, local pairing, transport and video decoding. |
-| `tests/` | Behavior checks without a running game. Tests are excluded from the mod package. |
+| `ui/skins/` | Pokégear and C-Gear drawing; `apps/` holds app screens and `native/` holds native companion views. |
+| `ui/base/` | Shared drawing helpers and base methods still used by the skins. |
+| `ui/fonts/`, `fonts/` | Fonts, metrics, fallbacks and licenses. |
+| `i18n/` | Built-in UI catalogs and language selection. |
+| `phone/` | Local pairing, browser display, transport and video decoding. |
+| `tests/` | Automated fixtures; excluded from the mod ZIP. |
 
-All paths in this table are relative to `mod/kanto_gear/`. Outside that directory,
-`tools/` contains verification and preview tools, `translations/` contains the
-separately distributed language packs, and `screenshots/` holds project-page images.
+At the repository root, `tools/` holds verification and preview tools,
+`translations/` retains historical language packs, and `screenshots/` holds
+README images. Large catalogs and `ui/skins/icon_art.lua` are mostly data.
+The QR library under `vendor/` is third-party code with its own license.
 
-## How the modules fit together
+## Contracts to preserve
 
-```mermaid
-flowchart TD
-  A[main.lua: connect modules] --> B[core: shared rules]
-  A --> C[runtime: state, apps and input]
-  C --> D[adapters: native game menus]
-  C --> E[features and models: content]
-  C --> F[ui: pages and skins]
-  C --> G[phone: browser output]
-```
+- Pass runtime dependencies explicitly. Mutable session data belongs in
+  `session`, graphics state in `render`. Do not retain a local copy of a canvas
+  that can be replaced. Keep existing storage paths and formats.
+- Build the complete UI through `ui/init.lua`; `ui/base/init.lua` alone does
+  not include the skins. Share geometry between drawing and hit testing.
+  Inspect enlarged Gen 1/2 Light/Dark previews in both skins. Disabled, covered
+  and no-op controls must not animate on touch.
+- Native handlers own game input, inventory, money, Pokémon and save writes.
+  Reject stale menu projections and input during native animations. Keep the
+  native UI visible for unsupported states and when Gear loses display ownership.
+- Gen 3 views read live values from `Game3.session`; `Game3.save` is a serialized
+  snapshot. Keep the raw host instance for native commands and persistence.
+  Do not mutate or serialize a projected view. Preserve internal species IDs
+  and native box slots; regional Dex order is not a National Dex prefix.
+- Progress reads script evidence and flags without executing scripts or
+  changing progress. A hidden object alone does not prove receipt; unknown
+  evidence must not award completion. Edition policies live in
+  `adapters/gen3/progress/policies.lua` and need positive and negative tests.
+- `Game path [games]: reason`, `Host path` and `Mod path` comments explain
+  exceptions at their responsible block. `adapter.hoenn` includes all three
+  Hoenn games; `adapter.rs` excludes Emerald. `options.firered` covers FRLG.
+  Summary `view.gen2` also describes capabilities shared with Gen 3.
+  `__gen3uiBag*` belongs to an external Gen 1 UI mod.
+- Native map renderers own their cached batches, not Recomp's atlas textures.
+  Release batches on eviction; retain terrain through ordinary menu transitions
+  and invalidate it for terrain mutations or save replacement.
+- Phone mode is opt-in, unencrypted private-network HTTP/WebSocket. Keep OS
+  entropy, expiring single-use credentials, authentication/origin checks and
+  bounded queues. Keep `phone/video.lua` and `phone/phone_decoder.js` compatible.
+  Disconnect, heartbeat expiry, mode/game changes and browser focus loss must
+  release phone-owned input without disturbing physical controls.
+- Silph Connect reuses Recomp's shared online connection and events. Do not add
+  another connection or per-frame network polling. Presence does not authorize
+  battle/trade handoffs or bypass native arena restrictions. Validate state
+  before actions and open native menus through the input step.
 
-Each runtime module receives its dependencies explicitly as arguments.
-Mutable session data belongs in `session`; graphics state belongs in `render`.
-In particular, a module must not retain a local copy of a canvas that can later
-be replaced. Persistent notes, settings and Home layouts keep their existing
-storage paths and formats.
+## Tests and previews
 
-The complete device UI is built through `ui/init.lua`. `ui/base/init.lua` is an
-internal foundation extended by the current skins. New preview tools should
-use the complete entry point.
-
-The Gen 3 adapters have three small entry points: `adapters/gen3/init.lua`
-connects the data models under `models/`, `ui.lua` connects menu projections
-under `ui/`, and `progress.lua` connects objective evaluation under `progress/`.
-They accept a `read(path)` callback and return their class. At runtime, the
-reader uses `mod:read`, so submodules also work inside the packaged mod.
-Tests use `tests/support/module.lua`.
-
-`adapters/gen3/ui/menus/` contains menu builders for items, storage, shops,
-system menus, moves and party selection. They populate a shared `projection`;
-`ui/menus.lua` keeps cursor binding, validity checks and layout together.
-Native handlers still perform inventory, money and Pokémon changes.
-New menus must reject stale projections and input during native animations.
-
-`adapters/gen3/progress/` separates script evidence, Pokémon rewards, the
-catalog and live completion state. Edition rules that cannot be inferred from
-a hide flag belong in `policies.lua`, such as the different fossil choices.
-Each new exception needs positive and negative coverage in
-`tests/gen3_policy_test.lua`; a hidden object alone does not prove receipt.
-
-Game differences are labeled at the relevant block with `Game path [games]: reason`.
-`Host path` marks API/data compatibility; `Mod path` marks integration with
-another mod. The [game and compatibility path guide](maintenance/game-specific-paths.md)
-explains historical names and lists every annotated file.
-
-For an app change, start with its file under `runtime/`, then follow its data
-model and screen. The app catalog and initial wiring are in
-`runtime/bootstrap.lua`; hooks are in `runtime/hooks.lua`. Large language
-catalogs and `ui/skins/icon_art.lua` mostly contain data. The QR library under
-`vendor/` is third-party code with its own license.
-
-## Verification
-
-Python 3 and LuaJIT are required. Native integration tests also need a matching
-Recomp SDK checkout and locally generated game data. Those files are not
-distributed with this repository.
-
-1. Copy `tools/test-config.example.json` to `tools/test.local.json`.
-2. Fill in the SDK, cache and optional Chromium paths. The local file is Git-ignored.
-3. Run from the project directory:
+Use Python 3, LuaJIT and a matching Recomp SDK checkout with locally imported
+game data. Copy `tools/test-config.example.json` to the Git-ignored
+`tools/test.local.json` and fill in the SDK/cache paths. Node, Playwright and
+Chromium are needed for browser checks.
 
 ```powershell
 python tools/check.py
-python tools/test.py --config tools/test.local.json
-python tools/test.py --config tools/test.local.json --only home_runtime_test --edition crystal
 python tools/test.py --config tools/test.local.json --browser
+python tools/test.py --config tools/test.local.json --only gen3_controls_test --edition firered
 ```
 
-The last command adds a headless browser test for pairing, controls, the layout
-editor and video decoder. It does not open a game. Results and individual logs
-are written under `diagnostics/`. Failed cases return a failure status;
-they are never counted as passes. The [before/after comparison](maintenance/refactoring-4.0.5.md)
-records the verified scope and its limits.
+Results and logs go under `diagnostics/`. The browser test is headless;
+neither command opens a game. Automated fixtures and synthetic portraits do
+not replace device checks or complete playthroughs. Compare serialized saves
+before and after read-model checks. Native menu tests must wait for real
+opening/closing transitions rather than submitting input during them.
 
-The tools under `tools/*_preview/` render with LÖVE. The main tool,
-`tools/hgss_preview/`, offers Gen 1/2, Light/Dark and skin variants.
-Some image fixtures use synthetic Pokémon portraits. Previews check geometry
-and rendering; real devices and saves still need a separate manual pass.
+LÖVE previews live under `tools/*_preview/`. The main renderer accepts
+`KANTO_GEAR_PREVIEW_GEN`, `KANTO_GEAR_PREVIEW_VARIANT`,
+`KANTO_GEAR_PREVIEW_SKIN`, `KANTO_GEAR_PREVIEW_SCREEN` and
+`KANTO_GEAR_PREVIEW_LANGUAGE`; `tools/hgss_preview/render.ps1` runs it.
+Use `tools/hgss_preview/localization.ps1` for the language/Gen 1/2/Light/Dark
+matrix, optionally with `-Screens` and `-Languages`. Run previews sequentially:
+they share one temporary LÖVE runtime and require local sprite fixtures.
 
-## Building a package
+## Translations
 
-Before a build, inspect every worktree of the repositories involved for changes
-and identify the commit containing all intended features. Another open
-worktree does not automatically become part of the package.
+Built-in UI catalogs live in `mod/kanto_gear/i18n/catalogs/`. English labels are
+keys and fallbacks. Preserve format specifiers, their order and literal `%%`;
+do not pad translations with spaces to compensate for layout errors.
+Use `THEME:translate` or `THEME:format` explicitly for Gear-owned labels.
+Render game-provided names and dialogue directly; shared drawing helpers must
+not translate arbitrary text or translate the same label twice.
 
-If test files have been added:
+`translations/ja-missing.lua` records Japanese fallback context. Coverage is
+not linguistic validation. Historical `kanto_gear_de`, `_es` and `_fr` packs
+are unnecessary with built-in languages and receive no new UI strings.
+Full-game translation mods are independent.
 
-```powershell
-python tools/package.py --sync-ignore
+Run the `i18n_test` suite through `tools/test.py`. Generated full-game packs
+have a separate integration runner:
+
+```sh
+python tools/translation_preview/verify.py --engine /path/to/recomp --fixtures /path/to/packs --output /path/to/results --love /path/to/love
 ```
 
-Review and commit the complete change, then run:
+Fixtures must be actual unpacked generated `rby-*` and `gsc-*` packages for
+de/es/fr/it/ja-Hrkt, plus gsc-ko. They must provide contextual type strings.
+These checks compare Gear with supplied catalogs; they do not validate the
+generator's translation choices or native menu wrappers. Generator 0.8.2 has
+known GSC `table.unpack`, Japanese PACK and missing-description issues.
+Keep those limits separate from Gear's UI-localization checks.
+
+## Profiling and packaging
+
+Public builds disable the recorder instantiated in `runtime/bootstrap.lua`.
+Enable it only in a diagnostic build and disable it before release. Capture
+the existing host log, then run:
+
+```sh
+python tools/performance_report.py capture.log --json report.json
+```
+
+KGPROF scopes overlap and measure host-call wall time, not GPU execution or
+physical presentation. Do not sum scope means. `p95le`/`p99le` are histogram
+upper bounds; incomplete or mixed-context captures remain marked. Device
+comparisons need the same host, save, location, settings and refresh rate.
+
+Before packaging, inspect all worktrees involved and commit the complete
+intended source set. If test files changed, run
+`python tools/package.py --sync-ignore` before committing: Modkit requires
+exact exclusions rather than a `tests/` directory pattern. Then run:
 
 ```powershell
 python tools/package.py
 ```
 
-The tool reads mod files directly from `HEAD`, rejects uncommitted mod changes
-and verifies the generated ZIP, including every byte, feature file, manifest
-field and license. `dist/` contains the package and a verification report with
-the source commit and SHA-256 hashes. The version and filename
-`kanto_gear-<version>.zip` follow the committed manifest. This produces no APK,
-so the report contains no embedded native engine or APK signer.
-
-Modkit supports only exact file paths in `.modkitignore`. The list is generated
-instead of using an ineffective `tests/` directory pattern.
+The tool reads `HEAD`, rejects uncommitted mod changes and verifies every
+packaged file, manifest field and license. `dist/kanto_gear-<version>.zip`
+follows the committed manifest; its report records the source commit and
+SHA-256 hashes. Tests, SDK files and imported game assets are not distributed.
+This is a Lua mod ZIP, with no native engine or APK signer.

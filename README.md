@@ -138,7 +138,6 @@ Use the current Recomp release for host fixes and secondary-screen input support
 
 All Gen 3 games welcome broader playthrough testing and feedback. Some specialized
 contest, Frontier and other native screens remain on the game screen.
-See [Gen 3 coverage](tools/GEN3.md).
 
 ### One screen or two
 
@@ -173,7 +172,11 @@ This uses a local, **unencrypted** connection, with no account or external servi
 Use a private network you trust. Visible Gear content, including open notes, is
 sent to the paired browser. Streaming smoothness depends on the devices, browser
 and Wi-Fi; feedback is welcome. Use the latest official Recomp and allow the
-mod's Network and Compute permissions. [Pairing, privacy and controls](tools/PHONE_DISPLAY.md).
+mod's Network and Compute permissions. Do not expose its port to the internet.
+One browser can pair at a time; credentials expire after five minutes and are
+single-use. Disconnecting or changing display mode releases phone controls.
+If the shown address belongs to a VPN, use the game device's private Wi-Fi
+IPv4 address with port 8765.
 
 ### Languages and online
 
@@ -185,7 +188,7 @@ or a separate translation mod.
 Silph Connect is a **presence browser and proof of concept**. Friends, chat and
 live invitations to battles or trades are not available in this release; supported
 access must first be enabled by Gen1Recomp. Its widget shows the visible player
-count and a few names. [More about Silph Connect](tools/PSS.md).
+count and a few names. Existing native arena restrictions still apply.
 
 Notes are stored separately for each playthrough. Drawing needs continuous pointer
 input from Recomp; if the host reports that it is missing, text and checklists
@@ -206,7 +209,7 @@ device, Recomp and Gear versions, display and battle modes, other active mods,
 and steps to reproduce the problem. Screenshots and logs are welcome.
 
 [Release notes](https://github.com/AverageConsumer/kanto-gear/releases)
-· [Translation contributions](translations/README.md)
+· [Translation contributions](DEVELOPMENT.md#translations)
 · [Font credits](mod/kanto_gear/ui/fonts/FONT_CREDITS.txt)
 
 ## Credits
@@ -239,6 +242,6 @@ Gen1Recomp.
 
 ## Working on Kanto Gear
 
-See the [project map and development guide](DEVELOPMENT.md) for module locations,
-tests and package verification. The [4.0.5 → 4.1.0 comparison](maintenance/refactoring-4.0.5.md)
-records the structural changes and their validation limits.
+See the [development guide](DEVELOPMENT.md) for the project map, integration
+contracts, translations, tests and package builds. Changes and validation
+results are recorded in the [release notes](https://github.com/AverageConsumer/kanto-gear/releases).
