@@ -30,7 +30,8 @@ module.exports = async ({page, pair}) => {
   await painted(4);
   await page.waitForFunction(()=>testSocket.messages.some(s=>s.startsWith('p,4,')));
   const profile = await page.evaluate(()=>testSocket.messages.find(s=>s.startsWith('p,4,')).split(',').slice(2).map(Number));
-  assert(profile.length === 4 && profile.every(n=>Number.isFinite(n)&&n>=0), 'diagnostic clients report finite decode, wait, paint and interval timings');
+  assert(profile.length === 10 && profile.every(n=>Number.isFinite(n)&&n>=0&&n<=10000), 'diagnostic clients report bounded stage timings and skipped presentations');
+  assert(await page.evaluate(()=>testSocket.messages.filter(s=>s.startsWith('p,')).every(s=>s.length<126)), 'diagnostic messages fit the bounded WebSocket parser');
   const pixels = await page.evaluate(()=>[...document.querySelector('#gear').getContext('2d').getImageData(0,0,4,4).data]);
   assert.deepEqual(pixels.slice(36,40),[255,0,0,255], 'skipping a presentation preserves the earlier patch');
   assert.deepEqual(pixels.slice(12,16),[0,0,255,255], 'raw and compressed patches reconstruct the same image');
@@ -115,5 +116,12 @@ module.exports = async ({page, pair}) => {
     await page.evaluate(()=>{window.ImageData=NativeImageData;});
     console.log(`PASS ${count} actual LÖVE-encoded frames match browser reconstruction byte for byte`);
   }
+  await page.evaluate(()=>stop('diagnostic test')); await pair(); await page.evaluate(()=>testSocket.deliver('p,1'));
+  await send(frame('KG01',1,1,125,Buffer.from([1,2,3,255]))); await painted(125);
+  await page.evaluate(()=>{profilePaint.painted=performance.now()-400;});
+  await send(frame('KG01',1,1,126,Buffer.from([2,3,4,255]))); await painted(126);
+  assert(await page.evaluate(()=>Number(testSocket.messages.find(s=>s.startsWith('p,126,')).split(',')[5])>=400), 'long presentation gaps remain visible instead of being discarded as idle');
+  await page.evaluate(()=>{window.profileSocket=testSocket;stop('test timeout','contact_timeout');});
+  assert(await page.evaluate(()=>profileSocket.messages.some(s=>/^x,contact_timeout,\d+\.\d+,\d+\.\d+,\d+,\d+$/.test(s))), 'browser timeout reasons and queue state are sent before closing');
   console.log('PASS browser lossless delta reconstruction, skipped presentations, resize, validation and bounded decode queue');
 };

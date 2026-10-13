@@ -119,6 +119,7 @@ let decoder = null, decoding = 0, decoded = null, presentations = [], animation 
 let timing = [], lastStamp = null, sourceClock = 0, playoutOffset = null, lastArrival = 0;
 let vsyncAt = 0, vsyncPeriod = 1000 / 60;
 let paintedAt = 0, fpsAt = 0, paintedFrames = 0, fps = 0, profiling = false;
+let profilePaint = null, profileDropped = 0, profileReceived = 0;
 function fit() {
   if (!canvas.width || !canvas.height) return;
   const scale = Math.max(0, Math.min(screen.clientWidth / canvas.width, screen.clientHeight / canvas.height));
@@ -126,7 +127,8 @@ function fit() {
   canvas.style.height = `${canvas.height * scale}px`;
 }
 function send(text) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(text); }
-function stop(message) {
+function stop(message, reason = "client_stop") {
+  if (profiling) send(`x,${reason},${Math.min(10000, performance.now() - profileReceived).toFixed(3)},${Math.min(10000, performance.now() - paintedAt).toFixed(3)},${decoding},${presentations.length}`);
   if (editing) finishLayout(false);
   releaseAll(); generation++;
   if (socket) { socket.onclose = socket.onopen = socket.onerror = socket.onmessage = null; socket.close(); socket = null; }
@@ -137,6 +139,7 @@ function stop(message) {
   timing = []; lastStamp = null; sourceClock = 0; playoutOffset = null; lastArrival = 0; vsyncAt = 0; vsyncPeriod = 1000 / 60;
   paintedAt = fpsAt = paintedFrames = fps = 0;
   profiling = false;
+  profilePaint = null; profileDropped = 0; profileReceived = 0;
   frame = 0; pointer = null;
   authenticated = false; capability = "none"; controller.hidden = true; refreshControls();
   canvas.style.display = "none"; form.hidden = false; connect.disabled = false;
@@ -164,7 +167,7 @@ function paintFrame(current) {
     vsyncAt = now;
     // A genuine stall cannot be replayed at normal speed without retaining its latency.
     if (frame && presentations.length > 1 && now - presentations[0].due > 120) {
-      while (presentations.length > 1) recycleImage(presentations.shift());
+      while (presentations.length > 1) { recycleImage(presentations.shift()); if (profiling) profileDropped++; }
       const newest = presentations[0];
       playoutOffset += now - newest.due;
       newest.due = now;
@@ -173,10 +176,11 @@ function paintFrame(current) {
       // Present the slot nearest this vsync; never replay expired slots after an underrun.
       while (presentations.length > 1 && presentations[1].due <= now + vsyncPeriod * .45) {
         recycleImage(presentations.shift());
+        if (profiling) profileDropped++;
       }
       const image = presentations.shift();
       const paintStarted = profiling ? performance.now() : 0;
-      const interval = profiling && paintedAt && paintStarted - paintedAt < 250 ? paintStarted - paintedAt : 0;
+      const interval = profiling && profilePaint ? paintStarted - profilePaint.painted : 0;
       const resized = canvas.width !== image.width || canvas.height !== image.height;
       if (resized) { canvas.width = image.width; canvas.height = image.height; paintImage = null; }
       if (!paintImage) paintImage = new ImageData(image.width, image.height);
@@ -197,7 +201,17 @@ function paintFrame(current) {
       if (first || resized) fit();
       status.textContent = `Connected${fps ? ` · ${fps} FPS` : ""} · tap or swipe Gear`;
       send(`a,${frame}`);
-      if (profiling) send(`p,${frame},${(image.decodeMs || 0).toFixed(3)},${Math.max(0, paintStarted - image.arrived).toFixed(3)},${paintCost.toFixed(3)},${Math.max(0, interval).toFixed(3)}`);
+      if (profiling) {
+        const previous = profilePaint;
+        const values = [image.decodeMs || 0, paintStarted - image.arrived, paintCost, interval,
+          previous ? image.arrived - previous.arrived : 0, image.dispatchMs,
+          paintStarted - image.due,
+          previous && image.stamp !== null && previous.stamp !== null ? (image.stamp - previous.stamp + 4294967296) % 4294967296 : 0,
+          elapsed, profileDropped];
+        send(`p,${frame},${values.map(value => Math.max(0, Math.min(10000, value || 0)).toFixed(3)).join(",")}`);
+        profilePaint = { painted: paintStarted, arrived: image.arrived, stamp: image.stamp };
+        profileDropped = 0;
+      }
       recycleImage(image);
     }
     if (presentations.length) paintFrame(current);
@@ -221,21 +235,22 @@ function presentationTime(stamp, arrived) {
 }
 function startDecoder(current) {
   decoder = new Worker("/phone_decoder.js");
-  decoder.onerror = () => { if (current === generation) stop("Gear video decoder failed. Reconnect to refresh it."); };
+  decoder.onerror = () => { if (current === generation) stop("Gear video decoder failed. Reconnect to refresh it.", "decoder_error"); };
   decoder.onmessage = event => {
     if (current !== generation) return;
     const image = event.data;
-    if (image.error) { stop(image.error); return; }
+    if (image.error) { stop(image.error, "decoder_error"); return; }
     decoding--;
     send(`r,${image.id}`);
-    if (!image.pixels) return;
+    if (!image.pixels) { if (profiling) profileDropped++; return; }
+    if (profiling) image.dispatchMs = Math.max(0, performance.now() - image.arrived - (image.decodeMs || 0));
     const old = decoded;
     image.pixels = new Uint8ClampedArray(image.pixels);
     image.due = presentationTime(image.stamp, image.arrived);
     decoded = image;
     if (old && !presentations.includes(old)) recycleImage(old);
     presentations.push(image);
-    while (presentations.length > 8) recycleImage(presentations.shift());
+    while (presentations.length > 8) { recycleImage(presentations.shift()); if (profiling) profileDropped++; }
     if (presentations.length === 8 && presentations[0].due > performance.now()) {
       const correction = performance.now() - presentations[0].due;
       playoutOffset += correction;
@@ -258,7 +273,7 @@ form.addEventListener("submit", event => {
     lastContact = performance.now();
     send(`auth,${credential}`); credential = null;
     heartbeat = setInterval(() => {
-      if (performance.now() - lastContact > 1500) { stop("Connection lost. Check the game, then reconnect."); return; }
+      if (performance.now() - lastContact > 1500) { stop("Connection lost. Check the game, then reconnect.", "contact_timeout"); return; }
       if (authenticated) send(`h,${frame}`);
       if (frame && performance.now() - paintedAt > 500) status.textContent = "Connected · idle · tap or swipe Gear";
     }, 250);
@@ -266,6 +281,7 @@ form.addEventListener("submit", event => {
   };
   socket.onmessage = event => {
     if (current !== generation) return;
+    if (profiling) profileReceived = performance.now();
     if (event.data === "ok" && !authenticated) {
       authenticated = true; lastContact = performance.now();
       startDecoder(current);
@@ -274,13 +290,13 @@ form.addEventListener("submit", event => {
     }
     if (!authenticated) return;
     if (event.data === "h") { lastContact = performance.now(); return; }
-    if (event.data === "p,1") { profiling = true; return; }
+    if (event.data === "p,1") { profiling = true; profileReceived = performance.now(); return; }
     if (["c,gb", "c,gba", "c,none"].includes(event.data)) {
       if (editing) finishLayout(false);
       releaseAll(); capability = event.data.slice(2); refreshControls(); fit(); return;
     }
     if (!(event.data instanceof ArrayBuffer)) return;
-    if (decoding >= 32) { stop("Gear video queue exceeded its limit. Reconnect to refresh it."); return; }
+    if (decoding >= 32) { stop("Gear video queue exceeded its limit. Reconnect to refresh it.", "decoder_queue"); return; }
     decoding++;
     decoder.postMessage({bytes:event.data, arrived:performance.now(), profile:profiling}, [event.data]);
   };
@@ -307,7 +323,7 @@ for (const [name, action] of [["pointerup", "up"], ["pointercancel", "cancel"], 
     event.preventDefault(); touch(action, event); pointer = null;
   });
 }
-document.addEventListener("visibilitychange", () => { if (document.hidden) stop("Page paused. Return to the game, then reconnect."); });
+document.addEventListener("visibilitychange", () => { if (document.hidden) stop("Page paused. Return to the game, then reconnect.", "page_hidden"); });
 new ResizeObserver(fit).observe(screen);
 
 // Each finger owns a button; multiple fingers on one button still make one hold.
@@ -603,7 +619,7 @@ window.addEventListener("resize", () => {
 });
 window.addEventListener("blur", () => endDrag(true));
 window.addEventListener("blur", releaseAll);
-window.addEventListener("pagehide", () => stop("Page closed. Reconnect to play."));
+window.addEventListener("pagehide", () => stop("Page closed. Reconnect to play.", "page_closed"));
 window.addEventListener("resize", releaseAll);
 applyPreferences();
 

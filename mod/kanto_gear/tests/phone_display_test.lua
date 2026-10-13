@@ -437,7 +437,8 @@ for _, hostRate in ipairs({60,144}) do for _, sourceRate in ipairs({60,120}) do
 end end
 local pairingStopped = false
 local Performance = assert(loadfile(root .. "/core/performance.lua"))()
-local profile = Performance.new(function() return now end, function() end, true)
+local profileLines = {}
+local profile = Performance.new(function() return now end, function(line) profileLines[#profileLines+1]=line end, true)
 phone = new(profile); c = connect(phone); phone:poll()
 assert(c.output:find("p,1",1,true), "only diagnostic servers enable browser timing")
 assert(profile.counters.phone_wire_bytes == #c.output, "wire bytes count actual socket writes including control framing")
@@ -455,6 +456,24 @@ assert(profile.counters.phone_captured == 1 and profile.counters.phone_source_by
   "capture volume stays separate from actual wire bytes")
 assert(not phone:message(phone.viewer,"p,1,1.000,10001.000,0.200,16.667"),
   "unbounded browser timings are rejected")
+for _, invalid in ipairs({"p,1,1.000,,0.200,16.667", "p,1,1.000,2.000,3.000,4.000,5.000", "x,unknown"}) do
+  assert(not phone:message(phone.viewer,invalid), "diagnostic extensions preserve validation")
+end
+now=now+.04;phone:step(1/60);phone:push(image,240,216);phone:poll();message(phone,c,"a,2")
+message(phone,c,"p,2,2.000,60.000,0.100,33.333,33.333,1.000,0.000,33.000,16.667,0.000")
+now=now+.04;phone:step(1/60);phone:push(image,240,216);phone:poll();message(phone,c,"a,3")
+message(phone,c,"p,3,2.000,180.000,0.100,400.000,180.000,1.000,110.000,33.000,16.667,2.000")
+assert(profile.metrics.phone_browser_interval.max==400 and profile.metrics.phone_browser_dispatch.n==2,
+  "long gaps and worker dispatch delays are recorded separately")
+assert(profile.counters.phone_browser_dropped==2 and profile.metrics.phone_send_gap.n==1,
+  "skipped presentations stay distinguishable from producer gaps")
+local traces=0
+for _, line in ipairs(profileLines) do if line:find("kind=stutter",1,true) then
+  traces=traces+1;assert(line:find("interval=400.000",1,true) and line:find("dropped=2",1,true))
+end end
+assert(traces==1, "a correlated stutter trace includes source, transport and browser timings")
+message(phone,c,"x,contact_timeout")
+assert(phone.viewer.browserStop=="contact_timeout", "browser timeout reasons reach the diagnostic server")
 phone:stop()
 phone = new(profile); c = connect(phone); phone:poll()
 local burst = masked("h,0") .. masked("r,0") .. masked("a,0")

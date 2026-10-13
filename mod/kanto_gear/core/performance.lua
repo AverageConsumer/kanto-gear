@@ -11,7 +11,9 @@ local names = { "frame_interval", "gear_compose", "gear_input", "gear_draw", "sc
   "phone_pixels", "phone_diff", "phone_compress", "phone_encode", "phone_worker_wait",
   "phone_worker_roundtrip", "phone_send", "phone_decode_ack", "phone_paint_ack",
   "phone_capture_ack", "phone_browser_decode", "phone_browser_wait", "phone_browser_paint",
-  "phone_browser_interval", "readback_age", "profile_log" }
+  "phone_browser_interval", "phone_browser_arrival", "phone_browser_dispatch", "phone_browser_late",
+  "phone_browser_source", "phone_browser_raf", "phone_capture_gap", "phone_send_gap", "phone_capture_send", "phone_poll_gap",
+  "readback_age", "profile_log" }
 
 local function reset(metric)
   metric.n, metric.total, metric.max = 0, 0, 0

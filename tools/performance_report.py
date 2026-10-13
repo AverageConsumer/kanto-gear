@@ -27,6 +27,9 @@ def parse(text):
         if current is None:
             current = {"build": {"version": "capture-started-after-build-marker"}, "windows": []}
             runs.append(current)
+        if values.get("kind") in {"stutter", "browser_stop", "disconnect"}:
+            current.setdefault("events", []).append(values)
+            continue
         seq = values.get("seq")
         if not seq:
             continue
@@ -72,6 +75,8 @@ def main():
         raise SystemExit("No KGPROF data found; install the diagnostic build and capture its log.")
     for run in runs:
         print("Build:", run["build"].get("version", "unknown"))
+        for event in run.get("events", []):
+            print("Event:", " ".join(f"{key}={value}" for key, value in event.items() if key != "v"))
         for w in run["windows"]:
             print(f"\nWindow {w['sequence']}: {w.get('context', 'incomplete header')}"
                   f" | complete={w['complete']} mixed={w.get('mixed', 'unknown')}")

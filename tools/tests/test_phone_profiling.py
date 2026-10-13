@@ -4,6 +4,14 @@ from tools.phone_profile import parse_sample, proc_stat
 
 
 class PhoneProfilingTest(unittest.TestCase):
+    def test_stream_events_survive_without_report_window(self):
+        text = ('KGPROF v=1 kind=stutter id=2 interval=400.000 source=33.000\n'
+                'KGPROF v=1 kind=browser_stop reason=contact_timeout received=1600.000\n'
+                'KGPROF v=1 kind=disconnect reason=peer_closed browser=contact_timeout\n')
+        run = parse(text)[0]
+        self.assertEqual([event['kind'] for event in run['events']], ['stutter', 'browser_stop', 'disconnect'])
+        self.assertEqual(run['windows'], [])
+
     def test_counters_and_truncated_reports(self):
         header = 'KGPROF v=1 seq=1 kind=window at=1 seconds=10 frames=2 bytes=32 context=phone mixed=false metrics=0 counters=1\n'
         counter = 'KGPROF v=1 seq=1 kind=counter name=phone_wire_bytes value=15\n'

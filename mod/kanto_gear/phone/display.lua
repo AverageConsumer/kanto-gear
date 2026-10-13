@@ -7,6 +7,7 @@ local PORT, MAX_HTTP, MAX_INPUT = 8765, 4096, 128
 local VIDEO_QUEUE, VIDEO_BYTES, HISTORY = 3, 512 * 1024, 128
 local BUTTONS = { up = true, down = true, left = true, right = true,
   a = true, b = true, start = true, select = true, l = true, r = true }
+local PROFILE = { "decode", "wait", "paint", "interval", "arrival", "dispatch", "late", "source", "raf" }
 local function u16(n) return string.char(math.floor(n / 256) % 256, n % 256) end
 local function u32(n) return u16(math.floor(n / 65536)) .. u16(n % 65536) end
 local function packet(op, body)
@@ -254,6 +255,9 @@ function Phone:drop(c, reason)
   if self.viewer == c then
     if self.perf then
       self.perf:count("phone_disconnect_" .. (reason or "cleanup"))
+      self.perf.log(string.format("KGPROF v=1 kind=disconnect reason=%s browser=%s idle=%.3f poll=%.3f buffered=%d unsent=%d",
+        reason or "cleanup", c.browserStop or "unknown", (self:now() - (c.alive or c.opened)) * 1000,
+        (self.pollGap or 0) * 1000, #c.input, c.out and #c.out - c.sent or 0))
       if self.mod.log then self.mod.log:warn("phone disconnected: %s", reason or "cleanup") end
     end
     self:releaseControls()
@@ -335,17 +339,55 @@ function Phone:message(c, text)
     c.touch, self.touches = false, { "cancel,0,0" }
     return true
   end
-  local profileId, decode, wait, paint, interval = text:match("^p,(%d+),(%d+%.%d+),(%d+%.%d+),(%d+%.%d+),(%d+%.%d+)$")
+  local stopped, received, painted, decoding, queued = text:match("^x,([a-z_]+),(%d+%.%d+),(%d+%.%d+),(%d+),(%d+)$")
+  stopped = stopped or text:match("^x,([a-z_]+)$")
+  if stopped then
+    if not self.perf or not ({client_stop=true, decoder_error=true, contact_timeout=true,
+      decoder_queue=true, page_hidden=true, page_closed=true})[stopped] then return false end
+    if received and (tonumber(received)>10000 or tonumber(painted)>10000 or tonumber(decoding)>32 or tonumber(queued)>8) then return false end
+    c.browserStop = stopped
+    self.perf.log(string.format("KGPROF v=1 kind=browser_stop reason=%s received=%s painted=%s decoding=%s queued=%s",
+      stopped, received or "unknown", painted or "unknown", decoding or "unknown", queued or "unknown"))
+    return true
+  end
+  local profileId, timings = text:match("^p,(%d+),([%d%.,]+)$")
   if profileId then
-    if not self.perf then return false end
-    local values = { tonumber(decode), tonumber(wait), tonumber(paint), tonumber(interval) }
-    for _, value in ipairs(values) do if value > 10000 then return false end end
+    if not self.perf or #text >= 126 then return false end
+    local values = {}
+    for value in (timings .. ","):gmatch("(.-),") do
+      if not value:match("^%d+%.%d+$") or tonumber(value) > 10000 then return false end
+      values[#values + 1] = tonumber(value)
+    end
+    if #values ~= 4 and #values ~= 10 then return false end
     if tonumber(profileId) ~= c.ack or c.profileAck == c.ack then return true end
     c.profileAck = c.ack
-    self.perf:sample("phone_browser_decode", values[1])
-    self.perf:sample("phone_browser_wait", values[2])
-    self.perf:sample("phone_browser_paint", values[3])
-    if values[4] > 0 then self.perf:sample("phone_browser_interval", values[4]) end
+    for i, name in ipairs(PROFILE) do
+      if values[i] and (i < 4 or values[i] > 0) then self.perf:sample("phone_browser_" .. name, values[i]) end
+    end
+    if #values == 10 then
+      self.perf:count("phone_browser_dropped", values[10])
+      local frame = c.pending[1]
+      if frame and frame.id == c.ack and frame.capturedAt then
+        local previous, now = c.profileFrame, self:now()
+        local captureGap = previous and (frame.capturedAt - previous.capturedAt) * 1000 or 0
+        local sendGap = previous and (frame.at - previous.at) * 1000 or 0
+        local age = (frame.at - frame.capturedAt) * 1000
+        if previous then
+          self.perf:sample("phone_capture_gap", captureGap)
+          self.perf:sample("phone_send_gap", sendGap)
+        end
+        self.perf:sample("phone_capture_send", age)
+        -- Compare gaps on each clock; no synchronized host/browser clocks are needed.
+        if previous and now >= (c.nextStutter or 0) and
+            (values[4] > 70 and values[8] <= 70 or values[5] - sendGap > 50
+              or values[6] > 30 or values[7] > 40 or values[10] > 0) then
+          c.nextStutter = now + 1
+          self.perf.log(string.format("KGPROF v=1 kind=stutter id=%d at=%.3f capture=%.3f send=%.3f age=%.3f rtt=%.3f decode=%.3f wait=%.3f paint=%.3f interval=%.3f arrival=%.3f dispatch=%.3f late=%.3f source=%.3f raf=%.3f dropped=%.0f",
+            frame.id, now, captureGap, sendGap, age, (now - frame.at) * 1000, unpack(values)))
+        end
+        c.profileFrame = frame
+      end
+    end
     return true
   end
   local button, down = text:match("^b,(%a+),([01])$")
@@ -457,6 +499,11 @@ function Phone:poll()
   self:pollVideo()
   if not self.listener then return end
   local now = self:now()
+  if self.perf then
+    self.pollGap = self.lastPoll and now - self.lastPoll or 0
+    self.lastPoll = now
+    self.perf:sample("phone_poll_gap", self.pollGap * 1000)
+  end
   for _ = 1, 2 do
     if #self.clients >= 4 then break end
     local sock = self.listener:accept()
