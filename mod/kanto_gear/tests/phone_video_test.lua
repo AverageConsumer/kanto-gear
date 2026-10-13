@@ -78,3 +78,25 @@ local duplicate = { clock = profile.clock }
 local unchanged = Video.encode(rgba,240,216,91,measuredBase,identity,nil,duplicate)
 assert(not unchanged and duplicate.diff > 0 and not duplicate.compress,
   "duplicate detection never attributes time to compression")
+
+-- Changing both edges around a repeated middle must not trigger exhaustive scans.
+for _, middle in ipairs({ string.rep("\230\230\230\255",224),
+    string.rep("\230\230\230\255\80\80\80\255",112) }) do
+  local function edges(pixel)
+    return string.rep(string.rep(pixel,8) .. middle .. string.rep(pixel,8),216)
+  end
+  local before, after = edges("\0\0\0\255"), edges("\40\40\40\255")
+  local first, base = Video.encode(before,240,216,1,nil,identity)
+  local byte, reads = string.byte, 0
+  string.byte = function(...)
+    reads = reads + 1
+    assert(reads < 2000000, "repeated backgrounds exhaust the pixel comparison budget")
+    return byte(...)
+  end
+  local ok, second = pcall(Video.encode,after,240,216,2,base,identity)
+  string.byte = byte
+  assert(ok, second)
+  assert(decode(second,decode(first)).rgba == after,
+    "bounded search falls back without losing edge changes or repeated pixels")
+end
+print("PASS repeated-background comparison budget and exact fallback pixels")

@@ -7,6 +7,9 @@ local function copyRun(row, old, y, w, h, left, right)
   if right - left < 64 then return end
   local middle = math.floor((left + right - 16) / 8) * 4
   local needle, best = row:sub(middle + 1, middle + 16), nil
+  -- Flat spans compress cheaply and cannot identify a useful motion match.
+  if needle == string.rep(needle:sub(1,4),4) then return end
+  local remaining = 4
   for _, dy in ipairs(COPY_ROWS) do
     local sy = y + dy
     if sy >= 0 and sy < h then
@@ -17,6 +20,7 @@ local function copyRun(row, old, y, w, h, left, right)
       while found do
         local source = from + found - 1
         if source % 4 == 0 then
+          remaining = remaining - 1
           local shift, a, b = source-middle, middle, middle+16
           while a > left and a+shift > 0 and row:byte(a) == old:byte(offset+a+shift) do a=a-1 end
           while b < right and b+shift < w*4 and row:byte(b+1) == old:byte(offset+b+shift+1) do b=b+1 end
@@ -25,6 +29,8 @@ local function copyRun(row, old, y, w, h, left, right)
             best = {first=a,last=b,sy=sy,sx=(a+shift)/4}
             if b-a >= right-left-16 then return best end
           end
+          -- Repeated patterns must not expand every possible match in every row.
+          if remaining == 0 then return best end
         end
         found = sample:find(needle,found+1,true)
       end
