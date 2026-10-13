@@ -77,16 +77,7 @@ function Phone.new(mod, runtime, socket, pairing, video, perf)
   if ok then ok, err = listener:listen(4) end
   if not ok then listener:close(); pairing:stop(); video:stop(); return nil, err end
   self.listener = listener
-  -- UDP connect chooses the local route without sending a packet or doing DNS.
-  local route = socket.udp()
-  local ip
-  if route then
-    route:settimeout(0)
-    if route:setpeername("192.0.2.1", 9) then ip = route:getsockname() end
-    route:close()
-  end
-  self.url = "http://" .. (ip and ip ~= "0.0.0.0" and ip or "127.0.0.1") .. ":" .. PORT
-  self:rotatePairing()
+  self:refreshAddress()
   self:updatePairing()
   self.bridge = {
     detected = function() return self:detected() end,
@@ -99,6 +90,26 @@ function Phone.new(mod, runtime, socket, pairing, video, perf)
 end
 
 function Phone:now() return self.runtime.timer.getTime() end
+function Phone:refreshAddress()
+  local now = self:now()
+  if now < (self.nextAddressCheck or 0) then return end
+  self.nextAddressCheck = now + 1
+  -- UDP connect reads the current route without sending packets or doing DNS.
+  local route = self.socket.udp()
+  local ip
+  if route then
+    route:settimeout(0)
+    if route:setpeername("192.0.2.1", 9) then ip = route:getsockname() end
+    route:close()
+  end
+  local url = ip and ip ~= "0.0.0.0" and ("http://" .. ip .. ":" .. PORT)
+    or self.url or "http://127.0.0.1:8765"
+  if url == self.url then return end
+  for _, client in ipairs(self.clients) do self:drop(client, "network_change") end
+  self.clients = {}
+  self.url = url
+  self:rotatePairing()
+end
 function Phone:rotatePairing()
   self.pin, self.secret, self.qr, self.expires = nil, nil, nil, nil
   self.pairing:request(self.url)
@@ -107,8 +118,10 @@ function Phone:updatePairing()
   local result = self.pairing:pop()
   if result then
     if result.error then self.error = result.error; self:stop(); return end
-    self.pin, self.secret, self.qr = result.pin, result.secret, result
-    self.expires = self:now() + 300
+    if result.url == self.url then
+      self.pin, self.secret, self.qr = result.pin, result.secret, result
+      self.expires = self:now() + 300
+    end
   end
   if self.expires and self:now() >= self.expires and not self.viewer then self:rotatePairing() end
 end
@@ -494,6 +507,7 @@ end
 
 function Phone:poll()
   if not self.listener then return end
+  self:refreshAddress()
   self:updatePairing()
   if not self.listener then return end
   self:pollVideo()

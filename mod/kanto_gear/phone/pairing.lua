@@ -6,7 +6,7 @@ function Pairing.new(mod, runtime)
   local thread = api.newThread(assert(mod:read("phone/pairing_worker.lua")))
   thread:start(requests, results, assert(mod:read("vendor/qrencode.lua")))
   return {
-    request = function(_, url) requests:push(url) end,
+    request = function(_, url) requests:clear(); results:clear(); requests:push(url) end,
     pop = function()
       local result = results:pop()
       if result then return result end

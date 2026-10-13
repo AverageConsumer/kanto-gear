@@ -46,7 +46,7 @@ local function new(perf)
   local pairing = {
     request = function(_, url)
       unique = unique + 1
-      queued = { pin = string.format("%08d", 12345678 + unique), secret = string.format("%032x", unique),
+      queued = { url = url, pin = string.format("%08d", 12345678 + unique), secret = string.format("%032x", unique),
         size = 21, runs = { { 0, 0, 7 } } }
     end,
     pop = function() local value = queued; queued = nil; return value end,
@@ -353,6 +353,40 @@ phone = assert(Phone.new(mod,runtime,sockets,async,
 assert(not phone.pin and connect(phone,"12345678").closed, "pending entropy never falls back to a guessed code")
 produced = { error = "No secure entropy" }; phone:poll()
 assert(phone.error and not phone.listener and not phone:detected(), "entropy failure shuts the server down")
+local oldUdp, address, probes, routeCloses = sockets.udp, "192.168.1.135", 0, 0
+sockets.udp = function()
+  probes = probes + 1
+  return { settimeout=function() end, setpeername=function() return address ~= nil end,
+    getsockname=function() return address end, close=function() routeCloses=routeCloses+1 end }
+end
+phone = new(); phone:setGame(g2); c=connect(phone);phone:poll()
+local oldUrl, oldPin, listener, epoch = phone.url, phone.pin, phone.listener, phone.epoch
+assert(oldUrl == "http://192.168.1.135:8765")
+for _=1,30 do now=now+.01;phone:poll() end
+assert(probes==1, "address detection never opens a socket per frame")
+message(phone,c,"b,start,1");phone:push(image,240,216)
+local pairedPop=phone.pairing.pop
+phone.pairing.pop=function(self)
+  self.pop=pairedPop
+  return { url=oldUrl, pin="00000000", secret=string.rep("0",32), size=21, runs={} }
+end
+address="192.168.1.133";now=now+1;phone:poll()
+assert(c.closed and not phone.viewer and not g2.input:down("start"), "an address change releases old sockets and held buttons")
+assert(phone.listener==listener and not listener.closed and phone.epoch>epoch and not phone.queuedImage,
+  "a WLAN change keeps the server alive and discards old video jobs")
+assert(phone.url=="http://192.168.1.133:8765" and not phone.pin and not phone.qr,
+  "a late QR result for the previous address cannot replace the current pairing card")
+phone:poll()
+assert(phone.pin and phone.pin~=oldPin and phone.qr.url==phone.url, "the replacement QR and code use the new address")
+oldPin=phone.pin;address=nil;now=now+1;phone:poll()
+assert(phone.pin==oldPin and phone.url=="http://192.168.1.133:8765", "temporary route loss does not churn pairing credentials")
+address="192.168.1.133";now=now+1;phone:poll()
+assert(phone.pin==oldPin and routeCloses==probes, "an unchanged address preserves pairing and closes every route probe")
+local workingUdp=sockets.udp;sockets.udp=function() return nil,"socket unavailable" end
+now=now+1;phone:poll();sockets.udp=workingUdp
+assert(phone.pin==oldPin and phone.url=="http://192.168.1.133:8765", "a route socket error cannot become a pairing address")
+c=connect(phone);assert(phone:detected() and not c.closed, "pairing resumes after a WLAN switch without restarting the game")
+phone:stop();sockets.udp=oldUdp
 phone = new(); c = connect(phone); phone:poll()
 local job, completed
 local request, pop = phone.video.request, phone.video.pop

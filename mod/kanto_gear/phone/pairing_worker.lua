@@ -46,7 +46,7 @@ while true do
         else x = x + 1 end
       end
     end
-    return { pin = pin, secret = secret, size = size, runs = runs }
+    return { url = url, pin = pin, secret = secret, size = size, runs = runs }
   end)
   results:push(success and result or { error = "Secure pairing is unavailable on this host." })
 end
