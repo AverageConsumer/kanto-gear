@@ -71,6 +71,8 @@ return function(
     if session.readbackPending then
       local image = displayRuntime.perf:call("readback_poll", session.canvas.pollImageData, session.canvas)
       if image then
+        displayRuntime.perf:finish("readback_age", displayRuntime.readbackStarted)
+        displayRuntime.readbackStarted = nil
         shown = displayRuntime.perf:present(session.companion.push, image, session.canvas:getWidth(), session.canvas:getHeight(),
           displayRuntime.readbackBackground,
           displayPreference())
@@ -90,6 +92,7 @@ return function(
         -- Keep the border paired with this captured frame during async readback.
         displayRuntime.readbackBackground = displayRuntime.backgroundColor()
         session.readbackPending = true
+        displayRuntime.readbackStarted = displayRuntime.perf:start()
         session.dirty = false
       end
     end

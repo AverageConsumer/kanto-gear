@@ -22,7 +22,7 @@ return function(
       displayRuntime.Phone = displayRuntime.Phone or assert(load(mod:read("phone/display.lua"),
         "@kanto_gear/phone/display.lua"))()
       if not displayRuntime.phone and not displayRuntime.phoneStatus then
-        local ok, phone, err = pcall(displayRuntime.Phone.new, mod, love)
+        local ok, phone, err = pcall(displayRuntime.Phone.new, mod, love, nil, nil, nil, displayRuntime.perf)
         displayRuntime.phone = ok and phone or nil
         displayRuntime.phoneStatus = displayRuntime.phone
           or { error = tostring(ok and err or phone):sub(1, 100) }

@@ -41,7 +41,7 @@ local mod = { read = function(_, name)
   return name == "phone/phone.html" and "<html>Gear</html>" or "/* phone controller */"
 end }
 local unique = 0
-local function new()
+local function new(perf)
   local queued
   local pairing = {
     request = function(_, url)
@@ -65,7 +65,7 @@ local function new()
     pop = function() local result = encoded; encoded = nil; return result end,
     stop = function() encoded = nil end,
   }
-  return assert(Phone.new(mod, runtime, sockets, pairing, video))
+  return assert(Phone.new(mod, runtime, sockets, pairing, video, perf))
 end
 local labels, boxes = {}, {}
 local graphics = {
@@ -427,6 +427,26 @@ end
 assert(count==120, "144 Hz hosts capture each of the 120 produced frames exactly once")
 phone:stop()
 local pairingStopped = false
+local Performance = assert(loadfile(root .. "/core/performance.lua"))()
+local profile = Performance.new(function() return now end, function() end, true)
+phone = new(profile); c = connect(phone); phone:poll()
+assert(c.output:find("p,1",1,true), "only diagnostic servers enable browser timing")
+assert(profile.counters.phone_wire_bytes == #c.output, "wire bytes count actual socket writes including control framing")
+phone:push(image,240,216); phone:poll()
+now = now + .04; message(phone,c,"r,1")
+now = now + .03; message(phone,c,"a,1")
+message(phone,c,"p,1,1.000,60.000,0.200,16.667")
+message(phone,c,"p,1,1.000,60.000,0.200,16.667")
+message(phone,c,"a,1")
+assert(profile.metrics.phone_decode_ack.n == 1 and profile.metrics.phone_paint_ack.n == 1,
+  "replayed acknowledgements cannot distort timings")
+assert(profile.metrics.phone_browser_decode.n == 1 and profile.metrics.phone_browser_interval.total == 16.667,
+  "browser timing records the acknowledged image exactly once")
+assert(profile.counters.phone_captured == 1 and profile.counters.phone_source_bytes == 240*216*4,
+  "capture volume stays separate from actual wire bytes")
+assert(not phone:message(phone.viewer,"p,1,1.000,10001.000,0.200,16.667"),
+  "unbounded browser timings are rejected")
+phone:stop()
 local noWorker = Phone.new(mod,runtime,sockets,
   { request=function()end,pop=function()end,stop=function()pairingStopped=true end })
 assert(not noWorker and pairingStopped, "an unavailable video worker cleans up the pairing worker")

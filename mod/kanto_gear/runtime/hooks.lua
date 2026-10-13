@@ -593,10 +593,12 @@ return function(
       end
       if displayRuntime.perf.enabled then
         displayRuntime.perf:setContext(string.format(
-          "gen%d/%s/%s/%s/%s/%s/%s", compat.isGen2() and 2 or 1,
+          "gen%d/%s/%s/%s/%s/%s/%s", displayRuntime.sourceGame.generation or (compat.isGen2() and 2 or 1),
           session.page, top and (top.screenId or (top.isTextBox and "text")) or mode,
           mod.options:get("theme_v3") or THEME.style,
-          inline and "inline" or bottomOnHandheld() and "game-transfer" or "gear-transfer",
+          THEME:displayMode(mod.options) == "phone"
+            and (displayRuntime.phone and displayRuntime.phone:detected() and "phone-connected" or "phone-waiting")
+            or inline and "inline" or bottomOnHandheld() and "game-transfer" or "gear-transfer",
           mod.options:get("map_motion") or "quality", session.mapId or "unknown"))
       end
       if session.partyMoveFrom and (session.page ~= "PARTY" or not mod.world

@@ -17,6 +17,7 @@ async function decode() {
   try {
     while (queue.length) {
       const pending = queue.shift(), packet = pending.bytes;
+      const profileStarted = pending.profile ? performance.now() : 0;
       const data = new DataView(packet);
       if (data.byteLength < 12) throw Error("Invalid Gear frame");
       let magic = data.getUint32(0);
@@ -91,6 +92,7 @@ async function decode() {
       if (!output && made < 10) { output = new ArrayBuffer(size); made++; }
       if (output) new Uint8ClampedArray(output).set(pixels);
       postMessage({id, width, height, pixels:output, stamp:timed ? data.getUint32(12) : null,
+        decodeMs:pending.profile ? performance.now() - profileStarted : undefined,
         arrived:pending.arrived}, output ? [output] : []);
     }
   } catch (error) { queue = []; postMessage({error:error.message || "Invalid Gear frame"}); }

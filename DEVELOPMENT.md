@@ -125,8 +125,10 @@ Keep those limits separate from Gear's UI-localization checks.
 ## Profiling and packaging
 
 Public builds disable the recorder instantiated in `runtime/bootstrap.lua`.
-Enable it only in a diagnostic build and disable it before release. Capture
-the existing host log, then run:
+After committing the source, `python tools/package.py --profile` produces a
+separately named diagnostic ZIP with recording enabled. Its verification report
+identifies the source commit and the two packaging transformations. Normal
+packages keep recording disabled. Capture the existing host log, then run:
 
 ```sh
 python tools/performance_report.py capture.log --json report.json
@@ -136,6 +138,15 @@ KGPROF scopes overlap and measure host-call wall time, not GPU execution or
 physical presentation. Do not sum scope means. `p95le`/`p99le` are histogram
 upper bounds; incomplete or mixed-context captures remain marked. Device
 comparisons need the same host, save, location, settings and refresh rate.
+Phone diagnostics also record encoder diff/compression time, worker turnaround,
+socket writes, encoded/wire byte counts and browser decode/paint intervals.
+Browser paint means the Canvas API call, not physical display presentation.
+Acknowledgement timings include the return network trip; browser wait includes
+decoding, scheduling and the intentional playout buffer. Readback age measures
+request-to-observation latency, not GPU execution. These scopes overlap.
+Compare Android battery current/voltage, temperature and CPU/GPU activity
+separately; Lua wall times cannot attribute watts. Profiling uses the existing
+paired local connection and never records screen content, credentials or input.
 
 Before packaging, inspect all worktrees involved and commit the complete
 intended source set. If test files changed, run

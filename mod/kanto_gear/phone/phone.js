@@ -118,7 +118,7 @@ function updateHeld() {
 let decoder = null, decoding = 0, decoded = null, presentations = [], animation = 0, paintImage = null;
 let timing = [], lastStamp = null, sourceClock = 0, playoutOffset = null, lastArrival = 0;
 let vsyncAt = 0, vsyncPeriod = 1000 / 60;
-let paintedAt = 0, fpsAt = 0, paintedFrames = 0, fps = 0;
+let paintedAt = 0, fpsAt = 0, paintedFrames = 0, fps = 0, profiling = false;
 function fit() {
   if (!canvas.width || !canvas.height) return;
   const scale = Math.max(0, Math.min(screen.clientWidth / canvas.width, screen.clientHeight / canvas.height));
@@ -136,6 +136,7 @@ function stop(message) {
   decoded = null; presentations = []; decoding = 0; animation = 0; paintImage = null;
   timing = []; lastStamp = null; sourceClock = 0; playoutOffset = null; lastArrival = 0; vsyncAt = 0; vsyncPeriod = 1000 / 60;
   paintedAt = fpsAt = paintedFrames = fps = 0;
+  profiling = false;
   frame = 0; pointer = null;
   authenticated = false; capability = "none"; controller.hidden = true; refreshControls();
   canvas.style.display = "none"; form.hidden = false; connect.disabled = false;
@@ -174,11 +175,14 @@ function paintFrame(current) {
         recycleImage(presentations.shift());
       }
       const image = presentations.shift();
+      const paintStarted = profiling ? performance.now() : 0;
+      const interval = profiling && paintedAt && paintStarted - paintedAt < 250 ? paintStarted - paintedAt : 0;
       const resized = canvas.width !== image.width || canvas.height !== image.height;
       if (resized) { canvas.width = image.width; canvas.height = image.height; paintImage = null; }
       if (!paintImage) paintImage = new ImageData(image.width, image.height);
       paintImage.data.set(image.pixels);
       context.putImageData(paintImage, 0, 0);
+      const paintCost = profiling ? performance.now() - paintStarted : 0;
       frame = image.id; lastContact = performance.now();
       if (lastContact - paintedAt > 250) { fpsAt = lastContact; paintedFrames = 0; fps = 0; }
       paintedFrames++;
@@ -193,6 +197,7 @@ function paintFrame(current) {
       if (first || resized) fit();
       status.textContent = `Connected${fps ? ` · ${fps} FPS` : ""} · tap or swipe Gear`;
       send(`a,${frame}`);
+      if (profiling) send(`p,${frame},${(image.decodeMs || 0).toFixed(3)},${Math.max(0, paintStarted - image.arrived).toFixed(3)},${paintCost.toFixed(3)},${Math.max(0, interval).toFixed(3)}`);
       recycleImage(image);
     }
     if (presentations.length) paintFrame(current);
@@ -269,6 +274,7 @@ form.addEventListener("submit", event => {
     }
     if (!authenticated) return;
     if (event.data === "h") { lastContact = performance.now(); return; }
+    if (event.data === "p,1") { profiling = true; return; }
     if (["c,gb", "c,gba", "c,none"].includes(event.data)) {
       if (editing) finishLayout(false);
       releaseAll(); capability = event.data.slice(2); refreshControls(); fit(); return;
@@ -276,7 +282,7 @@ form.addEventListener("submit", event => {
     if (!(event.data instanceof ArrayBuffer)) return;
     if (decoding >= 32) { stop("Gear video queue exceeded its limit. Reconnect to refresh it."); return; }
     decoding++;
-    decoder.postMessage({bytes:event.data, arrived:performance.now()}, [event.data]);
+    decoder.postMessage({bytes:event.data, arrived:performance.now(), profile:profiling}, [event.data]);
   };
   socket.onclose = () => stop("Disconnected. Scan the current QR or enter its code. Codes expire after 5 minutes and work once.");
   socket.onerror = () => stop("Could not connect. Check the code, Wi-Fi and game. After repeated attempts, wait one minute.");

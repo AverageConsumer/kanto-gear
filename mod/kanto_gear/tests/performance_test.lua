@@ -9,9 +9,13 @@ local result, second = p:call("tools", function(a) return a, 2 end, 1)
 T.eq(result, 1, "disabled recording preserves the first return value")
 T.eq(second, 2, "disabled recording preserves additional return values")
 p:frame(); p:finish("tools", p:start())
+p:count("phone_wire_bytes", 99)
+T.eq(next(p.counters), nil, "disabled diagnostics do not allocate counters")
 T.eq(reads, 0, "disabled diagnostics never query the clock")
 T.eq(#lines, 0, "disabled diagnostics never log")
 p.enabled = true
+p:count("phone_wire_bytes", 123)
+p:count("phone_wire_bytes", 7)
 p:setContext("gen2/HOME/world/hgss/gear-transfer/quality/ROUTE_30")
 p:frame()
 local m, bins = p.metrics.tools, p.metrics.tools.bins
@@ -49,6 +53,8 @@ now = 10
 p:frame()
 T.eq(#lines, 1, "reporting emits only one log line per frame")
 T.check(lines[1]:find("bytes=207360", 1, true), "window includes real transfer volume")
+T.check(lines[1]:find("counters=1", 1, true), "counter count is explicit in each report")
+T.eq(p.counters.phone_wire_bytes, 0, "counters reset at report boundaries")
 local queued = p.pending
 p:report(20)
 T.eq(p.pending, queued, "unfinished report cannot create an unbounded queue")
@@ -61,6 +67,11 @@ T.check(metric and metric:find("max=400.0000", 1, true), "maximum is exact rathe
 T.eq(m.n, 0, "window resets measurement counts")
 T.eq(m.bins, bins, "window resets bins in place")
 T.check(p.metrics.profile_log.n > 0, "logging overhead is measured separately")
+local counted = false
+for _, line in ipairs(lines) do
+  if line:find("kind=counter name=phone_wire_bytes value=130", 1, true) then counted = true end
+end
+T.check(counted, "wire counters are separate from uncompressed presentation bytes")
 p:setContext("gen2/ACHIEVEMENTS/world/hgss/gear-transfer/quality/ROUTE_30")
 T.eq(p.mixed, true, "mixed screen windows are explicitly marked")
 T.finish("Kanto Gear performance recorder")

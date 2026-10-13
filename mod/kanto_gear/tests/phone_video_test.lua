@@ -68,3 +68,13 @@ for i=2,80 do
   shown=decode(body,shown);assert(shown.rgba==moved, "horizontal and vertical copies read the untouched previous image")
 end
 print("PASS lossless row patches, alpha, scene changes, resolution changes and duplicate suppression")
+local clock = 0
+local profile = { clock = function() clock = clock + .001; return clock end }
+local measured, measuredBase = Video.encode(rgba,240,216,90,nil,identity,nil,profile)
+local ordinary = Video.encode(rgba,240,216,90,nil,identity)
+assert(measured == ordinary and profile.diff > 0 and profile.compress > 0,
+  "diagnostics preserve wire bytes while isolating diff and compression")
+local duplicate = { clock = profile.clock }
+local unchanged = Video.encode(rgba,240,216,91,measuredBase,identity,nil,duplicate)
+assert(not unchanged and duplicate.diff > 0 and not duplicate.compress,
+  "duplicate detection never attributes time to compression")

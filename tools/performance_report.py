@@ -32,13 +32,14 @@ def parse(text):
             continue
         window = windows.get(seq)
         if window is None:
-            window = {"sequence": seq, "metrics": {}, "complete": False}
+            window = {"sequence": seq, "metrics": {}, "counters": {}, "complete": False}
             windows[seq] = window
             current["windows"].append(window)
         if values.get("kind") == "window":
             if not all(key in values for key in ("context", "mixed", "at", "seconds", "frames", "bytes", "metrics")):
                 continue
             window["expected_metrics"] = int(values["metrics"])
+            window["expected_counters"] = int(values.get("counters", 0))
             window["context"] = values["context"]
             window["mixed"] = values["mixed"] == "true"
             for key in ("at", "seconds", "frames", "bytes"):
@@ -50,8 +51,12 @@ def parse(text):
                 key: values[key] if key == "peak" else float(values[key])
                 for key in ("n", "mean", "p95le", "p99le", "max", "over20", "over34", "over250", "peak")
             }
+        elif values.get("kind") == "counter" and "name" in values and "value" in values:
+            window["counters"][values["name"]] = float(values["value"])
         elif values.get("kind") == "end":
-            window["complete"] = "context" in window and window.get("expected_metrics") == len(window["metrics"])
+            window["complete"] = ("context" in window
+                                  and window.get("expected_metrics") == len(window["metrics"])
+                                  and window.get("expected_counters") == len(window["counters"]))
     return runs
 
 
@@ -71,7 +76,9 @@ def main():
             print(f"\nWindow {w['sequence']}: {w.get('context', 'incomplete header')}"
                   f" | complete={w['complete']} mixed={w.get('mixed', 'unknown')}")
             if w.get("seconds", 0) > 0:
-                print(f"Transfer: {w['bytes'] / w['seconds'] / 1_000_000:.2f} MB/s")
+                print(f"Submitted RGBA: {w['bytes'] / w['seconds'] / 1_000_000:.2f} MB/s (before encoding)")
+                for name, value in sorted(w["counters"].items()):
+                    print(f"{name}: {value:.0f} ({value / w['seconds']:.2f}/s)")
             print("scope                 calls   mean ms   p99 <= ms    max ms   >20 ms")
             for name, m in w["metrics"].items():
                 print(f"{name:22} {m['n']:5.0f} {m['mean']:9.4f} {m['p99le']:11.4f}"

@@ -8,7 +8,10 @@ local names = { "frame_interval", "gear_compose", "gear_input", "gear_draw", "sc
   "gen3_refresh", "display_enable", "display_detect", "map_refresh", "battle_snapshot",
   "tools", "map_overview", "map_image", "home_data", "home_map", "home_explorer", "home_paint", "stamps_current", "stamps_album", "notes_flush",
   "readback_request", "readback_poll", "readback_sync", "present", "game_capture",
-  "profile_log" }
+  "phone_pixels", "phone_diff", "phone_compress", "phone_encode", "phone_worker_wait",
+  "phone_worker_roundtrip", "phone_send", "phone_decode_ack", "phone_paint_ack",
+  "phone_capture_ack", "phone_browser_decode", "phone_browser_wait", "phone_browser_paint",
+  "phone_browser_interval", "readback_age", "profile_log" }
 
 local function reset(metric)
   metric.n, metric.total, metric.max = 0, 0, 0
@@ -19,11 +22,15 @@ end
 function Performance.new(clock, log, enabled)
   local self = setmetatable({ clock = clock, log = log, enabled = enabled == true,
     metrics = {}, pending = {}, nextLine = 1, sequence = 0,
-    context = "startup", mixed = false, bytes = 0, presented = 0 }, Performance)
+    context = "startup", mixed = false, bytes = 0, presented = 0, counters = {} }, Performance)
   for _, name in ipairs(names) do
     self.metrics[name] = { bins = {} }; reset(self.metrics[name])
   end
   return self
+end
+
+function Performance:count(name, value)
+  if self.enabled then self.counters[name] = (self.counters[name] or 0) + (value or 1) end
 end
 
 function Performance:start()
@@ -106,7 +113,15 @@ function Performance:report(now)
     end
     reset(m)
   end
-  lines[1] = lines[1] .. " metrics=" .. (#lines - 1)
+  local metricCount, counterCount = #lines - 1, 0
+  for name, value in pairs(self.counters) do
+    if value ~= 0 then
+      lines[#lines + 1] = string.format("%s kind=counter name=%s value=%.0f", prefix, name, value)
+      counterCount = counterCount + 1
+    end
+    self.counters[name] = 0
+  end
+  lines[1] = lines[1] .. " metrics=" .. metricCount .. " counters=" .. counterCount
   lines[#lines + 1] = prefix .. " kind=end"
   self.pending, self.nextLine = lines, 1
   self.since, self.mixed, self.bytes, self.presented = now, false, 0, 0

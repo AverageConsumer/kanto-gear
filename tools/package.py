@@ -21,6 +21,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sync-ignore", action="store_true", help="refresh Modkit's exact test exclusion list; commit it before packing")
     parser.add_argument("--output", type=Path, help="defaults to dist/kanto_gear-<manifest version>.zip")
+    parser.add_argument("--profile", action="store_true", help="enable recording in a separately marked diagnostic ZIP")
     args = parser.parse_args()
     if args.sync_ignore:
         tests = sorted(p.relative_to(MOD).as_posix() for p in (MOD / "tests").rglob("*") if p.is_file() and "__pycache__" not in p.parts)
@@ -38,7 +39,20 @@ def main():
     assert not any(p.startswith("tests/") for p in files), "test exclusions are stale; run --sync-ignore"
     manifest = json.loads(files["manifest.json"])
     assert manifest["id"] == "kanto_gear" and re.fullmatch(r"\d+\.\d+\.\d+", manifest["version"])
-    output = args.output or ROOT / "dist" / f"kanto_gear-{manifest['version']}.zip"
+    if args.profile:
+        path = "runtime/bootstrap.lua"
+        source_text = files[path].decode("utf-8")
+        switch = 'function(line) mod.log:info("%s", line) end, false)'
+        assert source_text.count(switch) == 1, "diagnostic activation point changed"
+        source_text = source_text.replace(switch, switch.replace("false)", "true)"))
+        marker = "KGPROF v=1 kind=build version="
+        assert source_text.count(marker) == 1
+        source_text = source_text.replace(marker, f"KGPROF v=1 kind=build source={commit} variant=phone-profile version=")
+        files[path] = source_text.encode("utf-8")
+        manifest["name"] = "Kanto Gear (Phone diagnostics)"
+        files["manifest.json"] = (json.dumps(manifest, indent=2) + "\n").encode("utf-8")
+    suffix = "-phone-profile" if args.profile else ""
+    output = args.output or ROOT / "dist" / f"kanto_gear-{manifest['version']}{suffix}.zip"
     assert manifest["entry"] in files and manifest["games"] == ["gen1", "gen2", "gen3"]
     required = {"runtime/hooks.lua", "adapters/gen1_2/party.lua", "adapters/gen3/init.lua",
                 "features/notes.lua", "features/achievements.lua", "features/pss.lua",
@@ -59,6 +73,8 @@ def main():
         assert set(archive.namelist()) == set(files)
         for name, body in files.items(): assert archive.read(name) == body
     report = {"source_commit": commit, "id": manifest["id"], "version": manifest["version"],
+              "diagnostic": args.profile,
+              "transformed_files": ["runtime/bootstrap.lua", "manifest.json"] if args.profile else [],
               "engine_range": manifest["game_version"], "kind": "Lua mod ZIP; no native engine or APK signer",
               "sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
               "files": {name: hashlib.sha256(body).hexdigest() for name, body in sorted(files.items())}}

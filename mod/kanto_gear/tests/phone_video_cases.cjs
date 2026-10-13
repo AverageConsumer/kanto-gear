@@ -20,12 +20,17 @@ module.exports = async ({page, pair}) => {
   await pair();
   await page.evaluate(()=>{window.originalInflate=DecompressionStream;window.DecompressionStream=class {constructor(){throw Error('UI-thread inflate is forbidden');}};});
   await send(frame('KG02',4,4,2,deflateSync(Buffer.alloc(64,255)))); await painted(2);
+  assert(await page.evaluate(()=>!testSocket.messages.some(s=>s.startsWith('p,'))), 'public connections send no profiling traffic');
+  await page.evaluate(()=>testSocket.deliver('p,1'));
   await page.evaluate(()=>{window.DecompressionStream=originalInflate;});
   const red=patch(2,1,[255,0,0,255]), blue=patch(0,3,[0,0,255,255]);
   // Both patches arrive before rAF; decoding still needs the unpainted predecessor.
   await page.evaluate(bytes=>{for(const packet of bytes)testSocket.deliver(Uint8Array.from(packet).buffer);},
     [[...frame('KG03',4,4,3,deflateSync(red),2)],[...frame('KG04',4,4,4,blue,3)]]);
   await painted(4);
+  await page.waitForFunction(()=>testSocket.messages.some(s=>s.startsWith('p,4,')));
+  const profile = await page.evaluate(()=>testSocket.messages.find(s=>s.startsWith('p,4,')).split(',').slice(2).map(Number));
+  assert(profile.length === 4 && profile.every(n=>Number.isFinite(n)&&n>=0), 'diagnostic clients report finite decode, wait, paint and interval timings');
   const pixels = await page.evaluate(()=>[...document.querySelector('#gear').getContext('2d').getImageData(0,0,4,4).data]);
   assert.deepEqual(pixels.slice(36,40),[255,0,0,255], 'skipping a presentation preserves the earlier patch');
   assert.deepEqual(pixels.slice(12,16),[0,0,255,255], 'raw and compressed patches reconstruct the same image');

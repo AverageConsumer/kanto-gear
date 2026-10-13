@@ -27,11 +27,12 @@ local function reply(status, body, kind)
     .. "\r\nConnection: close\r\n\r\n" .. body
 end
 
-function Phone.new(mod, runtime, socket, pairing, video)
+function Phone.new(mod, runtime, socket, pairing, video, perf)
   socket = socket or require("socket")
   local previous = rawget(socket, HOLDER)
   if previous then previous:stop() end
   local self = setmetatable({ mod = mod, runtime = runtime, socket = socket,
+    perf = perf and perf.enabled and perf or nil,
     clients = {}, touches = {}, buttons = {},
     sequence = 0, epoch = 0,
     page = assert(mod:read("phone/phone.html")), script = assert(mod:read("phone/phone.js")),
@@ -183,6 +184,7 @@ function Phone:reserveCapture(at)
   self.nextFrame = math.max(self.nextFrame + 1 / 60, at or self:now())
   self.capturedFrame = self.sourceFrame
   self.captureReserved, self.captureAt = true, self.sourceTime or at or self:now()
+  self.capturedAt = self.perf and self.perf:start()
   return true
 end
 function Phone:push(image, w, h)
@@ -190,10 +192,18 @@ function Phone:push(image, w, h)
   self.captureReserved = nil
   if not self:detected() then return false end
   if w < 1 or h < 1 or w > 240 or h > 216 then return false end
+  local measured = self.perf and self.perf:start()
   local rgba = image:getString()
+  if self.perf then
+    self.perf:finish("phone_pixels", measured)
+    self.perf:count("phone_captured")
+    self.perf:count("phone_source_bytes", #rgba)
+    if self.queuedImage then self.perf:count("phone_replaced") end
+  end
   if #rgba ~= w * h * 4 then return false end
   -- An unscheduled capture has no delta dependants: retain the newest one only.
-  self.queuedImage = { rgba = rgba, w = w, h = h, at = math.floor((self.captureAt or self:now()) * 1000) % 4294967296 }
+  self.queuedImage = { rgba = rgba, w = w, h = h, capturedAt = self.capturedAt,
+    at = math.floor((self.captureAt or self:now()) * 1000) % 4294967296 }
   self:poll()
   return self:ready()
 end
@@ -201,7 +211,10 @@ function Phone:encodeQueued()
   local c, image = self.viewer, self.queuedImage
   if not image or self.encoding or not c or not transportRoom(c) then return end
   image.id, image.epoch = self.sequence % 4294967295 + 1, self.epoch
-  self.encoding = { id = image.id, epoch = image.epoch, w = image.w, h = image.h }
+  image.profile = self.perf and self.perf.enabled or nil
+  image.queuedAt = image.profile and self:now() or nil
+  self.encoding = { id = image.id, epoch = image.epoch, w = image.w, h = image.h,
+    queuedAt = image.queuedAt, capturedAt = image.capturedAt }
   self.queuedImage = nil
   self.video:request(image)
 end
@@ -212,10 +225,24 @@ function Phone:pollVideo()
   local image = self.encoding
   self.encoding = nil
   if result.error then self.error = result.error; self:stop(); return end
+  if image and result.epoch == self.epoch and self.perf then
+    self.perf:finish("phone_worker_roundtrip", image.queuedAt)
+    local profile = result.profile
+    if profile then
+      self.perf:sample("phone_encode", profile.encode)
+      self.perf:sample("phone_diff", profile.diff)
+      self.perf:sample("phone_worker_wait", profile.wait)
+      if profile.compress then self.perf:sample("phone_compress", profile.compress) end
+      if profile.patchBytes then self.perf:count("phone_patch_bytes", profile.patchBytes) end
+    end
+    self.perf:count(result.body and "phone_encoded" or "phone_duplicate")
+    if result.body then self.perf:count("phone_payload_bytes", #result.body) end
+  end
   if image and result.epoch == self.epoch and self.viewer and result.body then
     local c = self.viewer
     self.sequence, self.width, self.height = result.id, image.w, image.h
-    local value = { id = result.id, bytes = packet(2, result.body), w = image.w, h = image.h }
+    local value = { id = result.id, bytes = packet(2, result.body), w = image.w, h = image.h,
+      capturedAt = image.capturedAt }
     c.videoQueue = c.videoQueue or {}
     c.videoQueue[#c.videoQueue + 1] = value
     c.videoBytes = (c.videoBytes or 0) + #value.bytes
@@ -295,12 +322,26 @@ function Phone:message(c, text)
     c.controls = self:controls()
     -- The HTTP upgrade has already been fully written before auth is read.
     c.out, c.sent = packet(1, "ok"), 0
+    c.profilePending = self.perf ~= nil
     self:rotatePairing() -- consume both the QR key and the manual code together
     return true
   end
   if text == "release" then
     self:releaseControls()
     c.touch, self.touches = false, { "cancel,0,0" }
+    return true
+  end
+  local profileId, decode, wait, paint, interval = text:match("^p,(%d+),(%d+%.%d+),(%d+%.%d+),(%d+%.%d+),(%d+%.%d+)$")
+  if profileId then
+    if not self.perf then return false end
+    local values = { tonumber(decode), tonumber(wait), tonumber(paint), tonumber(interval) }
+    for _, value in ipairs(values) do if value > 10000 then return false end end
+    if tonumber(profileId) ~= c.ack or c.profileAck == c.ack then return true end
+    c.profileAck = c.ack
+    self.perf:sample("phone_browser_decode", values[1])
+    self.perf:sample("phone_browser_wait", values[2])
+    self.perf:sample("phone_browser_paint", values[3])
+    if values[4] > 0 then self.perf:sample("phone_browser_interval", values[4]) end
     return true
   end
   local button, down = text:match("^b,(%a+),([01])$")
@@ -321,6 +362,14 @@ function Phone:message(c, text)
       for i, frame in ipairs(c.pending) do
         if id == frame.id then
           c.alive = self:now()
+          if self.perf and not frame[kind .. "Profiled"] then
+            self.perf:finish(kind == "r" and "phone_decode_ack" or "phone_paint_ack", frame.at)
+            if kind == "a" then
+              self.perf:finish("phone_capture_ack", frame.capturedAt)
+              self.perf:count("phone_acked")
+            end
+            frame[kind .. "Profiled"] = true
+          end
           if kind == "r" then c.rtt = c.alive - frame.at
           elseif not c.ack or id == c.ack or (id - c.ack + 4294967295) % 4294967295 < 2147483647 then
             c.ack, c.ackWidth, c.ackHeight = id, frame.w, frame.h
@@ -416,6 +465,9 @@ function Phone:poll()
     local c = self.clients[i]
     local ok = now - (c.alive or c.opened) < (self.viewer == c and 1.5 or 3)
     if ok and (self.viewer == c or not c.out) then ok = self:read(c) end
+    if ok and c.profilePending and not c.out then
+      c.out, c.sent, c.profilePending = packet(1, "p,1"), 0, nil
+    end
     if ok and c.controls and not c.out then
       c.out, c.sent, c.controls = packet(1, "c," .. c.controls), 0, nil
     end
@@ -427,12 +479,19 @@ function Phone:poll()
         local value = table.remove(c.videoQueue, 1)
         c.videoBytes = c.videoBytes - #value.bytes
         c.out, c.sent, c.frame = value.bytes, 0, value.id
-        c.pending[#c.pending + 1] = { id = value.id, at = now, w = value.w, h = value.h }
+        c.pending[#c.pending + 1] = { id = value.id, at = now, w = value.w, h = value.h,
+          capturedAt = value.capturedAt }
         if #c.pending > HISTORY then table.remove(c.pending, 1) end
       end
       if not c.out then break end
+      local measured, before = self.perf and self.perf:start(), c.sent
       local last, err, partial = c.sock:send(c.out, c.sent + 1, math.min(#c.out, c.sent + 262144))
       c.sent = last or partial or c.sent
+      if self.perf then
+        self.perf:finish("phone_send", measured)
+        self.perf:count("phone_wire_bytes", c.sent - before)
+        if err == "timeout" then self.perf:count("phone_partial_writes") end
+      end
       if err and err ~= "timeout" then ok = false end
       if c.sent == #c.out then
         c.out = nil

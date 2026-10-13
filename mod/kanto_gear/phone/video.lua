@@ -33,11 +33,15 @@ local function copyRun(row, old, y, w, h, left, right)
   return best
 end
 
-function Video.encode(rgba, w, h, id, previous, compress, at)
+function Video.encode(rgba, w, h, id, previous, compress, at, profile)
   assert(w >= 1 and h >= 1 and w <= 240 and h <= 216 and #rgba == w * h * 4)
+  local started = profile and profile.clock()
   local body, delta = rgba, false
   if previous and previous.w == w and previous.h == h then
-    if rgba == previous.rgba then return nil, previous end
+    if rgba == previous.rgba then
+      if profile then profile.diff = (profile.clock() - started) * 1000 end
+      return nil, previous
+    end
     local rows, copies, stride = {}, false, w * 4
     local function raw(y,left,right,row)
       if right > left then rows[#rows+1] = {y=y,x=left/4,n=(right-left)/4,bytes=row:sub(left+1,right)} end
@@ -68,7 +72,10 @@ function Video.encode(rgba, w, h, id, previous, compress, at)
     -- A scene change should use a self-contained image, not a larger patch list.
     if #patch < #rgba * .75 then body, delta = patch, copies and "copy" or true end
   end
+  local compressAt = profile and profile.clock()
+  if profile then profile.diff, profile.patchBytes = (compressAt - started) * 1000, #body end
   local payload = compress(body)
+  if profile then profile.compress = (profile.clock() - compressAt) * 1000 end
   local compressed = #payload < #body
   if not compressed then payload = body end
   local magic = delta == "copy" and (compressed and "KG05" or "KG06")
