@@ -4,10 +4,10 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 love = require("tests.love_stub")
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Session = assert(loadfile(path .. "/pss_session.lua"))()
+local Session = assert(loadfile(path .. "/features/pss_session.lua"))()
 local Relay = require("tests.support.fake_relay")
 local Caps = require("src.online.union.Caps")
-local Pss = assert(loadfile(path .. "/pss.lua"))()
+local Pss = assert(loadfile(path .. "/features/pss.lua"))()
 local passed = 0
 local function check(v, msg) assert(v, msg); passed = passed + 1 end
 local clock = 0

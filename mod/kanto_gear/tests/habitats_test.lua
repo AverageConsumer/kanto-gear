@@ -1,4 +1,4 @@
-local H = assert(loadfile("mod/kanto_gear/habitats.lua"))()
+local H = assert(loadfile("mod/kanto_gear/models/habitats.lua"))()
 local checks = 0
 local function eq(a, b, label)
   checks = checks + 1

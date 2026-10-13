@@ -17,12 +17,7 @@ T.sdk.loadMod = function(modPath, opts)
   return originalLoad(modPath, opts)
 end
 
-local function upvalue(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw)
   raw.mods, raw.version = run.loader, os.getenv("POKEPORT_VERSION")
@@ -66,7 +61,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw)
   compatible("restored Gear")
 
   local Client = require("src.online.Client")
-  local Session = assert(loadfile(path .. "/pss_session.lua"))()
+  local Session = assert(loadfile(path .. "/features/pss_session.lua"))()
   local service = Session.new(raw, function() return display.pss.ctx.identity() end, Client)
   T.eq(service:profileValid(), false, "Silph Connect preserves the real permission gate")
   T.eq(service.notice, "RECOMP BLOCKS UI MODS", "gate is explained in the app")

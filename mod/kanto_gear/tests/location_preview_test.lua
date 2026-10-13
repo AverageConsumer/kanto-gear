@@ -1,6 +1,6 @@
 local T = require("tests.modkit")
 local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Location = assert(loadfile(root .. "/location_preview.lua"))()
+local Location = assert(loadfile(root .. "/models/location_preview.lua"))()
 for generation = 1, 3 do
   local maps = { CITY = { width = 20, height = 20, outdoor = true, warps = {
     { x = 7, y = 9, destMap = "FLOOR_1" }, { x = 8, y = 9, destMap = "FLOOR_1" },

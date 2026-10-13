@@ -2,16 +2,7 @@
 -- menu invalidations visible instead of hiding them behind its five-second tick.
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
-local function up(fn, target, replacement)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == target then
-      if replacement ~= nil then debug.setupvalue(fn, i, replacement) end
-      return value
-    end
-  end
-  error("missing upvalue " .. target)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local compose
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do

@@ -10,13 +10,7 @@ require("src.core.GameVersion").set(version)
 local run = T.sdk.loadMods({ path, pack }, { generation = generation })
 T.eq(#run.errors, 0, "Gear and translation load together")
 T.eq(run.mods.kanto_gear.state, "loaded", "Gear stays enabled")
-local function up(fn, target)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == target then return value end
-  end
-  error("Missing upvalue " .. target)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local input
 for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
   if entry.owner == "kanto_gear" then input = entry.callback end

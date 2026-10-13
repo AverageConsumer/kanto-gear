@@ -1,17 +1,8 @@
 local T = require("tests.modkit")
 local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Policy = assert(loadfile(root .. "/discovery.lua"))()
-local Progress = assert(loadfile(root .. "/achievements.lua"))()
-local function up(fn, key, value, set)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, current = debug.getupvalue(fn, i)
-    if name == key then
-      if set then debug.setupvalue(fn, i, value) end
-      return current
-    end
-  end
-  error("missing upvalue " .. key)
-end
+local Policy = assert(loadfile(root .. "/core/discovery.lua"))()
+local Progress = assert(loadfile(root .. "/features/achievements.lua"))()
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function hook(run, name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end
@@ -210,6 +201,7 @@ local function exercise(run, display)
       { mapId = "FUTURE_HABITAT", method = "WALK", chance = 50, minLevel = 2, maxLevel = 3 },
     } }, { species = second, name = "UNKNOWN", appearances = {} } }, time = "DAY", caught = 0 }
   end, true)
+  local dexGuide = up(display.pokedexData, "guideData", up(display.explorerModel, "guideData"), true)
   up(display.explorerModel, "areaData", function()
     return { sections = {
       { rows = { { id = "trainer", label = "TRAINER", mapId = id, x = 1, y = 1 } } },
@@ -293,6 +285,7 @@ local function exercise(run, display)
   T.eq(display.explorer.selected, nil, "stricter/mutated policy clears an open map detail")
   T.eq(next(display.explorer.scanRevealed), nil, "old scan state cannot leak after mode changes")
   T.eq(display.pokedex.habitatPlan, nil, "old habitat cache is discarded immediately")
+  up(display.pokedexData, "guideData", dexGuide, true)
   up(display.explorerModel, "guideData", guide, true)
   up(display.explorerModel, "areaData", areaData, true)
   display.achievementData = readAchievements

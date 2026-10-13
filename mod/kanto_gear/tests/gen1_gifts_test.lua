@@ -1,7 +1,7 @@
 local T = require("tests.modkit")
 local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Gifts = assert(loadfile(root .. "/gen1_gifts.lua"))()
-local Progress = assert(loadfile(root .. "/achievements.lua"))()
+local Gifts = assert(loadfile(root .. "/features/gen1_gifts.lua"))()
+local Progress = assert(loadfile(root .. "/features/achievements.lua"))()
 require("data.scripts.init")
 local scripts = require("src.script.MapScripts")
 local policy = Gifts.new()
@@ -140,13 +140,7 @@ scripts.talkScript = talkScript
 
 local run = T.sdk.loadMod(root, { generation = 1, data = T.fixtures.fresh() })
 T.eq(run.mod and run.mod.state, "loaded", "Gen1 companion loads the gift reader")
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local input
 for _, entry in ipairs(run.loader.hooks.chains["input.step"]) do
   if entry.owner == "kanto_gear" then input = entry.callback end

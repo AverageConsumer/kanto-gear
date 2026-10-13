@@ -1,6 +1,6 @@
 -- Run from the host checkout; no extracted assets are required.
 local T = require("tests.modkit")
-local Map = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/native_map.lua"))()
+local Map = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/adapters/native_map.lua"))()
 local built, released, draws = 0, 0, {}
 local G = { setColor = function() end }
 function G.newSpriteBatch(image, capacity)

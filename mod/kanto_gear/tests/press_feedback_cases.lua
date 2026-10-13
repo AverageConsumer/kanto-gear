@@ -59,11 +59,18 @@ return function(T, display, H)
   at(30, 40, function() H:nativeGrid(menu) end, 0, "empty inert storage slots stay still")
   local move={available=true,name="TACKLE",type="NORMAL",disabled=true,disabledLabel="NO PP",ppText="0/35"}
   at(40,60,function() H:battleMoveCard(move,6,33,true,false) end,0,"empty-PP grid card stays still")
-  at(40,60,function() H:battleStandardMoves({moves={move},moveIndex=1}) end,0,"blocked move row stays still")
   at(40,145,function() H:battleFullMoves({moves={move},details=true}) end,0,"blocked Full Gear move stays still")
   at(108,125,function() H:battleFullMoves({moves={move},details=true}) end,1,"blocked move may still open its own details")
   at(108,125,function() H:battleFullMoves({moves={move},details=false}) end,0,"missing move details do not animate the disabled parent")
   at(40,145,function() H:battleFullMoves({moves={},details=true}) end,0,"empty Full Gear move slots stay still")
+  for _, point in ipairs({ {120,80}, {40,170}, {120,170}, {200,170} }) do
+    for _, enabled in ipairs({ false, true }) do
+      at(point[1],point[2],function() H:battleRoot({},function() end,nil,nil,nil,enabled) end,
+        enabled and 1 or 0,"only usable Companion commands respond across their visible buttons")
+    end
+  end
+  at(120,156,function() H:battleRoot({},function() end,nil,nil,nil,true) end,0,
+    "the gap between Companion commands stays still")
   at(120,70,function() H:enemyInfoOpponents({{id=1,side="enemy",absent=true}},function() end) end,0,
     "an absent opponent has no press animation")
   move.disabled,move.disabledLabel=false,nil
@@ -147,7 +154,7 @@ return function(T, display, H)
   state.cursor=1
   at(45,78,function() H:notes(state) end,0,"the right text cursor stays still at its boundary")
   at(160,198,function() H:notes(state) end,1,"backspace responds when it can delete")
-  local PG = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/pokegear_page.lua"))()
+  local PG = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/ui/pages/pokegear.lua"))()
   local pg = { mode="card", card="radio", cards={}, radio={frequency="20.5",canTuneUp=false,stations={}} }
   at(210,80,function() H:pokegearScreen(pg,PG) end,0,"radio tuning stays still at its upper boundary")
   pg.radio.canTuneUp=true

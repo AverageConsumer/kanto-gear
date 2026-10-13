@@ -1,15 +1,9 @@
 local T = require("tests.modkit")
 love.graphics.arc = love.graphics.arc or function() end
 local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Gifts = dofile(root .. "/gen2_gifts.lua")
-local Progress = dofile(root .. "/achievements.lua")
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-  error("missing upvalue " .. key)
-end
+local Gifts = dofile(root .. "/features/gen2_gifts.lua")
+local Progress = dofile(root .. "/features/achievements.lua")
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function gift(event, op, species)
   return { { op = "checkevent", event = event }, { op = "iftrue", script = "END" },
     { op = "readvar", var = 1 }, { op = "ifequal", value = 6, script = "END" },

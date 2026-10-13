@@ -3,9 +3,7 @@ return function(T, run, display, raw)
   local Bag, Items = require("src.core.game3.bag"), a.Items
   local Menu, Party = require("src.ui.game3.bag_menu"), require("src.ui.game3.party_menu")
   local Stack, Message = require("src.ui.game3.stack"), require("src.ui.game3.message")
-  local function up(fn,key)
-    for i=1,debug.getinfo(fn,"u").nups do local k,v=debug.getupvalue(fn,i);if k==key then return v end end
-  end
+  local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
   local function clear()
     Party.close(); Menu.close(); Stack.clear(); Message.reset()
     if a.profile.id == "emerald" then require("src.ui.game3.rse.bag_menu").reset() end

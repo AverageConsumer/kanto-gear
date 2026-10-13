@@ -9,7 +9,7 @@ python tools/translation_preview/verify.py --engine /path/to/gen1recomp --fixtur
 
 The fixture directory must contain `rby-de`, `rby-es`, `rby-fr`, `rby-it`,
 `rby-ja-Hrkt`, and the corresponding `gsc-*` directories plus `gsc-ko`.
-Each directory contains the package's `manifest.json`, `main.lua`, `lang/`
+Each directory contains the package's `manifest.json`, `main.lua`, `i18n/catalogs/`
 and fonts directly. Use generated packages, not handwritten substitutes.
 ROMs and generated copyrighted game assets are not included in this repository.
 

@@ -45,12 +45,7 @@ local raw = setmetatable({ generation = 3, data = data, phase = "boot" },
   { __index = require("src.core.Game3") })
 run.loader.game = raw
 run.loader.events:emit("game.ready", { game = raw })
-local function upvalue(fn, target)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == target then return value end
-  end
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local hook
 for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
   if entry.owner == "kanto_gear" then hook = entry.callback end
@@ -538,18 +533,18 @@ for _, mode in ipairs({ "gear", "full" }) do
 end
 run.loader.modOptions.kanto_gear.battle_view = "standard"
 display.gen3:refresh(); display.gen3.syncScreens(); refreshBattle()
-tapBattle(62 / 1.5, 139 / 1.5)
+tapBattle(120 / 1.5, 80 / 1.5)
 T.eq(Ui._mode, "moves", "FIGHT opens the actual native move menu")
 paintBattle("native move selection")
 for _, move in ipairs(upvalue(refreshBattle, "battle").moves) do
   T.eq(move.type, display.gen3.data.moves[move.id].type, "battle move retains its native type: " .. move.id)
 end
 submit("back"); refreshBattle()
-tapBattle(178 / 1.5, 139 / 1.5)
+tapBattle(200 / 1.5, 170 / 1.5)
 paintBattle("native battle party")
 T.check(display.startMenu() ~= nil, "battle party uses its actual display order")
 NativeParty.close(); Ui.openMenu(0); display.gen3.syncScreens(); refreshBattle()
-tapBattle(62 / 1.5, 198 / 1.5)
+tapBattle(40 / 1.5, 170 / 1.5)
 NativeBag.settle(); paintBattle("native battle bag")
 T.check(display.startMenu() ~= nil, "battle Bag uses native pocket data")
 NativeBag.close()

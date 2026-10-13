@@ -23,5 +23,5 @@ for name,f in D.items():
     for r in rows: out.append(f'    "{r}",')
     out.append('  } },')
 out.append('}')
-open(os.path.join(HERE,'..','..','mod','kanto_gear','v4_icon_art.lua'),'w').write('\n'.join(out)+'\n')
+open(os.path.join(HERE,'..','..','mod','kanto_gear','ui/skins/icon_art.lua'),'w').write('\n'.join(out)+'\n')
 print(len(D),'icons')

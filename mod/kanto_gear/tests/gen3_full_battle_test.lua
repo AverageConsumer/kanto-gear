@@ -1,15 +1,6 @@
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
-local function up(fn, key, replacement)
-  for i=1,debug.getinfo(fn,"u").nups do
-    local name,value=debug.getupvalue(fn,i)
-    if name==key then
-      if replacement~=nil then debug.setupvalue(fn,i,replacement) end
-      return value
-    end
-  end
-  error("missing upvalue "..key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local compose
   for _,entry in ipairs(run.loader.hooks.chains["render.compose"]) do
@@ -53,7 +44,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     nativePresent[id].displayHp=10+id+0.8
   end
   do
-    local Menu=assert(loadfile(path.."/start_menu.lua"))()
+    local Menu=assert(loadfile(path.."/adapters/start_menu.lua"))()
     local saved, hints={},options.type_hints
     for id=0,3 do
       local b=st.battlers[id]
@@ -247,9 +238,10 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local runtime=up(inputHook,"hgssRuntime")
   local selectedCommand
   local gearRoot,fullRoot=H.battleRoot,H.battleFullRoot
-  H.battleRoot=function(self,mon,portrait,players,enemies,selected,...)
-    selectedCommand=selected
-    return gearRoot(self,mon,portrait,players,enemies,selected,...)
+  local companionEnabled
+  H.battleRoot=function(self,mon,portrait,players,enemies,selected,enabled)
+    selectedCommand,companionEnabled=selected,enabled
+    return gearRoot(self,mon,portrait,players,enemies,selected,enabled)
   end
   H.battleFullRoot=function(self,mon,player,enemy,portrait,players,enemies,selected,...)
     selectedCommand=selected
@@ -262,8 +254,16 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.eq(not not display.gen3Presentation.owns("panel"),mode=="gear" or mode=="full",mode.." controls native command visibility")
     T.eq(not not display.gen3Presentation.owns("hud"),mode=="full",mode.." controls native HP visibility")
     if mode=="standard" then
-      T.check(cards[0] and cards[1] and cards[2] and cards[3],"Companion mirrors all four HP cards without hiding them above")
+      T.eq(next(cards),nil,"Companion keeps all native HP cards upstairs")
+      T.eq(companionEnabled,true,"Companion shows four usable commands at the native menu")
       T.eq(selectedCommand,nil,"Companion never presents lower D-pad command focus")
+      for index, rect in ipairs(H.battleActions) do
+        Stack.clear();Message.reset();Ui.openMenu(0);refresh()
+        tapBattle((rect.x+rect.w/2)/1.5,(rect.y+rect.h/2)/1.5)
+        T.eq(Ui._mode,({"moves","party","bag","none"})[index],"Companion touch reaches the matching native command")
+        Bag.close();require("src.ui.game3.party_menu").close()
+      end
+      Stack.clear();Message.reset();Ui.openMenu(0);refresh()
     end
     if mode=="info" then
       T.check(opponents and opponents[1] and opponents[3],"Info shows both opponents")
@@ -464,6 +464,8 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     Ui._openMoveMenu();cards={};tick()
     if mode=="full" then
       T.check(cards[0] and cards[1] and cards[2] and cards[3],"Full Gear keeps four HP cards while selecting moves")
+    elseif mode=="standard" then
+      T.eq(next(cards),nil,"Companion attack selection keeps the native HP cards upstairs")
     end
     local moveCount=0
     for slot=1,4 do
@@ -494,7 +496,11 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     T.eq(not not display.gen3Presentation.owns("hud"),mode=="full",
       mode.." keeps its HP contract during demonstrations")
     T.check(not display.gen3Presentation.owns("menuNavigation"),"scripted battle never remaps automated choices")
-    if mode=="info" then T.check(opponents and opponents[1] and opponents[3],"Info keeps both scripted opponents")
+    if mode=="standard" then
+      T.eq(compact,nil,"Companion keeps scripted battle text upstairs")
+      T.eq(companionEnabled,false,"scripted Companion commands stay disabled")
+      T.eq(next(cards),nil,"scripted Companion battles have no duplicate HP cards")
+    elseif mode=="info" then T.check(opponents and opponents[1] and opponents[3],"Info keeps both scripted opponents")
     else T.check(compact~=nil,"scripted battle text is mirrored below") end
     Battle._auto=false;Message.reset();Ui.openMenu(0);tick()
   end

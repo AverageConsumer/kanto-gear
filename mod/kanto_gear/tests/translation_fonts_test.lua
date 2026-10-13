@@ -1,4 +1,4 @@
-local Fonts = assert(loadfile("mod/kanto_gear/translation_fonts.lua"))()
+local Fonts = assert(loadfile("mod/kanto_gear/i18n/fonts.lua"))()
 local checks = 0
 local function eq(actual, expected, label)
   checks = checks + 1

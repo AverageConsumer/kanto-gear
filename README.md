@@ -103,7 +103,7 @@ how much of the interface moves into Gear:
 
 | Mode | Game screen | Gear screen |
 | --- | --- | --- |
-| **Companion** | Original battle and menus | Touch companion controls; D-pad input stays with the game |
+| **Companion** | Original battle, HP, text and menus | You/VS/Foe or Wild strip; DS-style commands and touch submenus, dimmed during battle text with a Continue arrow when waiting; D-pad input stays with the game |
 | **Info** | Original battle and menus | Opponent information; select either opponent in a double battle |
 | **Gear** | Battle scene and HP bars | Battle menus, move choices, party, Bag and text, with D-pad focus below |
 | **Full Gear** | Battle scene | Gear controls plus HP bars, including all four battlers in doubles |
@@ -207,7 +207,7 @@ and steps to reproduce the problem. Screenshots and logs are welcome.
 
 [Release notes](https://github.com/AverageConsumer/kanto-gear/releases)
 · [Translation contributions](translations/README.md)
-· [Font credits](mod/kanto_gear/FONT_CREDITS.txt)
+· [Font credits](mod/kanto_gear/ui/fonts/FONT_CREDITS.txt)
 
 ## Credits
 
@@ -225,7 +225,7 @@ Font credits:
 - The HGSS image fonts use **BobsGame nD** by **Robert Matthew Pelloni** and
   **scientifica** by **Akshay Oppiliappan**.
 
-See [font credits and license locations](mod/kanto_gear/FONT_CREDITS.txt).
+See [font credits and license locations](mod/kanto_gear/ui/fonts/FONT_CREDITS.txt).
 The downloadable ZIP includes these credits and the complete font license
 notices. Font assets retain their respective licenses.
 
@@ -236,3 +236,9 @@ under BSD-3-Clause; its full notice is included in the ZIP.
 Pokémon and related names are trademarks of their respective owners. This fan
 project is not affiliated with Nintendo, Game Freak, The Pokémon Company or
 Gen1Recomp.
+
+## Working on Kanto Gear
+
+See the [project map and development guide](DEVELOPMENT.md) for module locations,
+tests and package verification. The [4.0.5 → 4.1.0 comparison](maintenance/refactoring-4.0.5.md)
+records the structural changes and their validation limits.

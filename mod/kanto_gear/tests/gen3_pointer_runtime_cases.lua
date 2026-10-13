@@ -1,11 +1,5 @@
 return function(T, run, display, raw)
-  local function value(fn, key)
-    for i=1,debug.getinfo(fn,"u").nups do
-      local name,v=debug.getupvalue(fn,i)
-      if name==key then return v end
-    end
-    error("missing upvalue "..key)
-  end
+  local value = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
   local function hook(name)
     for _,e in ipairs(run.loader.hooks.chains[name] or {}) do
       if e.owner=="kanto_gear" then return e.callback end

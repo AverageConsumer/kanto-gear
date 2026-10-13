@@ -23,7 +23,7 @@ local raw = { generation = 3, phase = "field", session = session,
     gen3Encounters = assert(loadfile(cacheRoot .. "/encounters.lua"))() } }
 require("src.core.game3.runtime").session = session
 require("src.mods.Gen3Compat").bind(function() return raw end)
-local adapter = dofile(root .. "/gen3.lua").new(raw)
+local adapter = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/init").new(raw)
 local C = require("src.core.game3.constants").of(edition)
 local Json = require("src.import.canonical_json")
 local before = Json.encode(Schema.toSaveTable(session))
@@ -55,7 +55,7 @@ for i = 1, 8 do
   check(adapter:badge(i), "live native RS badge")
   session.flags[badge] = nil
 end
-local Progress = dofile(root .. "/gen3_progress.lua").new(adapter)
+local Progress = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/progress").new(adapter)
 local count, unknown, totals = 0, {}, {0, 0, 0, 0}
 for id in pairs(maps) do
   count = count + 1
@@ -101,7 +101,7 @@ for _, warp in ipairs(city.warps) do
 end
 local custom = setmetatable({Space = {bundle = {events = bundle.events,
   scripts = setmetatable({[loadKey] = changed}, {__index = bundle.scripts})}}}, {__index = adapter})
-local customProgress = dofile(root .. "/gen3_progress.lua").new(custom)
+local customProgress = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/progress").new(custom)
 customProgress:bundle()
 check(customProgress.unusedHideout == nil, "custom scripts reopening the unused hideout retain objectives")
 check(Json.encode(Schema.toSaveTable(session)) == before, "read models leave native save unchanged")

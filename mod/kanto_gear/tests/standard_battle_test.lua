@@ -6,16 +6,7 @@ local run = T.sdk.loadMod(assert(os.getenv("KANTO_GEAR_MOD_PATH")), {
   generation = generation, data = T.fixtures.load(),
 })
 T.eq(run.mod.state, "loaded", "complete mod loads within LuaJIT's upvalue limit")
-local function upvalue(fn, target, replacement, set)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local key, value = debug.getupvalue(fn, i)
-    if key == target then
-      if set then debug.setupvalue(fn, i, replacement) end
-      return value
-    end
-  end
-  error("missing upvalue " .. target)
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function hook(name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end
@@ -25,7 +16,7 @@ local input = hook("input.step")
 local display, runtime = upvalue(input, "displayRuntime"), upvalue(input, "hgssRuntime")
 local theme = upvalue(display.drawContents, "THEME")
 local H = theme.hgss
-local drawBattle = upvalue(display.drawContents, "drawBattle")
+local drawBattle = display.drawContents
 local refreshBattle = upvalue(hook("render.compose"), "refreshBattle")
 local attachBattleArtSprites = upvalue(refreshBattle, "attachBattleArtSprites")
 local tap = upvalue(upvalue(hook("render.compose"), "touchEvent"), "tap")
@@ -49,7 +40,7 @@ local game = { data = run.data, world = world, overworld = world, stack = stack,
     player = { name = "RED", id = 7 }, party = party,
     inventory = {}, pokedex = { seen = {}, caught = {} }, boxes = {} } }
 run.loader.events:emit("game.ready", { game = game })
-local options = { theme_v3 = "hgss", battle_view = "standard", move_details = true }
+local options = { theme_v3 = "hgss", battle_view = "standard", info_level = "spoiler", ui_motion = false }
 run.loader.modOptions.kanto_gear = options
 run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
 local battle = { prompt = "menu", menuIndex = 1, moveIndex = 1, revision = 1,
@@ -112,222 +103,156 @@ else
     "Gen 2 ignores the Gen 1-only Battle Art provider")
 end
 
--- Rendering dispatch, not just disconnected layout helpers.
+-- Companion keeps status/text upstairs and native D-pad ownership.
+upvalue(input, "companion", { detected = function() return true end }, true)
+upvalue(input, "displayReady", true, true)
 local rendered = {}
-for _, method in ipairs({ "battleStandardRoot", "battleRoot", "battleFullRoot",
-    "battleStandardMoves", "battleMoves", "battleStandardParty", "battleBag",
-    "battleMimic", "battleSafari", "pcList" }) do
-  local original = H[method]
+for _, method in ipairs({ "battleRoot", "battleFullRoot", "battleMoves", "battleFullMoves",
+    "battleFullStatuses", "battleTeamStrip", "systemOverlay", "v4AdvanceArrow",
+    "battleBag", "battleSafari", "battleFullSafari", "battleMimic", "pcList", "partyCard" }) do
+  local original = assert(H[method], method)
   H[method] = function(self, ...)
-    rendered[method] = { ... }
+    rendered[method] = rendered[method] or {}
+    rendered[method][#rendered[method] + 1] = { ... }
     return original(self, ...)
   end
 end
+local function moveRect(mode, slot)
+  if mode == "full" then
+    local r = H.fullBattleActions[slot]
+    return r.x, r.y, r.w, r.h
+  end
+  return 6 + (slot - 1) % 2 * 116, 33 + math.floor((slot - 1) / 2) * 85, 112, 80
+end
 for _, mode in ipairs({ "standard", "gear", "full" }) do
-  rendered = {}
-  options.battle_view = mode
-  battle.prompt = "menu"
-  snapshot()
-  drawBattle()
-  T.check(rendered[mode == "standard" and "battleStandardRoot"
-    or mode == "gear" and "battleRoot" or "battleFullRoot"], mode .. " chooses its own root")
-  battle.prompt = "moves"
-  drawBattle()
-  T.check(rendered[mode == "standard" and "battleStandardMoves" or "battleMoves"],
-    mode .. " chooses its own move layout")
-  runtime.beginAnimation("battle_moves")
-  T.eq(runtime.animation ~= nil, mode ~= "standard", "custom HGSS layouts retain their own animations")
-  runtime.animation = nil
+  options.battle_view, rendered = mode, {}
+  battle.prompt = "menu"; snapshot(); drawBattle()
+  local root = mode == "full" and "battleFullRoot" or "battleRoot"
+  T.check(rendered[root] ~= nil, mode .. " draws its current command page")
+  T.eq(rendered.battleFullStatuses ~= nil, mode == "full", "only Full Gear repeats the native HP HUD")
+  if mode == "standard" then
+    T.eq(#rendered.battleTeamStrip, 1, "Companion retains the You/VS/Foe team strip")
+    T.eq(rendered[root][1][6], true, "Companion commands are enabled at the native menu")
+    T.eq(rendered.systemOverlay, nil, "usable Companion commands are not dimmed")
+  end
+  local actions = mode == "full" and H.fullBattleActions or H.battleActions
+  for slot, rect in ipairs(actions) do
+    hit(rect.x + rect.w / 2, rect.y + rect.h / 2)
+    T.eq(raw.menuIndex, slot, mode .. " rendered command targets the original native action")
+    T.eq(keys[#keys], "a", "command confirmation goes through native input")
+  end
+  local before = #keys
+  hit(120, mode == "full" and 164 or 156); hit(235, 200)
+  T.eq(#keys, before, "command gaps and outside edges are inert")
+
+  battle.prompt, rendered = "moves", {}
+  snapshot(); drawBattle()
+  local moves = mode == "full" and "battleFullMoves" or "battleMoves"
+  T.check(rendered[moves] ~= nil, mode .. " draws the shared move cards")
+  T.eq(rendered.battleFullStatuses ~= nil, mode == "full", "Companion move selection has no duplicate HP HUD")
+  local mon = rendered[moves][1][1]
+  T.eq(mon.moveIndex ~= nil, mode ~= "standard", "only owned move pages display controller focus")
+  for slot = 1, 4 do
+    local x, y, w, h = moveRect(mode, slot)
+    hit(x + 20, y + h / 2)
+    T.eq(intents[#intents].slot, slot, "card submits its exact native move slot")
+    snapshot()
+    hit(x + w - 12, y + 10)
+    T.eq(upvalue(input, "moveInfo"), battle.moves[slot], "card details inspect the touched move")
+    upvalue(input, "moveInfo", nil, true)
+  end
+  before = #intents
+  local x, y, w, h = moveRect(mode, 1)
+  hit(x - 1, y + 20); hit(x + w, y + 20); hit(x + 20, y + h)
+  T.eq(#intents, before, "move card margins and gaps cannot issue an intent")
+  local saved = battle.moves[4]
+  battle.moves[4] = nil
+  x, y = moveRect(mode, 4); hit(x + 20, y + 25)
+  T.eq(#intents, before, "missing move slots are inert")
+  battle.moves[4] = saved
+  saved = battle.moves[3].pp; battle.moves[3].pp = 0
+  x, y, w = moveRect(mode, 3); hit(x + 20, y + 25)
+  T.eq(#intents, before, "empty-PP moves cannot be used")
+  hit(x + w - 12, y + 10)
+  T.eq(upvalue(input, "moveInfo"), battle.moves[3], "unusable moves retain readable details")
+  upvalue(input, "moveInfo", nil, true); battle.moves[3].pp = saved
 end
-options.battle_view = "gear"
-local focusCount = 0
-local originalFocus, originalRoundedFocus = H.focusFrame, H.roundedFocusFrame
-H.focusFrame = function(self, ...) focusCount=focusCount+1; return originalFocus(self, ...) end
-H.roundedFocusFrame = function(self, ...) focusCount=focusCount+1; return originalRoundedFocus(self, ...) end
-for slot=1,4 do
-  battle.menuIndex,battle.moveIndex=slot,slot
-  battle.prompt="menu"; focusCount=0; drawBattle()
-  T.check(focusCount > 0,"Gear hero root shows its owned command focus")
-  local action=H.battleActions[slot]
-  hit(action.x+action.w/2,action.y+action.h/2)
-  T.eq(raw.menuIndex,slot,"Gear hero touch targets the original semantic action")
-  battle.prompt="moves"; focusCount=0; drawBattle()
-  T.check(focusCount > 0,"Gear move grid shows its owned move focus")
-  local x,y=6+((slot-1)%2)*116,33+math.floor((slot-1)/2)*85
-  hit(x+40,y+40)
-  T.eq(intents[#intents].slot,slot,"Gear grid touch submits the exact move slot")
-  snapshot()
-  hit(x+103,y+12)
-  T.eq(upvalue(input,"moveInfo"),battle.moves[slot],"Gear detail selects the tapped move with matching focus")
-  upvalue(input,"moveInfo",nil,true); runtime.animation=nil
-end
-for _, progress in ipairs({0,0.5,1}) do
-  focusCount=0
-  H:battleMovesTransition(runtime.battleMon(),runtime.battlePortrait,{}, {},progress)
-  T.check(focusCount > 0,"Gear move transition preserves command or move focus")
-end
-H.focusFrame,H.roundedFocusFrame=originalFocus,originalRoundedFocus
-options.battle_view = "standard"
-runtime.animation = { kind = "battle_bag", started = 1 }
+options.battle_view, battle.prompt, battle.kind, rendered = "standard", "menu", "wild", {}
+snapshot(); drawBattle()
+T.eq(rendered.battleTeamStrip[1][2].wild, true, "Companion wild battles retain the Wild strip")
+battle.kind = "trainer"
+options.ui_motion = true
+runtime.beginAnimation("battle_moves")
+T.check(runtime.animation ~= nil, "shared Gear geometry supports its move transition")
 display.optionsChanged({ mod = "kanto_gear", key = "battle_view" })
-T.eq(runtime.animation, nil, "switching layout clears an in-flight Gear transition")
-battle.prompt = "menu"
-for slot = 1, 4 do
-  local x = 62 + (slot - 1) % 2 * 116
-  local y = 76 + math.floor((slot - 1) / 2) * 91
-  T.eq(H:safariHit(x, y), slot, "root geometry matches native 2x2 order")
-  hit(x, y)
-  T.eq(raw.menuIndex, slot, "root touch selects the native row/column")
-  T.eq(keys[#keys], "a", "root confirms through native A")
-end
-local presses = #keys
-hit(120, 70); hit(60, 121); hit(235, 100)
-T.eq(#keys, presses, "root gaps and outside edges are not buttons")
+T.eq(runtime.animation, nil, "switching battle mode clears the old transition")
+options.ui_motion = false
+
+options.battle_view, battle.prompt = "standard", "menu"
 game.input.pressQueue = { "down", "right", "a", "b" }
 runtime.remapBattleRootInput(game)
-T.eq(table.concat(game.input.pressQueue, ","), "down,right,a,b", "Standard never remaps native input")
+T.eq(table.concat(game.input.pressQueue, ","), "down,right,a,b", "Companion retains all native root input")
 T.eq(run.loader.hooks:call("battle.move_grid_navigation", function() return false end, raw),
-  false, "Standard retains the native vertical move cursor")
-T.eq(run.loader.hooks:call("ui.party.grid_navigation", function() return false end,
-  { screenId = "PartyMenu", index = 1 }), false, "Standard retains native vertical party input")
-
-battle.prompt = "moves"
-for slot = 1, 4 do
-  local x, y, w, h = H:battleStandardMoveRect(slot)
-  T.eq(H:battleStandardMoveHit(x + w / 2, y + h / 2), slot, "move touch matches rendered row")
-  T.eq(H:battleStandardMoveHit(x + w / 2, y + h), nil, "move gaps do nothing")
-  hit(x + 70, y + 10)
-  T.eq(intents[#intents].slot, slot, "row sends the exact native move slot")
-  snapshot()
-  hit(x + w - 12, y + 12)
-  T.eq(upvalue(input, "moveInfo"), battle.moves[slot], "row chevron opens that move's details")
-  T.eq(runtime.animation, nil, "details cannot start a grid-shaped transition in Standard")
-  upvalue(input, "moveInfo", nil, true)
-end
-battle.moves[4] = nil
-local count = #intents
-hit(80, 180)
-T.eq(#intents, count, "missing move slot cannot issue an intent")
-battle.moves[3].pp = 0
-hit(80, 130)
-T.eq(#intents, count, "empty-PP move cannot be used")
-hit(220, 130)
-T.eq(upvalue(input, "moveInfo"), battle.moves[3], "empty-PP move still has readable details")
-upvalue(input, "moveInfo", nil, true)
-
--- Actual native PartyMenu instances: cancel availability and submenu cursor.
-local NativeParty = require(generation == 2 and "src.ui.gen2.PartyMenu" or "src.ui.PartyMenu")
-local menu = setmetatable({ screenId = generation == 2 and "Gen2PartyMenu" or "PartyMenu",
-  index = 1, party = party, game = game, battle = true }, { __index = NativeParty })
-stack.states[3] = menu
-T.eq(runtime.partyHasCancel(menu, #party), generation == 2, "only native selectable cancel gets a row")
-for slot = 1, 6 do
-  menu.index = slot
-  drawBattle()
-  local model = rendered.battleStandardParty
-  T.eq(model[2], slot, "rendered focus follows the current native party cursor")
-  T.eq(model[1][slot].maxHp, 50, "every party row keeps its real max HP")
-  T.eq(model[1][6].statusId, "SLP", "sleep status is preserved in the list")
-  local x, y, w, h = H:battleStandardPartyRect(slot, 6, generation == 2)
-  T.check(y >= 33 and y + h <= 210, "all six rows fit the content area")
-  T.eq(H:battleStandardPartyHit(x - 1, y + 5, 6, generation == 2), nil, "party left margin is inert")
-  hit(x + w / 2, y + h / 2)
-  T.eq(menu.index, slot, "party touch targets the same native slot")
-end
-if generation == 2 then
-  local x, y, w, h = H:battleStandardPartyRect(7, 6, true)
-  hit(x + w / 2, y + h / 2)
-  T.eq(menu.index, 7, "native cancel is reachable below member six")
-  T.check(menu:isCancel(), "cancel touch matches the real native cancel state")
-  menu.switchFrom = 1
-  T.eq(runtime.partyHasCancel(menu, 6), false, "native no-cancel mode adds no fake row")
-  menu.switchFrom = nil
-end
-menu.index, menu.itemUse = 1, true
-drawBattle()
-T.eq(rendered.battleStandardParty[2], 1, "item target selection uses the same vertical renderer")
-menu.itemUse = nil
-local entries = { { label = "SWITCH", id = "SWITCH", action = "battle_switch" },
-  { label = "STATS", id = "STATS", action = "stats" },
-  { label = "CANCEL", id = "CANCEL", action = "cancel" } }
-if generation == 2 then menu.submenu = { items = entries, index = 1 }
-else menu.submenu, menu.subItems, menu.subIndex = true, entries, 1 end
-for slot = 1, 3 do
-  local actions, submenu = runtime.partySubmenuActions(menu)
-  T.eq(#actions, 3, "Standard shows the complete native context menu")
-  local x, y, w, h = H:partyActionRow(slot, #actions)
-  T.check(y + h <= 210, "context actions stay inside the screen")
-  hit(x + w / 2, y + h / 2)
-  T.eq(submenu and submenu.index or menu.subIndex, slot, "context touch selects native action including cancel")
-  drawBattle()
-end
-if generation == 2 then
-  menu.submenu.index = 1
-  menu:updateSubmenu({ wasPressed = function(_, key) return key == "up" end })
-  T.eq(menu.submenu.index, 3, "native Up wraps onto visible CANCEL, not an invisible focus")
-  drawBattle()
-end
+  false, "Companion retains native vertical move navigation")
 options.battle_view = "gear"
-T.eq(#runtime.partySubmenuActions(menu), 3, "Gear keeps every native action including cancel")
-menu.submenu=nil
-runtime.animation=nil
-local originalPartyCard=H.partyCard
-local focusedCards=0
-H.partyCard=function(self,mon,x,y,selected,...)
-  if selected then focusedCards=focusedCards+1 end
-  return originalPartyCard(self,mon,x,y,selected,...)
-end
-for slot=1,6 do
-  menu.index=slot; focusedCards=0; drawBattle()
-  T.eq(focusedCards,1,"Gear party grid highlights exactly the selected partner")
-  local x,y=H:partyPosition(slot)
-  hit(x+40,y+25)
-  T.eq(menu.index,slot,"Gear party card selects the correct native partner")
-end
-H.partyCard=originalPartyCard
-local oldGearDisplay = upvalue(input, "hasDisplay", function() return true end, true)
-local oldGearReady = upvalue(input, "displayReady", true, true)
-local oldGearActive = upvalue(input, "active", true, true)
-stack.states[3] = nil
-battle.prompt = "menu"
 local expectedGear = {
   {left=3,right=2,up=1,down=4}, {left=4,right=2,up=1,down=2},
   {left=3,right=4,up=1,down=3}, {left=3,right=2,up=1,down=4},
 }
-for slot=1,4 do
-  for direction,target in pairs(expectedGear[slot]) do
-    raw.menuIndex,battle.menuIndex=slot,slot
-    game.input.pressQueue={direction}
+snapshot()
+for slot, directions in ipairs(expectedGear) do
+  for direction, target in pairs(directions) do
+    raw.menuIndex, battle.menuIndex = slot, slot
+    game.input.pressQueue = { direction }
     runtime.remapBattleRootInput(game)
-    T.eq(raw.menuIndex,target,"Gear D-pad follows visible hero geometry")
-    T.eq(#game.input.pressQueue,0,"owned direction is consumed exactly once")
+    T.eq(raw.menuIndex, target, "Gear D-pad follows the visible hero geometry")
+    T.eq(#game.input.pressQueue, 0, "owned directions are consumed exactly once")
   end
 end
-T.eq(run.loader.hooks:call("battle.move_grid_navigation", function() return false end, raw),
-  true, "Gear owns the visible move grid")
-T.eq(run.loader.hooks:call("ui.party.grid_navigation", function() return false end, menu),
-  true, "Gear owns the visible party grid")
-upvalue(input,"displayReady",false,true)
-game.input.pressQueue={"down"};raw.menuIndex=1
+upvalue(input, "displayReady", false, true)
+raw.menuIndex, game.input.pressQueue = 1, { "down" }
 runtime.remapBattleRootInput(game)
-T.eq(#game.input.pressQueue,1,"unavailable Gear preserves native input")
-T.eq(raw.menuIndex,1,"unavailable Gear cannot move focus")
-upvalue(input,"hasDisplay",oldGearDisplay,true)
-upvalue(input,"displayReady",oldGearReady,true)
-upvalue(input,"active",oldGearActive,true)
-options.battle_view = "standard"
-stack.states[3] = nil
-for _, prompt in ipairs({ "safari", "mimic" }) do
-  battle.prompt = prompt
-  battle.mimicMoves, battle.mimicIndex = { battle.moves[1], battle.moves[2] }, 2
-  drawBattle()
-  T.check(rendered[prompt == "safari" and "battleSafari" or "battleMimic"],
-    prompt .. " retains its matching native layout")
+T.eq(raw.menuIndex, 1, "unavailable Gear cannot move native focus")
+T.eq(#game.input.pressQueue, 1, "unavailable Gear preserves native input")
+upvalue(input, "displayReady", true, true)
+
+local NativeParty = require(generation == 2 and "src.ui.gen2.PartyMenu" or "src.ui.PartyMenu")
+local menu = setmetatable({ screenId = generation == 2 and "Gen2PartyMenu" or "PartyMenu",
+  index = 1, party = party, game = game, battle = true }, { __index = NativeParty })
+stack.states = { world, raw, menu }
+for _, mode in ipairs({ "standard", "gear", "full" }) do
+  options.battle_view = mode
+  for slot = 1, 6 do
+    menu.index, rendered = slot, {}
+    drawBattle()
+    local cards = assert(rendered.partyCard)
+    T.eq(#cards, 6, "party page keeps all six fixed member cards")
+    T.eq(cards[slot][1].maxHp, 50, "party cards retain native maximum HP")
+    T.eq(cards[6][1].statusId, "SLP", "party cards retain sleep status")
+    T.eq(cards[slot][4] == true, mode ~= "standard", "only owned party pages highlight the native cursor")
+    local x, y = H:partyPosition(slot)
+    hit(x + 40, y + 25)
+    T.eq(menu.index, slot, "shared party card targets the same native member")
+  end
+  local before, index = #keys, menu.index
+  hit(5, 5)
+  T.eq(#keys, before + 1, "header Back sends exactly one native input")
+  T.eq(keys[#keys], "b", "party cancellation uses native Back")
+  T.eq(menu.index, index, "Back never invents a party member")
 end
-stack.states[3] = { kind = "pp_item_move", index = 2,
-  items = { { label = "FIRST", right = "1/10" }, { label = "SECOND", right = "2/15" } } }
-drawBattle()
-T.check(rendered.pcList, "PP item selection retains the shared vertical list")
+local entries = { { label = "SWITCH", id = "SWITCH" },
+  { label = "STATS", id = "STATS" }, { label = "CANCEL", id = "CANCEL" } }
+if generation == 2 then menu.submenu = { items = entries, index = 1 }
+else menu.submenu, menu.subItems, menu.subIndex = true, entries, 1 end
+for slot = 1, 3 do
+  local actions, submenu = runtime.partySubmenuActions(menu)
+  T.eq(#actions, 3, "every native context action including Cancel remains visible")
+  local x, y, w, h = H:partyActionRow(slot, #actions)
+  T.check(y + h <= 210, "native context actions fit the content area")
+  hit(x + w / 2, y + h / 2)
+  T.eq(submenu and submenu.index or menu.subIndex, slot, "context touch selects the original native action")
+end
+menu.submenu = nil
 
 local bag = { screenId = generation == 2 and "Gen2PackMenu" or "BagMenu",
   index = 6, battle = true, pocketIndex = 1, rows = {}, items = {},
@@ -337,197 +262,139 @@ for slot = 1, 5 do
   bag.items[slot] = { value = "FIX_POTION", label = "POTION " .. slot, right = "x" .. slot }
 end
 bag.items[6] = { label = "CANCEL", cancel = true }
-stack.states[3] = bag
+stack.states, rendered = { world, raw, bag }, {}
 drawBattle()
-local view = rendered.battleBag[1]
-T.eq(view.index, 6, "Bag focus tracks the real native cursor after scrolling")
-T.eq(#view.items, 6, "Bag keeps all items plus native cancel")
+local view = assert(rendered.battleBag)[1][1]
+T.eq(view.index, 6, "Bag tracks the native cursor after scrolling")
+T.eq(#view.items, 6, "Bag retains all items and native Cancel")
 local first, visible = H:battleBagWindow(view)
-T.check(first <= 6 and first + visible - 1 >= 6, "Bag scroll window keeps Cancel on screen")
-local bottom = 66 + (H.battleBagOffsetY or 0)
+T.check(first <= 6 and first + visible - 1 >= 6, "Bag keeps Cancel on screen")
 for row = 1, visible do
   bag.index = 6
-  hit(120, bottom + (row - 1) * 33 + 10)
-  T.eq(bag.index, first + row - 1, "Bag touch selects the visible native item row")
+  hit(120, 66 + (H.battleBagOffsetY or 0) + (row - 1) * 33 + 10)
+  T.eq(bag.index, first + row - 1, "Bag touch selects the visible native row")
 end
-if generation == 2 then
-  local NativePack = require("src.ui.gen2.PackMenu")
-  local uses = 0
-  local native = setmetatable({ screenId = "Gen2PackMenu", battle = true,
-    index = 1, rows = { { id = "FIX_POTION" } }, pocket = bag.pocket,
-    items = { FIX_POTION = {} },
-    useSelected = function() uses = uses + 1 end,
-  }, { __index = NativePack })
-  local compat = upvalue(display.bagModel, "compat")
-  local queue = { "a" }
-  local hasSubmenu = native:hasSubmenu()
-  T.eq(compat.useBattleBagItemDirectly(native, queue), hasSubmenu,
-    "owned Pack uses the current host's native submenu contract")
-  T.eq(uses, hasSubmenu and 1 or 0, "direct Pack use occurs exactly once when needed")
-  T.eq(#queue, hasSubmenu and 0 or 1, "one-press hosts retain their native A press")
-  native.items.FIX_POTION.battleMenu = "ITEMMENU_NOUSE"
-  queue = { "a" }
-  T.check(not compat.useBattleBagItemDirectly(native, queue),
-    "unusable items retain the native refusal menu")
-  T.eq(#queue, 1, "native refusal still receives A")
-end
-local drawChoice = upvalue(display.drawContents, "drawDialogueChoice")
-local originalChoice = H.choiceScreen
-local choiceView
-H.choiceScreen = function(_, model) choiceView = model end
-drawChoice({ index = 2 }, { "YES", "NO" }, "CHANGE POKEMON?", "index")
-H.choiceScreen = originalChoice
-T.eq(choiceView.entries[1].x, choiceView.entries[2].x, "battle Yes/No stays in one native column")
-T.check(choiceView.entries[2].y > choiceView.entries[1].y, "NO sits below YES")
-T.check(choiceView.entries[2].selected, "native NO focus appears on the lower button")
 
--- Shared geometry stays centered and fits for small teams as well as six.
-for members = 1, 6 do
-  for _, cancel in ipairs({ false, true }) do
-    local _, top = H:battleStandardPartyRect(1, members, cancel)
-    local _, bottomY, _, bottomH = H:battleStandardPartyRect(members + (cancel and 1 or 0), members, cancel)
-    T.check(math.abs(top - 33 - (210 - bottomY - bottomH)) <= 1,
-      "party content group has equal top/bottom breathing room")
-  end
-end
--- Standard mirrors native screens; only Gear/Full Gear may hide them.
-local visibility = hook("screen.render_visible")
-local oldDisplay = upvalue(visibility, "hasDisplay", function() return true end, true)
-local oldReady = upvalue(visibility, "displayReady", true, true)
-local oldActive = upvalue(visibility, "active", true, true)
 local summary = { screenId = generation == 2 and "Gen2SummaryMenu" or "SummaryMenu",
   mon = party[1], page = 1, moveIndex = 1,
   expToNext = function() return 100 end, itemName = function() return "--" end,
   otName = function() return "RED" end, otId = function() return 7 end }
 summary.mon.moves = { battle.moves[1], battle.moves[2] }
-local nativeScreens = { raw, menu, bag,
-  { kind = "pp_item_move", index = 1, items = { { label = "MOVE" } } },
-  { isTextBox = true }, { screenId = "MoveLearnMenu" },
-  { screenId = "Gen2ScriptMenu" }, { screenId = "UnrecognizedModMenu" } }
+local nativeScreens = { raw, menu, bag, { isTextBox = true }, { screenId = "UnrecognizedModMenu" } }
 for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
-  options.battle_view = mode
-  local mirrored = mode == "standard" or mode == "info"
-  stack.states = { world, raw, summary }
-  for page = 1, generation == 2 and 3 or 2 do
-    summary.page = page
-    T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, summary),
-      mirrored, mode .. " has correct native summary visibility on page " .. page)
-    T.eq(run.loader.hooks:call("screen.render_visible", function() return false end, summary),
-      false, "another renderer's explicit suppression is respected")
-  end
-  summary.page, summary.moveIndex = 2, 1
+  options.battle_view, battle.prompt = mode, "menu"
+  snapshot(); stack.states = { world, raw, summary }
+  local owns = mode == "gear" or mode == "full"
+  local state = display.summaryContext(summary)
+  state.page, state.moveIndex = 2, 1
+  T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, summary),
+    not owns, mode .. " gives the native summary the correct visibility")
+  T.eq(run.loader.hooks:call("screen.render_visible", function() return false end, summary),
+    false, "another renderer's explicit suppression is respected")
   game.input.pressQueue = { "down" }
-  runtime.remapSummaryMovesInput(game)
-  T.eq(#game.input.pressQueue, not mirrored and 0 or 1,
-    mode .. " only intercepts owned summary navigation")
-  T.eq(runtime.summaryView(summary).moveIndex ~= nil, not mirrored,
-    mode .. " shows move focus only when D-pad actually controls it")
-  if mirrored then
-    game.input.pressQueue = { "a", "b", "up", "down", "left", "right" }
-    runtime.remapSummaryMovesInput(game)
-    T.eq(table.concat(game.input.pressQueue, ","), "a,b,up,down,left,right",
-      "mirrored summaries retain the original page/close/Pokemon controls")
+  display.remapBattleSummaryInput(game)
+  T.eq(state.moveIndex, owns and 2 or 1, "only owned Gear summaries move their own cursor")
+  T.eq(#game.input.pressQueue, owns and 0 or 1, "summary navigation has one input authority")
+  T.eq(summary.moveIndex, 1, "Gear navigation does not mutate the hidden native move cursor")
+  if not owns then
     for _, screen in ipairs(nativeScreens) do
       stack.states = { world, raw, screen }
       T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, screen),
-        true, mode .. " never hides a native battle submenu")
-      T.eq(run.loader.hooks:call("battle.bottom_ui_visible", function() return true end, screen),
-        true, mode .. " preserves native battle commands and dialogue")
+        true, "mirrored battle modes preserve native menus")
     end
-    T.eq(run.loader.hooks:call("battle.status_hud_visible", function() return true end, raw),
-      true, mode .. " preserves the native battle status HUD")
   end
 end
 options.battle_view = "gear"
-options.ui_motion = true
-api.battle.snapshot = function()
-  local copy = {}
-  for key, value in pairs(battle) do copy[key] = value end
-  return copy
-end
-for _, panel in ipairs({ { menu, 2, "partyIndex" }, { bag, 3, "itemIndex" } }) do
-  raw.phase, raw.menuIndex = "menu", panel[2]
-  battle.prompt, battle.partyIndex, battle.itemIndex = "menu", nil, nil
-  panel[1].submenu, panel[1].index = nil, 2
-  stack.states = { world, raw }; snapshot()
-  game.input.pressQueue = { "a" }
-  input(function()
-    stack.states = { world, raw, panel[1] }
-    game.input.pressQueue = {}
-  end, game, 1 / 60)
-  T.eq(upvalue(input, "battle")[panel[3]], 2,
-    "opening commits the panel snapshot before the first render")
-  local openedKey = display.motionKey()
-  runtime.animation = nil -- The compositor consumes the transition request.
-  refreshBattle()
-  T.eq(display.motionKey(), openedKey, "the next poll keeps the opening screen key stable")
-  T.eq(runtime.animation, nil, "the next poll does not restart the opening animation")
-  game.input.pressQueue = { "b" }
-  input(function()
-    stack.states = { world, raw }
-    game.input.pressQueue = {}
-  end, game, 1 / 60)
-  T.eq(upvalue(input, "battle")[panel[3]], nil,
-    "returning commits the root snapshot before the first render")
-  local closedKey = display.motionKey()
-  runtime.animation = nil
-  refreshBattle()
-  T.eq(display.motionKey(), closedKey, "the next poll keeps the return screen key stable")
-  T.eq(runtime.animation, nil, "the next poll does not restart the return animation")
-end
-stack.states = { world, summary }
-T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, summary),
-  true, "field summaries still render above")
 stack.states = { world, raw, summary }
-upvalue(visibility, "displayReady", false, true)
+upvalue(input, "displayReady", false, true)
 T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, summary),
-  true, "Gear cannot hide a summary when the companion display is unavailable")
-upvalue(visibility, "hasDisplay", oldDisplay, true)
-upvalue(visibility, "displayReady", oldReady, true)
-upvalue(visibility, "active", oldActive, true)
-T.eq(#run.errors, 0, "no runtime errors during the battle screen audit")
--- Full Gear text replaces only the action grid, even outside HP animations.
+  true, "unavailable Gear cannot hide the native summary")
+upvalue(input, "displayReady", true, true)
+stack.states = { world, summary }; upvalue(input, "battle", nil, true)
+T.eq(run.loader.hooks:call("screen.render_visible", function() return true end, summary),
+  true, "field summaries keep native rendering")
+
 stack.states = { world, raw }
-local statusCard, fullMessage, message, panel = H.battleStatusCard, H.battleFullMessage, H.battleMessage, H.panel
-local cards, compact, large, messageRect = 0, 0, 0
-H.battleStatusCard = function(self, ...) cards=cards+1; return statusCard(self, ...) end
-H.battleFullMessage = function(self, lines, canAdvance, ...)
-  compact=compact+1
-  T.eq(canAdvance, battle.prompt=="advance", "continue indicator follows native prompt")
-  return fullMessage(self, lines, canAdvance, ...)
+local statusCard, fullMessage, message = H.battleStatusCard, H.battleFullMessage, H.battleMessage
+local cards, compact, large = 0, 0, 0
+H.battleStatusCard = function(self, ...) cards = cards + 1; return statusCard(self, ...) end
+H.battleFullMessage = function(self, lines, advance, ...)
+  compact = compact + 1
+  T.eq(advance, battle.prompt == "advance", "Continue follows the native prompt")
+  return fullMessage(self, lines, advance, ...)
 end
-H.battleMessage = function(self, ...) large=large+1; return message(self, ...) end
-H.panel = function(self, x,y,w,h,...)
-  if y==117 then messageRect={x,y,w,h} end
-  return panel(self,x,y,w,h,...)
-end
-for _,dark in ipairs({false,true}) do
+H.battleMessage = function(self, ...) large = large + 1; return message(self, ...) end
+for _, dark in ipairs({ false, true }) do
   H:setVariant(dark)
-  for _,prompt in ipairs({"advance","locked"}) do
-    for _,draining in ipairs({false,true}) do
-      options.battle_view="full"
-      battle.prompt,battle.message,raw.draining=prompt,{"TESTMON used a move!"},draining
-      snapshot();cards,compact,large=0,0,0
-      drawBattle()
-      T.eq(cards,2,"Full Gear retains both status cards during "..prompt)
-      T.eq(compact,1,"Full Gear draws one compact message")
-      T.eq(large,0,"Full Gear never covers the status region with text")
-      T.check(messageRect and messageRect[1]==6 and messageRect[3]==228 and messageRect[4]==93,
-        "message bounds equal the four action buttons")
+  for _, prompt in ipairs({ "advance", "locked" }) do
+    for _, draining in ipairs({ false, true }) do
+      for _, mode in ipairs({ "standard", "gear", "full" }) do
+        options.battle_view = mode
+        battle.prompt, battle.message, raw.draining = prompt, { "TESTMON used a move!" }, draining
+        snapshot(); cards, compact, large, rendered = 0, 0, 0, {}
+        drawBattle()
+        T.eq(cards, mode == "full" and 2 or 0, "only Full Gear repeats status cards during text")
+        T.eq(compact, mode == "full" and 1 or 0, "only Full Gear repeats compact battle text")
+        T.eq(large, mode == "gear" and 1 or 0, "Gear retains its full message page")
+        if mode == "standard" then
+          T.eq(rendered.battleRoot[1][6], false, "Companion commands stay visible and disabled during text")
+          T.eq(#rendered.battleTeamStrip, 1, "Companion retains its team strip during text")
+          T.eq(rendered.systemOverlay[1][1], 0.48, "Companion dims its controls during native battle text")
+          T.eq(rendered.systemOverlay[1][2], prompt == "advance", "Companion offers Continue only when the native text can advance")
+          T.eq(rendered.v4AdvanceArrow and #rendered.v4AdvanceArrow or 0, prompt == "advance" and 1 or 0,
+            "Companion draws the small shared Continue arrow only while waiting")
+          local rect = H.battleActions[1]
+          H:setTouch((rect.x + 30) / 1.5, (rect.y + 30) / 1.5)
+          local presses, beginPress = 0, H.beginPress
+          H.beginPress = function(self, ...)
+            local pressed = beginPress(self, ...)
+            if pressed then presses = presses + 1 end
+            return pressed
+          end
+          drawBattle()
+          H.beginPress = beginPress; H:setTouch(nil, nil)
+          T.eq(presses, 0, "locked Companion commands never animate on touch")
+          if prompt == "locked" then
+            local before = #keys
+            hit(rect.x + 30, rect.y + 30)
+            T.eq(#keys, before, "locked Companion commands send no native input")
+          end
+        end
+      end
     end
   end
 end
-options.battle_view="gear";cards,compact,large=0,0,0;drawBattle()
-T.eq(large,1,"Gear retains its existing message layout")
-T.eq(compact,0,"compact messages apply only to Full Gear")
-H.battleStatusCard,H.battleFullMessage,H.battleMessage,H.panel=statusCard,fullMessage,message,panel
-local partyInfo=H.partyInfo
-H.partyInfo=function(self,value,x,y,...)
-  T.check(y>=117 and y+8<210,"six-line text stays inside the action area")
-  return partyInfo(self,value,x,y,...)
+H.battleStatusCard, H.battleFullMessage, H.battleMessage = statusCard, fullMessage, message
+local partyInfo = H.partyInfo
+H.partyInfo = function(self, value, x, y, ...)
+  T.check(y >= 117 and y + 8 < 210, "six-line battle text fits the action area")
+  return partyInfo(self, value, x, y, ...)
 end
-for _,title in ipairs({false,"NEW MOVE"}) do
-  H:battleFullMessage({"ONE","TWO","THREE","FOUR","FIVE","SIX"},true,title or nil,0)
+for _, title in ipairs({ false, "NEW MOVE" }) do
+  H:battleFullMessage({ "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX" }, true, title or nil, 0)
 end
-H.partyInfo=partyInfo
-T.finish("Standard battle layouts Gen " .. generation)
+H.partyInfo = partyInfo
+local rectangle, frozen, motion, ambient = love.graphics.rectangle, H.frozenTime, H.motionEnabled, H.ambientEnabled
+local untilTime, last = H.ambientUntil, H.ambientLast
+H.motionEnabled, H.ambientEnabled, H.ambientLast = true, true, nil
+local function arrowFrame(now, prompt)
+  local top
+  H.frozenTime, H.ambientUntil = now, nil
+  love.graphics.rectangle = function(mode, x, y, w, h, ...)
+    if x >= 116 and x < 125 and w < 10 and h < 10 then top = math.min(top or y, y) end
+    return rectangle(mode, x, y, w, h, ...)
+  end
+  H:systemOverlay(0.48, prompt, now)
+  love.graphics.rectangle = rectangle
+  return top
+end
+local first = arrowFrame(0, true)
+T.check(first ~= nil, "waiting overlay draws visible arrow pixels")
+T.eq(arrowFrame(0.4, true), first + 1, "shared Continue arrow animates between redraws")
+T.check(H.ambientUntil >= 0.8 and H:ambientDue(0.65), "Continue requests repainting while the native text waits")
+T.eq(arrowFrame(0.4, false), nil, "busy overlay has no misleading Continue arrow")
+H.frozenTime, H.motionEnabled, H.ambientEnabled = frozen, motion, ambient
+H.ambientUntil, H.ambientLast = untilTime, last
+T.eq(#run.errors, 0, "complete companion battle paths report no runtime errors")
+run.release()
+T.finish("Companion battle contracts Gen " .. generation)

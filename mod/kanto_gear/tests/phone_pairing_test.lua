@@ -1,7 +1,7 @@
 -- Real Windows/POSIX OS entropy and independently decodable QR payloads.
 local root = os.getenv("KANTO_GEAR_MOD_PATH") or "mod/kanto_gear"
 local function read(file) local f = assert(io.open(root .. "/" .. file, "rb")); local s=f:read("*a");f:close();return s end
-local worker = assert(loadstring(read("phone_pairing_worker.lua")))
+local worker = assert(loadstring(read("phone/pairing_worker.lua")))
 local output, requests = {}, { "http://192.168.1.35:8765", "http://192.168.1.35:8765", false }
 worker({ demand = function() return table.remove(requests,1) end },
   { push = function(_,result) output[#output+1]=result end }, read("vendor/qrencode.lua"))
@@ -18,7 +18,7 @@ end end
 f:write(table.concat(pixels));f:close()
 f=assert(io.open("diagnostics/pairing-qr.txt","w"));f:write("http://192.168.1.35:8765/#pair="..q.secret);f:close()
 local denied
-local fail = assert(loadstring(read("phone_pairing_worker.lua")))
+local fail = assert(loadstring(read("phone/pairing_worker.lua")))
 setfenv(fail,setmetatable({ require=function() error("FFI unavailable") end }, {__index=_G}))
 fail({}, { push=function(_,value) denied=value end }, read("vendor/qrencode.lua"))
 assert(denied and denied.error and not denied.secret, "missing OS entropy fails closed")

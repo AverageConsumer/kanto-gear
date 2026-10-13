@@ -24,8 +24,8 @@ local ui = { graphics = love.graphics, color = love.graphics.setColor, glyphs = 
   end
   return glyphs
 end }
-local theme = module("hgss.lua")(ui)
-module("v4_skin.lua")(theme, ui, read)
+local theme = module("ui/base/init.lua")(ui, read)
+module("ui/skins/init.lua")(theme, ui, read)
 T.eq(env.debug, nil, "the production sandbox has no debug library")
 T.eq(env.getfenv, nil, "the theme cannot escape its sandbox")
 

@@ -65,7 +65,7 @@ local function skin(stamped)
   love = { graphics = G, image = { newImageData = imageData } }
   local ui = { graphics = stamped and G or setmetatable({}, { __index = G }) }
   local H = { setVariant = function() end }
-  local K = assert(loadfile(root .. "/v4_skin.lua"))()(H, ui, nil)
+  local K = assert(loadfile(root .. "/ui/skins/init.lua"))()(H, ui, nil)
   return K, fb, H
 end
 

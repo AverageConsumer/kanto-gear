@@ -1,5 +1,5 @@
 return function(T, path)
-  local Recent = assert(loadfile(path .. "/recent_item.lua"))()
+  local Recent = assert(loadfile(path .. "/core/recent_item.lua"))()
   local bucket, writes = {}, 0
   local store = { get=function(_,k) return bucket[k] end,
     set=function(_,k,v) bucket[k]=v;writes=writes+1 end }

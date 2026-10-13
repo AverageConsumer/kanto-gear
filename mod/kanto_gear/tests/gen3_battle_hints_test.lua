@@ -1,13 +1,7 @@
 -- Read-only Gen 3 hints must describe the native battle, not a parallel simulation.
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local compose
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
@@ -34,7 +28,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   mon.moves, mon.pp = { 85, 53, 89, 237 }, { 15, 15, 10, 15 }
   local api = up(display.saveHome, "mod")
   local options = run.loader.modOptions.kanto_gear
-  options.info_level, options.ui_motion = "enhanced", false
+  options.info_level, options.ui_motion, options.battle_view = "enhanced", false, "gear"
   Stack.clear(); Message.reset()
   local st = State.new({ playerParty = game.session.party, foeParty = foes.party, wild = true })
   Battle._active, Battle._auto, Battle._phase, Battle._st = true, false, "command", st
@@ -149,14 +143,13 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
       NativeBag.settle(); sync()
       local menu = display.startMenu()
       T.check(menu and menu.items[1].catchChance > 0, "mirrored native bag carries catch probability")
-      local draw, model = theme.hgss.startMenu, nil
-      theme.hgss.startMenu = function(self, view) model = view; return draw(self, view) end
-      display.drawContents()
-      T.check(model.entries[1].right:find("%%") ~= nil, "catch probability appears beside ball quantity")
-      api.options:set("catch_odds", false); display.drawContents()
-      T.check(not model.entries[1].right:find("%%"), "Independent catch helper hides catch probability")
+      local model = display.startMenuModel(menu)
+      T.check(model.entries[1].catchChance > 0, "ball presentation exposes the native catch probability")
+      api.options:set("catch_odds", false)
+      model = display.startMenuModel(menu)
+      T.eq(model.entries[1].catchChance, nil, "Independent catch helper hides catch probability")
       api.options:set("catch_odds", true)
-      theme.hgss.startMenu = draw
+      T.check(pcall(display.drawContents), "native ball menu renders in every battle view")
       NativeBag.close(); Stack.clear()
     end
   end

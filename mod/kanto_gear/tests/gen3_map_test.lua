@@ -1,5 +1,5 @@
 local root = os.getenv("KANTO_GEAR_MOD_PATH") or "mod/kanto_gear"
-local Map = assert(loadfile(root .. "/gen3_map.lua"))()
+local Map = assert(loadfile(root .. "/adapters/gen3/map.lua"))()
 local builds, releases, draws, flushes = 0, 0, 0, 0
 local texture = { name = "under" }
 local atlas = { image = texture, overImage = { name = "over" }, layered = true }

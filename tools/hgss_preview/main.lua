@@ -67,9 +67,9 @@ local languages = {
 local languageCode = os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "en"
 -- Game fixtures stay in their original language; only Kanto Gear labels vary.
 local language = languages.en
-local I18N = assert(loadfile(root .. "/mod/kanto_gear/i18n.lua"))()
+local I18N = assert(loadfile(root .. "/mod/kanto_gear/i18n/init.lua"))()
 local i18n = I18N.new(function(code)
-  return assert(loadfile(root .. "/mod/kanto_gear/lang/" .. code .. ".lua"))()
+  return assert(loadfile(root .. "/mod/kanto_gear/i18n/catalogs/" .. code .. ".lua"))()
 end, function() return languageCode end)
 local function translate(value)
   return i18n:text(value)
@@ -152,25 +152,25 @@ function love.load()
   local homePreview = screen:sub(1, 4) == "home"
   local storeExplorerPreview = screen == "store-detail"
     and os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "explorer"
-  local chunk = assert(loadfile(root .. "/mod/kanto_gear/hgss.lua"))
-  local Home = assert(loadfile(root .. "/mod/kanto_gear/home_layout.lua"))()
+  local chunk = assert(loadfile(root .. "/mod/kanto_gear/ui/base/init.lua"))
+  local Home = assert(loadfile(root .. "/mod/kanto_gear/core/home_layout.lua"))()
   local fontGlyphs = assert(loadfile(
-    root .. "/mod/kanto_gear/hgss_font_glyphs.lua"))()
+    root .. "/mod/kanto_gear/ui/fonts/glyphs.lua"))()
   local function imageFont(name)
     local data = love.image.newImageData(fileData(
       root .. "/mod/kanto_gear/" .. name, name))
     local result = love.graphics.newImageFont(data, fontGlyphs)
     result:setFilter("nearest", "nearest")
     local metrics
-    if name == "hgss_small_font.png" then
-      metrics = assert(loadfile(root .. "/mod/kanto_gear/font_metrics.lua"))()(data,glyphs(fontGlyphs))
+    if name == "ui/fonts/hgss_small_font.png" then
+      metrics = assert(loadfile(root .. "/mod/kanto_gear/ui/fonts/metrics.lua"))()(data,glyphs(fontGlyphs))
     end
     return result, metrics
   end
-  local font = imageFont("hgss_font.png")
-  local smallFont, smallMetrics = imageFont("hgss_small_font.png")
-  local largeFont = imageFont("hgss_large_font.png")
-  local translationFonts = assert(loadfile(root .. "/mod/kanto_gear/translation_fonts.lua"))().new(
+  local font = imageFont("ui/fonts/hgss_font.png")
+  local smallFont, smallMetrics = imageFont("ui/fonts/hgss_small_font.png")
+  local largeFont = imageFont("ui/fonts/hgss_large_font.png")
+  local translationFonts = assert(loadfile(root .. "/mod/kanto_gear/i18n/fonts.lua"))().new(
     love.graphics, function(message) error(message) end,
     function(name) return fileData(root .. "/mod/kanto_gear/" .. name, name) end)
   if i18n:language() == "ja" then
@@ -183,16 +183,19 @@ function love.load()
   end
   local previewUi = {
     graphics = love.graphics, box = box, text = text,
-    pokedexPage = assert(loadfile(root .. "/mod/kanto_gear/pokedex_page.lua"))(),
-    partyPage = assert(loadfile(root .. "/mod/kanto_gear/party_page.lua"))(),
-    itemPage = assert(loadfile(root .. "/mod/kanto_gear/item_page.lua"))(),
+    pokedexPage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/pokedex.lua"))(),
+    partyPage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/party.lua"))(),
+    itemPage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/item.lua"))(),
     fit = fit, glyphs = glyphs, color = color, font = font,
     smallFont = smallFont, smallFontMetrics = smallMetrics, largeFont = largeFont,
     translate = translate, format = format,
     translationFonts = translationFonts,
   }
-  local theme = chunk()(previewUi)
-  assert(loadfile(root .. "/mod/kanto_gear/v4_skin.lua"))()(theme, previewUi, function(name)
+  local theme = chunk()(previewUi, function(name)
+    local file = assert(io.open(root .. "/mod/kanto_gear/" .. name, "rb"))
+    local source = file:read("*a"); file:close(); return source
+  end)
+  assert(loadfile(root .. "/mod/kanto_gear/ui/skins/init.lua"))()(theme, previewUi, function(name)
     local file = io.open(root .. "/mod/kanto_gear/" .. name, "rb")
     if not file then return nil end
     local source = file:read("*a"); file:close(); return source
@@ -210,7 +213,7 @@ function love.load()
   if os.getenv("KANTO_GEAR_PREVIEW_MAP_PARITY") == "1" then
     assert(loadfile(root .. "/tools/hgss_preview/map_parity.lua"))()(theme)
   end
-  assert(loadfile(root .. "/mod/kanto_gear/achievements_ui.lua"))()(
+  assert(loadfile(root .. "/mod/kanto_gear/ui/features/achievements.lua"))()(
     theme, love.graphics, translate, format)
   theme:setTouch(20, 20)
   assert(theme:isPressed(29, 29, 3, 3)
@@ -536,6 +539,11 @@ function love.load()
     end
   end
   local standardBattle = os.getenv("KANTO_GEAR_PREVIEW_BATTLE_VIEW") == "standard"
+  local standardMessage = standardBattle and screen == "battle_message"
+  if standardBattle then
+    screen = screen == "battle_message" and "battle_root" or screen
+    theme.nativeFocus = false
+  end
   local battleRoot = screen == "battle_root"
   local battleParty = screen == "battle_party" or screen == "battle_item_target"
   local battleFull = screen == "battle_full" or screen == "battle_full_message"
@@ -1692,7 +1700,7 @@ function love.load()
       {id="store_app",kind="app",icon="store",accent="green",label="STORE",column=7,row=1,columns=3},
     }})
   elseif pssScreen then
-    assert(loadfile(root .. "/mod/kanto_gear/pss_ui.lua"))()(theme, love.graphics, translate, format)
+    assert(loadfile(root .. "/mod/kanto_gear/ui/features/pss.lua"))()(theme, love.graphics, translate, format)
     local state = { name = "RED#123", state = "online", page = 1, pages = 2, rows = {},
       ready = true, enabled = true, session = {} }
     -- the preview only owns the player sprite: draw it for you and for
@@ -1743,13 +1751,13 @@ function love.load()
     assert(loadfile(root .. "/tools/hgss_preview/achievements.lua"))()(
       theme, screen, gen1, translate, function(_, x, y, size) drawPortrait(1, x, y, size, false) end)
   elseif legacyPpMoves then
-    local MovePage = assert(loadfile(root .. "/mod/kanto_gear/move_page.lua"))()
+    local MovePage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/move.lua"))()
     local mon = battleMon()
     for _, move in ipairs(mon.moves) do move.available = true end
     MovePage.draw(theme, { moves = mon.moves, name = mon.name, prompt = translate("CHOOSE MOVE") })
   elseif screen:sub(1, 6) == "notes_" then
-    assert(loadfile(root .. "/mod/kanto_gear/notes_ui.lua"))()(theme, love.graphics, translate)
-    local Notes = assert(loadfile(root .. "/mod/kanto_gear/notes.lua"))()
+    assert(loadfile(root .. "/mod/kanto_gear/ui/features/notes.lua"))()(theme, love.graphics, translate)
+    local Notes = assert(loadfile(root .. "/mod/kanto_gear/features/notes.lua"))()
     local values = {}
     local storage = { read = function(_, _, key) return values[key], values[key] and nil or "not_found" end,
       write = function(_, _, key, v) values[key] = v; return true end }
@@ -1768,7 +1776,7 @@ function love.load()
     if screen == "pc_notice" then
       theme:pcNotice({ kind = "pokemon", lines = { "BILL'S PC", "ACCESSED." }, now = 1 })
     else
-      local SP = assert(loadfile(root .. "/mod/kanto_gear/storage_page.lua"))()
+      local SP = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/storage.lua"))()
       local items = SP.box({ primary = { label = "WITHDRAW", value = 1 }, cancel = { label = "CANCEL", value = 2 },
         capacity = 20, name = "BOX 3", monAt = function(slot) return slot <= 7 and slot or nil end,
         enabled = function() return true end })
@@ -1938,7 +1946,7 @@ function love.load()
       power = 75, available = true, descriptionLines = {
         "AN ICY PUNCH.", "MAY FREEZE THE TARGET." },
     }
-    local MovePage = assert(loadfile(root .. "/mod/kanto_gear/move_page.lua"))()
+    local MovePage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/move.lua"))()
     if legacyMoveNew then
       MovePage.drawPrompt(theme, { mon = mon, newMove = newMove, details = true,
         prompt = { "FERALIGATR WANTS TO LEARN", "ICE PUNCH. FORGET A MOVE?" },
@@ -1952,7 +1960,7 @@ function love.load()
         theme:moveHasStab(mon, newMove))
     end
   elseif startMenu then
-    local menu = assert(loadfile(root .. "/mod/kanto_gear/start_menu.lua"))()
+    local menu = assert(loadfile(root .. "/mod/kanto_gear/adapters/start_menu.lua"))()
     local labels = languageCode == "ja"
       and { "ずかん", "ポケモン", "どうぐ", "ポケギア", "ヒビキ", "レポート", "せってい", "MODS", "QUIT" }
       or languageCode == "de"
@@ -1977,8 +1985,8 @@ function love.load()
     end
     theme:startMenu(menu.model(native))
   elseif pokegearScreen then
-    -- Gold/Silver/Crystal POKéGEAR; the model mirrors pokegear_page.lua
-    local Page = assert(loadfile(root .. "/mod/kanto_gear/pokegear_page.lua"))()
+    -- Gold/Silver/Crystal POKéGEAR; the model mirrors ui/pages/pokegear.lua
+    local Page = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/pokegear.lua"))()
     local cards = {
       { id = "clock", index = 1, icon = "pg_clock", label = "CLOCK" },
       { id = "map", index = 2, icon = "map", label = "MAP" },
@@ -2019,7 +2027,7 @@ function love.load()
     end
     theme:pokegearScreen(m, Page)
   elseif pokenavMenu then
-    -- Emerald PokéNav menus; rectangles mirror gen3_ui.lua's projection
+    -- Emerald PokéNav menus; rectangles mirror adapters/gen3/ui.lua's projection
     local rows = screen == "pokenav" and {
         { "HOENN MAP", "pn_map" }, { "CONDITION", "pn_condition" }, { "MATCH CALL", "pn_matchcall" },
         { "RIBBONS", "pn_ribbons" }, { "SWITCH OFF", "pn_off" } }
@@ -2032,7 +2040,10 @@ function love.load()
     local help = (screen == "pokenav" or screen == "pokenav_early" or screen == "pokenav_mc") and "Check the map of the HOENN region."
       or screen == "pokenav_condition" and "Check the condition of your party POKéMON."
       or "Search for POKéMON with high COOL condition."
-    local Gen3UI = assert(loadfile(root .. "/mod/kanto_gear/gen3_ui.lua"))()
+    local Gen3UI = assert(loadfile(root .. "/mod/kanto_gear/adapters/gen3/ui.lua"))()(function(name)
+      local file = assert(io.open(root .. "/mod/kanto_gear/" .. name, "rb"))
+      local source = file:read("*a"); file:close(); return source
+    end)
     local entries = {}
     for i, row in ipairs(rows) do
       local r = Gen3UI.pokenavRect(i, #rows)
@@ -2040,16 +2051,16 @@ function love.load()
     end
     theme:pokenavMenu({ entries = entries }, help, false)
   elseif legacyChoice then
-    local Page = assert(loadfile(root .. "/mod/kanto_gear/choice_page.lua"))()
+    local Page = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/choice.lua"))()
     theme:choiceScreen(Page.model({}, { "YES", "NO" },
       { "WOULD YOU LIKE TO GIVE", "THIS POKEMON A NICKNAME?" }, 1))
   elseif legacyChoiceGrid then
     -- Real 2D menus go through ChoicePage like every other dialogue choice.
-    local ChoicePage = assert(loadfile(root .. "/mod/kanto_gear/choice_page.lua"))()
+    local ChoicePage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/choice.lua"))()
     theme:choiceScreen(ChoicePage.model({}, { "HEAL", "MOVE", "ITEM", "CANCEL" },
       { "WHAT WOULD YOU LIKE", "TO DO?" }, 2))
   elseif legacyNaming then
-    local Naming = assert(loadfile(root .. "/mod/kanto_gear/naming_page.lua"))()
+    local Naming = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/naming.lua"))()
     local items = {}
     for label in ("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):gmatch(".") do
       items[#items + 1] = { label = label, row = math.floor(#items / 9) + 1 }
@@ -2248,7 +2259,7 @@ function love.load()
     } })
   elseif screen == "settings_option" then
     if os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "display_mode" then
-      local info = assert(loadfile(root .. "/mod/kanto_gear/settings_info.lua"))()
+      local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
       theme:settings({ category = "option", option = "display_mode", label = "DISPLAY MODE", accent = "green",
         description = info.help.display_mode, choices = {
           { "FULLSCREEN SWAP", "fullscreen" }, { "COMBINED SCREEN", "combined" },
@@ -2943,30 +2954,16 @@ function love.load()
       drawPortrait(slot, x, y, size, fainted)
     end, playerTeam, enemyTeam, transitionProgress)
   elseif battleMoves then
-    local drawMoves = standardBattle and theme.battleStandardMoves or theme.battleMoves
-    drawMoves(theme, battleMon(), playerTeam, enemyTeam)
+    theme:battleMoves(battleMon(), playerTeam, enemyTeam)
   elseif battleParty then
     theme:headerBar(translate(screen == "battle_item_target" and "USE ITEM ON" or "PARTY"),
       true, false, -1)
     theme:headerClock("20:04", "NITE", 139, 72, 6)
     theme:battery(214, 8, 4, nil, true, theme.colors.ink, theme.colors.greenLight)
     theme:partyBackdrop()
-    if standardBattle then
-      local list = {}
-      for slot, mon in ipairs(party) do
-        list[slot] = {}
-        for key, value in pairs(mon) do list[slot][key] = value end
-        list[slot].slot = slot
-        if gen1 then list[slot].gender = nil end
-      end
-      theme:battleStandardParty(list,
-        tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 2, not gen1,
-        function(mon, x, y, size, fainted) drawPortrait(mon.slot, x, y, size, fainted) end)
-    else
-      for slot = 1, #party do
-        local x, y = theme:partyPosition(slot)
-        drawMon(slot, x, y, slot == 2, false)
-      end
+    for slot = 1, #party do
+      local x, y = theme:partyPosition(slot)
+      drawMon(slot, x, y, not standardBattle and slot == 2, false)
     end
   elseif battlePartyTransition then
     local mon = battleMon()
@@ -2994,16 +2991,14 @@ function love.load()
     theme:headerBar("PARTY", true, false, -1)
     theme:headerClock("20:04", "NITE", 139, 72, 6)
     theme:battery(214, 8, 4, nil, true, theme.colors.ink, theme.colors.greenLight)
-    local actionCount = standardBattle and 3 or 2
+    local actionCount = 3
     drawMon(1, 64, theme:partyActionHeroY(actionCount), true, false, false)
     local x, y, w, h = theme:partyActionRow(1, actionCount)
     theme:actionRow(x, y, w, h, "SWITCH", "switch", 0, true)
     x, y, w, h = theme:partyActionRow(2, actionCount)
     theme:actionRow(x, y, w, h, "STATS", "stats", 0, false)
-    if standardBattle then
-      x, y, w, h = theme:partyActionRow(3, actionCount)
-      theme:actionRow(x, y, w, h, translate("CANCEL"), "cancel", 0, false)
-    end
+    x, y, w, h = theme:partyActionRow(3, actionCount)
+    theme:actionRow(x, y, w, h, translate("CANCEL"), "cancel", 0, false)
   elseif battleFull then
     local mon = battleMon()
     local slot = gen1 and 6 or 1
@@ -3077,11 +3072,11 @@ function love.load()
   elseif battleRoot then
     local mon = battleMon()
     local slot = gen1 and 6 or 1
-    local drawRoot = standardBattle and theme.battleStandardRoot or theme.battleRoot
-    drawRoot(theme, mon, function(_, x, y, size, fainted)
+    theme:battleRoot(mon, function(_, x, y, size, fainted)
       drawPortrait(slot, x, y, size, fainted)
-    end, playerTeam, enemyTeam,
-      tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 1)
+    end, playerTeam, enemyTeam, not standardBattle
+      and (tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 1) or nil, not standardMessage)
+    if standardMessage then theme:systemOverlay(0.48, true, theme:clock()) end
   elseif partySwapTransition then
     theme:partySwapTransition(function(slot, x, y, selected, details)
       drawMon(slot, x, y, selected, details)

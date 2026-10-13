@@ -1,4 +1,4 @@
-local Home = assert(loadfile("mod/kanto_gear/home_layout.lua"))()
+local Home = assert(loadfile("mod/kanto_gear/core/home_layout.lua"))()
 
 local catalog = {
   packages = {

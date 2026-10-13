@@ -1,12 +1,7 @@
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
 local generation = assert(tonumber(arg[1]))
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local Native = require(generation == 2 and "src.ui.gen2.PokedexMenu" or "src.ui.PokedexMenu")
   local api, theme = up(display.saveHome, "mod"), up(display.drawContents, "THEME")

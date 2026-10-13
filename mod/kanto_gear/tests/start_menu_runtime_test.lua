@@ -7,16 +7,7 @@ local run = T.sdk.loadMod(assert(os.getenv("KANTO_GEAR_MOD_PATH")), {
 })
 assert(run.mod, run.error or run.reason or "mod load failed")
 T.eq(run.mod.state, "loaded", "complete mod loads within LuaJIT's upvalue limit")
-local function upvalue(fn, target, replacement, set)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local key, value = debug.getupvalue(fn, i)
-    if key == target then
-      if set then debug.setupvalue(fn, i, replacement) end
-      return value
-    end
-  end
-  error("missing upvalue " .. target)
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function hook(name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end

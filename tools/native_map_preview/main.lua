@@ -26,16 +26,19 @@ function love.load()
     if gen2 then data.gen2Tilesets, data.gen2Palettes, data.gen2Roofs = data.tilesets, data.palettes, generated("roofs") end
     local Palette = require("src.render.PaletteFX")
     Palette.mode = "gbc"
-    local Native = assert(loadfile(root .. "/native_map.lua"))()
-    local glyphs = assert(loadfile(root .. "/hgss_font_glyphs.lua"))()
+    local Native = assert(loadfile(root .. "/adapters/native_map.lua"))()
+    local glyphs = assert(loadfile(root .. "/ui/fonts/glyphs.lua"))()
     local function font(name) return G.newImageFont(love.image.newImageData(file(root .. "/" .. name)), glyphs) end
-    local H = assert(loadfile(root .. "/hgss.lua"))()({ graphics = G,
+    local H = assert(loadfile(root .. "/ui/init.lua"))()({ graphics = G,
       color = function(c) G.setColor(c) end,
       box = function(mode, x, y, w, h, c) G.setColor(c); G.rectangle(mode, x, y, w, h) end,
       text = function(s, x, y, c) G.setColor(c); G.print(s, x, y) end,
       fit = function(s, n) return tostring(s):sub(1, n) end,
       glyphs = function(s) local t = {}; for c in tostring(s):gmatch(".") do t[#t + 1] = c end; return t end,
-      font = font("hgss_font.png"), smallFont = font("hgss_small_font.png"), largeFont = font("hgss_large_font.png") })
+      font = font("ui/fonts/hgss_font.png"), smallFont = font("ui/fonts/hgss_small_font.png"), largeFont = font("ui/fonts/hgss_large_font.png") }, function(name)
+        local f = assert(io.open(root .. "/" .. name, "rb"))
+        local source = f:read("*a"); f:close(); return source
+      end)
     local ids = gen2 and { "NEW_BARK_TOWN", "GOLDENROD_CITY", "ROUTE_30" }
       or { "PALLET_TOWN", "VIRIDIAN_CITY", "VIRIDIAN_FOREST" }
     local sheet, frame = G.newCanvas(960, 648), G.newCanvas(240, 216)

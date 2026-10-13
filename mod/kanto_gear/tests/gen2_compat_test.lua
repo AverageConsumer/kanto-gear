@@ -1,3 +1,4 @@
+local Inspect = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))()
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
@@ -110,29 +111,30 @@ local game = {
   end },
 }
 run.loader.events:emit("game.ready", { game = game })
-run.loader.modOptions.kanto_gear = { theme_v3 = "kanto", trigger_tabs = true }
+run.loader.modOptions.kanto_gear = { theme_v3 = "kanto", trigger_tabs = true, info_level = "spoiler" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "theme_v3", value = "kanto" })
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "trigger_tabs" })
 
 do
-  local function upvalue(fn, target)
-    for index = 1, debug.getinfo(fn, "u").nups do
-      local name, value = debug.getupvalue(fn, index)
-      if name == target then return value end
-    end
-  end
+  local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
   local inputHook
   for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
     if entry.owner == "kanto_gear" then inputHook = entry.callback end
   end
-  local guideData = upvalue(upvalue(upvalue(inputHook,
-    "pollTriggerTabs"), "changePage"), "guideData")
+  local guideData = upvalue(upvalue(upvalue(upvalue((function()
+    for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
+      if entry.owner == "kanto_gear" then return entry.callback end
+    end
+  end)(), "touchEvent"), "tap"), "changePage"), "guideData")
   T.check(guideData ~= nil, "Guide data remains reachable from navigation")
 
-  local changePage = upvalue(upvalue(inputHook, "pollTriggerTabs"),
-    "changePage")
+  local changePage = upvalue(upvalue(upvalue((function()
+    for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
+      if entry.owner == "kanto_gear" then return entry.callback end
+    end
+  end)(), "touchEvent"), "tap"), "changePage")
   local displayRuntime = upvalue(changePage, "displayRuntime")
   do
     -- Crystal data/wild/johto_grass.asm: Route 30's seven night slots.
@@ -486,7 +488,7 @@ local function settleInput()
   for _, entry in ipairs(run.loader.hooks.chains["input.step"]) do
     if entry.owner == "kanto_gear" then
       for i = 1, debug.getinfo(entry.callback, "u").nups do
-        local name, value = debug.getupvalue(entry.callback, i)
+        local name, value = Inspect.inspect(entry.callback, i)
         if name == "displayRuntime" then display = value end
       end
     end
@@ -502,26 +504,17 @@ local companion = {
   push = function() return true end,
 }
 do
-  local function upvalue(fn, target)
-    for index = 1, debug.getinfo(fn, "u").nups do
-      local name, value = debug.getupvalue(fn, index)
-      if name == target then return value end
-    end
-  end
-  local function setUpvalue(fn, target, value)
-    for index = 1, debug.getinfo(fn, "u").nups do
-      if debug.getupvalue(fn, index) == target then
-        debug.setupvalue(fn, index, value)
-        return true
-      end
-    end
-  end
+  local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
+  local setUpvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().set
   local inputHook
   for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
     if entry.owner == "kanto_gear" then inputHook = entry.callback end
   end
-  local changePage = upvalue(upvalue(inputHook, "pollTriggerTabs"),
-    "changePage")
+  local changePage = upvalue(upvalue(upvalue((function()
+    for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
+      if entry.owner == "kanto_gear" then return entry.callback end
+    end
+  end)(), "touchEvent"), "tap"), "changePage")
 
   local composeHook
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
@@ -684,7 +677,13 @@ T.check(playerMarker and playerMarker.args[2] == 44
 T.check(markerPalette and markerPalette.colors == playerColors
     and markerPalette.group == "gen2:DAY:0",
   "Gold map applies the native daytime player palette")
+local compose
+for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
+  if entry.owner == "kanto_gear" then compose = entry.callback end
+end
+local changeTab = Inspect.get(Inspect.get(Inspect.get(compose, "touchEvent"), "tap"), "changePage")
 for _ = 1, 10 do
+  changeTab(1)
   trigger = 0.8
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   trigger = 0
@@ -750,13 +749,10 @@ do
   local runtime
   local moveInfoIndex
   for i = 1, debug.getinfo(inputHook, "u").nups do
-    local name, value = debug.getupvalue(inputHook, i)
+    local name, value = Inspect.inspect(inputHook, i)
     if name == "hgssRuntime" then runtime = value break end
   end
-  for i = 1, debug.getinfo(inputHook, "u").nups do
-    local name = debug.getupvalue(inputHook, i)
-    if name == "moveInfo" then moveInfoIndex = i break end
-  end
+  moveInfoIndex = "moveInfo"
   local playerTeam, wildTeam = runtime.battleTeams()
   T.check(type(playerTeam[1]) == "table"
       and playerTeam[1].alive == true,
@@ -766,16 +762,13 @@ do
       and wildTeam[1].alive == true and wildTeam[1].status == "PAR",
     "HGSS labels a wild opponent without inventing a trainer party")
   local readyUpvalue
-  for i = 1, debug.getinfo(runtime.remapBattleRootInput, "u").nups do
-    local name = debug.getupvalue(runtime.remapBattleRootInput, i)
-    if name == "displayReady" then readyUpvalue = i break end
-  end
+  readyUpvalue = "displayReady"
   T.check(readyUpvalue ~= nil,
     "HGSS battle navigation observes companion readiness")
   run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "theme_v3", value = "hgss" })
-  debug.setupvalue(runtime.remapBattleRootInput, readyUpvalue, true)
+  Inspect.assign(runtime.remapBattleRootInput, readyUpvalue, true)
   screen.menuIndex = 1
   game.input = { pressQueue = { "down" } }
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
@@ -830,7 +823,7 @@ do
   -- The fixture jumps directly from Party to the root between independent
   -- checks. Synchronize it just as a real return input now does.
   for i = 1, debug.getinfo(inputHook, "u").nups do
-    local name, value = debug.getupvalue(inputHook, i)
+    local name, value = Inspect.inspect(inputHook, i)
     if name == "refreshBattle" then value() break end
   end
   runtime.animation = nil
@@ -854,16 +847,19 @@ do
     "HGSS starts the Bag close transition in the input frame")
   runtime.animation = nil
   game.stack.states = { screen, partyMenu }
-  game.input.pressQueue = { "down" }
-  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  T.eq(partyMenu.submenu.index, 2,
-    "owned HGSS battle party menu maps DOWN to visible STATS")
-  T.eq(#game.input.pressQueue, 0,
-    "owned HGSS battle party menu consumes remapped direction")
-  game.input.pressQueue = { "up" }
-  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  T.eq(partyMenu.submenu.index, 1,
-    "owned HGSS battle party menu maps UP to visible SWITCH")
+  partyMenu.submenu.index = 1
+  local NativeParty = require("src.ui.gen2.PartyMenu")
+  for _, direction in ipairs({ "down", "up" }) do
+    game.input.pressQueue = { direction }
+    run.loader.hooks:call("input.step", function()
+      NativeParty.updateSubmenu(partyMenu, {
+        wasPressed = function(_, key) return key == direction end,
+      })
+    end, game, 1 / 60)
+    T.eq(partyMenu.submenu.index, direction == "down" and 2 or 1,
+      "native party submenu follows the visible STATS/SWITCH row")
+    T.eq(#game.input.pressQueue, 1, "native submenu retains its own directional input")
+  end
 
   local summaryMon = game.save.party[1]
   local summaryState = {
@@ -892,57 +888,56 @@ do
   }
   run.loader.modOptions.kanto_gear.move_details = true
   game.stack.states = { screen, partyMenu, summaryState }
+  local display = Inspect.get(inputHook, "displayRuntime")
+  local inspection = display.summaryContext(summaryState)
+  inspection.page = 2
   game.input.pressQueue = { "down" }
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  T.eq(summaryState.moveIndex, 2,
+  T.eq(inspection.moveIndex, 2,
     "owned HGSS battle summary moves focus with the D-pad")
   T.eq(#game.input.pressQueue, 0,
     "owned HGSS battle summary consumes remapped direction")
   game.input.pressQueue = { "a" }
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  local _, selectedMove = debug.getupvalue(inputHook, moveInfoIndex)
+  local _, selectedMove = Inspect.inspect(inputHook, moveInfoIndex)
   T.eq(selectedMove and selectedMove.id, "FIX_SUMMARY_2",
     "A opens the focused battle summary move description")
   T.eq(#game.input.pressQueue, 0,
     "battle summary move descriptions consume confirm input")
   game.input.pressQueue = { "b" }
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  _, selectedMove = debug.getupvalue(inputHook, moveInfoIndex)
+  _, selectedMove = Inspect.inspect(inputHook, moveInfoIndex)
   T.eq(selectedMove, nil,
     "B closes move details without leaving the battle summary")
   local composeHook
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
     if entry.owner == "kanto_gear" then composeHook = entry.callback end
   end
-  local function upvalue(fn, target)
-    for index = 1, debug.getinfo(fn, "u").nups do
-      local name, value = debug.getupvalue(fn, index)
-      if name == target then return value end
-    end
-  end
+  local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
   local touchEvent = upvalue(composeHook, "touchEvent")
   local tap = upvalue(touchEvent, "tap")
   local swiped
   game.input.sourcePress = function(_, button) swiped = button end
   game.input.sourceRelease = function() end
-  summaryState.page = 1
+  inspection.page = 1
   settleInput()
   touchEvent("down,130,100")
   touchEvent("up,70,100")
-  T.eq(swiped, "right",
-    "left swipe follows the visible next Summary arrow in battle")
+  T.eq(inspection.page, 2,
+    "left swipe advances the visible Gear Summary tab")
+  T.eq(swiped, nil, "Gear tab navigation does not change the native Summary page")
   swiped = nil
   settleInput()
   touchEvent("down,70,100")
   touchEvent("up,130,100")
-  T.eq(swiped, "left",
-    "right swipe follows the visible previous Summary arrow in battle")
-  summaryState.page = 2
-  tap(80, 50)
-  _, selectedMove = debug.getupvalue(inputHook, moveInfoIndex)
+  T.eq(inspection.page, 1,
+    "right swipe returns to the previous Gear Summary tab")
+  inspection.page = 2
+  tap(80, 64)
+  _, selectedMove = Inspect.inspect(inputHook, moveInfoIndex)
   T.eq(selectedMove and selectedMove.id, "FIX_SUMMARY_1",
     "touch opens the tapped battle summary move description")
-  debug.setupvalue(inputHook, moveInfoIndex, nil)
+  Inspect.assign(inputHook, moveInfoIndex, nil)
   summaryMon.moves = previousMoves
   run.data.moves.FIX_SUMMARY_1 = previousFirst
   run.data.moves.FIX_SUMMARY_2 = previousSecond
@@ -952,7 +947,7 @@ do
   run.loader.modOptions.kanto_gear.theme_v3 = previousTheme
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "theme_v3", value = previousTheme })
-  debug.setupvalue(runtime.remapBattleRootInput, readyUpvalue, true)
+  Inspect.assign(runtime.remapBattleRootInput, readyUpvalue, true)
 end
 run.loader.modOptions.kanto_gear.battle_view = "full"
 run.loader.events:emit("mod.options_changed",
@@ -991,8 +986,10 @@ T.eq(#profileDraws:fromPath(
   "tapping INFO identity opens the Gold Pokedex detail page")
 game.input = { pressQueue = { "b" } }
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-T.eq(#game.input.pressQueue, 0,
-  "Pokedex detail consumes B without backing out of the battle")
+T.eq(#game.input.pressQueue, 1,
+  "read-only INFO leaves B with the native battle")
+settleInput()
+touchEvents[1] = "tap,5,5"
 local profileBackDraws = T.record.draw()
 now = now + 1
 run.loader.hooks:call("render.compose", function() return false end, {}, {
@@ -1001,7 +998,7 @@ run.loader.hooks:call("render.compose", function() return false end, {}, {
 profileBackDraws:stop()
 T.check(#profileBackDraws:fromPath(
     "tests/fixture_data/assets/fixmon_b_front.png") > 0,
-  "B returns from Pokedex detail to the compact INFO card")
+  "touch Back returns from Pokedex detail to the compact INFO card")
 settleInput()
 touchEvents[1] = "tap,20,110"
 local matchupDraws = T.record.draw()
@@ -1060,9 +1057,7 @@ end
 -- Gold resolves the turn before its native HP bar finishes chasing the new
 -- value.  The companion must follow screen.shownHp, not jump straight to the
 -- already-final battle mon HP.
-local main = assert(io.open(path .. "/main.lua", "rb"))
-local source = main:read("*a")
-main:close()
+local source = assert(loadfile(path .. "/tests/support/source.lua"))()(path)
 T.check(source:find("raw%.battle and raw%.battle%[side%]", 1) ~= nil,
   "Gold FULL GEAR reads chased HP from the nested battle state")
 
@@ -1322,12 +1317,7 @@ T.eq(nameChoice.cursor, 2,
   "Gold name choices share the companion choice renderer")
 
 do
-  local function upvalue(fn, target)
-    for index = 1, debug.getinfo(fn, "u").nups do
-      local name, value = debug.getupvalue(fn, index)
-      if name == target then return value end
-    end
-  end
+  local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
   local composeHook
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
     if entry.owner == "kanto_gear" then composeHook = entry.callback end
@@ -1401,7 +1391,11 @@ do
     "field PP items mirror their native move picker below")
   displayRuntime.bag.pending = nil
 
-  local root = { screenId = "Gen2PcMenu", index = 1, entries = {
+  local chooseNative = assert(loadfile(path .. "/tests/support/menu_touch.lua"))()(displayRuntime, function(event)
+    settleInput()
+    touchEvent(event)
+  end)
+  local root = { screenId = "Gen2PcMenu", index = 1, update = function() end, entries = {
     { label = "WITHDRAW <PK><MN>" }, { label = "DEPOSIT <PK><MN>" },
     { label = "CHANGE BOX" }, { label = "MOVE <PK><MN> W/O MAIL" },
     { label = "SEE YA!" },
@@ -1413,33 +1407,33 @@ do
     })
   end), "Gold PC root mirrors its native entry contract")
   settleInput()
-  touchEvent("tap,120,25")
+  chooseNative(1)
   T.eq(root.index, 1, "Gold PC root touch keeps the native vertical row")
   T.eq(pressed, "a", "Gold PC root touch confirms through native input")
 
-  local box = { screenId = "Gen2BoxMenu", mode = "withdraw",
-    boxIndex = 1, index = 1 }
+  local box = require("src.ui.gen2.BoxMenu").new(game, { mode = "withdraw" })
+  box.screenId = "Gen2BoxMenu"
   game.stack.states = { root, box }
   pressed = nil
   settleInput()
-  touchEvent("tap,120,64")
-  T.eq(box.index, 2, "Gold box touch follows the native up/down list")
+  chooseNative(2)
+  T.eq(box.index, 2, "Gold box grid keeps the native slot number")
   T.eq(pressed, "a", "Gold box touch confirms through native input")
 
   box.mode, box.boxIndex, box.index = "move", 0, 1
   settleInput()
-  touchEvent("tap,120,88")
-  T.eq(box.index, 3,
-    "Gold MOVE includes the native PARTY cancel row in cursor order")
+  chooseNative(3)
+  T.eq(pressed, "b", "Gold MOVE cancel uses native Back")
+  T.eq(box.index, 1, "cancel does not select an empty party slot")
 
   root.picking, root.pickIndex = true, 5
   game.stack.states = { root }
   settleInput()
-  touchEvent("tap,120,35")
+  chooseNative(5)
   T.eq(root.pickIndex, 5,
     "Gold change-box touch stays on the first visible box row")
 
-  local itemPc = { screenId = "Gen2ItemPcMenu", index = 1,
+  local itemPc = { screenId = "Gen2ItemPcMenu", index = 1, update = function() end,
     entries = { { label = "WITHDRAW ITEM" }, { label = "TOSS ITEM" } },
     phase = "withdraw", listIndex = 1,
     rows = { { name = "POTION", count = 2 },
@@ -1447,7 +1441,7 @@ do
   }
   game.stack.states = { itemPc }
   settleInput()
-  touchEvent("tap,120,51")
+  chooseNative(2)
   T.eq(itemPc.listIndex, 2,
     "Gold item PC touch follows the native vertical item list")
 
@@ -1480,7 +1474,7 @@ do
   game.stack.states = { itemPc }
   pressed = nil
   settleInput()
-  touchEvent("tap,120,50")
+  chooseNative(1)
   T.eq(pack.index, 1,
     "Gold item PC deposit keeps the native Pack cursor")
   T.eq(pressed, "a", "Gold item PC deposit confirms through native input")
@@ -1490,7 +1484,7 @@ do
   game.stack.states = { root, box }
   pressed = nil
   settleInput()
-  touchEvent("tap,120,70")
+  chooseNative(2)
   T.eq(box.submenuIndex, 2,
     "Gold PC submenu touch follows the native action cursor")
   T.eq(pressed, "a", "Gold PC submenu touch confirms through native input")

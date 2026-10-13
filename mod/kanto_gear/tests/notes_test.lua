@@ -1,5 +1,5 @@
 local root = os.getenv("KANTO_GEAR_MOD_PATH") or "mod/kanto_gear"
-local Notes = assert(loadfile(root .. "/notes.lua"))()
+local Notes = assert(loadfile(root .. "/features/notes.lua"))()
 local count, clock, writes, area = 0, 0, 0, "ROUTE_2"
 local function check(value, label) assert(value, label); count = count + 1 end
 local function clone(v) if type(v)~="table" then return v end;local out={};for k,item in pairs(v) do out[k]=clone(item) end;return out end

@@ -1,4 +1,4 @@
-local path = (...) or "translations/kanto_gear_de/lang/de.lua"
+local path = (...) or "translations/kanto_gear_de/i18n/catalogs/de.lua"
 local catalog = assert(loadfile(path))()
 
 local function countFormats(value)

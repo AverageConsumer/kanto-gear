@@ -8,27 +8,30 @@ end
 function love.load()
   local G=love.graphics
   local function file(name)local f=assert(io.open(root.."/mod/kanto_gear/"..name,"rb"));local bytes=f:read("*a");f:close();return love.filesystem.newFileData(bytes,name) end
-  local glyphs=assert(loadfile(root.."/mod/kanto_gear/hgss_font_glyphs.lua"))()
+  local glyphs=assert(loadfile(root.."/mod/kanto_gear/ui/fonts/glyphs.lua"))()
   local function font(name)local f=G.newImageFont(love.image.newImageData(file(name)),glyphs);f:setFilter("nearest","nearest");return f end
   local utf8=require("utf8")
   local function chars(value)local out={};for _,c in utf8.codes(value)do out[#out+1]=utf8.char(c)end;return out end
   local language=os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "de"
-  local catalog=assert(loadfile(root.."/mod/kanto_gear/lang/"..language..".lua"))()
+  local catalog=assert(loadfile(root.."/mod/kanto_gear/i18n/catalogs/"..language..".lua"))()
   local function tr(v)return catalog[v] or v end
-  local translationFonts=assert(loadfile(root.."/mod/kanto_gear/translation_fonts.lua"))().new(
+  local translationFonts=assert(loadfile(root.."/mod/kanto_gear/i18n/fonts.lua"))().new(
     G,function(message)error(message)end,file)
-  local H=assert(loadfile(root.."/mod/kanto_gear/hgss.lua"))()({graphics=G,
+  local H=assert(loadfile(root.."/mod/kanto_gear/ui/init.lua"))()({graphics=G,
     box=function(mode,x,y,w,h,c)G.setColor(c);G.rectangle(mode,x,y,w,h)end,
     color=function(c)G.setColor(c)end,glyphs=chars,translate=tr,format=string.format,
     translationFonts=translationFonts,
-    font=font("hgss_font.png"),smallFont=font("hgss_small_font.png"),largeFont=font("hgss_large_font.png")})
-  local Notes=assert(loadfile(root.."/mod/kanto_gear/notes.lua"))()
-  assert(loadfile(root.."/mod/kanto_gear/achievements_ui.lua"))()(H,G,tr,string.format)
-  local sourceFile=assert(io.open(root.."/mod/kanto_gear/main.lua","rb"))
+    font=font("ui/fonts/hgss_font.png"),smallFont=font("ui/fonts/hgss_small_font.png"),largeFont=font("ui/fonts/hgss_large_font.png")}, function(name)
+      local f=assert(io.open(root.."/mod/kanto_gear/"..name,"rb"))
+      local s=f:read("*a");f:close();return s
+    end)
+  local Notes=assert(loadfile(root.."/mod/kanto_gear/features/notes.lua"))()
+  assert(loadfile(root.."/mod/kanto_gear/ui/features/achievements.lua"))()(H,G,tr,string.format)
+  local sourceFile=assert(io.open(root.."/mod/kanto_gear/runtime/bootstrap.lua","rb"))
   local source=sourceFile:read("*a");sourceFile:close()
   local store=assert(loadstring("return "..assert(source:match("displayRuntime.storeCatalog = (%b{})"))))()
   for _,app in ipairs(store)do app.state="get";app.action="GET";app.reason=app.reason or app.category end
-  assert(loadfile(root.."/mod/kanto_gear/notes_ui.lua"))()(H,G,tr)
+  assert(loadfile(root.."/mod/kanto_gear/ui/features/notes.lua"))()(H,G,tr)
   local S=Notes.new({time=function()return 0 end,measure=function(v)return H:partyInfoWidth(v)end,
     keyboardLayout=function()return os.getenv("KANTO_GEAR_PREVIEW_KEYBOARD") or "qwerty" end,
     area=function()return "ROUTE_2","ROUTE 2"end,translate=tr,leave=function()end})

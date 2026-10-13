@@ -10,16 +10,7 @@ local function hook(id)
     if entry.owner == "kanto_gear" then return entry.callback end
   end
 end
-local function up(fn, target, replacement)
-  for index = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, index)
-    if name == target then
-      if replacement ~= nil then debug.setupvalue(fn, index, replacement) end
-      return value
-    end
-  end
-  error("Missing upvalue " .. target)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local world = { map = { id = "PALLET_TOWN" } }
 local game = { data = run.data, world = world,
   save = { generation = generation,
@@ -71,10 +62,10 @@ display.prepareMotion(); display.drawContents()
 local bright = display.backgroundColor()
 game.stack.states[2] = { isTextBox = true }
 display.prepareMotion(); display.drawContents(); display.applyMotion()
-T.eq(display.backgroundColor(), bright, "fade begins with the previous frame's border")
+checkShade(bright, display.backgroundColor(), 0.42, "dialogue immediately dims its border")
 now = now + display.motion.duration / 2
 display.drawContents(); display.applyMotion()
-checkShade(bright, display.backgroundColor(), 0.71, "border follows the half-faded frame")
+checkShade(bright, display.backgroundColor(), 0.42, "dialogue keeps a stable dimmed border")
 now = now + display.motion.duration
 display.drawContents(); display.applyMotion()
 checkShade(bright, display.backgroundColor(), 0.42, "border reaches the fully dimmed frame")

@@ -3,16 +3,7 @@ local T = require("tests.modkit")
 love.graphics.arc = love.graphics.arc or function() end
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local gen = tonumber(os.getenv("KANTO_GEAR_TEST_GEN")) or 2
-local function up(fn, key, value, set)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, current = debug.getupvalue(fn, i)
-    if name == key then
-      if set then debug.setupvalue(fn, i, value) end
-      return current
-    end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function hook(run, name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end
@@ -269,14 +260,14 @@ else
       T.eq(raw.moveIndex, 1, "snapshot never skips the original zero-PP cursor")
       preservedHooks(run, { raw, stack:top() })
       stack.states = { world, raw }; state.prompt = "menu"; refresh()
-      for index, action in ipairs(theme.hgss.fullBattleActions) do
+      for index, action in ipairs(theme.hgss.battleActions) do
         tapBattle((action.x + action.w / 2) / 1.5, (action.y + action.h / 2) / 1.5)
         T.eq(raw.menuIndex, index, "touch chooses its semantic action without D-pad navigation")
         T.eq(tapped[#tapped], "a", "explicit touch delegates native confirmation")
       end
       state.prompt = "moves"; raw.moveIndex = 2; refresh()
       local before = #tapped
-      display.dispatchTouchTap(tapBattle, 110 / 1.5, 122 / 1.5)
+      display.dispatchTouchTap(tapBattle, 110 / 1.5, 38 / 1.5)
       T.check(up(display.syncCompanionDetails, "moveInfo") ~= nil, "touch opens local attack details")
       T.eq(raw.moveIndex, 2, "inspecting another attack never changes the original cursor")
       T.eq(#tapped, before, "opening Gear details sends no native input")

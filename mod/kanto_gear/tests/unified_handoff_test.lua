@@ -4,13 +4,7 @@ local T = require("tests.modkit")
 local gen = tonumber(os.getenv("KANTO_GEAR_TEST_GEN")) or 2
 love.graphics.arc = love.graphics.arc or function() end
 love.graphics.polygon = love.graphics.polygon or function() end
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function check(run, display, open, close)
   run.loader.modOptions.kanto_gear = run.loader.modOptions.kanto_gear or {}
   display.home.help = false

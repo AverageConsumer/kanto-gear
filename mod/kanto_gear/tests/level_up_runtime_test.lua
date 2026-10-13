@@ -28,12 +28,7 @@ run.loader.game = game
 run.loader.events:emit("game.ready", { game = game })
 run.loader.modOptions.kanto_gear = { theme_v3 = "hgss" }
 run.loader.events:emit("mod.options_changed", { mod = "kanto_gear", key = "theme_v3" })
-local function upvalue(fn, target)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == target then return value end
-  end
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local hook
 for _, entry in ipairs(run.loader.hooks.chains["input.step"]) do
   if entry.owner == "kanto_gear" then hook = entry.callback end

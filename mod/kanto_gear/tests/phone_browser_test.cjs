@@ -1,6 +1,6 @@
 const { chromium } = require(process.env.KANTO_GEAR_NODE_MODULES + '/playwright');
 const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
-const root = path.resolve(__dirname, '..');
+const root = path.resolve(__dirname, '..', 'phone');
 // Decode exactly as UTF-8 before the browser could hide invalid bytes with U+FFFD.
 for (const file of ['phone.js','phone_decoder.js','phone.html']) new TextDecoder('utf-8', {fatal:true}).decode(fs.readFileSync(path.join(root,file)));
 (async () => {
@@ -113,7 +113,7 @@ for (const file of ['phone.js','phone_decoder.js','phone.html']) new TextDecoder
   const beforeDenied=(await messages()).length;
   await page.evaluate(()=>{vibrationMode='throw';document.querySelector('[data-button=a]').click();vibrationMode='deny';document.querySelector('[data-button=b]').click();vibrationMode=null;});
   assert((await messages()).length===beforeDenied+4, 'denied or throwing vibration never blocks game input');
-  const out = path.resolve(root, '../../diagnostics/browser-previews'); fs.mkdirSync(out,{recursive:true});
+  const out = path.resolve(__dirname, '../../../diagnostics/browser-previews'); fs.mkdirSync(out,{recursive:true});
   await require('./phone_layout_cases.cjs')({page,touches,center,pair,out});
   for (const generation of [1,2]) for (const theme of ['pokegear-light','pokegear-dark','cgear-light','cgear-dark']) {
     await page.click('#settings-open'); await page.selectOption('#setting-theme',theme);

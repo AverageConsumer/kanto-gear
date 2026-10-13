@@ -6,16 +6,7 @@ local run = T.sdk.loadMod(assert(os.getenv("KANTO_GEAR_MOD_PATH")), {
   generation = generation, data = T.fixtures.load(),
 })
 T.eq(run.mod.state, "loaded", "complete mod loads within LuaJIT's upvalue limit")
-local function upvalue(fn, target, replacement, set)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local key, value = debug.getupvalue(fn, i)
-    if key == target then
-      if set then debug.setupvalue(fn, i, replacement) end
-      return value
-    end
-  end
-  error("missing upvalue " .. target)
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function hook(name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end
@@ -178,8 +169,8 @@ local count = #keys + #intents
 touch("up,40,60")
 T.eq(#keys + #intents, count, "held touch cannot cross an automatic screen switch")
 -- Every combined arrangement retains its exact geometry and saved preferences.
-local hideUpper = upvalue(input, "hideUpperBattleUI")
-local fullBottom = upvalue(drawBattle, "fullBottomBattleUI")
+local upperVisible = hook("battle.bottom_ui_visible")
+local statusVisible = hook("battle.status_hud_visible")
 set("display_mode", "combined"); set("screen_swap", true)
 local function layout()
   hook("render.viewport")(function() return nil end, { width = 960, height = 540 })
@@ -212,8 +203,8 @@ for _, arrangement in ipairs({ "side", "stacked", "auto", "overlay" }) do
           "bottom_left", hidden, 31, 7)
         sameRect(playback.game, expected.game, "game uses primary rectangle")
         T.eq(playback.showGame, true, "game playback is visible")
-        T.eq(hideUpper(), false, "primary game keeps its native menus and text")
-        T.eq(fullBottom(), false, "primary game keeps its battle visuals")
+        T.eq(upperVisible(function() return true end, raw), true, "primary game keeps its native menus and text")
+        T.eq(statusVisible(function() return true end, raw), true, "primary game keeps its battle visuals")
         phase("animation"); T.eq(display.gearPrimary(), false, "animations remain on primary game")
         stack.states = { world }; display.updateAutoBattleScreen()
         local restored = layout()

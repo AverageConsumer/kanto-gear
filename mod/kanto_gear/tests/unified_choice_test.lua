@@ -2,16 +2,7 @@
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
 local gen = tonumber(os.getenv("KANTO_GEAR_TEST_GEN")) or 2
-local function up(fn, key, replacement, set)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then
-      if set then debug.setupvalue(fn, i, replacement) end
-      return value
-    end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function hook(run, name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end

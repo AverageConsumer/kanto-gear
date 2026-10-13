@@ -82,12 +82,12 @@ return function(T, display, game, theme)
     end
     T.check(count>150,"native verification covers the whole evolution table, not just starters")
     local path=assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-    local I18N=assert(loadfile(path.."/i18n.lua"))()
+    local I18N=assert(loadfile(path.."/i18n/init.lua"))()
     options.itemName=function(id) return (data.items[id] or {}).name or "UNKNOWN ITEM" end
     options.noClock=not (display.gen3.profile.clock and display.gen3.profile.clock.rtc)
     options.nationalAllows=function() return false end
     for _,language in ipairs({"en","de"}) do
-      local i18n=I18N.new(function(code) return assert(loadfile(path.."/lang/"..code..".lua"))() end,
+      local i18n=I18N.new(function(code) return assert(loadfile(path.."/i18n/catalogs/"..code..".lua"))() end,
         function() return language end)
       options.format=function(key,...) return i18n:format(key,...) end
       for _,def in pairs(data.pokemon) do

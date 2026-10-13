@@ -1,6 +1,6 @@
 -- Protocol, pairing, bounded transport and disconnect behavior without a ROM.
 local root = os.getenv("KANTO_GEAR_MOD_PATH") or "mod/kanto_gear"
-local Phone = assert(loadfile(root .. "/phone_display.lua"))()
+local Phone = assert(loadfile(root .. "/phone/display.lua"))()
 local bit = require("bit")
 local now, incoming = 0, {}
 local function sock()
@@ -37,8 +37,8 @@ local runtime = { timer = { getTime = function() return now end },
     end,
   } }
 local mod = { read = function(_, name)
-  assert(name == "phone.html" or name == "phone.js" or name == "phone_decoder.js")
-  return name == "phone.html" and "<html>Gear</html>" or "/* phone controller */"
+  assert(name == "phone/phone.html" or name == "phone/phone.js" or name == "phone/phone_decoder.js")
+  return name == "phone/phone.html" and "<html>Gear</html>" or "/* phone controller */"
 end }
 local unique = 0
 local function new()

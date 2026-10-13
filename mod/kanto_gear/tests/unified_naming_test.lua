@@ -6,13 +6,7 @@ local run = T.sdk.loadMod(path, { generation = gen, data = T.fixtures.load() })
 assert(run.mod, run.error or run.reason)
 love.graphics.arc = love.graphics.arc or function() end
 love.graphics.polygon = love.graphics.polygon or function() end
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function hook(name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end

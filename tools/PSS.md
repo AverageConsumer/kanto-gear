@@ -33,8 +33,8 @@ shown explicitly instead of retaining stale players. The count excludes you.
 
 ## Integration
 
-`pss.lua` uses Recomp's internal `src.online.Client` / `Connect` interfaces.
-`pss_session.lua` uses `union.Room`, `Caps`, native prep screens and
+`features/pss.lua` uses Recomp's internal `src.online.Client` / `Connect` interfaces.
+`features/pss_session.lua` uses `union.Room`, `Caps`, native prep screens and
 `union.Flow`. Opening only observes; connecting is explicit.
 The manifest declares network access for this online feature.
 An existing connection's profiles and presence are preserved. A new browser

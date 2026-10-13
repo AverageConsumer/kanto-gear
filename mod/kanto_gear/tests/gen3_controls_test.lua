@@ -8,6 +8,15 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw, maps)
     return { wasPressed = function(_, k) return key == k end, isDown = function() return false end }
   end
   local function menu()
+    local layer = Stack.top()
+    if layer and layer.id == "box_storage" then
+      local frames = 0
+      while layer.mod.isPresentationBusy() and frames < 240 do
+        layer.mod.update(1 / 60)
+        frames = frames + 1
+      end
+      T.check(not layer.mod.isPresentationBusy(), "native storage transition finishes before the next gesture")
+    end
     local m = display.startMenu()
     T.check(m and display.StartMenu.cursor(m, true), "native menu has valid mirrored cursor")
     if m then
@@ -100,6 +109,9 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw, maps)
   local savedBox, savedCurrent = session.storage.boxes[1].mons, session.storage.currentBox
   session.storage.boxes[1].mons, session.storage.currentBox = { [8] = mon }, 1
   Box.show({ session = session, subMode = "move" })
+  local opening = assert(display.startMenu())
+  T.check(Box.isPresentationBusy(), "native storage starts with its opening animation")
+  T.check(not display.StartMenu.select(opening, 11), "storage rejects touches during its opening animation")
   m = menu(); T.eq(#m.items, 33, "box keeps all thirty slots, party, close and title")
   for i,entry in ipairs(m.items) do
     local r=entry.rect

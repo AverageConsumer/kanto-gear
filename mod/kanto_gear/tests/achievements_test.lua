@@ -3,12 +3,7 @@ local T = require("tests.modkit")
 -- The headless SDK stub has no transform stack; real LÖVE supplies this.
 love.graphics.transformPoint = love.graphics.transformPoint or function(x, y) return x, y end
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
-local function upvalue(fn, target)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local key, value = debug.getupvalue(fn, i)
-    if key == target then return value end
-  end
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" }) do
   local gen2 = version == "gold" or version == "silver" or version == "crystal"
   local run = T.sdk.loadMod(path, { generation = gen2 and 2 or 1, data = T.fixtures.fresh() })
@@ -425,11 +420,7 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
     run.loader.modOptions.kanto_gear.info_level = "spoiler"
     home.widgetCache = nil
     display.homeWidgetData({ achievements = true })
-    for i = 1, debug.getinfo(display.openHomeApp, "u").nups do
-      if debug.getupvalue(display.openHomeApp, i) == "dirty" then
-        debug.setupvalue(display.openHomeApp, i, false)
-      end
-    end
+    display.session.dirty = false
     run.loader.events:emit("flag.changed", {})
     T.eq(upvalue(display.openHomeApp, "dirty"), true, version .. " progress event requests a fresh Home frame")
     T.eq(home.widgetCache, nil, version .. " progress events invalidate the visible Home widget")
@@ -566,7 +557,7 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
 
 end
 
-local Progress = assert(loadfile(path .. "/achievements.lua"))()
+local Progress = assert(loadfile(path .. "/features/achievements.lua"))()
 local context = { save = { flags = { EVENT_SS_ANNE_LEFT = true,
   EVENT_GOT_HELIX_FOSSIL = true } }, flag = function(id) return id == 99 end }
 T.eq(Progress.rowState({ mapId = "SS_ANNE_1F" }, 2, context), "unavailable", "departed ship items are not impossible goals")

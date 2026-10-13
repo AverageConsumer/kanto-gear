@@ -1,12 +1,10 @@
+local Inspect = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))()
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
-local sourceFile = assert(io.open(path .. "/main.lua", "rb"))
-local source = sourceFile:read("*a")
-sourceFile:close()
-source = source:gsub("\r\n", "\n")
-local Summary = assert(loadfile(path .. "/summary.lua"))()
+local source = assert(loadfile(path .. "/tests/support/source.lua"))()(path)
+local Summary = assert(loadfile(path .. "/models/summary.lua"))()
 local gen1Summary = Summary.view({ screenId = "SummaryMenu", page = 2,
   mon = { species = "MON", level = 5, hp = 18, exp = 125,
     stats = { hp = 20, attack = 10, defense = 11, speed = 12, special = 13 },
@@ -38,7 +36,7 @@ T.check(not source:find("bottomSummary", 1, true),
 T.check(not source:find("idleSummary", 1, true),
   "field summaries leave the companion page in place")
 for _, module in ipairs({
-  "src.core.Strings", "src.world.FieldDefaults", "src.inventory.Badges",
+  "src.world.FieldDefaults", "src.inventory.Badges",
   "src.pokemon.Growth", "src.battle.TypeChart",
 }) do
   T.check(not source:find(module, 1, true),
@@ -65,17 +63,13 @@ T.check(source:find("local dark = selected and not disabled", 1, true),
   "disabled moves never reuse the selected visual state")
 T.check(source:find("elseif not disabled then\n        submit(\"move\"", 1, true),
   "disabled moves cannot be submitted from the companion touch UI")
+local core = assert(loadfile(path .. "/tests/support/core.lua"))()
 local upvalues = debug.getinfo(entry, "u").nups
-local firstUpvalue = debug.getupvalue(entry, 1)
+local firstUpvalue = Inspect.inspect(entry, 1)
 if firstUpvalue == "_ENV" then upvalues = upvalues - 1 end
 T.check(upvalues <= 60,
   "Kanto Gear stays within LuaJIT's 60-upvalue function limit")
-local fit, prepareBattleSnapshot
-for index = 1, debug.getinfo(entry, "u").nups do
-  local name, value = debug.getupvalue(entry, index)
-  if name == "fit" then fit = value
-  elseif name == "prepareBattleSnapshot" then prepareBattleSnapshot = value end
-end
+local fit, prepareBattleSnapshot = core.fit, core.prepareBattleSnapshot
 T.check(type(fit) == "function", "Kanto Gear text fitter is available")
 T.check(type(prepareBattleSnapshot) == "function",
   "Kanto Gear battle focus synchronizer is available")
@@ -113,11 +107,7 @@ T.eq(fit("WITHDRAW <PK><MN>", 22), "WITHDRAW PKMN",
   "Game Boy Pokémon glyph tokens use the companion font abbreviation")
 T.eq(fit("MORN", 1, false), "M",
   "compact labels keep their first glyph instead of an ellipsis")
-local methodLines
-for index = 1, debug.getinfo(entry, "u").nups do
-  local name, value = debug.getupvalue(entry, index)
-  if name == "methodLines" then methodLines = value break end
-end
+local methodLines = core.methodLines
 local nonHapticSource = source:gsub("local system = love%.system", "")
 T.check(not nonHapticSource:find("love.system", 1, true),
   "device and date/time use safe facades; only haptics access the host system shim")
@@ -128,14 +118,7 @@ local method1, method2 = methodLines({
 })
 T.eq(method1, "CAMINANDO", "long translated encounter methods stay intact")
 T.eq(method2, "14-29%", "long encounter odds move to their own line")
-local theme
-for index = 1, debug.getinfo(entry, "u").nups do
-  local name, value = debug.getupvalue(entry, index)
-  if name == "THEME" then
-    theme = value
-    break
-  end
-end
+local theme = core.THEME
 T.check(theme ~= nil,
   "Kanto Gear owns a public translation-registry reference")
 local localWater = theme:localMapColor({ rows = { "~." } }, 1, 1, 4, 1)
@@ -279,7 +262,7 @@ if movesPath then
   end
   T.eq(known, total, "all imported Gen 1 moves have known details")
 end
-theme.i18n = assert(loadfile(path .. "/i18n.lua"))().new(function()
+theme.i18n = assert(loadfile(path .. "/i18n/init.lua"))().new(function()
   return { ["LEVEL UP"] = "LEVEL AUF", ["Trainer battle"] = "TRAINER-KAMPF",
     ["BADGES"] = "ORDEN", ["PP %d"] = "AP" }
 end, function() return "de" end)
@@ -326,10 +309,7 @@ T.love.system.getPowerInfo = function() return "battery", 80 end
 local function ownedHookUpvalue(chain, target)
   for _, hook in ipairs(run.loader.hooks.chains[chain] or {}) do
     if hook.owner == "kanto_gear" then
-      for index = 1, debug.getinfo(hook.callback, "u").nups do
-        local name, value = debug.getupvalue(hook.callback, index)
-        if name == target then return value end
-      end
+      return Inspect.get(hook.callback, target)
     end
   end
 end
@@ -339,13 +319,11 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 24, "Kanto Gear registers all settings including keyboard layout and automatic battle display")
+T.eq(#options, 54, "Kanto Gear registers all settings including keyboard layout and automatic battle display")
 local optionsByKey = {}
 for _, row in ipairs(options) do optionsByKey[row.key] = row end
 T.eq(optionsByKey.auto_battle_screen.default, false, "automatic battle switching is opt-in")
-T.eq(optionsByKey.auto_battle_screen.visible_if.key, "display_mode", "auto battle depends on display mode")
-T.eq(optionsByKey.auto_battle_screen.visible_if.one_of[1], "fullscreen", "auto battle supports fullscreen swap")
-T.eq(optionsByKey.auto_battle_screen.visible_if.one_of[2], "combined", "auto battle supports combined single-screen layouts")
+T.eq(optionsByKey.auto_battle_screen.visible_if, nil, "native schema leaves multi-choice visibility to Gear settings")
 T.eq(optionsByKey.language.default, "en", "language preserves English by default")
 T.eq(#optionsByKey.language.choices, 5, "language offers five built-in languages")
 T.eq(optionsByKey.language.choices[5][2], "ja", "Japanese is selectable using its standard locale code")
@@ -368,26 +346,24 @@ T.eq(optionsByKey.theme_v3.choices[10][2], "modern_dark",
   "modern dark theme is available")
 T.eq(optionsByKey.clock_source.label, "CLOCK SOURCE", "clock source is one compact choice")
 T.eq(optionsByKey.clock_source.default, "game", "Gen 2 follows its encounter clock by default")
-T.eq(optionsByKey.clock_source.choices[1][1], "GAME (GEN 2)",
-  "the game-clock choice states its generation boundary")
+T.eq(optionsByKey.clock_source.choices[1][1], "GAME CLOCK",
+  "the game-clock choice uses its current device-neutral label")
 T.eq(optionsByKey.clock_format.default, "system",
   "clock format preserves the host preference by default")
 T.eq(#optionsByKey.clock_format.choices, 3,
   "clock format can explicitly select 12 or 24 hours")
 T.eq(optionsByKey.ui_motion.label, "TRANSITIONS", "HGSS motion names its actual scope")
-T.check(optionsByKey.ui_motion.visible_if.one_of,
-  "transition settings stay out of classic themes")
-T.eq(optionsByKey.info_level.label, "INFO", "assist features use one preset")
-T.eq(#optionsByKey.info_level.choices, 3,
-  "research mode separates vanilla, enhanced, and spoiler behavior")
+T.eq(optionsByKey.ui_motion.visible_if, nil, "native settings omit unsupported multi-choice predicates")
+T.eq(optionsByKey.info_level.label, "DISCOVERY", "assist features use one preset")
+T.eq(#optionsByKey.info_level.choices, 4,
+  "discovery separates vanilla, guide, everything and custom behavior")
 T.eq(optionsByKey.info_level.choices[1][1], "VANILLA",
   "the old purist value has a clear player-facing name")
 T.eq(optionsByKey.info_level.choices[3][2], "spoiler",
   "spoiler features require an explicit research mode")
-T.check(optionsByKey.local_map.visible_if.not_one_of,
-  "the legacy area-map row stays out of HGSS themes")
+T.eq(optionsByKey.local_map.visible_if, nil, "Gear owns conditional map-setting visibility")
 T.eq(optionsByKey.display_mode.label, "DISPLAY MODE", "display modes share one entry point")
-T.eq(#optionsByKey.display_mode.choices, 3, "display mode exposes three clear families")
+T.eq(#optionsByKey.display_mode.choices, 4, "display mode includes the optional phone family")
 T.eq(optionsByKey.fullscreen_start.label, "START SCREEN", "fullscreen owns its start surface")
 T.eq(optionsByKey.fullscreen_start.visible_if.equals, "fullscreen",
   "fullscreen settings stay inside fullscreen mode")
@@ -413,15 +389,13 @@ T.eq(optionsByKey.display_target.visible_if.equals, "separate",
   "separate output stays inside separate mode")
 T.eq(optionsByKey.screen_swap.label, "QUICK SWAP (Y)", "live swapping names its control")
 T.eq(optionsByKey.screen_swap.default, false, "screen swap cannot claim Y by default")
-T.eq(optionsByKey.screen_swap.visible_if.not_equals, "fullscreen",
-  "fullscreen swap claims Y explicitly through its selected mode")
+T.eq(optionsByKey.screen_swap.visible_if, nil, "native settings omit unsupported negative predicates")
 T.eq(optionsByKey.battle_view.label, "BATTLE VIEW", "battle layout uses one setting")
 T.eq(#optionsByKey.battle_view.choices, 4, "battle view exposes four clear layouts")
-T.eq(optionsByKey.battle_view.choices[4][2], "info",
+T.eq(optionsByKey.battle_view.choices[2][2], "info",
   "battle view offers a read-only enemy information layout")
 T.eq(optionsByKey.caught_icon.label, "CAUGHT ICON", "caught marker has one clear toggle")
-T.eq(optionsByKey.trigger_tabs.label, "TRIGGER TABS", "trigger navigation is opt-in")
-T.eq(optionsByKey.trigger_tabs.default, false, "trigger navigation cannot claim controls by default")
+T.eq(optionsByKey.trigger_tabs, nil, "obsolete trigger navigation is not exposed as a setting")
 local hooks = T.record.hooks(run.loader)
 T.eq(hooks:depth("render.compose"), 1,
   "Kanto Gear uses the upstream composition seam")
@@ -487,6 +461,9 @@ T.love.joystick = { getJoysticks = function()
     end,
   } }
 end }
+run.data.pokemon.PIKACHU = {}
+for key, value in pairs(run.data.pokemon.FIXMON_A) do run.data.pokemon.PIKACHU[key] = value end
+run.data.pokemon.PIKACHU.spriteFront = "decoded-frame.png"
 local game = {
   data = run.data,
   save = {
@@ -809,11 +786,7 @@ local outputHook
 for _, hook in ipairs(run.loader.hooks.chains["render.output"] or {}) do
   if hook.owner == "kanto_gear" then outputHook = hook.callback end
 end
-local handheldReady
-for i = 1, debug.getinfo(outputHook, "u").nups do
-  local name, value = debug.getupvalue(outputHook, i)
-  if name == "displayReady" then handheldReady = value break end
-end
+local handheldReady = Inspect.get(outputHook, "displayReady")
 T.eq(handheldReady, true,
   "a rendered handheld frame stays clean until its contents change")
 run.loader.modOptions.kanto_gear = { theme_v3 = "kanto", display_mode = "separate" }
@@ -856,7 +829,7 @@ do
   end
   local touchEvent
   for i = 1, debug.getinfo(composeHook, "u").nups do
-    local name, value = debug.getupvalue(composeHook, i)
+    local name, value = Inspect.inspect(composeHook, i)
     if name == "touchEvent" then touchEvent = value break end
   end
   T.check(type(touchEvent) == "function",
@@ -865,7 +838,7 @@ do
   -- the host consume the previous confirmation before the next gesture.
   local touchRuntime
   for i = 1, debug.getinfo(touchEvent, "u").nups do
-    local name, value = debug.getupvalue(touchEvent, i)
+    local name, value = Inspect.inspect(touchEvent, i)
     if name == "displayRuntime" then touchRuntime = value end
   end
   local function settledTouch(event)
@@ -893,46 +866,48 @@ do
     { species = "PIKACHU", nickname = "FOUR", level = 8 },
     { species = "PIKACHU", nickname = "FIVE", level = 9 },
   } }
-  local pcRoot = { screenId = "BoxMenu", index = 1, items = {
+  local chooseNative = assert(loadfile(path .. "/tests/support/menu_touch.lua"))()(touchRuntime, settledTouch)
+  local pcRoot = { screenId = "BoxMenu", index = 1, update = function() end, items = {
     { label = "WITHDRAW <PK><MN>" }, { label = "DEPOSIT <PK><MN>" },
     { label = "RELEASE <PK><MN>" }, { label = "CHANGE BOX" },
     { label = "PRINT BOX" }, { label = "SEE YA!" },
   } }
   game.stack.states = { world, pcRoot }
-  settledTouch("tap,120,25")
+  chooseNative(1)
   T.eq(pcRoot.index, 1,
     "wide PC root rows keep right-side touch on the native first item")
   T.eq(pressed, "a", "PC root touch confirms through native input")
   pressed = nil
-  settledTouch("tap,120,128")
+  settledTouch("tap,136,134") -- Use the visible Next button in the classic theme.
+  chooseNative(6)
   T.eq(pcRoot.index, 6,
     "Yellow's sixth PC root row remains touchable")
   T.eq(pressed, "a", "sixth PC root row confirms through native input")
 
-  local deposit = { kind = "pc_box_deposit", index = 1, items = {
+  local deposit = { kind = "pc_box_deposit", index = 1, update = function() end, items = {
     { value = 1 }, { value = 2 }, { value = 3 }, { value = 4 },
   } }
   game.stack.states = { world, pcRoot, deposit }
   pressed = nil
-  settledTouch("tap,120,40")
+  chooseNative(1)
   T.eq(deposit.index, 1,
-    "deposit mirrors the native vertical list instead of a party grid")
+    "deposit's shared party card targets the original native slot")
   T.eq(pressed, "a", "deposit touch confirms through native input")
 
-  local withdraw = { kind = "pc_box_withdraw", index = 1, items = {
+  local withdraw = { kind = "pc_box_withdraw", index = 1, update = function() end, items = {
     { value = 1 }, { value = 2 }, { value = 3 }, { value = 4 },
   } }
   game.stack.states = { world, pcRoot, withdraw }
-  settledTouch("tap,120,64")
+  chooseNative(2)
   T.eq(withdraw.index, 2,
-    "box Pokémon rows follow the native up/down cursor order")
+    "box grid retains the original native slot number")
 
-  local change = { kind = "pc_box_change", index = 5, items = {} }
+  local change = { kind = "pc_box_change", index = 5, update = function() end, items = {} }
   for i = 1, 12 do
     change.items[i] = { label = "BOX " .. i, right = "0/20", value = i }
   end
   game.stack.states = { world, pcRoot, change }
-  settledTouch("tap,120,35")
+  chooseNative(5)
   T.eq(change.index, 5,
     "change-box touch stays on the first visible native list row")
 
@@ -963,12 +938,12 @@ do
   game.stack.states = { world, gen1Learn, learnChoice }
   local tapFn
   for i = 1, debug.getinfo(touchEvent, "u").nups do
-    local name, value = debug.getupvalue(touchEvent, i)
+    local name, value = Inspect.inspect(touchEvent, i)
     if name == "tap" then tapFn = value break end
   end
   local choiceFn
   for i = 1, debug.getinfo(tapFn, "u").nups do
-    local name, value = debug.getupvalue(tapFn, i)
+    local name, value = Inspect.inspect(tapFn, i)
     if name == "dialogueChoice" then choiceFn = value break end
   end
   T.eq(choiceFn(), learnChoice,
@@ -1016,19 +991,12 @@ do
   end
   local readyUpvalue
   local battleUpvalue
-  for i = 1, debug.getinfo(summaryHook, "u").nups do
-    local name = debug.getupvalue(summaryHook, i)
-    if name == "displayReady" then
-      readyUpvalue = i
-    elseif name == "battle" then
-      battleUpvalue = i
-    end
-  end
+  readyUpvalue = "displayReady"; battleUpvalue = "battle"
   T.check(readyUpvalue ~= nil, "summary hook tracks companion readiness")
   T.check(battleUpvalue ~= nil, "summary hook tracks its battle snapshot")
-  local _, previousReady = debug.getupvalue(summaryHook, readyUpvalue)
-  local _, previousBattle = debug.getupvalue(summaryHook, battleUpvalue)
-  debug.setupvalue(summaryHook, readyUpvalue, true)
+  local _, previousReady = Inspect.inspect(summaryHook, readyUpvalue)
+  local _, previousBattle = Inspect.inspect(summaryHook, battleUpvalue)
+  Inspect.assign(summaryHook, readyUpvalue, true)
   game.stack.states = { world, summary }
   T.eq(run.loader.hooks:call("screen.render_visible",
     function() return true end, summary), true,
@@ -1037,7 +1005,7 @@ do
   T.eq(run.loader.hooks:call("screen.render_visible",
     function() return true end, summary), true,
     "missing battle snapshots leave the native summary visible")
-  debug.setupvalue(summaryHook, battleUpvalue, {})
+  Inspect.assign(summaryHook, battleUpvalue, {})
   local previousBattleView = run.loader.modOptions.kanto_gear.battle_view
   run.loader.modOptions.kanto_gear.battle_view = "standard"
   T.eq(run.loader.hooks:call("screen.render_visible",
@@ -1086,8 +1054,8 @@ do
     function() return false end, validParty), true,
     "FULL GEAR native-contract party menus opt into companion navigation")
   run.loader.modOptions.kanto_gear.battle_view = previousBattleView
-  debug.setupvalue(summaryHook, battleUpvalue, previousBattle)
-  debug.setupvalue(summaryHook, readyUpvalue, previousReady)
+  Inspect.assign(summaryHook, battleUpvalue, previousBattle)
+  Inspect.assign(summaryHook, readyUpvalue, previousReady)
   game.stack.states = previousStates
 end
 do
@@ -1096,15 +1064,16 @@ do
     if entry.owner == "kanto_gear" then inputHook = entry.callback end
   end
   local moveInfoUpvalue
-  for i = 1, debug.getinfo(inputHook, "u").nups do
-    if debug.getupvalue(inputHook, i) == "moveInfo" then
-      moveInfoUpvalue = i
-      break
-    end
-  end
+  moveInfoUpvalue = "moveInfo"
   T.check(moveInfoUpvalue ~= nil,
     "input hook owns the move-info overlay state")
-  debug.setupvalue(inputHook, moveInfoUpvalue, { name = "TACKLE" })
+  local previousOverlayCompanion = Inspect.get(inputHook, "companion")
+  local previousOverlayReady = Inspect.get(inputHook, "displayReady")
+  local previousOverlayBattle = Inspect.get(inputHook, "battle")
+  Inspect.assign(inputHook, "companion", { detected = function() return true end })
+  Inspect.assign(inputHook, "displayReady", true)
+  Inspect.assign(inputHook, "battle", nil)
+  Inspect.assign(inputHook, moveInfoUpvalue, { name = "TACKLE" })
   game.input = { pressQueue = { "b", "a", "b" } }
   local previousSwapPressed = swapPressed
   swapPressed = false
@@ -1112,60 +1081,28 @@ do
   swapPressed = previousSwapPressed
   T.eq(#game.input.pressQueue, 0,
     "move info consumes every input queued behind its closing B")
-  local _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
+  local _, openMoveInfo = Inspect.inspect(inputHook, moveInfoUpvalue)
   T.eq(openMoveInfo, nil, "B closes the move-info overlay")
 
-  debug.setupvalue(inputHook, moveInfoUpvalue, { name = "TACKLE" })
+  Inspect.assign(inputHook, moveInfoUpvalue, { name = "TACKLE" })
   game.input = { pressQueue = { "a", "down" } }
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
-  T.eq(#game.input.pressQueue, 0,
-    "move info consumes selection and navigation inputs")
+  _, openMoveInfo = Inspect.inspect(inputHook, moveInfoUpvalue)
+  T.eq(#game.input.pressQueue, 2,
+    "field move details preserve native selection and navigation inputs")
   T.eq(openMoveInfo.name, "TACKLE",
     "inputs other than B leave move info open")
-  debug.setupvalue(inputHook, moveInfoUpvalue, nil)
+  Inspect.assign(inputHook, moveInfoUpvalue, nil)
+
+  Inspect.assign(inputHook, "companion", previousOverlayCompanion)
+  Inspect.assign(inputHook, "displayReady", previousOverlayReady)
+  Inspect.assign(inputHook, "battle", previousOverlayBattle)
 
   local battleUpvalue
-  for i = 1, debug.getinfo(inputHook, "u").nups do
-    if debug.getupvalue(inputHook, i) == "battle" then
-      battleUpvalue = i
-      break
-    end
-  end
+  battleUpvalue = "battle"
   T.check(battleUpvalue ~= nil, "input hook owns the battle snapshot")
-  local _, previousBattle = debug.getupvalue(inputHook, battleUpvalue)
-  debug.setupvalue(inputHook, battleUpvalue, {
-    prompt = "moves", moveIndex = 1,
-    moves = { { id = "TACKLE", name = "TACKLE" } },
-  })
-  game.input = { pressQueue = {} }
-  swapPressed, infoPressed = false, true
-  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
-  T.eq(openMoveInfo.id, "TACKLE", "X opens the selected move details")
-  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
-  T.eq(openMoveInfo.id, "TACKLE", "holding X does not toggle move details")
-  infoPressed = false
-  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  infoPressed = true
-  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
-  T.eq(openMoveInfo.id, "TACKLE", "only B closes move details")
-  game.input = { pressQueue = { "b" } }
-  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
-  T.eq(openMoveInfo, nil, "B closes details opened with X")
-  infoPressed = false
-  swapPressed = previousSwapPressed
-  debug.setupvalue(inputHook, battleUpvalue, previousBattle)
-
-  local function upvalue(fn, target)
-    for i = 1, debug.getinfo(fn, "u").nups do
-      local name, value = debug.getupvalue(fn, i)
-      if name == target then return value end
-    end
-  end
+  local _, previousBattle = Inspect.inspect(inputHook, battleUpvalue)
+  local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
   local displayRuntime = upvalue(inputHook, "displayRuntime")
   local hgssRuntime = upvalue(inputHook, "hgssRuntime")
   T.check(type(displayRuntime.learningMoveInfo) == "function",
@@ -1175,7 +1112,7 @@ do
   local oldTackle = game.data.moves.TACKLE
   game.data.moves.TACKLE = { name = "TACKLE", power = 35,
     accuracy = 95, pp = 35, type = "NORMAL" }
-  debug.setupvalue(inputHook, battleUpvalue, {
+  Inspect.assign(inputHook, battleUpvalue, {
     player = {}, moves = { { id = "TACKLE", pp = 30, maxPp = 35 } },
   })
   local battleMove = hgssRuntime.battleMon().moves[1]
@@ -1186,17 +1123,11 @@ do
   T.eq(battleMove.powerText, "--",
     "HGSS battle cards keep status move power empty")
   local summaryReadyUpvalue
-  for i = 1, debug.getinfo(hgssRuntime.remapSummaryMovesInput, "u").nups do
-    if debug.getupvalue(hgssRuntime.remapSummaryMovesInput, i)
-        == "displayReady" then
-      summaryReadyUpvalue = i
-      break
-    end
-  end
+  summaryReadyUpvalue = "displayReady"
   T.check(summaryReadyUpvalue ~= nil,
     "HGSS Gen 1 summary navigation observes companion readiness")
-  local _, previousSummaryReady = debug.getupvalue(
-    hgssRuntime.remapSummaryMovesInput, summaryReadyUpvalue)
+  local _, previousSummaryReady = Inspect.inspect(
+    displayRuntime.remapBattleSummaryInput, summaryReadyUpvalue)
   local previousTheme = run.loader.modOptions.kanto_gear.theme_v3
   local previousMoveDetails = run.loader.modOptions.kanto_gear.move_details
   local previousBattleView = run.loader.modOptions.kanto_gear.battle_view
@@ -1224,27 +1155,30 @@ do
   run.loader.modOptions.kanto_gear.battle_view = "gear"
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "theme_v3" })
-  debug.setupvalue(hgssRuntime.remapSummaryMovesInput,
+  Inspect.assign(displayRuntime.remapBattleSummaryInput,
     summaryReadyUpvalue, true)
+  Inspect.assign(inputHook, "battle", { player = {}, moves = summaryMon.moves })
   game.stack.states = { world, rawSummaryBattle, summaryState }
+  local inspection = displayRuntime.summaryContext(summaryState)
+  inspection.page = 2
   game.input = { pressQueue = { "down" } }
-  hgssRuntime.remapSummaryMovesInput(game)
-  T.eq(summaryState.moveIndex, 2, "GEAR moves focus in its owned summary")
+  displayRuntime.remapBattleSummaryInput(game)
+  T.eq(inspection.moveIndex, 2, "GEAR moves focus in its owned summary")
   T.eq(#game.input.pressQueue, 0, "GEAR consumes its summary directional input")
   run.loader.modOptions.kanto_gear.battle_view = "full"
-  hgssRuntime.remapSummaryMovesInput(game)
-  T.eq(summaryState.moveIndex, 2,
+  displayRuntime.remapBattleSummaryInput(game)
+  T.eq(inspection.moveIndex, 2,
     "owned HGSS Gen 1 battle summary moves focus with the D-pad")
   T.eq(hgssRuntime.summaryMove(summaryState, 2).id, "FIX_SUMMARY_2",
     "Gen 1 summary exposes the focused move to the shared detail path")
   game.input.pressQueue = { "a" }
-  hgssRuntime.remapSummaryMovesInput(game)
+  displayRuntime.remapBattleSummaryInput(game)
   T.eq(#game.input.pressQueue, 0,
     "owned HGSS Gen 1 summary consumes confirm input")
-  _, openMoveInfo = debug.getupvalue(inputHook, moveInfoUpvalue)
+  _, openMoveInfo = Inspect.inspect(inputHook, moveInfoUpvalue)
   T.eq(openMoveInfo and openMoveInfo.id, "FIX_SUMMARY_2",
     "A opens the focused Gen 1 summary move description")
-  debug.setupvalue(inputHook, moveInfoUpvalue, nil)
+  Inspect.assign(inputHook, moveInfoUpvalue, nil)
   summaryMon.moves = previousMoves
   game.data.moves.FIX_SUMMARY_2 = oldSecondMove
   game.stack.states = previousStates
@@ -1254,10 +1188,10 @@ do
   run.loader.modOptions.kanto_gear.battle_view = previousBattleView
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "theme_v3" })
-  debug.setupvalue(hgssRuntime.remapSummaryMovesInput,
+  Inspect.assign(displayRuntime.remapBattleSummaryInput,
     summaryReadyUpvalue, previousSummaryReady)
   game.data.moves.TACKLE = oldTackle
-  debug.setupvalue(inputHook, battleUpvalue, previousBattle)
+  Inspect.assign(inputHook, battleUpvalue, previousBattle)
   previousStates = game.stack.states
   local learnMon = {
     species = "PIKACHU",
@@ -1313,14 +1247,13 @@ do
     "Gen 2 move learning inspects the highlighted old move")
   game.stack.states = previousStates
 
-  local pollTriggerTabs = upvalue(inputHook, "pollTriggerTabs")
-  local changePage = upvalue(pollTriggerTabs, "changePage")
-  local refreshTools = upvalue(changePage, "refreshTools")
-  local api = upvalue(refreshTools, "mod")
   local composeHook
   for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
     if entry.owner == "kanto_gear" then composeHook = entry.callback end
   end
+  local changePage = upvalue(upvalue(upvalue(composeHook, "touchEvent"), "tap"), "changePage")
+  local refreshTools = upvalue(changePage, "refreshTools")
+  local api = upvalue(refreshTools, "mod")
   local previousTheme = run.loader.modOptions.kanto_gear.theme_v3
   run.loader.modOptions.kanto_gear.theme_v3 = "hgss"
   run.loader.events:emit("mod.options_changed",
@@ -1564,8 +1497,8 @@ do
                      pollTouch = function() return nil end,
                      push = function() return true end },
   })
-  T.eq(promptSprites, beforeChoice,
-    "Gen 1 and Gen 2 move-learning choices share the normal dialogue layout")
+  T.eq(promptSprites, beforeChoice + 1,
+    "move-learning choices retain the identified Pokemon in the shared prompt")
   PromptSprites.path = promptSpritePath
   T.love.timer.getTime = getTime
   game.stack.states = previousStates
@@ -1581,6 +1514,7 @@ run.loader.events:emit("world.stepped", { mapId = "FIX_ROUTE" })
 -- An animated sprite mod may resolve a menu front pic to a format LÖVE cannot
 -- decode directly. Use the shared image-data loader before the icon fallback.
 local Sprites = require("src.pokemon.Sprites")
+local navigate = Inspect.get(Inspect.get(ownedHookUpvalue("render.compose", "touchEvent"), "tap"), "changePage")
 local Assets = require("src.render.Assets")
 local spritePath = Sprites.path
 local imageData = Assets.imageData
@@ -1641,6 +1575,7 @@ PaletteFX.monPal = function(...)
 end
 GbcPalette.available = function() return true end
 for _ = 1, 32 do
+  navigate(1)
   trigger.right = 0.8
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   trigger.right = 0
@@ -1675,6 +1610,7 @@ Sprites.path = function(_, _, _, opts)
   return "decoded-frame.png", false
 end
 for _ = 1, 32 do
+  navigate(1)
   trigger.right = 0.8
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   trigger.right = 0
@@ -1695,6 +1631,7 @@ Assets.imageData = function(path)
   return imageData(path)
 end
 for _ = 1, 32 do
+  navigate(1)
   trigger.right = 0.8
   run.loader.hooks:call("input.step", function() end, game, 1 / 60)
   trigger.right = 0
@@ -1763,7 +1700,9 @@ do
     return draw(image, quad, x, y, ...)
   end
   run.loader.events:emit("game.ready", { game = game })
+  local changePage = Inspect.get(Inspect.get(ownedHookUpvalue("render.compose", "touchEvent"), "tap"), "changePage")
   for _ = 1, 32 do
+    changePage(1)
     trigger.right = 0.8
     run.loader.hooks:call("input.step", function() end, game, 1 / 60)
     trigger.right = 0
@@ -1794,22 +1733,33 @@ do
     "owned Gen 1 badges use the native Trainer Card palette")
 end
 
+run.loader.modOptions.kanto_gear.screen_swap = true
+swapPressed = false
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+swapPressed = true
+run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+swapPressed = false
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), true,
   "the screen-swap action enables swapped output while connected")
 local swappedRenderer = { uiAnchors = { { anchor = "topright" } } }
+local preservedAnchors = swappedRenderer.uiAnchors
 run.loader.hooks:call("render.compose", function() return false end,
   swappedRenderer, {
     secondScreen = { detected = function() return displayDetected end,
                      pollTouch = function() return nil end,
                      push = function() return true end },
   })
-T.eq(swappedRenderer.uiAnchors, nil,
-  "screen swap keeps dynamic menus inside the uncropped game viewport")
+T.eq(swappedRenderer.uiAnchors, preservedAnchors,
+  "screen swap preserves the native renderer's UI anchors")
 displayDetected = false
+local beforeDisconnectTime = T.love.timer.getTime
+local disconnectedAt = beforeDisconnectTime() + 0.06
+T.love.timer.getTime = function() return disconnectedAt end
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
-  "disconnect bypasses swapped output immediately")
+  "disconnect bypasses swapped output after the shared 50ms detection probe")
+T.love.timer.getTime = beforeDisconnectTime
 displayDetected = true
 run.loader.modOptions.kanto_gear.screen_swap = false
 run.loader.events:emit("mod.options_changed",

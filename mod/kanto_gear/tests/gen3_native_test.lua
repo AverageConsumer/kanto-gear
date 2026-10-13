@@ -26,7 +26,7 @@ local raw = { generation = 3, phase = "field", session = s,
   save = Schema.toSaveTable(s), data = { maps = maps, gen3Encounters = encounters } }
 require("src.core.game3.runtime").session = s
 require("src.mods.Gen3Compat").bind(function() return raw end)
-local Gen3 = assert(loadfile(root .. "/gen3.lua"))()
+local Gen3 = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/init")
 local checks = 0
 local function check(ok, label)
   assert(ok, label)
@@ -59,7 +59,7 @@ for id, def in pairs(adapter.data.pokemon) do
   check(def.dexEntry.heightM == entry.height / 10, "internal-ID dex height: " .. id)
   check(def.dexEntry.weightKg == entry.weight / 10, "internal-ID dex weight: " .. id)
 end
-local Summary = dofile(root .. "/summary.lua")
+local Summary = dofile(root .. "/models/summary.lua")
 local natureFixture = Schema.newGame({ version=edition, name="NATURE", rngSeed=2 })
 Party.giveMon(natureFixture, 1, 15)
 local natureMon = natureFixture.party[1]
@@ -113,9 +113,9 @@ check(view.ivs.spa == 31 and view.evs.spa == 252 and view.dvs == nil, "Gen3 IVs 
 check(view.gender == P.gender(mon.species, mon.personality), "native gender rules")
 check(view.ability == P.abilityId(mon.species, mon.personality), "native ability rules")
 check(view.shiny == P.isShiny(mon), "native shiny rules")
-local Summary = assert(loadfile(root .. "/summary.lua"))()
+local Summary = assert(loadfile(root .. "/models/summary.lua"))()
 check(Summary.view({ mon = view, page = 1 }, { save = save, data = adapter.data }) ~= nil, "normalized mon accepted by shared summary")
-local Habitats = assert(loadfile(root .. "/habitats.lua"))()
+local Habitats = assert(loadfile(root .. "/models/habitats.lua"))()
 check(type(Habitats.methods(save, adapter.data.items, false)) == "table", "normalized mon accepted by habitat helper")
 
 s.storage.boxes[14].mons[30] = mon

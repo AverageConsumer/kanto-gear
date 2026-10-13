@@ -1,11 +1,5 @@
 return function(T, display)
-  local function up(fn,key)
-    for i=1,debug.getinfo(fn,"u").nups do
-      local name,value=debug.getupvalue(fn,i)
-      if name==key then return value end
-    end
-    error("missing upvalue "..key)
-  end
+  local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
   local avatars=require("src.online.union.Avatars")
   local GameVersion=require("src.core.GameVersion")
   local CacheFs=require("src.import.CacheFs")

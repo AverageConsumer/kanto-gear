@@ -5,9 +5,7 @@ return function(T, display, game, generation, run)
   local savedA, savedB = game.data.moves.FIX_MOVE_A, game.data.moves.PP_FIX
   game.data.moves.FIX_MOVE_A = { name = "TACKLE", type = "NORMAL", power = 35, accuracy = 95, pp = 35 }
   game.data.moves.PP_FIX = { name = "GROWL", type = "NORMAL", power = 0, accuracy = 100, pp = 40 }
-  local function up(fn,key)
-    for i=1,debug.getinfo(fn,"u").nups do local k,v=debug.getupvalue(fn,i);if k==key then return v end end
-  end
+  local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
   local api = up(display.saveHome,"mod")
   local oldTap, keys = api.input.tap, {}
   api.input.tap = function(_,target,key) T.eq(target,game,"move touch targets the original game");keys[#keys+1]=key end

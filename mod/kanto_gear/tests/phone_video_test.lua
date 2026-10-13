@@ -1,5 +1,5 @@
 local root = os.getenv("KANTO_GEAR_MOD_PATH") or "mod/kanto_gear"
-local Video = assert(loadfile(root .. "/phone_video.lua"))()
+local Video = assert(loadfile(root .. "/phone/video.lua"))()
 local function u16(s, at) local a,b = s:byte(at, at + 1); return a * 256 + b end
 local function u32(s, at) return u16(s, at) * 65536 + u16(s, at + 2) end
 local function decode(body, previous)

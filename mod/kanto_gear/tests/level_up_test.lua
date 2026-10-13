@@ -1,7 +1,7 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 local T = require("tests.modkit")
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local LevelUp = assert(loadfile(path .. "/level_up.lua"))()
+local LevelUp = assert(loadfile(path .. "/core/level_up.lua"))()
 local tracker = LevelUp.new()
 local mon = { species = "FIXMON_A", level = 5, hp = 1,
   stats = { hp = 20, attack = 10, defense = 9, speed = 8, special = 12 } }

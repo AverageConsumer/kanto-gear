@@ -12,10 +12,10 @@ end
 
 local catalogs = {}
 for _, language in ipairs({ "de", "es", "fr", "ja" }) do
-  catalogs[language] = loadModule("lang/" .. language .. ".lua")
+  catalogs[language] = loadModule("i18n/catalogs/" .. language .. ".lua")
 end
 
-local I18N = loadModule("i18n.lua")
+local I18N = loadModule("i18n/init.lua")
 local selected = "de"
 local i18n = I18N.new(function(language) return catalogs[language] end,
   function() return selected end)
@@ -111,7 +111,7 @@ end
 -- exercised by the preview matrix. Game-provided values never enter this API.
 local requested = {}
 local mainSource
-for _, filename in ipairs({ "main.lua", "hgss.lua", "achievements_ui.lua", "notes_ui.lua", "notes.lua", "pss_ui.lua" }) do
+for _, filename in ipairs({ "main.lua", "ui/base/init.lua", "ui/features/achievements.lua", "ui/features/notes.lua", "features/notes.lua", "ui/features/pss.lua" }) do
   local file = assert(io.open(root .. "/" .. filename, "rb"))
   local source = file:read("*a")
   file:close()
@@ -131,9 +131,8 @@ for _, filename in ipairs({ "main.lua", "hgss.lua", "achievements_ui.lua", "note
 end
 
 -- Every translated glyph must survive the classic renderer as well as HGSS.
-local font = assert(loadstring("return " .. assert(mainSource:match("local FONT = (%b{})"))))()
-local normalization = assert(mainSource:match("(local function glyphList.-)local function clean"))
-local normalize = assert(loadstring("local FONT = ...; " .. normalization .. " return normalize"))(font)
+local core = assert(loadfile(root .. "/tests/support/core.lua"))()
+local font, normalize = core.FONT, core.normalize
 for code, catalog in pairs(catalogs) do
   local characters = {}
   for _, value in pairs(catalog) do
@@ -157,12 +156,7 @@ end
 requested["NO SPACE"] = true
 
 -- Shared dynamic arrays are not visible to the literal-callsite scan.
-local entry = assert(loadfile(root .. "/main.lua"))()
-local theme
-for index = 1, debug.getinfo(entry, "u").nups do
-  local name, value = debug.getupvalue(entry, index)
-  if name == "THEME" then theme = value break end
-end
+local theme = assert(loadfile(root .. "/tests/support/core.lua"))().THEME
 for _, effects in ipairs({ theme.moveEffects, theme.moveSpecial }) do
   for _, lines in pairs(effects) do
     for _, key in ipairs(lines) do requested[key] = true end

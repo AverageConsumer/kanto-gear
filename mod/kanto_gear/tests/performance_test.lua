@@ -1,7 +1,7 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 local T = require("tests.modkit")
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Performance = assert(loadfile(path .. "/performance.lua"))()
+local Performance = assert(loadfile(path .. "/core/performance.lua"))()
 local now, reads, lines = 0, 0, {}
 local function clock() reads = reads + 1; return now end
 local p = Performance.new(clock, function(line) lines[#lines + 1] = line end, false)

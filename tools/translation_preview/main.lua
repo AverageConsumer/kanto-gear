@@ -18,13 +18,13 @@ local function glyphs(value)
 end
 function love.load()
   local G = love.graphics
-  local fontGlyphs = assert(loadfile(root .. "/mod/kanto_gear/hgss_font_glyphs.lua"))()
+  local fontGlyphs = assert(loadfile(root .. "/mod/kanto_gear/ui/fonts/glyphs.lua"))()
   local function imageFont(name)
     local data = love.filesystem.newFileData(read(root .. "/mod/kanto_gear/" .. name), name)
     local font = G.newImageFont(love.image.newImageData(data), fontGlyphs)
     font:setFilter("nearest", "nearest"); return font
   end
-  local Fonts = assert(loadfile(root .. "/mod/kanto_gear/translation_fonts.lua"))()
+  local Fonts = assert(loadfile(root .. "/mod/kanto_gear/i18n/fonts.lua"))()
   local fonts = Fonts.new(setmetatable({ newFont = function(path, ...)
     return G.newFont(love.filesystem.newFileData(read(path), path), ...)
   end }, { __index = G }), error)
@@ -32,14 +32,14 @@ function love.load()
   local file, size = source:match('mod.content.font:register%("ttf", { file = mod.assets:path%("([^"]+)"%), size = (%d+)')
   assert(file and size, "generated package declares its font")
   fonts:bind({ file = pack .. "/" .. file, size = tonumber(size) })
-  local base, small, large = imageFont("hgss_font.png"), imageFont("hgss_small_font.png"), imageFont("hgss_large_font.png")
+  local base, small, large = imageFont("ui/fonts/hgss_font.png"), imageFont("ui/fonts/hgss_small_font.png"), imageFont("ui/fonts/hgss_large_font.png")
   assert(fonts:select(base, "Lestat") == base, "Latin nickname keeps its original font")
-  local H = assert(loadfile(root .. "/mod/kanto_gear/hgss.lua"))()({
+  local H = assert(loadfile(root .. "/mod/kanto_gear/ui/init.lua"))()({
     graphics = G, font = base, smallFont = small, largeFont = large,
     translationFonts = fonts, glyphs = glyphs,
     color = function(c) G.setColor(c) end,
     box = function(mode, x, y, w, h, c) G.setColor(c); G.rectangle(mode, x, y, w, h) end,
-  })
+  }, function(name) return read(root .. "/mod/kanto_gear/" .. name) end)
   local catalogs = {}
   for _, name in ipairs({ "species_names", "item_names", "move_names", "landmarks",
       "species_kinds", "trainer_names", "trainer_class_names", "type_names", "status_labels",
@@ -50,11 +50,12 @@ function love.load()
   local canvas = G.newCanvas(240, 216, { dpiscale = 1 }); canvas:setFilter("nearest", "nearest")
   -- Exercise the real bitmap helpers as well: locations pass through these
   -- before reaching HGSS, and classic themes use their drawing path directly.
-  local main = read(root .. "/mod/kanto_gear/main.lua")
-  local helpers = assert(main:match('(local FONT = {.-)local function outline'))
-  local legacyTheme = {}
-  local legacy = assert(loadstring('local G, THEME, WIDTH = ...\n' .. helpers
-    .. '\nreturn {text=text, centered=centered, fit=fit, clean=clean}'))(G, legacyTheme, 160)
+  local function loadCore(name, ...)
+    return assert(loadfile(root .. "/mod/kanto_gear/" .. name .. ".lua"))()(...)
+  end
+  local legacy = loadCore("core/init", loadCore)
+  local legacyTheme = legacy.THEME
+  legacy.render.G = G
   legacyTheme.translationFonts = fonts
   legacyTheme.style, legacyTheme.hgss = "hgss", H
   local translatedName = assert(catalogs.species_names.PIKACHU)
@@ -127,7 +128,7 @@ function love.load()
       end
     end
   end
-  local Notes = assert(loadfile(root .. "/mod/kanto_gear/notes.lua"))()
+  local Notes = assert(loadfile(root .. "/mod/kanto_gear/features/notes.lua"))()
   local notes = Notes.new({ measure = function(v) return H:partyInfoWidth(v) end })
   for _, value in ipairs({ "Lestat / " .. translatedName, string.rep("W", 20) .. translatedName,
       translatedName .. string.rep("i", 60), string.rep(translatedName, 15) }) do

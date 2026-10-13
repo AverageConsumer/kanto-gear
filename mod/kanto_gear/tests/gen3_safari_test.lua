@@ -1,12 +1,7 @@
 -- Actual native commands and Pokeblock Case input/consumption, through common touch pages.
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local a = display.gen3
   local Battle, U = a.Battle, a.BattleUI
@@ -41,13 +36,13 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
           T.eq(model.actions[2].label, "POKéBLOCK", "Emerald shows its actual Pokeblock command")
           T.eq(model.actions[3].label, "GO NEAR", "Emerald shows its actual approach command")
         end
-        local renderer = mode == "gear" and "battleSafari" or "battleFullSafari"
+        local renderer = mode == "full" and "battleFullSafari" or "battleSafari"
         local captured, draw = nil, H[renderer]
         H[renderer] = function(self, value, ...) captured = value; return draw(self, value, ...) end
         display.drawContents(); H[renderer] = draw
         T.eq(captured.actions[index].kind, id, "rendering and touch use the same shared model")
         local x, y, w, h = display.SafariPage.rect(index)
-        if mode ~= "gear" then
+        if mode == "full" then
           local r=H.fullBattleActions[index]; x,y,w,h=r.x,r.y,r.w,r.h
         end
         tap((x + w / 2) / 1.5, (y + h / 2) / 1.5)

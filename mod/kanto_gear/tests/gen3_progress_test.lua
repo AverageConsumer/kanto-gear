@@ -16,14 +16,14 @@ local raw = { generation = 3, phase = "field", session = session, data = {
 raw.save = Schema.toSaveTable(session)
 require("src.core.game3.runtime").session = session
 require("src.mods.Gen3Compat").bind(function() return raw end)
-local adapter = dofile(root .. "/gen3.lua").new(raw)
+local adapter = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/init").new(raw)
 local Space, Flags = adapter.Space, adapter.Flags
 Space.bundle = { scripts = dofile(cacheRoot .. "/scripts/scripts.lua"), events = dofile(cacheRoot .. "/scripts/events.lua"),
   text = dofile(cacheRoot .. "/scripts/text.lua") }
 Space.active = false
-local Model = dofile(root .. "/gen3_progress.lua")
+local Model = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/progress")
 local model = Model.new(adapter)
-local Progress = dofile(root .. "/achievements.lua")
+local Progress = dofile(root .. "/features/achievements.lua")
 local Json = require("src.import.canonical_json")
 local before = Json.encode(Schema.toSaveTable(session))
 local checks = 0

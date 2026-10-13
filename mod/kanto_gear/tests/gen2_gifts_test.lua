@@ -1,14 +1,8 @@
 local T = require("tests.modkit")
 local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Gifts = assert(loadfile(root .. "/gen2_gifts.lua"))()
-local Progress = assert(loadfile(root .. "/achievements.lua"))()
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-  error("missing upvalue " .. key)
-end
+local Gifts = assert(loadfile(root .. "/features/gen2_gifts.lua"))()
+local Progress = assert(loadfile(root .. "/features/achievements.lua"))()
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function reward(event, item)
   return { { op = "checkevent", event = event }, { op = "iftrue", script = "DONE" },
     { op = "verbosegiveitem", item = item }, { op = "iffalse", script = "DONE" },

@@ -1,7 +1,7 @@
 local T = require("tests.modkit")
 local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Page = assert(loadfile(root .. "/region_map_page.lua"))()
-local Legacy = assert(loadfile(root .. "/legacy_region.lua"))()
+local Page = assert(loadfile(root .. "/ui/pages/region_map.lua"))()
+local Legacy = assert(loadfile(root .. "/adapters/gen1_2/region.lua"))()
 for _, size in ipairs({ {160,128}, {160,144}, {192,144}, {224,120} }) do
   local target = { id = "town", region = "test", name = "TOWN", flyPoint = true, flyable = true }
   local model = { key = "test", width = size[1], height = size[2], playerX = 30, playerY = 40,

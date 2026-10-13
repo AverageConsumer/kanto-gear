@@ -1,5 +1,5 @@
-local Pickups = assert(loadfile("mod/kanto_gear/pickup_state.lua"))()
-local Progress = assert(loadfile("mod/kanto_gear/achievements.lua"))()
+local Pickups = assert(loadfile("mod/kanto_gear/core/pickup_state.lua"))()
+local Progress = assert(loadfile("mod/kanto_gear/features/achievements.lua"))()
 local checks = 0
 local function eq(actual, expected, label)
   checks = checks + 1

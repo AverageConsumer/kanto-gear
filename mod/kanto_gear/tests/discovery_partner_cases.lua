@@ -1,6 +1,6 @@
 -- Exercise separately disclosed partner facts through the actual shared model.
 return function(T, path, Summary, state, model, H, Page, game)
-  local Policy = assert(loadfile(path .. "/discovery.lua"))()
+  local Policy = assert(loadfile(path .. "/core/discovery.lua"))()
   local oldMon, oldPage = state.mon, state.page
   for _, flag in ipairs({ "friendship", "genes", "training" }) do
     local policy = Policy.resolve(function(k)

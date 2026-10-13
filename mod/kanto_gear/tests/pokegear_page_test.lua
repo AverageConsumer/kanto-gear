@@ -13,7 +13,7 @@ package.loaded["src.core.Strings"] = setmetatable({}, { __call = function(_, v) 
 package.loaded["src.core.gen2.Clock"] = { weekdayName = function() return "SUNDAY" end }
 package.loaded["src.core.gen2.Phone"] = { mapHasService = function() return true end }
 
-local Page = assert(loadfile(root .. "/pokegear_page.lua"))()
+local Page = assert(loadfile(root .. "/ui/pages/pokegear.lua"))()
 
 local log = {}
 local native = setmetatable({

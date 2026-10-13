@@ -1,14 +1,5 @@
 return function(T, run, display)
-  local function up(fn, key, value, replace)
-    for i = 1, debug.getinfo(fn, "u").nups do
-      local name, current = debug.getupvalue(fn, i)
-      if name == key then
-        if replace then debug.setupvalue(fn, i, value) end
-        return current
-      end
-    end
-    error("missing upvalue " .. key)
-  end
+  local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
   local game = up(display.explorerModel, "game")
   local compat = up(display.explorerModel, "compat")
   local definitions = compat.isGen2() and game.data.gen2Maps or game.data.maps

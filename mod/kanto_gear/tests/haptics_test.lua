@@ -20,16 +20,7 @@ local run = T.sdk.loadMod(assert(os.getenv("KANTO_GEAR_MOD_PATH")), {
 })
 Loader._api = nativeApi
 T.eq(run.mod.state, "loaded", "complete mod loads with haptics")
-local function upvalue(fn, target, replacement, set)
-  for index = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, index)
-    if name == target then
-      if set then debug.setupvalue(fn, index, replacement) end
-      return value
-    end
-  end
-  error("missing upvalue " .. target)
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function hook(name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end

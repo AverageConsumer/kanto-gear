@@ -1,12 +1,7 @@
 -- Actual ROM catalogues and native handlers behind the shared Gen 3 Dex pages.
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   -- The headless SDK omits this standard LÖVE primitive used by the trace.
   love.graphics.setLineStyle = love.graphics.setLineStyle or function() end

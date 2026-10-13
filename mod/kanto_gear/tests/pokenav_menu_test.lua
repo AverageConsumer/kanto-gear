@@ -23,8 +23,8 @@ package.loaded["src.ui.game3.rse.pokenav.init"] = { active = function() return r
 local rsShell
 package.loaded["src.ui.game3.rs.pokenav.init"] = { active = function() return rsShell end }
 
-local UI = assert(loadfile(root .. "/gen3_ui.lua"))()
-local Menu = assert(loadfile(root .. "/start_menu.lua"))()
+local UI = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/ui")
+local Menu = assert(loadfile(root .. "/adapters/start_menu.lua"))()
 local ui = UI.new({ hoenn = true }, {})
 
 -- Emerald main menu with Match Call and Ribbons

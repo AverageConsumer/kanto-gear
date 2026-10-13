@@ -26,7 +26,7 @@ local raw = { generation = 3, phase = "field", session = s,
   save = Schema.toSaveTable(s), data = { maps = maps, gen3Encounters = encounters } }
 require("src.core.game3.runtime").session = s
 require("src.mods.Gen3Compat").bind(function() return raw end)
-local Gen3 = assert(loadfile(root .. "/gen3.lua"))()
+local Gen3 = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/init")
 local checks = 0
 local function check(ok, label)
   assert(ok, label)
@@ -71,7 +71,7 @@ s.dex.national = true; adapter:refresh()
 check(adapter:dexNumber(1) == 1 and adapter:dexNumber(410) == 386, "National unlock changes numbering")
 s.dex.national = nil; adapter:refresh()
 before = Json.encode(Schema.toSaveTable(s))
-local Progress = dofile(root .. "/gen3_progress.lua").new(adapter)
+local Progress = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/progress").new(adapter)
 local total, objectives, unknown = 0, {0,0,0,0}, {}
 for id in pairs(maps) do
   total = total + 1
@@ -136,7 +136,7 @@ for _,row in ipairs(Progress:rows({"EM_BATTLE_PYRAMID_SQUARE01"})[2]) do
 end
 check(Json.encode(Schema.toSaveTable(s)) == before, "read models leave native save unchanged")
 -- Local species goals accept acquisition anywhere, including evolution.
-local Achievements = dofile(root .. "/achievements.lua")
+local Achievements = dofile(root .. "/features/achievements.lua")
 local aqua = adapter:areaMaps("EM_AQUA_HIDEOUT_1F")
 local function aquaTier()
   return Achievements.build({ { id = aqua[1], maps = aqua, name = "AQUA HIDEOUT" } }, function(ids)

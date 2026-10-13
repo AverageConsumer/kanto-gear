@@ -12,16 +12,7 @@ local game = { data = run.data, world = world,
     pokedex = { seen = {}, caught = {} } },
   stack = { states = { world }, top = function(self) return self.states[#self.states] end } }
 run.loader.events:emit("game.ready", { game = game })
-local function value(fn, key, replacement, set)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, current = debug.getupvalue(fn, i)
-    if name == key then
-      if set then debug.setupvalue(fn, i, replacement) end
-      return current
-    end
-  end
-  error("missing upvalue: " .. key)
-end
+local value = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local hook
 for _, entry in ipairs(run.loader.hooks.chains["input.step"]) do
   if entry.owner == "kanto_gear" then hook = entry.callback end

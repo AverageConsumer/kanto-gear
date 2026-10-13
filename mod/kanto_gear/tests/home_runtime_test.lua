@@ -62,12 +62,7 @@ local game = {
 }
 run.loader.events:emit("game.ready", { game = game })
 
-local function upvalue(fn, target)
-  for index = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, index)
-    if name == target then return value end
-  end
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 
 local inputHook
 for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
@@ -127,7 +122,7 @@ do
   local renderer = theme.hgss
   local originalText, originalBar = renderer.partyInfo, renderer.expBar
   for _, code in ipairs({ "de", "es", "fr" }) do
-    local labels = assert(loadfile(path .. "/lang/" .. code .. ".lua"))()
+    local labels = assert(loadfile(path .. "/i18n/catalogs/" .. code .. ".lua"))()
     local nextLabel, value = labels.NEXT, "999999"
     local positions, bar = {}, {}
     renderer.partyInfo = function(_, text, x) positions[text] = x end
@@ -971,10 +966,7 @@ do
   local clock=20
   love.timer.getTime=function() return clock end
   local function setCompose(name,value)
-    for i=1,debug.getinfo(composeHook,"u").nups do
-      if debug.getupvalue(composeHook,i)==name then debug.setupvalue(composeHook,i,value); return end
-    end
-    error("missing compose upvalue "..name)
+    assert(loadfile(path .. "/tests/support/runtime.lua"))().set(composeHook,name,value)
   end
   local function frame()
     setCompose("dirty",false)

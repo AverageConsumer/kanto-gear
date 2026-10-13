@@ -1,5 +1,5 @@
 local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Filter = assert(loadfile(root .. "/sprite_filter.lua"))()
+local Filter = assert(loadfile(root .. "/core/sprite_filter.lua"))()
 local checks = 0
 local function check(value, message) assert(value, message); checks = checks + 1 end
 local shader, previous = { uniforms = {} }, {}

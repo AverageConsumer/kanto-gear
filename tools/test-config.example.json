@@ -1,0 +1,16 @@
+{
+  "host": "C:/path/to/gen1recomp",
+  "luajit": "luajit",
+  "gba_caches": {
+    "firered": "C:/path/to/firered/data/generated/gba",
+    "leafgreen": "C:/path/to/leafgreen/data/generated/gba",
+    "emerald": "C:/path/to/emerald/data/generated/gba",
+    "ruby": "C:/path/to/ruby/data/generated/gba",
+    "sapphire": "C:/path/to/sapphire/data/generated/gba"
+  },
+  "gen1_data": "C:/path/to/red/data/generated",
+  "gen2_data": { "crystal": "C:/path/to/crystal/data/generated" },
+  "node": "node",
+  "node_modules": "C:/path/to/node_modules",
+  "chromium": "C:/path/to/chrome.exe"
+}

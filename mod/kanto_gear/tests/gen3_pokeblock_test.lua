@@ -1,12 +1,7 @@
 -- Native Emerald ownership, cursor animations and consumption through shared touch pages.
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local a, ui, session = display.gen3, display.gen3Ui, game.session
   local Stack, Message = require("src.ui.game3.stack"), require("src.ui.game3.message")

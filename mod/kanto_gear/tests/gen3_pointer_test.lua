@@ -1,6 +1,6 @@
 local T = require("tests.modkit")
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Pointer = assert(loadfile(path .. "/gen3_pointer.lua"))()
+local Pointer = assert(loadfile(path .. "/adapters/gen3/pointer.lua"))()
 local Game3 = os.getenv("KANTO_GEAR_TEST_GAME3_SOURCE")
   and assert(loadfile(os.getenv("KANTO_GEAR_TEST_GAME3_SOURCE")))()
   or require("src.core.Game3")

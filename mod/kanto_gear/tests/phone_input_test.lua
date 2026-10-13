@@ -4,7 +4,7 @@ local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local run = T.sdk.loadMod(root, { generation = 2, data = T.fixtures.fresh() })
 T.eq(run.mod and run.mod.state, "loaded", "controller build loads")
 local api = run.loader:_api(assert(run.mod))
-local Phone = assert(loadfile(root .. "/phone_display.lua"))()
+local Phone = assert(loadfile(root .. "/phone/display.lua"))()
 local Input = require("src.core.Input")
 for generation = 1, 3 do
   local input = setmetatable({}, { __index = Input })

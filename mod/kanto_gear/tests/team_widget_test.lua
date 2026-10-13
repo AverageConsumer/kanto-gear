@@ -8,12 +8,7 @@ local data = T.fixtures.load()
 data.pokemon.FIXMON_A.spriteFront = "team-widget-fixture.png"
 local run = T.sdk.loadMod(path, { generation = generation, data = data })
 T.eq(run.mod.state, "loaded", "mod loads")
-local function upvalue(fn, target)
-  for index = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, index)
-    if name == target then return value end
-  end
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function hook(name)
   for _, entry in ipairs(run.loader.hooks.chains[name] or {}) do
     if entry.owner == "kanto_gear" then return entry.callback end
@@ -131,6 +126,7 @@ api.ui.push = function(receivedGame, screen, payload)
 end
 local function currentPage() return upvalue(display.openHomeApp, "page") end
 local function goHome()
+  display.localSummary = nil
   display.openHomeApp("party")
   tap(5, 5)
   T.eq(currentPage(), "HOME", "return to Home")
@@ -140,16 +136,10 @@ for index = 1, 6 do
   local x, y, w, h = renderer:homeTeamSlotRect(tile, index)
   tap((x + w / 2) / 1.5, (y + h / 2) / 1.5)
   T.eq(currentPage(), "PARTY", "member tap enters the Party app")
-  T.eq(opened.screen, generation == 2 and "Gen2SummaryMenu" or "SummaryMenu",
-    "member tap uses the correct native summary")
-  T.eq(generation == 2 and opened.payload.mon or opened.payload, party[index],
-    "member tap opens exactly the touched Pokemon")
-  if generation == 2 then
-    T.eq(opened.payload.index, index, "Gen 2 summary retains native party navigation")
-    T.eq(opened.payload.party, party, "Gen 2 summary shares the real party")
-    opened.payload.onClose()
-    T.eq(game.stack.popped, true, "Gen 2 summary retains native close behavior")
-  end
+  T.eq(display.localSummary.mon, party[index], "member opens its own Gear summary")
+  T.eq(display.localSummary.slot, index, "Gear summary retains the touched party slot")
+  T.eq(opens, 0, "inspecting the widget does not open a native game menu")
+
 end
 goHome()
 local previousOpens = opens
@@ -192,10 +182,10 @@ renderer.beginPress = beginPress
 
 -- Team summaries outside battle use the same touch detail screen, respecting
 -- research mode, without taking over the native D-pad or changing party data.
+display.localSummary = nil
 local summaryMon = party[1]
 summaryMon.moves = {
-  { id = "FIX_TACKLE", pp = 7, ppUps = 2,
-    maxPp = generation == 2 and 42 or nil },
+  { id = "FIX_TACKLE", pp = 7, ppUps = 2 },
   { id = "FIX_EMBERISH", pp = 3 },
 }
 summaryMon.types = { run.data.moves.FIX_TACKLE.type }
@@ -206,17 +196,22 @@ local summary = { screenId = generation == 2 and "Gen2SummaryMenu" or "SummaryMe
 game.stack.states = { world, summary }
 game.input = { pressQueue = {}, sourcePress = function() end, sourceRelease = function() end }
 local summaryModel, detailModel, detailStab
-local summaryMoves, detailBody = renderer.summaryMoves, renderer.battleMoveInfoBody
-renderer.summaryMoves = function(self, model, ...)
+local summaryMoves, detailBody = display.SummaryPage.draw, renderer.battleMoveInfoBody
+display.SummaryPage.draw = function(self, state, model, ...)
   summaryModel = model
-  return summaryMoves(self, model, ...)
+  return summaryMoves(self, state, model, ...)
 end
+display.summaryContext(summary).page = 2
 renderer.battleMoveInfoBody = function(self, model, stab)
   detailModel, detailStab = model, stab
   return detailBody(self, model, stab)
 end
+local realTime, now = love.timer.getTime, love.timer.getTime()
+love.timer.getTime = function() return now end
 local function tapMove(slot)
-  local position = "80," .. math.floor((63 + (slot - 1) * 37 + 17) / theme.hgssScale)
+  display.syncTouchGuard()
+  now = now + 1 -- Each gesture starts after the screen-change quiet period.
+  local position = "80," .. math.floor((82 + (slot - 1) * 32 + 14) / theme.hgssScale)
   touchEvent("down," .. position)
   touchEvent("up," .. position)
 end
@@ -241,7 +236,7 @@ for _, mode in ipairs({ "purist", "enhanced", "spoiler" }) do
         "no opponent means no invented matchup multiplier")
       if slot == 1 then
         local basePp = run.data.moves.FIX_TACKLE.pp
-        local maxPp = generation == 2 and 42 or basePp + 2 * math.floor(basePp / 5)
+        local maxPp = basePp + 2 * math.floor(basePp / 5)
         T.eq(detailModel and detailModel.ppText, "7/" .. maxPp, "details retain PP bonuses")
       end
       tap(3, 3)
@@ -257,16 +252,36 @@ local inputHook = hook("input.step")
 local hgss = upvalue(inputHook, "hgssRuntime")
 game.input.pressQueue = { "down" }
 local selectedSlot = summary.moveIndex
-hgss.remapSummaryMovesInput(game)
+display.remapBattleSummaryInput(game)
 T.eq(game.input.pressQueue[1], "down", "field summary leaves D-pad input native")
 T.eq(summary.moveIndex, selectedSlot, "field summary adds no D-pad move selection")
+local oldDisplay = upvalue(inputHook, "companion", { detected = function() return true end }, true)
+local oldReady = upvalue(inputHook, "displayReady", true, true)
+for _, mode in ipairs({ "standard", "info", "gear", "full" }) do
+  run.loader.modOptions.kanto_gear.battle_view = mode
+  tapMove(1)
+  T.check(upvalue(tap, "moveInfo") ~= nil, mode .. " field details open before controller close")
+  game.input.pressQueue = { "a", "down" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  T.eq(table.concat(game.input.pressQueue, ","), "a,down", "field details retain native navigation and confirmation")
+  T.check(upvalue(tap, "moveInfo") ~= nil, "native input alone does not dismiss unchanged field details")
+  game.input.pressQueue = { "b", "a", "down" }
+  run.loader.hooks:call("input.step", function() end, game, 1 / 60)
+  T.eq(upvalue(tap, "moveInfo"), nil, mode .. " B closes the field move overlay")
+  T.eq(#game.input.pressQueue, 0, "closing details consumes the entire queued burst")
+  T.eq(game.stack:top(), summary, "closing details preserves the native summary")
+end
 tapMove(1)
+upvalue(inputHook, "displayReady", false, true)
 game.input.pressQueue = { "b" }
-run.loader.hooks:call("input.step", function() end, game, 1 / 60)
-T.eq(upvalue(tap, "moveInfo"), nil, "B also closes the field move overlay")
-T.eq(#game.input.pressQueue, 0, "closing details does not send B into the summary")
+T.eq(display.filterBattleDetailsInput(game), false, "hidden Gear cannot consume native input")
+T.eq(#game.input.pressQueue, 1, "hidden details preserve the native B press")
+upvalue(tap, "moveInfo", nil, true)
+upvalue(inputHook, "displayReady", oldReady, true)
+upvalue(inputHook, "companion", oldDisplay, true)
 T.eq(summaryMon.moves[1].pp, 7, "browsing does not spend PP")
-renderer.summaryMoves, renderer.battleMoveInfoBody = summaryMoves, detailBody
+display.SummaryPage.draw, renderer.battleMoveInfoBody = summaryMoves, detailBody
+love.timer.getTime = realTime
 T.eq(#run.errors, 0, "no runtime errors")
 run.release()
 T.finish("Team View widget Gen " .. generation)

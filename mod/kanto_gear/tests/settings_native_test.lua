@@ -2,13 +2,7 @@ local T = require("tests.modkit")
 local Loader = require("src.mods.Loader")
 local Manager = require("src.mods.ManagerState")
 local root = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local function copy(t)
   local result = {}
   for key, value in pairs(t or {}) do result[key] = value end

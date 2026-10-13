@@ -9,16 +9,7 @@ local function hook(name)
     if entry.owner == "kanto_gear" then return entry.callback end
   end
 end
-local function up(fn, key, replacement)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then
-      if replacement ~= nil then debug.setupvalue(fn, i, replacement) end
-      return value
-    end
-  end
-  error("Missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local world = { isOverworld = true, map = { id = "PALLET_TOWN" }, player = { cellX = 2, cellY = 3, px = 36, py = 52, facing = "down" } }
 local game = { data = run.data, world = world, overworld = world,
   input = { pressQueue = {}, held = {} },
@@ -132,9 +123,7 @@ display.backgroundDim = 0
 state.only = true
 up(drawMap, "touchDown", { x = 1, y = 1 })
 T.eq(drawMap(), false, "touch feedback always uses the complete painter")
-for i = 1, debug.getinfo(drawMap, "u").nups do
-  if debug.getupvalue(drawMap, i) == "touchDown" then debug.setupvalue(drawMap, i, nil) end
-end
+display.session.touchDown = nil
 display.motion.started = now
 state.only = true
 T.eq(drawMap(), false, "page transitions cannot reuse a partial frame")

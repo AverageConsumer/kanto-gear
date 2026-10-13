@@ -112,7 +112,7 @@ mods can rename abilities without breaking the identity of their descriptions.
 
 ## Gen 1/2 detailed minimaps
 
-`native_map.lua` shares the host's terrain resources across Explorer, map view
+`adapters/native_map.lua` shares the host's terrain resources across Explorer, map view
 and widgets. Gen 2 borrows the current colored map canvas, so Crystal tile
 attributes, roofs, time-of-day and block edits come from the host's bake.
 Gen 1 borrows the current atlas/quads and builds independent static geometry,
@@ -160,7 +160,7 @@ choices, with native NPC gift and trade receipts where their scripts provide evi
 
 ## Native route completion
 
-`gen3_progress.lua` lazily indexes the imported event scripts for each map,
+`adapters/gen3/progress.lua` lazily indexes the imported event scripts for each map,
 then reads current flags and the native Pokédex. It never executes scripts or
 writes game progress. Album indexing yields between maps/script batches; warm
 reads reuse the catalogue. Missing or opaque scripts produce unknown objectives
@@ -193,7 +193,7 @@ proof that every gameplay script in the host behaves correctly.
 
 ## Read model
 
-`mod/kanto_gear/gen3.lua` takes the raw `Game3` instance. Call `refresh()` at a
+`mod/kanto_gear/adapters/gen3/init.lua` takes the raw `Game3` instance. Call `refresh()` at a
 controlled polling boundary and immediately after loading a different session.
 Do not replace `Game3.save`, mutate the returned view to perform an action, or
 pass it to save serialization/storage APIs. Native commands and per-playthrough
@@ -223,7 +223,7 @@ recalculate, heal, sort or otherwise normalize the native save in place.
 
 ## Native map rendering
 
-`gen3_map.lua` uses `midLayout` and the installed native tileset service.
+`adapters/gen3/map.lua` uses `midLayout` and the installed native tileset service.
 `prepare(def)` caches two sprite batches (under/over) and rebuilds only for
 layout, metatile override or atlas replacement. `draw(x, y, cellSize)` reuses
 those batches at any scale; the caller owns clipping, tint and player markers.
@@ -321,7 +321,7 @@ page; source newlines are not message-history boundaries. Oak voiceovers take
 precedence over a covered command menu. Typing taps and page acknowledgement
 remain native input actions. Timed/held messages do not show a false continue.
 
-`gen3_presentation.lua` bridges the native draw functions because v0.3.20 does
+`adapters/gen3/presentation.lua` bridges the native draw functions because v0.3.20 does
 not call the legacy battle visibility hooks. Gear suppresses the native command
 panel, printers and mirrored menus only while the secondary display is ready.
 Full Gear additionally relocates singles and doubles healthboxes. The bridge never changes

@@ -2,16 +2,7 @@
 local T = require("tests.modkit")
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local gen = tonumber(os.getenv("KANTO_GEAR_TEST_GEN")) or 2
-local function up(fn, key, value, set)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, current = debug.getupvalue(fn, i)
-    if name == key then
-      if set then debug.setupvalue(fn, i, value) end
-      return current
-    end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local data = T.fixtures.load()
 if gen == 2 then
   -- The generic SDK fixture omits Gen 2's extracted growth coefficients.
@@ -52,7 +43,7 @@ api.battle.snapshot = function() return snapshot end
 run.loader.modOptions.kanto_gear = run.loader.modOptions.kanto_gear or {}
 local options = run.loader.modOptions.kanto_gear
 options.ui_motion = false
-up(hook("battle.bottom_ui_visible"), "hasDisplay", function() return true end, true)
+display.session.companion = { detected = function() return true end }
 up(hook("battle.bottom_ui_visible"), "displayReady", true, true)
 local function call(name, state, previous)
   local calls = 0
@@ -106,7 +97,7 @@ for _, style in ipairs({ "hgss", "hgss_dark" }) do
     snapshot.message={"THE ACTUAL BATTLE TEXT"};snapshot.prompt="advance"
     stack.states={world,raw,{isTextBox=true}}
     T.check(pcall(display.drawContents),mode.." native text overlay renders")
-    T.eq(panels,mode=="info" and 0 or 1,mode.." lower text follows the mode contract")
+    T.eq(panels,owns and 1 or 0,mode.." lower text follows the mode contract")
     if mode=="info" then
       T.eq(info,1,"Info stays visible during native text")
       stack.states={world,raw,party};display.drawContents()

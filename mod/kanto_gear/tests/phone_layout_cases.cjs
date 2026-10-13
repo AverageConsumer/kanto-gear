@@ -77,7 +77,7 @@ module.exports = async function layoutCases({page, touches, center, pair, out}) 
   const landscape = (await vars()).landscape;
   // Rotate with an unfinished drag: no gesture may bleed into the other orientation.
   await gesture(await center('[data-module=a]'), {x:start.x,y:start.y+90}, false);
-  await page.setViewportSize({width:390,height:844}); await touches('touchEnd',[]);
+  await page.setViewportSize({width:390,height:844}); await page.waitForFunction(() => layoutOrientation === orientation()); await touches('touchEnd',[]);
   assert.deepEqual((await vars()).landscape, landscape, 'rotation rolls back the active drag');
   assert.equal(await page.locator('#controller').getAttribute('data-preset'),'classic');
   await page.selectOption('#layout-preset','one-left');
@@ -95,7 +95,7 @@ module.exports = async function layoutCases({page, touches, center, pair, out}) 
   assert((await page.locator('#gear-slot').boundingBox()).width > (await page.locator('#controller').boundingBox()).width*.9, 'hiding custom controls restores a full-size display');
   await page.click('#settings-open'); await page.check('#setting-controls'); await page.click('#settings-close');
   assert.equal(await page.locator('#controller').getAttribute('data-layout'),'custom', 'showing controls restores the custom layout');
-  await page.setViewportSize({width:960,height:540});
+  await page.setViewportSize({width:960,height:540}); await page.waitForFunction(() => layoutOrientation === orientation());
   assert.equal(await page.locator('#controller').getAttribute('data-preset'),'classic');
   assert.deepEqual((await vars()).landscape, landscape, 'rotation restores the landscape override');
   await open(); await page.click('#layout-reset');
@@ -118,7 +118,7 @@ module.exports = async function layoutCases({page, touches, center, pair, out}) 
   // Review actual visible bounds and image alignment across all themes and presets.
   await page.evaluate(()=>testSocket.deliver('c,gba'));
   for (const viewport of [{width:320,height:568},{width:568,height:320},{width:390,height:844},{width:844,height:390},{width:667,height:375},{width:960,height:540},{width:1280,height:800}]) {
-    await page.setViewportSize(viewport);
+    await page.setViewportSize(viewport); await page.waitForFunction(() => layoutOrientation === orientation());
     for (const theme of ['pokegear-light','pokegear-dark','cgear-light','cgear-dark']) {
       await page.click('#settings-open'); await page.selectOption('#setting-theme',theme); await page.click('#layout-edit');
       for (const preset of ['classic','lefty','one-right','one-left']) {
@@ -141,7 +141,7 @@ module.exports = async function layoutCases({page, touches, center, pair, out}) 
       await page.click('#layout-cancel');
     }
   }
-  await page.setViewportSize({width:960,height:540});
+  await page.setViewportSize({width:960,height:540}); await page.waitForFunction(() => layoutOrientation === orientation());
   await open();
   await page.evaluate(()=>testSocket.stalled=true);
   await page.waitForSelector('#pair:not([hidden])');

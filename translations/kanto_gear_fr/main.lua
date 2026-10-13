@@ -1,6 +1,6 @@
 return function(mod)
-  local body = assert(mod:read("lang/fr.lua"), "lang/fr.lua introuvable")
-  local chunk = assert(loadstring(body, "lang/fr.lua"))
+  local body = assert(mod:read("i18n/catalogs/fr.lua"), "i18n/catalogs/fr.lua introuvable")
+  local chunk = assert(loadstring(body, "i18n/catalogs/fr.lua"))
   local translations = assert(chunk())
   local count = 0
   for source, translated in pairs(translations) do

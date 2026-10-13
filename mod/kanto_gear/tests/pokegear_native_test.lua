@@ -1,6 +1,6 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 local T = require("tests.modkit")
-local Page = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/pokegear_page.lua"))()
+local Page = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/ui/pages/pokegear.lua"))()
 local Pokegear = require("src.ui.gen2.Pokegear")
 local Save = require("src.core.gen2.Save")
 local Phone = require("src.core.gen2.Phone")

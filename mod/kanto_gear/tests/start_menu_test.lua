@@ -1,4 +1,4 @@
-local Menu = dofile("mod/kanto_gear/start_menu.lua")
+local Menu = dofile("mod/kanto_gear/adapters/start_menu.lua")
 local n = 0
 local function eq(a, b, label)
   assert(a == b, label .. ": " .. tostring(a) .. " ~= " .. tostring(b)); n = n + 1
@@ -52,7 +52,7 @@ for i,row in ipairs(Menu.model(target).entries) do
   eq(Menu.hit(target,row.x+row.w-1,row.y+row.h-1),i,"right edge of each target badge selects its own row")
   eq(Menu.hit(target,row.x+10,row.y+row.h),nil,"taller target rows retain an inactive gap")
 end
-local ItemPage=dofile("mod/kanto_gear/item_page.lua")
+local ItemPage=dofile("mod/kanto_gear/ui/pages/item.lua")
 local actions={screenId="CompanionMenu",update=function() end,valid=function() return true end,index=1,
   fixedLayout=true,items={{label="USE"},{label="GIVE"},{label="TOSS"},{label="CANCEL"}}}
 ItemPage.layout(actions.items)

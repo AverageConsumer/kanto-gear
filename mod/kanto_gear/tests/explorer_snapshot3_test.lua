@@ -1,12 +1,6 @@
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local id = display.gen3.hoenn and display.gen3.profile.map.enginePrefix .. "ROUTE102" or "FR_ROUTE_3"
   game.session.map = id
@@ -77,6 +71,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.eq(private.mapSnapshot, snapshot, "privacy changes retain spatial snapshot")
   T.check(private.mapCacheKey ~= model.mapCacheKey, "privacy changes invalidate the rendered viewport")
   run.loader.modOptions.kanto_gear.info_level = "spoiler"
+  rows() -- Restore the same fixture after Discovery discarded its cached data.
   model = display.explorerModel(overview)
   T.eq(model.markers[2].x, 4, "restoring spoilers does not recapture moving NPCs")
   run.loader.events:emit("map.reloaded", { mapId = id })

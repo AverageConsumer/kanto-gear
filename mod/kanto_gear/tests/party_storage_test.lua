@@ -78,4 +78,4 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,raw)
   end
   session.party,session.storage.boxes[1].mons,session.storage.currentBox=savedParty,savedBox,savedCurrent
 end
-dofile(path..(os.getenv("POKEPORT_VERSION")=="emerald" and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))
+dofile(path .. "/tests/gen3_fixture.lua")

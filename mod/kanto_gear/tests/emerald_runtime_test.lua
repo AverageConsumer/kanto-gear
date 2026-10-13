@@ -45,12 +45,7 @@ local raw = setmetatable({ generation = 3, data = data, phase = "boot" },
   { __index = require("src.core.Game3") })
 run.loader.game = raw
 run.loader.events:emit("game.ready", { game = raw })
-local function upvalue(fn, target)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == target then return value end
-  end
-end
+local upvalue = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local hook
 for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
   if entry.owner == "kanto_gear" then hook = entry.callback end

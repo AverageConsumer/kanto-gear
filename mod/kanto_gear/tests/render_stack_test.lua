@@ -9,16 +9,7 @@ local function hook(name)
   end
   error("missing hook " .. name)
 end
-local function up(fn, key, replacement)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then
-      if replacement ~= nil then debug.setupvalue(fn, i, replacement) end
-      return value
-    end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local display = up(hook("input.step"), "displayRuntime")
 local draw = up(hook("render.output"), "draw")
 local G = love.graphics

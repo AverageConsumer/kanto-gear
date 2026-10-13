@@ -8,16 +8,7 @@ local function hook(id)
     if entry.owner == "kanto_gear" then return entry.callback end
   end
 end
-local function up(fn, target, replacement)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == target then
-      if replacement ~= nil then debug.setupvalue(fn, i, replacement) end
-      return value
-    end
-  end
-  error("Missing upvalue " .. target)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local world = { map = { id = "ROUTE_32" } }
 local game = { data = run.data, world = world,
   save = { generation = 2, version = "gold", meta = { playthroughId = "notes-test" },

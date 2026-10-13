@@ -16,15 +16,15 @@ local raw = { generation = 3, phase = "field", session = session,
     gen3Encounters = dofile(cacheRoot .. "/encounters.lua") } }
 require("src.core.game3.runtime").session = session
 require("src.mods.Gen3Compat").bind(function() return raw end)
-local adapter = dofile(root .. "/gen3.lua").new(raw)
+local adapter = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/init").new(raw)
 local Space, Flags = adapter.Space, adapter.Flags
 Space.bundle = { scripts = dofile(cacheRoot .. "/scripts/scripts.lua"),
   events = dofile(cacheRoot .. "/scripts/events.lua"), text = dofile(cacheRoot .. "/scripts/text.lua") }
 Space.active = false
-local Model = dofile(root .. "/gen3_progress.lua")
+local Model = assert(loadfile(root .. "/tests/support/module.lua"))()(root, "adapters/gen3/progress")
 local model = Model.new(adapter)
 local Trade = require("src.core.game3.scripting.natives_trade")
-local Progress = dofile(root .. "/achievements.lua")
+local Progress = dofile(root .. "/features/achievements.lua")
 local Json = require("src.import.canonical_json")
 local checks = 0
 local function check(ok, why) assert(ok, why); checks = checks + 1 end
@@ -139,13 +139,7 @@ check(run.mod and run.mod.state == "loaded", "native companion loads trade integ
 setmetatable(raw, { __index = require("src.core.Game3") })
 run.loader.game = raw
 run.loader.events:emit("game.ready", { game = raw })
-local function up(fn, key)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, value = debug.getupvalue(fn, i)
-    if name == key then return value end
-  end
-  error("missing upvalue " .. key)
-end
+local up = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/tests/support/runtime.lua"))().get
 local display
 for _, hook in ipairs(run.loader.hooks.chains["input.step"]) do
   if hook.owner == "kanto_gear" then display = up(hook.callback, "displayRuntime") end

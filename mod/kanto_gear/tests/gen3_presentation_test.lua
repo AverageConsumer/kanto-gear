@@ -1,6 +1,6 @@
 local T = require("tests.modkit")
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Presentation = assert(loadfile(path .. "/gen3_presentation.lua"))()
+local Presentation = assert(loadfile(path .. "/adapters/gen3/presentation.lua"))()
 local modules, saved, calls = {}, {}, {}
 for _, name in ipairs({ "src.core.game3.battle.ui", "src.core.game3.battle.healthbox",
     "src.ui.game3.battle_chrome", "src.ui.game3.frlg_font", "src.ui.game3.window",
