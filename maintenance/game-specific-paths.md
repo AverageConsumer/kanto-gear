@@ -1,94 +1,87 @@
-# Spiel- und Kompatibilitätspfade
+# Game and compatibility paths
 
-Die Abweichungen sind direkt am zuständigen Block gekennzeichnet. Ein Hinweis
-nennt den Geltungsbereich und den Grund, weshalb der gemeinsame Ablauf dort
-nicht ausreicht. Zusammengehörige Prüfungen innerhalb desselben Vertrags
-erhalten einen gemeinsamen Hinweis; einzelne Feldzugriffe werden nicht immer
-wieder kommentiert.
+Exceptions are labeled directly at the responsible block. Each note identifies
+the scope and explains why the shared flow is insufficient there. Related checks
+within the same contract share a note; individual field accesses are not
+repeatedly annotated.
 
-| Kennzeichnung im Code | Bedeutung |
+| Code annotation | Meaning |
 | --- | --- |
-| `Game path [Spiele]: Grund` | Ein Spiel, eine Generation oder deren natives Daten-/Menüformat braucht diesen Ablauf. |
-| `Host path [Spiele]: Grund` | Eine Recomp-Schnittstelle fehlt, hat ein anderes Format oder benötigt einen Rückfall für ältere Daten/Einstellungen. Die tatsächliche API-/Datenprüfung im Code entscheidet. |
-| `Mod path [Spiele + Mod]: Grund` | Eine vorhandene andere Mod stellt Daten oder eine zusätzliche Schnittstelle bereit. |
-| `all games` | Gemeinsame Kompatibilität für alle unterstützten Spiele, keine Editionsausnahme. |
+| `Game path [games]: reason` | A game, generation or native data/menu format requires this flow. |
+| `Host path [games]: reason` | A Recomp interface is missing, has a different format or needs a fallback for older data/settings. The actual API/data check in code decides. |
+| `Mod path [games + mod]: reason` | Another installed mod provides data or an additional interface. |
+| `all games` | Shared compatibility for every supported game, rather than an edition exception. |
 
-Die Kommentare verwenden wie der übrige Quellcode englische Spielnamen.
+Comments use English game names, like the rest of the source.
 
-| Begriff | Spiele |
+| Term | Games |
 | --- | --- |
-| Gen 1 | Rot, Blau, Gelb (`Red`, `Blue`, `Yellow`) |
-| Gen 2 | Gold, Silber, Kristall (`Gold`, `Silver`, `Crystal`) |
-| Gen 3 | Feuerrot, Blattgrün, Rubin, Saphir, Smaragd |
-| FRLG / FireRed/LeafGreen | Feuerrot und Blattgrün |
-| RS / Ruby/Sapphire | Rubin und Saphir, ohne Smaragd |
-| Hoenn / Ruby/Sapphire/Emerald | Rubin, Saphir und Smaragd |
-| Emerald | Smaragd |
+| Gen 1 | Red, Blue, Yellow |
+| Gen 2 | Gold, Silver, Crystal |
+| Gen 3 | FireRed, LeafGreen, Ruby, Sapphire, Emerald |
+| FRLG / FireRed/LeafGreen | FireRed and LeafGreen |
+| RS / Ruby/Sapphire | Ruby and Sapphire, excluding Emerald |
+| Hoenn / Ruby/Sapphire/Emerald | Ruby, Sapphire and Emerald |
+| Emerald | Emerald |
 
-Einige historische Namen haben einen größeren Geltungsbereich als ihr Name
-vermuten lässt:
+Some historical names have a broader scope than their spelling suggests:
 
-- `adapter.hoenn` umfasst Rubin, Saphir und Smaragd; `adapter.rs` nur Rubin/Saphir.
-- `options.firered` in der Gen-3-Skriptanalyse meint die gemeinsame FRLG-Familie,
-  einschließlich Blattgrün. Auch importierte `FR_`-Karten werden von beiden genutzt.
-- `view.gen2` in der Summary bezeichnet Fähigkeiten wie geteilten Spezialwert
-  und getragene Items und gilt dort auch für Gen 3. Die tatsächliche Generation
-  und die ausdrücklich benannten `capabilities` entscheiden über weitere Inhalte.
-- `Legacy*` bei den Laufzeitadaptern meint die weiterhin aktiven GB/GBC-Menüs.
-- `Gen3 UI` in `__gen3uiBag*` bezeichnet eine externe UI-Mod für Gen 1. Diese
-  Daten sind kein Bestandteil des nativen Gen-3-Adapters.
+- `adapter.hoenn` includes Ruby, Sapphire and Emerald; `adapter.rs` only Ruby/Sapphire.
+- `options.firered` in Gen 3 script analysis refers to the shared FRLG family,
+  including LeafGreen. Imported `FR_` maps are also used by both games.
+- `view.gen2` in summaries describes capabilities such as split Special stats
+  and held items, so it also applies to Gen 3 there. The actual generation and
+  explicitly named `capabilities` determine other content.
+- `Legacy*` runtime adapter names refer to GB/GBC menus that are still active.
+- `Gen3 UI` in `__gen3uiBag*` names an external UI mod for Gen 1. Those fields
+  are not part of the native Gen 3 adapter.
 
-## Die wesentlichen Unterschiede
+## Main differences
 
-| Bereich | Spiele und Grund | Wo nachlesen |
+| Area | Games and reason | Where to look |
 | --- | --- | --- |
-| Bag, Party, PC, Shop | Gen 1 verwendet Listen und getrennte Untermenüs; Gen 2 eigene Taschen und Menüphasen; Gen 3 globale native Schichten. Eingabe und Änderungen bleiben beim Spiel. | `adapters/gen1_2/`, `adapters/gen3/ui/`, `runtime/bag.lua` |
-| Gen-3-Menüs | Rubin/Saphir und Smaragd haben unterschiedliche Cursor, Phasen und Animationssperren; FRLG nutzt eigene TM-Case-/Berry-Pouch-Menüs. | `adapters/gen3/ui/menus.lua`, `ui/bag.lua` |
-| Pokénav und Pokéblocks | Rubin/Saphir hat Trainer's Eyes, Smaragd Match Call und andere Menüaufgaben. Die Pokéblock-Texte unterscheiden sich ebenfalls. | `adapters/gen3/ui/pokenav.lua`, `ui/pokeblocks.lua` |
-| Pokédex | Nummerierung, Suche, Beschreibung, Größenvergleich, Unown und Gebietsanzeige folgen den aktiven nativen Daten. | `adapters/native_dex.lua`, `adapters/native_dex3.lua` |
-| Karten und Flug | Gen 1 verwendet Karten-IDs, Gen 2 besuchte Spawn-IDs und Johto/Kanto-Sperren, Gen 3 native Kanto/Sevii- oder Hoenn-Karten. | `adapters/gen1_2/region.lua`, `adapters/gen3/region.lua`, `runtime/region_map.lua` |
-| Begegnungen | Gen 2 braucht Tageszeiten, Schwärme, Käferturnier, Kopfnuss, Zertrümmerer und aktuelle Wander-Pokémon. Die anderen Engines haben eigene Begegnungstabellen. | `runtime/encounters.lua`, `adapters/gen3/models/world.lua` |
-| Geschenke und Fortschritt | Erhalt muss aus dauerhaften Beweisen folgen. Anfangs versteckte Objekte, wiederkehrende Belohnungen und verschwundene Gegner bedeuten nicht automatisch „erledigt“. | `features/gen1_gifts.lua`, `features/gen2_gifts.lua`, `core/pickup_state.lua`, `adapters/gen3/progress/` |
-| Gelb | Melanie/Jenny sowie Jessie/James haben eigene Storyverträge; Spielhallenpreise unterscheiden sich zwischen Rot, Blau und Gelb. | `features/gen1_gifts.lua`, `core/area.lua` |
-| Gen-2-Belohnungen | Native Sonderbefehle betreffen geliehenes Pottrott und Kristalls Kurios-Ei; Editionsabfragen entscheiden über Preiszweige. | `features/gen2_gifts.lua` |
-| Fossilien | FRLG, Rubin/Saphir und Smaragd speichern Auswahl und Wiederbelebung unterschiedlich. Ein gemeinsames Hide-Flag beweist nicht zwei erhaltene Fossilien. | `adapters/gen3/progress/policies.lua`, `progress/pokemon.lua`, `progress/completion.lua` |
-| Smaragd | Johto-Starter, Match Call, Kampf-Pyramide, Fossilzustände und Trainerpass-Sterne benötigen eigene native Regeln. | `adapters/gen3/progress/`, `models/graphics.lua`, `models/game_view.lua`, `ui/menus/system.lua` |
-| Werte und Eier | Gen 1/2 verwenden DVs und Stat-EXP, Gen 3 IVs und EVs. Kraftreserve und Ei-Schritte haben unterschiedliche Formeln; Smaragd berücksichtigt native Brut-Fähigkeiten. | `models/summary.lua`, `models/summary_details.lua`, `models/evolutions.lua` |
-| Uhr und Sprites | FRLG hat keine Tag-/Nacht-Uhr; Hoenn nutzt die native RTC. Kristalls extrahierte Menüanimationen und GBC-Paletten brauchen eigene Leser. | `adapters/gen3/models/game_view.lua`, `runtime/compatibility.lua`, `runtime/sprites.lua` |
-| Trainerpass | Gen 1 hat eine Vorderseite, Gen 2 regionale Orden und Gen 3 Vorder-/Rückseite mit editionsabhängigen Sternen und Rekorden. | `runtime/trainer.lua`, `ui/pages/trainer.lua`, `adapters/gen3/models/graphics.lua` |
-| Online | Jede Engine hat eigene Leerlauf-/Skriptprüfungen. Native Link-/Union-Sitzungen behalten die Verbindung; bestehende Arena-Beschränkungen gelten weiter. | `features/pss_session.lua` |
-| Phone Display | GBA-Schultertasten benötigen direkte Quell-Eingaben; ältere Hosts ohne Frame-Schritt verwenden eine begrenzte Aufnahme-Taktung. | `phone/display.lua` |
-| Ältere Einstellungen | Alte Profile, Fensterlayouts, Home-Speicherkopien und fehlendes `options:set` bleiben für vorhandene Nutzerdaten lesbar. | `core/option_fallback.lua`, `core/discovery.lua`, `core/theme.lua`, `runtime/options.lua`, `runtime/home_layout.lua` |
+| Bag, Party, PC, shops | Gen 1 uses lists and separate submenus; Gen 2 has its own pockets and menu phases; Gen 3 uses global native layers. Input and mutations remain with the game. | `adapters/gen1_2/`, `adapters/gen3/ui/`, `runtime/bag.lua` |
+| Gen 3 menus | Ruby/Sapphire and Emerald have different cursors, phases and animation guards; FRLG uses its own TM Case and Berry Pouch menus. | `adapters/gen3/ui/menus.lua`, `ui/bag.lua` |
+| Pokénav and Pokéblocks | Ruby/Sapphire has Trainer's Eyes; Emerald has Match Call and different menu responsibilities. Pokéblock text also differs. | `adapters/gen3/ui/pokenav.lua`, `ui/pokeblocks.lua` |
+| Pokédex | Numbering, search, descriptions, size comparison, Unown and area display follow the active native data. | `adapters/native_dex.lua`, `adapters/native_dex3.lua` |
+| Maps and Fly | Gen 1 uses map IDs; Gen 2 uses visited spawn IDs and Johto/Kanto restrictions; Gen 3 uses native Kanto/Sevii or Hoenn maps. | `adapters/gen1_2/region.lua`, `adapters/gen3/region.lua`, `runtime/region_map.lua` |
+| Encounters | Gen 2 needs time periods, swarms, the Bug-Catching Contest, Headbutt, Rock Smash and current roaming Pokémon. Other engines have their own encounter tables. | `runtime/encounters.lua`, `adapters/gen3/models/world.lua` |
+| Gifts and progress | Receipt must follow persistent evidence. Initially hidden objects, repeatable rewards and disappeared opponents do not automatically mean completion. | `features/gen1_gifts.lua`, `features/gen2_gifts.lua`, `core/pickup_state.lua`, `adapters/gen3/progress/` |
+| Yellow | Melanie/Jenny and Jessie/James have their own story contracts; Game Corner prizes differ between Red, Blue and Yellow. | `features/gen1_gifts.lua`, `core/area.lua` |
+| Gen 2 rewards | Native special commands cover the borrowed Shuckle and Crystal's Odd Egg; edition checks determine prize branches. | `features/gen2_gifts.lua` |
+| Fossils | FRLG, Ruby/Sapphire and Emerald store selection and revival differently. A shared hide flag does not prove receipt of both fossils. | `adapters/gen3/progress/policies.lua`, `progress/pokemon.lua`, `progress/completion.lua` |
+| Emerald | Johto starters, Match Call, Battle Pyramid, fossil state and Trainer Card stars require specific native rules. | `adapters/gen3/progress/`, `models/graphics.lua`, `models/game_view.lua`, `ui/menus/system.lua` |
+| Stats and eggs | Gen 1/2 use DVs and Stat EXP; Gen 3 uses IVs and EVs. Hidden Power and egg steps use different formulas; Emerald accounts for native egg-hatching abilities. | `models/summary.lua`, `models/summary_details.lua`, `models/evolutions.lua` |
+| Clock and sprites | FRLG has no day/night clock; Hoenn uses the native RTC. Crystal's extracted menu animations and GBC palettes need their own readers. | `adapters/gen3/models/game_view.lua`, `runtime/compatibility.lua`, `runtime/sprites.lua` |
+| Trainer Card | Gen 1 has a front page; Gen 2 has regional badges; Gen 3 has front/back pages with edition-specific stars and records. | `runtime/trainer.lua`, `ui/pages/trainer.lua`, `adapters/gen3/models/graphics.lua` |
+| Online | Each engine has its own idle/script checks. Native Link/Union sessions retain the connection; existing arena restrictions still apply. | `features/pss_session.lua` |
+| Phone Display | GBA shoulder buttons need direct source-game input; older hosts without frame stepping use bounded capture pacing. | `phone/display.lua` |
+| Older settings | Old profiles, window layouts, Home backup copies and missing `options:set` remain readable for existing user data. | `core/option_fallback.lua`, `core/discovery.lua`, `core/theme.lua`, `runtime/options.lua`, `runtime/home_layout.lua` |
 
-## Prüfung und Umfang
+## Validation and scope
 
-Ausgangspunkt dieser Kennzeichnung ist `3943858`. Die ausführbaren Lua-Tokens
-aller 339 Lua-Dateien wurden nach der normalen Git-Zeilenendenbehandlung mit
-diesem Stand verglichen: unverändert. Die übrigen Mod-Dateien sind ebenfalls
-unverändert. Es wurden keine Funktionen, Bedingungen, Konstanten, Speicherformate,
-Test-Fixtures oder UI-Koordinaten geändert. Alle 339 Dateien kompilieren und die
-vollständige Lua-/Phone-Browsermatrix besteht mit 276/276 Fällen.
+The annotation-only pass compared executable Lua tokens in all 339 Lua files
+with the pre-annotation source after normal Git line-ending handling: unchanged.
+Other mod files were unchanged as well. That pass changed no functions,
+conditions, constants, storage formats, test fixtures or UI coordinates.
+All 339 files compiled and the complete Lua/Phone browser matrix passed 276/276 cases.
+The overall comparison documents subsequent behavior fixes.
 
-Der Durchgang umfasst produktive Spiel-/Generationszweige, native Menüverträge,
-Karten- und Belohnungsausnahmen sowie die bestehenden Host-/Fremdmod-Rückfälle.
-Normale Skin-/Sprachwahl, reine Datenkataloge, allgemeine Eingabevalidierung und
-Fremdbibliotheken erhalten keine künstlichen Editionsetiketten. Neue Ausnahmen
-sollen denselben kurzen Hinweis am verantwortlichen Block bekommen; ein Grund
-darf nicht aus einem ähnlich klingenden Feldnamen geraten werden.
+The annotations cover production game/generation branches, native menu
+contracts, map and reward exceptions, and existing host/external-mod fallbacks.
+Ordinary skin/language selection, pure data catalogs, general input validation
+and third-party libraries do not receive artificial edition labels.
+New exceptions should get the same short note at their responsible block;
+the reason must not be guessed from a similar-looking field name.
 
-Die Kennzeichnung erweitert die Dokumentation. Die zuvor abgeschlossenen
-Verhaltensprüfungen bleiben bestehen; auf einem Gerät wurde für diesen Schritt
-nichts gestartet, bedient oder installiert.
+## Source index
 
-## Quellindex
+The list below links to annotations in each file. Counts refer to notes,
+not individual conditions. One note can explain several related branches.
 
-Die folgende Liste verweist auf die Kennzeichnungen in den jeweiligen Dateien.
-Die Zahl zählt Hinweise, nicht einzelne Bedingungen. Ein Hinweis kann mehrere
-zusammengehörige Zweige erklären.
+264 notes across 99 production Lua files.
 
-264 Hinweise in 99 produktiven Lua-Dateien.
-
-| Datei | Geltungsbereiche | Hinweise |
+| File | Scopes | Notes |
 | --- | --- | ---: |
 | [adapters/gen1_2/bag.lua](../mod/kanto_gear/adapters/gen1_2/bag.lua#L7) | Game: Gen 2 | 1 |
 | [adapters/gen1_2/party.lua](../mod/kanto_gear/adapters/gen1_2/party.lua#L7) | Game: Gen 1/2; Game: Gen 2 | 2 |

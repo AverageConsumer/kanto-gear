@@ -1,96 +1,91 @@
-# Am Projekt arbeiten
+# Working on Kanto Gear
 
-Kanto Gear bleibt ein Lua-Mod für Recomp. Der Einstieg ist
-[`mod/kanto_gear/main.lua`](mod/kanto_gear/main.lua). Er verbindet die Module in
-festgelegter Reihenfolge; die Bildschirm- und Spiellogik liegt in den folgenden
-Verzeichnissen.
+Kanto Gear is a Lua mod for Recomp. Its entry point is
+[`mod/kanto_gear/main.lua`](mod/kanto_gear/main.lua). It connects the modules in
+a defined order; screen and game logic live in the directories below.
 
-| Verzeichnis | Hier suchen, wenn … |
+| Directory | Look here when changing… |
 | --- | --- |
-| `core/` | Schrift, Farben, Layoutregeln, Einstellungen, Discovery, Touchschutz oder gemeinsame Menüverträge betroffen sind. |
-| `runtime/` | Eine App geöffnet wird, sich der Spielzustand ändert oder Eingabe, Darstellung und Recomp-Hooks zusammenspielen. |
-| `adapters/gen1_2/` | Ein natives Menü aus Rot bis Kristall angepasst werden muss. Diese früher `legacy_*` genannten Adapter werden weiterhin benötigt. |
-| `adapters/gen3/` | Die Einbindung von Feuerrot, Blattgrün, Rubin, Saphir oder Smaragd betroffen ist. |
-| `adapters/` | Gemeinsame native Startmenü-, Karten- und Pokédex-Schnittstellen betroffen sind. |
-| `features/` | Notizen, Stamps, PSS, Geschenke oder Beeren ihre Daten und Regeln ändern. |
-| `models/` | Pokémon-Informationen, Entwicklung, Habitate oder Zusammenfassungen aufbereitet werden. |
-| `ui/pages/` | Eine gemeinsame Bildschirmseite ihre Geometrie oder Interaktionen ändert. |
-| `ui/skins/` | Pokégear oder C-Gear anders gezeichnet werden sollen. App-Seiten liegen unter `apps/`, native Begleitansichten unter `native/`. |
-| `ui/base/` | Gemeinsame Zeichenhilfen oder ausdrücklich weiterverwendete Basisteile betroffen sind. |
-| `ui/fonts/`, `fonts/` | Bitmap-Schriften, Messwerte, TrueType-Fallbacks oder deren Lizenzen betroffen sind. |
-| `i18n/` | Eine Übersetzung oder die Auswahl der Sprache geändert wird. |
-| `phone/` | Browseranzeige, lokales Pairing, Transport oder Videodecoder betroffen sind. |
-| `tests/` | Verhalten ohne laufendes Spiel geprüft werden soll. Die Tests gehören nicht ins Mod-Paket. |
+| `core/` | Fonts, colors, layout rules, settings, Discovery, touch guards or shared menu contracts. |
+| `runtime/` | App navigation, game-state updates, input, rendering and Recomp hooks. |
+| `adapters/gen1_2/` | Native menus from Red through Crystal. These adapters, previously named `legacy_*`, remain necessary. |
+| `adapters/gen3/` | Integration with FireRed, LeafGreen, Ruby, Sapphire or Emerald. |
+| `adapters/` | Shared native start-menu, map and Pokédex interfaces. |
+| `features/` | Notes, Stamps, PSS, gifts, berries and their rules. |
+| `models/` | Pokémon information, evolutions, habitats and summaries. |
+| `ui/pages/` | Shared screen geometry and interactions. |
+| `ui/skins/` | Pokégear or C-Gear drawing. App screens live under `apps/`; native companion views under `native/`. |
+| `ui/base/` | Shared drawing helpers and base methods that are still used. |
+| `ui/fonts/`, `fonts/` | Bitmap fonts, metrics, TrueType fallbacks and their licenses. |
+| `i18n/` | Translations and language selection. |
+| `phone/` | Browser display, local pairing, transport and video decoding. |
+| `tests/` | Behavior checks without a running game. Tests are excluded from the mod package. |
 
-Alle Pfade dieser Tabelle liegen unter `mod/kanto_gear/`. Außerhalb davon enthält
-`tools/` die Prüf- und Vorschauwerkzeuge, `translations/` die separat verteilten
-Sprachpakete und `screenshots/` die Bilder für die Projektseite.
+All paths in this table are relative to `mod/kanto_gear/`. Outside that directory,
+`tools/` contains verification and preview tools, `translations/` contains the
+separately distributed language packs, and `screenshots/` holds project-page images.
 
-## Zusammenspiel
+## How the modules fit together
 
 ```mermaid
 flowchart TD
-  A[main.lua: Module verbinden] --> B[core: gemeinsame Regeln]
-  A --> C[runtime: Zustand, Apps und Eingaben]
-  C --> D[adapters: native Spielmenüs]
-  C --> E[features und models: Inhalte]
-  C --> F[ui: Seiten und Skins]
-  C --> G[phone: Browserausgabe]
+  A[main.lua: connect modules] --> B[core: shared rules]
+  A --> C[runtime: state, apps and input]
+  C --> D[adapters: native game menus]
+  C --> E[features and models: content]
+  C --> F[ui: pages and skins]
+  C --> G[phone: browser output]
 ```
 
-Jedes Laufzeitmodul bekommt seine Abhängigkeiten ausdrücklich als Argumente.
-Veränderliche Sitzungsdaten gehören in `session`, Grafikzustand in `render`.
-Insbesondere darf ein Modul eine später ersetzte Zeichenfläche nicht als lokale
-Kopie behalten. Dauerhafte Notizen, Einstellungen und Home-Layouts verwenden
-weiterhin ihre bestehenden Speicherpfade und Formate.
+Each runtime module receives its dependencies explicitly as arguments.
+Mutable session data belongs in `session`; graphics state belongs in `render`.
+In particular, a module must not retain a local copy of a canvas that can later
+be replaced. Persistent notes, settings and Home layouts keep their existing
+storage paths and formats.
 
-Die vollständige Geräte-UI wird über `ui/init.lua` aufgebaut. `ui/base/init.lua`
-ist eine interne Grundlage und wird anschließend durch die aktuellen Skins
-ergänzt. Neue Vorschauwerkzeuge verwenden den vollständigen Einstieg.
+The complete device UI is built through `ui/init.lua`. `ui/base/init.lua` is an
+internal foundation extended by the current skins. New preview tools should
+use the complete entry point.
 
-Die Gen-3-Adapter haben drei kleine Einstiege: `adapters/gen3/init.lua` verbindet
-die Datenmodelle unter `models/`, `ui.lua` die Menüprojektionen unter `ui/` und
-`progress.lua` die Zielauswertung unter `progress/`. Sie erhalten einen
-`read(path)`-Callback und liefern ihre Klasse zurück. Zur Laufzeit stammt der
-Reader aus `mod:read`; dadurch funktionieren die Unterdateien auch im gepackten
-Mod. Tests verwenden dafür `tests/support/module.lua`.
+The Gen 3 adapters have three small entry points: `adapters/gen3/init.lua`
+connects the data models under `models/`, `ui.lua` connects menu projections
+under `ui/`, and `progress.lua` connects objective evaluation under `progress/`.
+They accept a `read(path)` callback and return their class. At runtime, the
+reader uses `mod:read`, so submodules also work inside the packaged mod.
+Tests use `tests/support/module.lua`.
 
-In `adapters/gen3/ui/menus/` liegen die fachlichen Menü-Builder für Items,
-Lagerung, Shops, Systemmenüs, Attacken und Party. Sie füllen eine gemeinsame
-`projection`; `ui/menus.lua` hält Cursorbindung, Gültigkeitsprüfung und Layout
-zusammen. Inventar-, Geld- und Pokémon-Änderungen führt weiterhin der native
-Handler aus. Neue Menüs müssen insbesondere veraltete Projektionen und Eingaben
-während nativer Animationen abweisen.
+`adapters/gen3/ui/menus/` contains menu builders for items, storage, shops,
+system menus, moves and party selection. They populate a shared `projection`;
+`ui/menus.lua` keeps cursor binding, validity checks and layout together.
+Native handlers still perform inventory, money and Pokémon changes.
+New menus must reject stale projections and input during native animations.
 
-`adapters/gen3/progress/` trennt Skriptbeweise, Pokémon-Belohnungen, Katalog und
-aktuellen Erledigungszustand. Editionsregeln, die nicht aus einem Hide-Flag
-folgen, stehen in `policies.lua`, etwa die verschiedenen Fossilentscheidungen.
-Eine neue Ausnahme gehört mit einem positiven und negativen Fall in
-`tests/gen3_policy_test.lua`; ein verstecktes Objekt allein beweist keinen Erhalt.
+`adapters/gen3/progress/` separates script evidence, Pokémon rewards, the
+catalog and live completion state. Edition rules that cannot be inferred from
+a hide flag belong in `policies.lua`, such as the different fossil choices.
+Each new exception needs positive and negative coverage in
+`tests/gen3_policy_test.lua`; a hidden object alone does not prove receipt.
 
-Spielunterschiede tragen am zuständigen Block `Game path [Spiele]: Grund`.
-`Host path` kennzeichnet API-/Datenkompatibilität, `Mod path` die Anbindung einer
-anderen Mod. Den Geltungsbereich historischer Namen und die vollständige Liste
-der gekennzeichneten Dateien erklärt der
-[Überblick über Spiel- und Kompatibilitätspfade](maintenance/game-specific-paths.md).
+Game differences are labeled at the relevant block with `Game path [games]: reason`.
+`Host path` marks API/data compatibility; `Mod path` marks integration with
+another mod. The [game and compatibility path guide](maintenance/game-specific-paths.md)
+explains historical names and lists every annotated file.
 
-Für eine Änderung an einer App zuerst die passende Datei unter `runtime/`
-aufsuchen, dann ihr Datenmodell und ihre Bildschirmseite. Der App-Katalog und
-die anfängliche Verdrahtung stehen in `runtime/bootstrap.lua`; Hooks in
-`runtime/hooks.lua`. Große Sprachkataloge und `ui/skins/icon_art.lua` enthalten
-überwiegend Daten. Die QR-Bibliothek unter `vendor/` ist Fremdcode mit eigener
-Lizenz.
+For an app change, start with its file under `runtime/`, then follow its data
+model and screen. The app catalog and initial wiring are in
+`runtime/bootstrap.lua`; hooks are in `runtime/hooks.lua`. Large language
+catalogs and `ui/skins/icon_art.lua` mostly contain data. The QR library under
+`vendor/` is third-party code with its own license.
 
-## Prüfen
+## Verification
 
-Python 3 und LuaJIT werden benötigt. Für native Integrationstests außerdem einen
-passenden Recomp-SDK-Checkout und die lokal erzeugten Spieldaten verwenden.
-Die Dateien werden nicht mit diesem Repository verteilt.
+Python 3 and LuaJIT are required. Native integration tests also need a matching
+Recomp SDK checkout and locally generated game data. Those files are not
+distributed with this repository.
 
-1. `tools/test-config.example.json` nach `tools/test.local.json` kopieren.
-2. SDK-, Cache- und gegebenenfalls Chromium-Pfade eintragen. Die lokale Datei
-   wird von Git ignoriert.
-3. Aus dem Projektverzeichnis prüfen:
+1. Copy `tools/test-config.example.json` to `tools/test.local.json`.
+2. Fill in the SDK, cache and optional Chromium paths. The local file is Git-ignored.
+3. Run from the project directory:
 
 ```powershell
 python tools/check.py
@@ -99,43 +94,41 @@ python tools/test.py --config tools/test.local.json --only home_runtime_test --e
 python tools/test.py --config tools/test.local.json --browser
 ```
 
-Der letzte Aufruf ergänzt einen unsichtbaren Browser-Test für Pairing,
-Controller, Layouteditor und Videodecoder. Er öffnet kein Spiel. Ergebnisse und
-Einzellogs liegen unter `diagnostics/`. Fehlgeschlagene Fälle führen zu einem
-Fehlerstatus; sie werden nicht als bestanden umgedeutet. Den bekannten Stand
-und die Grenzen der bisherigen Absicherung beschreibt der
-[Vorher-nachher-Vergleich](maintenance/refactoring-4.0.5.md).
+The last command adds a headless browser test for pairing, controls, the layout
+editor and video decoder. It does not open a game. Results and individual logs
+are written under `diagnostics/`. Failed cases return a failure status;
+they are never counted as passes. The [before/after comparison](maintenance/refactoring-4.0.5.md)
+records the verified scope and its limits.
 
-Die Vorschauwerkzeuge unter `tools/*_preview/` rendern mit LÖVE. Das Hauptwerkzeug
-`tools/hgss_preview/` bietet Gen-1/2-, Light/Dark- und Skin-Varianten. Synthetische
-Bildfixtures ersetzen dabei teilweise echte Pokémon-Portraits. Die Vorschauen
-prüfen Geometrie und Darstellung; echte Geräte- und Spielstände benötigen einen
-zusätzlichen manuellen Durchgang.
+The tools under `tools/*_preview/` render with LÖVE. The main tool,
+`tools/hgss_preview/`, offers Gen 1/2, Light/Dark and skin variants.
+Some image fixtures use synthetic Pokémon portraits. Previews check geometry
+and rendering; real devices and saves still need a separate manual pass.
 
-## Paket bauen
+## Building a package
 
-Vor einem Build alle Worktrees der beteiligten Repositories auf Änderungen
-prüfen und festlegen, welcher Commit sämtliche vorgesehenen Funktionen enthält.
-Ein anderer offener Worktree wird nicht automatisch Teil dieses Pakets.
+Before a build, inspect every worktree of the repositories involved for changes
+and identify the commit containing all intended features. Another open
+worktree does not automatically become part of the package.
 
-Wenn Testdateien hinzugekommen sind:
+If test files have been added:
 
 ```powershell
 python tools/package.py --sync-ignore
 ```
 
-Danach die vollständige Änderung prüfen und committen. Anschließend:
+Review and commit the complete change, then run:
 
 ```powershell
 python tools/package.py
 ```
 
-Das Werkzeug liest die Mod-Dateien direkt aus `HEAD`, verweigert uncommittete
-Mod-Änderungen und kontrolliert das erzeugte ZIP einschließlich aller Bytes,
-Feature-Dateien, Manifestdaten und Lizenzen. `dist/` enthält das Paket und einen
-Prüfbericht mit Quellcommit und SHA-256-Werten. Die Versionsnummer und der Paketname
-`kanto_gear-<version>.zip` folgen dem committed Manifest. Es entsteht kein APK; eine native
-Engine und ein APK-Signer sind deshalb nicht Bestandteil des ZIP-Prüfberichts.
+The tool reads mod files directly from `HEAD`, rejects uncommitted mod changes
+and verifies the generated ZIP, including every byte, feature file, manifest
+field and license. `dist/` contains the package and a verification report with
+the source commit and SHA-256 hashes. The version and filename
+`kanto_gear-<version>.zip` follow the committed manifest. This produces no APK,
+so the report contains no embedded native engine or APK signer.
 
-Modkit unterstützt in `.modkitignore` nur exakte Dateipfade. Die Liste wird
-deshalb erzeugt und nicht durch ein wirkungsloses `tests/`-Muster ersetzt.
+Modkit supports only exact file paths in `.modkitignore`. The list is generated
+instead of using an ineffective `tests/` directory pattern.

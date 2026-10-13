@@ -1,97 +1,91 @@
-# Adapterbereinigung für Kanto Gear 4.0.5
+# Adapter cleanup for Kanto Gear 4.0.5
 
-Die Adapterbereinigung ist Teil der Strukturüberarbeitung von 4.0.5 zu 4.1.0. Alle vorhandenen Funktionen einschließlich Phone Display bleiben
-im Umfang. Die großen Gen-3-Adapter sind nach Aufgaben getrennt; echte
-Editionsunterschiede bleiben ausdrücklich erhalten.
+The adapter cleanup is part of the structural overhaul from 4.0.5 to 4.1.0.
+All existing features, including Phone Display, remain in scope. Large Gen 3
+adapters are split by responsibility; real edition differences stay explicit.
 
-## Vorher und nachher
+## Before and after
 
-Gezählt werden physische Zeilen produktiver Lua-Dateien ohne `tests/`.
-Diese Tabelle isoliert die Adapteraufteilung; die abschließende 4.1.0-Messung
-inklusive Kommentaren und Companion-Korrekturen steht im [Gesamtvergleich](refactoring-4.0.5.md).
+These counts cover physical lines in production Lua files, excluding `tests/`.
+This table isolates the adapter split. The [overall comparison](refactoring-4.0.5.md)
+contains the final 4.1.0 counts, including comments and Companion fixes.
 
-| Bereich | Vorher | Nachher |
+| Area | Before | After |
 | --- | ---: | --- |
-| Gen-3-Datenadapter | 978 Zeilen in `init.lua` | 62 Zeilen Einstieg; sechs Datenmodelle, jeweils 113–196 Zeilen. |
-| Gen-3-Menüadapter | 1.198 Zeilen in `ui.lua` | 57 Zeilen Einstieg; getrennte Overlays, Pokéblocks, Pokénav, Bag und Menü-Builder. |
-| Zentrale Menüauswahl `UI:list` | 596 Zeilen | 21 Zeilen Routing; fachliche Builder und gemeinsame Cursor-/Gültigkeitsregeln. |
-| Gen-3-Fortschritt | 992 Zeilen in `progress.lua` | 52 Zeilen Einstieg; Beweise, Pokémon-Belohnungen, Katalog, Erledigungszustand und Editionsregeln getrennt. |
-| Größte Adapterdatei insgesamt | 1.198 Zeilen | 347 Zeilen (`native_dex3.lua`). |
-| Produktive Lua-Dateien | 174 | 196 |
-| Produktive Lua-Zeilen | 49.411 | 49.421 |
+| Gen 3 data adapter | 978 lines in `init.lua` | 62-line entry point; six data models of 113–196 lines each. |
+| Gen 3 menu adapter | 1,198 lines in `ui.lua` | 57-line entry point; separate overlays, Pokéblocks, Pokénav, Bag and menu builders. |
+| Central menu selection, `UI:list` | 596 lines | 21 lines of routing; focused builders with shared cursor and validity rules. |
+| Gen 3 progress | 992 lines in `progress.lua` | 52-line entry point; separate evidence, Pokémon rewards, catalog, completion state and edition rules. |
+| Largest adapter file overall | 1,198 lines | 347 lines (`native_dex3.lua`). |
+| Production Lua files | 174 | 196 |
+| Production Lua lines | 49,411 | 49,421 |
 
-Dieser Schritt verbessert vor allem die Struktur. Die explizite Verdrahtung
-kostet insgesamt zehn zusätzliche Zeilen; eine weitere Nettoentschlackung ist
-für diesen Durchgang nicht belegt. Gegenüber dem ursprünglichen vollständigen
-4.0.5-Stand verbleiben insgesamt 2.549 weniger produktive Lua-Zeilen.
-Es wurden keine Geschwindigkeits- oder Speichergewinne gemessen.
+This step primarily improves organization. Explicit wiring adds ten lines
+overall; no further net reduction is claimed for this stage. At this point,
+the codebase had 2,549 fewer production Lua lines than the complete original
+4.0.5 baseline. No speed or memory improvements were measured.
 
-## Zuständigkeiten
+## Responsibilities
 
-- `adapters/gen3/models/`: Grafikprojektionen, Pokémon-Definitionen,
-  Sitzungszustand, Weltinformationen, gemeinsame Game-Sicht und Kampfzustand.
-- `adapters/gen3/ui/`: Overlays, Pokéblocks, Pokénav, Bag und gemeinsame
-  Menüprojektion. `ui/menus/` trennt Items, Lagerung, Shop, System, Attacken und
-  Party; native Eingabe- und Animationssperren bleiben zentral erhalten.
-- `adapters/gen3/progress/`: Item-/Tauschbeweise, Pokémon-Belohnungen,
-  Objektkatalog und aktueller Fortschritt. `policies.lua` bündelt die Regeln für
-  Schlüsselbesitz, Fossilauswahl, dekorative Bälle und den Marowak-Geist.
+- `adapters/gen3/models/`: graphics projections, Pokémon definitions, session
+  state, world information, shared game view and battle state.
+- `adapters/gen3/ui/`: overlays, Pokéblocks, Pokénav, Bag and shared menu
+  projections. `ui/menus/` separates items, storage, shops, system menus, moves
+  and party selection; native input and animation guards remain centralized.
+- `adapters/gen3/progress/`: item/trade evidence, Pokémon rewards, object
+  catalog and live progress. `policies.lua` collects rules for key-item
+  ownership, fossil choices, decorative balls and the Marowak ghost.
 
-Die drei Klassen werden über einen expliziten Reader geladen. Der Mod nutzt
-`mod:read`, Tests und Vorschauwerkzeuge einen Dateireader. Private Helfer und
-Konstanten liegen beim Verbraucher; nur tatsächlich gemeinsam verwendete
-Abhängigkeiten werden weitergereicht.
+The three classes load through an explicit reader. The mod uses `mod:read`;
+tests and preview tools use a file reader. Private helpers and constants stay
+with their consumer; only genuinely shared dependencies are passed through.
 
-## Entfernt und bewusst erhalten
+## Removed and deliberately retained
 
-`nativeBattleLayout()` lieferte dauerhaft `false`. Seine unerreichbaren
-Touchzweige, der ausschließlich dort verwendete Cancel-Helfer und vier alte
-Kampfrenderer sind entfernt. Die Vorschau verwendet nun dieselben aktuellen
-Companion-Seiten wie die Laufzeit. Die bestehenden Companion-, Gear- und
-Full-Gear-Optionen bleiben erhalten. Der Test einer entfernten Zeichenmethode
-entfällt; die aktuellen gesperrten Attackenkarten und Detailziele bleiben geprüft.
+`nativeBattleLayout()` always returned `false`. Its unreachable touch branches,
+the Cancel helper used only there, and four old battle renderers were removed.
+Previews now use the same current Companion pages as runtime. The existing
+Companion, Gear and Full Gear options remain. Tests for removed drawing methods
+were dropped; current disabled move cards and detail targets remain covered.
 
-Die Gen-1/2-Adapter für Bag, Party, PC, Lagerung, Shops und Reisen bleiben
-eigenständig. Sie passen unterschiedliche aktive Host-Menüs an. Unterschiede
-bei 20/30 Lagerplätzen, Flugzielen, Dialogphasen, Warenbestand, nativen Animationen
-und Speicherdaten sind erforderlich. Ein generischer Adapter würde diese
-Verträge verdecken. Auch die gemeinsamen Karten- und Pokédexadapter behalten
-die nativen Darstellungs-, Nummerierungs- und Eingabegrenzen.
+Gen 1/2 adapters for Bag, Party, PC, storage, shops and travel remain separate
+because they adapt different active host menus. Differences in 20/30 storage
+slots, Fly destinations, dialogue phases, stock, native animations and save
+data are required. A generic adapter would hide those contracts. Shared map
+and Pokédex adapters also retain native display, numbering and input boundaries.
 
-Bestehende Fehlerbehandlung, Cursorvalidierung, Arena-Beschränkungen und
-Speicherformate sind erhalten. Keine neue Abhängigkeit wurde hinzugefügt.
+Existing error handling, cursor validation, arena restrictions and storage
+formats are preserved. No new dependency was added.
 
-## Nachweis
+## Validation
 
-Diese Prüfungen wurden während der Adapteraufteilung durchgeführt.
+These checks were performed during the adapter split.
 
-| Prüfung | Ergebnis |
+| Check | Result |
 | --- | --- |
-| Vollständige Lua-/Browsermatrix | 276/276 Fälle; alle bisherigen 271 plus fünf Editionsfälle für die ausgelagerten Regeln. |
-| Lua-Syntax | 339/339 Dateien kompilieren. |
-| Globale Namen | Keine neu eingeführten globalen Namen im produktiven Lua-Code. |
-| Direkter Daten-/Fortschrittsvergleich vor/nach der Adapteraufteilung | 10.875 Vergleiche auf Feuerrot, Blattgrün, Smaragd, Rubin und Saphir: gleiche Datenmodelle, Ortsgruppen, Begegnungen, Kataloge und Erledigungszustände für 2.156 Karten und 4.131 Ziele. |
-| Spielstandschutz | Die nativen serialisierten Spielstände bleiben bei diesem Vergleich unverändert. |
-| Direkter Menüvergleich | Je 87 Menüprojektionen in Feuerrot und Blattgrün: gleiche sichtbare Daten, Cursor, Touchgeometrie und Gültigkeit einschließlich nativer Sperren während der Kontrollfixtures. |
-| Bildvergleich gegen ursprüngliches 4.0.5 | 56/56 Paare pixelgleich: Gen 1/2, Light/Dark, beide Skins; Party, Kampfaktionen, Attacken, Settings, Store, Pokédexprofil, Home. |
-| Zusätzliche Companion-Vorschauen | 24 Kombinationen aus Gen 1/2, Light/Dark, beiden Skins und Aktionen/Attacken/Party; vergrößert gesichtet. |
-| Bild-/Fontdateien | Alle fünf Dateien bytegleich. |
+| Complete Lua/browser matrix | 276/276 cases: all previous 271 plus five edition cases for extracted rules. |
+| Lua syntax | All 339 files compile. |
+| Global names | No newly introduced global names in production Lua. |
+| Direct data/progress comparison before and after the split | 10,875 comparisons across FireRed, LeafGreen, Emerald, Ruby and Sapphire: identical data models, location groups, encounters, catalogs and completion states for 2,156 maps and 4,131 objectives. |
+| Save protection | Native serialized saves remain unchanged during this comparison. |
+| Direct menu comparison | 87 menu projections each in FireRed and LeafGreen: identical visible data, cursors, touch geometry and validity, including native guards during control fixtures. |
+| Image comparison against original 4.0.5 | 56/56 pixel-identical pairs: Gen 1/2, Light/Dark, both skins; Party, battle commands, moves, Settings, Store, Pokédex profile and Home. |
+| Additional Companion previews | 24 combinations of Gen 1/2, Light/Dark, both skins and commands/moves/party; inspected at enlarged scale. |
+| Image/font files | All five files are byte-identical. |
 
-Das Mod-Paket wird ausschließlich aus dem vollständigen Git-Commit erstellt.
-`dist/kanto_gear-4.1.0.verification.json` enthält Quellcommit, Manifest,
-SHA-256-Werte und sämtliche enthaltenen Dateien. Der Paketbau prüft diese Dateien
-byteweise gegen den Commit und hält Tests außerhalb des ZIP. Es entsteht kein
-APK; ein nativer Engine-Build und APK-Signer sind nicht Teil dieses Artefakts.
+The mod package is built exclusively from the complete Git commit.
+`dist/kanto_gear-4.1.0.verification.json` records the source commit, manifest,
+SHA-256 hashes and every packaged file. Packaging compares these files byte
+for byte with the commit and excludes tests. This produces no APK, so a native
+engine build and APK signer are not part of the artifact.
 
-Die 56 Bildpaare wurden mit den tatsächlichen Szenennamen erneut erstellt:
-Einige zuvor verwendete Namen hatten auf die Party-Standardseite zurückgeführt.
-Portraits sind teilweise synthetische Platzhalter. Die Bilder sichern deshalb
-die Geometrie der verwendeten Fixtures ab, nicht sämtliche echten ROM-Sprites.
-Die kleine veraltete Store-Assertion des isolierten Vorschauwerkzeugs wurde in
-beiden Vergleichsseiten gleich als Diagnose behandelt; produktive Renderer und
-Verhaltenstests bleiben unverändert streng.
+The 56 image pairs were regenerated using the actual scene names: some earlier
+names had fallen back to the default Party page. Some portraits are synthetic
+placeholders, so the images verify fixture geometry rather than every real ROM
+sprite. The isolated preview tool's small, outdated Store assertion was treated
+as a diagnostic on both sides; production renderers and behavior tests remain strict.
 
-Die Testmatrix ist mit der [Arbeitsanleitung](../DEVELOPMENT.md) wiederholbar.
-SDK, importierte Spieldaten und Vergleichssnapshots werden nicht verteilt.
-Die abschließenden Companion-Korrekturen und den manuellen Gerätedurchgang
-beschreibt der [Gesamtvergleich](refactoring-4.0.5.md).
+The [development guide](../DEVELOPMENT.md) explains how to repeat the test matrix.
+The SDK, imported game data and comparison snapshots are not distributed.
+The [overall comparison](refactoring-4.0.5.md) describes the final Companion
+fixes and manual device checks.
