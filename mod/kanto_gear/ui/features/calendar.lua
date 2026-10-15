@@ -108,7 +108,10 @@ return function(H, G, translate, format)
     end
     if model.view == "detail" and model.entry then return self:calendarDetail(model) end
     local pageTop = 63
-    if model.noWeek then pageTop = 34 else
+    if model.noWeek then
+      pageTop = 34
+      if model.hero then self:calendarHero(model.hero); pageTop = 82 end
+    else
     -- Week strip: today framed, the open day lit, dots for how much is on.
     local open = model.day or model.weekday
     for day = 0, 6 do
@@ -198,6 +201,54 @@ return function(H, G, translate, format)
         self:detailChevron(151, 203, accent, true)
       end
     end
+  end
+
+  -- Gen 3 has no weekdays. In their place: Hoenn's day as one 24-hour bar
+  -- (clock, Shoal Cave's low tides, the next harvest) or the VS Seeker's
+  -- battery in FireRed/LeafGreen. Display only; nothing here is tappable.
+  function H:calendarHero(hero)
+    local c = self.colors
+    local accent = self.dark and c.greenLight or c.green
+    local quiet = c.mutedInk
+    local track = self.dark and { 1, 1, 1, 0.12 } or { 0, 0, 0, 0.1 }
+    self:panel(6, 34, 228, 44, false)
+    if hero.kind == "seeker" then
+      local full = hero.charge >= hero.max
+      local count = math.floor(hero.charge * 10 / hero.max)
+      local fill = full and accent or TAG_TINT.GIFT
+      small(self, hero.title or "", 12, 37, 120, c.ink)
+      small(self, format("%d/%d", hero.charge, hero.max), 132, 37, 96, quiet, "right")
+      -- Ten cells of ten steps, centred in the card: 10 x 20 + 9 x 2 = 218.
+      for cell = 0, 9 do
+        rect(11 + cell * 22, 51, 20, 9, cell < count and fill or track)
+      end
+      small(self, hero.status or "", 12, 63, 216, full and accent or quiet)
+      return
+    end
+    -- 24 hours over 216 px: 9 px an hour, from x 12.
+    local x0, y0, perHour = 12, 52, 9
+    local function at(minutes) return x0 + math.floor(minutes * perHour / 60) end
+    small(self, hero.clock or "", 12, 37, 60, c.ink)
+    local tide = TAG_TINT.TIDE
+    small(self, hero.status or "", 72, 37, 156, hero.low and tide or quiet, "right")
+    rect(x0, y0, 216, 7, track)
+    if hero.tide then
+      for _, window in ipairs({ { 3, 9 }, { 15, 21 } }) do
+        rect(at(window[1] * 60), y0, (window[2] - window[1]) * perHour, 7, { tide[1], tide[2], tide[3], 0.55 })
+      end
+    end
+    local now = at(hero.minutes or 0)
+    rect(x0, y0, now - x0, 7, { accent[1], accent[2], accent[3], 0.35 })
+    for hour = 6, 18, 6 do rect(at(hour * 60), y0, 1, 7, track) end
+    for _, mark in ipairs(hero.marks or {}) do
+      local x, tint = at(mark.at), TAG_TINT[mark.tag] or accent
+      rect(x - 1, y0 - 4, 3, 1, tint); rect(x - 2, y0 - 3, 5, 2, tint); rect(x, y0 - 1, 1, 1, tint)
+    end
+    rect(now - 1, y0 - 3, 2, 13, c.ink)
+    -- Ends sit flush with the bar; the inner hours centre on their ticks.
+    small(self, "0", x0, 63, 20, quiet)
+    for hour = 6, 18, 6 do self:partyInfoCentered(tostring(hour), at(hour * 60) - 10, 63, 20, 10, quiet) end
+    small(self, "24", x0 + 216 - 20, 63, 20, quiet, "right")
   end
 
   function H:calendarDetail(model)

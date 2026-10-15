@@ -154,6 +154,9 @@ if hoenn then
   local now = Rtc.calcTimeDifferenceRtc(Rtc.getInfo(session), session.localTimeOffset)
   local low = now.hours >= 3 and now.hours < 9 or now.hours >= 15 and now.hours < 21
   T.eq(tide.title, low and "LOW TIDE" or "HIGH TIDE", "the tide matches the hour")
+  local day = display.calendarModel().hero
+  T.check(day and day.kind == "day" and day.tide == true and day.minutes == now.hours * 60 + now.minutes,
+    "the day card follows the game clock and shows the tides")
   T.eq(#tide.detailItems, 2, "Shoal Salt and Shoal Shell are counted")
   -- Match Call: a registered trainer who wants a rematch.
   local Rematch = require(rs and "src.core.game3.rs.rematch" or "src.core.game3.rse.rematch")
@@ -169,16 +172,18 @@ if hoenn then
   T.check(rematch and rematch.place ~= nil, "the trainer's route is named")
   Rematch.set(session, 0, 0)
 else
-  T.eq(#rows("seeker"), 0, "no VS Seeker, no rows")
+  local function hero() display.invalidateCalendar(); return display.calendarModel().hero end
+  T.eq(hero(), nil, "no VS Seeker, no battery card")
   local Bag = require("src.core.game3.bag")
   local VsSeeker = require("src.core.game3.vs_seeker")
   Bag.add(session.bag, VsSeeker.ITEM_VS_SEEKER, 1)
   VsSeeker.setBattery(session, 40)
-  local seeker = rows("seeker")[1]
-  T.eq(seeker and seeker.state, "later", "a flat battery has to charge")
-  T.eq(seeker and seeker.right, "60 STEPS", "the steps left are shown")
+  local battery = hero()
+  T.eq(battery and battery.charge, 40, "the battery card shows the charge")
+  T.eq(battery and battery.status, "60 STEPS TO GO", "the steps left are shown")
+  T.eq(#rows("seeker"), 0, "the battery card replaces the VS Seeker row")
   VsSeeker.setBattery(session, 100)
-  T.eq(rows("seeker")[1].right, "CHARGED", "a full battery is ready")
+  T.eq(hero().status, "READY TO USE", "a full battery is ready")
   VsSeeker.state(session).rematches[3] = 1
   T.eq(rows("rematch")[1] and rows("rematch")[1].title, "1 TRAINER IS READY", "answered trainers are listed")
 end
@@ -211,12 +216,13 @@ local Moves = require("src.core.game3.battle.moves")
 local actual = {}
 for _, move in ipairs(picked.moves) do if move ~= 0 then actual[#actual + 1] = Moves.displayName(move) end end
 T.eq(table.concat(predicted.after, "|"), table.concat(actual, "|"), "pickup moves match the native engine")
+if not hoenn then session.vsSeeker = { steps = 50, charging = 0, rematches = { [3] = 1 } } end
 catalog.packages.calendar.installed = true
 T.check(display.openHomeApp("calendar"), "the Calendar app opens")
 display.invalidateCalendar()
 local ok, err = pcall(display.drawCalendar)
 T.check(ok, "the Calendar draws: " .. tostring(err))
-display.tapCalendar(60, 52)
+display.tapCalendar(60, 100)
 T.eq(display.calendar.view, "detail", "the first row opens its details")
 ok, err = pcall(display.drawCalendar)
 T.check(ok, "the detail page draws: " .. tostring(err))

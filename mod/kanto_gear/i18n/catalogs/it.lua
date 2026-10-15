@@ -1227,4 +1227,8 @@ return {
   ["%d%%"] = "%d%%",
   ["+%d"] = "+%d",
   ["COMING UP"] = "IN ARRIVO",
+  ["LOW TIDE UNTIL %s"] = "BASSA MAREA FINO ALLE %s",
+  ["LOW TIDE FROM %s"] = "BASSA MAREA DALLE %s",
+  ["NEW DAY IN %d H"] = "NUOVO GIORNO TRA %d ORE",
+  ["%d STEPS TO GO"] = "ANCORA %d PASSI",
 }

@@ -1239,4 +1239,8 @@ return {
   ["%d%%"] = "%d%%",
   ["+%d"] = "+%d",
   ["COMING UP"] = "PRÓXIMAMENTE",
+  ["LOW TIDE UNTIL %s"] = "MAREA BAJA HASTA %s",
+  ["LOW TIDE FROM %s"] = "MAREA BAJA DESDE %s",
+  ["NEW DAY IN %d H"] = "NUEVO DÍA EN %d H",
+  ["%d STEPS TO GO"] = "FALTAN %d PASOS",
 }

@@ -118,14 +118,22 @@ return function(theme, screen, gen1, translate, format, root, drawPokemon, model
       if screen:sub(1, 13) == "calendar_frlg" then
         model.badge = { "60%", translate("CHARGE") }
         model.comingUp = true
+        model.hero = { kind = "seeker", charge = 60, max = 100, title = "VS SEEKER",
+          status = format("%d STEPS TO GO", 40) }
         rows = screen == "calendar_frlg_empty" and {} or {
           gen3("rematch", "BATTLE", translate("1 TRAINER IS READY"), "ROUTE 24", "open",
             { status = translate("WANTS A REMATCH") }),
           gen3("seeker", "BATTLE", "VS SEEKER", nil, "later", { right = format("%d STEPS", 40),
             facts = { { "BATTERY", format("%d/%d STEPS", 60, 100) } }, status = translate("WALK TO CHARGE IT") }) }
-        if screen == "calendar_frlg_empty" then model.badge = { "-", translate("CHARGE") } end
+        if screen == "calendar_frlg_empty" then model.badge, model.hero = { "-", translate("CHARGE") }, nil end
+        if screen == "calendar_frlg_full" then
+          model.hero.charge, model.hero.status = 100, translate("READY TO USE")
+
+        end
       else
         model.badge = { "16:42", translate("TODAY") }
+        model.hero = { kind = "day", minutes = 16 * 60 + 42, clock = "16:42", tide = true, low = true,
+          status = format("LOW TIDE UNTIL %s", "21:00"), marks = { { at = 22 * 60 + 30, tag = "BERRIES" } } }
         local tide = gen3("tide", "TIDE", translate("LOW TIDE"), "SHOAL CAVE", "open", {
           right = format("UNTIL %s", "21:00"), facts = { { "LOW TIDE", "3:00 - 9:00, 15:00 - 21:00" } },
           detailItems = { format("%s: %d LEFT", "SHOAL SALT", 4), format("%s: %d LEFT", "SHOAL SHELL", 2) },
@@ -145,10 +153,14 @@ return function(theme, screen, gen1, translate, format, root, drawPokemon, model
             { right = format("IN %d H", 9), status = format("RIPE %s", format("IN %d H", 9)) }),
           gen3("lottery", "EVENT", translate("LOTTERY CORNER"), "LILYCOVE CITY", "done"),
         }
-        if screen == "calendar_hoenn_quiet" then rows = { rows[7], rows[8] }; rows[1].now = false end
+        if screen == "calendar_hoenn_quiet" then
+          rows = { rows[7], rows[8] }; rows[1].now = false
+          model.hero.tide, model.hero.low, model.hero.status = false, false, format("NEW DAY IN %d H", 8)
+        end
         if screen == "calendar_hoenn_detail" then model.view, model.entry = "detail", tide end
         if screen == "calendar_hoenn_detail_gift" then model.view, model.entry = "detail", rows[3] end
       end
+      if model.hero and model.hero.kind == "seeker" and screen ~= "calendar_frlg_detail" then rows[2] = nil end
       for _, row in ipairs(rows) do
         if row.now then model.now[#model.now + 1] = row else model.today[#model.today + 1] = row end
       end

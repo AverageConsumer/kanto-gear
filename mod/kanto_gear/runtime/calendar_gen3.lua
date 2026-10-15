@@ -208,7 +208,7 @@ return function(THEME, assist, displayRuntime, session)
         status = THEME:translate("WATER THEM FOR MORE BERRIES") }
     end
     if next then
-      rows[#rows + 1] = { kind = "ripening", key = "ripening", tag = "BERRIES", state = "later",
+      rows[#rows + 1] = { kind = "ripening", key = "ripening", tag = "BERRIES", state = "later", inMinutes = next.minutes,
         title = THEME:translate("NEXT HARVEST"), place = placeName(next.mapId), right = duration(next.minutes),
         status = THEME:format("RIPE %s", duration(next.minutes)) }
     end
@@ -319,10 +319,37 @@ return function(THEME, assist, displayRuntime, session)
       end
       local tide = tideRow(gen3, hour, minute, policy)
       if tide then rows[#rows + 1] = tide end
+      -- The day at a glance: the clock against 24 hours, Shoal Cave's low
+      -- tides once the cave is known, and the next berry harvest today.
+      local now = hour * 60 + minute
+      local hero = { kind = "day", minutes = now, clock = clock(hour, minute), tide = tide ~= nil, marks = {} }
+      if tide then
+        local low = tide.state == "open"
+        local turn = low and (hour < 9 and 9 or 21) or (hour < 3 and 3 or hour < 15 and 15 or 3)
+        hero.low = low
+        hero.status = THEME:format(low and "LOW TIDE UNTIL %s" or "LOW TIDE FROM %s", clock(turn, 0))
+      else
+        hero.status = THEME:format("NEW DAY IN %d H", floor((1440 - now + 59) / 60))
+      end
+      for _, row in ipairs(rows) do
+        if row.kind == "ripening" and row.inMinutes and now + row.inMinutes < 1440 then
+          hero.marks[#hero.marks + 1] = { at = now + row.inMinutes, tag = "BERRIES" }
+        end
+      end
+      model.hero = hero
     else
       local list, charge = seekerRows(gen3)
       model.comingUp = true
-      take(list)
+      -- The battery card above the list replaces the VS Seeker's own row.
+      for _, row in ipairs(list) do if row.kind ~= "seeker" then rows[#rows + 1] = row end end
+      if charge then
+        local VsSeeker = hostModule("src.core.game3.vs_seeker")
+        local max = VsSeeker and VsSeeker.MAX_CHARGE or 100
+        model.hero = { kind = "seeker", charge = charge, max = max,
+          title = itemName(VsSeeker and VsSeeker.ITEM_VS_SEEKER) or THEME:translate("VS SEEKER"),
+          status = charge >= max and THEME:translate("READY TO USE")
+            or THEME:format("%d STEPS TO GO", max - charge) }
+      end
       model.badge = { charge and THEME:format("%d%%", charge) or "-", THEME:translate("CHARGE") }
     end
     local order = { rematch = 1, seeker = 2, gift = 3, lottery = 4, berries = 5, water = 6, tide = 7, ripening = 8 }

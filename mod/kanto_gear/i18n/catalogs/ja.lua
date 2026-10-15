@@ -1243,4 +1243,8 @@ return {
   ["%d%%"] = "%d%%",
   ["+%d"] = "+%d",
   ["COMING UP"] = "このあと",
+  ["LOW TIDE UNTIL %s"] = "%sまで かんちょう",
+  ["LOW TIDE FROM %s"] = "%sから かんちょう",
+  ["NEW DAY IN %d H"] = "あたらしい ひまで %dじかん",
+  ["%d STEPS TO GO"] = "あと %dほ",
 }
