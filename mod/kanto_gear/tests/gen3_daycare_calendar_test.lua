@@ -124,13 +124,31 @@ local function rows(kind)
   return out, calendar
 end
 local _, calendar = rows("none")
-T.check(calendar.noWeek == true and calendar.badge ~= nil, "Gen 3 has no week strip, only a badge")
+T.check(calendar.noWeek == true and calendar.badge ~= nil, "Gen 3 does not invent cartridge weekdays")
 if hoenn then
+  local Rtc = require("src.core.game3.rtc")
+  Rtc.setFixed("2026-10-16T12:00:00")
+  Rtc.calcLocalTimeOffset(session, 0, 12, 0, 0)
+  local _, forecast = rows("none")
+  T.check(forecast.relativeDays and forecast.weekday == 0 and forecast.dayLabels[2] == "TOMORROW",
+    "Hoenn offers Today and six upcoming game days")
   local lottery = rows("lottery")
   T.eq(#lottery, 1, "the Lottery Corner is on the Calendar")
   T.eq(lottery[1] and lottery[1].state, "open", "a ticket can be drawn today")
   flag(rs and "FLAG_DAILY_PICKED_LOTTO_TICKET" or "FLAG_DAILY_PICKED_LOTO_TICKET", true)
   T.eq(rows("lottery")[1].state, "done", "a drawn ticket is done for today")
+  local _, future = rows("none")
+  for day = 1, 6 do
+    local lottery, tide
+    for _, row in ipairs(future.days[day]) do
+      if row.kind == "lottery" then lottery = row end
+      if row.kind == "tide" then tide = row end
+      T.eq(row.state, "planned", "future entries are scheduled, not currently ready")
+      T.eq(row.day, day, "the forecast belongs to its selected day")
+      T.check(row.kind ~= "rematch", "random rematches are never projected")
+    end
+    T.check(lottery and tide, "daily lottery and tide are scheduled on day " .. day)
+  end
   local gifts = rows("gift")
   T.check(#gifts >= 8, "daily berry givers are listed: " .. #gifts)
   local master
@@ -151,12 +169,28 @@ if hoenn then
   T.eq(rows("water")[1] and rows("water")[1].title, "1 TREE NEEDS WATER", "a dry sprout needs water")
   local next = rows("ripening")[1]
   T.check(next and next.right and next.right:find("IN %d+ H") ~= nil, "the next harvest has a time")
+  -- Cross midnight using the game's offset, independently of the host weekday.
+  Rtc.calcLocalTimeOffset(session, 0, 23, 30, 0)
+  local growing = session.berryTrees[trees[2].tree]
+  growing.stage, growing.minutesUntilNextStage = BerryTrees.STAGE_FLOWERING, 60
+  local _, forecast = rows("none")
+  T.eq(#rows("ripening"), 0, "tomorrow's harvest is not listed as later today")
+  local harvest
+  for _, row in ipairs(forecast.days[1]) do if row.kind == "ripening" then harvest = row end end
+  T.check(harvest and harvest.right == "0:30" and harvest.state == "planned",
+    "a midnight-crossing harvest is scheduled tomorrow at the game's time")
+  growing.minutesUntilNextStage = 2 * 1440 + 60
+  local _, forecast = rows("none")
+  local day3
+  for _, row in ipairs(forecast.days[3]) do if row.kind == "ripening" then day3 = row end end
+  T.check(day3 and day3.right == "0:30", "multi-day berry timers reach the correct day")
+  growing.minutesUntilNextStage = 60
+  Rtc.calcLocalTimeOffset(session, 0, 12, 0, 0)
   BerryTrees.water(trees[2].tree, session)
   T.eq(#rows("water"), 0, "watering clears the reminder")
   -- Shoal Cave tides follow the game's clock.
   local tide = rows("tide")[1]
   T.check(tide ~= nil, "Shoal Cave's tide is on the Calendar")
-  local Rtc = require("src.core.game3.rtc")
   local now = Rtc.calcTimeDifferenceRtc(Rtc.getInfo(session), session.localTimeOffset)
   local low = now.hours >= 3 and now.hours < 9 or now.hours >= 15 and now.hours < 21
   T.eq(tide.title, low and "LOW TIDE" or "HIGH TIDE", "the tide matches the hour")
@@ -222,10 +256,24 @@ T.check(display.openHomeApp("calendar"), "the Calendar app opens")
 display.invalidateCalendar()
 local ok, err = pcall(display.drawCalendar)
 T.check(ok, "the Calendar draws: " .. tostring(err))
-display.tapCalendar(60, 52)
+display.tapCalendar(60, hoenn and 84 or 52)
 T.eq(display.calendar.view, "detail", "the first row opens its details")
 ok, err = pcall(display.drawCalendar)
 T.check(ok, "the detail page draws: " .. tostring(err))
 display.tapCalendar(10, 10)
 T.eq(display.calendar.view, nil, "Back returns to the list")
+if hoenn then
+  display.drawCalendar()
+  display.tapCalendar(6 + 33 + 15, 40)
+  T.eq(display.calendar.day, 1, "the +1 tab selects tomorrow")
+  display.drawCalendar()
+  display.tapCalendar(60, 84)
+  T.eq(display.calendar.view, "detail", "a planned entry opens its details")
+  display.drawCalendar()
+  display.tapCalendar(10, 10)
+  T.eq(display.calendar.day, 1, "Back from details retains tomorrow")
+  display.drawCalendar()
+  display.tapCalendar(20, 40)
+  T.eq(display.calendar.day, nil, "the Today tab returns to the live list")
+end
 T.finish("Gen 3 Day-Care and Calendar")

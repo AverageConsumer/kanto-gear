@@ -1239,4 +1239,8 @@ return {
   ["%d%%"] = "%d%%",
   ["+%d"] = "+%d",
   ["COMING UP"] = "PRÓXIMAMENTE",
+  ["TOMORROW"] = "MAÑANA",
+  ["IN %d DAYS"] = "EN %d DÍAS",
+  ["PLANNED"] = "PREVISTO",
+  ["EXPECTED AT %s"] = "PREVISTO A LAS %s",
 }

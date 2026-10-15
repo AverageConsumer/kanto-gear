@@ -1243,4 +1243,8 @@ return {
   ["%d%%"] = "%d%%",
   ["+%d"] = "+%d",
   ["COMING UP"] = "このあと",
+  ["TOMORROW"] = "あした",
+  ["IN %d DAYS"] = "%dにちご",
+  ["PLANNED"] = "よてい",
+  ["EXPECTED AT %s"] = "%sごろの よてい",
 }

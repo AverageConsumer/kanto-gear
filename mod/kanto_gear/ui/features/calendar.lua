@@ -64,6 +64,14 @@ return function(H, G, translate, format)
     end
   end
 
+  local function dayLabel(model, day, short)
+    if model.relativeDays then
+      if short then return day == 0 and translate("TODAY") or "+" .. day end
+      return (model.dayLabels or {})[day + 1] or ""
+    end
+    return translate((short and model.shortNames or model.dayNames or {})[day + 1] or "")
+  end
+
   -- Rows for the open day: "now" then the rest of today, or one weekday.
   function H:calendarRows(model)
     local rows, labels = {}, {}
@@ -88,7 +96,7 @@ return function(H, G, translate, format)
       end
     else
       for _, row in ipairs(model.days[day] or {}) do rows[#rows + 1] = row end
-      if #rows > 0 then labels[1] = translate((model.dayNames or {})[day + 1] or "") end
+      if #rows > 0 then labels[1] = dayLabel(model, day) end
     end
     return rows, labels
   end
@@ -108,7 +116,7 @@ return function(H, G, translate, format)
     end
     if model.view == "detail" and model.entry then return self:calendarDetail(model) end
     local pageTop = 63
-    if model.noWeek then pageTop = 34 else
+    if model.noWeek and not model.relativeDays then pageTop = 34 else
     -- Week strip: today framed, the open day lit, dots for how much is on.
     local open = model.day or model.weekday
     for day = 0, 6 do
@@ -121,7 +129,7 @@ return function(H, G, translate, format)
         self:panel(x, 34, 30, 25, false)
       end
       local keyInk = onKey(self, self.v4ramp(accent).M or accent)
-      local label = self:fitPartyType(translate((model.shortNames or {})[day + 1] or ""), 28)
+      local label = self:fitPartyType(dayLabel(model, day, true), 28)
       self:partyInfoCentered(label, x - 4, 34, 38, 14,
         lit and keyInk or (day == model.weekday and accent or c.ink))
       local count = math.min(3, #(model.days[day] or {}))
@@ -216,6 +224,9 @@ return function(H, G, translate, format)
     -- Facts as label/value lines: where, when, how it stands.
     local facts = {}
     if row.place then facts[#facts + 1] = { "PLACE", row.place } end
+    if model.relativeDays and row.day and row.day > 0 then
+      facts[#facts + 1] = { "WHEN", dayLabel(model, row.day) }
+    end
     for _, fact in ipairs(row.facts or {}) do facts[#facts + 1] = fact end
     if row.facts or model.noWeek then
       -- Gen 3 rows carry their own timing.
@@ -283,7 +294,10 @@ return function(H, G, translate, format)
     self:partyInfoCentered(self:fitPartyInfo(bottom, w - 4), x - 4, y + floor(h / 2) - 1, w + 8, 10, ink)
   end
   local function nextUp(model)
-    if model.noWeek then return (model.today or {})[1], nil end
+    if model.noWeek and not model.relativeDays then return (model.today or {})[1], nil end
+    if model.relativeDays then
+      for _, row in ipairs(model.today or {}) do if row.state ~= "done" then return row, 0 end end
+    end
     for offset = 1, 6 do
       local day = ((model.weekday or 0) + offset) % 7
       local row = (model.days[day] or {})[1]
@@ -310,7 +324,7 @@ return function(H, G, translate, format)
       small(self, translate(data.noWeek and "NOTHING TO DO RIGHT NOW" or "NOTHING ELSE TODAY"), left, y + 22, width,
         c.ink)
       if row then
-        local when = day and translate((data.shortNames or {})[day + 1] or "") or row.right
+        local when = day and dayLabel(data, day, true) or row.right
         small(self, (when and when ~= "" and when .. ": " or "") .. tostring(row.title or ""), left, y + 36, width,
           c.mutedInk)
       end

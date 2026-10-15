@@ -300,6 +300,7 @@ return function(
     model.view, model.day, model.selected, model.page = state.view, state.day, state.selected, state.page or 1
     local title = THEME:translate("CALENDAR")
     if state.view == "detail" and state.selected then
+      model.entry = nil
       for _, list in ipairs({ model.now, model.today, model.days[state.day or model.weekday] or {} }) do
         for _, row in ipairs(list) do
           if row.key == state.selected then model.entry = row end

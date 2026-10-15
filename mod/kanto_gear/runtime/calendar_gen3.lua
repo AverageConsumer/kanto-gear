@@ -155,11 +155,11 @@ return function(THEME, assist, displayRuntime, session)
     return row
   end
 
-  local function berryRows(gen3, facts, policy)
+  local function berryRows(gen3, facts, policy, hour, minute)
     local BerryTrees = hostModule("src.core.game3.rse.berry_trees")
     if not BerryTrees then return {} end
     local ready, thirsty, readyPlaces, thirstyPlaces = 0, 0, {}, {}
-    local next
+    local harvests = {}
     local function add(list, id)
       for _, other in ipairs(list) do if other == id then return end end
       list[#list + 1] = id
@@ -176,9 +176,14 @@ return function(THEME, assist, displayRuntime, session)
             if not tree["watered" .. stage] then thirsty = thirsty + 1; add(thirstyPlaces, spot.mapId) end
             if not tree.stopGrowth then
               local okD, step = pcall(BerryTrees.stageDuration, tree.berry, gen3.session)
-              local minutes = (tonumber(tree.minutesUntilNextStage) or 0)
-                + (BerryTrees.STAGE_BERRIES - 1 - stage) * (okD and step or 0)
-              if not next or minutes < next.minutes then next = { minutes = minutes, mapId = spot.mapId } end
+              if okD and tonumber(step) and step > 0 then
+                local minutes = math.max(0, tonumber(tree.minutesUntilNextStage) or 0)
+                  + (BerryTrees.STAGE_BERRIES - 1 - stage) * step
+                local day = floor((hour * 60 + minute + minutes) / 1440)
+                if day <= 6 and (not harvests[day] or minutes < harvests[day].minutes) then
+                  harvests[day] = { minutes = minutes, mapId = spot.mapId }
+                end
+              end
             end
           end
         end
@@ -203,10 +208,16 @@ return function(THEME, assist, displayRuntime, session)
         place = placeName(thirstyPlaces[1]), placeList = names(thirstyPlaces),
         status = THEME:translate("WATER THEM FOR MORE BERRIES") }
     end
-    if next then
-      rows[#rows + 1] = { kind = "ripening", key = "ripening", tag = "BERRIES", state = "later",
-        title = THEME:translate("NEXT HARVEST"), place = placeName(next.mapId), right = duration(next.minutes),
-        status = THEME:format("RIPE %s", duration(next.minutes)) }
+    for day = 0, 6 do
+      local next = harvests[day]
+      if next then
+        local at = hour * 60 + minute + next.minutes
+        local expected = clock(floor(at / 60), at % 60)
+        rows[#rows + 1] = { kind = "ripening", key = "ripening:" .. day, tag = "BERRIES", day = day,
+          state = day == 0 and "later" or "planned", title = THEME:translate("NEXT HARVEST"),
+          place = placeName(next.mapId), right = day == 0 and duration(next.minutes) or expected,
+          status = THEME:format("EXPECTED AT %s", expected) }
+      end
     end
     return rows
   end
@@ -307,15 +318,39 @@ return function(THEME, assist, displayRuntime, session)
     local function take(list) for _, row in ipairs(list) do rows[#rows + 1] = row end end
     if gen3.hoenn then
       local hour, minute = localTime(gen3)
+      model.relativeDays, model.weekday = true, 0
+      model.dayLabels = { THEME:translate("TODAY"), THEME:translate("TOMORROW") }
+      for day = 2, 6 do model.dayLabels[day + 1] = THEME:format("IN %d DAYS", day) end
       model.badge = { clock(hour, minute), THEME:translate("TODAY") }
       local facts = scan(gen3)
       if facts then
         take(rematchRows(gen3, facts))
-        take(giftRows(gen3, facts, policy))
-        take(berryRows(gen3, facts, policy))
+        local gifts = giftRows(gen3, facts, policy)
+        take(gifts)
+        -- Daily services reset at the game's midnight; readiness is never projected for random rematches.
+        for day = 1, 6 do
+          for _, gift in ipairs(gifts) do
+            local planned = {}
+            for key, value in pairs(gift) do planned[key] = value end
+            planned.key, planned.day = gift.key .. ":day:" .. day, day
+            planned.now, planned.state = nil, "planned"
+            planned.status, planned.right = THEME:translate("PLANNED"), THEME:translate("ONCE A DAY")
+            model.days[day][#model.days[day] + 1] = planned
+          end
+        end
+        take(berryRows(gen3, facts, policy, hour, minute))
       end
       local tide = tideRow(gen3, hour, minute, policy)
-      if tide then rows[#rows + 1] = tide end
+      if tide then
+        rows[#rows + 1] = tide
+        for day = 1, 6 do
+          model.days[day][#model.days[day] + 1] = {
+            kind = "tide", key = "tide:day:" .. day, day = day, tag = "TIDE", state = "planned",
+            title = THEME:translate("LOW TIDE"), place = tide.place,
+            right = "3:00 / 15:00", facts = tide.facts, status = THEME:translate("PLANNED"),
+          }
+        end
+      end
     else
       local list, charge = seekerRows(gen3)
       model.comingUp = true
@@ -323,16 +358,23 @@ return function(THEME, assist, displayRuntime, session)
       model.badge = { charge and THEME:format("%d%%", charge) or "-", THEME:translate("CHARGE") }
     end
     local order = { rematch = 1, seeker = 2, gift = 3, lottery = 4, berries = 5, water = 6, tide = 7, ripening = 8 }
-    table.sort(rows, function(a, b)
+    local function sort(a, b)
       local sa, sb = a.state == "done" and 1 or 0, b.state == "done" and 1 or 0
       if sa ~= sb then return sa < sb end
       local oa, ob = order[a.kind] or 99, order[b.kind] or 99
       if oa ~= ob then return oa < ob end
       return tostring(a.key) < tostring(b.key)
-    end)
-    for _, row in ipairs(rows) do
-      if row.now then model.now[#model.now + 1] = row else model.today[#model.today + 1] = row end
     end
+    table.sort(rows, sort)
+    for _, row in ipairs(rows) do
+      if model.relativeDays and row.day and row.day > 0 then
+        model.days[row.day][#model.days[row.day] + 1] = row
+      else
+        if row.now then model.now[#model.now + 1] = row else model.today[#model.today + 1] = row end
+        if model.relativeDays then model.days[0][#model.days[0] + 1] = row end
+      end
+    end
+    if model.relativeDays then for day = 1, 6 do table.sort(model.days[day], sort) end end
     return model
   end
 end

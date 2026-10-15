@@ -1227,4 +1227,8 @@ return {
   ["%d%%"] = "%d%%",
   ["+%d"] = "+%d",
   ["COMING UP"] = "IN ARRIVO",
+  ["TOMORROW"] = "DOMANI",
+  ["IN %d DAYS"] = "TRA %d GIORNI",
+  ["PLANNED"] = "IN PROGRAMMA",
+  ["EXPECTED AT %s"] = "PREVISTO ALLE %s",
 }

@@ -1237,4 +1237,8 @@ return {
   ["%d%%"] = "%d%%",
   ["+%d"] = "+%d",
   ["COMING UP"] = "À VENIR",
+  ["TOMORROW"] = "DEMAIN",
+  ["IN %d DAYS"] = "DANS %d JOURS",
+  ["PLANNED"] = "PRÉVU",
+  ["EXPECTED AT %s"] = "PRÉVU À %s",
 }

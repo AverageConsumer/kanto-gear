@@ -50,7 +50,7 @@ The clock can follow the game or your device.
 | **Stamps** | Track each location's trainers, items, hidden finds and Pokémon. Open remaining goals to see their location; indoor finds point to the building entrance first, with an option to look inside. |
 | **Notes** | Keep general or location-linked text notes, checklists and colored drawings. QWERTY and QWERTZ are available. |
 | **Day-Care** | Check boarded Pokémon, current levels, withdrawal fees and moves at pickup. In Gen 2 and 3, also check breeding compatibility, waiting eggs and party eggs. FireRed/LeafGreen keep the Route 5 boarder separate from the Four Island pair. |
-| **Calendar** | In Gen 2, browse weekly visitors, time windows, ready rematches and gifts. In Hoenn, check daily gifts, berries, tides and rematches; FireRed/LeafGreen show VS Seeker charge and ready trainers. Timing follows the game's clock. |
+| **Calendar** | In Gen 2, browse weekly visitors, time windows, ready rematches and gifts. In Hoenn, browse today and the next six game days for daily offers, tides and expected berry harvests; ready rematches stay in today's list. FireRed/LeafGreen show VS Seeker charge and ready trainers. Timing follows the game's clock. |
 | **Field Kit** | Contextual shortcuts for tools and field moves, including rods, Bicycle, Item Radar and travel. Currently usable actions appear first. |
 | **Trainer Card** | Your trainer details, regional badges, play time and native records, including the game's card rank where available. |
 | **Step Counter** | Track movement, milestones and a resettable session counter. |

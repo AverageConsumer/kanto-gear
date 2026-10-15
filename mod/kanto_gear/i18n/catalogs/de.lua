@@ -1249,4 +1249,8 @@ return {
   ["%d%%"] = "%d%%",
   ["+%d"] = "+%d",
   ["COMING UP"] = "DEMNÄCHST",
+  ["TOMORROW"] = "MORGEN",
+  ["IN %d DAYS"] = "IN %d TAGEN",
+  ["PLANNED"] = "GEPLANT",
+  ["EXPECTED AT %s"] = "VORAUSSICHTLICH UM %s",
 }
