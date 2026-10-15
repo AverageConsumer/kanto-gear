@@ -57,6 +57,13 @@ for _, entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
   if entry.owner == "kanto_gear" then hook = entry.callback end
 end
 local display = assert(upvalue(hook, "displayRuntime"))
+T.check(display.calendarSupported(), "Calendar support is known before a save is loaded")
+T.check(not display.storeById.calendar.hidden, "the boot-time support check keeps the Calendar in the store")
+T.check(not display.homeCatalog.surfaces.calendar_app.hidden
+  and not display.homeCatalog.surfaces.calendar_widget.hidden
+  and not display.homeCatalog.surfaces.calendar_small_widget.hidden,
+  "Calendar shortcuts and both widgets are available before loading")
+T.check(display.calendarModel().unsupported, "Calendar content safely waits for a loaded save")
 local session = Schema.newGame({ version = edition, name = "BREEDER", rngSeed = 77 })
 local Json = require("src.import.canonical_json")
 local Party = require("src.core.game3.party")
@@ -101,7 +108,6 @@ T.check(display.openHomeApp("daycare"), "the Day-Care app opens")
 T.check(pcall(display.drawDaycare), "the Day-Care page draws")
 
 -- Calendar.
-display.applyCalendarSupport()
 T.check(display.calendarSupported(), "Gen 3 has a Calendar")
 T.check(not display.storeById.calendar.hidden, "the Calendar is offered in the store")
 local Constants = require("src.core.game3.constants").of(edition)

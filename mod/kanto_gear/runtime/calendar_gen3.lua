@@ -12,10 +12,6 @@ return function(THEME, assist, displayRuntime, session)
     return ok and value or nil
   end
   local function adapter() return displayRuntime.gen3 end
-  local function native()
-    local gen3 = adapter()
-    return gen3 and gen3.session
-  end
   local function constants(gen3)
     local C = hostModule("src.core.game3.constants")
     local ok, set = pcall(function() return C.of(gen3.profile.id) end)
@@ -298,7 +294,8 @@ return function(THEME, assist, displayRuntime, session)
 
   displayRuntime.gen3Calendar = {}
   function displayRuntime.gen3Calendar.supported()
-    return adapter() ~= nil and native() ~= nil
+    -- Game path [Gen 3]: game.ready precedes loading a save; app availability belongs to the edition, not the live session.
+    return adapter() ~= nil
   end
   function displayRuntime.gen3Calendar.build()
     local gen3 = adapter()
