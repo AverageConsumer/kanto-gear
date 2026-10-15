@@ -211,6 +211,15 @@ return function(
     return rows
   end
 
+  function displayRuntime.habitatMethods()
+    local save = session.game.save or {}
+    -- Game path [Gen 1/2/3]: Surf uses each generation's badge and field-move requirements.
+    local surfBadge = compat.isGen2() and THEME.fieldTools.gen2Badge(save, "FOG")
+      or not compat.isGen2() and (tonumber((save.inventory or {}).SOULBADGE) or 0) > 0
+    return displayRuntime.gen3 and displayRuntime.gen3:habitatMethods()
+      or displayRuntime.Habitats.methods(save, session.game.data.items or {}, surfBadge)
+  end
+
   function displayRuntime.pokedexHabitatPlan(selected)
     Discovery.current()
     local state, now = displayRuntime.pokedex, love.timer.getTime()
@@ -219,14 +228,9 @@ return function(
     local cached = state.habitatPlan
     if cached and cached.source == selected and cached.map == session.mapId and cached.mode == mode
         and cached.period == period and now < cached.refreshAt then return cached end
-    local save = session.game.save or {}
-    -- Game path [Gen 1/2/3]: Surf requires Soul Badge items, Fog Badge flags, or Gen 3s native field-move policy respectively.
-    local surfBadge = compat.isGen2() and THEME.fieldTools.gen2Badge(save, "FOG")
-      or not compat.isGen2() and (tonumber((save.inventory or {}).SOULBADGE) or 0) > 0
     local visited = mod.save:get("achievement_visits", {})
     if type(visited) ~= "table" then visited = {} end
-    local methods = displayRuntime.gen3 and displayRuntime.gen3:habitatMethods()
-      or displayRuntime.Habitats.methods(save, session.game.data.items or {}, surfBadge)
+    local methods = displayRuntime.habitatMethods()
     local plan = displayRuntime.Habitats.plan(
       Discovery.filter(selected.habitat and selected.habitat.appearances, function(row)
         return displayRuntime.knownMap(row.mapId)

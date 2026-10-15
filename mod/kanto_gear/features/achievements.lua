@@ -320,4 +320,42 @@ function M.visibleRows(area, category, mode)
   return rows
 end
 
+-- What the next stamp still needs, limited to what the discovery mode may show.
+-- Bronze -> Silver needs the field tasks; Silver -> Gold needs the local Pokemon.
+-- Vanilla presentation has no tier, so it has no next step either.
+function M.nextStep(area, mode)
+  if mode == "vanilla" or not area or area.evidence == false or area.complete or not area.sections then return nil end
+  local current = area.tier
+  if current ~= "bronze" and current ~= "silver" then return nil end
+  local function open(category)
+    local section = area.sections[category] or {}
+    return math.max(0, (section.total or 0) - (section.done or 0))
+  end
+  local step = { target = current == "silver" and "gold" or "silver",
+    trainers = 0, items = 0, hidden = 0, pokemon = 0, untracked = (area.unknown or 0) > 0 }
+  if step.target == "silver" then
+    step.trainers, step.items = open(1), open(2)
+    -- Do not advertise an undiscovered hidden item's existence outside Spoiler.
+    if mode == "spoiler" then step.hidden = open(3) end
+  else step.pokemon = open(4) end
+  step.count = step.trainers + step.items + step.hidden + step.pokemon
+  return step
+end
+
+-- The few areas closest to their next stamp; the current area wins ties.
+function M.nextGoals(goals, mode, limit)
+  local out = {}
+  for _, area in ipairs(goals or {}) do
+    local step = M.nextStep(area, mode)
+    if step and step.count > 0 then out[#out + 1] = { area = area, step = step } end
+  end
+  table.sort(out, function(a, b)
+    if a.step.count ~= b.step.count then return a.step.count < b.step.count end
+    if (a.area.current == true) ~= (b.area.current == true) then return a.area.current == true end
+    return tostring(a.area.id) < tostring(b.area.id)
+  end)
+  for i = #out, (limit or 3) + 1, -1 do out[i] = nil end
+  return out
+end
+
 return M

@@ -10,6 +10,12 @@ return function(theme, screen, gen1, translate, drawPokemon)
       sections = { { done = 3, total = 3 }, { done = 2, total = 2 },
         { done = 1, total = 1 }, { done = 5, total = 6 } } }
   end
+  -- Distinct progress per stamp so the four-part rings read differently.
+  areas[2].current = true
+  areas[3].sections = { { done = 1, total = 3 }, { done = 1, total = 2 }, { done = 0, total = 1 }, { done = 3, total = 6 } }
+  areas[5].evidence = false
+  areas[6].sections = { { done = 2, total = 5 }, { done = 3, total = 6 }, { done = 1, total = 4 }, { done = 4, total = 7 } }
+  areas[4].sections[4] = { done = 9, total = 9 }
   local view = screen == "achievements_habitat" and "habitat"
     or screen:find("location", 1, true) and "location"
     or screen:find("detail", 1, true) and "detail"
@@ -24,7 +30,9 @@ return function(theme, screen, gen1, translate, drawPokemon)
       { label = "ARENA LEADER", state = "later", mapId = names[2], x = 7, y = 7 } }
   end
   if screen:find("pokemon", 1, true) then
-    entries = { { label = "SLOWPOKE", species = "SLOWPOKE", state = "open", wild = true },
+    entries = { { label = "SLOWPOKE", species = "SLOWPOKE", state = "open", wild = true,
+        appearances = { { mapId = names[2], method = "SURF" }, { mapId = names[2], method = "WALK", time = "MORN" },
+          { mapId = names[2], method = "OLD" } } },
       { label = "MAGIKARP", species = "MAGIKARP", state = "done", done = true, wild = true },
       { label = "GYARADOS", species = "GYARADOS", state = "done", done = true, wild = true } }
   end
@@ -63,7 +71,18 @@ return function(theme, screen, gen1, translate, drawPokemon)
   theme:headerBar(view == "detail" and areas[2].name or translate("ACHIEVEMENTS"), true, false)
   theme:headerClock("20:04", "NITE", 139, 72, 6)
   theme:battery(214, 8, 4, nil, true, theme.colors.ink, theme.colors.greenLight)
-  theme:achievements({ loading = screen == "achievements_loading", view = view, mode = "spoiler", goal = areas[2], area = areas[2],
+  local mode = os.getenv("KANTO_GEAR_PREVIEW_STAMP_MODE") or "spoiler"
+  local Progress = assert(loadfile(os.getenv("KANTO_GEAR_ROOT") .. "/mod/kanto_gear/features/achievements.lua"))()
+  local goals = Progress.nextGoals({ areas[2], areas[3], areas[6] }, mode, 3)
+  for _, goal in ipairs(goals) do goal.now = goal.step.target == "gold" end
+  local summary = { gold = 0, silver = 0, bronze = 0, total = #areas }
+  for _, area in ipairs(areas) do if summary[area.tier] then summary[area.tier] = summary[area.tier] + 1 end end
+  if mode == "vanilla" then
+    for _, area in ipairs(areas) do area.tier = nil end
+    goals, summary = {}, nil
+  end
+  theme:achievements({ loading = screen == "achievements_loading", view = view, mode = mode, goal = areas[2], area = areas[2],
+    goals = goals, summary = summary, step = Progress.nextStep(areas[2], mode), areaMaps = { names[2] },
     location = location, locationPoint = inside and location or entrance or location,
     entrance = entrance, inside = inside, locationFloor = inside and "5F" or nil,
     section = gen1 and "CELADON CITY" or "GOLDENROD CITY",

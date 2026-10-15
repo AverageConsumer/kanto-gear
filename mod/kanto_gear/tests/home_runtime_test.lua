@@ -97,10 +97,11 @@ do
       for segment = 1, 3 do
         for _, point in ipairs(data.px[segment]) do
           left, right = math.min(left, point[1]), math.max(right, point[1])
-          swept[point[1] .. ":" .. point[2]] = point[3]
+          -- LuaJIT can retain -0 at the first column; integer pixel keys must normalize it.
+          swept[string.format("%d:%d", point[1], point[2])] = point[3]
         end
         for _, run in ipairs(data.runs[segment]) do
-          for x = run[2], run[2] + run[4] - 1 do settled[x .. ":" .. run[3]] = run[1] end
+          for x = run[2], run[2] + run[4] - 1 do settled[string.format("%d:%d", x, run[3])] = run[1] end
         end
       end
       T.eq(left + right, size - 1, "both emblem tips have symmetric pixel bounds")

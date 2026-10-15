@@ -262,6 +262,11 @@ return function(H, ui, K)
     NITE = { ".##..", "##...", "##...", "##...", ".##.." },
   }
   local PERIOD_TINT = { MORN = "f0a050", DAY = "e8b820", NITE = "5878d8" }
+  -- Shared with the stamp book's missing-Pokemon hints.
+  function H:v4PeriodIcon(period, x, y)
+    local c = PERIOD_TINT[period]
+    return c and K.periodIcon and K.periodIcon(period, x, y, mix(hex(c), { 0, 0, 0, 1 }, 0.15)) or false
+  end
 
   local function periodChip(self, period, right, y)
     if not period then return right end

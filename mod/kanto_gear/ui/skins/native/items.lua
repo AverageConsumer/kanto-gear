@@ -1,5 +1,5 @@
 return function(ART, CIRC, H, K, WHITE, cg, floor, hex, min, mix, translate, ui)
-  function H:v4FindRow(row, top, status, actionable)
+  function H:v4FindRow(row, top, status, actionable, infoRight)
     local c = self.colors
     local done = row.state == "done"
     local x = 13
@@ -13,7 +13,8 @@ return function(ART, CIRC, H, K, WHITE, cg, floor, hex, min, mix, translate, ui)
         x + 6, top + 12, { o = c.outline, ["#"] = row.kind == "hidden" and hex("58a8e8") or hex("e8a030") })
     end
     local label = row.isEgg and translate("EGG") or row.label or ""
-    self:partyInfo(self:fitPartyInfo(label, 120), 40, top + 4, done and c.ink or c.mutedInk)
+    local labelWidth = infoRight and math.max(0, min(120, infoRight - 44)) or 120
+    self:partyInfo(self:fitPartyInfo(label, labelWidth), 40, top + 4, done and c.ink or c.mutedInk)
     local tint = done and c.hp or row.state == "unavailable" and hex("d05040")
       or row.state == "later" and c.silverDark or (cg(self) and self.tok.acc.M or hex("3878d0"))
     self:v4Pill(status, 40, top + 17, tint, { raw = true, maxW = 160 })

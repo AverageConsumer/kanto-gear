@@ -199,6 +199,8 @@ return function(
             label = (session.game.data.pokemon[row.species] or {}).name or row.name,
             order = row.order, done = caught[row.species] == true, wild = true,
             mapId = row.appearances[1] and row.appearances[1].mapId,
+            -- Kept for the next-stamp hints (time of day, rod, Headbutt...).
+            appearances = row.appearances,
           }
         end
         return result
@@ -294,11 +296,51 @@ return function(
     state.page = math.max(1, math.min(state.page or 1, pages))
     local shown = {}
     for index = (state.page - 1) * size + 1, math.min(#entries, state.page * size) do
-      shown[#shown + 1] = entries[index]
+      local entry = entries[index]
+      if entry.appearances then
+        local copy = {}
+        for key, value in pairs(entry) do copy[key] = value end
+        copy.appearances = Discovery.filter(entry.appearances, function(appearance)
+          return displayRuntime.knownMap(appearance.mapId)
+        end)
+        entry = copy
+      end
+      shown[#shown + 1] = entry
+    end
+    -- Next-stamp guidance: the closest goals, what the stamp book holds, and
+    -- whether a still-missing local Pokemon can appear at the current time.
+    local period = compat.timePeriod(session.game.world) or "DAY"
+    local methods
+    local function catchableNow(goalArea)
+      if not assist("habitats") or not assist("encounter_details") then return false end
+      methods = methods or displayRuntime.habitatMethods()
+      local inArea = {}
+      for _, id in ipairs(goalArea.maps or {}) do inArea[id] = true end
+      for _, row in ipairs(goalArea.sections[4] and goalArea.sections[4].rows or {}) do
+        if row.wild and row.state == "open" then
+          for _, appearance in ipairs(row.appearances or {}) do
+            if inArea[appearance.mapId] and displayRuntime.knownMap(appearance.mapId)
+                and (not appearance.time or appearance.time == period)
+                and not methods[appearance.method] then return true end
+          end
+        end
+      end
+      return false
+    end
+    local nextGoals = Progress.nextGoals(goals, mode, 3)
+    for _, goal in ipairs(nextGoals) do
+      goal.now = goal.step.target == "gold" and catchableNow(goal.area)
+    end
+    local summary = { gold = 0, silver = 0, bronze = 0, total = #areas }
+    for _, entry in ipairs(areas) do
+      if summary[entry.tier] then summary[entry.tier] = summary[entry.tier] + 1 end
     end
     return { view = state.view, page = state.page, pages = pages, area = area,
-      goal = goals[1], earned = earned, entries = shown, mode = mode,
+      goal = goals[1], goals = nextGoals, summary = summary, period = period,
+      step = area and Progress.nextStep(area, mode), areaMaps = area and area.maps,
+      earned = earned, entries = shown, mode = mode,
       category = state.category, canHabitat = assist("habitats"), canLocate = assist("area_map"), canExplore = area and area.current and assist("guide"),
+      canEncounterDetails = assist("encounter_details"),
       location = state.location,
       locationPoint = state.locationPoint or state.location,
       entrance = state.locationEntrance,

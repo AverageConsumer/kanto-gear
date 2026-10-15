@@ -256,6 +256,52 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   area = album().byId.ROUTE_2
   T.eq(area.sections[4].total, 1, version .. " duplicate encounter slots produce one species goal")
   T.eq(area.tier, "silver", version .. " missing local species leaves silver")
+  local wild = area.sections[4].rows[1]
+  local originalAppearances = wild.appearances
+  local function nextNow(method, time, id)
+    wild.appearances = { { mapId = id or "ROUTE_2", method = method, time = time } }
+    display.achievements.presentSource = nil
+    for _, goal in ipairs(display.achievementModel().goals) do
+      if goal.area.id == "ROUTE_2" then return goal.now end
+    end
+  end
+  world.tod = "DAY"
+  T.eq(nextNow("OLD"), false, version .. " next stamp does not advertise fishing without a rod")
+  game.save.inventory.OLD_ROD = 1
+  T.eq(nextNow("OLD"), true, version .. " owned rod makes an untimed encounter available")
+  T.eq(nextNow("OLD", "NITE"), false, version .. " next stamp respects the game time")
+  game.save.pokedex.seen.FIXMON_A = true
+  run.loader.modOptions.kanto_gear.info_level = "enhanced"
+  T.eq(nextNow("WALK", nil, "UNVISITED_FIXTURE"), false, version .. " NOW does not reveal an unknown floor")
+  run.loader.modOptions.kanto_gear.info_level = "custom"
+  for _, key in ipairs({ "stamp_totals", "wild", "unknown_species", "habitats" }) do
+    mod.options:set("reveal_" .. key, true)
+  end
+  mod.options:set("reveal_encounter_details", false)
+  T.eq(nextNow("WALK"), false, version .. " NOW respects disabled encounter details")
+  T.eq(display.achievementModel().canEncounterDetails, false, version .. " method icons respect encounter details")
+  local renderer, hintCalls, reserved = theme.hgss, 0, nil
+  local originalFind, originalMethod = renderer.v4FindRow, renderer.v4MethodGlyph
+  renderer.v4FindRow = function(_, _, _, _, _, right) reserved = right end
+  renderer.v4MethodGlyph = function() hintCalls = hintCalls + 1 end
+  local hintModel = { view = "finds", mode = "spoiler", category = 4, areaMaps = { "ROUTE_2" },
+    canHabitat = true, canEncounterDetails = false,
+    entries = { { label = "LONG POKEMON NAME", wild = true, state = "open", appearances = {} } } }
+  for _, method in ipairs({ "SURF", "OLD", "GOOD", "SUPER", "HEADBUTT" }) do
+    hintModel.entries[1].appearances[#hintModel.entries[1].appearances + 1] = { mapId = "ROUTE_2", method = method }
+  end
+  renderer:achievements(hintModel)
+  T.eq(hintCalls, 0, version .. " disabled encounter details draw no method hints")
+  hintModel.canEncounterDetails = true
+  renderer:achievements(hintModel)
+  T.eq(hintCalls, 3, version .. " method hints stay within three icon slots")
+  T.eq(reserved, 178, version .. " Pokemon name reserves the visible hint strip")
+  renderer.v4FindRow, renderer.v4MethodGlyph = originalFind, originalMethod
+  run.loader.modOptions.kanto_gear.info_level = "spoiler"
+  wild.appearances = originalAppearances
+  display.achievements.presentSource = nil
+  game.save.inventory.OLD_ROD = nil
+  game.save.pokedex.seen.FIXMON_A = nil
   display.achievements.view, display.achievements.selected = "detail", "ROUTE_2"
   display.drawAchievements()
   display.tapAchievements(120, 195)

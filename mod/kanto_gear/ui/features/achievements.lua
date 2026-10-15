@@ -10,6 +10,55 @@ return function(H, G, translate, format)
       rect(x - half, y + dy, half * 2 + 1, 1, tint)
     end
   end
+  -- Four-part progress ring: trainers, items, hidden finds, Pokemon (clockwise
+  -- from the top). Pixel spans are cached per size; the same disc rounding as
+  -- the seal keeps both edges on the pixel grid.
+  local SEGMENT = { { .88, .28, .22, 1 }, { .88, .6, .13, 1 }, { .22, .47, .82, 1 }, { .24, .63, .3, 1 } }
+  local METAL = { gold = { .83, .57, .18, 1 }, silver = { .49, .61, .65, 1 }, bronze = { .66, .36, .19, 1 } }
+  local ringCache = {}
+  local function ringPixels(outer, inner)
+    local key = outer * 64 + inner
+    if ringCache[key] then return ringCache[key] end
+    local rows, quarter, gap = {}, math.pi / 2, 1.2 / outer
+    for dy = -outer, outer do
+      local half = math.floor(math.sqrt(outer * outer - dy * dy))
+      local hole = math.abs(dy) <= inner and math.floor(math.sqrt(inner * inner - dy * dy)) or -1
+      local row = { dy = dy }
+      for dx = -half, half do
+        if math.abs(dx) > hole then
+          local angle = math.atan2(dx, -dy) % (2 * math.pi)
+          local segment = math.floor(angle / quarter) % 4 + 1
+          local within = angle - (segment - 1) * quarter
+          if within >= gap and within <= quarter - gap then
+            row[#row + 1] = { dx = dx, segment = segment, at = (within - gap) / (quarter - 2 * gap) }
+          end
+        end
+      end
+      rows[#rows + 1] = row
+    end
+    ringCache[key] = rows
+    return rows
+  end
+  function H:achievementRing(cx, cy, outer, inner, sections, hiddenKnown)
+    local track = self.colors.band
+    for _, row in ipairs(ringPixels(outer, inner)) do
+      local runX, runW, runTint
+      for _, pixel in ipairs(row) do
+        local section = sections and sections[pixel.segment] or {}
+        local known = pixel.segment ~= 3 or hiddenKnown
+        local total, done = section.total or 0, section.done or 0
+        local share = total > 0 and done / total or 1
+        local tint = known and (share >= 1 or pixel.at < share) and SEGMENT[pixel.segment] or track
+        local x = cx + pixel.dx
+        if tint == runTint and runX + runW == x then runW = runW + 1
+        else
+          if runTint then rect(runX, cy + row.dy, runW, 1, runTint) end
+          runX, runW, runTint = x, 1, tint
+        end
+      end
+      if runTint then rect(runX, cy + row.dy, runW, 1, runTint) end
+    end
+  end
   function H:achievementSeal(cx, cy, r, kind, tier)
     tier = tier == true and "gold" or tier or "none"
     local complete = tier ~= "none" and tier ~= false
@@ -154,6 +203,32 @@ return function(H, G, translate, format)
       draw()
       self:endPress(pressed)
     end
+    local function pill(value, x, y, tint)
+      if self.v4Pill then return self:v4Pill(value, x, y, tint, { raw = true, maxW = 96 }) end
+      local w = math.min(96, self:partyInfoWidth(value) + 9)
+      rect(x, y, w, 11, tint)
+      self:partyType(self:fitPartyType(value, w - 4), x + 2, y + 2, c.white or c.ink, w - 4)
+      return w
+    end
+    -- "TRAINERS 2  ITEMS 1": only what the next stamp needs, in game order.
+    local function stepText(step, width)
+      if not step then return translate("KEEP EXPLORING") end
+      local parts = {}
+      for _, part in ipairs({ { "TRAINERS", step.trainers }, { "ITEMS", step.items },
+          { "HIDDEN", step.hidden }, { "POKEMON", step.pokemon } }) do
+        if part[2] > 0 then parts[#parts + 1] = translate(part[1]) .. " " .. tostring(part[2]) end
+      end
+      if #parts == 0 then return translate(step.untracked and "NOT TRACKED" or "KEEP EXPLORING") end
+      if width and #parts > 1 and self:partyInfoWidth(table.concat(parts, "  ")) > width then
+        local first = table.remove(parts, 1)
+        return first, table.concat(parts, "  ")
+      end
+      return table.concat(parts, "  ")
+    end
+    local function ringedSeal(cx, cy, entry, outer)
+      self:achievementRing(cx, cy, outer, outer - 3, entry.sections, model.mode == "spoiler")
+      self:achievementSeal(cx, cy, outer - 6, entry.kind, entry.tier)
+    end
     local function pager(y)
       label(tostring(model.page or 1) .. " / " .. tostring(model.pages or 1),
         46, y, 148, 14, quiet, true)
@@ -185,7 +260,21 @@ return function(H, G, translate, format)
       end
       if self.v4AchievementTabs then self:v4AchievementTabs(view) end
     end
-    if view == "goals" then
+    if view == "goals" and #(model.goals or {}) > 0 then
+      for i, goal in ipairs(model.goals) do
+        local top, entry, step = 58 + (i - 1) * 52, goal.area, goal.step
+        card(6, top, 228, 48, "area", entry.id, function()
+          ringedSeal(30, top + 24, entry, 19)
+          self:partyInfo(self:fitPartyInfo(entry.name, 150), 54, top + 1, c.ink)
+          local x = 54 + pill(translate(step.target:upper()), 54, top + 13, METAL[step.target]) + 4
+          if goal.now then pill(translate("NOW"), x, top + 13, SEGMENT[4]) end
+          local first, second = stepText(step, 150)
+          self:partyType(first, 54, top + (second and 25 or 31), quiet, 150)
+          if second then self:partyType(second, 54, top + 35, quiet, 150) end
+          self:detailChevron(214, top + 20, accent, true)
+        end)
+      end
+    elseif view == "goals" then
       local goal = model.goal
       card(6, 61, 228, 91, goal and "area" or "view", goal and goal.id or "album", function()
         self:achievementSeal(49, 102, 27, goal and goal.kind or "route", goal and goal.tier)
@@ -212,14 +301,46 @@ return function(H, G, translate, format)
         end)
       end
     elseif view == "album" then
-      pager(56)
+      local ringed = model.mode ~= "vanilla" and model.summary ~= nil
+      if ringed then
+        -- Medal tally in the left half of the pager row, the page in the right half.
+        local s, parts, width = model.summary, {}, 0
+        for _, tier in ipairs({ "gold", "silver", "bronze" }) do
+          local value = tostring(s[tier])
+          parts[#parts + 1] = { tier, value, self:partyInfoWidth(value) }
+          width = width + 9 + parts[#parts][3]
+        end
+        width = width + 6 * (#parts - 1)
+        local x = 40 + math.floor((80 - width) / 2)
+        for _, part in ipairs(parts) do
+          disc(x + 3, 62, 3, METAL[part[1]])
+          self:partyInfoCentered(part[2], x + 9, 54, part[3], 17, c.ink)
+          x = x + 9 + part[3] + 6
+        end
+        self:partyInfoCentered(tostring(model.page or 1) .. " / " .. tostring(model.pages or 1), 124, 54, 76, 17, quiet)
+        if (model.pages or 1) > 1 then
+          hit(6, 54, 30, 19, "page", -1); hit(204, 54, 30, 19, "page", 1)
+          G.push(); G.translate(25, 0); G.scale(-1, 1)
+          self:detailChevron(3, 58, accent, true); G.pop()
+          self:detailChevron(215, 58, accent, true)
+        end
+      else pager(56) end
       self:panel(6, 76, 228, 134, false)
       for i, entry in ipairs(model.entries or {}) do
         local x, y = 8 + (i - 1) % 3 * 76, 78 + math.floor((i - 1) / 3) * 65
         hit(x, y, 72, 63, "area", entry.id)
         local pressed = self:beginPress(x, y, 72, 63, true)
-        self:achievementSeal(x + 35, y + 21, 21, entry.kind, entry.tier or entry.complete)
-        name(entry.name, x + 1, y + 46, 70, 19, entry.complete and c.ink or quiet)
+        if entry.current then
+          rect(x + 2, y, 68, 1, accent); rect(x + 2, y + 62, 68, 1, accent)
+          rect(x, y + 2, 1, 59, accent); rect(x + 71, y + 2, 1, 59, accent)
+        end
+        if ringed and entry.tier and entry.tier ~= "none" then
+          ringedSeal(x + 35, y + 23, entry, 21)
+          name(entry.name, x + 1, y + 44, 70, 20, entry.complete and c.ink or quiet)
+        else
+          self:achievementSeal(x + 35, y + 21, 21, entry.kind, entry.tier or entry.complete)
+          name(entry.name, x + 1, y + 46, 70, 19, entry.complete and c.ink or quiet)
+        end
         self:endPress(pressed)
       end
       if #(model.entries or {}) == 0 then
@@ -233,10 +354,27 @@ return function(H, G, translate, format)
         or area.tier == "silver" and "COMPLETE LOCAL POKEDEX"
         or area.tier == "bronze" and "FINISH AREA TASKS" or "KEEP EXPLORING"
       name(translate(nextGoal), 70, 40, 150, 20, accent)
-      label(unvisited and translate("VISIT AREA TO EXPLORE")
-        or model.mode == "spoiler" and (area.remaining == 0 and (area.unknown or 0) > 0
-          and translate("NOT TRACKED") or format("%d LEFT", area.remaining))
-        or translate("YOUR JOURNEY"), 70, 65, 150, 12, quiet, true)
+      local step = model.step
+      if step and not unvisited then
+        -- What the next stamp needs, and how far along that tier is.
+        local x = 72 + pill(translate(step.target:upper()), 72, 63, METAL[step.target]) + 4
+        local remaining = step.count > 0 and format("%d LEFT", step.count) or stepText(step)
+        self:partyInfo(self:fitPartyInfo(remaining, 220 - x), x, 62, quiet)
+        local done, total = 0, 0
+        for category = 1, 4 do
+          local section = area.sections[category]
+          local counts = step.target == "gold" and category == 4
+            or step.target == "silver" and category < 4 and (category ~= 3 or model.mode == "spoiler")
+          if counts and section then done, total = done + (section.done or 0), total + (section.total or 0) end
+        end
+        rect(72, 79, 148, 3, c.band)
+        if total > 0 then rect(72, 79, math.floor(148 * done / total), 3, METAL[step.target]) end
+      else
+        label(unvisited and translate("VISIT AREA TO EXPLORE")
+          or model.mode == "spoiler" and (area.remaining == 0 and (area.unknown or 0) > 0
+            and translate("NOT TRACKED") or format("%d LEFT", area.remaining))
+          or translate("YOUR JOURNEY"), 70, 65, 150, 12, quiet, true)
+      end
       local titles = { "TRAINERS", "ITEMS", "HIDDEN FINDS", "POKEMON" }
       for category = 1, 4 do
         local section, top = area.sections[category], 94 + (category - 1) * 30
@@ -283,8 +421,37 @@ return function(H, G, translate, format)
             untracked = "NOT TRACKED", excluded = "ALTERNATIVE CHOICE",
             repeatable = row.kind == "hidden" and "RENEWABLE" or "REPEATABLE" })[row.state])
           if row.bonus then status = translate("BONUS") .. ": " .. status end
+          local hints = model.category == 4 and row.wild and row.state ~= "done"
+            and model.canHabitat ~= false and model.canEncounterDetails ~= false
+            and row.appearances and self.v4MethodGlyph
           if self.v4FindRow then
-            self:v4FindRow(row, top, status, action ~= nil)
+            local icons = {}
+            if hints then
+              -- Where and when the missing Pokemon appears in this area.
+              local inArea, times, methods, order, allTimes = {}, {}, {}, {}, false
+              for _, id in ipairs(model.areaMaps or {}) do inArea[id] = true end
+              for _, appearance in ipairs(row.appearances) do
+                if inArea[appearance.mapId] then
+                  if appearance.time then times[appearance.time] = true else allTimes = true end
+                  local method = appearance.method or "WALK"
+                  if method ~= "WALK" and not methods[method] then methods[method] = true; order[#order + 1] = method end
+                end
+              end
+              for i = 1, 3 do
+                local period = ({ "MORN", "DAY", "NITE" })[i]
+                if times[period] and not allTimes and not (times.MORN and times.DAY and times.NITE) and self.v4PeriodIcon then
+                  icons[#icons + 1] = { "period", period }
+                end
+              end
+              for i = 1, math.min(3, #order) do icons[#icons + 1] = { "method", order[i] } end
+            end
+            local left = 208 - #icons * 10
+            self:v4FindRow(row, top, status, action ~= nil, #icons > 0 and left or nil)
+            for i, icon in ipairs(icons) do
+              local x = left + (i - 1) * 10
+              if icon[1] == "period" then self:v4PeriodIcon(icon[2], x, top + 6)
+              else self:v4MethodGlyph(icon[2], x, top + 5) end
+            end
           else
           label(status,
             13, top + 20, 195, 9, row.state == "done" and accent or quiet, true)
