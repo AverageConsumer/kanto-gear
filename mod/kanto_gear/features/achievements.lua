@@ -329,7 +329,8 @@ function M.nextStep(area, mode)
   if current ~= "bronze" and current ~= "silver" then return nil end
   local function open(category)
     local section = area.sections[category] or {}
-    return math.max(0, (section.total or 0) - (section.done or 0))
+    -- Missed obligations can no longer be done; they never count as "left".
+    return math.max(0, (section.total or 0) - (section.done or 0) - (section.unavailable or 0))
   end
   local step = { target = current == "silver" and "gold" or "silver",
     trainers = 0, items = 0, hidden = 0, pokemon = 0, untracked = (area.unknown or 0) > 0 }

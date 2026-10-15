@@ -256,6 +256,8 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   area = album().byId.ROUTE_2
   T.eq(area.sections[4].total, 1, version .. " duplicate encounter slots produce one species goal")
   T.eq(area.tier, "silver", version .. " missing local species leaves silver")
+  T.eq(display.currentAchievement().step.target, "gold", version .. " widget shows the next stamp tier")
+  T.eq(display.currentAchievement().now, true, version .. " widget recognizes the available walking encounter")
   local wild = area.sections[4].rows[1]
   local originalAppearances = wild.appearances
   local function nextNow(method, time, id)
@@ -280,6 +282,7 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   mod.options:set("reveal_encounter_details", false)
   T.eq(nextNow("WALK"), false, version .. " NOW respects disabled encounter details")
   T.eq(display.achievementModel().canEncounterDetails, false, version .. " method icons respect encounter details")
+  T.eq(display.currentAchievement().now, false, version .. " widget respects disabled encounter details")
   local renderer, hintCalls, reserved = theme.hgss, 0, nil
   local originalFind, originalMethod = renderer.v4FindRow, renderer.v4MethodGlyph
   renderer.v4FindRow = function(_, _, _, _, _, right) reserved = right end

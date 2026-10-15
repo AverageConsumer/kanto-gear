@@ -34,6 +34,10 @@ check(A.nextStep(area("ROUTE_33", "none", { { 0, 1 }, { 0, 1 }, { 0, 0 }, { 0, 2
 check(A.nextStep(area("ROUTE_34", "bronze", { { 1, 1 }, { 1, 1 }, { 0, 0 }, { 0, 3 } }, { unknown = 1 }), "spoiler").untracked,
   "untracked rows are reported instead of hidden")
 
+local missed = area("ROUTE_37", "bronze", { { 2, 3 }, { 1, 1 }, { 1, 1 }, { 2, 4 } })
+missed.sections[1].unavailable = 1
+check(A.nextStep(missed, "spoiler").count == 0, "a missed obligation is never reported as left")
+
 local hiddenOnly = area("ROUTE_35", "bronze", { { 2, 2 }, { 1, 1 }, { 0, 2 }, { 1, 1 } })
 local union = area("UNION_CAVE", "bronze", { { 2, 5 }, { 3, 6 }, { 1, 4 }, { 4, 7 } })
 local here = area("ROUTE_36", "silver", { { 1, 1 }, { 0, 0 }, { 0, 0 }, { 2, 6 } }, { current = true })

@@ -2516,10 +2516,13 @@ function love.load()
     if fontScript then
       stampArea.name = fontScript == "ko" and "한국어 지도 도감" or "日本語 地図 図鑑"
     end
+    local stampMode = stampCase == "vanilla" and "vanilla"
+      or stampCase == "enhanced" and "enhanced" or "spoiler"
+    local stampStep = stampCase ~= "unknown" and stampMode ~= "vanilla"
+      and assert(loadfile(root .. "/mod/kanto_gear/features/achievements.lua"))().nextStep(stampArea, stampMode) or nil
     local model = {
-      stamps = { area = stampCase ~= "unknown" and stampArea or nil,
-        mode = stampCase == "vanilla" and "vanilla"
-          or stampCase == "enhanced" and "enhanced" or "spoiler" },
+      stamps = { area = stampCase ~= "unknown" and stampArea or nil, mode = stampMode,
+        step = stampStep, now = stampCase == "silver" },
       page = homePage, pages = homePages,
       help = screen == "home-help" or screen == "home-help-bottom"
         or screen == "home-help-empty" or screen == "home-help-icon",
@@ -3238,7 +3241,7 @@ function love.load()
   local data = preview:newImageData():encode("png")
   local missing = i18n:coverage(languageCode)
   -- These names come from the game in the Home fixture, not Gear's catalog.
-  local nativeFixtureNames = { ["ROUTE 15"] = true, ["ROUTE 37"] = true }
+  local nativeFixtureNames = { ["ROUTE 15"] = true, ["ROUTE 30"] = true, ["ROUTE 37"] = true }
   if os.getenv("KANTO_GEAR_PREVIEW_LAX") ~= "1" then
     local catalog = i18n.catalogs[i18n:language()]
     for _, key in ipairs(missing) do

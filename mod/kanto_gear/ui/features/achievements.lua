@@ -109,7 +109,15 @@ return function(H, G, translate, format)
     self:homeTile(x, y, w, h, c.amber, selected)
     self:homeWidgetHeader(x, y, w, area and area.name or "STAMPS",
       c.green, c.greenLight, model.editing, area ~= nil)
-    self:achievementSeal(x + 31, y + 48, 20, area and area.kind, area and area.tier)
+    local step = stamp.step
+    local ringed = area and mode ~= "vanilla" and area.tier and area.tier ~= "none"
+    if ringed then
+      -- Same four-part ring as the Stamp Book: trainers, items, hidden, Pokemon.
+      self:achievementRing(x + 31, y + 48, 21, 18, area.sections, mode == "spoiler")
+      self:achievementSeal(x + 31, y + 48, 15, area.kind, area.tier)
+    else
+      self:achievementSeal(x + 31, y + 48, 20, area and area.kind, area and area.tier)
+    end
     local left, width = x + 64, w - 70
     local function small(value, top, tint)
       self:partyType(self:fitPartyType(value, width), left, top, tint, width)
@@ -127,7 +135,29 @@ return function(H, G, translate, format)
         or area.remaining > 0 and area.availableRemaining == 0 and translate("MISSED GOALS")
         or format("%d LEFT", area.remaining)
     end
-    small(status, y + 21, area.complete and accent or c.ink)
+    if step and step.count > 0 then
+      -- Next tier first, then how much is left; NOW when a missing Pokemon is out.
+      local function pill(value, px, tint)
+        if self.v4Pill then return self:v4Pill(value, px, y + 20, tint, { raw = true, maxW = 60 }) end
+        local pw = math.min(60, self:partyInfoWidth(value) + 9)
+        rect(px, y + 20, pw, 11, tint)
+        self:partyType(self:fitPartyType(value, pw - 4), px + 2, y + 22, c.white or c.ink, pw - 4)
+        return pw
+      end
+      local target, now = translate(step.target:upper()), stamp.now and translate("NOW")
+      local function pillWidth(value)
+        return self:partyInfoWidth(self:fitPartyType(value, 52)) + 9
+      end
+      local badgesWidth = pillWidth(target) + 4 + (now and pillWidth(now) + 4 or 0)
+      local remaining = self:fitPartyInfo(format("%d LEFT", step.count), width - badgesWidth)
+      local remainingWidth = self:partyInfoWidth(remaining)
+      local px = left + math.floor((width - badgesWidth - remainingWidth) / 2)
+      px = px + pill(target, px, METAL[step.target]) + 4
+      if now then px = px + pill(now, px, SEGMENT[4]) + 4 end
+      self:partyInfoCentered(remaining, px - 4, y + 19, remainingWidth + 8, 13, c.ink)
+    else
+      small(status, y + 21, area.complete and accent or c.ink)
+    end
     local cellWidth = math.floor((width - 4) / 2)
     local gridLeft = left + math.floor((width - cellWidth * 2 - 4) / 2)
     for category, title in ipairs({ "TRAINERS", "ITEMS", "HIDDEN", "POKEMON" }) do
@@ -135,6 +165,8 @@ return function(H, G, translate, format)
       local known = mode ~= "vanilla" and (category ~= 3 or mode == "spoiler")
       local complete = known and section.total > 0 and section.done == section.total
         and (section.unknown or 0) == 0
+      -- Rows the next stamp does not depend on step back; the rest stay ink.
+      local relevant = not step or (step.target == "gold") == (category == 4)
       local cx = gridLeft + (category - 1) % 2 * (cellWidth + 4)
       local cy = y + 35 + math.floor((category - 1) / 2) * 22
       rect(cx, cy, cellWidth, 21, c.surface)
@@ -147,18 +179,18 @@ return function(H, G, translate, format)
       if self:partyInfoWidth(name) + self:partyInfoWidth(count) + 6 <= cellWidth - 4 then
         -- one calm row: label left, count right, the bar underneath
         self:partyInfo(name, cx + 2, cy + 2, c.mutedInk)
-        self:partyInfo(count, cx + 2, cy + 2, complete and accent or c.ink, cellWidth - 4, "right")
+        self:partyInfo(count, cx + 2, cy + 2, complete and accent or relevant and c.ink or c.mutedInk, cellWidth - 4, "right")
         barY = cy + 15
       else
         self:partyType(self:fitPartyType(name, cellWidth - 4),
-          cx + 2, cy - 1, c.mutedInk, cellWidth - 4)
+          cx + 2, cy - 3, c.mutedInk, cellWidth - 4)
         self:partyType(self:fitPartyType(count, cellWidth - 4),
           cx + 2, cy + 7, complete and accent or c.ink, cellWidth - 4)
       end
       rect(cx + 2, barY, cellWidth - 4, 3, c.band)
       if known and section.total > 0 then
         rect(cx + 2, barY, math.floor((cellWidth - 4) * section.done / section.total),
-          3, complete and accent or c.amber)
+          3, SEGMENT[category])
       end
     end
   end

@@ -228,10 +228,33 @@ return function(
     return not state.stale and state.data or nil
   end
 
+  -- Whether a still-missing local Pokemon can appear here right now with the
+  -- player's current tools. Shared by the stamp widget and the Goals list.
+  function displayRuntime.stampCatchableNow(area, methods)
+    if not area or not assist("habitats") or not assist("encounter_details") then return false end
+    local period = compat.timePeriod(session.game.world) or "DAY"
+    methods = methods or displayRuntime.habitatMethods()
+    local inArea = {}
+    for _, id in ipairs(area.maps or {}) do inArea[id] = true end
+    for _, row in ipairs(area.sections[4] and area.sections[4].rows or {}) do
+      if row.wild and row.state == "open" then
+        for _, appearance in ipairs(row.appearances or {}) do
+          if inArea[appearance.mapId] and displayRuntime.knownMap(appearance.mapId)
+              and (not appearance.time or appearance.time == period)
+              and not methods[appearance.method] then return true end
+        end
+      end
+    end
+    return false
+  end
+
   function displayRuntime.currentAchievement()
     local mode = displayRuntime.discoveryMode()
     local area = displayRuntime.perf:call("stamps_current", displayRuntime.achievementData, true).areas[1]
-    return { area = area and displayRuntime.presentAchievement(area), mode = mode }
+    area = area and displayRuntime.presentAchievement(area)
+    local step = area and displayRuntime.Achievements.nextStep(area, mode)
+    return { area = area, mode = mode, step = step,
+      now = step ~= nil and step.target == "gold" and displayRuntime.stampCatchableNow(area) }
   end
 
   function displayRuntime.presentAchievement(area)
@@ -310,26 +333,13 @@ return function(
     -- Next-stamp guidance: the closest goals, what the stamp book holds, and
     -- whether a still-missing local Pokemon can appear at the current time.
     local period = compat.timePeriod(session.game.world) or "DAY"
-    local methods
-    local function catchableNow(goalArea)
-      if not assist("habitats") or not assist("encounter_details") then return false end
-      methods = methods or displayRuntime.habitatMethods()
-      local inArea = {}
-      for _, id in ipairs(goalArea.maps or {}) do inArea[id] = true end
-      for _, row in ipairs(goalArea.sections[4] and goalArea.sections[4].rows or {}) do
-        if row.wild and row.state == "open" then
-          for _, appearance in ipairs(row.appearances or {}) do
-            if inArea[appearance.mapId] and displayRuntime.knownMap(appearance.mapId)
-                and (not appearance.time or appearance.time == period)
-                and not methods[appearance.method] then return true end
-          end
-        end
-      end
-      return false
-    end
     local nextGoals = Progress.nextGoals(goals, mode, 3)
+    local methods
     for _, goal in ipairs(nextGoals) do
-      goal.now = goal.step.target == "gold" and catchableNow(goal.area)
+      if goal.step.target == "gold" and assist("habitats") and assist("encounter_details") then
+        methods = methods or displayRuntime.habitatMethods()
+      end
+      goal.now = goal.step.target == "gold" and displayRuntime.stampCatchableNow(goal.area, methods)
     end
     local summary = { gold = 0, silver = 0, bronze = 0, total = #areas }
     for _, entry in ipairs(areas) do
