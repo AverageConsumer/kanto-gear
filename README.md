@@ -49,6 +49,8 @@ The clock can follow the game or your device.
 | **Pokédex** | Search your research, read complete entries, check evolution targets and conditions, and find habitats with encounter methods and access requirements. Native cry, size and form pages are adapted where supported. |
 | **Stamps** | Track each location's trainers, items, hidden finds and Pokémon. Open remaining goals to see their location; indoor finds point to the building entrance first, with an option to look inside. |
 | **Notes** | Keep general or location-linked text notes, checklists and colored drawings. QWERTY and QWERTZ are available. |
+| **Day-Care** | Check boarded Pokémon, current levels, withdrawal fees and moves at pickup. In Gen 2 and 3, also check breeding compatibility, waiting eggs and party eggs. FireRed/LeafGreen keep the Route 5 boarder separate from the Four Island pair. |
+| **Calendar** | In Gen 2, browse weekly visitors, time windows, ready rematches and gifts. In Hoenn, check daily gifts, berries, tides and rematches; FireRed/LeafGreen show VS Seeker charge and ready trainers. Timing follows the game's clock. |
 | **Field Kit** | Contextual shortcuts for tools and field moves, including rods, Bicycle, Item Radar and travel. Currently usable actions appear first. |
 | **Trainer Card** | Your trainer details, regional badges, play time and native records, including the game's card rank where available. |
 | **Step Counter** | Track movement, milestones and a resettable session counter. |
@@ -56,7 +58,10 @@ The clock can follow the game or your device.
 | **Silph Store** | Manage your installed Gear apps and discover what to add to Home. |
 
 Home widgets cover the live Explorer map, lead partner, whole team, Pokédex,
-region map, Bag, Trainer Card, steps, Stamps, Silph Connect and individual field tools.
+region map, Bag, Trainer Card, steps, Stamps, Silph Connect, Day-Care, Calendar
+and individual field tools. The Calendar is available in Gen 2 and 3; the egg
+widget is available in games that support breeding. Egg contents, progress,
+breeding odds and event schedules follow your information settings.
 
 <p align="center">
   <img src="screenshots/4.0-explorer-layer-pokegear-light.png" width="49%" alt="Explorer map, encounter cards and progress tabs">

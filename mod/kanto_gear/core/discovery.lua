@@ -17,6 +17,7 @@ Discovery.options = {
   { "gifts", "GIFTS AND TRADES", "exploration", true, "Reveal NPC gifts, trades and their requirements before receiving them." },
   { "hidden_items", "HIDDEN ITEMS", "exploration", false, "Reveal hidden items without a scan or collection. Requires Item Checklist." },
   { "berries", "BERRY INFORMATION", "exploration", true, "Show berry locations, contents and readiness on the area map." },
+  { "event_calendar", "EVENT SCHEDULE", "exploration", true, "Show weekday visitors, rematch times and events before you meet them." },
   { "unvisited_maps", "UNVISITED LOCATIONS", "exploration", false, "Include unvisited places in habitats and checklists. Does not unlock game access." },
   { "future_tasks", "FUTURE TASKS", "exploration", false, "Include story-locked, unavailable and missed tasks. Their category must also be enabled." },
   { "unknown_species", "UNSEEN SPECIES", "pokedex", true, "Reveal Pokemon you have not seen in the Dex, encounter lists and evolution targets." },
@@ -36,6 +37,7 @@ Discovery.options = {
   { "training", "PARTNER TRAINING", "partner", false, "Show your Pokemon's EVs or stat experience. Does not change training in the game." },
   { "egg_progress", "EGG PROGRESS", "partner", false, "Show remaining hatch cycles and estimated steps. Hatchling identity has a separate switch." },
   { "egg_species", "EGG CONTENTS", "partner", false, "Reveal which Pokemon is inside an egg before it hatches." },
+  { "daycare_odds", "DAY-CARE ODDS", "partner", true, "Show egg chances and the steps to the next egg check." },
   { "stamp_totals", "COMPLETION TOTALS", "stamps", true, "Show stamp tiers, missing-goal counts and completion totals. Task names and locations follow their own switches." },
   { "journey_stats", "JOURNEY COUNTERS", "stamps", true, "Show Gear's step counter and derived journey totals. Your own notes stay available when off." },
 }

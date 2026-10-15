@@ -5,9 +5,15 @@ if not ok then fruits = nil end
 
 -- The daily reset clears this gate before the first interaction actually
 -- clears the picked-tree table. Read both; never run the mutating reset here.
+-- Crystal inserts ENGINE_MOBILE_SYSTEM before the daily flags, so its gate
+-- sits one id higher (the host's own daily reset applies the same shift).
+function Trees.gate(save)
+  return fruits and fruits.ENGINE_ALL_FRUIT_TREES + (save and save.version == "crystal" and 1 or 0)
+end
+
 function Trees.picked(save, tree)
   return fruits ~= nil and save ~= nil
-    and (save.engineFlags or {})[fruits.ENGINE_ALL_FRUIT_TREES] == true
+    and (save.engineFlags or {})[Trees.gate(save)] == true
     and (save.fruitTrees or {})[tree] == true
 end
 

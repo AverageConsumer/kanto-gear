@@ -525,6 +525,14 @@ return function(H, ui, draw, icons)
         self:homeStore(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "pss" then
         self:homePss(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "daycare" and self.homeDaycare then
+        self:homeDaycare(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "daycare_small" and self.homeDaycareSmall then
+        self:homeDaycareSmall(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "calendar" and self.homeCalendar then
+        self:homeCalendar(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "calendar_small" and self.homeCalendarSmall then
+        self:homeCalendarSmall(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "steps" then
         self:homeSteps(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "tool" then

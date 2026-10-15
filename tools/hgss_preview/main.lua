@@ -149,6 +149,7 @@ end
 function love.load()
   local screen = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") or "party"
   local achievements = screen:sub(1, 12) == "achievements"
+  local daycareScreen = screen:sub(1, 7) == "daycare" or screen:sub(1, 8) == "calendar"
   local homePreview = screen:sub(1, 4) == "home"
   local storeExplorerPreview = screen == "store-detail"
     and os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "explorer"
@@ -206,7 +207,7 @@ function love.load()
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
   for prefix, name in pairs({ pokedex = "POKEDEX", trainer = "TRAINER", bag = "BAG",
       store = "STORE", tools = "TOOLS", settings = "SETTINGS", achievements = "ACHIEVEMENTS",
-      region_map = "MAP", pss = "PSS", notes = "NOTES" }) do
+      region_map = "MAP", pss = "PSS", notes = "NOTES", daycare = "DAYCARE", calendar = "CALENDAR" }) do
     if screen:sub(1, #prefix) == prefix then theme.v4Page = name end
   end
   if screen == "trainer_steps" then theme.v4Page = "STEPS" end
@@ -214,6 +215,10 @@ function love.load()
     assert(loadfile(root .. "/tools/hgss_preview/map_parity.lua"))()(theme)
   end
   assert(loadfile(root .. "/mod/kanto_gear/ui/features/achievements.lua"))()(
+    theme, love.graphics, translate, format)
+  assert(loadfile(root .. "/mod/kanto_gear/ui/features/daycare.lua"))()(
+    theme, love.graphics, translate, format)
+  assert(loadfile(root .. "/mod/kanto_gear/ui/features/calendar.lua"))()(
     theme, love.graphics, translate, format)
   theme:setTouch(20, 20)
   assert(theme:isPressed(29, 29, 3, 3)
@@ -225,7 +230,7 @@ function love.load()
   if pressX then theme:setTouch(tonumber(pressX), tonumber(pressY)) end
   -- Legacy battle/party assertions predate the companion pages. Silph and
   -- Stamps and map scenes exercise their own renderer without those screens.
-  if screen:sub(1,3) ~= "pss" and not achievements and not homePreview
+  if screen:sub(1,3) ~= "pss" and not achievements and not homePreview and not daycareScreen
       and screen:sub(1,8) ~= "explorer" and screen ~= "legacy_naming" then
   assert(theme.backdropCenterY == 121,
     "every HGSS Pokeball backdrop shares the Party screen center")
@@ -803,7 +808,7 @@ function love.load()
       and (transitionProgress >= 0.5 and movesTitle or statsTitle)
     or (summary or transition and transitionProgress >= 0.42) and statsTitle
     or language.title
-  if not legacyTitle and not achievements
+  if not legacyTitle and not achievements and not daycareScreen
       and not battleRoot and not (battleFull and screen ~= "battle_opponents") and not battleMessage and not battlePartyTransition
       and not battlePartyMenu and not battleParty
       and not battleMoves and not battleMovesTransition
@@ -1776,6 +1781,13 @@ function love.load()
     end
     theme:pss(state)
     end
+  elseif daycareScreen then
+    assert(loadfile(root .. "/tools/hgss_preview/daycare_calendar.lua"))()(
+      theme, screen, gen1, translate, format, root, function(mon, x, y, size)
+        if mon and mon.isEgg then
+          theme.daycareEggArt(theme, x + math.floor((size - 12) / 2), y + math.floor((size - 13) / 2), false)
+        else drawPortrait(mon and mon.slot or 1, x, y, size, false) end
+      end)
   elseif achievements then
     assert(loadfile(root .. "/tools/hgss_preview/achievements.lua"))()(
       theme, screen, gen1, translate, function(_, x, y, size) drawPortrait(1, x, y, size, false) end)
@@ -2403,8 +2415,15 @@ function love.load()
           widget = "achievements", columns = 12, label = "STAMPS" },
         achievements_app = { package = "achievements", kind = "app", columns = 3,
           icon = "achievements", accent = "amber", label = "STAMPS" },
+        daycare_widget = { package = "daycare", kind = "widget", widget = "daycare", columns = 12, label = "DAY-CARE" },
+        daycare_small_widget = { package = "daycare", kind = "widget", widget = "daycare_small", columns = 5, label = "EGGS" },
+        daycare_app = { package = "daycare", kind = "app", columns = 3, icon = "daycare", accent = "red", label = "DAY-CARE" },
+        calendar_widget = { package = "calendar", kind = "widget", widget = "calendar", columns = 12, label = "CALENDAR" },
+        calendar_small_widget = { package = "calendar", kind = "widget", widget = "calendar_small", columns = 5, label = "TODAY" },
+        calendar_app = { package = "calendar", kind = "app", columns = 3, icon = "calendar", accent = "blue", label = "CALENDAR" },
       },
     }
+    catalog.packages.daycare, catalog.packages.calendar = { installed = true }, { installed = true }
     local layout = { tiles = {
       { id = "explorer_widget", page = 1, column = 1, row = 1 },
       { id = "party_widget", page = 1, column = 8, row = 1 },
@@ -2420,6 +2439,20 @@ function love.load()
       layout.tiles[2].id = "bag_widget"
     elseif screen == "home-achievements" then
       layout.tiles[3].id = "achievements_app"
+    elseif screen:sub(1, 12) == "home-daycare" then
+      layout.tiles = {
+        { id = "daycare_widget", page = 1, column = 1, row = 1 },
+        { id = "daycare_small_widget", page = 1, column = 1, row = 2 },
+        { id = "daycare_app", page = 1, column = 7, row = 2 },
+        { id = "calendar_app", page = 1, column = 10, row = 2 },
+      }
+    elseif screen:sub(1, 13) == "home-calendar" then
+      layout.tiles = {
+        { id = "calendar_widget", page = 1, column = 1, row = 1 },
+        { id = "calendar_small_widget", page = 1, column = 1, row = 2 },
+        { id = "calendar_app", page = 1, column = 7, row = 2 },
+        { id = "daycare_app", page = 1, column = 10, row = 2 },
+      }
     elseif screen:sub(1, 11) == "home-stamps" then
       layout.tiles = {
         { id = "achievements_widget", page = 1, column = 1, row = 1 },
@@ -2627,6 +2660,18 @@ function love.load()
         drawPortrait(row.slot, x, y, size, false)
       end,
     }
+    if screen:sub(1, 12) == "home-daycare" or screen:sub(1, 13) == "home-calendar" then
+      local fixture = assert(loadfile(root .. "/tools/hgss_preview/daycare_calendar.lua"))()
+      local variant = os.getenv("KANTO_GEAR_PREVIEW_WIDGET") or ""
+      local function drawMon(mon, x, y, size)
+        if mon and mon.isEgg then theme.daycareEggArt(theme, x + math.floor((size - 12) / 2), y + 2, false)
+        else drawPortrait(mon and mon.slot or 1, x, y, size, false) end
+      end
+      model.daycare = fixture(theme, "daycare" .. variant, gen1, translate, format, root, drawMon, true)
+      if theme.homeCalendar then
+        model.calendar = fixture(theme, "calendar" .. variant, gen1, translate, format, root, drawMon, true)
+      end
+    end
     if homeEdit then
       if os.getenv("KANTO_GEAR_PREVIEW_HOME_FOCUS") == "1"
           and model.tiles[1] then
@@ -3270,7 +3315,10 @@ function love.load()
   local data = preview:newImageData():encode("png")
   local missing = i18n:coverage(languageCode)
   -- These names come from the game in the Home fixture, not Gear's catalog.
-  local nativeFixtureNames = { ["ROUTE 15"] = true, ["ROUTE 30"] = true, ["ROUTE 37"] = true }
+  local nativeFixtureNames = { ["ROUTE 15"] = true, ["ROUTE 30"] = true, ["ROUTE 37"] = true,
+    ["ROUTE 5"] = true, ["MARILL"] = true, ["JOEY"] = true, ["LIZ"] = true, ["GINA"] = true, ["WADE"] = true,
+    ["LAPRAS"] = true, ["MAGNET"] = true, ["SHARP BEAK"] = true, ["BLACKBELT"] = true, ["POISON BARB"] = true,
+    ["SPELL TAG"] = true, ["HARD STONE"] = true, ["LEAF STONE"] = true, ["TM27 / TM21"] = true }
   if os.getenv("KANTO_GEAR_PREVIEW_LAX") ~= "1" then
     local catalog = i18n.catalogs[i18n:language()]
     for _, key in ipairs(missing) do

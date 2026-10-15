@@ -77,7 +77,7 @@ return function(H, ui, K)
   -- Home apps: one table, uniform 24×24 bounds, ids carried explicitly.
   ---------------------------------------------------------------------------
   local APPS = { "bag", "pokedex", "trainer", "steps", "achievements", "party", "tools",
-    "explorer", "map", "store", "notes", "pss", "settings" }
+    "explorer", "map", "store", "notes", "pss", "settings", "daycare", "calendar" }
   function H:v4HomeIcons()
     if self.v4HomeIconCache then return self.v4HomeIconCache end
     local out = {}
@@ -119,7 +119,8 @@ return function(H, ui, K)
   -- Widget library thumbnails use the same family.
   local LIB = { explorer = "explorer", steps = "steps", team = "party", pokedex = "pokedex",
     trainer = "trainer", map = "map", bag = "bag", store = "store", pss = "pss",
-    achievements = "achievements", party = "party", notes = "notes" }
+    achievements = "achievements", party = "party", notes = "notes",
+    daycare = "daycare", calendar = "calendar" }
   local baseLib = H.homeWidgetLibraryIcon
   function H:homeWidgetLibraryIcon(kind, x, y, item)
     if kind == "tool" then return self:toolIcon(item and item.icon or "tools", x + 1, y + 1) end

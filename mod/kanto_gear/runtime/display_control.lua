@@ -215,6 +215,10 @@ return function(
     end
     displayRuntime.homeCatalog.packages.achievements.available = true
     displayRuntime.storeById.achievements.available = true
+    -- Game path [Gen 1]: the Route 5 Day-Care boards one Pokemon and makes no eggs.
+    local gen1 = not displayRuntime.gen3 and not (session.game.save and session.game.save.generation == 2)
+    displayRuntime.homeCatalog.surfaces.daycare_small_widget.hidden = gen1
+    if displayRuntime.applyCalendarSupport then displayRuntime.applyCalendarSupport() end
     displayRuntime.autoBattle = {}
     displayRuntime.touchGuard.key, displayRuntime.touchGuard.pending = nil, false
     displayRuntime.touchGuard.readyAt = 0

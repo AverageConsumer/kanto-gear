@@ -132,7 +132,8 @@ return function(
       session.page, displayRuntime.home.activeApp = "HOME", nil
     elseif not hgss and (session.page == "HOME" or session.page == "STORE"
         or session.page == "STEPS" or session.page == "POKEDEX" or session.page == "BAG"
-        or session.page == "ACHIEVEMENTS" or session.page == "NOTES" or session.page == "PSS") then
+        or session.page == "ACHIEVEMENTS" or session.page == "NOTES" or session.page == "PSS"
+        or session.page == "DAYCARE" or session.page == "CALENDAR") then
       session.page = "MAP"
     elseif hgss and (session.page == "GUIDE" or session.page == "AREA") then
       session.page = "LOCAL"

@@ -139,6 +139,10 @@ return function(
       displayRuntime.drawAchievements()
     elseif THEME.style == "hgss" and session.page == "NOTES" then
       displayRuntime.drawNotes()
+    elseif THEME.style == "hgss" and session.page == "DAYCARE" then
+      displayRuntime.drawDaycare()
+    elseif THEME.style == "hgss" and session.page == "CALENDAR" and displayRuntime.drawCalendar then
+      displayRuntime.drawCalendar()
     elseif THEME.style == "hgss" and session.page == "PSS" then
       displayRuntime.drawPss()
     elseif THEME.style == "hgss" and session.page == "BAG" then

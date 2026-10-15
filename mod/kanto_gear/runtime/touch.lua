@@ -139,6 +139,12 @@ return function(
     elseif THEME.style == "hgss" and session.page == "NOTES" then
       displayRuntime.notesPointer("tap", x * THEME.hgssScale, y * THEME.hgssScale)
       return
+    elseif THEME.style == "hgss" and session.page == "DAYCARE" then
+      displayRuntime.tapDaycare(x * THEME.hgssScale, y * THEME.hgssScale)
+      return
+    elseif THEME.style == "hgss" and session.page == "CALENDAR" and displayRuntime.tapCalendar then
+      displayRuntime.tapCalendar(x * THEME.hgssScale, y * THEME.hgssScale)
+      return
     elseif THEME.style == "hgss" and session.page == "PSS" then
       if y * THEME.hgssScale < 30 and x * THEME.hgssScale < 27 then
         if displayRuntime.pss.selected then displayRuntime.pss:action("back")

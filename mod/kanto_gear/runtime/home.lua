@@ -210,6 +210,9 @@ return function(
       regionMap = needed.map and displayRuntime.homeRegionMap() or nil,
       storePromo = needed.store and displayRuntime.storeWidgetSummary() or nil,
       pss = needed.pss and displayRuntime.pss or nil,
+      daycare = (needed.daycare or needed.daycare_small) and displayRuntime.daycareModel() or nil,
+      calendar = (needed.calendar or needed.calendar_small) and displayRuntime.calendarModel
+        and displayRuntime.calendarModel() or nil,
       drawPokemon = function(view, x, y, size, fainted)
         local mon = party[view and view.slot or 1]
         if not mon then return end
@@ -230,7 +233,8 @@ return function(
     }
     home.widgetCache = { key = key, at = now, save = session.game.save, model = model,
       stepSensitive = needed.party or needed.team or needed.steps
-        or needed.trainer or needed.achievements or needed.tool }
+        or needed.trainer or needed.achievements or needed.tool
+        or needed.daycare or needed.daycare_small or needed.calendar or needed.calendar_small }
     return model
   end
 

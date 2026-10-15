@@ -211,6 +211,7 @@ return function(H, ui, K)
     POKEDEX = "e04838", TRAINER = "3878d0", STEPS = "3ea04c", BAG = "d88a18",
     STORE = "d84860", NOTES = "c88a20", ACHIEVEMENTS = "c89a18", SETTINGS = "5a6c88",
     TOOLS = "d88a18", MAP = "3878d0", LOCAL = "3878d0", PSS = "4a68c8",
+    DAYCARE = "d85878", CALENDAR = "3878d0",
   }
   local tintCache = {}
   -- Every app wears its own colour on the header plate; Home keeps the theme.

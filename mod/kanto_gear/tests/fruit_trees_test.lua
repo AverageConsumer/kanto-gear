@@ -98,6 +98,8 @@ else
   T.eq(model.selectedMarker.source, model.selected, "selected marker is linked to detail")
   fruits.tryResetFruitTrees(game.save)
   fruits.pickTree(game.save, 5)
+  T.eq((game.save.engineFlags or {})[fruits.ENGINE_ALL_FRUIT_TREES + 1], true,
+    "Crystal keeps the daily fruit gate one engine flag after Gold's")
   local picked = display.explorerModel(overview)
   T.check(picked ~= model, "picking refreshes markers immediately inside the snapshot interval")
   T.eq(picked.selected.picked, true, "detail shows actual harvested state")

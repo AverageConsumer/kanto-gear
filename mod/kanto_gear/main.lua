@@ -101,6 +101,13 @@ return function(mod)
   install("runtime/store",
     THEME, areaName, assist, compactSteps, compat, displayRuntime,
     drawSprite, header, loadLocalMap, partyData, render, session)
+  install("runtime/daycare",
+    THEME, assist, compat, displayRuntime, drawSprite, header, locationEntry,
+    mod, render, session)
+  install("runtime/calendar",
+    THEME, assist, compat, displayRuntime, header, locationEntry, mod, render,
+    session)
+  install("runtime/calendar_gen3", THEME, assist, displayRuntime, session)
   local drawFieldChoice, drawNormalParty, drawParty, drawPartyAction = install("runtime/party",
     THEME, button, displayRuntime, fit, header, hgssRuntime,
     partyCard, partyData, render, session)

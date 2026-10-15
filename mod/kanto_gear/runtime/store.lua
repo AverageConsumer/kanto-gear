@@ -6,7 +6,7 @@ return function(
     local apps = {}
     for _, app in ipairs(displayRuntime.storeCatalog) do
       local entry = displayRuntime.storeEntry(app)
-      if not installedOnly or entry.state == "open" then
+      if not app.hidden and (not installedOnly or entry.state == "open") then
         apps[#apps + 1] = entry
       end
     end
@@ -97,7 +97,7 @@ return function(
     local installed, available, promo = 0, 0, nil
     for _, app in ipairs(displayRuntime.storeCatalog) do
       local package = displayRuntime.homeCatalog.packages[app.id]
-      if app.available ~= false then
+      if app.available ~= false and not app.hidden then
         available = available + 1
         if package and package.installed then installed = installed + 1 end
         if not promo and app.new and package and not package.installed then

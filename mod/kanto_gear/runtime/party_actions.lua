@@ -36,6 +36,11 @@ return function(
       displayRuntime.pss:open()
     elseif id == "notes" then
       displayRuntime.notes:open()
+    elseif id == "daycare" then
+      displayRuntime.daycare.view, displayRuntime.daycare.selected = nil, nil
+    elseif id == "calendar" then
+      local state = displayRuntime.calendar
+      state.view, state.day, state.selected, state.page = nil, nil, nil, 1
     elseif id == "achievements" then
       local state = displayRuntime.achievements
       state.view, state.page, state.selected = "goals", 1, nil

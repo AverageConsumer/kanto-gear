@@ -33,11 +33,15 @@ return function(H, ui, K)
     MINOR[word] = true
   end
   local UNITS = { FT = "ft", IN = "in", LB = "lb", KG = "kg", CM = "cm", KM = "km" }
+  -- Abbreviations that are also ordinary words elsewhere (German "AM",
+  -- "MO" for Monday) stay capitals only beside a number or a slash:
+  -- "9 AM", "MT / MO".
+  local MARKED = { AM = true, PM = true, MO = true }
 
   local LOWER = { ["Ä"] = "ä", ["Ö"] = "ö", ["Ü"] = "ü", ["À"] = "à", ["Â"] = "â",
     ["Ç"] = "ç", ["Á"] = "á", ["È"] = "è", ["É"] = "é", ["Ê"] = "ê", ["Ë"] = "ë",
     ["Í"] = "í", ["Î"] = "î", ["Ï"] = "ï", ["Ó"] = "ó", ["Ô"] = "ô", ["Ú"] = "ú",
-    ["Ù"] = "ù", ["Û"] = "û", ["Ÿ"] = "ÿ", ["Ñ"] = "ñ" }
+    ["Ù"] = "ù", ["Û"] = "û", ["Ÿ"] = "ÿ", ["Ñ"] = "ñ", ["Ì"] = "ì", ["Ò"] = "ò" }
   local UPPER_SET, LOWER_SET = {}, {}
   for up, low in pairs(LOWER) do UPPER_SET[up] = true; LOWER_SET[low] = true end
   LOWER_SET["é"] = nil -- POKéMON / POKéDEX spell é inside capitals
@@ -66,10 +70,10 @@ return function(H, ui, K)
   end
 
   -- One run of letters (apostrophes allowed inside: FARFETCH'D).
-  local function caseRun(run, first, nearDigit, last)
+  local function caseRun(run, first, nearDigit, last, nearSlash)
     local list = chars(run)
     if not shouting(list) then return run end
-    if KEEP[run] then return run end
+    if KEEP[run] and not (MARKED[run] and not nearDigit and not nearSlash) then return run end
     if nearDigit and #list <= 2 then return run end
     if UNITS[run] and not first then return UNITS[run] end
     if MINOR[run] and not first and not last then
@@ -95,11 +99,21 @@ return function(H, ui, K)
       if #run == 0 then return end
       local word = table.concat(run)
       local nearDigit = before:match("%d") or (nextCh and nextCh:match("^%d$"))
+      local nearSlash = false
+      local stop = at or #list + 1
+      for j = stop - #run - 1, 1, -1 do
+        if list[j] == "/" then nearSlash = true end
+        if list[j] ~= " " then break end
+      end
+      for j = stop, #list do
+        if list[j] == "/" then nearSlash = true end
+        if list[j] ~= " " then break end
+      end
       local last = true
       for j = (at or #list) + 1, #list do
         if isLetter(list[j]) then last = false; break end
       end
-      out[#out + 1] = caseRun(word, first, nearDigit, last)
+      out[#out + 1] = caseRun(word, first, nearDigit, last, nearSlash)
       first = false
       run = {}
     end
@@ -146,7 +160,8 @@ return function(H, ui, K)
       if #run == 0 then return end
       local word = table.concat(run)
       local letters = chars(word)
-      if not shouting(letters) or KEEP[word] then
+      local prev = out[#out] == " " and out[#out - 1] or out[#out] or ""
+      if not shouting(letters) or KEEP[word] and not (MARKED[word] and not tostring(prev):match("[%d/]$")) then
         out[#out + 1] = word
       elseif UNITS[word] then
         out[#out + 1] = UNITS[word]

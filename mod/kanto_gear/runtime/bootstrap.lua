@@ -283,6 +283,14 @@ return function(
   assert(load(mod:read("ui/features/achievements.lua"), "@kanto_gear/ui/features/achievements.lua"))()(
     THEME.hgss, render.G, function(value) return THEME:translate(value) end,
     function(value, ...) return THEME:format(value, ...) end)
+  displayRuntime.Daycare = assert(load(mod:read("features/daycare.lua"), "@kanto_gear/features/daycare.lua"))()
+  displayRuntime.Calendar = assert(load(mod:read("features/calendar.lua"), "@kanto_gear/features/calendar.lua"))()
+  assert(load(mod:read("ui/features/calendar.lua"), "@kanto_gear/ui/features/calendar.lua"))()(
+    THEME.hgss, render.G, function(value) return THEME:translate(value) end,
+    function(value, ...) return THEME:format(value, ...) end)
+  assert(load(mod:read("ui/features/daycare.lua"), "@kanto_gear/ui/features/daycare.lua"))()(
+    THEME.hgss, render.G, function(value) return THEME:translate(value) end,
+    function(value, ...) return THEME:format(value, ...) end)
   displayRuntime.Notes = assert(load(mod:read("features/notes.lua"), "@kanto_gear/features/notes.lua"))()
   displayRuntime.Pss = assert(load(mod:read("features/pss.lua"), "@kanto_gear/features/pss.lua"))()
   assert(load(mod:read("ui/features/pss.lua"), "@kanto_gear/ui/features/pss.lua"))()(
@@ -313,6 +321,8 @@ return function(
       achievements = { installed = false },
       notes = { installed = false },
       pss = { installed = false },
+      daycare = { installed = false },
+      calendar = { installed = false },
     },
     surfaces = {
       explorer_widget = { package = "explorer", kind = "widget",
@@ -363,6 +373,18 @@ return function(
         widget = "pss", label = "SILPH CONNECT" },
       settings_app = { package = "settings", kind = "app", columns = 3,
         icon = "settings", accent = "blue", label = "OPTIONS" },
+      daycare_widget = { package = "daycare", kind = "widget",
+        widget = "daycare", columns = 12, label = "DAY-CARE" },
+      daycare_small_widget = { package = "daycare", kind = "widget",
+        widget = "daycare_small", columns = 5, label = "EGGS" },
+      daycare_app = { package = "daycare", kind = "app", columns = 3,
+        icon = "daycare", accent = "red", label = "DAY-CARE" },
+      calendar_widget = { package = "calendar", kind = "widget",
+        widget = "calendar", columns = 12, label = "CALENDAR" },
+      calendar_small_widget = { package = "calendar", kind = "widget",
+        widget = "calendar_small", columns = 5, label = "TODAY" },
+      calendar_app = { package = "calendar", kind = "app", columns = 3,
+        icon = "calendar", accent = "blue", label = "CALENDAR" },
     },
   }
   for _, def in ipairs(THEME.fieldTools.widgets) do
@@ -382,6 +404,14 @@ return function(
       category = "TRAINER TOOL", target = "NOTES", featured = true,
       description = { "PLAN ROUTES AND REMINDERS.",
         "WRITE, CHECK TASKS AND DRAW.", "KEEP CLUES CLOSE AT HAND." } },
+    { id = "daycare", icon = "daycare", label = "DAY-CARE",
+      category = "BREEDING", target = "DAYCARE",
+      description = { "SEE WHO IS AT THE DAY-CARE.",
+        "LEVELS, FEES AND MOVES AT PICKUP.", "TRACK THE NEXT EGG AND HATCHING." } },
+    { id = "calendar", icon = "calendar", label = "CALENDAR",
+      category = "SCHEDULE", target = "CALENDAR",
+      description = { "WEEKDAY VISITORS AND EVENTS.",
+        "REMATCHES, GIFTS AND BERRIES.", "WHAT YOU CAN DO TODAY." } },
     { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
       category = "ADVENTURE", target = "ACHIEVEMENTS",
       description = { "COLLECT STAMPS FOR YOUR JOURNEY.",

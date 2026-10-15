@@ -6,8 +6,11 @@ tests/auto_battle_screen_test.lua
 tests/bag_actions_gen3_cases.lua
 tests/bag_runtime_test.lua
 tests/battle_modes_test.lua
+tests/calendar_runtime_test.lua
 tests/compat_test.lua
 tests/core_contracts_test.lua
+tests/daycare_model_test.lua
+tests/daycare_runtime_test.lua
 tests/desktop_compat_test.lua
 tests/discovery_partner_cases.lua
 tests/display_background_test.lua
@@ -30,6 +33,7 @@ tests/gen2_rewards_test.lua
 tests/gen3_battle_hints_test.lua
 tests/gen3_battle_presentation_test.lua
 tests/gen3_controls_test.lua
+tests/gen3_daycare_calendar_test.lua
 tests/gen3_dex_cache_test.lua
 tests/gen3_dialogue_test.lua
 tests/gen3_field_test.lua
