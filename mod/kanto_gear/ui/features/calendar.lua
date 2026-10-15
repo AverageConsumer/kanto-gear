@@ -64,14 +64,6 @@ return function(H, G, translate, format)
     end
   end
 
-  local function dayLabel(model, day, short)
-    if model.relativeDays then
-      if short then return day == 0 and translate("TODAY") or "+" .. day end
-      return (model.dayLabels or {})[day + 1] or ""
-    end
-    return translate((short and model.shortNames or model.dayNames or {})[day + 1] or "")
-  end
-
   -- Rows for the open day: "now" then the rest of today, or one weekday.
   function H:calendarRows(model)
     local rows, labels = {}, {}
@@ -83,10 +75,13 @@ return function(H, G, translate, format)
           or format("NOW: %s", translate(PERIOD[model.period] or "DAY"))
         for _, row in ipairs(model.now) do rows[#rows + 1] = row; seen[row] = true end
       end
-      local first = true
+      local first, group = true, nil
       for _, row in ipairs(model.today) do
         if not seen[row] then
-          if first then
+          if model.noWeek then
+            local heading = row.state == "done" and "DONE FOR TODAY" or "COMING UP"
+            if heading ~= group then labels[#rows + 1], group = translate(heading), heading end
+          elseif first then
             labels[#rows + 1] = model.comingUp and translate("COMING UP")
               or translate(#model.now > 0 and "ALSO TODAY" or "TODAY")
             first = false
@@ -96,7 +91,7 @@ return function(H, G, translate, format)
       end
     else
       for _, row in ipairs(model.days[day] or {}) do rows[#rows + 1] = row end
-      if #rows > 0 then labels[1] = dayLabel(model, day) end
+      if #rows > 0 then labels[1] = translate((model.dayNames or {})[day + 1] or "") end
     end
     return rows, labels
   end
@@ -116,7 +111,10 @@ return function(H, G, translate, format)
     end
     if model.view == "detail" and model.entry then return self:calendarDetail(model) end
     local pageTop = 63
-    if model.noWeek and not model.relativeDays then pageTop = 34 else
+    if model.noWeek then
+      pageTop = 34
+      if model.hero then self:calendarHero(model.hero); pageTop = 82 end
+    else
     -- Week strip: today framed, the open day lit, dots for how much is on.
     local open = model.day or model.weekday
     for day = 0, 6 do
@@ -129,7 +127,7 @@ return function(H, G, translate, format)
         self:panel(x, 34, 30, 25, false)
       end
       local keyInk = onKey(self, self.v4ramp(accent).M or accent)
-      local label = self:fitPartyType(dayLabel(model, day, true), 28)
+      local label = self:fitPartyType(translate((model.shortNames or {})[day + 1] or ""), 28)
       self:partyInfoCentered(label, x - 4, 34, 38, 14,
         lit and keyInk or (day == model.weekday and accent or c.ink))
       local count = math.min(3, #(model.days[day] or {}))
@@ -208,6 +206,54 @@ return function(H, G, translate, format)
     end
   end
 
+  -- Gen 3 has no weekdays. In their place: Hoenn's day as one 24-hour bar
+  -- (clock, Shoal Cave's low tides, the next harvest) or the VS Seeker's
+  -- battery in FireRed/LeafGreen. Display only; nothing here is tappable.
+  function H:calendarHero(hero)
+    local c = self.colors
+    local accent = self.dark and c.greenLight or c.green
+    local quiet = c.mutedInk
+    local track = self.dark and { 1, 1, 1, 0.12 } or { 0, 0, 0, 0.1 }
+    self:panel(6, 34, 228, 44, false)
+    if hero.kind == "seeker" then
+      local full = hero.charge >= hero.max
+      local count = math.floor(hero.charge * 10 / hero.max)
+      local fill = full and accent or TAG_TINT.GIFT
+      small(self, hero.title or "", 12, 37, 120, c.ink)
+      small(self, format("%d/%d", hero.charge, hero.max), 132, 37, 96, quiet, "right")
+      -- Ten cells of ten steps, centred in the card: 10 x 20 + 9 x 2 = 218.
+      for cell = 0, 9 do
+        rect(11 + cell * 22, 51, 20, 9, cell < count and fill or track)
+      end
+      small(self, hero.status or "", 12, 63, 216, full and accent or quiet)
+      return
+    end
+    -- 24 hours over 216 px: 9 px an hour, from x 12.
+    local x0, y0, perHour = 12, 52, 9
+    local function at(minutes) return x0 + math.floor(minutes * perHour / 60) end
+    small(self, hero.clock or "", 12, 37, 60, c.ink)
+    local tide = TAG_TINT.TIDE
+    small(self, hero.status or "", 72, 37, 156, hero.low and tide or quiet, "right")
+    rect(x0, y0, 216, 7, track)
+    if hero.tide then
+      for _, window in ipairs({ { 3, 9 }, { 15, 21 } }) do
+        rect(at(window[1] * 60), y0, (window[2] - window[1]) * perHour, 7, { tide[1], tide[2], tide[3], 0.55 })
+      end
+    end
+    local now = at(hero.minutes or 0)
+    rect(x0, y0, now - x0, 7, { accent[1], accent[2], accent[3], 0.35 })
+    for hour = 6, 18, 6 do rect(at(hour * 60), y0, 1, 7, track) end
+    for _, mark in ipairs(hero.marks or {}) do
+      local x, tint = at(mark.at), TAG_TINT[mark.tag] or accent
+      rect(x - 1, y0 - 4, 3, 1, tint); rect(x - 2, y0 - 3, 5, 2, tint); rect(x, y0 - 1, 1, 1, tint)
+    end
+    rect(now - 1, y0 - 3, 2, 13, c.ink)
+    -- Ends sit flush with the bar; the inner hours centre on their ticks.
+    small(self, "0", x0, 63, 20, quiet)
+    for hour = 6, 18, 6 do self:partyInfoCentered(tostring(hour), at(hour * 60) - 10, 63, 20, 10, quiet) end
+    small(self, "24", x0 + 216 - 20, 63, 20, quiet, "right")
+  end
+
   function H:calendarDetail(model)
     local c, row = self.colors, model.entry
     local accent = self.dark and c.greenLight or c.green
@@ -224,9 +270,6 @@ return function(H, G, translate, format)
     -- Facts as label/value lines: where, when, how it stands.
     local facts = {}
     if row.place then facts[#facts + 1] = { "PLACE", row.place } end
-    if model.relativeDays and row.day and row.day > 0 then
-      facts[#facts + 1] = { "WHEN", dayLabel(model, row.day) }
-    end
     for _, fact in ipairs(row.facts or {}) do facts[#facts + 1] = fact end
     if row.facts or model.noWeek then
       -- Gen 3 rows carry their own timing.
@@ -294,9 +337,9 @@ return function(H, G, translate, format)
     self:partyInfoCentered(self:fitPartyInfo(bottom, w - 4), x - 4, y + floor(h / 2) - 1, w + 8, 10, ink)
   end
   local function nextUp(model)
-    if model.noWeek and not model.relativeDays then return (model.today or {})[1], nil end
-    if model.relativeDays then
-      for _, row in ipairs(model.today or {}) do if row.state ~= "done" then return row, 0 end end
+    if model.noWeek then
+      for _, row in ipairs(model.today or {}) do if row.state ~= "done" then return row, nil end end
+      return
     end
     for offset = 1, 6 do
       local day = ((model.weekday or 0) + offset) % 7
@@ -319,12 +362,15 @@ return function(H, G, translate, format)
     local left, width = x + 56, w - 62
     local rows = {}
     for _, row in ipairs(data.now or {}) do rows[#rows + 1] = row end
+    if #rows == 0 and data.hero and data.hero.kind == "seeker" then
+      rows[1] = { title = data.hero.title, tag = "BATTLE", place = data.hero.status }
+    end
     if #rows == 0 then
       local row, day = nextUp(data)
       small(self, translate(data.noWeek and "NOTHING TO DO RIGHT NOW" or "NOTHING ELSE TODAY"), left, y + 22, width,
         c.ink)
       if row then
-        local when = day and dayLabel(data, day, true) or row.right
+        local when = day and translate((data.shortNames or {})[day + 1] or "") or row.right
         small(self, (when and when ~= "" and when .. ": " or "") .. tostring(row.title or ""), left, y + 36, width,
           c.mutedInk)
       end
@@ -356,6 +402,7 @@ return function(H, G, translate, format)
     badge(self, data, x + floor((w - 60) / 2), y + 19, 60, 28)
     local count = #(data.now or {})
     local first = data.now and data.now[1]
+    if not first and data.hero and data.hero.kind == "seeker" then first = { title = data.hero.status } end
     if first then
       wrapped(self, first.title or "", x + 4, y + 49, w - 8, c.ink, "center")
       if count > 1 then small(self, format("+%d MORE", count - 1), x + 4, y + 69, w - 8, c.mutedInk, "center") end

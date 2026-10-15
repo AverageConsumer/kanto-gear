@@ -104,7 +104,7 @@ return function(theme, screen, gen1, translate, format, root, drawPokemon, model
         row("contest", "EVENT", "BUG-CATCHING CONTEST", "NATIONAL PARK", nil, { day = 6 }),
         row("tutor", "TUTOR", "MOVE TUTOR", "GOLDENROD CITY", nil, { day = 6 }) } }
     if screen:sub(1, 14) == "calendar_hoenn" or screen:sub(1, 13) == "calendar_frlg" then
-      -- Hoenn uses relative game days; FRLG has only its clockless VS Seeker.
+      -- Gen 3: no weekdays; rows arrive named and timed by runtime/calendar_gen3.lua.
       local function gen3(kind, tag, title, place, state, extra)
         local out = { kind = kind, tag = tag, title = title, place = place, state = state, key = kind .. ":" .. title,
           now = state == "open" }
@@ -118,17 +118,22 @@ return function(theme, screen, gen1, translate, format, root, drawPokemon, model
       if screen:sub(1, 13) == "calendar_frlg" then
         model.badge = { "60%", translate("CHARGE") }
         model.comingUp = true
+        model.hero = { kind = "seeker", charge = 60, max = 100, title = "VS SEEKER",
+          status = format("%d STEPS TO GO", 40) }
         rows = screen == "calendar_frlg_empty" and {} or {
           gen3("rematch", "BATTLE", translate("1 TRAINER IS READY"), "ROUTE 24", "open",
             { status = translate("WANTS A REMATCH") }),
           gen3("seeker", "BATTLE", "VS SEEKER", nil, "later", { right = format("%d STEPS", 40),
             facts = { { "BATTERY", format("%d/%d STEPS", 60, 100) } }, status = translate("WALK TO CHARGE IT") }) }
-        if screen == "calendar_frlg_empty" then model.badge = { "-", translate("CHARGE") } end
+        if screen == "calendar_frlg_empty" then model.badge, model.hero = { "-", translate("CHARGE") }, nil end
+        if screen == "calendar_frlg_full" then
+          model.hero.charge, model.hero.status = 100, translate("READY TO USE")
+
+        end
       else
-        model.relativeDays, model.weekday = true, 0
-        model.dayLabels = { translate("TODAY"), translate("TOMORROW") }
-        for day = 2, 6 do model.dayLabels[day + 1] = format("IN %d DAYS", day) end
         model.badge = { "16:42", translate("TODAY") }
+        model.hero = { kind = "day", minutes = 16 * 60 + 42, clock = "16:42", tide = true, low = true,
+          status = format("LOW TIDE UNTIL %s", "21:00"), marks = { { at = 22 * 60 + 30, tag = "BERRIES" } } }
         local tide = gen3("tide", "TIDE", translate("LOW TIDE"), "SHOAL CAVE", "open", {
           right = format("UNTIL %s", "21:00"), facts = { { "LOW TIDE", "3:00 - 9:00, 15:00 - 21:00" } },
           detailItems = { format("%s: %d LEFT", "SHOAL SALT", 4), format("%s: %d LEFT", "SHOAL SHELL", 2) },
@@ -148,30 +153,16 @@ return function(theme, screen, gen1, translate, format, root, drawPokemon, model
             { right = format("IN %d H", 9), status = format("RIPE %s", format("IN %d H", 9)) }),
           gen3("lottery", "EVENT", translate("LOTTERY CORNER"), "LILYCOVE CITY", "done"),
         }
+        if screen == "calendar_hoenn_quiet" then
+          rows = { rows[7], rows[8] }; rows[1].now = false
+          model.hero.tide, model.hero.low, model.hero.status = false, false, format("NEW DAY IN %d H", 8)
+        end
         if screen == "calendar_hoenn_detail" then model.view, model.entry = "detail", tide end
         if screen == "calendar_hoenn_detail_gift" then model.view, model.entry = "detail", rows[3] end
-        for day = 1, 6 do
-          for _, index in ipairs({ 2, 3, 6, 8 }) do
-            local planned = {}
-            for key, value in pairs(rows[index]) do planned[key] = value end
-            planned.key, planned.day = planned.key .. ":day:" .. day, day
-            planned.now, planned.state, planned.detailItems = nil, "planned", nil
-            planned.status = translate("PLANNED")
-            planned.right = planned.kind == "tide" and "3:00 / 15:00" or translate("ONCE A DAY")
-            model.days[day][#model.days[day] + 1] = planned
-          end
-        end
-        model.days[1][#model.days[1] + 1] = gen3("ripening", "BERRIES", translate("NEXT HARVEST"),
-          "ROUTE 102", "planned", { day = 1, right = "0:30", status = format("EXPECTED AT %s", "0:30") })
-        if screen == "calendar_hoenn_tomorrow" then model.day = 1 end
-        if screen == "calendar_hoenn_future_detail" then
-          model.day, model.view, model.entry = 1, "detail", model.days[1][#model.days[1]]
-        end
-        if screen == "calendar_hoenn_quiet" then rows = { rows[7], rows[8] }; rows[1].now = false end
       end
+      if model.hero and model.hero.kind == "seeker" and screen ~= "calendar_frlg_detail" then rows[2] = nil end
       for _, row in ipairs(rows) do
         if row.now then model.now[#model.now + 1] = row else model.today[#model.today + 1] = row end
-        if model.relativeDays then model.days[0][#model.days[0] + 1] = row end
       end
       if screen == "calendar_frlg_detail" then model.view, model.entry = "detail", rows[2] end
       if modelOnly then return model end

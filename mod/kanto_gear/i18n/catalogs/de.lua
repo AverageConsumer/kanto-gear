@@ -1249,8 +1249,8 @@ return {
   ["%d%%"] = "%d%%",
   ["+%d"] = "+%d",
   ["COMING UP"] = "DEMNÄCHST",
-  ["TOMORROW"] = "MORGEN",
-  ["IN %d DAYS"] = "IN %d TAGEN",
-  ["PLANNED"] = "GEPLANT",
-  ["EXPECTED AT %s"] = "VORAUSSICHTLICH UM %s",
+  ["LOW TIDE UNTIL %s"] = "EBBE BIS %s",
+  ["LOW TIDE FROM %s"] = "EBBE AB %s",
+  ["NEW DAY IN %d H"] = "NEUER TAG IN %d STD.",
+  ["%d STEPS TO GO"] = "NOCH %d SCHRITTE",
 }
