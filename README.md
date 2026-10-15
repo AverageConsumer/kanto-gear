@@ -189,6 +189,11 @@ English, German, Spanish (Spain), French, Japanese and Italian are available und
 Gear translates its own interface; game names and dialogue come from the game
 or a separate translation mod.
 
+The Italian translation is AI-generated, with terminology checked against
+official Italian Pokemon sources. Corrections from Italian-speaking players
+are welcome: [open an issue](https://github.com/AverageConsumer/kanto-gear/issues)
+with the current text, your suggested wording and, if possible, a screenshot.
+
 Silph Connect is a **presence browser and proof of concept**. Friends, chat and
 live invitations to battles or trades are not available in this release; supported
 access must first be enabled by Gen1Recomp. Its widget shows the visible player
