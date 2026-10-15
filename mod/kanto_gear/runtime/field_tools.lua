@@ -74,7 +74,7 @@ return function(
             local action = displayRuntime.availableTool(nil, "fish")
             fishing = {
               id = "fish", icon = "fish", label = THEME:translate("FISH"),
-              ready = action ~= nil, action = action,
+              ready = action ~= nil, action = action, rods = action and action.rods,
             }
             result[#result + 1] = fishing
           end
@@ -106,6 +106,18 @@ return function(
     return ordered
   end
 
+  -- The Pokegear Field Kit draws and resolves touch from one layout, so the
+  -- page count follows the cards that actually fit instead of a fixed size.
+  function displayRuntime.toolsView()
+    local actions = displayRuntime.toolModels()
+    local layout = THEME.hgss:toolsLayout(actions)
+    session.tools.page = math.max(1, math.min(layout.pages, session.tools.page or 1))
+    local armed = session.toolArmed
+    if armed and armed.key ~= session.toolsKey then armed, session.toolArmed = nil, nil end
+    return { actions = actions, layout = layout, page = session.tools.page,
+      pages = layout.pages, armed = armed and armed.id }
+  end
+
   function displayRuntime.needsTools()
     if session.page == "TOOLS" or session.pendingAction or session.fieldChoice then return true end
     if session.page ~= "HOME" then return false end
@@ -126,7 +138,10 @@ return function(
     if world and world.availableFieldActions then
       nextTools, unavailable = world:availableFieldActions()
     end
-    if unavailable == "world is busy" then return end
+    if unavailable == "world is busy" then
+      if session.toolArmed then session.toolArmed, session.dirty = nil, true end
+      return
+    end
     local keys = {}
     for i, action in ipairs(nextTools) do
       local key = action.id == "bicycle" and "BICYCLE"
@@ -150,14 +165,14 @@ return function(
     nextTools.page = session.tools.page or 1
     session.tools = nextTools
     displayRuntime.refreshToolSurfaces(session.tools)
-    local count = THEME.style == "hgss" and #displayRuntime.toolModels() or #session.tools
-    local pageSize = THEME.style == "hgss" and 4 or 6
-    session.tools.page = math.max(1, math.min(
-      math.max(1, math.ceil(count / pageSize)), session.tools.page or 1))
+    local pages = THEME.style == "hgss" and THEME.hgss:toolsLayout(displayRuntime.toolModels()).pages
+      or math.max(1, math.ceil(#session.tools / 6))
+    session.tools.page = math.max(1, math.min(pages, session.tools.page or 1))
     if nextKey ~= session.toolsKey then
       session.toolsKey = nextKey
       session.pendingAction = nil
       session.fieldChoice = nil
+      session.toolArmed = nil
       session.dirty = true
     end
   end

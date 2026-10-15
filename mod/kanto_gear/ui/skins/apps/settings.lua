@@ -147,55 +147,106 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
   ---------------------------------------------------------------------------
   -- Field Kit cards
   ---------------------------------------------------------------------------
-  function H:toolCard(action, x, y)
-    -- One state per card, like the DS menus: a lit card with a coloured seat
-    -- is usable (tap it); a flat grey card says once why it is not.
-    local colors = self.colors
-    local accent = self:toolAccent(action.icon)
-    local ready = action.ready
-    local pressed = self:beginPress(x, y, 109, 76, ready)
-    self:v4Window(x, y, 109, 76, { radius = 5, fill = ready and colors.surface or colors.bandLight })
-    R(x + 5, y + 2, 99, 2, ready and accent or colors.silverDark)
-    local sx, sy = x + 7, y + 17
-    CIRC(sx, sy, 42, colors.outline)
-    CIRC(sx + 1, sy + 1, 40, ready and mix(colors.surface, accent, self.dark and 0.3 or 0.2) or colors.band)
-    K.CIRCrows(sx + 1, sy + 1, 40, 20, 40, ready and mix(colors.surface, accent, self.dark and 0.42 or 0.32) or colors.band)
-    self:toolIcon(action.icon, sx + 7, sy + 7, ready and accent or colors.silver)
-    local infoLeft, infoW = x + 51, 46
-    local label = tostring(action.label or "")
+  -- Shared label: one line when it fits, else two (one long word breaks with
+  -- a hyphen and keeps its own lettering: "Buscaob-/jetos", not "Buscao/Bjetos").
+  local function toolLabel(self, label, x, y, w, h, ink)
+    label = tostring(label or "")
     local a, b = label, nil
-    if self:partyInfoWidth(label) > infoW then a, b = self:splitPartyInfo(label, infoW) end
-    local nameInk = ready and colors.ink or colors.mutedInk
+    if self:partyInfoWidth(label) > w then a, b = self:splitPartyInfo(label, w) end
+    local top = y + floor((h - (b and 22 or 11)) / 2) - 1
     if b and not label:find("%s") and self.v4Cased then
-      -- one long word breaks with a hyphen and keeps its own lettering
-      -- ("Buscaob-/jetos", not "Buscao/Bjetos")
       local word = self:v4Cased(label)
       self:v4Caps(function()
-        local first, rest = self:splitPartyInfo(word, infoW - 4)
+        local first, rest = self:splitPartyInfo(word, w - 4)
         if rest and not first:find("%-$") then first = first .. "-" end
-        self:partyInfo(first, infoLeft, y + 22, nameInk, infoW, "center")
-        self:partyInfo(self:fitPartyInfo(rest or "", infoW), infoLeft, y + 33, nameInk, infoW, "center")
+        self:partyInfo(first, x, top, ink, w, "center")
+        self:partyInfo(self:fitPartyInfo(rest or "", w), x, top + 11, ink, w, "center")
       end)
     elseif b then
-      self:partyInfo(a, infoLeft, y + 22, nameInk, infoW, "center")
-      self:partyInfo(b, infoLeft, y + 33, nameInk, infoW, "center")
+      self:partyInfo(a, x, top, ink, w, "center")
+      self:partyInfo(self:fitPartyInfo(b, w), x, top + 11, ink, w, "center")
     else
-      self:partyInfo(self:fitPartyInfo(a, infoW), infoLeft, y + 28, nameInk, infoW, "center")
+      self:partyInfo(self:fitPartyInfo(a, w), x, top, ink, w, "center")
     end
-    if ready then
-      local bob = (self.motionEnabled ~= false and floor(self:clock() / 0.5) % 2 == 0) and 1 or 0
-      self:wantAmbient(0.5)
-      ART(K.CHEV_R, x + 100 + bob, y + 35, { ["#"] = accent })
+  end
+
+  local function toolSeat(self, icon, x, y, accent)
+    local seat = mix(self.colors.surface, accent, self.dark and 0.3 or 0.2)
+    if cg(self) then CH(x, y, 28, 28, 4, seat) else RR(x, y, 28, 28, 5, seat) end
+    self:toolIcon(icon, x, y, accent)
+  end
+
+  local function chevron(self, x, y, tint)
+    local bob = (self.motionEnabled ~= false and floor(self:clock() / 0.5) % 2 == 0) and 1 or 0
+    self:wantAmbient(0.5)
+    ART(K.CHEV_R, x + bob, y, { ["#"] = tint })
+  end
+
+  ---------------------------------------------------------------------------
+  -- Field Kit: a lit card is usable right here (tap it); location-changing
+  -- moves arm first and ask for a second tap in place; the grey grid below
+  -- lists what is unlocked but has nothing to act on here.
+  ---------------------------------------------------------------------------
+  local WARN = hex("e04838")
+  function H:toolCard(action, item, armed)
+    local colors = self.colors
+    local x, y, w, h = item.x, item.y, item.w, item.h
+    local accent = armed and WARN or self:toolAccent(action.icon)
+    local pressed = self:beginPress(x, y, w, h)
+    self:v4Window(x, y, w, h, { radius = 5,
+      fill = armed and mix(colors.surface, WARN, self.dark and 0.3 or 0.14) or nil })
+    R(x + 2, y + 6, 2, h - 12, accent)
+    toolSeat(self, action.icon, x + 7, y + 2, accent)
+    if armed then
+      -- the icon still names the move; the text asks for the second tap
+      toolLabel(self, translate("TAP AGAIN"), x + 37, y, w - 50, h,
+        self.dark and mix(WARN, WHITE, 0.45) or WARN)
     else
-      local text = self:fitPartyType(translate("NOT HERE"), 52)
-      local tw = self:partyInfoWidth(text) + 8
-      local px = min(x + 104 - tw, infoLeft + floor((infoW - tw) / 2))
-      local py = b and y + 48 or y + 44
-      if cg(self) then CH(px, py, tw, 12, 3, colors.silverDark)
-      else RR(px, py, tw, 12, 4, colors.silverDark) end
-      self:partyType(text, px + 1, py, WHITE, tw - 2)
+      toolLabel(self, action.label, x + 37, y, w - 50, h, colors.ink)
     end
+    chevron(self, x + w - 10, y + 13, accent)
     self:endPress(pressed)
+  end
+
+  local ROD_TIER = { OLD_ROD = { "a07040", 1 }, GOOD_ROD = { "3878d0", 2 }, SUPER_ROD = { "e04838", 3 } }
+  local STAR = { "...#...", "..###..", "#######", ".#####.", "..###..", ".##.##.", ".#...#." }
+  function H:toolRodCard(action, item)
+    local colors = self.colors
+    local x, y, w, h = item.x, item.y, item.w, item.h
+    local accent = self:toolAccent(action.icon)
+    self:v4Window(x, y, w, h, { radius = 5 })
+    R(x + 2, y + 6, 2, h - 12, accent)
+    toolSeat(self, action.icon, x + 7, y + 2, accent)
+    toolLabel(self, action.label, x + 35, y, 37, h, colors.ink)
+    local rods = action.rods or {}
+    for index, rod in ipairs(rods) do
+      local rx, ry, rw, rh = self:toolRodRect(item, index, #rods)
+      local tier = ROD_TIER[tostring(rod.id)] or { "3878d0", index }
+      local pressed = self:beginPress(rx, ry, rw, rh)
+      local off = self:v4Button(rx, ry, rw, rh, K.rampOf(hex(tier[1])), { radius = 4, lip = 3, chamfer = 3 }) or 0
+      local sw = tier[2] * 9 - 2
+      local sx, sy = rx + floor((rw - sw) / 2), ry + floor((rh - 3 - 7) / 2) + off
+      for star = 1, tier[2] do
+        ART(STAR, sx + (star - 1) * 9, sy, { ["#"] = hex("f8d848") })
+      end
+      self:endPress(pressed)
+    end
+  end
+
+  function H:toolChip(action, item)
+    local colors = self.colors
+    local x, y, w, h = item.x, item.y, item.w, item.h
+    if cg(self) then CH(x, y, w, h, 3, colors.band); CH(x + 1, y + 1, w - 2, h - 2, 2, colors.bandLight)
+    else RR(x, y, w, h, 4, colors.band); RR(x + 1, y + 1, w - 2, h - 2, 3, colors.bandLight) end
+    self:toolIcon(action.icon, x + 1, y, colors.silver)
+    toolLabel(self, action.label, x + 28, y, w - 31, h, colors.mutedInk)
+  end
+
+  function H:toolSectionLabel(text, y)
+    local colors = self.colors
+    local tw = self:partyInfoWidth(text)
+    self:partyInfo(text, 9, y - 2, colors.mutedInk)
+    R(9 + tw + 5, y + 4, 224 - tw - 5, 1, colors.band)
   end
 
   -- Segmented strip; the active segment is a lipped key in the row accent.

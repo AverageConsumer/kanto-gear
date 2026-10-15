@@ -124,6 +124,7 @@ return function(
   end
 
   mod.events:on("game.ready", function(payload)
+    session.toolArmed = nil
     displayRuntime.clearExplorerSnapshot()
     displayRuntime.pss:close()
     displayRuntime.localSummary, displayRuntime.nativeSummary = nil, nil

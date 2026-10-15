@@ -103,13 +103,15 @@ return function(
     session.dirty = true
   end
 
-  function displayRuntime.activateTool(action, rodId)
+  -- `confirmed` skips the Dig/Teleport prompt once the Field Kit card has
+  -- already taken its second tap.
+  function displayRuntime.activateTool(action, rodId, confirmed)
     if not action then return false end
     if rodId then
       useTool(action, { rod = rodId })
     elseif action.id == "fly" and THEME.style == "hgss" then
       session.page, displayRuntime.regionCursor.fly, displayRuntime.regionCursor.selected = "MAP", true, false
-    elseif action.id == "dig" or action.id == "teleport" then
+    elseif (action.id == "dig" or action.id == "teleport") and not confirmed then
       session.pendingAction = action
     elseif action.id == "fish" and #(action.rods or {}) > 1 then
       session.fieldChoice = { kind = "fish", action = action }

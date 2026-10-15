@@ -3,6 +3,7 @@ return function(
   mod, refreshTools, screenState, session
 )
   function displayRuntime.openHomeApp(id)
+    session.toolArmed = nil
     displayRuntime.clearExplorerSnapshot()
     local home = displayRuntime.home
     home.editing, home.library, home.addSlot = false, false, nil

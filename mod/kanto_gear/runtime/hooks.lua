@@ -581,6 +581,7 @@ return function(
           end
         end
       end
+      if session.toolArmed and session.page ~= "TOOLS" then session.toolArmed = nil end
       if displayRuntime.needsTools() then displayRuntime.perf:call("tools", refreshTools) end
       local mode, top = screenState()
       if session.page == "POKEDEX" and displayRuntime.pokedex.view == "habitat"

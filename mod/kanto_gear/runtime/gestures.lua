@@ -73,8 +73,9 @@ return function(
       end
     end
     if THEME.style == "hgss" and session.page == "TOOLS" then
-      local pages = math.max(1, math.ceil(#displayRuntime.toolModels() / 4))
+      local pages = displayRuntime.toolsView().pages
       if pages > 1 then
+        session.toolArmed = nil
         local direction = dx < 0 and 1 or -1
         displayRuntime.requestPageMotion(direction)
         session.tools.page = ((session.tools.page or 1) - 1 + direction) % pages + 1

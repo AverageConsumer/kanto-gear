@@ -5,6 +5,7 @@ return function(
 )
   -- Game path [Gen 3 / FRLG]: save.created precedes field entry, and FRLG Continue may replay Quest Log before the session is ready for tool storage.
   function displayRuntime.reloadSavedUi()
+    session.toolArmed = nil
     -- Gen 3's created event precedes _enterField; Continue can first replay
     -- the quest log. Bind tool storage only once the new field/save is live.
     if displayRuntime.gen3 and displayRuntime.sourceGame.phase ~= "field" then return end
@@ -39,6 +40,7 @@ return function(
   mod.events:on("save.loaded", displayRuntime.reloadSavedUi)
 
   mod.events:on("map.entered", function(payload)
+    session.toolArmed = nil
     if displayRuntime.gen3 and displayRuntime.gen3BoundSession ~= displayRuntime.sourceGame.session then
       displayRuntime.reloadSavedUi()
     end

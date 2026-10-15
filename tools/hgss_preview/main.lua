@@ -309,18 +309,20 @@ function love.load()
       "Store promotion labels fit without automatic truncation")
   end
   if screen:sub(1, 5) == "tools" then
-    local singleX, singleY = theme:toolCardRect(0, 1)
-    local thirdX, thirdY = theme:toolCardRect(2, 3)
-    local action, index = theme:toolsHit(80, 90, {
-      page = 1, actions = { { ready = true } },
-    })
-    assert(singleX == 66 and singleY == 74
-        and thirdX == 66 and thirdY == 115
-        and action == "action" and index == 1
-        and theme:toolsHit(135, 90, { page = 1,
-          actions = { { ready = true }, { ready = false } } }) == nil
+    local one = theme:toolsLayout({ { ready = true } })
+    local kitActions = { { ready = true, rods = { {}, {}, {} } }, { ready = true }, { ready = false } }
+    local kit = theme:toolsLayout(kitActions)
+    local action, index = theme:toolsHit(20, 80, { page = 1, actions = kitActions })
+    local rod, rodIndex, rodSlot = theme:toolsHit(220, 50, { page = 1, actions = kitActions })
+    assert(one.pages == 1 and one.items[1].x == 7 and one.items[1].y == 34
+        and kit.items[1].kind == "rods" and kit.items[2].y == 69
+        and kit.labels[1].y == 104 and kit.items[3].kind == "chip" and kit.items[3].y == 116
+        and action == "action" and index == 2
+        and rod == "rod" and rodIndex == 1 and rodSlot == 3
+        and theme:toolsHit(50, 50, { page = 1, actions = kitActions }) == nil
+        and theme:toolsHit(20, 125, { page = 1, actions = kitActions }) == nil
         and theme:rodHit(30, 100, { {}, {} }) == 2,
-      "Field Kit touch targets follow visible ready cards and rod rows")
+      "Field Kit touch targets follow lit cards, inline rods and the idle grid")
   end
   if screen:sub(1, 5) == "store" then
     local tab, tabIndex = theme:storeHit(170, 40, "apps", { pages = 3 })
@@ -635,6 +637,64 @@ function love.load()
   local toolsPrompt = screen == "tools_prompt"
   local toolsRods = screen == "tools_rods"
   local tools = toolsScreen or toolsPrompt or toolsRods
+  local FIXTURE_RODS = gen1 and { { id = "OLD_ROD" }, { id = "GOOD_ROD" } }
+    or { { id = "OLD_ROD" }, { id = "GOOD_ROD" }, { id = "SUPER_ROD" } }
+  -- Field Kit preview variants: KANTO_GEAR_PREVIEW_TOOLS=few shows a typical
+  -- route; armed shows Teleport waiting for its second tap.
+  local toolVariant = os.getenv("KANTO_GEAR_PREVIEW_TOOLS") or "all"
+  local toolActions = gen1 and {
+    { id = "bicycle", icon = "bicycle", label = "BICYCLE", ready = true },
+    { id = "fish", icon = "fish", label = "FISH", ready = true, rods = FIXTURE_RODS },
+    { id = "itemfinder", icon = "itemfinder", label = "ITEM RADAR", ready = true },
+    { id = "cut", icon = "cut", label = "CUT", ready = false },
+    { id = "surf", icon = "surf", label = "SURF", ready = true },
+    { id = "dig", icon = "dig", label = "DIG", ready = false },
+    { id = "teleport", icon = "teleport", label = "TELEPORT", ready = true },
+    { id = "softboiled", icon = "softboiled", label = "SOFT BOILED",
+      ready = true },
+  } or {
+    { id = "bicycle", icon = "bicycle", label = "BICYCLE", ready = true },
+    { id = "fish", icon = "fish", label = "FISH", ready = true, rods = FIXTURE_RODS },
+    { id = "itemfinder", icon = "itemfinder", label = "ITEM RADAR", ready = true },
+    { id = "cut", icon = "cut", label = "CUT", ready = false },
+    { id = "surf", icon = "surf", label = "SURF", ready = true },
+    { id = "headbutt", icon = "headbutt", label = "HEADBUTT", ready = false },
+    { id = "whirlpool", icon = "whirlpool", label = "WHIRLPOOL", ready = true },
+    { id = "strength", icon = "strength", label = "STRENGTH", ready = true },
+    { id = "flash", icon = "flash", label = "FLASH", ready = false },
+    { id = "waterfall", icon = "waterfall", label = "WATERFALL", ready = true },
+    { id = "sweet_scent", icon = "sweet_scent", label = "SWEET SCENT",
+      ready = true },
+    { id = "dig", icon = "dig", label = "DIG", ready = false },
+    { id = "teleport", icon = "teleport", label = "TELEPORT", ready = true },
+    { id = "squirtbottle", icon = "squirtbottle", label = "SQUIRT BOTTLE",
+      ready = false },
+  }
+  local toolPage = math.max(1, math.floor(
+    tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
+  if toolVariant ~= "all" then
+    local keep = { bicycle = true, fish = true, itemfinder = true, cut = true, surf = true,
+      teleport = true, flash = true, strength = true, headbutt = true }
+    local few = {}
+    for _, action in ipairs(toolActions) do
+      if keep[action.id] then
+        few[#few + 1] = action
+        if action.id == "surf" or action.id == "strength" then action.ready = false end
+      end
+    end
+    toolActions = few
+  end
+  do
+    local sorted = {}
+    for _, ready in ipairs({ true, false }) do
+      for _, action in ipairs(toolActions) do
+        if action.ready == ready then sorted[#sorted + 1] = action end
+      end
+    end
+    toolActions = sorted
+  end
+  local toolArmed = toolVariant == "armed" and "teleport" or nil
+  local toolPages = theme:toolsLayout(toolActions).pages
   local settingsRoot, settingsDisplay = screen == "settings",
     screen == "settings_display" or screen == "settings_display_page2"
   local settingsAppearance, settingsSystem = screen == "settings_appearance",
@@ -773,13 +833,13 @@ function love.load()
         and not trainerScreen
         and not trainerSteps and not tools and not settings and not swapMode and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
-        or not context) or toolsScreen), headerOffset)
+        or not context) or toolsScreen and toolPages > 1), headerOffset)
     if context then
       local left, width = 26, 112
       assert(math.abs(titleX - left - (width - titleWidth - (titleX - left)))
         <= 1, "context title stays centered between dividers")
     end
-    if toolsScreen then
+    if toolsScreen and toolPages > 1 then
       assert(titleX >= 42 and titleX + titleWidth <= 122,
         "paged Field Kit titles preserve space beside both arrows")
     end
@@ -1662,37 +1722,6 @@ function love.load()
       } }
     end
   end
-  local toolActions = gen1 and {
-    { id = "bicycle", icon = "bicycle", label = "BICYCLE", ready = true },
-    { id = "fish", icon = "fish", label = "FISH", ready = true },
-    { id = "itemfinder", icon = "itemfinder", label = "ITEM RADAR", ready = true },
-    { id = "cut", icon = "cut", label = "CUT", ready = false },
-    { id = "surf", icon = "surf", label = "SURF", ready = true },
-    { id = "dig", icon = "dig", label = "DIG", ready = false },
-    { id = "teleport", icon = "teleport", label = "TELEPORT", ready = true },
-    { id = "softboiled", icon = "softboiled", label = "SOFT BOILED",
-      ready = true },
-  } or {
-    { id = "bicycle", icon = "bicycle", label = "BICYCLE", ready = true },
-    { id = "fish", icon = "fish", label = "FISH", ready = true },
-    { id = "itemfinder", icon = "itemfinder", label = "ITEM RADAR", ready = true },
-    { id = "cut", icon = "cut", label = "CUT", ready = false },
-    { id = "surf", icon = "surf", label = "SURF", ready = true },
-    { id = "headbutt", icon = "headbutt", label = "HEADBUTT", ready = false },
-    { id = "whirlpool", icon = "whirlpool", label = "WHIRLPOOL", ready = true },
-    { id = "strength", icon = "strength", label = "STRENGTH", ready = true },
-    { id = "flash", icon = "flash", label = "FLASH", ready = false },
-    { id = "waterfall", icon = "waterfall", label = "WATERFALL", ready = true },
-    { id = "sweet_scent", icon = "sweet_scent", label = "SWEET SCENT",
-      ready = true },
-    { id = "dig", icon = "dig", label = "DIG", ready = false },
-    { id = "teleport", icon = "teleport", label = "TELEPORT", ready = true },
-    { id = "squirtbottle", icon = "squirtbottle", label = "SQUIRT BOTTLE",
-      ready = false },
-  }
-  local toolPage = math.max(1, math.floor(
-    tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1))
-  local toolPages = math.max(1, math.ceil(#toolActions / 4))
   if screen == "pss-home-icons" then
     theme:home({page=1,pages=1,tiles={
       {id="pss_app",kind="app",icon="pss",accent="blue",label="SILPH CONNECT",column=1,row=1,columns=3},
@@ -2294,7 +2323,7 @@ function love.load()
           action = "reset_options" },
       } })
   elseif toolsPrompt then
-    theme:tools({ actions = toolActions, page = toolPage, pages = toolPages })
+    theme:tools({ actions = toolActions, page = toolPage })
     theme:toolPrompt({ icon = "teleport", label = "TELEPORT" })
   elseif toolsRods then
     theme:rodPicker({
@@ -2303,7 +2332,7 @@ function love.load()
       { id = "SUPER_ROD", label = "SUPER ROD" },
     })
   elseif toolsScreen then
-    theme:tools({ actions = toolActions, page = toolPage, pages = toolPages })
+    theme:tools({ actions = toolActions, page = toolPage, armed = toolArmed })
   elseif home then
     local catalog = {
       packages = {

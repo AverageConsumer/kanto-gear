@@ -700,11 +700,84 @@ do
   local action, index = theme.hgss:toolsHit(20, 50, { actions = actions, page = 1 })
   T.eq(action, "action", "the first sorted card remains tappable")
   T.eq(index and actions[index].action, usable.cut, "touch resolves the sorted card's actual field action")
+  local view = display.toolsView()
+  T.eq(view.pages, 1, "a small Field Kit fits on one page")
+  action, index = theme.hgss:toolsHit(130, 50, view)
+  T.eq(index and actions[index].id, "teleport", "the second ready card sits beside the first")
+  T.eq(theme.hgss:toolsHit(20, 90, view), nil, "unlocked tools that do nothing here stay inert")
+  local crowded = { { ready = true, rods = { {}, {}, {} } } }
+  for i = 1, 22 do crowded[#crowded + 1] = { ready = i <= 10 } end
+  local layout, seen = theme.hgss:toolsLayout(crowded), {}
+  T.check(layout.pages > 1, "overflowing Field Kit creates additional pages")
+  for _, item in ipairs(layout.items) do
+    T.check(not seen[item.index], "each Field Kit action appears exactly once")
+    seen[item.index] = true
+    T.check(item.y >= 34 and item.y + item.h <= 199, "paged tools leave the pager clear")
+    local model = { actions = crowded, layout = layout, page = item.page }
+    local hit, index = theme.hgss:toolsHit(item.x + item.w / 2, item.y + item.h / 2, model)
+    if item.kind == "chip" then T.eq(hit, nil, "idle overflow chips remain inert")
+    else T.eq(index, item.index, "overflow card resolves its original action") end
+    for _, other in ipairs(layout.items) do
+      if item ~= other and item.page == other.page then
+        T.check(item.x + item.w <= other.x or other.x + other.w <= item.x
+          or item.y + item.h <= other.y or other.y + other.h <= item.y,
+          "Field Kit controls never overlap")
+      end
+    end
+    if item.kind == "rods" then
+      for rod = 1, 3 do
+        local rx, ry, rw, rh = theme.hgss:toolRodRect(item, rod, 3)
+        local kind, owner, slot = theme.hgss:toolsHit(rx + rw / 2, ry + rh / 2, model)
+        T.check(kind == "rod" and owner == item.index and slot == rod,
+          "each inline rod resolves independently")
+      end
+    end
+  end
+  T.eq(#layout.items, #crowded, "pagination retains every unlocked tool")
+  local availableActions = api.world.availableFieldActions
+  api.world.availableFieldActions = function() return { usable.cut, usable.teleport } end
+  display.openHomeApp("tools")
+  usedTool = nil
+  tap(90, 33)
+  T.eq(display.toolsView().armed, "teleport", "first Teleport tap arms the visible card")
+  T.eq(usedTool, nil, "first Teleport tap does not change location")
+  tap(90, 33)
+  T.eq(usedTool and usedTool.id, "teleport", "second Teleport tap executes the field action")
+  T.eq(display.toolsView().armed, nil, "executed location action is disarmed")
+  tap(90, 33)
+  run.loader.events:emit("map.entered", { mapId = "ROUTE_1" })
+  T.eq(display.toolsView().armed, nil, "map changes invalidate confirmation even with identical tools")
+  run.loader.events:emit("map.entered", { mapId = "PALLET_TOWN" })
+  tap(90, 33)
+  run.loader.events:emit("save.loaded", {})
+  T.eq(display.toolsView().armed, nil, "loading a save invalidates the waiting confirmation")
+  display.openHomeApp("tools")
+  tap(90, 33)
+  display.openHomeApp("map")
+  T.eq(display.toolsView().armed, nil, "opening another app cancels the waiting confirmation")
+  tap(5, 5)
+  display.openHomeApp("tools")
+  tap(90, 33)
+  api.world.availableFieldActions = function() return {}, "world is busy" end
+  upvalue(upvalue(display.activateTool, "useTool"), "refreshTools")()
+  T.eq(display.toolsView().armed, nil, "native busy state cancels the waiting confirmation")
+  tap(5, 5)
+  api.world.availableFieldActions = availableActions
   usable = { bicycle = { id = "bicycle" }, fish = { id = "fish" } }
   actions = display.toolModels()
   for index, id in ipairs({ "bicycle", "fish", "cut", "teleport" }) do
     T.eq(actions[index].id, id, "Tools reorders when the current context changes")
   end
+  usable.fish.rods = { { id = "OLD_ROD" }, { id = "GOOD_ROD" }, { id = "SUPER_ROD" } }
+  display.openHomeApp("tools")
+  local fishingView = display.toolsView()
+  local fishingCard = fishingView.layout.items[1]
+  local rx, ry, rw, rh = theme.hgss:toolRodRect(fishingCard, 3, 3)
+  usedTool = nil
+  tap((rx + rw / 2) / theme.hgssScale, (ry + rh / 2) / theme.hgssScale)
+  T.eq(usedTool and usedTool.id, "fish", "inline rod selection starts the native fishing action")
+  T.eq(usedTool and usedTool.rod, "SUPER_ROD", "inline rod selection preserves the tapped rod ID")
+  tap(5, 5)
   game.save.inventory, game.save.party, game.save.player.badges = inventory, party, badges
   display.availableTool = availableTool
 end

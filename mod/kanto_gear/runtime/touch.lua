@@ -310,15 +310,13 @@ return function(
     end
     if y < HEADER and not session.partyMoveFrom then
       if THEME.style == "hgss" and session.page == "TOOLS" then
-        local actions = displayRuntime.toolModels()
-        local pages = math.max(1, math.ceil(#actions / 4))
-        local action = THEME.hgss:toolsHit(x * THEME.hgssScale,
-          y * THEME.hgssScale, { actions = actions, page = session.tools.page })
+        local view = displayRuntime.toolsView()
+        local action = THEME.hgss:toolsHit(x * THEME.hgssScale, y * THEME.hgssScale, view)
         if action == "prev" or action == "next" then
           local direction = action == "next" and 1 or -1
           displayRuntime.requestPageMotion(direction)
-          session.tools.page = ((session.tools.page or 1) - 1 + direction) % pages + 1
-          session.dirty = true
+          session.tools.page = ((session.tools.page or 1) - 1 + direction) % view.pages + 1
+          session.toolArmed, session.dirty = nil, true
         end
         return
       end
@@ -464,20 +462,32 @@ return function(
       end
     elseif session.page == "TOOLS" then
       if THEME.style == "hgss" then
-        local actions = displayRuntime.toolModels()
-        local pages = math.max(1, math.ceil(#actions / 4))
-        local action, index = THEME.hgss:toolsHit(x * THEME.hgssScale,
-          y * THEME.hgssScale, { actions = actions, page = session.tools.page })
+        local view = displayRuntime.toolsView()
+        local actions = view.actions
+        local action, index, rodIndex = THEME.hgss:toolsHit(x * THEME.hgssScale,
+          y * THEME.hgssScale, view)
+        local model = index and actions[index]
+        local armed = view.armed
+        -- Any other tap releases a waiting location move; it never fires late.
+        if session.toolArmed then session.toolArmed, session.dirty = nil, true end
         if action == "prev" or action == "next" then
           local direction = action == "next" and 1 or -1
           displayRuntime.requestPageMotion(direction)
-          session.tools.page = ((session.tools.page or 1) - 1 + direction) % pages + 1
+          session.tools.page = ((session.tools.page or 1) - 1 + direction) % view.pages + 1
           session.dirty = true
-        elseif action == "action" and actions[index].radar then
+        elseif action == "rod" then
+          local rod = model.rods[rodIndex]
+          if rod then displayRuntime.activateTool(model.action, rod.id) end
+        elseif action == "action" and model.radar then
           session.radarOpen, session.radarFrame, session.radarStarted = true, 0, love.timer.getTime()
           session.dirty = true
+        elseif action == "action" and (model.id == "dig" or model.id == "teleport")
+            and armed ~= model.id then
+          -- Location moves leave the area, so they ask for a second tap in
+          -- place instead of opening a dialog.
+          session.toolArmed, session.dirty = { id = model.id, key = session.toolsKey }, true
         elseif action == "action" then
-          displayRuntime.activateTool(actions[index].action)
+          displayRuntime.activateTool(model.action, nil, true)
         end
         return
       end

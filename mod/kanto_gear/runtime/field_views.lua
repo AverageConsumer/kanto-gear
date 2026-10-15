@@ -248,12 +248,10 @@ return function(
 
   local function drawTools()
     if THEME.style == "hgss" then
-      local actions = displayRuntime.toolModels()
-      local pages = math.max(1, math.ceil(#actions / 4))
-      session.tools.page = math.max(1, math.min(pages, session.tools.page or 1))
-      header(THEME:translate("FIELD KIT"), true, pages > 1)
+      local view = displayRuntime.toolsView()
+      header(THEME:translate("FIELD KIT"), true, view.pages > 1)
       render.G.push(); render.G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-      THEME.hgss:tools({ actions = actions, page = session.tools.page, pages = pages })
+      THEME.hgss:tools(view)
       render.G.pop()
       return
     end

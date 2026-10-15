@@ -4,11 +4,82 @@ return function(H, ui, draw)
     draw.fontWidth, draw.glyphs, draw.mixed, draw.partyTypeFont
   local translate = draw.translate
 
-  function H:toolCardRect(visible, count)
-    if count == 1 then return 66, 74 end
-    if count == 2 then return 7 + visible * 117, 74 end
-    if count == 3 and visible == 2 then return 66, 115 end
-    return 7 + visible % 2 * 117, 33 + math.floor(visible / 2) * 82
+  -- Field Kit layout: lit cards for what works here (fishing carries its
+  -- rods inline), then one compact grid of unlocked tools that do not.
+  -- Drawing and touch share these rects; only an overflow spills onto pages.
+  local KIT_TOP, KIT_BOTTOM, KIT_PAGED_BOTTOM = 34, 213, 199
+  H.kitCard = { w = 111, h = 32, step = 35, columns = { 7, 122 } }
+  H.kitChip = { w = 74, h = 26, step = 29, columns = { 7, 83, 159 } }
+  H.kitLabel = 12
+
+  local function kitRows(self, actions)
+    local rows, ready, other = {}, {}, {}
+    for index, action in ipairs(actions) do
+      if action.ready then ready[#ready + 1] = index else other[#other + 1] = index end
+    end
+    local card, chip = self.kitCard, self.kitChip
+    -- Fishing leads the list: it is the one card that carries a choice.
+    for _, index in ipairs(ready) do
+      if #(actions[index].rods or {}) > 1 then
+        rows[#rows + 1] = { kind = "rods", h = card.h, step = card.step,
+          cells = { { index = index, x = 7, w = 226 } } }
+      end
+    end
+    local pair
+    for _, index in ipairs(ready) do
+      if #(actions[index].rods or {}) <= 1 then
+        if not pair or #pair.cells == 2 then
+          pair = { kind = "card", h = card.h, step = card.step, cells = {} }
+          rows[#rows + 1] = pair
+        end
+        pair.cells[#pair.cells + 1] = { index = index, x = card.columns[#pair.cells + 1], w = card.w }
+      end
+    end
+    for first = 1, #other, 3 do
+      local row = { kind = "chip", h = chip.h, step = chip.step, cells = {} }
+      for column = 1, 3 do
+        local index = other[first + column - 1]
+        if index then row.cells[column] = { index = index, x = chip.columns[column], w = chip.w } end
+      end
+      rows[#rows + 1] = row
+    end
+    return rows
+  end
+
+  function H:toolsLayout(actions)
+    local rows = kitRows(self, actions or {})
+    local function build(limit)
+      local out, page, y, labelPage = { items = {}, labels = {} }, 1, KIT_TOP, nil
+      for _, row in ipairs(rows) do
+        local label = row.kind == "chip" and labelPage ~= page
+        local need = row.h + (label and self.kitLabel or 0)
+        if y + need > limit and y > KIT_TOP then
+          page, y = page + 1, KIT_TOP
+          label = row.kind == "chip"
+        end
+        if label then
+          out.labels[#out.labels + 1] = { page = page, y = y }
+          labelPage, y = page, y + self.kitLabel
+        end
+        for _, cell in ipairs(row.cells) do
+          out.items[#out.items + 1] = { index = cell.index, kind = row.kind, page = page,
+            x = cell.x, y = y, w = cell.w, h = row.h }
+        end
+        y = y + row.step
+      end
+      out.pages = page
+      return out
+    end
+    local layout = build(KIT_BOTTOM)
+    if layout.pages > 1 then layout = build(KIT_PAGED_BOTTOM) end
+    return layout
+  end
+
+  -- Rod keys fill the right part of the fishing card, strongest last.
+  function H:toolRodRect(item, rodIndex, count)
+    local left, gap = item.x + 76, 4
+    local w = math.floor((item.x + item.w - 4 - left - gap * (count - 1)) / count)
+    return left + (rodIndex - 1) * (w + gap), item.y + 4, w, item.h - 8
   end
 
   function H:tools(model)
@@ -27,30 +98,45 @@ return function(H, ui, draw)
         colors.green, 172)
       return
     end
-    local page = math.max(1, tonumber(model.page) or 1)
-    local first = (page - 1) * 4 + 1
-    local count = math.min(4, math.max(0, #actions - first + 1))
-    for index = first, math.min(first + 3, #actions) do
-      local visible = index - first
-      local x, y = self:toolCardRect(visible, count)
-      self:toolCard(actions[index], x, y)
+    local layout = model.layout or self:toolsLayout(actions)
+    local page = math.max(1, math.min(layout.pages, tonumber(model.page) or 1))
+    for _, label in ipairs(layout.labels) do
+      if label.page == page then self:toolSectionLabel(translate("NOT HERE"), label.y) end
     end
-    self:homePager(page, model.pages)
+    for _, item in ipairs(layout.items) do
+      if item.page == page then
+        local action = actions[item.index]
+        if item.kind == "chip" then self:toolChip(action, item)
+        elseif item.kind == "rods" then self:toolRodCard(action, item)
+        else self:toolCard(action, item, model.armed == action.id) end
+      end
+    end
+    if layout.pages > 1 then self:homePager(page, layout.pages) end
   end
 
   function H:toolsHit(x, y, model)
-    local page = math.max(1, tonumber(model and model.page) or 1)
     local actions = model and model.actions or {}
-    if y < 29 and x >= 27 and x < 50 then return "prev" end
-    if y < 29 and x >= 116 and x < 139 then return "next" end
-    local first = (page - 1) * 4 + 1
-    local count = math.min(4, math.max(0, #actions - first + 1))
-    for visible = 0, count - 1 do
-      local index = (page - 1) * 4 + visible + 1
-      local action = actions[index]
-      local left, top = self:toolCardRect(visible, count)
-      if action and action.ready and x >= left and x < left + 109
-          and y >= top and y < top + 76 then return "action", index end
+    local layout = model and model.layout or self:toolsLayout(actions)
+    local page = math.max(1, math.min(layout.pages, tonumber(model and model.page) or 1))
+    if layout.pages > 1 and y < 29 then
+      if x >= 27 and x < 50 then return "prev" end
+      if x >= 116 and x < 139 then return "next" end
+    end
+    for _, item in ipairs(layout.items) do
+      local action = actions[item.index]
+      if item.page == page and action and action.ready and x >= item.x and x < item.x + item.w
+          and y >= item.y and y < item.y + item.h then
+        if item.kind == "rods" then
+          for rod = 1, #action.rods do
+            local rx, ry, rw, rh = self:toolRodRect(item, rod, #action.rods)
+            if x >= rx - 2 and x < rx + rw + 2 and y >= item.y and y < item.y + item.h then
+              return "rod", item.index, rod
+            end
+          end
+          return
+        end
+        return "action", item.index
+      end
     end
   end
 
