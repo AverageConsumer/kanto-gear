@@ -121,7 +121,7 @@ T.eq(display.storeWidgetSummary().label, "APPS", "Store widget shows the catalog
 do
   local renderer = theme.hgss
   local originalText, originalBar = renderer.partyInfo, renderer.expBar
-  for _, code in ipairs({ "de", "es", "fr" }) do
+  for _, code in ipairs({ "de", "es", "fr", "it" }) do
     local labels = assert(loadfile(path .. "/i18n/catalogs/" .. code .. ".lua"))()
     local nextLabel, value = labels.NEXT, "999999"
     local positions, bar = {}, {}

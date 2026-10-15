@@ -341,7 +341,7 @@ function love.load()
     local nextPage = theme:storeHit(130, 13, "today")
     assert(tab == "tab" and tabIndex == 3
         and row == "row" and rowIndex == 4
-        and pageUp == "page_prev" and pageDown == "page_next"
+        and pageUp == "scroll" and pageDown == "scroll"
         and buy == "action" and yes == "yes" and no == "no" and blocked == nil
         and slot == "slot" and slotIndex == 11
         and toHome == "home" and remove == "remove"
@@ -2186,11 +2186,17 @@ function love.load()
     for i, t in ipairs(TABS) do if t.id == which then tab = i end end
     local rows = ({
       appearance = {
-        { key = "language", label = "LANGUAGE", value = "ENGLISH", raw = "en", choices = { { "EN", "en" }, { "DE", "de" }, { "ES", "es" }, { "FR", "fr" }, { "JA", "ja" } }, info = "Changes the language of every Gear screen." },
+        { key = "language", label = "LANGUAGE", value = ({ en = "ENGLISH", de = "DEUTSCH", es = "ESPANOL", fr = "FRANCAIS", ja = "JAPANESE", it = "ITALIANO" })[languageCode], raw = languageCode, choices = { { "EN", "en" }, { "DE", "de" }, { "ES", "es" }, { "FR", "fr" }, { "JA", "ja" }, { "IT", "it" } }, info = "Language of Kanto Gear. Game translations are separate mods." },
         { key = "theme_v3", label = "THEME", value = "POKEGEAR AUTO", raw = "hgss_auto", choices = { { "A", 1 }, { "B", 2 }, { "C", 3 }, { "D", 4 } }, info = "Choose a light or dark companion. Auto follows the time of day." },
-        { key = "clock_source", label = "CLOCK", value = "GAME", raw = "game", choices = { { "GAME", "game" }, { "DEVICE", "device" } }, info = "Use the in-game clock or your device clock." },
-        { key = "clock_format", label = "FORMAT", value = "24H", raw = "24", choices = { { "12H", "12" }, { "24H", "24" } }, info = "12 or 24 hour clock." },
+        { key = "clock_source", label = "CLOCK SOURCE", value = "GAME", raw = "game", choices = { { "GAME", "game" }, { "DEVICE", "device" } }, info = "Choose the game clock or your device clock. Games without a clock use device time." },
+        { key = "clock_format", label = "CLOCK FORMAT", value = "24 HOUR", raw = "24", choices = { { "12 HOUR", "12" }, { "24 HOUR", "24" } }, info = "Show 12-hour or 24-hour time. System follows your device preference." },
         { key = "map_motion", label = "PRESENTATION", value = "QUALITY", raw = "quality", choices = { { "QUALITY", "quality" }, { "SPEED", "performance" } } },
+      },
+      display = {
+        { key = "display_mode", label = "DISPLAY MODE", value = "COMBINED SCREEN" },
+        { key = "combined_layout", label = "LAYOUT", value = "SIDE BY SIDE" },
+        { key = "combined_primary", label = "PRIMARY VIEW", value = "GAME" },
+        { key = "secondary_size", label = "SECONDARY SIZE", value = "40%" },
       },
       battle = {
         { key = "battle_view", label = "BATTLE VIEW", value = "STANDARD", raw = "standard", choices = { { "STD", "standard" }, { "GEAR", "gear" }, { "FULL", "full" } }, info = "Which screen shows battles." },
@@ -2237,7 +2243,7 @@ function love.load()
     theme:settings({ category = "appearance", accent = "blue", page = screen == "settings_appearance_page2" and 2 or 1,
       pages = 2, rows = {
         { label = "LANGUAGE", value = ({ en = "ENGLISH", de = "DEUTSCH",
-          es = "ESPANOL", fr = "FRANCAIS", ja = "JAPANESE" })[languageCode] or "ENGLISH" },
+          es = "ESPANOL", fr = "FRANCAIS", ja = "JAPANESE", it = "ITALIANO" })[languageCode] or "ENGLISH" },
         { label = "THEME", value = "HGSS AUTO" },
         { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
         { label = "CLOCK FORMAT", value = "SYSTEM" },
@@ -3231,10 +3237,12 @@ function love.load()
   love.graphics.setCanvas()
   local data = preview:newImageData():encode("png")
   local missing = i18n:coverage(languageCode)
+  -- These names come from the game in the Home fixture, not Gear's catalog.
+  local nativeFixtureNames = { ["ROUTE 15"] = true, ["ROUTE 37"] = true }
   if os.getenv("KANTO_GEAR_PREVIEW_LAX") ~= "1" then
     local catalog = i18n.catalogs[i18n:language()]
     for _, key in ipairs(missing) do
-      assert(catalog[key] == false, "uncatalogued " .. i18n:language() .. " translation: " .. key)
+      assert(catalog[key] == false or nativeFixtureNames[key], "uncatalogued " .. i18n:language() .. " translation: " .. key)
     end
   end
   local file = assert(io.open(output, "wb"))

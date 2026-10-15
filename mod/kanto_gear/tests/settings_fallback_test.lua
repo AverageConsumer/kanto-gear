@@ -116,7 +116,7 @@ T.eq(api.cache:read("options/clock_format"), "s24",
 
 -- Audit all dynamic metadata, not only the currently visible settings page.
 local theme = upvalue(display.drawContents, "THEME")
-for _, language in ipairs({ "de", "es", "fr" }) do
+for _, language in ipairs({ "de", "es", "fr", "it" }) do
   api.options:set("language", language)
   for _, row in ipairs(run.loader.optionSchemas.kanto_gear) do
     theme:translate(row.label)
@@ -139,6 +139,7 @@ for _, language in ipairs({ "de", "es", "fr" }) do
   T.eq(#missing, 0, language .. " runtime metadata covered: " .. table.concat(missing, "; "))
 end
 
+api.options:set("language", "fr")
 T.check(display.cycleSetting(rowFor("language"), 1), "touch selects Japanese after French")
 T.eq(api.options:get("language"), "ja", "Japanese uses the standard locale code")
 T.eq(api.cache:read("options/language"), "sja", "Japanese selection persists")
@@ -163,6 +164,17 @@ T.eq(restartedTheme:translate("NOTES"), "ノート", "new Japanese translations 
 T.eq(restartedTheme:translate("UNTRANSLATED TEST LABEL"), "UNTRANSLATED TEST LABEL", "English fallback survives restarting")
 T.check(restartedApi.options:set("language", "de"), "Japanese can be switched back to German")
 T.eq(restartedTheme:translate("JAPANESE"), "JAPANISCH", "language switch clears Japanese rendering")
+T.check(restartedApi.options:set("language", "it"), "Italian can be selected in the native options")
+T.eq(restartedTheme:translate("ABILITY"), "ABILITÀ", "Italian accents render immediately")
+T.eq(restartedApi.cache:read("options/language"), "sit", "Italian selection is persisted")
+restarted.release()
+local italianRestart = loadWithoutNativeSetter(persistedCache)
+italianRestart.loader.events:emit("game.ready", { game = gameFor(italianRestart) })
+local italianDisplay = runtime(italianRestart)
+local italianTheme = upvalue(italianDisplay.drawContents, "THEME")
+T.eq(italianTheme.i18n:language(), "it", "Italian survives a new mod instance")
+T.eq(italianTheme:translate("HP"), "PS", "restarted Italian UI uses the Italian catalog")
+italianRestart.release()
 
 for _, case in ipairs({
   { cache = { ["options/info_level"] = "senhanced", ["options/type_hints"] = "b0" },

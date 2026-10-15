@@ -600,6 +600,11 @@ return function(H, ui, K)
   -- Bars, badges, icons
   ---------------------------------------------------------------------------
   local HP_TAG = { "#.#.##", "#.#.#.#", "###.##", "#.#.#", "#.#.#" }
+  local HP_TAGS = {
+    PS = { "##...##", "#.#.#..", "##...#.", "#.....#", "#...##." },
+    PV = { "##..#.#", "#.#.#.#", "##..#.#", "#...#.#", "#....#." },
+    KP = { "#.#.##.", "#.#.#.#", "##..##.", "#.#.#..", "#.#.#.." },
+  }
   local function hpColors(self, ratio)
     local c = self.colors
     local fill = ratio > 0.5 and c.hp or ratio > 0.2 and c.hpMid or c.hpLow
@@ -628,13 +633,14 @@ return function(H, ui, K)
   end
   -- Gen 4 "HP" tag welded to a bar; total height 7.
   function H:v4HpBar(x, y, w, hp, maxHp)
+    local label = ui.translate and ui.translate("HP") or "HP"
     local ratio = max(0, min(1, (hp or 0) / max(1, maxHp or 1)))
     local fill, hi = hpColors(self, ratio)
     local colors = self.colors
     local low = ratio > 0 and ratio <= 0.2 and K.blink(self, 0.35)
     if cg(self) then
       self:withoutShadow(function()
-        self:partyInfo("HP", x, y - 3, self.tok.acc.M)
+        self:partyInfo(label, x, y - 3, self.tok.acc.M)
       end)
       local bx = x + 12
       R(bx, y, w - 12, 7, colors.outline)
@@ -646,7 +652,7 @@ return function(H, ui, K)
     end
     RR(x, y, 15, 7, 1, colors.outline)
     R(x + 1, y + 1, 13, 5, colors.amberLight); R(x + 1, y + 3, 13, 3, colors.amber)
-    ART(HP_TAG, x + 4, y + 1, { ["#"] = hex("5a3008") })
+    ART(HP_TAGS[label] or HP_TAG, x + 4, y + 1, { ["#"] = hex("5a3008") })
     R(x + 14, y, w - 14, 7, colors.outline)
     R(x + 15, y + 1, w - 16, 5, self.dark and hex("3a4652") or hex("506058"))
     local f = floor((w - 16) * ratio)

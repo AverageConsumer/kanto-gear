@@ -11,7 +11,7 @@ local function check(condition, label)
 end
 
 local catalogs = {}
-for _, language in ipairs({ "de", "es", "fr", "ja" }) do
+for _, language in ipairs({ "de", "es", "fr", "ja", "it" }) do
   catalogs[language] = loadModule("i18n/catalogs/" .. language .. ".lua")
 end
 
@@ -29,6 +29,17 @@ check(i18n:format("SIGNALS %d", 3) == string.format(
   catalogs.fr["SIGNALS %d"], 3), "translated placeholders are formatted")
 selected = "es"
 check(i18n:language() == "es", "Spanish is supported")
+selected = "it-IT"
+check(i18n:language() == "it", "Italian locale resolves to its catalog")
+check(i18n:text("HP") == "PS" and i18n:text("FIGHT") == "LOTTA"
+  and i18n:text("BAG") == "BORSA" and i18n:text("RUN") == "FUGA",
+  "Italian uses the familiar Pokemon battle terminology")
+check(i18n:text("HIDDEN POWER") == "INTROFORZA"
+  and i18n:text("TM/HM") == "MT/MN", "Italian move and machine names follow the games")
+check(i18n:format("HP %d/%d", 12, 34) == "PS 12/34", "Italian format arguments survive")
+check(i18n:text("OPEN APP") == "APRI" and i18n:text("OPEN") == "APERTO",
+  "Italian distinguishes opening apps from unfinished tasks")
+check(#i18n:coverage("it") == 0, "Italian battle labels have no fallback")
 selected = "ja-JP"
 check(i18n:language() == "ja", "Japanese locale resolves to its catalog")
 check(i18n:text("START GAME") == catalogs.ja["START GAME"], "Japanese UI text comes from contributor catalog")
@@ -77,7 +88,7 @@ end
 local reference, referenceCount = catalogs.de, 0
 for key in pairs(reference) do referenceCount = referenceCount + 1 end
 
-for _, language in ipairs({ "de", "es", "fr", "ja" }) do
+for _, language in ipairs({ "de", "es", "fr", "ja", "it" }) do
   local count, expectedMissing = 0, {}
   local localized = I18N.new(function(code) return catalogs[code] end,
     function() return language end)
@@ -102,6 +113,9 @@ end
 for key, value in pairs(reference) do
   check(type(value) == "string" and value ~= "",
     "de has a non-empty value: " .. key)
+end
+for key, value in pairs(catalogs.it) do
+  check(type(value) == "string" and value ~= "", "Italian has a complete translation: " .. key)
 end
 
 -- Literal callsites are a release gate; dynamic screen models are additionally
@@ -130,6 +144,11 @@ end
 -- Every translated glyph must survive the classic renderer as well as HGSS.
 local core = assert(loadfile(root .. "/tests/support/core.lua"))()
 local font, normalize = core.FONT, core.normalize
+check(normalize("sì può più perché") == "SÌ PUÒ PIÙ PERCHÉ", "Italian accents survive bitmap normalization")
+local atlasGlyphs = loadModule("ui/fonts/glyphs.lua")
+for _, glyph in ipairs({ "Ì", "Ò", "ì", "ò" }) do
+  check(atlasGlyphs:find(glyph, 1, true) ~= nil, "image fonts include Italian glyph " .. glyph)
+end
 for code, catalog in pairs(catalogs) do
   local characters = {}
   for _, value in pairs(catalog) do

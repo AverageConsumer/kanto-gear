@@ -73,6 +73,7 @@ return function(
       default = "en", choices = {
         { "ENGLISH", "en" }, { "DEUTSCH", "de" },
         { "ESPANOL", "es" }, { "FRANCAIS", "fr" }, { "JAPANESE", "ja" },
+        { "ITALIANO", "it" },
       } },
     { key = "theme_v3", label = "THEME", type = "choice", default = "hgss",
       choices = {

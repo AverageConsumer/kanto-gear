@@ -1,4 +1,5 @@
 return {
+  ["OPEN APP"] = "ÖFFNEN",
   ["SPECIES TYPES"] = "ARTENTYPEN",
   ["Show species types before catching them. Your own Pokemon and caught Dex entries keep their native types."] = "Zeigt Artentypen vor dem Fang. Eigene Pokemon und gefangene Dex-Eintraege behalten ihre Originaltypen.",
   ["LIVE AREA MAP"] = "GEBIETSKARTE",
@@ -1097,4 +1098,5 @@ return {
   ["ONLINE PLAY UNAVAILABLE"] = "ONLINE-SPIEL NICHT VERFÜGBAR",
   ["RECOMP BLOCKS UI MODS"] = "RECOMP SPERRT UI-MODS",
   ["INVITES REQUIRE RECOMP SUPPORT."] = "EINLADUNGEN BRAUCHEN RECOMP-SUPPORT.",
+  ["ITALIANO"] = "ITALIANO",
 }

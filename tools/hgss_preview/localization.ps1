@@ -1,5 +1,5 @@
 param(
-  [string[]]$Languages = @("de", "es", "fr"),
+  [string[]]$Languages = @("de", "es", "fr", "it"),
   [int[]]$Generations = @(1, 2),
   [string[]]$Variants = @("light", "dark"),
   [string[]]$Screens,

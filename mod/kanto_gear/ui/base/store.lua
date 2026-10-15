@@ -327,7 +327,7 @@ return function(H, ui, draw, home, icons)
     self:partyType(self:fitPartyType(translate(app.reason), w - 39),
       x + 36, y + 18, colors.green, w - 39)
     self:partyType(translate(app.action or (app.state == "open"
-      and "OPEN" or "VIEW")), x + 36, y + 31, colors.blueLight, w - 39)
+      and "OPEN APP" or "VIEW")), x + 36, y + 31, colors.blueLight, w - 39)
     self:endPress(pressed)
   end
 
@@ -363,7 +363,7 @@ return function(H, ui, draw, home, icons)
     self:partyType(self:fitPartyType(translate(app.category), 91),
       x + 34, y + 15, colors.green, 91)
     self:storeMiniAction(x + w - 54, y + 9, 44,
-      app.action or "OPEN",
+      app.action or "OPEN APP",
       app.state)
     self:endPress(pressed)
   end

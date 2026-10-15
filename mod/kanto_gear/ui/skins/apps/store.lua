@@ -81,7 +81,7 @@ return function(ART, CH, CIRC, H, K, KEY_G, R, RING, RR, SILPH_LOGO, SILPH_RED, 
     else
       self:partyInfo(self:fitPartyInfo(translate(app.category), tw), x + 37, y + 14, colors.mutedInk)
     end
-    self:storeMiniAction(x + 36, y + 28, 43, app.action or (app.state == "open" and "OPEN" or "GET"), app.state)
+    self:storeMiniAction(x + 36, y + 28, 43, app.action or (app.state == "open" and "OPEN APP" or "GET"), app.state)
     self:endPress(pressed)
   end
   H.v4StoreIcon = storeIcon
@@ -318,7 +318,7 @@ return function(ART, CH, CIRC, H, K, KEY_G, R, RING, RR, SILPH_LOGO, SILPH_RED, 
     local cat = self:fitPartyType(translate(selected.category or "APP"), 54)
     self:v4Pill(cat, 198 - floor((self:partyInfoWidth(cat) + 9) / 2), 113, accent, { raw = true })
     local state = selected.state
-    local label = state == "soon" and "SOON" or state == "open" and "OPEN" or "GET"
+    local label = state == "soon" and "SOON" or state == "open" and "OPEN APP" or "GET"
     storeKey(self, 167, 126, 62, 32, label,
       state == "open" and openAccent(self) or getAccent(self),
       state == "soon" and KEY_G.soon or state == "open" and KEY_G.open or KEY_G.get,
@@ -429,7 +429,7 @@ return function(ART, CH, CIRC, H, K, KEY_G, R, RING, RR, SILPH_LOGO, SILPH_RED, 
       end
     end
     local onHome = model.onHome == true
-    storeKey(self, 7, 174, 72, 34, "OPEN", openAccent(self), KEY_G.open, true, not overlay and selected.id ~= nil)
+    storeKey(self, 7, 174, 72, 34, "OPEN APP", openAccent(self), KEY_G.open, true, not overlay and selected.id ~= nil)
     storeKey(self, 84, 174, 72, 34, onHome and "ON HOME" or "TO HOME", getAccent(self), HOME_G,
       not onHome, not overlay and not onHome and model.canPlace == true)
     storeKey(self, 161, 174, 72, 34, "REMOVE", colors.silverDark, nil, false,
@@ -482,7 +482,7 @@ return function(ART, CH, CIRC, H, K, KEY_G, R, RING, RR, SILPH_LOGO, SILPH_RED, 
     storeIcon(self, featured, icons, 20, 86, 32, true)
     line(featured.label or "", 58, 85, INK, 92)
     line(featured.reason or featured.category or "", 58, 97, MUTED, 92)
-    chip(58, 110, 88, featured.state == "open" and "OPEN" or "TAKE A LOOK", SILPH_RED)
+    chip(58, 110, 88, featured.state == "open" and "OPEN APP" or "TAKE A LOOK", SILPH_RED)
     self:endPress(pressed)
     -- a standing tip
     note(160, 70, 66, 56, hex("f8f0b8"), hex("3878d0"), false)

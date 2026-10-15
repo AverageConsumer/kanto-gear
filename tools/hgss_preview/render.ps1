@@ -47,6 +47,9 @@ if ($explorer) {
         trainer2 = "beauty.png"; trainer3 = "cooltrainer_f.png" }
     }
   }
+  if ($env:KANTO_GEAR_PREVIEW_OVERWORLD) {
+    $overworldSource = $env:KANTO_GEAR_PREVIEW_OVERWORLD
+  }
   foreach ($entry in $overworldFiles.GetEnumerator()) {
     if (-not $overworldSource -or
         -not (Test-Path -LiteralPath (Join-Path $overworldSource $entry.Value))) {

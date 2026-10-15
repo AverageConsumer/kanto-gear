@@ -184,7 +184,7 @@ IPv4 address with port 8765.
 
 ### Languages and online
 
-English, German, Spanish (Spain), French and Japanese are available under
+English, German, Spanish (Spain), French, Japanese and Italian are available under
 **Options → Appearance → Language**. Some newer labels fall back to English.
 Gear translates its own interface; game names and dialogue come from the game
 or a separate translation mod.

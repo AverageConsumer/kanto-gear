@@ -35,7 +35,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, raw)
       T.eq(reason, "mods", label .. " " .. ruleset .. " explains the host restriction")
     end
   end
-  for _, language in ipairs({ "en", "de", "es", "fr", "ja" }) do
+  for _, language in ipairs({ "en", "de", "es", "fr", "ja", "it" }) do
     run.loader.modOptions.kanto_gear.language = language
     run.loader.events:emit("mod.options_changed", {
       mod = "kanto_gear", key = "language", value = language })

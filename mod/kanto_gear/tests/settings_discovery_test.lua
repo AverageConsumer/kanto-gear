@@ -94,7 +94,7 @@ local function exercise(run, display)
       display.settings.option = row.key or row.action
       local detail = display.settingsModel()
       T.check(detail.option and detail.description and #detail.choices > 0, "detail provides help and explicit choices")
-      for _, language in ipairs({ "en", "de", "es", "fr", "ja" }) do
+      for _, language in ipairs({ "en", "de", "es", "fr", "ja", "it" }) do
         api.options:set("language", language)
         local lines = theme.hgss:settingsHelpLines(theme:translate(detail.description))
         T.check(#lines <= 6, "complete help fits its panel in " .. language .. ": " .. detail.option)
@@ -167,7 +167,7 @@ local function exercise(run, display)
     for _, option in ipairs(custom.rows) do
       T.check(not option.source.discoveryGroup or option.source.discoveryGroup == group[2],
         "custom categories never mix unrelated switches")
-      for _, language in ipairs({ "en", "de", "es", "fr", "ja" }) do
+      for _, language in ipairs({ "en", "de", "es", "fr", "ja", "it" }) do
         api.options:set("language", language)
         local lines = theme.hgss:settingsHelpLines(theme:translate(option.info or option.description))
         T.check(#lines <= 3, "custom help fits: " .. option.key .. " in " .. language)

@@ -1,4 +1,5 @@
 return {
+  ["OPEN APP"] = "ひらく",
   ["%d VISIBLE"] = false,
   ["ABILITY"] = false,
   ["ACCEPT"] = false,
@@ -1091,4 +1092,5 @@ return {
   ["CRY"] = false,
   ["SIZE"] = false,
   ["ENTRY"] = false,
+  ["ITALIANO"] = "ITALIANO",
 }

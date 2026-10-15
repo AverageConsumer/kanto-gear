@@ -125,7 +125,7 @@ return function(
       reason = app.reason or app.category,
       target = app.target, state = state,
       action = state == "soon" and "SOON"
-        or state == "open" and "OPEN" or "GET",
+        or state == "open" and "OPEN APP" or "GET",
       removable = installed and not package.fixed,
       description = app.description,
     }

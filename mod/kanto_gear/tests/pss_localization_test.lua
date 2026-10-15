@@ -5,7 +5,7 @@ local keys={"ACCEPT","DECLINE","GO BUSY","GO READY","INVITATION SENT","INVITATIO
   "SET YOUR STATUS TO READY","PLAYER NOT READY","LINK SESSION OPEN","YOU CAN KEEP PLAYING",
   "TRADE COMPLETE","ONLINE PLAY UNAVAILABLE","RECOMP BLOCKS UI MODS","INVITES REQUIRE RECOMP SUPPORT."}
 local checks=0
-for _,code in ipairs({"de","es","fr","ja"}) do
+for _,code in ipairs({"de","es","fr","ja","it"}) do
   local i18n=I18N.new(function(lang) return assert(loadfile(root.."/i18n/catalogs/"..lang..".lua"))() end,
     function() return code end)
   local catalog=assert(loadfile(root.."/i18n/catalogs/"..code..".lua"))()
