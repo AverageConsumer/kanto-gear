@@ -351,14 +351,12 @@ return function(H, ui, K)
     local tok = self.tok
     local digits, suffix = value:match("^([%d:]+)%s*(.*)$")
     digits = digits or value
-    local colon = floor(self:clock()) % 2 == 0
-    self:wantAmbient(1)
+    -- Cached frames can outlive a blink phase; keep the time readable at rest.
     if cg(self) then
       local w = self:labelWidth(value)
       local iconW = period and 10 or 0
       local x = left + floor((width - w - iconW) / 2) + 6
-      if colon then self:label(value, x, y - 3, self.colors.ink)
-      else self:label((value:gsub(":", " ")), x, y - 3, self.colors.ink) end
+      self:label(value, x, y - 3, self.colors.ink)
       if period then
         periodIcon(period, x + w + 4, y + 1,
           tostring(period):upper() == "NITE" and tok.acc.M or hex("f0a020"))
@@ -374,7 +372,7 @@ return function(H, ui, K)
     local iw = period and 9 or 0
     local total = dw + sw + (iw > 0 and iw + 3 or 0)
     local x = lx + floor((lw - total) / 2)
-    lcd(digits, x, 7, tok.lcdOn, tok.lcdGhost, colon)
+    lcd(digits, x, 7, tok.lcdOn, tok.lcdGhost, true)
     if sw > 0 then
       self:withoutShadow(function()
         self:partyInfo(suffix, x + dw + 2, 5, tok.lcdOn)
