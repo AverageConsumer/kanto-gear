@@ -4,10 +4,10 @@
 
 ### Silph Link OS — Your adventure. Reconnected.
 
-A DS-inspired Pokégear and C-Gear companion for Pokémon **Red, Blue, Yellow,
-Gold, Silver, Crystal, Ruby, Sapphire, FireRed, LeafGreen and Emerald** in
-[Gen1Recomp](https://github.com/bryanthaboi/gen1recomp), on Android, Windows,
-Linux and your phone.
+A DS-inspired Pokégear and C-Gear companion mod for **Pokémon Gen 1–3** in
+[Gen1Recomp](https://github.com/bryanthaboi/gen1recomp): Red, Blue, Yellow,
+Gold, Silver, Crystal, Ruby, Sapphire, FireRed, LeafGreen and Emerald.
+Play on Android, Windows or Linux, with an optional phone browser display.
 
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest release"></a>
@@ -28,7 +28,8 @@ Linux and your phone.
 
 <sub>[Get started](#get-started) · [Apps](#apps-and-tools) · [Progress](#progress-at-your-pace)
 · [Battles](#battles-your-way) · [Screens and phone](#one-screen-or-two)
-· [Languages](#languages-and-online) · [Feedback](#feedback) · [Credits](#credits)</sub>
+· [Languages](#languages-and-online) · [FAQ](#common-questions)
+· [Feedback](#feedback) · [Credits](#credits)</sub>
 
 </div>
 
@@ -81,7 +82,7 @@ contest, Frontier and other native screens remain on the game screen.
 | **Trainer Card** | Your trainer details, regional badges, play time and native records, including the game's card rank where available. |
 | **Step Counter** | Track movement, milestones and a resettable session counter. |
 | **Silph Connect** | See online players and their reported edition, location and status through Recomp's shared connection. The connection stays active when you leave the app. |
-| **Silph Store** | Manage your installed Gear apps and discover what to add to Home. |
+| **Silph Store** | Manage your installed Gear apps and discover what to add to Home. Compatible apps from other installed Recomp mods can appear here too. |
 
 Home widgets cover the live Explorer map, lead partner, whole team, Pokédex,
 region map, Bag, Trainer Card, steps, Stamps, Silph Connect, Day-Care, Calendar
@@ -221,11 +222,35 @@ remain available.
 *Images are rendered previews of the current interface with illustrative game data.
 Artwork and available information vary by edition and settings.*
 
+## Common questions
+
+### Is Kanto Gear an emulator or a standalone phone app?
+
+Kanto Gear is a Lua mod for Gen1Recomp. Recomp runs your game; Gear adds the
+companion interface. Phone / Browser mode lets another device display Gear
+over local Wi-Fi while the game keeps running on the host.
+
+### Do I need a dual-screen handheld?
+
+No. Fullscreen Swap and Combined work on a single screen. Separate supports
+dual-screen handhelds and desktop windows; Phone / Browser provides an optional
+second screen on another device.
+
+### Can other mods add apps to Silph Store?
+
+Yes. Separately installed Recomp mods can register compatible apps. See the
+[store module interface](DEVELOPMENT.md#third-party-store-modules) for examples
+and supported behavior. Silph Store does not download or update those mods.
+
 ## Feedback
 
-[Open an issue](https://github.com/AverageConsumer/kanto-gear/issues) with your game,
+[Open a bug report](https://github.com/AverageConsumer/kanto-gear/issues/new?template=bug_report.yml) with your game,
 device, Recomp and Gear versions, display and battle modes, other active mods,
 and steps to reproduce the problem. Screenshots and logs are welcome.
+
+For wording corrections, use the [translation form](https://github.com/AverageConsumer/kanto-gear/issues/new?template=translation.yml).
+See the [contributing guide](CONTRIBUTING.md) for code and translation contributions,
+or the [security policy](SECURITY.md) to report a vulnerability privately.
 
 [Release notes](https://github.com/AverageConsumer/kanto-gear/releases)
 · [Translation contributions](DEVELOPMENT.md#translations)
