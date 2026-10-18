@@ -254,6 +254,7 @@ return function(
     if compat.isGen2() then
       backend = require("src.ui.gen2.PackMenu").new(session.game, {
         pocket = (session.game.data.items[itemId] or {}).pocket or "ITEM",
+        onClose = function() stack:pop() end,
         onChoose = function(id) if session.game.useFieldItem then session.game:useFieldItem(id) end end })
       for index, row in ipairs(backend.rows or {}) do
         if row.id == itemId then backend.index = index break end

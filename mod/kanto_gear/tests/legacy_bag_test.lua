@@ -173,6 +173,49 @@ for _,style in ipairs({"hgss","hgss_dark"}) do
     T.eq(stack:top(),native,"Gen1 declined toss restores the original bag")
   end
 
+  for _,origin in ipairs({"native","app"}) do
+    for _,remaining in ipairs({false,true}) do
+      open();stack.states={world}
+      save.inventory,save.bagOrder={MASTER_BALL=99},{"MASTER_BALL"}
+      run.data.items.MASTER_BALL={name="MASTER BALL",canToss=true,pocket=generation==2 and "BALL" or nil}
+      if remaining then save.inventory.POTION=4;save.bagOrder[2]="POTION" end
+      if origin=="app" then
+        display.drawContents()
+        T.check(display.performBagAction("MASTER_BALL","toss"),"app opens the native discard flow")
+        native=generation==2 and stack:top() or stack.states[2]
+      else
+        native=require("src.ui.Screens").push(game,generation==1 and "BagMenu" or "Gen2PackMenu",
+          generation==1 and {} or {pocket="BALL",onClose=function() stack:pop() end})
+        native.index=1;choose(1);choose(action("TOSS"))
+      end
+      T.eq(view().quantity.max,99,"Master Ball discard uses the full native stack")
+      tap(20,110)
+      T.eq(view().quantity.qty,99,"minus wraps from one to all 99 Master Balls")
+      tap(60,176)
+      T.eq(save.inventory.MASTER_BALL,99,"all 99 Master Balls remain until YES")
+      if generation==1 then
+        untilReady(function() return getmetatable(stack:top())==require("src.ui.ChoiceBox") end,"a")
+        T.check(pcall(display.drawContents),"full-stack Gen1 safety choice renders")
+        step("a")
+        untilReady(function() return stack:top().isTextBox end)
+        T.eq(save.inventory.MASTER_BALL,nil,"YES removes exactly 99 Master Balls")
+        untilReady(function() display.drawContents();return stack:top()==native end,"a")
+      else
+        local confirm=view()
+        local m=display.choiceModel(confirm,{"YES","NO"},confirm.prompt)
+        local yes=m.entries[1];tap(yes.x+yes.w/2,yes.y+yes.h/2)
+        T.eq(save.inventory.MASTER_BALL,nil,"YES removes exactly 99 Master Balls")
+        untilReady(function() return not native.message end,"a")
+      end
+      local final=view()
+      T.check(final.bagList and display.StartMenu.cursor(final),"full discard returns to an interactive bag")
+      T.eq(save.inventory.POTION,remaining and 4 or nil,"full discard preserves other items")
+      if remaining then choose(#final.items) else tap(12,14) end
+      T.eq(stack:top(),world,"CANCEL and lower-screen back close the bag after full discard")
+      T.check(not final.valid(),"closed post-discard bag rejects stale touches")
+    end
+  end
+
   native=open()
   local beforeFirst=view().items[1].itemId
   native.index=1;step("select")

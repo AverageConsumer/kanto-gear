@@ -25,7 +25,7 @@ def editions(name):
     if name.startswith("gen1_"): return GEN1
     if name in {"compat_test", "battle_modes_test", "level_up_runtime_test", "native_dex_test", "touch_companion_test"}: return GEN1 + GEN2
     if name in {"daycare_runtime_test", "calendar_runtime_test"}: return ["red", "crystal"]
-    if name in {"home_runtime_test", "motion_runtime_test", "haptics_test", "achievements_test", "bag_runtime_test", "team_widget_test", "auto_battle_screen_test", "standard_battle_test"}: return ["red", "crystal"]
+    if name in {"home_runtime_test", "motion_runtime_test", "haptics_test", "achievements_test", "bag_runtime_test", "legacy_bag_test", "team_widget_test", "auto_battle_screen_test", "standard_battle_test"}: return ["red", "crystal"]
     return ["red"]
 
 
