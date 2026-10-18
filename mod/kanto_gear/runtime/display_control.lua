@@ -31,7 +31,7 @@ return function(
       if displayRuntime.phone then
         displayRuntime.phone:setGame(displayRuntime.sourceGame)
         displayRuntime.phone:poll()
-        session.displayReady = displayRuntime.phone:ready()
+        session.displayReady = not displayRuntime.gearModules.anyShown() and displayRuntime.phone:ready()
         if displayRuntime.phoneConnected ~= displayRuntime.phone:detected() then
           touchEvent("cancel,0,0", session.canvas:getWidth(), session.canvas:getHeight())
           resetSwapState()
@@ -62,6 +62,7 @@ return function(
 
   mod.hooks:wrap("render.hud", function(next, hudGame, viewport)
     local result = next(hudGame, viewport)
+    if displayRuntime.gearModules.anyShown() then return result end
     if session.active and THEME:displayMode(mod.options) == "phone" and displayRuntime.phoneStatus then
       local look = displayRuntime.phoneLook or {}
       displayRuntime.phoneLook = look
@@ -219,6 +220,11 @@ return function(
     local gen1 = not displayRuntime.gen3 and not (session.game.save and session.game.save.generation == 2)
     displayRuntime.homeCatalog.surfaces.daycare_small_widget.hidden = gen1
     if displayRuntime.applyCalendarSupport then displayRuntime.applyCalendarSupport() end
+    -- third-party store modules decide their availability for this game
+    displayRuntime.gearModules.applyAvailability({
+      generation = displayRuntime.gen3 and 3 or compat.isGen2() and 2 or 1,
+      gen3 = displayRuntime.gen3 ~= nil,
+    })
     displayRuntime.autoBattle = {}
     displayRuntime.touchGuard.key, displayRuntime.touchGuard.pending = nil, false
     displayRuntime.touchGuard.readyAt = 0

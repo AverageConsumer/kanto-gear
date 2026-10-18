@@ -30,6 +30,7 @@ return function(
 
   displayRuntime.displayBridge = {}
   local function hasDisplay()
+    if displayRuntime.gearModules and displayRuntime.gearModules.anyShown() then return false end
     if THEME:displayMode(mod.options) == "phone" then
       return displayRuntime.phone ~= nil and displayRuntime.phone:detected()
     end

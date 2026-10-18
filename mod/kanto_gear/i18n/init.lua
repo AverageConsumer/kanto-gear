@@ -39,6 +39,12 @@ end
 function I18N:text(key)
   key = tostring(key or "")
   if key == "" then return "" end
+  local scope, original = key:match("^@app/([a-z][a-z0-9_]*):(.*)$")
+  if scope and self.modules and self.modules[scope] then
+    local entries = self.modules[scope][self:language()] or {}
+    local translated = entries[original]
+    return type(translated) == "string" and translated ~= "" and translated or original
+  end
   self.requested[key] = true
   local language = self:language()
   if language == "en" then return key end
@@ -56,6 +62,25 @@ function I18N:format(key, ...)
   end
   local ok, value = pcall(string.format, template, ...)
   return ok and value or string.format(key, ...)
+end
+
+-- Third-party store modules may bring their own translations; missing entries
+-- fall back to the module's English strings, never to an error.
+function I18N:extend(language, entries, scope)
+  language = languageCode(language)
+  if not (language and SUPPORTED[language]) then return false end
+  if type(scope) ~= "string" or not scope:match("^[a-z][a-z0-9_]*$") then return false end
+  if type(entries) ~= "table" then return false end
+  self.modules = self.modules or {}
+  self.modules[scope] = self.modules[scope] or {}
+  local catalog = {}
+  for key, value in pairs(entries) do
+    if type(key) == "string" and type(value) == "string" then
+      catalog[key] = value
+    end
+  end
+  self.modules[scope][language] = catalog
+  return true
 end
 
 function I18N:coverage(language)

@@ -6,9 +6,31 @@ return function(
   refreshTheme, refreshTools, render, resetSwapState, screenContract, screenState,
   session, touchEvent, trackChoice
 )
+  local function moduleShown()
+    local shown = session.active and displayRuntime.gearModules.anyShown() or false
+    if shown ~= (displayRuntime.gearModules.shown == true) then
+      displayRuntime.gearModules.shown = shown
+      resetSwapState()
+      THEME.nativeWindowLayout = nil
+      session.nextPoll = 0
+      if session.readbackPending then displayRuntime.moduleReadbackPending = true end
+      displayRuntime.displayBridge.checkedAt = nil
+      hgssRuntime.animation = nil
+      displayRuntime.motion.started, displayRuntime.motion.cached = nil, nil
+      if displayRuntime.phone then displayRuntime.phone.touches = {} end
+      if shown and displayRuntime.nativePhoneOwner then
+        local owner = displayRuntime.nativePhoneOwner
+        if owner.setEnabled then owner.setEnabled(true) end
+        displayRuntime.nativePhoneOwner = nil
+      end
+    end
+    return shown
+  end
+
   mod.hooks:wrap("input.step", function(next, stepGame, dt)
     local measured = displayRuntime.perf:start()
     if stepGame == displayRuntime.sourceGame and displayRuntime.phone then displayRuntime.phone:step(dt) end
+    if moduleShown() then return next(stepGame, dt) end
     if stepGame == displayRuntime.sourceGame then displayRuntime.syncCompanionDetails() end
     if stepGame == displayRuntime.sourceGame and displayRuntime.levelUp:scan(session.game.save,
         session.game.stack and session.game.stack:top()) then session.dirty = true end
@@ -46,6 +68,10 @@ return function(
     local downstream = displayRuntime.perf:start()
     local result = next(stepGame, dt)
     local excluded = displayRuntime.perf:elapsed(downstream)
+    if moduleShown() then
+      displayRuntime.perf:finish("gear_input", measured, excluded)
+      return result
+    end
     if stepGame == displayRuntime.sourceGame then
       displayRuntime.pss:step()
       if displayRuntime.recentItem:poll(session.game.save) then session.dirty = true end
@@ -71,6 +97,8 @@ return function(
   mod.hooks:wrap("render.viewport", function(next, context)
     local available = next(context)
     THEME.nativeWindowLayout = nil
+    -- the module gets the whole window: no viewport carved out for the phone
+    if moduleShown() then return available end
     if not (session.active and inlineDisplay() and context) then return available end
     local base = type(available) == "table" and available or {
       x = 0, y = 0, width = context.width, height = context.height,
@@ -95,6 +123,7 @@ return function(
   end, 1000)
 
   mod.hooks:wrap("render.output_enabled", function(next)
+    if moduleShown() then return next() end
     if session.active and inlineDisplay() then
       return not THEME.nativeWindowLayout
     end
@@ -102,7 +131,13 @@ return function(
     return next()
   end, 1000)
 
+
   mod.hooks:wrap("render.output", function(next, context)
+    if session.active and moduleShown() then
+      session.primaryBottomRect = nil
+      session.displayReady = false
+      return next(context)
+    end
     if session.active and inlineDisplay() and not THEME.nativeWindowLayout
         and context and context.canvas then
       if next(context) == true then
@@ -232,6 +267,13 @@ return function(
   end, 1000)
 
   mod.hooks:wrap("render.window", function(next, windowGame, context)
+    if session.active and moduleShown() then
+      -- the module's surface is up: the Gear stands down here too (the native
+      -- window layout draws through this wrap, not render.output)
+      session.primaryBottomRect = nil
+      session.displayReady = false
+      return next(windowGame, context)
+    end
     if not (session.active and inlineDisplay() and THEME.nativeWindowLayout
         and context and context.canvas) then
       return next(windowGame, context)
@@ -261,6 +303,7 @@ return function(
   end, 1000)
 
   local function primaryTouch(action, x, y)
+    if moduleShown() then return false end
     local inline = inlineDisplay()
     if not (session.active and hasDisplay()
         and (inline or bottomOnHandheld())) then return false end
@@ -304,6 +347,7 @@ return function(
   displayRuntime.primaryTouch = primaryTouch
 
   mod.hooks:wrap("input.pointer", function(next, pointerGame, event)
+    if moduleShown() then return next(pointerGame, event) end
     local action = ({ pressed = "down", released = "up", moved = "move",
                       cancelled = "cancel" })[event.phase]
     if action and primaryTouch(action, event.x, event.y) then return true end
@@ -465,6 +509,9 @@ return function(
 
   -- Upstream owns the display seam; this mod only supplies its companion frame.
   mod.hooks:wrap("render.compose", function(next, renderer, context)
+    if moduleShown() then
+      return next(renderer, context)
+    end
     local measured = displayRuntime.perf:start()
     displayRuntime.perf:frame()
     -- Game path [Gen 3]: save/session replacement can become live after save events; bind stored UI only once the native field session is active.
@@ -513,6 +560,10 @@ return function(
     local downstream = displayRuntime.perf:start()
     local handled = next(renderer, context)
     local excluded = displayRuntime.perf:elapsed(downstream)
+    if moduleShown() then
+      displayRuntime.perf:finish("gear_compose", measured, excluded)
+      return handled
+    end
     if session.textSpeedReleasePending then
       session.textSpeedReleasePending = false
       holdTextSpeed(false)
@@ -551,6 +602,7 @@ return function(
           local event = session.companion.pollTouch()
           if not event then break end
           touchEvent(event, session.canvas:getWidth(), session.canvas:getHeight())
+          if moduleShown() then break end
           if notesActive and not displayRuntime.notesShown() then break end
         end
       end
@@ -579,6 +631,7 @@ return function(
           if not bottomOnHandheld() then
             touchEvent(event, session.canvas:getWidth(), session.canvas:getHeight())
           end
+          if moduleShown() then break end
         end
       end
       if session.toolArmed and session.page ~= "TOOLS" then session.toolArmed = nil end
@@ -764,6 +817,10 @@ return function(
     local fullPaint = session.dirty
     displayRuntime.mapRefresh.only = displayRuntime.perf:call(
       "map_refresh", displayRuntime.updateMapRefresh, now) and not fullPaint
+    if moduleShown() then
+      displayRuntime.perf:finish("gear_compose", measured, excluded)
+      return handled
+    end
     if inline and displayRuntime.mapRefresh.only then
       -- The window was already composed by next(). Update its retained texture
       -- now, before another input tick can invalidate this movement-only hint.

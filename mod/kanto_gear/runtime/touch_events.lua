@@ -83,6 +83,7 @@ return function(
   end
 
   local function touchEvent(value, sourceWidth, sourceHeight)
+    if displayRuntime.gearModules.anyShown() then return end
     local action, sx, sy = value:match("^(%a+),(%d+),(%d+)$")
     local x, y = tonumber(sx), tonumber(sy)
     if not action then

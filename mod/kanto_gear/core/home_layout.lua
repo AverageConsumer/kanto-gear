@@ -11,7 +11,8 @@ local function definition(catalog, id)
   local item = catalog and catalog.surfaces and catalog.surfaces[id]
   local package = item and catalog.packages and catalog.packages[item.package]
   if type(item) ~= "table" or type(package) ~= "table"
-      or package.installed == false then return nil end
+      or package.installed == false
+      or package.thirdParty and (package.available == false or item.hidden == true) then return nil end
   local columns, rows = item.columns or 3, item.rows or 1
   if not integer(columns) or not integer(rows)
       or columns < 1 or rows < 1
@@ -338,7 +339,7 @@ function M.library(layout, catalog, page, column, row, kind)
       local fits, reason = M.canPlace(layout, catalog, id, page, column, row)
       result[#result + 1] = {
         id = id, label = item.label or id, kind = item.kind or "app",
-        widget = item.widget, icon = item.icon, accent = item.accent,
+        widget = item.widget, icon = item.icon, accent = item.accent, sortLabel = item.sortLabel,
         columns = item.columns or 3, rows = item.rows or 1,
         available = not placed and fits,
         reason = placed and "on_home" or (fits and nil or reason),
@@ -346,7 +347,8 @@ function M.library(layout, catalog, page, column, row, kind)
     end
   end
   table.sort(result, function(a, b)
-    return a.label == b.label and a.id < b.id or a.label < b.label
+    local first, second = a.sortLabel or a.label, b.sortLabel or b.label
+    return first == second and a.id < b.id or first < second
   end)
   return result
 end

@@ -1655,6 +1655,34 @@ function love.load()
     category = "ONLINE", action = "GET", state = "get",
     description = { "ONLINE PLAYER DISPLAY.",
       "SEE WHO IS ONLINE AND PLAYING.", "PREVIEW: VIEWING ONLY." } })
+  local previewModules
+  if os.getenv("KANTO_GEAR_PREVIEW_MODULES") == "1" then
+    local runtime = { home = {}, storeCatalog = {}, storeById = {},
+      homeCatalog = { packages = {}, surfaces = {} } }
+    local registry = assert(loadfile(root .. "/mod/kanto_gear/runtime/modules.lua"))()(
+      { hgss = theme, i18n = i18n }, runtime, { log = { info = function() end,
+        warn = function(_, message) error(message) end } }, {})
+    local rows = {}
+    for y = 0, 23 do
+      rows[#rows + 1] = (y == 2 or y == 21) and (".." .. string.rep("o", 20) .. "..")
+        or (y > 2 and y < 21) and ("..o" .. string.rep("a", 18) .. "o..") or string.rep(".", 24)
+    end
+    for index, entry in ipairs({
+      { "sample", "TOOLS", "FELDNOTIZEN", { pal = { a = "3ea04c" }, rows = rows }, "green" },
+      { "runner", "PARTY", "TEAMHELFER", function(x, y) theme:v4Icon("runner", x, y) end, "red" },
+    }) do
+      assert(registry.exports.register({ id = entry[1], label = entry[2], category = "TRAINER TOOL",
+        description = { "CHECK YOUR TEAM AT A GLANCE.", "AN APP FROM ANOTHER MOD." },
+        icon = entry[4], accent = entry[5], open = function() return true end,
+        translations = { de = { [entry[2]] = entry[3], ["TRAINER TOOL"] = "ERWEITERUNG" } } }))
+      local app = runtime.storeById[entry[1]]
+      app.state, app.action = index == 1 and "get" or "open", index == 1 and "GET" or "OPEN APP"
+      app.publisher = "COMMUNITY"
+      table.insert(storeCatalog, index, app)
+    end
+    registry.applyAvailability({ generation = gen1 and 1 or 2, gen3 = false })
+    previewModules = runtime.homeCatalog
+  end
   for _, app in ipairs(storeCatalog) do
     if app.id == "party" then
       app.preview = { party = {}, drawPokemon = function(row, x, y, size)
@@ -2431,6 +2459,10 @@ function love.load()
       },
     }
     catalog.packages.daycare, catalog.packages.calendar = { installed = true }, { installed = true }
+    if previewModules then
+      for id, item in pairs(previewModules.surfaces) do catalog.surfaces[id] = item end
+      for id, item in pairs(previewModules.packages) do item.installed = true; catalog.packages[id] = item end
+    end
     local layout = { tiles = {
       { id = "explorer_widget", page = 1, column = 1, row = 1 },
       { id = "party_widget", page = 1, column = 8, row = 1 },
@@ -2439,6 +2471,7 @@ function love.load()
       { id = "store_app", page = 1, column = 7, row = 2 },
       { id = "settings_app", page = 1, column = 10, row = 2 },
     } }
+    if previewModules then layout.tiles[3].id, layout.tiles[4].id = "sample_app", "runner_app" end
     if screen == "home-pss" then
       layout.tiles[3].id = "pss_app"
     elseif screen == "home-bag" then

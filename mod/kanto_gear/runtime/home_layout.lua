@@ -18,8 +18,11 @@ return function(
 
   function displayRuntime.homeSnapshot()
     local installed = {}
+    for id, value in pairs(displayRuntime.home.savedPackages or {}) do installed[id] = value end
     for id, package in pairs(displayRuntime.homeCatalog.packages) do
-      installed[id] = package.installed == true
+      if not (package.thirdParty and package.available == false) then
+        installed[id] = package.installed == true
+      end
     end
     local layout = { tiles = {} }
     for _, tile in ipairs(displayRuntime.home.layout.tiles or {}) do
@@ -27,6 +30,13 @@ return function(
         id = tile.id, page = tile.page,
         column = tile.column, row = tile.row,
       }
+    end
+    for _, tile in ipairs(displayRuntime.home.dormantTiles or {}) do
+      if not displayRuntime.Home.find(layout, tile.id) then
+        layout.tiles[#layout.tiles + 1] = {
+          id = tile.id, page = tile.page, column = tile.column, row = tile.row,
+        }
+      end
     end
     return { format = 1, packages = installed, layout = layout,
       helpSeen = displayRuntime.home.helpSeen == true }
@@ -67,6 +77,13 @@ return function(
     local installed = durable and durable.packages
       or mod.save:get("home_packages", {})
     if type(installed) ~= "table" then installed = {} end
+    displayRuntime.home.savedPackages = {}
+    for id, value in pairs(installed) do
+      if type(id) == "string" and id:match("^[a-z][a-z0-9_]*$") and type(value) == "boolean" then
+        displayRuntime.home.savedPackages[id] = value
+      end
+    end
+    displayRuntime.home.dormantTiles = {}
     for id, package in pairs(displayRuntime.homeCatalog.packages) do
       package.installed = displayRuntime.packageInstalled(
         package, installed[id])
@@ -77,11 +94,26 @@ return function(
     local layout = { tiles = {} }
     for _, tile in ipairs(source) do
       if type(tile) == "table" then
-        displayRuntime.Home.place(layout, displayRuntime.homeCatalog, tile.id,
-          tonumber(tile.page), tonumber(tile.column), tonumber(tile.row))
+        local page, column, row = tonumber(tile.page), tonumber(tile.column), tonumber(tile.row)
+        local placed = displayRuntime.Home.place(layout, displayRuntime.homeCatalog, tile.id, page, column, row)
+        local id = type(tile.id) == "string" and tile.id:match("^([a-z][a-z0-9_]*)_app$")
+        local surface = displayRuntime.homeCatalog.surfaces[tile.id]
+        if not placed and id and installed[id] == true
+            and (not surface or surface.thirdParty)
+            and page and page >= 1 and page == math.floor(page)
+            and column and column >= 1 and column <= 10 and column == math.floor(column)
+            and row and row >= 1 and row <= 2 and row == math.floor(row)
+            and not displayRuntime.Home.find({ tiles = displayRuntime.home.dormantTiles }, tile.id) then
+          displayRuntime.home.dormantTiles[#displayRuntime.home.dormantTiles + 1] = {
+            id = tile.id, page = page, column = column, row = row,
+          }
+        end
       end
     end
-    displayRuntime.Home.compactRows(layout, displayRuntime.homeCatalog)
+    -- Keep stored gaps while a missing mod's tile still owns its original slot.
+    if #displayRuntime.home.dormantTiles == 0 then
+      displayRuntime.Home.compactRows(layout, displayRuntime.homeCatalog)
+    end
     displayRuntime.home.layout = layout
     displayRuntime.home.page = math.max(1, math.min(
       displayRuntime.Home.pageCount(layout),
@@ -99,12 +131,30 @@ return function(
     session.dirty = true
   end
 
+  function displayRuntime.restoreModuleHome(id)
+    local home, package = displayRuntime.home, displayRuntime.homeCatalog.packages[id]
+    package.installed = displayRuntime.packageInstalled(package, (home.savedPackages or {})[id])
+    for index = #(home.dormantTiles or {}), 1, -1 do
+      local tile = home.dormantTiles[index]
+      if tile.id == id .. "_app" and displayRuntime.Home.place(home.layout,
+          displayRuntime.homeCatalog, tile.id, tile.page, tile.column, tile.row) then
+        table.remove(home.dormantTiles, index)
+      end
+    end
+    home.widgetCache, session.dirty = nil, true
+  end
+
   function displayRuntime.setPackageInstalled(id, installed)
     local package = displayRuntime.homeCatalog.packages[id]
     if not package or package.available == false
         or package.fixed and not installed then return false end
     package.installed = installed == true
     if not package.installed then
+      for index = #(displayRuntime.home.dormantTiles or {}), 1, -1 do
+        if displayRuntime.home.dormantTiles[index].id == id .. "_app" then
+          table.remove(displayRuntime.home.dormantTiles, index)
+        end
+      end
       if id == "pss" then displayRuntime.pss:close() end
       displayRuntime.Home.removePackage(displayRuntime.home.layout,
         displayRuntime.homeCatalog, id)

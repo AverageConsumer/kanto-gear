@@ -45,6 +45,7 @@ tests/gen3_level_up_test.lua
 tests/gen3_map_test.lua
 tests/gen3_menu_refresh_test.lua
 tests/gen3_module_cache_test.lua
+tests/gen3_modules_test.lua
 tests/gen3_move_learning_test.lua
 tests/gen3_naming_test.lua
 tests/gen3_native_test.lua
@@ -140,6 +141,8 @@ tests/support/module.lua
 tests/support/runtime.lua
 tests/support/source.lua
 tests/team_widget_test.lua
+tests/third_party_modules_cases.lua
+tests/third_party_modules_test.lua
 tests/touch_companion_test.lua
 tests/touch_guard_test.lua
 tests/trainer_markers_cases.lua

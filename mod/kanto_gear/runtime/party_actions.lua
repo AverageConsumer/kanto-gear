@@ -3,9 +3,20 @@ return function(
   mod, refreshTools, screenState, session
 )
   function displayRuntime.openHomeApp(id)
+    local home = displayRuntime.home
+    if displayRuntime.gearModules.specs[id] then
+      -- a third-party module: no Gear page of ours; the mod's own surface takes
+      -- the Gear's place. The Gear falls back to its home screen first, so
+      -- closing the module lands there, wherever it was opened from.
+      local opened = displayRuntime.gearModules.open(id)
+      if not opened then return false end
+      home.editing, home.library, home.addSlot = false, false, nil
+      home.swapSource, home.activeApp = nil, nil
+      session.page, session.dirty = "HOME", true
+      return true
+    end
     session.toolArmed = nil
     displayRuntime.clearExplorerSnapshot()
-    local home = displayRuntime.home
     home.editing, home.library, home.addSlot = false, false, nil
     home.swapSource = nil
     home.activeApp = id

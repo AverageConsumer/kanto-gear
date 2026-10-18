@@ -98,6 +98,8 @@ return function(mod)
     drawSprite, expBar, fit, guideData, header, hpBar,
     loadLocalMap, mod, outline, progressRatio, render, screenState,
     session, text)
+  install("runtime/modules", THEME, displayRuntime, mod, session)
+  mod.exports.modules = displayRuntime.gearModules.exports
   install("runtime/store",
     THEME, areaName, assist, compactSteps, compat, displayRuntime,
     drawSprite, header, loadLocalMap, partyData, render, session)

@@ -94,6 +94,83 @@ Use `tools/hgss_preview/localization.ps1` for the language/Gen 1/2/Light/Dark
 matrix, optionally with `-Screens` and `-Languages`. Run previews sequentially:
 they share one temporary LÖVE runtime and require local sprite fixtures.
 
+## Third-party store modules
+
+Another mod can add its own app to the Silph Store. The Gear ships no knowledge
+of any third-party mod: only a mod that calls the hook appears, and everything it
+shows is its own - the engine-drawn icon, the label, the description and the open
+callback. Installed tiles place and move like the built-in apps, and while the
+module reports its own surface up, the Gear stands down from the bottom screen
+entirely and returns to its home screen when the module closes.
+
+From the other mod (list `kanto_gear` in `optional_dependencies` so the hook
+exists at your load), the base template:
+
+```lua
+local gear = mod.find("kanto_gear")
+local modules = gear and gear.exports and gear.exports.modules   -- api = 1
+if modules and modules.api == 1 then
+  modules.register({
+    id = "my_module",                  -- lowercase [a-z0-9_]; unique app ID
+    label = "MY MODULE",               -- at most 20 characters
+    category = "TOOLS",
+    description = {                    -- 1 to 3 store lines
+      "WHAT IT DOES, LINE ONE.",
+      "LINE TWO.",
+    },
+    -- the icon: the Gear's 24x24 pixel format ('o' = shared outline, '.' = clear),
+    -- or function(x, y, grey) drawing inside a 24x24 area; grey is a boolean
+    icon = { pal = { a = "e04838" }, rows = { --[[ 24 strings of 24 ]] } },
+    accent = "red",                    -- blue | amber | red | green | slate
+    available = function(ctx)          -- optional; per game bind
+      return ctx.generation == 3
+    end,
+    shown = function()                 -- optional; true while your surface is up:
+      return myScreenIsOpen            -- the Gear stands down meanwhile
+    end,
+    open = function()                  -- the press, from the tile or OPEN APP;
+      return openMyScreen()            -- return true when you took the screen
+    end,
+    translations = {                   -- optional; de / es / fr / it / ja
+      de = { ["MY MODULE"] = "MEIN MODUL" },
+    },
+  })
+end
+```
+
+`register` returns `true`, or `nil, why` and a warning in the log when the spec
+is refused. Check `modules.api == 1` before using this interface. Register once
+per mod load; registration after `game.ready` is supported. Availability receives
+`generation` (1, 2 or 3) and `gen3`, and is reevaluated when a game is bound
+and before opening an app.
+Opening requires the app to be enabled in the Store and available for that game.
+An `open` failure leaves the current Gear page intact.
+
+Provide `shown` whenever your app owns a screen. It must return `true` for the
+entire lifetime of that screen, including modals, and `false` after it closes.
+While true, Gear delegates window layout, rendering, physical pointer input and
+game controls, and does not draw, submit frames or poll native companion touches.
+The app implements its own rendering and input through Recomp's hooks. In Phone
+mode the native display is released to the app and Gear's phone UI pauses; this
+interface does not stream an external app's frames to the phone. Phone buttons
+remain game input. Closing resumes Gear with fresh UI input and a redraw.
+
+Icons and Store translations are namespaced automatically. Palette colors use
+six hexadecimal digits. Custom drawing runs in a protected graphics scope,
+including cleanup after a callback error; preserve the caller's stack and draw
+within the supplied 24x24 area. Missing translations use that app's English text
+without consulting another app or Gear's catalogs.
+
+Temporarily missing or unavailable mods retain their Store enablement and saved
+Home placement. A late registration restores a free saved slot. If the user has
+occupied that slot while the mod was absent, its saved placement remains dormant
+and the app can be placed from the Home library. Explicit Store removal clears
+the placement and remains removed. These are local apps supplied by separately
+installed Recomp mods; registration does not download or update code.
+
+`tests/third_party_modules_test.lua` and `tests/gen3_modules_test.lua` exercise
+the interface, persistence, rendering ownership and fault handling in Gen 1–3.
+
 ## Translations
 
 Built-in UI catalogs live in `mod/kanto_gear/i18n/catalogs/`. English labels are

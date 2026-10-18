@@ -34,6 +34,12 @@ return function(
   end
 
   local function pumpDisplay()
+    if displayRuntime.moduleReadbackPending then
+      if session.canvas.pollImageData and not session.canvas:pollImageData() then return false end
+      displayRuntime.moduleReadbackPending, session.readbackPending = nil, false
+      displayRuntime.readbackStarted = nil
+      session.dirty = true
+    end
     local captureAt = love.timer.getTime()
     if THEME:displayMode(mod.options) == "phone" and not session.readbackPending
         and not (displayRuntime.phone and displayRuntime.phone:canCapture()) then return false end

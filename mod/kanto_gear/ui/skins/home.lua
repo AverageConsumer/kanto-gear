@@ -159,7 +159,7 @@ return function(H, ui, K)
       green = hex("40c070"), slate = hex("1ea5d8") },
   }
   function H:v4AppAccent(id)
-    local key = APP_ACCENT[id or ""]
+    local key = (self.v4ModuleAccents or {})[id or ""] or APP_ACCENT[id or ""]
     return key and ACCENTS[cg(self) and "cgear" or "pokegear"][key]
   end
 
