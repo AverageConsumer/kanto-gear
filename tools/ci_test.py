@@ -8,6 +8,7 @@ from unittest.mock import patch
 import zipfile
 
 import ci
+import package
 
 
 class ReleaseChecks(unittest.TestCase):
@@ -45,6 +46,14 @@ class ReleaseChecks(unittest.TestCase):
 
     def test_matching_artifacts_pass(self):
         self.assertEqual(self.verify(), self.report['sha256'])
+
+    def test_package_bytes_are_independent_of_platform_zip_defaults(self):
+        windows, linux = self.directory / 'windows.zip', self.directory / 'linux.zip'
+        with patch('zipfile.sys.platform', 'win32'):
+            package.write_package(windows, self.source)
+        with patch('zipfile.sys.platform', 'linux'):
+            package.write_package(linux, self.source)
+        self.assertEqual(windows.read_bytes(), linux.read_bytes())
 
     def test_report_from_another_commit_is_rejected(self):
         self.report['source_commit'] = 'b' * 40

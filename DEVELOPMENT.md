@@ -256,7 +256,8 @@ This is a Lua mod ZIP, with no native engine or APK signer.
 Every branch push and pull request runs ROM-free checks on GitHub: YAML parsing,
 issue form IDs, local documentation links and anchors, LuaJIT compilation of all
 Lua files, release-verifier regression tests and two reproducible package builds.
-Archive exports use LF line endings independently of local Git settings.
+Archive exports use LF line endings and fixed ZIP metadata independently of local
+Git settings and the host operating system.
 The resulting ZIP, verification JSON and SHA-256 file are retained as CI artifacts.
 Actions are pinned to exact commits; Dependabot proposes weekly action updates.
 Game-data fixtures and on-device playthrough checks remain local.
