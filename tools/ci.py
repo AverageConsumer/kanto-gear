@@ -26,7 +26,8 @@ def require(condition, message):
 
 
 def committed_source():
-    raw = subprocess.check_output(['git', 'archive', '--format=zip', 'HEAD', 'mod/kanto_gear'], cwd=ROOT)
+    raw = subprocess.check_output(['git', '-c', 'core.autocrlf=false', '-c', 'core.eol=lf',
+                                   'archive', '--format=zip', 'HEAD', 'mod/kanto_gear'], cwd=ROOT)
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         ignored = set(archive.read(PREFIX + '.modkitignore').decode('utf-8').splitlines())
         files = {name[len(PREFIX):]: archive.read(name) for name in archive.namelist()

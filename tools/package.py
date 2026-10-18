@@ -31,7 +31,8 @@ def main():
     if git("status", "--porcelain", "--untracked-files=no", "--", "mod/kanto_gear").strip():
         parser.error("commit every intended mod change before packing")
     commit = git("rev-parse", "HEAD").decode().strip()
-    source = zipfile.ZipFile(io.BytesIO(git("archive", "--format=zip", "HEAD", "mod/kanto_gear")))
+    source = zipfile.ZipFile(io.BytesIO(git("-c", "core.autocrlf=false", "-c", "core.eol=lf",
+                                          "archive", "--format=zip", "HEAD", "mod/kanto_gear")))
     ignored = set(source.read(PREFIX + ".modkitignore").decode().splitlines())
     files = {name[len(PREFIX):]: source.read(name) for name in source.namelist()
              if name.startswith(PREFIX) and not name.endswith("/") and name[len(PREFIX):] not in ignored
