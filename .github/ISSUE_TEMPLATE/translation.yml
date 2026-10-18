@@ -1,0 +1,35 @@
+name: Translation fix
+description: Suggest better wording in German, Spanish, French, Japanese or Italian.
+title: "[Translation] "
+body:
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options: [German, Spanish (Spain), French, Japanese, Italian, Other]
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where does the text appear?
+      placeholder: e.g. Options → Discovery, Day-Care app
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current text
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested wording
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Optional, but it helps to check whether the new text fits.

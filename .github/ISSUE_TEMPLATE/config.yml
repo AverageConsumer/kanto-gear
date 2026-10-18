@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Install Kanto Gear from the Mod Index
+    url: https://bryanthaboi.github.io/gen1recomp-mod-index/
+    about: The easiest way to install and update Kanto Gear.
+  - name: Gen1Recomp issues
+    url: https://github.com/bryanthaboi/gen1recomp/issues
+    about: Problems with the game itself, ROM import or Recomp crashes without Kanto Gear belong here.

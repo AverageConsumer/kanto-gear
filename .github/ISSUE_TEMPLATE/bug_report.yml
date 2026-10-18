@@ -1,0 +1,64 @@
+name: Bug report
+description: Something in Kanto Gear does not work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Kanto Gear. Please check that you use the
+        [latest official Gen1Recomp](https://github.com/bryanthaboi/gen1recomp/releases/latest)
+        and the [latest Kanto Gear release](https://github.com/AverageConsumer/kanto-gear/releases/latest) first.
+  - type: dropdown
+    id: game
+    attributes:
+      label: Game
+      options: [Red, Blue, Yellow, Gold, Silver, Crystal, Ruby, Sapphire, FireRed, LeafGreen, Emerald]
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and system
+      placeholder: e.g. AYN Thor, Android 13 / Windows 11 / Steam Deck
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Recomp and Gear versions
+      placeholder: e.g. Recomp 0.3.74, Kanto Gear 4.3.1
+    validations:
+      required: true
+  - type: dropdown
+    id: display
+    attributes:
+      label: Display mode
+      options: [Fullscreen Swap, Combined, Separate, Phone / Browser]
+    validations:
+      required: true
+  - type: dropdown
+    id: battle
+    attributes:
+      label: Battle mode
+      options: [Companion, Info, Gear, Full Gear, Not battle-related]
+  - type: input
+    id: mods
+    attributes:
+      label: Other active mods
+      placeholder: None, or list them
+  - type: textarea
+    id: steps
+    attributes:
+      label: What happened?
+      description: Steps to reproduce, what you expected and what you saw instead.
+      placeholder: |
+        1. Open ...
+        2. Tap ...
+        3. Expected ..., but ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or logs
+      description: Drag files here. Logs and screenshots of both screens help a lot.
