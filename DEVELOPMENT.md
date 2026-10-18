@@ -141,8 +141,19 @@ end
 `register` returns `true`, or `nil, why` and a warning in the log when the spec
 is refused. Check `modules.api == 1` before using this interface. Register once
 per mod load; registration after `game.ready` is supported. Availability receives
-`generation` (1, 2 or 3) and `gen3`, and is reevaluated when a game is bound
-and before opening an app.
+`edition` (the current Recomp edition ID), `generation` (1, 2 or 3) and `gen3`,
+and is reevaluated when a game is bound and before opening an app.
+Edition IDs are `red`, `blue`, `yellow`, `gold`, `silver`, `crystal`, `firered`,
+`leafgreen`, `ruby`, `sapphire` and `emerald`. For example, a Crystal-only app uses:
+
+```lua
+available = function(ctx)
+  return ctx.edition == "crystal"
+end,
+```
+
+Unavailable apps are hidden from the Store and Home, and cannot be opened.
+Their saved enablement and Home placement are retained for a supported edition.
 Opening requires the app to be enabled in the Store and available for that game.
 An `open` failure leaves the current Gear page intact.
 

@@ -83,6 +83,7 @@ local game = { generation = generation, data = run.data, world = world, overworl
     boxes = {}, pokedex = { seen = {}, caught = {} } },
   stack = { top = function() return world end } }
 run.loader.events:emit("game.ready", { game = game })
+local boundContext = M.lastContext
 T.eq(M.lastContext.generation, generation, "availability receives the actual bound generation")
 M.applyAvailability({ generation = 3, gen3 = true })
 T.check(display.setPackageInstalled("fake_gym", true), "user enables the registered app")
@@ -134,5 +135,6 @@ T.eq(i18n:text("@app/fake_gym:FAKE GYM"), "TESTHALLE", "...and translates")
 T.eq(i18n:text("@app/fake_gym:UNSEEN"), "UNSEEN", "...missing entries fall back to the module's English")
 T.eq(i18n:extend("xx", { A = "B" }), false, "an unsupported language is refused")
 
+M.applyAvailability(boundContext)
 dofile(path .. "/tests/third_party_modules_cases.lua")(T, run, display, game, generation)
 T.finish("Kanto Gear third-party modules")

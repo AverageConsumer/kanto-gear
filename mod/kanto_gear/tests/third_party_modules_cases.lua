@@ -11,7 +11,52 @@ return function(T, run, display, game, generation)
   run.loader.modOptions.kanto_gear = run.loader.modOptions.kanto_gear or {}
   local theme = up(display.drawContents, "THEME")
   local supported, shown, opens, throws = true, false, 0, false
-  M.applyAvailability({ generation = generation, gen3 = generation == 3 })
+  local edition = assert(os.getenv("POKEPORT_VERSION"))
+  local context = M.lastContext
+  T.eq(context.edition, edition, "availability receives the actual bound edition")
+  T.eq(context.generation, generation, "availability receives the actual bound generation")
+  T.eq(context.gen3, generation == 3, "edition context preserves the Gen 3 flag")
+  local editionOpens = 0
+  for _, target in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal",
+      "firered", "leafgreen", "emerald", "ruby", "sapphire" }) do
+    local id, matches = "edition_" .. target, target == edition
+    T.check(M.exports.register({
+      id = id, label = target, category = "TOOLS", description = { "EDITION ONLY" },
+      icon = function() end, available = function(ctx) return ctx.edition == target end,
+      open = function() editionOpens = editionOpens + 1; return true end,
+    }), "edition-specific app registers after binding: " .. target)
+    T.eq(display.storeById[id].hidden, not matches, target .. " Store visibility follows the exact edition")
+    T.eq(display.homeCatalog.surfaces[id .. "_app"].hidden, not matches, target .. " Home visibility follows the exact edition")
+    T.eq(not not display.setPackageInstalled(id, true), matches, target .. " can only be enabled in its edition")
+    T.eq(display.openHomeApp(id), matches, target .. " can only open in its edition")
+    T.eq(M.open(id), matches, target .. " direct opening also obeys edition availability")
+  end
+  T.eq(editionOpens, 2, "only the matching edition's app callbacks ran")
+  local id = "edition_" .. edition
+  display.home.layout = { tiles = {} }
+  T.check(display.Home.place(display.home.layout, display.homeCatalog, "settings_app", 2, 1, 2), "place left shortcut neighbor")
+  T.check(display.Home.place(display.home.layout, display.homeCatalog, id .. "_app", 2, 4, 2), "place edition-specific shortcut")
+  T.check(display.Home.place(display.home.layout, display.homeCatalog, "store_app", 2, 7, 2), "place right shortcut neighbor")
+  display.saveHome()
+  local other = generation == 1 and (edition == "red" and "blue" or "red")
+    or generation == 2 and (edition == "crystal" and "gold" or "crystal")
+    or (edition == "firered" and "leafgreen" or "firered")
+  M.applyAvailability({ edition = other, generation = generation, gen3 = generation == 3 })
+  display.loadHome(); display.saveHome(); display.loadHome()
+  T.eq(display.storeById[id].hidden, true, "same-generation edition change hides the Store entry")
+  T.eq(display.Home.find(display.home.layout, id .. "_app"), nil, "unsupported edition has no visible shortcut")
+  T.eq(display.homeSnapshot().packages[id], true, "unsupported edition preserves saved enablement")
+  T.eq(display.openHomeApp(id), false, "saved shortcut cannot open in a sibling edition")
+  T.eq(M.open(id), false, "direct opening cannot bypass the edition restriction")
+  T.eq(editionOpens, 2, "unsupported edition never invokes the app")
+  M.applyAvailability(context); display.loadHome()
+  local restored = display.Home.find(display.home.layout, id .. "_app")
+  T.check(display.homeCatalog.packages[id].installed, "returning to the supported edition restores enablement")
+  T.check(restored and restored.page == 2 and restored.column == 4 and restored.row == 2,
+    "returning to the supported edition restores the exact saved shortcut")
+  T.check(display.openHomeApp(id), "restored edition-specific app opens again")
+  T.eq(editionOpens, 3, "restored app invokes its callback once")
+  T.check(display.setPackageInstalled(id, false), "remove edition fixture before the remaining module checks")
   local function spec(id, translation)
     return { id = id, label = "STATUS", category = "TOOLS", description = { "STATUS", "UNSEEN" },
       icon = function() end, available = function() return supported end,

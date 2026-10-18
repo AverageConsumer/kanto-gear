@@ -222,6 +222,7 @@ return function(
     if displayRuntime.applyCalendarSupport then displayRuntime.applyCalendarSupport() end
     -- third-party store modules decide their availability for this game
     displayRuntime.gearModules.applyAvailability({
+      edition = require("src.core.GameVersion").get(),
       generation = displayRuntime.gen3 and 3 or compat.isGen2() and 2 or 1,
       gen3 = displayRuntime.gen3 ~= nil,
     })
