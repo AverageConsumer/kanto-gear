@@ -178,7 +178,14 @@ for _,style in ipairs({"hgss","hgss_dark"}) do
       open();stack.states={world}
       save.inventory,save.bagOrder={MASTER_BALL=99},{"MASTER_BALL"}
       run.data.items.MASTER_BALL={name="MASTER BALL",canToss=true,pocket=generation==2 and "BALL" or nil}
-      if remaining then save.inventory.POTION=4;save.bagOrder[2]="POTION" end
+      if remaining then
+        save.inventory.POTION=4;save.bagOrder[2]="POTION"
+        for i=1,50 do
+          local id="EXTRA_ITEM_"..i
+          run.data.items[id]={name="どうぐ "..i,pocket="ITEM",canToss=true}
+          save.inventory[id]=1;save.bagOrder[#save.bagOrder+1]=id
+        end
+      end
       if origin=="app" then
         display.drawContents()
         T.check(display.performBagAction("MASTER_BALL","toss"),"app opens the native discard flow")
@@ -207,9 +214,11 @@ for _,style in ipairs({"hgss","hgss_dark"}) do
         T.eq(save.inventory.MASTER_BALL,nil,"YES removes exactly 99 Master Balls")
         untilReady(function() return not native.message end,"a")
       end
+      if generation==2 and remaining then tap(40,14) end
       local final=view()
       T.check(final.bagList and display.StartMenu.cursor(final),"full discard returns to an interactive bag")
       T.eq(save.inventory.POTION,remaining and 4 or nil,"full discard preserves other items")
+      if remaining then T.eq(#final.items,52,"large translated item list retains all 51 items and CANCEL") end
       if remaining then choose(#final.items) else tap(12,14) end
       T.eq(stack:top(),world,"CANCEL and lower-screen back close the bag after full discard")
       T.check(not final.valid(),"closed post-discard bag rejects stale touches")
