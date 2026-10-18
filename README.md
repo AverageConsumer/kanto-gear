@@ -12,6 +12,7 @@ Play on Android, Windows or Linux, with an optional phone browser display.
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest release"></a>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases"><img src="https://img.shields.io/github/downloads/AverageConsumer/kanto-gear/total?label=downloads&color=2f81f7" alt="Total downloads"></a>
+  <a href="https://github.com/AverageConsumer/kanto-gear/actions/workflows/ci.yml"><img src="https://github.com/AverageConsumer/kanto-gear/actions/workflows/ci.yml/badge.svg?branch=main" alt="Source and package checks"></a>
   <a href="https://bryanthaboi.github.io/gen1recomp-mod-index/"><img src="https://img.shields.io/badge/official-Mod%20Index-6f42c1" alt="Available in the Mod Index"></a>
 </p>
 

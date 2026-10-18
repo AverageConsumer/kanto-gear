@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      release-tag:
+        type: string
+        default: ''
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Source and package checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes luajit
+          python -m pip install --disable-pip-version-check PyYAML==6.0.3
+      - name: Test release verification guards
+        run: python -m unittest discover -s tools -p ci_test.py
+      - name: Validate source and build reproducibly
+        env:
+          RELEASE_TAG: ${{ inputs.release-tag || '' }}
+        run: python tools/ci.py --tag "$RELEASE_TAG"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kanto-gear-${{ github.sha }}
+          path: |
+            dist/*.zip
+            dist/*.verification.json
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14

@@ -250,3 +250,39 @@ packaged file, manifest field and license. `dist/kanto_gear-<version>.zip`
 follows the committed manifest; its report records the source commit and
 SHA-256 hashes. Tests, SDK files and imported game assets are not distributed.
 This is a Lua mod ZIP, with no native engine or APK signer.
+
+## GitHub checks and releases
+
+Every branch push and pull request runs ROM-free checks on GitHub: YAML parsing,
+issue form IDs, local documentation links and anchors, LuaJIT compilation of all
+Lua files, release-verifier regression tests and two reproducible package builds.
+The resulting ZIP, verification JSON and SHA-256 file are retained as CI artifacts.
+Actions are pinned to exact commits; Dependabot proposes weekly action updates.
+Game-data fixtures and on-device playthrough checks remain local.
+
+To run the same checks locally, install LuaJIT and `PyYAML==6.0.3`, commit the
+intended source, then use an empty output directory:
+
+```powershell
+python -m unittest discover -s tools -p ci_test.py
+python tools/ci.py --output-dir diagnostics/ci-assets
+```
+
+Before publishing a version, audit every worktree involved and finish the local
+tests and feature inventory described above. Update the manifest version and copy
+`.github/release-template.md` to `release-notes/v<version>.md`, filling in changes
+for players. Commit the complete slice to `main` and wait for green CI. Only then
+create and push its `v<version>` tag.
+
+The tag workflow reruns CI, checks that the tag matches the manifest and belongs
+to `main`, and requires committed release notes. A separate publication job
+downloads that run's artifacts and compares every ZIP file and report hash with
+the exact tagged source before publishing. It attaches the ZIP, verification JSON
+and `.sha256` file, using the committed notes as the release description. It does
+not replace an existing release or its assets. Only that publication job has
+repository write permission; pull request checks have read-only access.
+
+For a downloaded release, run `sha256sum --check kanto_gear-<version>.sha256`
+beside the ZIP. The verification JSON also records the source commit, engine
+requirement and per-file hashes. These checks identify a Lua mod package; they
+do not replace the release audit or the tests that need imported game data.

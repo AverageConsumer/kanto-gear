@@ -1,5 +1,5 @@
-<!-- Template for release notes. Copy into the GitHub release form.
-     Title: Kanto Gear X.Y.Z — Short player-facing headline -->
+<!-- Copy to release-notes/vX.Y.Z.md before committing and tagging a release.
+     Replace the example content with the changes in that version. -->
 
 ## What's new
 
