@@ -4,9 +4,10 @@
 
 ### Silph Link OS — Your adventure. Reconnected.
 
-A DS-inspired companion for Pokémon **Red, Blue, Yellow, Gold, Silver, Crystal,
-Ruby, Sapphire, FireRed, LeafGreen and Emerald** in
-[Gen1Recomp](https://github.com/bryanthaboi/gen1recomp).
+A DS-inspired Pokégear and C-Gear companion for Pokémon **Red, Blue, Yellow,
+Gold, Silver, Crystal, Ruby, Sapphire, FireRed, LeafGreen and Emerald** in
+[Gen1Recomp](https://github.com/bryanthaboi/gen1recomp), on Android, Windows,
+Linux and your phone.
 
 <p>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest release"></a>
@@ -25,6 +26,10 @@ Ruby, Sapphire, FireRed, LeafGreen and Emerald** in
 · [Download ZIP](https://github.com/AverageConsumer/kanto-gear/releases/latest)
 · [Report a problem](https://github.com/AverageConsumer/kanto-gear/issues)**
 
+<sub>[Get started](#get-started) · [Apps](#apps-and-tools) · [Progress](#progress-at-your-pace)
+· [Battles](#battles-your-way) · [Screens and phone](#one-screen-or-two)
+· [Languages](#languages-and-online) · [Feedback](#feedback) · [Credits](#credits)</sub>
+
 </div>
 
 ## Your companion in Kanto, Johto and Hoenn
@@ -37,6 +42,27 @@ Choose **Pokégear** or **C-Gear**, each with Light, Dark and Auto variants.
 Arrange your own Home pages with apps and widgets: long-press to edit, then
 add, move or remove tiles. Silph Store lets you enable the optional apps you want.
 The clock can follow the game or your device.
+
+## Get started
+
+1. Install the [latest official Gen1Recomp](https://github.com/bryanthaboi/gen1recomp/releases/latest)
+   and import your own supported ROM.
+2. Install **Kanto Gear** from the [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/),
+   or import the ZIP from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
+3. Enable the mod, start your game and open Gear's **Options** to choose your layout,
+   theme, language and discovery level.
+
+The same ZIP works on Android, Windows and Linux. It includes no ROM or save.
+Use the current Recomp release for host fixes and secondary-screen input support.
+
+| Games | Minimum Recomp version |
+| --- | --- |
+| Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen | 0.3.20 |
+| Emerald (US 1.0) | 0.3.33 |
+| Ruby and Sapphire (US/Europe) | 0.3.74 |
+
+All Gen 3 games welcome broader playthrough testing and feedback. Some specialized
+contest, Frontier and other native screens remain on the game screen.
 
 ## Apps and tools
 
@@ -123,28 +149,7 @@ when Gear cannot safely take ownership.
   <img src="screenshots/4.0-battle-moves-cgear-dark.png" width="49%" alt="C-Gear move selection">
 </p>
 
-## Get started
-
-1. Install the [latest official Gen1Recomp](https://github.com/bryanthaboi/gen1recomp/releases/latest)
-   and import your own supported ROM.
-2. Install **Kanto Gear** from the [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/),
-   or import the ZIP from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
-3. Enable the mod, start your game and open Gear's **Options** to choose your layout,
-   theme, language and discovery level.
-
-The same ZIP works on Android, Windows and Linux. It includes no ROM or save.
-Use the current Recomp release for host fixes and secondary-screen input support.
-
-| Games | Minimum Recomp version |
-| --- | --- |
-| Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen | 0.3.20 |
-| Emerald (US 1.0) | 0.3.33 |
-| Ruby and Sapphire (US/Europe) | 0.3.74 |
-
-All Gen 3 games welcome broader playthrough testing and feedback. Some specialized
-contest, Frontier and other native screens remain on the game screen.
-
-### One screen or two
+## One screen or two
 
 | Layout | Use it for |
 | --- | --- |
@@ -187,7 +192,7 @@ input keep their normal update rate.
 If the shown address belongs to a VPN, use the game device's private Wi-Fi
 IPv4 address with port 8765.
 
-### Languages and online
+## Languages and online
 
 English, German, Spanish (Spain), French, Japanese and Italian are available under
 **Options → Appearance → Language**. Some newer labels fall back to English.
