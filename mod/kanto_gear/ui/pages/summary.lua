@@ -69,6 +69,10 @@ function Page.draw(H, state, mon, portrait, translate)
   end
   if mon.statusId then H:statusIcon(mon.statusId, 133, 59) end
   if mon.gender == "male" or mon.gender == "female" then H:genderIcon(mon.gender, 146, 58) end
+  if mon.pokerus then
+    local space = 70 - H:partyInfoWidth(mon.levelText)
+    H:pokerusBadge(mon.pokerus, 154 + math.floor((space - 37) / 2), 57)
+  end
   H:partyInfo(mon.levelText, 158, 57, c.ink, 68, "right")
   H:hpBar(36, 70, 114, mon.hp, mon.maxHp)
   H:partyType(mon.hpText, 157, 67, c.green, 69)

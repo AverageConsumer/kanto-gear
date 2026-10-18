@@ -110,6 +110,13 @@ for slot, mon in ipairs(party) do
   mon.typeLabel = language.types[mon.type] or mon.type
   mon.type2Label = language.types[mon.type2] or mon.type2
 end
+
+local previewPokerus = os.getenv("KANTO_GEAR_PREVIEW_POKERUS")
+if previewPokerus and os.getenv("KANTO_GEAR_PREVIEW_GEN") ~= "1" then
+  for slot, mon in ipairs(party) do mon.pokerus = slot % 2 == 0 and "cured" or "active" end
+  party[1].levelText = format("L%d", 100)
+  if previewPokerus == "cured" then party[1].pokerus = "cured" end
+end
 if os.getenv("KANTO_GEAR_PREVIEW_STATUSES") == "all" then
   for slot, status in ipairs({ "PAR", "SLP", "PSN", "BRN", "FRZ", "FNT" }) do
     party[slot].statusId = status
@@ -719,7 +726,7 @@ function love.load()
   local partySwapTransition = screen == "party_swap_transition"
   local partySwapCommit = screen == "party_swap_commit"
   local swapMode = partySwap or partySwapTransition or partySwapCommit
-  local context, summary = screen == "context", screen == "summary"
+  local context, summary = screen == "context", screen == "summary" or screen == "summary_shared"
   local moves = screen == "summary_moves"
   local summaryMoveInfo = screen == "summary_move_info"
   local memo = screen == "summary_memo"
@@ -3210,7 +3217,12 @@ function love.load()
     local function summaryPortrait(_, x, y, size, fainted)
       drawPortrait(slot, x, y, size, fainted)
     end
-    if memo then
+    if screen == "summary_shared" then
+      mon.expLabel, mon.nextLabel = translate("EXP"), translate("TO NEXT")
+      mon.type = gen1 and "NORMAL" or "WATER"
+      local Page = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/summary.lua"))()
+      Page.draw(theme, { pages = 3, page = 1 }, mon, summaryPortrait, translate)
+    elseif memo then
       assert(not gen1, "Gen 1 summaries only have two pages")
       theme:summaryMemo(mon, summaryPortrait)
     elseif moves or movesTransition or memoTransition then

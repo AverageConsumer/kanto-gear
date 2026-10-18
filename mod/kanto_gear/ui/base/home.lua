@@ -288,6 +288,10 @@ return function(H, ui, draw, icons)
         if model.drawPokemon then
           model.drawPokemon(mon, left + 1, top + 3, 32, fainted)
         end
+        if mon.pokerus then
+          box("fill", left + 25, top + 28, 9, 9, colors.surface)
+          self:pokerusMark(mon.pokerus, left + 26, top + 29)
+        end
         if mon.egg then
           self:partyType(translate("EGG"), left, top + 43, colors.green, width)
         else

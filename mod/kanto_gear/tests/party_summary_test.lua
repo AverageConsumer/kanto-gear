@@ -51,6 +51,8 @@ for slot=1,2 do
     stats={hp=30,attack=15,defense=14,speed=12,special=13,specialAttack=13,specialDefense=13}}
 end
 run.loader.events:emit("game.ready",{game=game})
+local summaryRuntime=upvalue(upvalue(display.drawContents,"drawBattleSummary"),"hgssRuntime")
+assert(loadfile(os.getenv("KANTO_GEAR_MOD_PATH").."/tests/pokerus_cases.lua"))()(T,display,summaryRuntime.summaryView,game,generation)
 
 for slot=1,6 do
   local x,y,w,h=display.PartyPage.rect(theme.hgss,slot)

@@ -449,6 +449,7 @@ return function(H, ui, K)
         self:genderIcon(lead.gender, x + w - 12, y + 21)
       end
       if lead.statusId then self:v4StatusPill(lead.statusId, ix, y + 32) end
+      self:pokerusMark(lead.pokerus, ix + 25, y + 33)
       self:partyInfo(lead.hpText or "--/--", ix - 4, y + 43, colors.ink, iw + 4, "right")
     end
     local name = self:fitPartyInfo(lead and lead.name or "---", w - 10)

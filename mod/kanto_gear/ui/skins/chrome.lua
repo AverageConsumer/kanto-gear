@@ -697,6 +697,25 @@ return function(H, ui, K)
       lum > 0.62 and s[3] or WHITE)
     return 21
   end
+
+  local POKERUS = {
+    active = { "..#.#..", ".#####.", "##.#.##", ".#####.", "##.#.##", ".#####.", "..#.#.." },
+    cured = { ".#####.", "#.....#", "#.#.#.#", "#.....#", "#.#.#.#", "#..#..#", ".#####." },
+  }
+  function H:pokerusMark(state, x, y)
+    local art = POKERUS[state]
+    if art then ART(art, x, y, { ["#"] = state == "active" and hex("d850a8") or self.colors.mutedInk }) end
+  end
+
+  function H:pokerusBadge(state, x, y)
+    if not POKERUS[state] then return end
+    local fill = state == "active" and hex("a83880") or self.colors.silverDark
+    local shape = cg(self) and CH or RR
+    shape(x, y, 27, 11, 2, self.colors.outline)
+    shape(x + 1, y + 1, 25, 9, 1, fill)
+    self:partyInfoCentered("PKRS", x + 1, y + 1, 25, 9, WHITE)
+    self:pokerusMark(state, x + 30, y + 2)
+  end
   local baseStatusIcon = base.statusIcon
   function H:statusIcon(statusId, x, y)
     return baseStatusIcon(self, statusId, x, y)

@@ -4,6 +4,13 @@ function Summary.isEgg(mon)
   return mon and (mon.isEgg == true or mon.egg == true) or false
 end
 
+function Summary.pokerusState(mon, generation)
+  if generation ~= 2 and generation ~= 3 or Summary.isEgg(mon) then return nil end
+  local value = tonumber(mon and mon.pokerus) or 0
+  if value <= 0 then return nil end
+  return value % 16 ~= 0 and "active" or "cured"
+end
+
 local function invoke(state, name)
   local fn = state and state[name]
   if type(fn) ~= "function" then return nil end
@@ -72,7 +79,7 @@ function Summary.redrawKey(state, game, native)
   local mon, parts = state.mon or {}, { tostring(state), tostring(state.page) }
   for _, key in ipairs({ "species", "nickname", "level", "hp", "maxHp", "status",
       "experience", "exp", "item", "ot", "otName", "otId", "nature", "ability",
-      "isEgg", "egg", "isBadEgg" }) do
+      "isEgg", "egg", "isBadEgg", "pokerus" }) do
     parts[#parts + 1] = tostring(mon[key])
   end
   if state.spoilers and (state.page == state.hiddenPage or Summary.isEgg(mon)) then
@@ -191,6 +198,7 @@ function Summary.view(state, game)
     hp = mon.hp or 0,
     maxHp = mon.maxHp or stats.hp or mon.hp or 0,
     status = mon.status,
+    pokerus = Summary.pokerusState(mon, gen3 and 3 or gen2 and 2 or 1),
     types = mon.types or def.types or {},
     experience = gen2 and (mon.experience or 0) or (mon.exp or 0),
     nextExp = nextExp,

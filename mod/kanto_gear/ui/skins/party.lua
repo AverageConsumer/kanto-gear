@@ -134,6 +134,7 @@ return function(H, ui, K)
     -- level / status / gender
     self:partyInfo(mon.levelText, x + 46, y + 13, quiet)
     if mon.statusId then self:v4StatusPill(mon.statusId, x + 69, y + 16) end
+    self:pokerusMark(mon.pokerus, x + 92, y + 17)
     if mon.gender == "male" or mon.gender == "female" then
       self:genderIcon(mon.gender, x + 100, y + 16)
     end

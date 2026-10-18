@@ -74,6 +74,7 @@ return function(
       expProgress = mon.expProgress or displayRuntime.partyExpProgress(mon),
       statusId = not isEgg and ((mon.hp or 0) <= 0 and "FNT"
         or THEME:statusName(mon.status, mod.content)) or nil,
+      pokerus = compat.summary.pokerusState(source, displayRuntime.gen3 and 3 or compat.isGen2() and 2 or 1),
       type = type1, type2 = type2,
       typeLabel = THEME:typeName(type1, mod.content),
       type2Label = THEME:typeName(type2, mod.content),
@@ -131,6 +132,11 @@ return function(
     elseif mon.status then
       text(fit(THEME:statusName(mon.status, mod.content), 3),
            x + 52, y + 14, selected and render.PAPER or render.INK)
+    end
+    local pokerus = displayRuntime.partyView(mon).pokerus
+    if pokerus then
+      box("fill", x + 19, y + 22, 9, 9, selected and render.DARK or render.MID)
+      THEME.hgss:pokerusMark(pokerus, x + 20, y + 23)
     end
   end
 

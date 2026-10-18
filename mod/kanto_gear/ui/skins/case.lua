@@ -20,7 +20,7 @@ return function(H, ui, K)
   end
 
   local KEEP = {}
-  for word in ([[HP PP TM HM ID OT EXP XP PKMN PSS PC OK BST DV DVS STAB EV IV KO NPC
+  for word in ([[HP PP TM HM ID OT EXP XP PKMN PKRS PSS PC OK BST DV DVS STAB EV IV KO NPC
       KP EP AP VM VS PV PS MO MT MS CT
       VS TV UI LCD GSC RBY SLS DS GB GBC GBA AM PM CPU USB]]):gmatch("%S+") do
     KEEP[word] = true

@@ -26,6 +26,7 @@ for index = 1, 6 do
   party[index] = { species = "FIXMON_A", nickname = "PARTNER" .. index,
     level = index * 10, hp = index == 5 and 0 or 30, stats = { hp = 50 },
     status = index == 6 and "SLP" or index == 1 and "PAR" or nil,
+    pokerus = index == 1 and 0x34 or index == 2 and 0x30 or 0,
     exp = 1000, moves = {}, isEgg = generation == 2 and index == 4 }
 end
 local game = { data = run.data, world = world,
@@ -74,6 +75,8 @@ T.eq(#captured.team, 6, "runtime supplies all six live party members")
 T.eq(captured.team[5].hp, 0, "fainted HP stays zero")
 T.eq(captured.team[5].statusId, "FNT", "fainted status is explicit")
 T.eq(captured.team[6].statusId, "SLP", "sleep reaches the widget")
+T.eq(captured.team[1].pokerus, generation == 2 and "active" or nil, "active Pokérus reaches the widget")
+T.eq(captured.team[2].pokerus, generation == 2 and "cured" or nil, "cured Pokérus reaches the widget")
 T.eq(captured.team[4].egg, generation == 2, "Gen 2 egg is not an ordinary party member")
 T.eq(captured.overview, nil, "Team View alone does not query the Explorer map")
 for index, mon in ipairs(captured.team) do

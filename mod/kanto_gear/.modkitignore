@@ -106,6 +106,7 @@ tests/pokedex_page_test.lua
 tests/pokegear_native_test.lua
 tests/pokegear_page_test.lua
 tests/pokenav_menu_test.lua
+tests/pokerus_cases.lua
 tests/pp_legacy_cases.lua
 tests/press_feedback_cases.lua
 tests/pss_gen1_test.lua

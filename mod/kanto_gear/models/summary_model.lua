@@ -40,6 +40,7 @@ return function(services)
       source = mon, species = mon.species, name = view.name,
       gender = ({ M = "male", F = "female" })[mon.gender] or mon.gender,
       statusId = services.theme:statusName(view.status, services.content),
+      pokerus = view.pokerus,
       type = types[1], type2 = types[2] or types[1],
       typeLabel = services.theme:typeName(types[1], services.content),
       type2Label = services.theme:typeName(types[2] or types[1], services.content),

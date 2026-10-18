@@ -34,6 +34,7 @@ up(display.saveHome, "mod").input.tap = function(_, target, key)
 end
 local function mon(name)
   return { species = "FIXMON_A", nickname = name, level = 10, hp = 25, maxHp = 30,
+    pokerus = generation == 2 and 0x34 or nil,
     experience = 1000, exp = 1000, moves = { { id = "FIX_MOVE_A", pp = 4 } },
     dvs = { attack = 8, defense = 8, speed = 8, special = 8 }, statExp = {},
     stats = { hp = 30, attack = 15, defense = 14, speed = 12, special = 13, specialAttack = 13, specialDefense = 13 } }

@@ -4,7 +4,7 @@ return function(Gen3, copy)
   local statFields = { hp = "maxHp", attack = "attack", defense = "defense",
     speed = "speed", specialAttack = "spAtk", specialDefense = "spDef" }
   local geneticFields = { "hp", "atk", "def", "spe", "spa", "spd" }
-  local statusNames = { "PSN", "PAR", "SLP", "FRZ", "BRN", "PKRS", "FNT" }
+  local statusNames = { "PSN", "PAR", "SLP", "FRZ", "BRN", [7] = "FNT" }
   function Gen3:types(source)
     local out = {}
     for _, id in ipairs(source or {}) do
@@ -112,6 +112,7 @@ return function(Gen3, copy)
     out.nickname = source.nickname ~= "" and source.nickname or nil
     out.hp, out.maxHp = source.hp, source.maxHp
     out.status = statusNames[self.Summary.statusAilment(source)]
+    out.pokerus = source.pokerus
     out.isEgg = P.isEgg(source)
     out.friendship, out.happiness = source.friendship, source.happiness
     out.eggCycles, out.isBadEgg = source.eggCycles, source.isBadEgg

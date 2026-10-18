@@ -66,6 +66,32 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   Naming.open({ title="NAME", session=game.session }); tick()
   changed("name typed with native A", function() Naming.handleInput(input("a")) end)
   Naming.dismiss(); Stack.clear()
+  local mon = game.session.party[1]
+  local oldPokerus = mon.pokerus
+  T.check(display.openHomeApp("party"), "open Gear party for live Pokérus refresh")
+  tick(); tick()
+  changed("party Pokérus infection", function() mon.pokerus = 0x34 end)
+  changed("party Pokérus recovery", function() mon.pokerus = 0x30 end)
+  T.check(display.openPartySummary(1), "open Gear summary for live Pokérus refresh")
+  tick(); tick()
+  changed("summary Pokérus change", function() mon.pokerus = 0 end)
+  local theme = up(draw, "THEME")
+  local tap = up(up(compose, "touchEvent"), "tap")
+  tap(12/theme.hgssScale, 15/theme.hgssScale)
+  tap(12/theme.hgssScale, 15/theme.hgssScale)
+  display.home.help, display.home.helpSeen = false, true
+  tick(); tick()
+  changed("Home Pokérus infection", function() mon.pokerus = 0x34 end)
+  T.eq(display.home.widgetCache.model.lead.pokerus, "active", "Home refreshes its cached partner model")
+  changed("Home Pokérus recovery", function() mon.pokerus = 0x30 end)
+  T.eq(display.home.widgetCache.model.lead.pokerus, "cured", "Home discards its cache when Pokérus clears")
+  local Party = require("src.ui.game3.party_menu")
+  Party.show(game.session.party, { session=game.session })
+  for _=1,40 do Party.update(1/60) end
+  tick(); tick()
+  changed("native party Pokérus change", function() mon.pokerus = 0x34 end)
+  mon.pokerus = oldPokerus
+  Party.close(); Stack.clear()
   display.drawContents = draw
 end
 dofile(path .. "/tests/gen3_fixture.lua")

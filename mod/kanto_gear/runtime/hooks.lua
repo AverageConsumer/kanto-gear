@@ -697,6 +697,15 @@ return function(
         screenKey = screenKey .. ":" .. displayRuntime.fruitTrees.stateKey(session.game.save,
             displayRuntime.explorer.data and displayRuntime.explorer.data.fruits)
       end
+      if session.page == "PARTY" or session.page == "HOME" then
+        local pokerus = {}
+        for _, mon in ipairs(session.game.save.party or {}) do pokerus[#pokerus + 1] = tostring(mon.pokerus) end
+        local key = table.concat(pokerus, ":")
+        if key ~= displayRuntime.partyPokerusKey then
+          displayRuntime.partyPokerusKey, displayRuntime.home.widgetCache = key, nil
+          session.dirty = true
+        end
+      end
       if screenKey ~= session.lastScreenKey or mode == "transition" then
         session.lastScreenKey, session.dirty = screenKey, true
       end

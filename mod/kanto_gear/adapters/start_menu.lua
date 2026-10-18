@@ -70,6 +70,7 @@ function Menu.redrawKey(top)
     if mon then
       parts[#parts + 1] = tostring(mon.hp)
       parts[#parts + 1] = tostring(mon.status)
+      parts[#parts + 1] = tostring(mon.pokerus)
     end
   end
   return table.concat(parts, "\31")

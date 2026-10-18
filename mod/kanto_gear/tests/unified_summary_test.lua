@@ -9,6 +9,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
   local theme=up(display.drawContents,"THEME")
   local summaryView=up(up(display.drawContents,"drawBattleSummary"),"hgssRuntime").summaryView
   local compat=up(display.openPartySummary,"compat")
+  dofile(path.."/tests/pokerus_cases.lua")(T,display,summaryView,game,3)
   dofile(path.."/tests/summary_details_cases.lua")(T,compat.summary.details,3,display.gen3)
   local api=up(display.openPartySummary,"mod")
   local tap,swipe,refresh
