@@ -17,7 +17,7 @@ return function(services)
     end
     local types = view.types or {}
     local level = view.level or 0
-    local growth = def.growthRate
+    local growth = type(def.growthRate) == "string"
       and services.content.growth_rates:get(def.growthRate)
       or services.content.growth_rates:get("MEDIUM_FAST")
     local currentLevelExp = growth and growth.expForLevel

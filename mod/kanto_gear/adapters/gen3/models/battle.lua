@@ -175,10 +175,12 @@ return function(Gen3)
         local reason = require("src.core.game3.battle.commands").selectionError(st, move.slot or index, snapshot.active)
         move.disabled, move.disabledReason = reason ~= nil, reason and self:plainText((reason:gsub("\\[pl]", " ")))
       end
-      move.id = self.Moves.constName(move.id)
+      -- API 3 snapshots already carry symbolic move and type IDs.
+      if type(move.id) == "number" then move.id = self.Moves.constName(move.id) end
       -- Base type matchup, as in the other editions.
       if target and move.id ~= "HIDDEN_POWER" and move.id ~= "WEATHER_BALL" then
-        move.effectiveness = self.Types.effectiveness(move.type, target.type1, target.type2) * 10
+        move.effectiveness = self.Types.effectiveness(self.Types.ID[move.type] or move.type,
+          target.type1, target.type2) * 10
       end
       move.type = self.typeNames[move.type] or move.type
     end

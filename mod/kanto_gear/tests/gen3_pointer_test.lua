@@ -1,70 +1,40 @@
+-- API 3 delivers window pointers through the native hook without replacing
+-- Game3 handlers. Exercise the engine's real dispatch and cancellation path.
 local T = require("tests.modkit")
-local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
-local Pointer = assert(loadfile(path .. "/adapters/gen3/pointer.lua"))()
-local Game3 = os.getenv("KANTO_GEAR_TEST_GAME3_SOURCE")
-  and assert(loadfile(os.getenv("KANTO_GEAR_TEST_GAME3_SOURCE")))()
-  or require("src.core.Game3")
-local calls, native, enabled = {}, 0, true
-local game = setmetatable({ touchControls = {
-  touchpressed = function() native=native+1; return true end,
-  touchmoved = function() native=native+1 end,
-  touchreleased = function() native=native+1 end,
-  reset = function() end,
-}}, {__index=Game3})
-local originals={game.mousepressed,game.touchpressed,game.focus}
-local bridge=Pointer.new(game,function(action,x,y)
-  if not enabled or x<240 then return false end
-  calls[#calls+1]={action,x,y}
+local Game3 = require("src.core.Game3")
+local Runtime = require("src.mods.Runtime")
+local Hooks = require("src.mods.Hooks")
+local previous = Runtime.hooks
+local hooks, events = Hooks.new(), {}
+Runtime.hooks = hooks
+local game = setmetatable({}, { __index = Game3 })
+hooks:wrap("input.pointer", function(next, owner, event)
+  T.eq(owner, game, "native dispatch retains the original game identity")
+  events[#events + 1] = event
   return true
-end)
-game:mousepressed(300,100,1,false)
-game:mousemoved(310,110,10,10,false)
-game:mousereleased(310,110,1,false)
-T.eq(#calls,3,"real FRLG mouse handlers deliver down, move and up")
-T.eq(calls[1][1],"down","mouse press opens the gesture")
-T.eq(calls[2][1],"move","drag remains continuous")
-T.eq(calls[3][1],"up","mouse release commits the gesture")
-T.eq(native,0,"Gear contact does not also press native touch controls")
-T.eq(calls[2][2],310,"window coordinates remain unscaled for the layout mapper")
-game:mousepressed(300,100,1,true);game:mousereleased(300,100,1,true)
-T.eq(#calls,3,"synthetic mouse twin is ignored")
-game:mousepressed(300,100,2,false);game:mousereleased(300,100,2,false)
-T.eq(#calls,3,"secondary mouse button does not trigger Gear")
-game:touchpressed("finger",300,100,0,0,0.7)
-game:touchmoved("other-finger",320,100,20,0,0.7)
-game:touchreleased("other-finger",320,100,0,0,0.7)
-T.eq(#calls,4,"another finger cannot move or release the captured contact")
-game:touchmoved("finger",315,110,15,10,0.7)
-game:touchreleased("finger",315,110,0,0,0.7)
-T.eq(#calls,6,"physical touch gets exactly one complete gesture")
-local previous=native
-game:touchpressed("outside",100,100,0,0,1)
-game:touchreleased("outside",100,100,0,0,1)
-T.eq(native,previous+2,"native touch controls outside Gear stay usable")
-T.eq(#calls,6,"outside contact never reaches Gear")
-game:mousepressed(300,100,1,false);game:focus(false)
-T.eq(calls[#calls][1],"cancel","focus loss cancels instead of activating")
-local count=#calls
-game:mousereleased(300,100,1,false)
-T.eq(#calls,count,"late release after focus loss cannot click")
-game:touchpressed("finger",300,100);game:visible(false)
-T.eq(calls[#calls][1],"cancel","minimizing cancels a held finger")
-enabled=false;count=#calls
-game:mousepressed(300,100,1,false);game:mousereleased(300,100,1,false)
-T.eq(#calls,count,"disabled or hidden Gear gets no pointer input")
-enabled=true
-game:mousepressed(300,100,1,false)
-local wrapped=game.mousepressed
-game.mousepressed=function(...) return wrapped(...) end
-bridge:release()
-T.eq(calls[#calls][1],"cancel","bridge removal cancels a held pointer")
-T.eq(game.touchpressed,originals[2],"release restores inherited native methods")
-T.eq(game.focus,originals[3],"release restores native lifecycle method")
-count=#calls;game:mousepressed(300,100,1,false)
-T.eq(#calls,count,"later mod wrappers retain inert original bridge after release")
-local upgraded=setmetatable({pointerEvent=function() end},{__index=Game3})
-local fixed=Pointer.new(upgraded,function() error("duplicate input") end)
-T.eq(rawget(upgraded,"mousepressed"),nil,"host pointer support disables the fallback")
-T.eq(rawget(upgraded,"touchpressed"),nil,"native touch hook is not wrapped twice")
-fixed:release()
-T.finish("FRLG host pointer compatibility")
+end, 0, "pointer_probe")
+game:mousepressed(300, 100, 1, false)
+game:mousemoved(310, 110, 10, 10, false)
+game:mousereleased(310, 110, 1, false)
+T.eq(#events, 3, "native mouse dispatch delivers one complete gesture")
+T.eq(events[1].phase, "pressed", "mouse press starts the contact")
+T.eq(events[2].phase, "moved", "native dragging stays continuous")
+T.eq(events[3].phase, "released", "native release ends the contact")
+T.eq(events[2].x, 310, "window coordinates remain in host units")
+game:mousepressed(300, 100, 1, true)
+T.eq(#events, 3, "synthetic touch mouse twin is ignored")
+game:touchpressed("finger", 300, 100, 0, 0, .7)
+game:touchmoved("finger", 315, 110, 15, 10, .7)
+game:touchreleased("finger", 315, 110, 0, 0, .7)
+T.eq(#events, 6, "physical touch uses the same native hook")
+T.eq(events[4].id, "finger", "touch identity is preserved")
+game:touchpressed("held", 300, 100)
+game:cancelPointers()
+T.eq(events[#events].phase, "cancelled", "native lifecycle cancellation releases contacts")
+local count = #events
+game:touchreleased("held", 300, 100)
+T.eq(#events, count, "late release cannot reactivate a cancelled contact")
+T.eq(rawget(game, "mousepressed"), nil, "mouse handlers remain inherited")
+T.eq(rawget(game, "touchpressed"), nil, "touch handlers remain inherited")
+Runtime.hooks = previous
+T.finish("Gen3 API 3 pointer dispatch")

@@ -18,6 +18,7 @@ return function(
       end
       if not fields.choice then return end
       kind = "menu"
+      fields.action = nil
     end
     fields.id, fields.revision, fields.kind = session.intentId, session.battle.revision, kind
     local ok, err = mod.battle:submit(fields)

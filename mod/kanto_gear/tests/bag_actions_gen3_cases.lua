@@ -12,10 +12,7 @@ return function(T, run, display, raw)
     -- Standalone fixtures do not run the host's normal compose/update tick.
     for _, entry in ipairs(run.loader.hooks.chains["render.compose"] or {}) do
       if entry.owner == "kanto_gear" then
-        for i=1,debug.getinfo(entry.callback,"u").nups do
-          local name, value=debug.getupvalue(entry.callback,i)
-          if name=="refreshBattle" then value() break end
-        end
+        up(entry.callback, "refreshBattle")()
       end
     end
   end

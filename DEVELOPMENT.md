@@ -69,6 +69,33 @@ The QR library under `vendor/` is third-party code with its own license.
 
 ## Tests and previews
 
+### API 3 host contract
+
+Gear opts into API 3. Use an upstream SDK containing the API 3 integration
+(`02cb74867b81adf089dcd97912109076e868e154` or later); the 0.3.92 release
+predates that integration. API 2 hosts are rejected by the manifest.
+
+Gen 3 definitions come from `mod.content` and battle snapshots/intents from
+`mod.battle`. Keep native species/item indices at storage, sprite and native
+menu boundaries. Native HP/EXP animation remains authoritative over the
+presentation. API 3 event Pokémon are detached records: never use their
+table identity as a live party/save identity.
+
+Use `mod:supports` to select native battle panel/HUD visibility hooks instead
+of replacing draw functions. Native window handlers provide `input.pointer`;
+Gear does not install the former Gen 3 pointer fallback. Menu geometry, OAM
+filtering and other interfaces without an equivalent public contract retain
+their focused native adapters. In particular, Gen 3 field-action queries in
+this SDK still lack the complete map/escape/waterfall/fishing context, so the
+existing Field Kit adapter remains necessary. Online eligibility and native
+arena restrictions are unchanged.
+
+Headless Gen 3 fixtures must expose the native Pokémon, move and item datasets
+as `Game3:_exposeModData` does before loading mods. `tools/test_loader.lua`
+serves the configured cache through `CacheFs.readActive` for native fonts and
+text; use caches imported by a matching SDK. Source archives, ROMs and imported
+assets stay local and are excluded from packages.
+
 Use Python 3, LuaJIT and a matching Recomp SDK checkout with locally imported
 game data. Copy `tools/test-config.example.json` to the Git-ignored
 `tools/test.local.json` and fill in the SDK/cache paths. Node, Playwright and

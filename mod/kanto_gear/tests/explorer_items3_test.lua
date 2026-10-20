@@ -1,5 +1,6 @@
 local path = assert(os.getenv("KANTO_GEAR_MOD_PATH"))
 local T = require("tests.modkit")
+local up = assert(loadfile(path .. "/tests/support/runtime.lua"))().get
 _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   require("src.ui.game3.screens").get("party",game.session).close()
   require("src.ui.game3.bag_menu").close()
@@ -10,10 +11,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   display.gen3.syncScreens()
   for _, hook in ipairs(run.loader.hooks.chains["render.compose"]) do
     if hook.owner == "kanto_gear" then
-      for index=1,debug.getinfo(hook.callback,"u").nups do
-        local name,value=debug.getupvalue(hook.callback,index)
-        if name=="refreshBattle" then value() end
-      end
+      up(hook.callback, "refreshBattle")()
     end
   end
   if os.getenv("POKEPORT_VERSION") == "emerald" then

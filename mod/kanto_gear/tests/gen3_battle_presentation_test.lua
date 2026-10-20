@@ -14,6 +14,9 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local Battle = require("src.core.game3.battle")
   local Ui = require("src.core.game3.battle.ui")
   local Learn = require("src.core.game3.battle.learn_move")
+  T.check(display.gen3Presentation.bottomHook and display.gen3Presentation.hudHook,
+    "the real API 3 host provides both native visibility hooks")
+  T.eq(rawget(game, "mousepressed"), nil, "Gear uses native pointer dispatch without patching window handlers")
   local State = require("src.core.game3.battle.state")
   local Pokemon = require("src.core.game3.pokemon")
   local mon = game.session.party[1]

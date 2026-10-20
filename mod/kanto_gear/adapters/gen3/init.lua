@@ -11,9 +11,10 @@ return function(read)
   local function clear(t)
     for key in pairs(t) do t[key] = nil end
   end
-  function Gen3.new(game)
+  function Gen3.new(game, content)
     assert(game.generation == 3, "native Gen 3 game required")
-    local self = setmetatable({ game = game, mons = setmetatable({}, { __mode = "k" }) }, Gen3)
+    local self = setmetatable({ game = game, content = content,
+      mons = setmetatable({}, { __mode = "k" }) }, Gen3)
     self.profile = require("src.core.game3.profile").forSession(game.session)
     -- Game path [Gen 3]: hoenn means Ruby/Sapphire/Emerald; rs excludes Emerald because its native menus differ.
     self.hoenn = self.profile.family == "rse"

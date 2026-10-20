@@ -138,6 +138,8 @@ return function(
     if world and world.availableFieldActions then
       nextTools, unavailable = world:availableFieldActions()
     end
+    -- API 3 returns nil plus a reason when no live world is available.
+    nextTools = nextTools or {}
     if unavailable == "world is busy" then
       if session.toolArmed then session.toolArmed, session.dirty = nil, true end
       return

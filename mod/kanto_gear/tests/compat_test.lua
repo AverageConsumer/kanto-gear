@@ -64,7 +64,7 @@ T.check(source:find("local dark = selected and not disabled", 1, true),
 T.check(source:find("elseif not disabled then\n        submit(\"move\"", 1, true),
   "disabled moves cannot be submitted from the companion touch UI")
 local core = assert(loadfile(path .. "/tests/support/core.lua"))()
-local upvalues = debug.getinfo(entry, "u").nups
+local upvalues = Inspect.count(entry)
 local firstUpvalue = Inspect.inspect(entry, 1)
 if firstUpvalue == "_ENV" then upvalues = upvalues - 1 end
 T.check(upvalues <= 60,
@@ -829,7 +829,7 @@ do
     end
   end
   local touchEvent
-  for i = 1, debug.getinfo(composeHook, "u").nups do
+  for i = 1, Inspect.count(composeHook) do
     local name, value = Inspect.inspect(composeHook, i)
     if name == "touchEvent" then touchEvent = value break end
   end
@@ -838,7 +838,7 @@ do
   -- These are layout/contract checks: let each new screen settle and let
   -- the host consume the previous confirmation before the next gesture.
   local touchRuntime
-  for i = 1, debug.getinfo(touchEvent, "u").nups do
+  for i = 1, Inspect.count(touchEvent) do
     local name, value = Inspect.inspect(touchEvent, i)
     if name == "displayRuntime" then touchRuntime = value end
   end
@@ -938,12 +938,12 @@ do
     onChoose = function() end }
   game.stack.states = { world, gen1Learn, learnChoice }
   local tapFn
-  for i = 1, debug.getinfo(touchEvent, "u").nups do
+  for i = 1, Inspect.count(touchEvent) do
     local name, value = Inspect.inspect(touchEvent, i)
     if name == "tap" then tapFn = value break end
   end
   local choiceFn
-  for i = 1, debug.getinfo(tapFn, "u").nups do
+  for i = 1, Inspect.count(tapFn) do
     local name, value = Inspect.inspect(tapFn, i)
     if name == "dialogueChoice" then choiceFn = value break end
   end

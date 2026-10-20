@@ -1,10 +1,15 @@
--- Native FRLG does not call the legacy battle visibility hooks yet. Bridge
--- its presentation functions and Gear's owned command navigation.
+-- Use native API 3 visibility hooks when present. Retain adapters only for
+-- presentation/navigation that the host does not expose through a hook.
 local Presentation = {}
 Presentation.__index = Presentation
 
-function Presentation.new(owns, heroDirection, partyDirection, menuNavigation)
+function Presentation.new(owns, heroDirection, partyDirection, menuNavigation, mod)
   local self = setmetatable({ owns = owns, patches = {} }, Presentation)
+  local function supports(name)
+    return mod and mod:supports("hooks", name) == true
+  end
+  self.bottomHook = supports("battle.bottom_ui_visible")
+  self.hudHook = supports("battle.status_hud_visible")
   local function wrap(module, name, callback)
     local original = module[name]
     if type(original) ~= "function" then return end
@@ -57,24 +62,24 @@ function Presentation.new(owns, heroDirection, partyDirection, menuNavigation)
     end
     return next(input, ...)
   end)
-  wrap(require("src.core.game3.battle.ui"), "draw", function(next, ...)
+  if not self.bottomHook then wrap(ui, "draw", function(next, ...)
     local previous = self.drawing
     self.drawing = hidden("panel")
     local ok, err = pcall(next, ...)
     self.drawing = previous
     if not ok then error(err, 0) end
-  end)
+  end) end
   local chrome = require("src.ui.game3.battle_chrome")
   -- Emerald draws user-selected menu borders separately from its textbox.
   -- Both belong to the relocated command panel, within the same draw scope.
-  for _, name in ipairs({ "drawPanel", "drawMenuFrames" }) do
+  for _, name in ipairs(self.bottomHook and {} or { "drawPanel", "drawMenuFrames" }) do
     wrap(chrome, name, function(next, ...)
       if not self.drawing then return next(...) end
     end)
   end
   wrap(chrome, "drawTerrain", function(next, key, ...)
     local drawn = next(key, ...)
-    if self.drawing and drawn then
+    if (self.bottomHook and hidden("panel") or self.drawing) and drawn then
       local terrain = chrome.terrain(key or "building") or chrome.terrain("building")
         or chrome.terrain("grass")
       if terrain and terrain.bgImage then
@@ -90,16 +95,16 @@ function Presentation.new(owns, heroDirection, partyDirection, menuNavigation)
   end)
   -- These are the native action/move printers, below the battlefield. The
   -- scope ends before field, menu and Gear text is drawn, including on error.
-  wrap(require("src.ui.game3.frlg_font"), "draw", function(next, text, x, y, ...)
+  if not self.bottomHook then wrap(require("src.ui.game3.frlg_font"), "draw", function(next, text, x, y, ...)
     if self.drawing and y >= 112 then return 0, x, y end
     return next(text, x, y, ...)
   end)
   wrap(require("src.ui.game3.window"), "cursorPx", function(next, x, y, ...)
     if not self.drawing or y < 112 then return next(x, y, ...) end
-  end)
-  wrap(require("src.core.game3.battle.healthbox"), "draw", function(next, ...)
+  end) end
+  if not self.hudHook then wrap(require("src.core.game3.battle.healthbox"), "draw", function(next, ...)
     if not hidden("hud") then return next(...) end
-  end)
+  end) end
   -- Party.show creates OBJ sprites before Party.draw. They are flushed again
   -- by Display.present, so hiding the menu draw alone leaves floating icons.
   -- Filter only this menu's IDs; keep animation/state and unrelated sprites intact.

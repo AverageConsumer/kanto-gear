@@ -487,7 +487,7 @@ local function settleInput()
   local display
   for _, entry in ipairs(run.loader.hooks.chains["input.step"]) do
     if entry.owner == "kanto_gear" then
-      for i = 1, debug.getinfo(entry.callback, "u").nups do
+      for i = 1, Inspect.count(entry.callback) do
         local name, value = Inspect.inspect(entry.callback, i)
         if name == "displayRuntime" then display = value end
       end
@@ -748,7 +748,7 @@ do
   end
   local runtime
   local moveInfoIndex
-  for i = 1, debug.getinfo(inputHook, "u").nups do
+  for i = 1, Inspect.count(inputHook) do
     local name, value = Inspect.inspect(inputHook, i)
     if name == "hgssRuntime" then runtime = value break end
   end
@@ -822,7 +822,7 @@ do
   game.stack.states = { screen }
   -- The fixture jumps directly from Party to the root between independent
   -- checks. Synchronize it just as a real return input now does.
-  for i = 1, debug.getinfo(inputHook, "u").nups do
+  for i = 1, Inspect.count(inputHook) do
     local name, value = Inspect.inspect(inputHook, i)
     if name == "refreshBattle" then value() break end
   end

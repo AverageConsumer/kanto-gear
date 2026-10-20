@@ -144,6 +144,18 @@ T.eq(skinInputs,0,"handled lower navigation never reaches the original skin")
 menus:release()
 skin.handleInput(input,{})
 T.eq(skinInputs,1,"release restores skin input")
+local draw, font, cursor, health = U.draw, F.draw, W.cursorPx, H.draw
+local api3 = Presentation.new(function() return true end, nil, nil, nil,
+  { supports = function(_, surface, name)
+    return surface == "hooks" and (name == "battle.bottom_ui_visible"
+      or name == "battle.status_hud_visible")
+  end })
+T.check(api3.bottomHook and api3.hudHook, "API 3 native visibility is selected")
+T.eq(U.draw, draw, "native battle drawing is not replaced when its public hook exists")
+T.eq(F.draw, font, "native font drawing is not intercepted for a public panel hook")
+T.eq(W.cursorPx, cursor, "native cursors are not intercepted for a public panel hook")
+T.eq(H.draw, health, "native healthbox drawing is not replaced for a public HUD hook")
+api3:release()
 for name in pairs(modules) do package.loaded[name] = saved[name] end
 love = oldLove
 T.finish("Native Gen3 presentation ownership")

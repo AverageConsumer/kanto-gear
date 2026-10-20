@@ -2,10 +2,7 @@ local host, root, output = assert(os.getenv("KANTO_GEAR_HOST_PATH")),
   assert(os.getenv("KANTO_GEAR_MOD_PATH")), assert(os.getenv("KANTO_GEAR_PREVIEW_OUTPUT"))
 package.path = host .. "/?.lua;" .. host .. "/?/init.lua;" .. package.path
 local function value(fn, key, replacement, set)
-  for i = 1, debug.getinfo(fn, "u").nups do
-    local name, old = debug.getupvalue(fn, i)
-    if name == key then if set then debug.setupvalue(fn, i, replacement) end; return old end
-  end
+  return assert(loadfile(root .. "/tests/support/runtime.lua"))().get(fn, key, replacement, set)
 end
 function love.load()
   local ok, err = xpcall(function()

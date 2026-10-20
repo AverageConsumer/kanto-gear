@@ -14,8 +14,20 @@ return function(Gen3, copy)
     return out
   end
   function Gen3:refreshDefinitions()
-    local Compat = require("src.mods.Gen3Compat")
-    local source = Compat.dataView(self.game.data or {})
+    local source
+    if self.content then
+      -- API 3 owns the merged definitions and their symbolic IDs. Keep native
+      -- indices only at this presentation adapter's storage/sprite boundary.
+      source = { pokemon = {}, moves = {}, items = {} }
+      for _, name in ipairs({ "pokemon", "moves", "items" }) do
+        for _, row in self.content[name]:each() do
+          if row.index then source[name][row.index] = row end
+        end
+      end
+    else
+      -- Standalone native data readers have no loaded mod/registry service.
+      source = require("src.mods.Gen3Compat").dataView(self.game.data or {})
+    end
     local P, M, I = self.Pokemon, self.Moves, self.Items
     local dexData = require("src.core.game3.pokedex_data")
     -- Game path [Ruby/Sapphire/Emerald]: read Hoenn Dex entries and numbering; FireRed/LeafGreen uses its own Dex data reader.
@@ -37,16 +49,25 @@ return function(Gen3, copy)
           -- Game path [Ruby/Sapphire]: native descriptions span two text fields, which must be joined for the common Dex page.
           text = self.rs and entry.description2 and entry.description .. "\n" .. entry.description2 or entry.description }
         row.types = self:types(row.types)
-        row.learnset = {}
-        for _, learn in ipairs(P.learnset(id) or {}) do
-          row.learnset[#row.learnset + 1] = {
-            level = learn.level or learn[1], move = M.constName(learn.move or learn.id or learn[2]),
-          }
-        end
-        row.tmhm = {}
-        for itemId = I.FIRST_TM, I.LAST_HM do
-          if P.canLearnTmItem(id, itemId) then
-            row.tmhm[#row.tmhm + 1] = M.constName(P.moveFromTmItem(itemId))
+        if self.content then
+          local learnset = {}
+          for _, move in ipairs(row.level1Moves or {}) do
+            learnset[#learnset + 1] = { level = 1, move = move }
+          end
+          for _, learn in ipairs(row.learnset or {}) do learnset[#learnset + 1] = learn end
+          row.learnset = learnset
+        else
+          row.learnset = {}
+          for _, learn in ipairs(P.learnset(id) or {}) do
+            row.learnset[#row.learnset + 1] = {
+              level = learn.level or learn[1], move = M.constName(learn.move or learn.id or learn[2]),
+            }
+          end
+          row.tmhm = {}
+          for itemId = I.FIRST_TM, I.LAST_HM do
+            if P.canLearnTmItem(id, itemId) then
+              row.tmhm[#row.tmhm + 1] = M.constName(P.moveFromTmItem(itemId))
+            end
           end
         end
         data.pokemon[id] = row
@@ -67,8 +88,8 @@ return function(Gen3, copy)
     I.ensureLoaded()
     for id in pairs(I._byId or {}) do
       local row = copy(source.items[id])
-      row.index, row.nativePocket = id, row.pocket
-      row.pocket = pockets[row.pocket]
+      row.index, row.nativePocket = id, I.PACK_POCKET[row.pocket] or row.pocket
+      row.pocket = pockets[row.nativePocket]
       row.kind = I.medicineKind(id)
       row.ball = row.pocket == "BALL"
       local taught = P.moveFromTmItem(id)

@@ -156,6 +156,10 @@ local native = {
       pokemon = true, level = 10, needsItem = "THUNDERBADGE" },
   },
   story2 = { { "BIKE_SHOP", "TEXT_BIKESHOP_CLERK", "BICYCLE", "EVENT_GOT_BICYCLE", needsItem = "BIKE_VOUCHER" } },
+  -- Yellow now wraps the shared chairman script in its printer dialogue.
+  -- Trust only that exact built-in wrapper, as with the other opaque gifts.
+  yellow_npcs = { { "POKEMON_FAN_CLUB", "TEXT_POKEMONFANCLUB_CHAIRMAN",
+    "BIKE_VOUCHER", "EVENT_RECEIVED_BIKE_VOUCHER" } },
   ["flavor.museum_1f"] = { { "MUSEUM_1F", "TEXT_MUSEUM1F_SCIENTIST2", "OLD_AMBER", "EVENT_GOT_OLD_AMBER" } },
 }
 

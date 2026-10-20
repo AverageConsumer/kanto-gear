@@ -1,6 +1,7 @@
 -- Run from the host root with a relative KANTO_GEAR_MOD_PATH (SDK FsIo contract).
 local T = require("tests.modkit")
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
+local up = assert(loadfile(path .. "/tests/support/runtime.lua"))().get
 local run = T.sdk.loadMod(path, { generation=1 })
 T.eq(run.mod and run.mod.state,"loaded","Gen 1 loads PSS build")
 local world={map={id="PALLET_TOWN"}}
@@ -12,10 +13,7 @@ run.loader.events:emit("game.ready",{game=game})
 local display
 for _,entry in ipairs(run.loader.hooks.chains["input.step"] or {}) do
   if entry.owner=="kanto_gear" then
-    for i=1,debug.getinfo(entry.callback,"u").nups do
-      local name,value=debug.getupvalue(entry.callback,i)
-      if name=="displayRuntime" then display=value end
-    end
+    display = up(entry.callback, "displayRuntime")
   end
 end
 assert(loadfile(path .. "/tests/pss_runtime_cases.lua"))()(T,assert(display))

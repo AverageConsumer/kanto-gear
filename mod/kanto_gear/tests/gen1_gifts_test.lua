@@ -104,7 +104,7 @@ scripts.talkScript = talkScript
 
 local importedItems = { HM_FLASH = {}, ITEMFINDER = {}, EXP_ALL = {}, TM_MIMIC = {},
   TM_PSYCHIC_M = {}, TM_BIDE = {}, BICYCLE = {}, OLD_AMBER = {},
-  TM_ICE_BEAM = {}, TM_ROCK_SLIDE = {}, TM_TRI_ATTACK = {} }
+  TM_ICE_BEAM = {}, TM_ROCK_SLIDE = {}, TM_TRI_ATTACK = {}, BIKE_VOUCHER = {} }
 local function nativeRow(id, text)
   return policy:rows({ items = importedItems }, save, id,
     { objects = { { index = 1, text = text, x = 2, y = 3 } } })
@@ -134,6 +134,10 @@ T.eq(nativeRow("PEWTER_GYM", "TEXT_PEWTERGYM_BROCK")[1].available, true, "beaten
 save.flags.EVENT_GOT_TM34 = true
 T.eq(nativeRow("PEWTER_GYM", "TEXT_PEWTERGYM_BROCK")[1].done, true, "received gym TM remains done after use")
 T.eq(nativeRow("MUSEUM_1F", "TEXT_MUSEUM1F_SCIENTIST2")[1].itemId, "OLD_AMBER", "native scientist gift is included")
+T.eq(nativeRow("POKEMON_FAN_CLUB", "TEXT_POKEMONFANCLUB_CHAIRMAN")[1].itemId,
+  "BIKE_VOUCHER", "the native chairman retains its gift through Yellow's printer wrapper")
+T.eq(nativeRow("POKEMON_FAN_CLUB", "TEXT_POKEMONFANCLUB_CHAIRMAN")[1].event,
+  "EVENT_RECEIVED_BIKE_VOUCHER", "the chairman uses the native receipt flag")
 scripts.talkScript = function() return function() error("replacement must not execute") end end
 T.eq(#nativeRow("MUSEUM_1F", "TEXT_MUSEUM1F_SCIENTIST2"), 0, "another mod's replacement does not inherit native gift metadata")
 scripts.talkScript = talkScript

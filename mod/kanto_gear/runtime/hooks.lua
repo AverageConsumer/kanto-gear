@@ -413,6 +413,10 @@ return function(
 
   mod.hooks:wrap("battle.bottom_ui_visible", function(next, state)
     if next(state) == false then return false end
+    local presentation = displayRuntime.gen3Presentation
+    if displayRuntime.gen3 and presentation then
+      return not (presentation.owns and presentation.owns("panel"))
+    end
     local raw = battleState()
     local top = session.game and session.game.stack and session.game.stack:top()
     local owned = bottomOwnsBattleUI(
@@ -437,6 +441,10 @@ return function(
 
   mod.hooks:wrap("battle.status_hud_visible", function(next, state)
     if next(state) == false then return false end
+    local presentation = displayRuntime.gen3Presentation
+    if displayRuntime.gen3 and presentation then
+      return not (presentation.owns and presentation.owns("hud"))
+    end
     return not bottomOwnsBattleUI(
       fullBottomBattleUI(), session.active, hasDisplay(),
       session.displayReady, state, session.battle)
@@ -499,12 +507,14 @@ return function(
     mod.events:on(event, function() session.dirty = true end)
   end
 
-  mod.events:on("pokemon.level_up", function(payload)
-    local mon = payload and payload.mon
+  mod.events:on("pokemon.level_up", function()
     -- Gen 1 commits individual levels; Gen 2 emits several events after a
     -- single final stat write. Unchanged snapshots keep that full jump intact.
-    if mon and displayRuntime.levelUp.snapshots[mon]
-        and displayRuntime.levelUp:observe(mon) then session.dirty = true end
+    -- API 3 event records are detached. Read the live party so identity-based
+    -- stat baselines and native Rare Candy result ownership stay intact.
+    local game = session.game
+    if game and displayRuntime.levelUp:scan(game.save,
+        game.stack and game.stack:top()) then session.dirty = true end
   end)
 
   -- Upstream owns the display seam; this mod only supplies its companion frame.

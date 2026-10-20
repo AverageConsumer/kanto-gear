@@ -55,13 +55,10 @@ The clock can follow the game or your device.
    theme, language and discovery level.
 
 The same ZIP works on Android, Windows and Linux. It includes no ROM or save.
-Use the current Recomp release for host fixes and secondary-screen input support.
-
-| Games | Minimum Recomp version |
-| --- | --- |
-| Red, Blue, Yellow, Gold, Silver, Crystal, FireRed, LeafGreen | 0.3.20 |
-| Emerald (US 1.0) | 0.3.33 |
-| Ruby and Sapphire (US/Europe) | 0.3.74 |
+This source branch requires **Recomp mod API 3**, integrated into upstream
+`dev` after 0.3.92. Recomp 0.3.92 and earlier cannot load this version of Gear.
+Until an API 3 release is published, use an API 3 development build or keep
+the existing API 2 Gear release with your current host.
 
 All Gen 3 games welcome broader playthrough testing and feedback. Some specialized
 contest, Frontier and other native screens remain on the game screen.

@@ -22,6 +22,9 @@ local Schema = require("src.core.game3.save_schema_firered")
 local maps = Dataset.buildMaps()
 Dataset.attachMidLayouts(maps, Dataset.cache())
 local data = { maps = maps,
+  gen3Pokemon = require("src.core.game3.pokemon"),
+  gen3Moves = require("src.core.game3.battle.moves"),
+  gen3Items = require("src.core.game3.items_data"),
   gen3Encounters = assert(loadfile(os.getenv("POKEPORT_GBA_CACHE") .. "/encounters.lua"))() }
 -- Isolate tool storage while loading the actual packaged manifest.
 local Fs = require("tests.fs_io").new(path)

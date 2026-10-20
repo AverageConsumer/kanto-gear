@@ -104,7 +104,7 @@ return function(
       text(THEME:format("EXP %d", view.experience), 5, 39, render.DARK)
       if level < 100 then
         local growth = def.growthRate
-          and mod.content.growth_rates:get(def.growthRate)
+          and type(def.growthRate) == "string" and mod.content.growth_rates:get(def.growthRate)
           or mod.content.growth_rates:get("MEDIUM_FAST")
         local nextExp = math.max(0,
           (growth and growth.expForLevel

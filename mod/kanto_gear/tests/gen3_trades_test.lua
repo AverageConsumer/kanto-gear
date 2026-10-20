@@ -134,6 +134,9 @@ Space.bundle = original
 
 local T = require("tests.modkit")
 love.graphics.arc = love.graphics.arc or function() end
+raw.data.gen3Pokemon = require("src.core.game3.pokemon")
+raw.data.gen3Moves = require("src.core.game3.battle.moves")
+raw.data.gen3Items = require("src.core.game3.items_data")
 local run = T.sdk.loadMod(root, { generation = 3, data = raw.data })
 check(run.mod and run.mod.state == "loaded", "native companion loads trade integration")
 setmetatable(raw, { __index = require("src.core.Game3") })
