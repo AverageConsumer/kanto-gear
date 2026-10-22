@@ -1,18 +1,18 @@
 {
   "id": "kanto_gear",
   "name": "Kanto Gear",
-  "version": "4.3.1",
+  "version": "4.4.0",
   "api": 3,
   "entry": "main.lua",
   "category": "UI",
   "profile": "content",
   "games": ["gen1", "gen2", "gen3"],
-  "game_version": "0.0.0-dev || >0.3.92 <2.0.0",
+  "game_version": "0.0.0-dev || >=0.3.93 <2.0.0",
   "affects_link": false,
   "dependencies": [],
   "optional_dependencies": [],
   "conflicts": [],
   "permissions": ["engine_internals", "network", "compute"],
-  "description": "Companion UI for Red, Blue, Yellow, Gold, Silver, Crystal, Ruby, Sapphire, FireRed, LeafGreen and Emerald, with live maps, battle controls, route progress, notes, Day-Care and Calendar apps. Requires Recomp mod API 3 (upstream development builds after 0.3.92 or a later API 3 release).",
+  "description": "Companion UI for Red, Blue, Yellow, Gold, Silver, Crystal, Ruby, Sapphire, FireRed, LeafGreen and Emerald, with live maps, battle controls, route progress, notes, Day-Care and Calendar apps. Requires Gen1Recomp 0.3.93 or newer (mod API 3).",
   "github": "AverageConsumer/kanto-gear"
 }

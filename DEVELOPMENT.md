@@ -82,9 +82,10 @@ same private touch input as the full app.
 
 ### API 3 host contract
 
-Gear opts into API 3. Use an upstream SDK containing the API 3 integration
-(`02cb74867b81adf089dcd97912109076e868e154` or later); the 0.3.92 release
-predates that integration. API 2 hosts are rejected by the manifest.
+Gear opts into API 3, available in Gen1Recomp 0.3.93 and newer. The release
+fixtures use the exact 0.3.95 source
+(`2b45436abffc31100d3cb599c6cc09d00c1ddac3`). API 2 hosts are rejected by
+the manifest.
 
 Gen 3 definitions come from `mod.content` and battle snapshots/intents from
 `mod.battle`. Keep native species/item indices at storage, sprite and native

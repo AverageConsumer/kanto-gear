@@ -11,7 +11,7 @@
 
 ## Requirements
 
-- Gen1Recomp 0.3.20 or newer (Emerald 0.3.33, Ruby/Sapphire 0.3.74).
+- Gen1Recomp 0.3.93 or newer (mod API 3).
 
 ## Install
 

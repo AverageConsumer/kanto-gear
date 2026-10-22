@@ -47,7 +47,7 @@ The clock can follow the game or your device.
 
 ## Get started
 
-1. Install the [latest official Gen1Recomp](https://github.com/bryanthaboi/gen1recomp/releases/latest)
+1. Install [Gen1Recomp 0.3.93 or newer](https://github.com/bryanthaboi/gen1recomp/releases/latest)
    and import your own supported ROM.
 2. Install **Kanto Gear** from the [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/),
    or import the ZIP from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
@@ -55,10 +55,9 @@ The clock can follow the game or your device.
    theme, language and discovery level.
 
 The same ZIP works on Android, Windows and Linux. It includes no ROM or save.
-This source branch requires **Recomp mod API 3**, integrated into upstream
-`dev` after 0.3.92. Recomp 0.3.92 and earlier cannot load this version of Gear.
-Until an API 3 release is published, use an API 3 development build or keep
-the existing API 2 Gear release with your current host.
+Kanto Gear 4.4.0 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
+Update Recomp before importing this version. Recomp 0.3.92 and earlier cannot
+load it; keep Kanto Gear 4.3.1 if you are staying on an older host.
 
 All Gen 3 games welcome broader playthrough testing and feedback. Some specialized
 contest, Frontier and other native screens remain on the game screen.
@@ -76,6 +75,8 @@ contest, Frontier and other native screens remain on the game screen.
 | **Notes** | Keep general or location-linked text notes, checklists and colored drawings. QWERTY and QWERTZ are available. |
 | **Day-Care** | Check boarded Pokémon, current levels, withdrawal fees and moves at pickup. In Gen 2 and 3, also check breeding compatibility, waiting eggs and party eggs. FireRed/LeafGreen keep the Route 5 boarder separate from the Four Island pair. |
 | **Calendar** | In Gen 2, browse weekly visitors, time windows, ready rematches and gifts. Hoenn shows the current game day with a 24-hour clock, tides, upcoming berry harvests and ready activities. FireRed/LeafGreen show VS Seeker charge and ready trainers. Timing follows the game's clock. |
+| **Pokégear** | Open the original device in Gold, Silver and Crystal on the touch screen, with the cards you have received. Keep walking on the game screen while using its clock, map, phone or radio below. |
+| **PokéNav** | Open the original device in Ruby, Sapphire and Emerald below while the game keeps its normal controls above. Available features follow your progress in the game. |
 | **Field Kit** | Contextual shortcuts for tools and field moves, including rods, Bicycle, Item Radar and travel. Currently usable actions appear first. |
 | **Trainer Card** | Your trainer details, regional badges, play time and native records, including the game's card rank where available. |
 | **Step Counter** | Track movement, milestones and a resettable session counter. |
@@ -87,6 +88,9 @@ region map, Bag, Trainer Card, steps, Stamps, Silph Connect, Day-Care, Calendar
 and individual field tools. The Calendar is available in Gen 2 and 3; the egg
 widget is available in games that support breeding. Egg contents, progress,
 breeding odds and event schedules follow your information settings.
+Installing Pokégear or PokéNav also offers optional widgets that open an
+individual card or main-menu feature directly. Add them from Home's Widgets
+tab; each shortcut respects the game's device and feature unlocks.
 
 <p align="center">
   <img src="screenshots/4.0-explorer-layer-pokegear-light.png" width="49%" alt="Explorer map, encounter cards and progress tabs">
