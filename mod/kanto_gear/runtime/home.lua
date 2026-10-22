@@ -167,6 +167,9 @@ return function(
     local home = displayRuntime.home
     local tiles = displayRuntime.Home.tiles(home.layout,
       displayRuntime.homeCatalog, home.page)
+    for _, tile in ipairs(tiles) do
+      if tile.id == "pokegear_app" then tile.disabled = not displayRuntime.canOpenPokegear() end
+    end
     local slots = home.editing and displayRuntime.Home.plusSlots(
       home.layout, displayRuntime.homeCatalog, home.page, home.swapSource)
       or nil

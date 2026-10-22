@@ -27,7 +27,8 @@ return function(
       selected, _, _, pages = displayRuntime.storeSelection(view)
     end
     local action, index = THEME.hgss:storeHit(x, y, view,
-      { pages = pages, confirm = home.storeConfirm })
+      { pages = pages, confirm = home.storeConfirm,
+        openEnabled = view ~= "received" or displayRuntime.storeEntry(displayRuntime.storeById[home.storeReceived]).state == "open" })
     if not action then return end
     if view == "received" then
       local id = home.storeReceived

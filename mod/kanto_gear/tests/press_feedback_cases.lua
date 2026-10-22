@@ -155,6 +155,14 @@ return function(T, display, H)
   at(45,78,function() H:notes(state) end,0,"the right text cursor stays still at its boundary")
   at(160,198,function() H:notes(state) end,1,"backspace responds when it can delete")
   local PG = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/ui/pages/pokegear.lua"))()
+  at(40,185,function() H:storeReceived({app={id="pokegear",label="POKEGEAR",state="soon",action="NOT HERE"}}) end,
+    0,"unreceived native device cannot animate Open Now")
+  T.eq(H:storeHit(40,185,"received",{openEnabled=false}),nil,"disabled Open Now has no action")
+  local tile = { id="pokegear_app",kind="app",icon="pokegear",label="POKEGEAR",
+    column=1,row=1,columns=3,rows=1,disabled=true }
+  local tx,ty = H:homeRect(tile)
+  at(tx+10,ty+10,function() H:home({tiles={tile},page=1,pages=1}) end,
+    0,"unreceived native device tile stays still")
   local pg = { mode="card", card="radio", cards={}, radio={frequency="20.5",canTuneUp=false,stations={}} }
   at(210,80,function() H:pokegearScreen(pg,PG) end,0,"radio tuning stays still at its upper boundary")
   pg.radio.canTuneUp=true

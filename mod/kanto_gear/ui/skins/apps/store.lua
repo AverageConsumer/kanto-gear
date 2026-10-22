@@ -318,7 +318,7 @@ return function(ART, CH, CIRC, H, K, KEY_G, R, RING, RR, SILPH_LOGO, SILPH_RED, 
     local cat = self:fitPartyType(translate(selected.category or "APP"), 54)
     self:v4Pill(cat, 198 - floor((self:partyInfoWidth(cat) + 9) / 2), 113, accent, { raw = true })
     local state = selected.state
-    local label = state == "soon" and "SOON" or state == "open" and "OPEN APP" or "GET"
+    local label = selected.action or (state == "soon" and "SOON" or state == "open" and "OPEN APP" or "GET")
     storeKey(self, 167, 126, 62, 32, label,
       state == "open" and openAccent(self) or getAccent(self),
       state == "soon" and KEY_G.soon or state == "open" and KEY_G.open or KEY_G.get,
@@ -382,7 +382,8 @@ return function(ART, CH, CIRC, H, K, KEY_G, R, RING, RR, SILPH_LOGO, SILPH_RED, 
     if not twinkle then ART({ "..o..", ".ooo.", "..o.." }, 86, 112, { o = star }) end
     self:partyInfo(translate(app.label or ""), 7, 132, colors.ink, 226, "center")
     self:partyInfo(translate("INSTALLED ON YOUR GEAR"), 7, 145, accent, 226, "center")
-    storeKey(self, 7, 170, 110, 36, "OPEN NOW", openAccent(self), KEY_G.open, true)
+    storeKey(self, 7, 170, 110, 36, app.state == "soon" and app.action or "OPEN NOW",
+      app.state == "soon" and colors.silverDark or openAccent(self), KEY_G.open, true, app.state ~= "soon")
     storeKey(self, 123, 170, 110, 36, "NOT NOW", colors.silverDark, nil, false)
   end
 
@@ -522,7 +523,7 @@ return function(ART, CH, CIRC, H, K, KEY_G, R, RING, RR, SILPH_LOGO, SILPH_RED, 
       return x >= left and x < left + width and y >= top and y < top + height
     end
     if view == "received" then
-      if inside(7, 170, 110, 36) then return "open" end
+      if model.openEnabled ~= false and inside(7, 170, 110, 36) then return "open" end
       if inside(123, 170, 110, 36) then return "later" end
       return nil
     end

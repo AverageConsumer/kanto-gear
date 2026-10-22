@@ -1247,4 +1247,8 @@ return {
   ["LOW TIDE FROM %s"] = "%sから かんちょう",
   ["NEW DAY IN %d H"] = "あたらしい ひまで %dじかん",
   ["%d STEPS TO GO"] = "あと %dほ",
+  ["POKEGEAR"] = "ポケギア",
+  ["OPEN YOUR ORIGINAL POKEGEAR."] = "ゲームの ポケギアを ひらく。",
+  ["CLOCK, MAP, PHONE AND RADIO."] = "とけい・マップ・でんわ・ラジオ。",
+  ["USES THE CARDS YOU HAVE RECEIVED."] = "てにいれた カードを つかえる。",
 }

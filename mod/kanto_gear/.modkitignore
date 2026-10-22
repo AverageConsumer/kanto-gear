@@ -29,6 +29,7 @@ tests/gen1_gifts_test.lua
 tests/gen1_rewards_test.lua
 tests/gen2_compat_test.lua
 tests/gen2_gifts_test.lua
+tests/gen2_pokegear_app_test.lua
 tests/gen2_rewards_test.lua
 tests/gen3_battle_hints_test.lua
 tests/gen3_battle_presentation_test.lua

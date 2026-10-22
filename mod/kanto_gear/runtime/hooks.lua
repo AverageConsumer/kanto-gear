@@ -65,6 +65,7 @@ return function(
     end
     if closingPanel then hgssRuntime.beginAnimation(closingPanel) end
     if stepGame == displayRuntime.sourceGame then displayRuntime.observeBagInput() end
+    displayRuntime.stepPokegear(stepGame)
     local downstream = displayRuntime.perf:start()
     local result = next(stepGame, dt)
     local excluded = displayRuntime.perf:elapsed(downstream)

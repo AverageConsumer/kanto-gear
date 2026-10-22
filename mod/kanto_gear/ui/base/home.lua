@@ -508,7 +508,8 @@ return function(H, ui, draw, icons)
       local selected = model.selected == index or model.selected == tile.id
       local x, y, w, h = self:homeRect(tile)
       local pressed = self:beginPress(x, y, w,
-        tile.widget == "team" and not model.editing and 20 or h)
+        tile.widget == "team" and not model.editing and 20 or h,
+        model.editing or not tile.disabled)
       if tile.kind == "widget" and tile.widget == "explorer" then
         self:homeExplorer(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "achievements" then

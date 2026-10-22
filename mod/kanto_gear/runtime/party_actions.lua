@@ -4,6 +4,11 @@ return function(
 )
   function displayRuntime.openHomeApp(id)
     local home = displayRuntime.home
+    if id == "pokegear" then
+      local package = displayRuntime.homeCatalog.packages.pokegear
+      if not package.installed or package.available == false
+          or not displayRuntime.queuePokegear() then return false end
+    end
     if displayRuntime.gearModules.specs[id] then
       -- a third-party module: no Gear page of ours; the mod's own surface takes
       -- the Gear's place. The Gear falls back to its home screen first, so

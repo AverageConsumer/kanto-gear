@@ -168,13 +168,16 @@ return function(
     local installed = package and package.installed == true
     local state = app and app.available == false and "soon"
       or installed and "open" or "get"
+    local locked = app and app.id == "pokegear" and installed
+      and not displayRuntime.canOpenPokegear()
+    if locked then state = "soon" end
     return app and {
       id = app.id, icon = app.icon, label = app.label,
       category = app.category, publisher = "SILPH CO.",
       new = app.new == true,
       reason = app.reason or app.category,
       target = app.target, state = state,
-      action = state == "soon" and "SOON"
+      action = locked and "NOT HERE" or state == "soon" and "SOON"
         or state == "open" and "OPEN APP" or "GET",
       removable = installed and not package.fixed,
       description = app.description,

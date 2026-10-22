@@ -1647,6 +1647,12 @@ function love.load()
       description = { "PLAN ROUTES AND REMINDERS.",
         "KEEP CLUES CLOSE AT HAND.", "COMING SOON FROM SILPH LABS." } },
   }
+  if not gen1 then
+    storeCatalog[#storeCatalog + 1] = { id = "pokegear", icon = "pokegear", label = "POKEGEAR",
+      category = "TRAINER TOOL", action = "GET", state = "get",
+      description = { "OPEN YOUR ORIGINAL POKEGEAR.",
+        "CLOCK, MAP, PHONE AND RADIO.", "USES THE CARDS YOU HAVE RECEIVED." } }
+  end
   storeCatalog[#storeCatalog + 1] = { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
     category = "ADVENTURE", action = "GET", state = "get",
     description = { "COLLECT STAMPS FOR YOUR JOURNEY.",

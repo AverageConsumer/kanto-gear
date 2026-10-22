@@ -106,7 +106,7 @@ return function(H, ui, K)
   -- Home apps: one table, uniform 24×24 bounds, ids carried explicitly.
   ---------------------------------------------------------------------------
   local APPS = { "bag", "pokedex", "trainer", "steps", "achievements", "party", "tools",
-    "explorer", "map", "store", "notes", "pss", "settings", "daycare", "calendar" }
+    "explorer", "map", "store", "notes", "pss", "settings", "daycare", "calendar", "pokegear" }
   function H:v4HomeIcons()
     if self.v4HomeIconCache then return self.v4HomeIconCache end
     local out = {}
