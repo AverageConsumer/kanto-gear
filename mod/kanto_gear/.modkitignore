@@ -122,6 +122,7 @@ tests/recent_item_cases.lua
 tests/recent_item_gen3_cases.lua
 tests/region_map_runtime_test.lua
 tests/region_map_test.lua
+tests/regional_forms_cases.lua
 tests/render_stack_test.lua
 tests/rs_native_test.lua
 tests/rs_objectives_test.lua

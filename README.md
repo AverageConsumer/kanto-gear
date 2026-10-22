@@ -56,7 +56,7 @@ The clock can follow the game or your device.
    theme, language and discovery level.
 
 The same ZIP works on Android, Windows and Linux. It includes no ROM or save.
-Kanto Gear 4.4.0 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
+Kanto Gear 4.4.1 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
 Update Recomp before importing this version. Recomp 0.3.92 and earlier cannot
 load it; keep Kanto Gear 4.3.1 if you are staying on an older host.
 
