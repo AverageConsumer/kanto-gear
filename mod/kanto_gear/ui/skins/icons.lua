@@ -120,6 +120,25 @@ return function(H, ui, K)
     return out
   end
 
+  local shortcutIcons = {}
+  function H:v4ShortcutIcon(id)
+    if shortcutIcons[id] then return shortcutIcons[id] end
+    local spec = assert(ART_SET[id])
+    local left, top, right, bottom = 24, 24, -1, -1
+    for y, row in ipairs(spec.rows) do
+      for x = 1, #row do
+        if row:sub(x, x) ~= "." then
+          left, top = math.min(left, x - 1), math.min(top, y - 1)
+          right, bottom = math.max(right, x - 1), math.max(bottom, y - 1)
+        end
+      end
+    end
+    local icon = { id = id, left = left, top = top, right = right, bottom = bottom,
+      draw = function(x, y) self:v4Icon(id, x, y) end }
+    shortcutIcons[id] = icon
+    return icon
+  end
+
   function H:battleBagIcon(x, y) self:v4Icon("bag", x, y) end
   function H:battleRunnerIcon(x, y) self:v4Icon("runner", x - 12, y - 12) end
   function H:homeStepsIcon(x, y) self:v4Icon("steps", x, y) end
@@ -155,6 +174,12 @@ return function(H, ui, K)
   local baseLib = H.homeWidgetLibraryIcon
   function H:homeWidgetLibraryIcon(kind, x, y, item)
     if kind == "tool" then return self:toolIcon(item and item.icon or "tools", x + 1, y + 1) end
+    if kind == "device" then
+      local icon = self:v4ShortcutIcon(item.icon)
+      local w, h = icon.right - icon.left + 1, icon.bottom - icon.top + 1
+      return icon.draw(x + floor((30 - w) / 2) - icon.left,
+        y + floor((30 - h) / 2) - icon.top)
+    end
     local name = LIB[kind or ""]
     if name then return self:v4Icon(name, x + 3, y + 3) end
     return baseLib(self, kind, x, y, item)

@@ -163,6 +163,12 @@ return function(T, display, H)
   local tx,ty = H:homeRect(tile)
   at(tx+10,ty+10,function() H:home({tiles={tile},page=1,pages=1}) end,
     0,"unreceived native device tile stays still")
+  tile.id,tile.kind,tile.widget,tile.icon,tile.label = "pokegear_radio_widget","widget","device","pg_radio","RADIO"
+  at(tx+10,ty+10,function() H:home({tiles={tile},page=1,pages=1}) end,
+    0,"unavailable device shortcut cannot animate")
+  tile.disabled=false
+  at(tx+10,ty+10,function() H:home({tiles={tile},page=1,pages=1}) end,
+    1,"available device shortcut responds")
   local pg = { mode="card", card="radio", cards={}, radio={frequency="20.5",canTuneUp=false,stations={}} }
   at(210,80,function() H:pokegearScreen(pg,PG) end,0,"radio tuning stays still at its upper boundary")
   pg.radio.canTuneUp=true

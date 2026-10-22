@@ -165,11 +165,13 @@ return function(
 
   function displayRuntime.homePageElements()
     local home = displayRuntime.home
+    displayRuntime.refreshDeviceSurfaces()
     local tiles = displayRuntime.Home.tiles(home.layout,
       displayRuntime.homeCatalog, home.page)
     for _, tile in ipairs(tiles) do
-      if tile.id == "pokegear_app" or tile.id == "pokenav_app" then
-        tile.disabled = not displayRuntime.canOpenDeviceApp(tile.id:gsub("_app$", ""))
+      local surface = displayRuntime.homeCatalog.surfaces[tile.id]
+      if surface.package == "pokegear" or surface.package == "pokenav" then
+        tile.disabled = not displayRuntime.canOpenDeviceApp(surface.package, surface.deviceTarget)
       end
     end
     local slots = home.editing and displayRuntime.Home.plusSlots(

@@ -393,6 +393,15 @@ return function(
         icon = "calendar", accent = "blue", label = "CALENDAR" },
     },
   }
+  displayRuntime.deviceShortcuts = assert(load(mod:read("core/device_shortcuts.lua"),
+    "@kanto_gear/core/device_shortcuts.lua"))()
+  for _, def in ipairs(displayRuntime.deviceShortcuts) do
+    displayRuntime.homeCatalog.surfaces[def.package .. "_" .. def.target .. "_widget"] = {
+      package = def.package, kind = "widget", widget = "device", columns = 4,
+      deviceTarget = def.target, label = def.label, icon = def.icon,
+      accent = def.package == "pokegear" and "blue" or "green", hidden = true,
+    }
+  end
   for _, def in ipairs(THEME.fieldTools.widgets) do
     displayRuntime.homeCatalog.surfaces["tool_widget_" .. def.key] = {
       package = "tools", kind = "widget", widget = "tool", columns = 3,

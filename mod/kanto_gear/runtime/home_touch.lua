@@ -3,6 +3,7 @@ return function(
 )
   function displayRuntime.tapHome(x, y)
     local home, layout = displayRuntime.home, displayRuntime.home.layout
+    displayRuntime.refreshDeviceSurfaces()
     if displayRuntime.homeHelpActive() then
       displayRuntime.tapHomeHelp(x, y)
       return
@@ -112,7 +113,9 @@ return function(
     end
     local surface = tile and displayRuntime.homeCatalog.surfaces[tile.id]
     local opened
-    if surface and surface.widget == "tool" then
+    if surface and surface.widget == "device" then
+      opened = displayRuntime.openHomeApp(surface.package, surface.deviceTarget)
+    elseif surface and surface.widget == "tool" then
       if not displayRuntime.activateTool(surface.action, surface.rodId) then
         opened = displayRuntime.openHomeApp("tools")
       end

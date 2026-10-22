@@ -1255,4 +1255,10 @@ return {
   ["OPEN YOUR ORIGINAL POKENAV."] = "ゲームの ポケナビを ひらく。",
   ["MAP, CONDITION AND TRAINER INFO."] = "マップ・コンディション・トレーナー。",
   ["KEEP EXPLORING WHILE USING IT."] = "つかいながら たんけんを つづける。",
+  ["PHONE"] = "でんわ",
+  ["HOENN MAP"] = "ホウエンマップ",
+  ["CONDITION"] = "コンディション",
+  ["MATCH CALL"] = "エントリーコール",
+  ["TRAINER'S EYES"] = "トレーナーアイ",
+  ["RIBBONS"] = "リボン",
 }

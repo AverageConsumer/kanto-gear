@@ -75,6 +75,10 @@ game buttons, and their device layers must not remain on the game's modal
 stack. Native-menu openings retain their normal screens and controls. PokéNav
 features without a Gear projection draw their native pixels below, with local
 touch keys; the field keeps hardware input.
+Installing either device also offers optional Home widgets for its individual
+cards or main-menu features. Shortcuts use the device's own unlock inventory,
+enter the native section once its opening animation finishes, and retain the
+same private touch input as the full app.
 
 ### API 3 host contract
 

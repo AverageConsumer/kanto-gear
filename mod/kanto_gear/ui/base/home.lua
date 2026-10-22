@@ -542,10 +542,11 @@ return function(H, ui, draw, icons)
         self:homeSteps(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "tool" then
         self:homeTool(model, tile, selected)
-      elseif tile.kind == "app" then
+      elseif tile.kind == "app" or tile.widget == "device" then
         self:homeAppButton(x, y, w, h,
           colors[tile.accent or "green"] or colors.green,
-          tile.label or tile.id or "APP", icon[tile.icon or tile.id]
+          tile.label or tile.id or "APP",
+          tile.widget == "device" and self:v4ShortcutIcon(tile.icon) or icon[tile.icon or tile.id]
             or icon.tools, selected)
       end
       if model.editing then

@@ -2,12 +2,12 @@ return function(
   Discovery, THEME, compat, displayRuntime, hgssRuntime, inside,
   mod, refreshTools, screenState, session
 )
-  function displayRuntime.openHomeApp(id)
+  function displayRuntime.openHomeApp(id, deviceTarget)
     local home = displayRuntime.home
     if id == "pokegear" or id == "pokenav" then
       local package = displayRuntime.homeCatalog.packages[id]
       if not package.installed or package.available == false
-          or not displayRuntime.queueDeviceApp(id) then return false end
+          or not displayRuntime.queueDeviceApp(id, deviceTarget) then return false end
     elseif displayRuntime.deviceApp then
       displayRuntime.closeDeviceApp()
     end

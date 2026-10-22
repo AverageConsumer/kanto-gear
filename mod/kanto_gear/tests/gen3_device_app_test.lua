@@ -79,6 +79,68 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.eq(Nav.active(),nil,"closing releases the detached native shell")
   T.eq(Stack.depth(),0,"closing never pops a game screen")
   T.eq(display.session.page,"HOME","closing returns Gear to Home")
+  local theme = get(display.drawContents,"THEME")
+  display.refreshDeviceSurfaces()
+  T.eq(display.homeCatalog.surfaces.pokenav_contacts_widget.label,
+    a.rs and "TRAINER'S EYES" or "MATCH CALL","contact widget uses the edition's native name")
+  T.check(not display.openHomeApp("pokenav","unknown"),"unknown PokéNav targets are rejected")
+  -- Both a feature screen and a projected submenu must be entered exactly
+  -- once, after the original shell has finished its opening animation.
+  for index,target in ipairs({ "map", "condition" }) do
+    local id = "pokenav_"..target.."_widget"
+    T.check(display.Home.place(display.home.layout,display.homeCatalog,id,6,(index-1)*4+1,1),
+      "PokéNav shortcut can be placed on Home")
+  end
+  display.home.page, display.home.help = 6, false
+  local shortcuts = display.homePageElements()
+  for index,target in ipairs({ "map", "condition" }) do
+    local x,y,w,h = theme.hgss:homeRect(shortcuts[index])
+    display.tapHome(x+w/2,y+h/2)
+    for _=1,300 do step() end
+    local direct = assert(display.deviceApp)
+    T.eq(direct.target,nil,"shortcut confirmation is consumed once")
+    if target == "condition" then
+      T.check(direct.view and #direct.view.items==3,"widget opens Condition directly")
+      T.eq(direct.native.menu or direct.native.screen.menuType,a.rs and "condition" or 3,
+        "shortcut does not confirm twice into a Condition subpage")
+    else
+      T.eq(direct.view,nil,"map widget opens the native map directly")
+      T.check(a.rs and direct.native.menu=="map" or not a.rs and direct.native.screen,
+        "original map screen exists")
+    end
+    T.eq(Stack.depth(),0,"widget navigation keeps the field unpaused")
+    T.eq(reads,before,"widget never reads or queues physical input")
+    display.closeDeviceApp()
+  end
+  local Rematch = require("src.core.game3.rse.rematch")
+  if not a.rs then
+    Rematch.setFlag(a.session,"FLAG_ADDED_MATCH_CALL_TO_POKENAV",false)
+    display.refreshDeviceSurfaces()
+    T.check(display.homeCatalog.surfaces.pokenav_contacts_widget.hidden,"locked Match Call is hidden")
+    T.check(not display.openHomeApp("pokenav","contacts"),"shortcut cannot bypass Match Call unlock")
+    Rematch.setFlag(a.session,"FLAG_ADDED_MATCH_CALL_TO_POKENAV",true)
+    T.check(display.deviceTargetUnlocked("pokenav","contacts"),"native Match Call flag enables its shortcut")
+  end
+  Rematch.setFlag(a.session,"FLAG_SYS_RIBBON_GET",false)
+  display.refreshDeviceSurfaces()
+  T.check(display.homeCatalog.surfaces.pokenav_ribbons_widget.hidden,"locked ribbons are hidden")
+  T.check(not display.openHomeApp("pokenav","ribbons"),"shortcut cannot bypass ribbon unlock")
+  Rematch.setFlag(a.session,"FLAG_SYS_RIBBON_GET",true)
+  T.check(display.deviceTargetUnlocked("pokenav","ribbons"),"native ribbon flag enables its shortcut")
+  require("src.core.game3.rse.ribbons").set(a.session.party[1],"cool",1)
+  for _,target in ipairs({"contacts","ribbons"}) do
+    T.check(display.openHomeApp("pokenav",target),"unlocked native feature shortcut opens")
+    for _=1,300 do step() end
+    local direct=assert(display.deviceApp)
+    if a.rs and target=="contacts" and direct.native.helpOverride==7 then
+      T.eq(direct.native.cursor,2,"empty Trainer's Eyes uses its original native refusal")
+    else
+      T.eq(direct.view,nil,"feature shortcut leaves the main menu")
+    end
+    T.eq(Stack.depth(),0,"contacts and ribbons shortcuts leave the world in control")
+    T.eq(reads,before,"feature shortcuts never consume physical input")
+    display.closeDeviceApp()
+  end
   local native = Nav.show({session=game.session,game=game})
   T.eq(Stack.top().mod,Nav.Host,"native-menu opening still owns normal hardware input")
   Nav.reset(); Stack.clear(); a.syncScreens()

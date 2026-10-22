@@ -2471,6 +2471,18 @@ function love.load()
       },
     }
     catalog.packages.daycare, catalog.packages.calendar = { installed = true }, { installed = true }
+    local deviceShortcuts = assert(loadfile(root .. "/mod/kanto_gear/core/device_shortcuts.lua"))()
+    if screen == "home-device-shortcuts" then
+      catalog.packages.pokegear, catalog.packages.pokenav = { installed = true }, { installed = true }
+      for _, def in ipairs(deviceShortcuts) do
+        local eyes = def.target == "contacts" and os.getenv("KANTO_GEAR_PREVIEW_DEVICE") == "rs"
+        catalog.surfaces[def.package .. "_" .. def.target .. "_widget"] = {
+          package = def.package, kind = "widget", widget = "device", columns = 4,
+          icon = eyes and "pn_eyes" or def.icon, label = eyes and "TRAINER'S EYES" or def.label,
+          accent = def.package == "pokegear" and "blue" or "green",
+        }
+      end
+    end
     if previewModules then
       for id, item in pairs(previewModules.surfaces) do catalog.surfaces[id] = item end
       for id, item in pairs(previewModules.packages) do item.installed = true; catalog.packages[id] = item end
@@ -2484,7 +2496,14 @@ function love.load()
       { id = "settings_app", page = 1, column = 10, row = 2 },
     } }
     if previewModules then layout.tiles[3].id, layout.tiles[4].id = "sample_app", "runner_app" end
-    if screen == "home-pss" then
+    if screen == "home-device-shortcuts" then
+      layout.tiles = {}
+      for index, def in ipairs(deviceShortcuts) do
+        layout.tiles[index] = { id = def.package .. "_" .. def.target .. "_widget",
+          page = math.floor((index - 1) / 6) + 1,
+          column = (index - 1) % 3 * 4 + 1, row = math.floor((index - 1) % 6 / 3) + 1 }
+      end
+    elseif screen == "home-pss" then
       layout.tiles[3].id = "pss_app"
     elseif screen == "home-bag" then
       layout.tiles[3].id = "bag_app"

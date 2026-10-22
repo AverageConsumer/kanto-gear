@@ -1,7 +1,43 @@
 return function(THEME, compat, displayRuntime, header, render, screenState, session)
   local keys = { "left", "up", "down", "right", "a", "b" }
   local labels = { "<", "^", "v", ">", "A", "B" }
+  local navSlots = { map = 0, condition = 1, contacts = 2, ribbons = 3 }
   local function keyRect(index) return 8 + (index - 1) * 38, 192, 34, 23 end
+
+  -- Read the device's own unlock inventory without constructing or opening it.
+  function displayRuntime.deviceTargetUnlocked(id, target)
+    if not target then return true end
+    if id == "pokegear" then
+      if displayRuntime.gen3 or not compat.isGen2() then return false end
+      local Pokegear = require("src.ui.gen2.Pokegear")
+      local reader = setmetatable({ save = session.game.save }, Pokegear)
+      for _, card in ipairs(reader:visibleCards()) do
+        if card.id == target then return true end
+      end
+    elseif id == "pokenav" then
+      local a, slot = displayRuntime.gen3, navSlots[target]
+      if not a or not a.hoenn or not a.session or not slot then return false end
+      if a.rs then return require("src.ui.game3.rs.pokenav.data").mainRows(a.session)[slot + 1] == true end
+      local Menu = require("src.ui.game3.rse.pokenav.main_menu")
+      for _, item in ipairs(Menu.ITEMS[Menu.mainMenuType(a.session)]) do
+        if item == slot then return true end
+      end
+    end
+    return false
+  end
+
+  function displayRuntime.refreshDeviceSurfaces()
+    local a = displayRuntime.gen3
+    for _, def in ipairs(displayRuntime.deviceShortcuts) do
+      local surface = displayRuntime.homeCatalog.surfaces[def.package .. "_" .. def.target .. "_widget"]
+      local supported = displayRuntime.homeCatalog.packages[def.package].available ~= false
+      surface.hidden = not supported or not displayRuntime.deviceTargetUnlocked(def.package, def.target)
+      surface.label, surface.icon = def.label, def.icon
+      if def.target == "contacts" and a and a.rs then
+        surface.label, surface.icon = "TRAINER'S EYES", "pn_eyes"
+      end
+    end
+  end
 
   function displayRuntime.closeDeviceApp()
     local app = displayRuntime.deviceApp
@@ -28,11 +64,13 @@ return function(THEME, compat, displayRuntime, header, render, screenState, sess
       displayRuntime.homeCatalog.packages[id].available = not not value
       displayRuntime.homeCatalog.surfaces[id .. "_app"].hidden = not value
     end
+    displayRuntime.refreshDeviceSurfaces()
   end
 
-  function displayRuntime.canOpenDeviceApp(id)
+  function displayRuntime.canOpenDeviceApp(id, target)
     if not session.active or THEME.style ~= "hgss" or screenState() ~= "active"
         or displayRuntime.pendingDeviceApp then return false end
+    if not displayRuntime.deviceTargetUnlocked(id, target) then return false end
     if id == "pokegear" then
       if displayRuntime.gen3 or not compat.isGen2() then return false end
       return require("src.ui.gen2.StartMenu").availability({ game = session.game, save = session.game.save }).pokegear == true
@@ -46,12 +84,12 @@ return function(THEME, compat, displayRuntime, header, render, screenState, sess
     return false
   end
 
-  function displayRuntime.queueDeviceApp(id)
-    if not displayRuntime.canOpenDeviceApp(id) then return false end
+  function displayRuntime.queueDeviceApp(id, target)
+    if not displayRuntime.canOpenDeviceApp(id, target) then return false end
     local game = displayRuntime.sourceGame
     displayRuntime.pendingDeviceApp = { id = id, game = game, save = game.save,
       nativeSession = displayRuntime.gen3 and displayRuntime.gen3.session,
-      top = session.game.stack:top() }
+      top = session.game.stack:top(), target = target }
     return true
   end
 
@@ -93,7 +131,7 @@ return function(THEME, compat, displayRuntime, header, render, screenState, sess
       displayRuntime.pendingDeviceApp = nil
       if game == pending.game and game.save == pending.save
           and session.game.stack:top() == pending.top
-          and displayRuntime.canOpenDeviceApp(pending.id) then
+          and displayRuntime.canOpenDeviceApp(pending.id, pending.target) then
         displayRuntime.closeDeviceApp()
         local app = pending
         app.pressed = {}
@@ -111,6 +149,12 @@ return function(THEME, compat, displayRuntime, header, render, screenState, sess
               return false
             end,
           })
+          if app.target then
+            for index, card in ipairs(app.native.cards) do
+              if card.id == app.target then app.native.cardIndex, app.native.mode = index, "card"; break end
+            end
+            app.target = nil
+          end
         else
           local a = displayRuntime.gen3
           app.rs = a.rs
@@ -136,6 +180,18 @@ return function(THEME, compat, displayRuntime, header, render, screenState, sess
       return
     end
     if app.nav then
+      -- Wait for the native opening animation, select its real main-menu row,
+      -- then confirm through private input exactly once. Hardware stays above.
+      if app.target and ready(app) then
+        refresh(app)
+        for index, row in ipairs(app.view and app.view.items or {}) do
+          if row.nativeSlot == navSlots[app.target] then
+            app.view.index, app.pressed.a = index, true
+            break
+          end
+        end
+        app.target = nil
+      end
       app.nav.Host.handleInput(app.input)
       app.nav.Host.update(dt or 1 / 60)
     else
@@ -170,7 +226,7 @@ return function(THEME, compat, displayRuntime, header, render, screenState, sess
 
   function displayRuntime.tapDeviceApp(x, y)
     local app = displayRuntime.deviceApp
-    if not app or not ready(app) then return end
+    if not app or app.target or not ready(app) then return end
     refresh(app)
     local press = function(key) app.pressed[key] = true end
     if app.id == "pokegear" then

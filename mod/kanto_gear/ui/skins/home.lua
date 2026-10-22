@@ -151,6 +151,8 @@ return function(H, ui, K)
     pokedex = "red", trainer = "blue", steps = "green", achievements = "amber",
     party = "red", explorer = "green", notes = "amber", pss = "blue",
     daycare = "red", calendar = "blue", pokegear = "blue", pokenav = "green",
+    pg_clock = "blue", pg_phone = "blue", pg_radio = "blue", pn_map = "green",
+    pn_condition = "green", pn_matchcall = "green", pn_eyes = "green", pn_ribbons = "green",
   }
   local ACCENTS = {
     pokegear = { blue = hex("3878d0"), amber = hex("e09a20"), red = hex("e04838"),
