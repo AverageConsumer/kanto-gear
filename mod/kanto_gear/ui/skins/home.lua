@@ -211,7 +211,6 @@ return function(H, ui, K)
     CIRC(bx + 5, by + 5, d - 10, a.D)
     CIRC(bx + 6, by + 6, d - 12, hex("fbfbf4"))
     CIRCrows(bx + 6, by + 6, d - 12, floor((d - 12) / 2) + 2, d, hex("eceee6"))
-    R(bx + 9, by + 2, 8, 1, a.Hi); R(bx + 7, by + 3, 3, 1, a.Hi)
     if icon then drawIcon(icon, bx + 6, by + 6, d - 12) end
     local py = y + h - 5 - plateH
     RR(x + 4, py, w - 8, plateH, 3, colors.outline)
