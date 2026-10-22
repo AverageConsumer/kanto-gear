@@ -23,8 +23,9 @@ Play on Android, Windows or Linux, with an optional phone browser display.
   <img src="screenshots/4.0-home-cgear-dark.png" width="24%" alt="C-Gear Dark Home">
 </p>
 
-**[Install from Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/)
+**[Website](https://averageconsumer.github.io/kanto-gear/)
 · [Download ZIP](https://github.com/AverageConsumer/kanto-gear/releases/latest)
+· [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/)
 · [Report a problem](https://github.com/AverageConsumer/kanto-gear/issues)**
 
 <sub>[Get started](#get-started) · [Apps](#apps-and-tools) · [Progress](#progress-at-your-pace)

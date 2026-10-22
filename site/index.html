@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en" data-skin="pokegear-light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kanto Gear — Pokémon Gen 1–3 companion for Gen1Recomp</title>
+<meta name="description" content="A second screen for Pokémon Red to Emerald in Gen1Recomp: live maps, your team, battle controls, notes and progress on a DS-style Pokégear or C-Gear.">
+<meta property="og:title" content="Kanto Gear">
+<meta property="og:description" content="Your adventure. Reconnected. A DS-style companion screen for Pokémon Gen 1–3 in Gen1Recomp.">
+<meta property="og:image" content="https://averageconsumer.github.io/kanto-gear/img/social-preview.png">
+<meta property="og:url" content="https://averageconsumer.github.io/kanto-gear/">
+<meta property="og:type" content="website">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Kanto Gear with its Pokégear and C-Gear companion screens">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://averageconsumer.github.io/kanto-gear/">
+<link rel="sitemap" type="application/xml" href="sitemap.xml">
+<link rel="icon" href="img/icon.png" type="image/png">
+<link rel="preload" href="fonts/silph.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="site.css">
+<script>
+  // Apply the saved look before first paint so the page never flashes the wrong skin.
+  (function () {
+    var look = "pokegear", theme = "auto";
+    try {
+      look = localStorage.getItem("kg-look") || look;
+      theme = localStorage.getItem("kg-theme") || theme;
+    } catch (e) {}
+    if (["pokegear", "cgear"].indexOf(look) < 0) look = "pokegear";
+    if (["light", "dark", "auto"].indexOf(theme) < 0) theme = "auto";
+    var h = new Date().getHours();
+    var mode = theme === "auto" ? (h >= 6 && h < 18 ? "light" : "dark") : theme;
+    document.documentElement.dataset.skin = look + "-" + mode;
+    document.documentElement.dataset.look = look;
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+</head>
+<body>
+<a class="skip" href="#start">Skip to setup</a>
+
+<header class="bar" id="bar">
+  <div class="bar-in">
+    <a class="bar-back" href="#top" aria-label="Back to top" hidden><span aria-hidden="true">◀</span></a>
+    <div class="bar-title"><span class="bar-mark" aria-hidden="true"></span><span id="bar-title">SILPH LINK</span></div>
+    <div class="bar-clock" aria-label="Local time"><span id="clock-h">10</span><span class="colon">:</span><span id="clock-m">42</span><span class="sky" id="sky" aria-hidden="true"></span></div>
+    <div class="battery" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  </div>
+</header>
+
+<main id="top">
+
+<section class="hero" data-title="SILPH LINK">
+  <div class="hero-text">
+    <h1>Kanto Gear</h1>
+    <p class="lead">Your adventure. Reconnected.</p>
+  </div>
+
+  <div class="hero-device">
+    <div class="device">
+      <div class="hinge" aria-hidden="true"><span></span><span></span></div>
+      <div class="screen" id="screen">
+        <img id="home-shot" src="img/4.0-home-pokegear-light.png" width="960" height="864"
+             alt="Kanto Gear Home screen: Explorer map of Route 101, lead partner Feraligatr, and Map, Tools, Store and Options buttons">
+        <nav class="hotspots" aria-label="Tour the Home screen">
+          <a href="#progress" style="--x:3.6;--y:15.1;--w:53.6;--h:37.9" data-tip="Explorer: maps, encounters and progress">Explorer</a>
+          <a href="#battles" style="--x:58.3;--y:15.1;--w:38.3;--h:37.9" data-tip="Party: your team, and how battles work">Party</a>
+          <a href="#screens" style="--x:3.9;--y:54.4;--w:22.1;--h:37.6" data-tip="Map: where Gear can live, one screen or two">Map</a>
+          <a href="#start" style="--x:27.3;--y:54.4;--w:22.1;--h:37.6" data-tip="Tools: install in three steps">Tools</a>
+          <a href="#apps" style="--x:50.6;--y:54.4;--w:22.1;--h:37.6" data-tip="Store: every app you can add">Store</a>
+          <button type="button" style="--x:73.9;--y:54.4;--w:22.1;--h:37.6" data-tip="Options: change this site's look" id="hot-options">Options</button>
+        </nav>
+        <div class="boot" aria-hidden="true"></div>
+      </div>
+      <p class="screen-tip" id="screen-tip" aria-live="polite">Tap the screen to look around.</p>
+    </div>
+
+    <div class="look" id="look">
+      <div class="seg" role="radiogroup" aria-label="Look">
+        <span class="seg-label">Look</span>
+        <button type="button" role="radio" data-look="pokegear">Pokégear</button>
+        <button type="button" role="radio" data-look="cgear">C-Gear</button>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="Theme">
+        <span class="seg-label">Theme</span>
+        <button type="button" role="radio" data-theme="light">Light</button>
+        <button type="button" role="radio" data-theme="dark">Dark</button>
+        <button type="button" role="radio" data-theme="auto">Auto</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-copy">
+    <p>A second screen for Pokémon Red through Emerald. Your map, team, battle
+      controls, notes and progress sit on Gear while the game keeps running.</p>
+    <p class="quiet">A mod for Gen1Recomp on Android, Windows and Linux, with an optional phone display.</p>
+    <div class="actions">
+      <a class="btn btn-go" data-release-download href="https://github.com/AverageConsumer/kanto-gear/releases/latest">Download ZIP</a>
+      <a class="btn btn-alt" href="#start">How to install</a>
+    </div>
+    <p class="lcd-line"><span class="lcd" id="ver">Version 4.4.0</span> for Gen1Recomp <span class="req">0.3.93</span> or newer</p>
+  </div>
+</section>
+
+<section id="start" class="sec" data-title="GET STARTED">
+  <h2>Set up in three steps</h2>
+  <ol class="steps">
+    <li class="panel"><div class="pi">
+      <p class="ph"><span>Step 1</span></p>
+      <p>Install <a href="https://github.com/bryanthaboi/gen1recomp/releases/latest">Gen1Recomp</a> <span class="req">0.3.93</span> or newer and import your own ROM.</p>
+    </div></li>
+    <li class="panel"><div class="pi">
+      <p class="ph"><span>Step 2</span></p>
+      <p><a data-release-download href="https://github.com/AverageConsumer/kanto-gear/releases/latest">Download the latest ZIP</a> and import it from Recomp's Mods menu. You can also find Gear in the <a href="https://bryanthaboi.github.io/gen1recomp-mod-index/">Mod Index</a>.</p>
+    </div></li>
+    <li class="panel"><div class="pi">
+      <p class="ph"><span>Step 3</span></p>
+      <p>Enable the mod, start your game and open Gear's Options to pick a layout, look, language and how much it reveals.</p>
+    </div></li>
+  </ol>
+  <p class="note">One ZIP for Android, Windows and Linux. It contains no ROM and no save.</p>
+
+  <div class="carts" aria-label="Supported games">
+    <div class="cart-row"><span class="gen">Gen 1</span><span class="cart c-red">Red</span><span class="cart c-blue">Blue</span><span class="cart c-yellow">Yellow</span></div>
+    <div class="cart-row"><span class="gen">Gen 2</span><span class="cart c-gold">Gold</span><span class="cart c-silver">Silver</span><span class="cart c-crystal">Crystal</span></div>
+    <div class="cart-row"><span class="gen">Gen 3</span><span class="cart c-ruby">Ruby</span><span class="cart c-sapphire">Sapphire</span><span class="cart c-emerald">Emerald</span><span class="cart c-fire">FireRed</span><span class="cart c-leaf">LeafGreen</span></div>
+  </div>
+</section>
+
+<section id="apps" class="sec" data-title="SILPH STORE">
+  <h2>Apps for the second screen</h2>
+  <p class="intro">Build your own Home from apps and widgets. Long-press to edit; Silph Store adds the optional ones. Other Recomp mods can bring apps too.</p>
+  <div class="panel store"><div class="pi">
+    <p class="ph"><span>Silph Store</span><span class="ph-r" id="app-count">16 apps</span></p>
+    <ul class="app-list">
+      <li><b>Explorer</b><span>Local map with encounters, trainers, items and hidden finds, in three zoom levels.</span></li>
+      <li><b>Map</b><span>Browse the region, inspect places and pick a Fly destination.</span></li>
+      <li><b>Party</b><span>HP, status, experience, moves and held items, with full summaries.</span></li>
+      <li><b>Bag</b><span>Every pocket, with Use, Give and Toss where the game allows them.</span></li>
+      <li><b>Pokédex</b><span>Entries, evolution conditions and where to find each species.</span></li>
+      <li><b>Stamps</b><span>A checklist for every location: trainers, items, hidden finds, Pokémon.</span></li>
+      <li><b>Notes</b><span>Text, checklists and colored drawings, per location if you like.</span></li>
+      <li><b>Day-Care</b><span>Levels, fees and moves at pickup; eggs and compatibility in Gen 2 and 3.</span></li>
+      <li><b>Calendar</b><span>Weekly visitors, rematches, tides, berries and VS Seeker charge.</span></li>
+      <li><b>Pokégear</b><span>The original device from Gold, Silver and Crystal, on the touch screen.</span></li>
+      <li><b>PokéNav</b><span>The original device from Ruby, Sapphire and Emerald, below the game.</span></li>
+      <li><b>Field Kit</b><span>Rods, Bicycle, Item Radar and field moves, usable ones first.</span></li>
+      <li><b>Trainer Card</b><span>Badges, play time and records, with your card rank where available.</span></li>
+      <li><b>Step Counter</b><span>Steps, milestones and a session counter you can reset.</span></li>
+      <li><b>Silph Connect</b><span>See who else is online, with their edition, location and status.</span></li>
+      <li><b>Silph Store</b><span>Manage your Gear apps and find new ones for Home.</span></li>
+    </ul>
+  </div></div>
+</section>
+
+<section id="progress" class="sec" data-title="DISCOVERY">
+  <div class="split">
+    <div>
+      <h2>Decide how much Gear tells you</h2>
+      <p class="intro">Gear can stay as strict as the original game or show you everything. Change it any time under Options, Discovery.</p>
+      <div class="panel"><div class="pi">
+        <div class="seg seg-wide" role="radiogroup" aria-label="Discovery preset" id="disc">
+          <button type="button" role="radio" data-k="vanilla">Vanilla</button>
+          <button type="button" role="radio" data-k="guide">Guide</button>
+          <button type="button" role="radio" data-k="everything">Everything</button>
+          <button type="button" role="radio" data-k="custom">Custom</button>
+        </div>
+        <div class="disc-out" id="disc-out" aria-live="polite">Help for places you have visited, wild encounters, Pokédex research and battles. Hidden items still need a scan, and unvisited places stay hidden.</div>
+        <div class="meter" aria-hidden="true" id="disc-meter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div></div>
+      <p class="note">Stamps turn each place into a checklist. An area turns gold once its required goals are done and you have been there.</p>
+    </div>
+    <figure class="shots">
+      <img src="img/4.0-achievements-stamps-pokegear-light.png" width="960" height="864" loading="lazy" alt="Stamps: a stamp album of locations with completed areas">
+      <figcaption class="cap">Stamps, with Gold, Silver and Bronze areas.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="battles" class="sec" data-title="BATTLE">
+  <h2>Battles, your way</h2>
+  <p class="intro">Outside battles, the game screen stays as it was. In battle, choose how much moves down to Gear.</p>
+  <div class="split split-rev">
+    <figure class="shots shots-one">
+      <img src="img/4.0-battle-moves-cgear-dark.png" width="960" height="864" loading="lazy" alt="C-Gear battle moves: Surf, Ice Punch, Bite and Scary Face with type, PP and effectiveness">
+    </figure>
+    <div class="panel"><div class="pi">
+      <div class="seg seg-wide" role="radiogroup" aria-label="Battle mode" id="battle">
+        <button type="button" role="radio" data-k="companion">Companion</button>
+        <button type="button" role="radio" data-k="info">Info</button>
+        <button type="button" role="radio" data-k="gear">Gear</button>
+        <button type="button" role="radio" data-k="full">Full Gear</button>
+      </div>
+      <div class="duo" id="battle-duo">
+        <div class="duo-screen"><p class="duo-name">Game screen</p><p class="duo-txt" id="b-game">The battle scene and HP bars.</p></div>
+        <div class="duo-screen duo-gear"><p class="duo-name">Gear screen</p><p class="duo-txt" id="b-gear">Menus, moves, party, Bag and battle text, with D-pad focus down here.</p></div>
+      </div>
+      <p class="duo-foot">Touch feedback only plays when a control can act. Empty PP and unavailable moves are marked.</p>
+    </div></div>
+  </div>
+</section>
+
+<section id="screens" class="sec" data-title="DISPLAY">
+  <h2>One screen or two</h2>
+  <p class="intro">No dual-screen handheld needed. Pick the layout that fits what you play on.</p>
+  <div class="panel"><div class="pi layouts">
+    <div class="seg seg-wide" role="radiogroup" aria-label="Display layout" id="layout">
+      <button type="button" role="radio" data-k="swap">Fullscreen Swap</button>
+      <button type="button" role="radio" data-k="combined">Combined</button>
+      <button type="button" role="radio" data-k="separate">Separate</button>
+      <button type="button" role="radio" data-k="phone">Phone</button>
+    </div>
+    <div class="stage" id="stage" data-k="separate" aria-hidden="true">
+      <div class="win w-game"><span>Game</span></div>
+      <div class="win w-gear"><span>Gear</span></div>
+      <div class="phone-shell"></div>
+      <div class="wifi"></div>
+    </div>
+    <p class="layout-txt" id="layout-txt" aria-live="polite">Gear in its own window. Made for dual-screen handhelds, a second desktop window or another monitor.</p>
+  </div></div>
+</section>
+
+<section id="phone" class="sec" data-title="PHONE">
+  <div class="split">
+    <div>
+      <h2>Your phone as the second screen</h2>
+      <p>Choose Phone / Browser in Gear's Options, scan the QR code and tap Connect. Your phone shows Gear, and can add game controls you can move, resize or set up for one hand.</p>
+      <p class="quiet">It runs over your local Wi-Fi with no account and no outside service. The connection is not encrypted, so use a network you trust. One browser at a time; pairing codes work once and expire after five minutes.</p>
+    </div>
+    <div class="panel"><div class="pi">
+      <p class="ph"><span>Notes</span></p>
+      <img class="inset" src="img/4.0-notes-edit-pokegear-light.png" width="960" height="864" loading="lazy" alt="Notes app with an on-screen keyboard">
+      <p class="cap">Notes are kept per playthrough. QWERTY and QWERTZ included.</p>
+    </div></div>
+  </div>
+</section>
+
+<section id="help" class="sec" data-title="HELP">
+  <h2>Questions</h2>
+  <div class="faq">
+    <details class="qa" open><summary>Is Kanto Gear an emulator or a phone app?</summary>
+      <div class="qa-a"><p>Neither. It is a Lua mod for Gen1Recomp. Recomp runs your game; Gear adds the companion screen. Phone mode only displays Gear on another device.</p></div></details>
+    <details class="qa"><summary>Do I need a dual-screen handheld?</summary>
+      <div class="qa-a"><p>No. Fullscreen Swap and Combined work on one screen. Separate suits dual-screen handhelds, desktop windows and extra monitors.</p></div></details>
+    <details class="qa"><summary>Which languages does Gear speak?</summary>
+      <div class="qa-a"><p>English, German, Spanish, French, Japanese and Italian, under Options, Appearance. Game text still comes from your game or a translation mod.</p></div></details>
+    <details class="qa"><summary>Can other mods add apps?</summary>
+      <div class="qa-a"><p>Yes. Installed Recomp mods can register apps that show up in Silph Store. See the <a href="https://github.com/AverageConsumer/kanto-gear/blob/main/DEVELOPMENT.md#third-party-store-modules">store module interface</a>.</p></div></details>
+    <details class="qa"><summary>My AYANEO Pocket DS misses a screen or zooms the game. What helps?</summary>
+      <div class="qa-a"><p>A Pocket DS user confirmed this workaround: open Gallery on the bottom screen, then launch Gen1Recomp on the top screen. Opening Gallery below also helped while Recomp was already running above. See <a href="https://github.com/AverageConsumer/kanto-gear/issues/13#issuecomment-5305740419">the affected setup and report</a>.</p></div></details>
+  </div>
+
+  <div class="actions actions-help">
+    <a class="btn btn-go" href="https://github.com/AverageConsumer/kanto-gear/issues/new?template=bug_report.yml">Report a problem</a>
+    <a class="btn btn-alt" href="https://github.com/AverageConsumer/kanto-gear/issues/new?template=translation.yml">Fix a translation</a>
+    <a class="btn btn-alt" href="https://github.com/AverageConsumer/kanto-gear/releases">Release notes</a>
+    <a class="btn btn-alt" href="https://github.com/AverageConsumer/kanto-gear">Source on GitHub</a>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot"><div class="foot-in">
+  <p>Kanto Gear is a free, MIT-licensed fan project built on <a href="https://github.com/bryanthaboi/gen1recomp">Gen1Recomp</a>. Translations by Desierto La Espada, Blastheaven2 and Theeohn; device testing by <a href="https://github.com/Rocky5150">Rocky5150</a>.</p>
+  <p>Set in BobsGame nD by Robert Matthew Pelloni, the font Gear itself uses. <a href="https://github.com/AverageConsumer/kanto-gear/blob/main/mod/kanto_gear/ui/fonts/FONT_CREDITS.txt">All font credits</a>.</p>
+  <p class="quiet">Pokémon and related names are trademarks of their respective owners. Not affiliated with Nintendo, Game Freak, The Pokémon Company or Gen1Recomp. Screens show illustrative game data.</p>
+</div></footer>
+
+<script src="site.js"></script>
+</body>
+</html>

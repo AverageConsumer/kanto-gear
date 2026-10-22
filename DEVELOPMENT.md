@@ -297,6 +297,7 @@ issue form IDs, local documentation links and anchors, LuaJIT compilation of all
 Lua files, release-verifier regression tests and two reproducible package builds.
 Archive exports use LF line endings and fixed ZIP metadata independently of local
 Git settings and the host operating system.
+
 The resulting ZIP, verification JSON and SHA-256 file are retained as CI artifacts.
 Actions are pinned to exact commits; Dependabot proposes weekly action updates.
 Game-data fixtures and on-device playthrough checks remain local.
@@ -331,3 +332,22 @@ For a downloaded release, run `sha256sum --check kanto_gear-<version>.sha256`
 beside the ZIP. The verification JSON also records the source commit, engine
 requirement and per-file hashes. These checks identify a Lua mod package; they
 do not replace the release audit or the tests that need imported game data.
+
+## Public website
+
+The public website lives in `site/`. The Website workflow publishes it to GitHub
+Pages after site changes on `main` and after a successful Release workflow.
+It can also be dispatched manually on `main`. Before upload,
+`tools/build_site.py` loads the latest stable release and its tagged manifest,
+checks the official ZIP, and writes matching version, engine requirement and
+download links into the static HTML. Visitors make no GitHub API requests.
+The site currently has no visitor analytics; look and theme preferences use
+browser-local storage. Keep analytics credentials out of source control.
+
+To build a local preview, choose a new output directory:
+
+```powershell
+python -m unittest discover -s tools -p site_test.py
+python tools/build_site.py --output diagnostics/site-preview/local-build
+python -m http.server 8767 --bind 127.0.0.1 --directory diagnostics/site-preview/local-build
+```
