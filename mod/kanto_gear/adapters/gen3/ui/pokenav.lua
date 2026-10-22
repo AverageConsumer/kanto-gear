@@ -26,7 +26,7 @@ return function(UI)
     if count % 2 == 1 and index == count then return { 7, 36 + line * step, 226, step - 4 } end
     return { 7 + col * 116, 36 + line * step, 110, step - 4 }
   end
-  function UI:pokenav(layer)
+  function UI:pokenav(layer, appActive)
     -- Game path [Ruby/Sapphire vs Emerald]: Trainers Eyes uses shell menus; Match Call uses a MainMenu screen and task-based busy state.
     local rs = layer.id == "rs_pokenav"
     local ok, Nav = pcall(require, rs and "src.ui.game3.rs.pokenav.init" or "src.ui.game3.rse.pokenav.init")
@@ -81,7 +81,8 @@ return function(UI)
       view = { screenId = "Gen3Menu", nativeKey = key, update = function() end, title = "POKéNAV",
         pokenav = true,
         valid = function(preview)
-          if owner.Stack.top() ~= layer or Nav.active() ~= shell then return false end
+          if (appActive and not appActive() or not appActive and owner.Stack.top() ~= layer)
+              or Nav.active() ~= shell then return false end
           if rs then
             if shell.phase ~= "active" or shell.feature or shell.menu ~= menu then return false end
           elseif shell.phase ~= "menu" or shell.screen ~= screen or screen.menuType ~= menu then return false end

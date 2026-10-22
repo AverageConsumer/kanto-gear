@@ -1251,4 +1251,8 @@ return {
   ["OPEN YOUR ORIGINAL POKEGEAR."] = "ゲームの ポケギアを ひらく。",
   ["CLOCK, MAP, PHONE AND RADIO."] = "とけい・マップ・でんわ・ラジオ。",
   ["USES THE CARDS YOU HAVE RECEIVED."] = "てにいれた カードを つかえる。",
+  ["POKENAV"] = "ポケナビ",
+  ["OPEN YOUR ORIGINAL POKENAV."] = "ゲームの ポケナビを ひらく。",
+  ["MAP, CONDITION AND TRAINER INFO."] = "マップ・コンディション・トレーナー。",
+  ["KEEP EXPLORING WHILE USING IT."] = "つかいながら たんけんを つづける。",
 }

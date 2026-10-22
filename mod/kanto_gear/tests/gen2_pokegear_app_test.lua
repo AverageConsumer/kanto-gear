@@ -42,49 +42,52 @@ save.pokegearReceived = true
 local previous = Stack:top()
 T.check(display.openHomeApp("pokegear"), "app queues the device")
 T.eq(Stack:top(), previous, "render/touch callback does not push native screens")
-local nativeStep = display.stepPokegear
-nativeStep(game)
-local native = Stack:top()
-T.eq(native.screenId, "Gen2Pokegear", "input step opens the actual host screen")
-T.eq(display.appPokegear, native, "only this instance belongs to the app")
-local view = display.startMenu()
-T.check(view and view.pokegearModel, "existing touch UI mirrors the actual device")
-T.eq(#view.pokegearModel.cards, 4, "only the owned native cards are projected")
-local visible = hook("screen.render_visible", 1100)
-local function shown(state) return visible(function() return true end, state) end
-session.companion = { detected = function() return true end }
-session.displayReady = true
-T.eq(shown(native), false, "app opening hides the native device on top")
-session.displayReady = false
-T.eq(shown(native), true, "failed companion presentation restores the native device")
-session.displayReady = true
-Stack:push({ isTextBox = true })
-T.eq(shown(native), true, "native phone dialogue retains its native backdrop")
-Stack:pop()
-T.eq(visible(function() return false end, world), false, "other mods can still hide their screen")
-local called
-game.runPokegearCall = function(_, call) called = call; return true end
-local call = { kind = "call" }
-T.check(native.onCall(call) and called == call, "phone calls use the host's actual script handler")
-native.onClose()
-T.eq(Stack:top(), world, "closing returns to the unchanged native world")
-T.eq(session.page, "HOME", "closing returns the companion to Home")
-T.eq(display.home.activeApp, nil, "closing clears the active app")
+local nativeStep = display.stepDeviceApps
+nativeStep(game, 1/60)
+local app = assert(display.deviceApp)
+local native = app.native
+T.eq(Stack:top(), previous, "device app never takes the native game stack")
+T.check(app.view and app.view.pokegearModel, "existing touch UI mirrors the detached device")
+T.eq(#app.view.pokegearModel.cards, 4, "owned native cards remain available")
+local reads, moves = 0, 0
+game.input.wasPressed = function(_, key) reads=reads+1; return key=="right" end
+nativeStep(game,1/60)
+T.eq(reads,0,"device update never reads physical game input")
+local card = native.cardIndex
+hook("input.step",1000)(function()
+  if game.input:wasPressed("right") then moves=moves+1 end
+end,game,1/60)
+T.eq(moves,1,"D-pad still reaches the native world through the full hook")
+T.eq(native.cardIndex,card,"physical D-pad does not navigate the device")
+local rect = display.PokegearPage.tiles(#app.view.pokegearModel.cards)[1]
+display.tapDeviceApp(rect[1]+5,rect[2]+5)
+nativeStep(game,1/60)
+T.eq(native.mode,"card","bottom touch opens the actual clock card")
+T.eq(Stack:top(),world,"touch leaves the world on top")
+local before=reads
+display.tapDeviceApp(10,10);nativeStep(game,1/60)
+T.eq(native.mode,"strip","touch back returns to the device card strip")
+T.eq(reads,before,"touch back never sends B to the game")
+display.tapDeviceApp(10,10);nativeStep(game,1/60)
+T.eq(display.deviceApp,nil,"second touch back closes the app")
+T.eq(session.page,"HOME","closing returns the companion to Home")
+T.eq(Stack:top(),world,"closing never pops the game's world")
 local Pokegear = require("src.ui.gen2.Pokegear")
 local menuDevice = Pokegear.new(game)
 Stack:push(menuDevice)
-T.check(display.startMenu().pokegearModel, "native menu still has the bottom mirror")
-T.eq(shown(menuDevice), true, "native-menu opening keeps Pokégear on the top screen")
+T.check(display.startMenu().pokegearModel,"native opening still mirrors both screens")
+T.eq(menuDevice.game,game,"native opening retains actual hardware input")
 Stack:pop()
--- A queued handoff must not open over a newly appeared native modal.
-T.check(display.openHomeApp("pokegear"), "second handoff queues")
-local modal = {}; Stack:push(modal)
-nativeStep(game)
-T.eq(Stack:top(), modal, "changed native context cancels the handoff")
+-- A queued app must not open over a newly appeared native modal.
+T.check(display.openHomeApp("pokegear"),"second opening queues")
+local modal={};Stack:push(modal)
+nativeStep(game,1/60)
+T.eq(Stack:top(),modal,"changed native context cancels the opening")
+T.eq(display.deviceApp,nil,"cancelled opening creates no hidden device")
 Stack:pop()
 -- Other generations never advertise or launch the app, even with stored enablement.
 save.generation = 1
-display.applyPokegearSupport()
+display.applyDeviceSupport()
 T.eq(display.storeById.pokegear.hidden, true, "Gen 1 hides the Store entry")
 T.eq(display.homeCatalog.surfaces.pokegear_app.hidden, true, "Gen 1 hides the Home library entry")
 T.check(not display.openHomeApp("pokegear"), "unsupported game cannot launch a stored app")

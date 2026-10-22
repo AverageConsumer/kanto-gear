@@ -69,6 +69,13 @@ The QR library under `vendor/` is third-party code with its own license.
 
 ## Tests and previews
 
+The Pokégear and PokéNav Store apps use detached native device state in
+`runtime/device_apps.lua`. Their private touch input never consumes or queues
+game buttons, and their device layers must not remain on the game's modal
+stack. Native-menu openings retain their normal screens and controls. PokéNav
+features without a Gear projection draw their native pixels below, with local
+touch keys; the field keeps hardware input.
+
 ### API 3 host contract
 
 Gear opts into API 3. Use an upstream SDK containing the API 3 integration

@@ -57,7 +57,7 @@ return function(mod)
     RADAR_FRAMES, THEME, assist, battleChoice, button, centered,
     compat, displayRuntime, drawSprite, header, hgssRuntime, pcList,
     pcListKind, render, screenById, session)
-  install("runtime/pokegear", THEME, compat, displayRuntime, hasDisplay, mod, screenState, session)
+  install("runtime/device_apps", THEME, compat, displayRuntime, header, render, screenState, session)
   install("runtime/motion",
     THEME, color, compat, currentBattleUIMode, dialogueChoice, displayRuntime,
     hgssRuntime, pcList, pcListKind, pcSession, render, screenState,

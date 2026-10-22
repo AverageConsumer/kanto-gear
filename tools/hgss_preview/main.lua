@@ -1653,6 +1653,12 @@ function love.load()
       description = { "OPEN YOUR ORIGINAL POKEGEAR.",
         "CLOCK, MAP, PHONE AND RADIO.", "USES THE CARDS YOU HAVE RECEIVED." } }
   end
+  if os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "pokenav" then
+    storeCatalog[#storeCatalog + 1] = { id = "pokenav", icon = "pokenav", label = "POKENAV",
+      category = "TRAINER TOOL", action = "GET", state = "get",
+      description = { "OPEN YOUR ORIGINAL POKENAV.",
+        "MAP, CONDITION AND TRAINER INFO.", "KEEP EXPLORING WHILE USING IT." } }
+  end
   storeCatalog[#storeCatalog + 1] = { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
     category = "ADVENTURE", action = "GET", state = "get",
     description = { "COLLECT STAMPS FOR YOUR JOURNEY.",

@@ -129,6 +129,8 @@ return function(
     end
     if session.radarOpen then
       drawRadar()
+    elseif THEME.style == "hgss" and (session.page == "POKEGEAR" or session.page == "POKENAV") then
+      displayRuntime.drawDeviceApp()
     elseif THEME.style == "hgss" and session.page == "HOME" then
       displayRuntime.drawHome()
     elseif THEME.style == "hgss" and session.page == "STORE" then

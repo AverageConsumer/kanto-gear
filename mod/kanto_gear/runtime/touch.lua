@@ -124,6 +124,10 @@ return function(
       return
     end
     if mode ~= "active" then return end
+    if THEME.style == "hgss" and (session.page == "POKEGEAR" or session.page == "POKENAV") then
+      displayRuntime.tapDeviceApp(x * THEME.hgssScale, y * THEME.hgssScale)
+      return
+    end
     if THEME.style == "hgss" and session.page == "HOME" then
       displayRuntime.tapHome(x * THEME.hgssScale, y * THEME.hgssScale)
       return

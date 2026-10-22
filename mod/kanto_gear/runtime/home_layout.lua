@@ -168,8 +168,8 @@ return function(
     local installed = package and package.installed == true
     local state = app and app.available == false and "soon"
       or installed and "open" or "get"
-    local locked = app and app.id == "pokegear" and installed
-      and not displayRuntime.canOpenPokegear()
+    local locked = app and (app.id == "pokegear" or app.id == "pokenav") and installed
+      and not displayRuntime.canOpenDeviceApp(app.id)
     if locked then state = "soon" end
     return app and {
       id = app.id, icon = app.icon, label = app.label,

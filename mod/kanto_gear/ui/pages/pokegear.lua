@@ -110,12 +110,12 @@ local function key(m)
   return table.concat(parts, "\31")
 end
 
-function Page.project(top, game, previous)
+function Page.project(top, game, previous, appActive)
   local ok, Pokegear = pcall(require, "src.ui.gen2.Pokegear")
   if not ok or not top or getmetatable(top) ~= Pokegear then return end
   -- the fly picker and the wall map are their own screens
   if top.fly or top.townMap then return end
-  local active = function() return game.stack:top() == top end
+  local active = appActive or function() return game.stack:top() == top end
   if not active() then return end
   local view = previous
   local nativeKey = tostring(top) .. ":pokegear"

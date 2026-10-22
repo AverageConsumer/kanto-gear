@@ -125,6 +125,7 @@ return function(
   end
 
   mod.events:on("game.ready", function(payload)
+    displayRuntime.closeDeviceApp()
     session.toolArmed = nil
     displayRuntime.clearExplorerSnapshot()
     displayRuntime.pss:close()
@@ -213,7 +214,7 @@ return function(
     local gen1 = not displayRuntime.gen3 and not (session.game.save and session.game.save.generation == 2)
     displayRuntime.homeCatalog.surfaces.daycare_small_widget.hidden = gen1
     if displayRuntime.applyCalendarSupport then displayRuntime.applyCalendarSupport() end
-    displayRuntime.applyPokegearSupport()
+    displayRuntime.applyDeviceSupport()
     -- third-party store modules decide their availability for this game
     displayRuntime.gearModules.applyAvailability({
       edition = require("src.core.GameVersion").get(),

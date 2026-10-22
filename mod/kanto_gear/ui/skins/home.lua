@@ -150,7 +150,7 @@ return function(H, ui, K)
     map = "blue", tools = "amber", store = "red", settings = "slate", bag = "amber",
     pokedex = "red", trainer = "blue", steps = "green", achievements = "amber",
     party = "red", explorer = "green", notes = "amber", pss = "blue",
-    daycare = "red", calendar = "blue", pokegear = "blue",
+    daycare = "red", calendar = "blue", pokegear = "blue", pokenav = "green",
   }
   local ACCENTS = {
     pokegear = { blue = hex("3878d0"), amber = hex("e09a20"), red = hex("e04838"),
