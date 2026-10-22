@@ -36,6 +36,26 @@ local function battleLog(run, theme)
   H:battleMessage({ "Second attack" }, true)
   T.eq(#H.v4BattleLog.entries, 0, "identical text in an immediate rematch cannot restore old history")
   run.loader.events:emit("battle.ended", {})
+  -- The native two-line printer exposes a prefix before its next line, and
+  -- capture animations can briefly have no visible text. Neither is a new
+  -- historical message (the Ultra Ball recording showed both as duplicates).
+  run.loader.events:emit("battle.started", {})
+  H:battleMessage({ "..." }, false)
+  H:battleMessage({ "LUCA USED" }, false)
+  H:battleMessage({ "LUCA USED", "ULTRA BALL!" }, false)
+  H:battleMessage({ "..." }, false)
+  H:battleMessage({ "LUCA USED", "ULTRA BALL!" }, false)
+  T.eq(#H.v4BattleLog.entries, 0, "printer prefixes and capture placeholders are not battle history")
+  H:battleMessage({ "YOU MISSED THE" }, false)
+  H:battleMessage({ "YOU MISSED THE", "POKéMON!" }, true)
+  T.eq(#H.v4BattleLog.entries, 1, "only the previous complete throw enters the log")
+  T.eq(H.v4BattleLog.entries[1], "LUCA USED ULTRA BALL!", "history retains the full previous message")
+  H:battleMessage({ "LUCA", "USED ULTRA BALL!" }, false)
+  T.eq(#H.v4BattleLog.entries, 1, "a repeated current message is removed from its old history slot")
+  T.eq(H.v4BattleLog.entries[1], "YOU MISSED THE POKéMON!", "different complete messages remain in order")
+  H:battleMessage({ "LUCA  USED   ULTRA BALL!" }, true)
+  T.eq(#H.v4BattleLog.entries, 1, "whitespace and rewrapping do not create history entries")
+  run.loader.events:emit("battle.ended", {})
 end
 local function preservedHooks(run, states)
   for _, name in ipairs({ "battle.bottom_ui_visible", "battle.status_hud_visible",

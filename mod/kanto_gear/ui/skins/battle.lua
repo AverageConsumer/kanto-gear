@@ -148,6 +148,15 @@ return function(H, ui, K)
   end
 
   local MESSAGE_X, MESSAGE_WIDTH = 10, 220
+  local function messageKey(value)
+    return tostring(value or ""):gsub("%s+", " "):match("^%s*(.-)%s*$")
+  end
+  local function messageText(value)
+    return value ~= "" and value ~= "…" and not value:match("^%.+$")
+  end
+  local function sameMessageProgress(a, b)
+    return a:sub(1, #b) == b or b:sub(1, #a) == a
+  end
   function H:v4AdvanceArrow(x, y)
     local bob = floor(self:clock() / 0.4) % 2
     self:wantAmbient(0.4)
@@ -179,12 +188,24 @@ return function(H, ui, K)
     -- window, faded, so a message that flew by can still be read.
     local log = self.v4BattleLog or { entries = {} }
     self.v4BattleLog = log
-    local key = table.concat(lines, " ")
-    if log.last and log.last ~= key then
-      table.insert(log.entries, 1, log.last)
-      while #log.entries > 2 do table.remove(log.entries) end
+    local key = messageKey(table.concat(lines, " "))
+    if messageText(key) then
+      local previous = messageKey(log.last)
+      if messageText(previous) and not sameMessageProgress(previous, key) then
+        table.insert(log.entries, 1, previous)
+      end
+      -- The native printer reveals lines progressively. Keep the fullest
+      -- version across partial redraws and blank capture-animation frames.
+      if #key >= #previous or not sameMessageProgress(previous, key) then log.last = key end
     end
-    log.last = key
+    local current = messageKey(log.last)
+    for index = #log.entries, 1, -1 do
+      local entry = messageKey(log.entries[index])
+      if not messageText(entry) or messageText(current) and sameMessageProgress(entry, current) then
+        table.remove(log.entries, index)
+      end
+    end
+    while #log.entries > 2 do table.remove(log.entries) end
     local slot = wy - 6
     for index, entry in ipairs(log.entries) do
       local top = slot - index * 17

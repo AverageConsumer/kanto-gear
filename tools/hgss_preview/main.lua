@@ -3067,6 +3067,22 @@ function love.load()
       index = tonumber(os.getenv("KANTO_GEAR_PREVIEW_INDEX")) or 2 },
       playerTeam, enemyTeam)
   elseif battleMessage then
+    local messageCase = os.getenv("KANTO_GEAR_PREVIEW_MESSAGE_CASE")
+    if messageCase == "ultraball" or messageCase == "missed" then
+      enemyTeam.wild, enemyTeam.name, enemyTeam.level = true, "MEWTWO", 70
+      theme:battleMessage({ "..." }, false, playerTeam, enemyTeam)
+      theme:battleMessage({ "LUCA USED" }, false, playerTeam, enemyTeam)
+      theme:battleMessage({ "LUCA USED", "ULTRA BALL!" }, false, playerTeam, enemyTeam)
+      theme:battleMessage({ "..." }, false, playerTeam, enemyTeam)
+      theme:battleMessage({ "LUCA USED", "ULTRA BALL!" }, false, playerTeam, enemyTeam)
+      assert(#theme.v4BattleLog.entries == 0, "current throw has no duplicate or placeholder in history")
+      if messageCase == "missed" then
+        theme:battleMessage({ "YOU MISSED THE" }, false, playerTeam, enemyTeam)
+        theme:battleMessage({ "YOU MISSED THE", "POKéMON!" }, true, playerTeam, enemyTeam)
+        assert(#theme.v4BattleLog.entries == 1 and theme.v4BattleLog.entries[1] == "LUCA USED ULTRA BALL!",
+          "only the previous complete throw remains in history")
+      end
+    else
     local wild = os.getenv("KANTO_GEAR_PREVIEW_BATTLE") == "wild"
     if wild then
       enemyTeam.name, enemyTeam.level = "RATTATA", 3
@@ -3080,6 +3096,7 @@ function love.load()
       os.getenv("KANTO_GEAR_PREVIEW_PROMPT") ~= "0",
       playerTeam, enemyTeam, nil,
       tonumber(os.getenv("KANTO_GEAR_PREVIEW_TIME")) or 0)
+    end
   elseif battleBagTransition then
     local mon = battleMon()
     local slot = gen1 and 6 or 1
