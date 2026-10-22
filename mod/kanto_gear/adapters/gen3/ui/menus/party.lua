@@ -11,7 +11,7 @@ return function(UI, labels)
       for i, mon in ipairs(native._party or {}) do
         local view = self.adapter:mon(mon)
         local def = self.adapter.data.pokemon[view.species] or {}
-        projection.items[#projection.items + 1] = { label = view.nickname or def.name or "POKEMON",
+        projection.items[#projection.items + 1] = { label = view.nickname or def.name or view.name or "POKEMON",
           mon = view, nativeSlot = i, right = "L" .. tostring(view.level or 0)
             .. " " .. tostring(view.hp or 0) .. "/" .. tostring(view.maxHp or 0) }
         projection.slots[#projection.slots + 1] = i

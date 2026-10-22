@@ -192,7 +192,7 @@ function Summary.view(state, game)
     pages = pages,
     mon = mon,
     def = def,
-    name = mon.nickname or def.name or mon.species or "POKEMON",
+    name = mon.nickname or def.name or mon.name or mon.species or "POKEMON",
     dex = def.dex or 0,
     level = mon.level or 0,
     hp = mon.hp or 0,

@@ -131,6 +131,8 @@ return function(Gen3, copy)
     out.species, out.level = P.speciesOf(source), source.level
     out.speciesNumbering = P.NUMBERING_INTERNAL
     out.nickname = source.nickname ~= "" and source.nickname or nil
+    -- Forms can have native species slots without a National Dex definition.
+    out.name = P.name(out.species)
     out.hp, out.maxHp = source.hp, source.maxHp
     out.status = statusNames[self.Summary.statusAilment(source)]
     out.pokerus = source.pokerus

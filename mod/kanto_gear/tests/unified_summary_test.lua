@@ -20,6 +20,7 @@ _G.KANTO_GEAR_RENDER_CAPTURE=function(run,display,game)
     end
   end
   Native.close();Stack.clear();Message.reset();display.gen3.syncScreens();refresh()
+  dofile(path.."/tests/regional_forms_cases.lua")(T,path,display,game,compat,up)
   local queued={}
   api.input.tap=function(_,target,key) T.eq(target,game,"explicit native action keeps source game identity");queued[#queued+1]=key end
   local function tab(state,index)
