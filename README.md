@@ -166,6 +166,20 @@ for text and animations on single-screen layouts. **Performance** keeps maps smo
 while disabling UI transitions; **Quality** allows optional interface animations.
 Both preserve map detail.
 
+### AYANEO Pocket DS display workaround
+
+If the bottom display is not recognized or the game becomes zoomed/cropped on
+the upper display after swapping screens, a Pocket DS user reported this workaround:
+
+1. Open the **Gallery** app on the **bottom screen**.
+2. Launch **Gen1Recomp** on the **top screen**.
+
+If Recomp is already running on the top screen, opening Gallery on the bottom
+screen also restored display detection and correct scaling for the reporter.
+This appears related to how the device initializes its secondary display; the
+cause has not been confirmed. See [issue #13](https://github.com/AverageConsumer/kanto-gear/issues/13#issuecomment-5305740419)
+for the affected setup and confirmation of the workaround.
+
 ### Gear on your phone
 
 **Phone / Browser** is an optional, experimental display mode. Keep your phone
