@@ -155,6 +155,33 @@ T.eq(Area.gen1Gifts({ items = importedItems }, save, "PEWTER_GYM",
   { objects = { { index = 1, text = "TEXT_PEWTERGYM_BROCK" } } })[1].done, true,
   "area model shares the live Gen1 receipt policy")
 
+-- A Dex-only album refresh must also reconsider Oak's item rewards, even
+-- though this location has no Pokemon objectives of its own.
+run.data.items = importedItems
+run.data.maps = { ROUTE_2_GATE = { id = "ROUTE_2_GATE", width = 8, height = 6,
+  objects = { { index = 1, text = "TEXT_ROUTE2GATE_OAKS_AIDE", x = 2, y = 3 } } } }
+local world = { map = { id = "ROUTE_2_GATE" } }
+local progressSave = { generation = 1, player = { name = "RED", map = "ROUTE_2_GATE" },
+  flags = {}, party = {}, inventory = {}, boxes = {}, pokedex = { caught = {}, owned = {} } }
+for i = 1, 9 do progressSave.pokedex.caught[i], progressSave.pokedex.owned[i] = true, true end
+local game = { data = run.data, save = progressSave, world = world,
+  stack = { top = function() return world end } }
+run.loader.modOptions.kanto_gear = { theme_v3 = "hgss", info_level = "spoiler" }
+run.loader.events:emit("game.ready", { game = game })
+local function album()
+  for _ = 1, 1000 do
+    local result = display.achievementData(false, true)
+    if result then return result end
+  end
+  error("Gen1 gift album did not complete")
+end
+local before = album().byId.ROUTE_2_GATE.sections[2].rows[1]
+T.eq(before.available, false, "nine caught species keep the aide's gift locked")
+progressSave.pokedex.caught[10], progressSave.pokedex.owned[10] = true, true
+run.loader.events:emit("pokemon.caught", { species = 10 })
+T.eq(album().byId.ROUTE_2_GATE.sections[2].rows[1].available, true,
+  "Dex-only refresh unlocks Flash at ten species without a story flag change")
+
 local native = os.getenv("KANTO_GEAR_NATIVE_GEN1")
 if native then
   local imported = { maps = dofile(native .. "/maps.lua"), items = dofile(native .. "/items.lua") }

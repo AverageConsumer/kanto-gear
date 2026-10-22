@@ -122,6 +122,8 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   home.help, home.helpSeen = false, true
   local originalTiles = #home.layout.tiles
   T.eq(display.homeCatalog.packages.achievements.installed, false, version .. " opt-in Store install")
+  display.updateAchievements(1)
+  T.eq(display.achievements.job, nil, version .. " uninstalled Stamps does no background work")
   T.check(not display.openHomeApp("achievements"), version .. " uninstalled app cannot open")
   T.check(display.setPackageInstalled("achievements", true), version .. " installs through existing Store")
   T.check(display.openHomeApp("achievements"), version .. " opens without changing the top screen")
@@ -356,8 +358,17 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   area = album().byId.ROUTE_2
   T.eq(area.tier, "gold", version .. " registered species promotes silver to gold")
   T.eq(area.sections[4].done, 1, version .. " uses the global caught Dex")
+  local unaffected = area and display.achievements.data.byId.ROUTE_4
   game.save.pokedex.caught.FIXMON_A = nil
   T.eq(album().byId.ROUTE_2.tier, "silver", version .. " caught Dex change invalidates progress without a battle")
+  T.eq(display.achievements.data.byId.ROUTE_4, unaffected,
+    version .. " Dex-only refresh keeps unrelated evaluated areas")
+  game.save.pokedex.caught.FIXMON_B = true
+  album()
+  game.save.pokedex.caught.FIXMON_B, game.save.pokedex.caught.FIXMON_A = nil, true
+  T.eq(album().byId.ROUTE_2.tier, "gold", version .. " equal-count Dex swaps still update the affected area")
+  game.save.pokedex.caught.FIXMON_A = nil
+  album()
   display.openHomeApp("achievements")
   display.achievements.view, display.achievements.selected = "album", nil
   display.drawAchievements()
@@ -521,12 +532,45 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
   display.tapAchievements(120, 100)
   T.eq(display.achievements.view, oldView, version .. " old card hit regions cannot act during refresh")
   run.loader.events:emit("map.entered", { mapId = "ROUTE_3" })
-  T.eq(display.achievements.job, nil, version .. " map transition discards partial results")
+  T.eq(display.achievements.job, partial, version .. " walking between maps preserves album preparation")
+  love.timer.getTime = clock
+  local relocated = album()
+  T.eq(relocated.byId.ROUTE_3.current, true, version .. " completed preparation uses the latest location")
+  T.eq(relocated.byId.ROUTE_2.current, false, version .. " prepared album drops the original current location")
+  run.loader.events:emit("flag.changed", {})
+  love.timer.getTime = function() now = now + 0.004; return now end
   display.achievementData(false, true)
-  T.check(display.achievements.job ~= partial, version .. " next map receives a fresh job")
+  T.check(display.achievements.job ~= nil, version .. " changed progress creates a new suspended job")
   run.loader.events:emit("save.loaded", {})
   T.eq(display.achievements.job, nil, version .. " save loading discards suspended job")
   T.eq(display.achievements.data, nil, version .. " save loading cannot keep future progress")
+  love.timer.getTime = clock
+
+  -- Installed Stamps warms its real album on Home, then stops spending time.
+  display.setPackageInstalled("achievements", true)
+  display.session.page, display.session.battle = "HOME", nil
+  local ticks = 0
+  love.timer.getTime = function() ticks = ticks + 1; return ticks * 0.001 end
+  display.updateAchievements(10)
+  local warming = display.achievements.job
+  T.check(warming ~= nil, version .. " installed app prepares while Home is visible")
+  local firstTicks = ticks
+  display.updateAchievements(10.01)
+  T.eq(ticks, firstTicks, version .. " background preparation is throttled between slices")
+  display.session.battle = {}
+  display.updateAchievements(11)
+  T.eq(ticks, firstTicks, version .. " battles pause background preparation")
+  display.session.battle = nil
+  for i = 1, 1000 do
+    display.updateAchievements(12 + i * 0.051)
+    if not display.achievements.stale then break end
+  end
+  T.eq(display.achievements.stale, false, version .. " preparation finishes without opening Stamps")
+  local ready, finishedTicks = display.achievements.data, ticks
+  display.updateAchievements(100)
+  T.eq(ticks, finishedTicks, version .. " completed album does no idle background work")
+  display.openHomeApp("achievements")
+  T.eq(display.achievementData(), ready, version .. " prewarmed app opens with its completed album")
   love.timer.getTime = clock
 
   if not gen2 then
@@ -536,6 +580,7 @@ for _, version in ipairs({ "red", "blue", "yellow", "gold", "silver", "crystal" 
     maps.ROUTE_9.width, maps.ROUTE_9.height = 4, 3
     maps.ROUTE_9.objects = {}
     data.field.hiddenItems.ROUTE_9 = { { x = 10, y = 1, item = "POTION" } }
+    run.loader.events:emit("flag.changed", {})
     local row = readArea({ "ROUTE_9" }, true).sections[3].rows[1]
     T.check(row.outsideMap and row.untracked and row.available == false and not row.done,
       version .. " off-map find is explicitly untracked, never collected")

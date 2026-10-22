@@ -14,7 +14,8 @@ return function(
     if displayRuntime.gen3 then
       local rows = displayRuntime.gen3Progress:rows(maps, checkpoint)
       for index = 1, 3 do sections[index].rows = rows[index] end
-      if not completion then displayRuntime.visibleAreaSections(sections) end
+      if completion then return { sections = sections, pokemon = rows[4] } end
+      displayRuntime.visibleAreaSections(sections)
       local screens = checklistPages(sections)
       return { name = areaName(session.mapId), screens = screens, pages = #screens,
         sections = sections, pokemon = rows[4], remaining = Area.remaining(sections) }
@@ -22,7 +23,8 @@ return function(
     if compat.isGen2() then
       local rows = Area.gen2Rows(data, save, mod.world, maps, checkpoint)
       for index = 1, 3 do sections[index].rows = rows[index] end
-      if not completion then displayRuntime.visibleAreaSections(sections) end
+      if completion then return { sections = sections, pokemon = rows[4] } end
+      displayRuntime.visibleAreaSections(sections)
       local screens = checklistPages(sections)
       return { name = areaName(session.mapId), screens = screens, pages = #screens,
         sections = sections, pokemon = rows[4], remaining = Area.remaining(sections) }
@@ -115,22 +117,38 @@ return function(
         }, map)
       end
     end
-    if not completion then displayRuntime.visibleAreaSections(sections) end
+    if completion then return { sections = sections, pokemon = pokemon } end
+    displayRuntime.visibleAreaSections(sections)
     local screens = checklistPages(sections)
     return { name = areaName(session.mapId), screens = screens, pages = #screens,
       sections = sections, pokemon = pokemon, remaining = Area.remaining(sections) }
   end
 
-  function displayRuntime.achievementData(currentOnly, advance)
+  local function sameCaught(a, b)
+    if not b then return false end
+    for id, value in pairs(a) do if (value == true) ~= (b[id] == true) then return false end end
+    for id, value in pairs(b) do if (value == true) ~= (a[id] == true) then return false end end
+    return true
+  end
+
+  function displayRuntime.invalidateAchievements(kind)
+    local state = displayRuntime.achievements
+    -- Only a Dex-only change can reuse evaluated field objectives. Any story,
+    -- pickup or battle change keeps the full progress check authoritative.
+    if kind ~= "dex" or not state.data then state.dexOnly = nil
+    elseif not state.stale then state.dexOnly = true end
+    state.stale, state.job, state.currentData = true, nil, nil
+  end
+
+  function displayRuntime.achievementData(currentOnly, advance, budget)
     local state, Progress = displayRuntime.achievements, displayRuntime.Achievements
     if displayRuntime.gen3Progress then
       local source = displayRuntime.gen3Progress:bundle()
       local keys = displayRuntime.gen3Progress:completionKey()
-      if state.source ~= source or state.dexRevision ~= displayRuntime.gen3.dexRevision
-          or state.progressKeys ~= keys then
-        state.source, state.dexRevision = source, displayRuntime.gen3.dexRevision
+      if state.source ~= source or state.progressKeys ~= keys then
+        state.source = source
         state.progressKeys = keys
-        state.stale, state.currentData, state.job = true, nil, nil
+        displayRuntime.invalidateAchievements()
       end
     end
     -- Game path [Gen 1]: itemsTaken/hiddenTaken may change without flag events, so cached progress also checks their contents.
@@ -141,15 +159,18 @@ return function(
       for _, taken in pairs(session.game.save[field] or {}) do if taken then pickups = pickups + 1 end end
     end
     if pickups ~= state.pickups then
-      state.pickups, state.stale, state.currentData, state.job = pickups, true, nil, nil
+      state.pickups = pickups
+      displayRuntime.invalidateAchievements()
     end
-    local caught, caughtCount = compat.caughtDex(session.game.save), 0
-    for _, owned in pairs(caught) do if owned then caughtCount = caughtCount + 1 end end
-    if caughtCount ~= state.caughtCount then
-      state.caughtCount, state.stale, state.currentData, state.job = caughtCount, true, nil, nil
+    local caught = compat.caughtDex(session.game.save)
+    if not sameCaught(caught, state.caught) then
+      local snapshot = {}
+      for id, owned in pairs(caught) do if owned == true then snapshot[id] = true end end
+      state.caught = snapshot
+      displayRuntime.invalidateAchievements("dex")
     end
-    if state.job and (state.jobMap ~= session.mapId or state.jobSave ~= session.game.save) then
-      state.job, state.stale = nil, true
+    if state.job and state.jobSave ~= session.game.save then
+      displayRuntime.invalidateAchievements()
     end
     if not currentOnly and state.contextDirty and state.data and not state.stale then
       local visited = mod.save:get("achievement_visits", {})
@@ -181,6 +202,29 @@ return function(
         end
       end
       local build = currentOnly and Progress.build or Progress.begin
+      local reuse
+      if not currentOnly and state.dexOnly and state.data then
+        local previous, changed = {}, {}
+        for _, area in ipairs(state.data.allAreas) do previous[area.id] = area end
+        for id in pairs(state.dataCaught or {}) do
+          if not state.caught[id] then changed[id] = true end
+        end
+        for id in pairs(state.caught) do
+          if not (state.dataCaught or {})[id] then changed[id] = true end
+        end
+        reuse = function(group)
+          local area = previous[group.id]
+          if not area then return end
+          for category, section in ipairs(area.sections) do
+            for _, row in ipairs(section.rows) do
+              -- Item gifts can require a Dex threshold too. Pokemon gifts,
+              -- trades and choices may depend on party space or another species.
+              if row.gift or category == 4 and (not row.wild or changed[row.species]) then return end
+            end
+          end
+          return area
+        end
+      end
       local result = build(groups, function(maps, checkpoint)
         local result = areaData(maps, true, checkpoint)
         if checkpoint then checkpoint() end
@@ -206,7 +250,7 @@ return function(
         return result
       end, {
         gen2 = gen2, gen3 = displayRuntime.gen3 ~= nil, save = session.game.save, mapId = session.mapId,
-        visited = visited,
+        visited = visited, reuse = reuse,
         flag = function(id) return mod.world and mod.world.getFlag
           and mod.world:getFlag(id) == true or false end,
       }, not currentOnly and love.timer.getTime or nil)
@@ -217,15 +261,34 @@ return function(
       state.job, state.jobMap, state.jobSave = result, session.mapId, session.game.save
     end
     if not currentOnly and advance and state.job then
-      local result = state.job:step(0.001)
+      local result = state.job:step(budget or 0.003)
       if result then
+        if state.contextDirty or state.jobMap ~= session.mapId then
+          local visited = mod.save:get("achievement_visits", {})
+          result = Progress.relocate(result, { mapId = session.mapId, save = session.game.save,
+            visited = type(visited) == "table" and visited or {} })
+        end
         state.data, state.stale, state.job = result, false, nil
-        state.contextDirty = false
-        session.dirty = true
+        state.dataCaught, state.dexOnly, state.contextDirty = state.caught, nil, false
+        if session.page == "ACHIEVEMENTS" then session.dirty = true end
       end
     end
     -- Hide invalidated results until the replacement is complete.
     return not state.stale and state.data or nil
+  end
+
+  function displayRuntime.updateAchievements(now)
+    local state = displayRuntime.achievements
+    local package = displayRuntime.homeCatalog.packages.achievements
+    if THEME.style ~= "hgss" or session.battle or not session.game
+        or not session.game.save or not session.mapId or not package.installed
+        or not (state.stale or state.job) then return end
+    local visible = session.page == "ACHIEVEMENTS"
+    if not visible and now < (state.nextWorkAt or 0) then return end
+    state.nextWorkAt = now + 0.05
+    -- Background work spends at most one cooperative 0.5ms slice per 50ms.
+    -- Opening the app can finish remaining work with a larger 3ms slice.
+    return displayRuntime.achievementData(false, true, visible and 0.003 or 0.0005)
   end
 
   -- Whether a still-missing local Pokemon can appear here right now with the

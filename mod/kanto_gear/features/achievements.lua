@@ -168,50 +168,54 @@ end
 function M.build(groups, read, context, checkpoint)
   local result = { areas = {}, allAreas = {}, byId = {}, goals = {}, earned = {}, total = 0, done = 0 }
   for _, group in ipairs(groups) do
-    local area = { id = group.id, name = group.name, kind = group.kind,
-      maps = group.maps, sections = {}, done = 0, total = 0, evidence = false, unknown = 0 }
-    for _, id in ipairs(group.maps) do
-      area.current = area.current or id == context.mapId
-      area.evidence = area.evidence or id == context.mapId
-        or (context.visited or {})[id] == true
-        or (context.save.visited or {})[id] == true
-    end
-    local sourceData = read(group.maps, checkpoint)
-    local sections = sourceData.sections
-    for category = 1, 3 do
-      local section = section()
-      for _, source in ipairs(sections[category].rows) do
-        local row = prepare(source, category, context)
-        area.progressEvidence = area.progressEvidence or row.state == "done"
-        area.evidence = area.evidence or row.state == "done"
-        section.rows[#section.rows + 1] = row
+    local area = context.reuse and context.reuse(group)
+    if not area then
+      area = { id = group.id, name = group.name, kind = group.kind,
+        maps = group.maps, sections = {}, done = 0, total = 0,
+        evidence = false, progressEvidence = false, unknown = 0 }
+      for _, id in ipairs(group.maps) do
+        area.current = area.current or id == context.mapId
+        area.evidence = area.evidence or id == context.mapId
+          or (context.visited or {})[id] == true
+          or (context.save.visited or {})[id] == true
       end
-      count(section, category)
-      area.sections[category] = section
-      area.unknown = area.unknown + section.unknown
-      area.done, area.total = area.done + section.done, area.total + section.total
+      local sourceData = read(group.maps, checkpoint)
+      local sections = sourceData.sections
+      for category = 1, 3 do
+        local section = section()
+        for _, source in ipairs(sections[category].rows) do
+          local row = prepare(source, category, context)
+          area.progressEvidence = area.progressEvidence or row.state == "done"
+          area.evidence = area.evidence or row.state == "done"
+          section.rows[#section.rows + 1] = row
+        end
+        count(section, category)
+        area.sections[category] = section
+        area.unknown = area.unknown + section.unknown
+        area.done, area.total = area.done + section.done, area.total + section.total
+      end
+      area.fieldTotal, area.fieldDone = area.total, area.done
+      local pokemon = section()
+      for _, source in ipairs(sourceData.pokemon or {}) do
+        local row = prepare(source, 4, context)
+        pokemon.rows[#pokemon.rows + 1] = row
+        area.progressEvidence = area.progressEvidence or row.gift == true and row.state == "done"
+        area.evidence = area.evidence or row.gift == true and row.state == "done"
+      end
+      count(pokemon, 4)
+      area.unknown = area.unknown + pokemon.unknown
+      area.sections[4] = pokemon
+      area.total, area.done = area.total + pokemon.total, area.done + pokemon.done
+      area.remaining = area.total - area.done
+      area.availableRemaining = area.remaining - pokemon.unavailable
+      local unknown = 0
+      for i = 1, 3 do
+        unknown = unknown + area.sections[i].untracked
+        area.availableRemaining = area.availableRemaining - area.sections[i].unavailable
+      end
+      area.untracked = unknown
+      tier(area)
     end
-    area.fieldTotal, area.fieldDone = area.total, area.done
-    local pokemon = section()
-    for _, source in ipairs(sourceData.pokemon or {}) do
-      local row = prepare(source, 4, context)
-      pokemon.rows[#pokemon.rows + 1] = row
-      area.progressEvidence = area.progressEvidence or row.gift and row.state == "done"
-      area.evidence = area.evidence or row.gift and row.state == "done"
-    end
-    count(pokemon, 4)
-    area.unknown = area.unknown + pokemon.unknown
-    area.sections[4] = pokemon
-    area.total, area.done = area.total + pokemon.total, area.done + pokemon.done
-    area.remaining = area.total - area.done
-    area.availableRemaining = area.remaining - pokemon.unavailable
-    local unknown = 0
-    for i = 1, 3 do
-      unknown = unknown + area.sections[i].untracked
-      area.availableRemaining = area.availableRemaining - area.sections[i].unavailable
-    end
-    area.untracked = unknown
-    tier(area)
     result.allAreas[#result.allAreas + 1] = area
     include(result, area)
     if checkpoint then checkpoint() end

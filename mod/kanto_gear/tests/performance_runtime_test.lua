@@ -64,6 +64,7 @@ T.check(now - before >= 0.010, "downstream host work was executed")
 T.check(metrics.gear_compose.max < 0.0001, "downstream time is not blamed on Gear")
 T.eq(#run.errors, 0, "diagnostics produce no runtime errors")
 -- The compose hook, not redraws or touch calls, owns album scheduling.
+display.setPackageInstalled("achievements", true)
 display.achievementData()
 local advances = 0
 display.achievements.job.step = function() advances = advances + 1 end
@@ -78,20 +79,28 @@ compose(function() end, {}, context)
 T.eq(advances, 2, "album advances independently of a redraw request")
 up(compose, "page", "HOME")
 compose(function() end, {}, context)
-T.eq(advances, 2, "leaving Stamps pauses album work")
+T.eq(advances, 2, "background preparation waits between work slices")
+now = now + 0.051
+compose(function() end, {}, context)
+T.eq(advances, 3, "Home prepares the installed album without a redraw request")
+display.setPackageInstalled("achievements", false)
+now = now + 0.051
+compose(function() end, {}, context)
+T.eq(advances, 3, "uninstalled Stamps stops background preparation")
+display.setPackageInstalled("achievements", true)
 up(compose, "page", "ACHIEVEMENTS")
 connected = false
 now = now + 0.051 -- Hardware discovery has a shared 50ms cache.
 compose(function() end, {}, context)
-T.eq(advances, 2, "disconnected display pauses album work")
+T.eq(advances, 3, "disconnected display pauses album work")
 connected = true
 now = now + 0.051
 game.stack.states[2] = { isTextBox = true }
 compose(function() end, {}, context)
-T.eq(advances, 2, "game dialogue pauses hidden album work")
+T.eq(advances, 3, "game dialogue pauses hidden album work")
 game.stack.states[2] = nil
 compose(function() end, {}, context)
-T.eq(advances, 3, "returning to visible Stamps resumes the same job")
+T.eq(advances, 4, "returning to visible Stamps resumes the same job")
 local input = hook("input.step")
 input(function() now = now + 0.010; return sentinel end, game, 1 / 60)
 T.check(metrics.gear_input.n > 0, "diagnostics include work in the input hook")

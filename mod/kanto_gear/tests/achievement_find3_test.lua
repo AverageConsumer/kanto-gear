@@ -102,6 +102,56 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
     end
   end
   T.eq(tradeCount, emerald and 4 or 9, "all edition-specific NPC trades checked for entrances")
+  -- Native Dex updates must produce exactly the full album, including gifts
+  -- and alternative-species goals, while keeping unrelated wild areas cached.
+  local function finishAlbum()
+    for _ = 1, 10000 do
+      local result = display.achievementData(false, true)
+      if result then return result end
+    end
+    error("native refreshed album did not complete")
+  end
+  local function copy(value)
+    if type(value) ~= "table" then return value end
+    local out = {}
+    for key, entry in pairs(value) do out[key] = copy(entry) end
+    return out
+  end
+  local function difference(a, b, at)
+    at = at or "album"
+    if type(a) ~= type(b) then return at .. " type" end
+    if type(a) ~= "table" then return a ~= b and (at .. ": " .. tostring(a) .. " ~= " .. tostring(b)) or nil end
+    for key, value in pairs(a) do
+      local changed = difference(value, b[key], at .. "." .. tostring(key))
+      if changed then return changed end
+    end
+    for key in pairs(b) do if a[key] == nil then return at .. "." .. tostring(key) .. " missing" end end
+  end
+  local Dex = require("src.core.game3.dex")
+  local originalDex = game.session.dex
+  game.session.dex = copy(originalDex)
+  display.gen3:refresh()
+  local species = display.currentAchievement().area.sections[4].rows[1].species
+  local before = finishAlbum()
+  Dex.setSeen(game.session.dex, species)
+  display.gen3:refresh()
+  T.eq(display.achievementData(), before, "seeing a native species does not reload completion")
+  Dex.setCaught(game.session.dex, species)
+  display.gen3:refresh()
+  run.loader.events:emit("pokemon.caught", { species = species })
+  local updated = finishAlbum()
+  local retained = 0
+  for _, area in ipairs(updated.allAreas) do
+    if before.byId[area.id] == area then retained = retained + 1 end
+  end
+  T.check(retained > 0, "native catch refresh retains unaffected areas")
+  display.invalidateAchievements()
+  T.eq(difference(finishAlbum(), updated), nil, "native incremental catch equals a complete rebuild")
+  game.session.dex = originalDex
+  display.gen3:refresh()
+  local restored = finishAlbum()
+  display.invalidateAchievements()
+  T.eq(difference(finishAlbum(), restored), nil, "native Dex rollback equals a complete rebuild")
 end
 dofile(path .. (os.getenv("POKEPORT_VERSION") == "emerald"
   and "/tests/emerald_runtime_test.lua" or "/tests/gen3_runtime_test.lua"))

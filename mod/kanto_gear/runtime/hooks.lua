@@ -364,8 +364,7 @@ return function(
       -- No interaction occurred, so neither progress nor map rows changed.
       if event == "world.interacted" and payload and payload.kind == "none" then return end
       displayRuntime.explorer.data = nil
-      displayRuntime.achievements.stale, displayRuntime.achievements.job = true, nil
-      displayRuntime.achievements.currentData = nil
+      displayRuntime.invalidateAchievements(event == "pokemon.caught" and "dex" or nil)
       local home = displayRuntime.home
       if home and home.widgetCache and home.widgetCache.model.stamps then
         home.widgetCache = nil
@@ -622,12 +621,13 @@ return function(
     displayRuntime.perf:call("notes_flush", displayRuntime.notes.flush, displayRuntime.notes)
     if displayRuntime.notes:takeChanged() then session.dirty = true end
     displayRuntime.updateHomeLongPress(now)
-    -- Album work gets a short slice only while visible, independently of redraws.
-    -- The budget is cooperative: an individual map/group operation can overrun it.
-    if session.page == "ACHIEVEMENTS" and THEME.style == "hgss" and not session.battle
-        and (displayRuntime.achievements.job or displayRuntime.achievements.stale)
-        and hasDisplay() and screenState() == "active" then
-      displayRuntime.perf:call("stamps_album", displayRuntime.achievementData, false, true)
+    -- Installed Stamps prepares in short, throttled slices during normal play.
+    -- Menus, battles and loading retain priority over album preparation.
+    local stamps = displayRuntime.achievements
+    if THEME.style == "hgss" and not session.battle and not session.externalLoading
+        and displayRuntime.homeCatalog.packages.achievements.installed
+        and (stamps.job or stamps.stale) and hasDisplay() and screenState() == "active" then
+      displayRuntime.perf:call("stamps_album", displayRuntime.updateAchievements, now)
     end
     if now >= session.nextPoll then
       local pollStarted = displayRuntime.perf:start()

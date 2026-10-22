@@ -53,9 +53,6 @@ return function(
     session.radarOpen = false
     local stamps = displayRuntime.achievements
     stamps.currentData, stamps.contextDirty = nil, true
-    if stamps.job and stamps.jobMap ~= session.mapId then
-      stamps.stale, stamps.job = true, nil
-    end
     local visited = mod.save:get("achievement_visits", {})
     if type(visited) ~= "table" then visited = {} end
     if type(session.mapId) == "string" and not visited[session.mapId] then
