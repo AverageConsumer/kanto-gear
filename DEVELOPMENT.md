@@ -322,6 +322,10 @@ the exact tagged source before publishing. It attaches the ZIP, verification JSO
 and `.sha256` file, using the committed notes as the release description. It does
 not replace an existing release or its assets. Only that publication job has
 repository write permission; pull request checks have read-only access.
+If a tag push does not start Actions, dispatch the same workflow against that
+existing tag with `gh workflow run release.yml --ref v<version>`. The dispatch
+uses the same tag/source checks and publication job; dispatching `main` fails
+the release-tag check and cannot publish.
 
 For a downloaded release, run `sha256sum --check kanto_gear-<version>.sha256`
 beside the ZIP. The verification JSON also records the source commit, engine
