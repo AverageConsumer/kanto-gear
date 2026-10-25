@@ -2294,6 +2294,7 @@ function love.load()
       },
       system = {
         { action = "home_help", label = "CUSTOMIZE HOME", value = "SHOW ME", description = "Shows how to edit Home." },
+        { action = "display_setup", label = "DISPLAY SETUP", value = "OPEN", description = "Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept." },
         { action = "reset_home", label = "RESET HOME", value = "RESET" },
         { action = "reset_options", label = "RESET OPTIONS", value = "TAP AGAIN", description = "Tap again to reset every option." },
       },
@@ -2304,7 +2305,7 @@ function love.load()
     local selected = sel and rows[sel] and (rows[sel].key or rows[sel].action) or nil
     theme:settings({ category = which, label = TABS[tab].label, detail = TABS[tab].detail, accent = TABS[tab].accent,
       tabs = TABS, tab = tab, rows = rows, page = 1, pages = #rows > 4 and 2 or 1, selected = selected,
-      confirm = which == "system" and sel == 3 and "reset_options" or nil })
+      confirm = which == "system" and sel == 4 and "reset_options" or nil })
   elseif settingsRoot and false then
     theme:settings({ categories = {
       { label = "APPEARANCE", detail = "THEME AND TRANSITIONS",

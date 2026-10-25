@@ -160,6 +160,8 @@ the game screen accepts touch or D-Pad and A/B. It waits for a safe title or
 idle overworld state, then pauses gameplay while you choose. Held buttons must
 be released before the game resumes. Two-screen mode is saved only after you
 confirm its test image; the test returns to the safe choice after 15 seconds.
+To repeat the setup, open Gear's **Settings → System → Display Setup → Open**.
+This uses the app's own storage access; no file manager or game-save reset is needed.
 
 If a saved second display is unavailable for two seconds, Gear temporarily
 returns to the game window. Recovery choices wait until gameplay is idle;

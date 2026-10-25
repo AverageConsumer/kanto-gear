@@ -505,6 +505,7 @@ return function(
   for _, row in ipairs(Discovery.options) do
     table.insert(displayRuntime.settingsCategories[4].keys, Discovery.key(row[1]))
   end
+  table.insert(displayRuntime.settingsCategories[6].actions, 2, "display_setup")
   displayRuntime.defaultHomeTiles = {
     { id = "explorer_widget", page = 1, column = 1, row = 1 },
     { id = "party_widget", page = 1, column = 8, row = 1 },
@@ -568,12 +569,13 @@ return function(
     if state.option then
       local row = displayRuntime.optionRow(state.option)
       if not row and SettingsInfo.help[state.option] then
-        row = { key = state.option, type = "action", label = state.option == "home_help" and "CUSTOMIZE HOME"
+        row = { key = state.option, type = "action", label = state.option == "display_setup" and "DISPLAY SETUP"
+          or state.option == "home_help" and "CUSTOMIZE HOME"
           or state.option == "reset_home" and "RESET HOME" or "RESET OPTIONS" }
       end
       if row and displayRuntime.optionVisible(row) then
         local choices = row.type == "action" and {
-          { row.key == "home_help" and "SHOW ME" or state.confirm == row.key and "TAP AGAIN" or "RESET", true } }
+          { row.key == "display_setup" and "OPEN" or row.key == "home_help" and "SHOW ME" or state.confirm == row.key and "TAP AGAIN" or "RESET", true } }
           or row.type == "toggle" and { { "OFF", false }, { "ON", true } }
           or displayRuntime.optionChoices(row)
         local perPage = row.key == "theme_v3" and 3 or 4
@@ -607,11 +609,13 @@ return function(
       end
     end
     for _, action in ipairs(category.actions or {}) do
+      local setupWaiting = action == "display_setup" and displayRuntime.displaySetup and displayRuntime.displaySetup.pending
       rows[#rows + 1] = { action = action,
-        label = action == "home_help" and "CUSTOMIZE HOME"
+        enabled = not setupWaiting,
+        label = action == "display_setup" and "DISPLAY SETUP" or action == "home_help" and "CUSTOMIZE HOME"
           or action == "reset_home" and "RESET HOME" or "RESET OPTIONS",
         description = SettingsInfo.help[action],
-        value = action == "home_help" and "SHOW ME"
+        value = action == "display_setup" and (setupWaiting and "WAIT" or "OPEN") or action == "home_help" and "SHOW ME"
           or state.confirm == action and "TAP AGAIN" or "RESET" }
     end
     local pages = math.max(1, math.ceil(#rows / 4))
@@ -670,6 +674,11 @@ return function(
 
   function displayRuntime.runSettingsAction(action)
     local state = displayRuntime.settings
+    if action == "display_setup" then
+      state.confirm = nil
+      if displayRuntime.requestDisplaySetup then displayRuntime.requestDisplaySetup() end
+      return
+    end
     if action == "home_help" then
       state.confirm = nil
       displayRuntime.showHomeHelp()

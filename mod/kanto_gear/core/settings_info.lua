@@ -1,6 +1,7 @@
 -- Explanations are shared by the touch settings and the native mod menu.
 local Info = {}
 Info.help = {
+  display_setup = "Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept.",
   language = "Language of Kanto Gear. Game translations are separate mods.",
   theme_v3 = "Choose a light or dark companion. Auto follows the time of day.",
   clock_source = "Choose the game clock or your device clock. Games without a clock use device time.",

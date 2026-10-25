@@ -140,6 +140,34 @@ T.eq(state.stage,"recovery","expired retry returns to the visible recovery choic
 T.eq(api.options:get("display_mode"),"separate","timeout cannot overwrite the saved preference")
 frame(); input:sourcePress("b","test"); frame(); input:sourceRelease("b","test"); frame(); frame()
 T.eq(api.options:get("display_mode"),"combined","B can keep the safe one-screen fallback")
+idle=false
+display.settings.category,display.settings.option=6,nil
+local reopen
+for _,row in ipairs(display.settingsModel().rows) do if row.action=="display_setup" then reopen=row end end
+T.check(reopen and reopen.label=="DISPLAY SETUP" and reopen.value=="OPEN","System exposes a non-destructive setup action")
+local saveBefore=game.save
+local modeBefore=api.options:get("display_mode")
+display.tapSettings(30,104)
+T.eq(display.settings.selected,"display_setup","the new System row can be selected by touch")
+T.eq(state.pending,false,"selecting its label alone does not reopen setup")
+display.tapSettings(170,104)
+T.eq(state.pending,true,"the System action queues setup without a file manager")
+local waiting
+for _,row in ipairs(display.settingsModel().rows) do if row.action=="display_setup" then waiting=row end end
+T.check(waiting and waiting.enabled==false and waiting.value=="WAIT","queued setup is visibly inactive while the game menu is busy")
+T.eq(display.requestDisplaySetup(),false,"repeated queued requests cannot rewrite the marker")
+T.eq(api.cache:read("display/setup-v1"),"pending","the app writes its own setup marker")
+T.eq(api.options:get("display_mode"),modeBefore,"reopening does not reset the current display preference")
+T.eq(game.save,saveBefore,"reopening keeps the same game save object")
+frame(); T.eq(state.stage,nil,"manual reopening also waits for scripts to finish")
+idle=true; frame()
+T.eq(state.stage,"welcome","manual reopening reaches the same safe first-use dialog")
+T.eq(display.requestDisplaySetup(),false,"a covered reopen control cannot restart an active dialog")
+input:sourcePress("b","test"); frame(); input:sourceRelease("b","test"); frame(); frame()
+display.settings.option="display_setup"
+local detail=display.settingsModel()
+T.eq(detail.label,"DISPLAY SETUP","the action detail has its own label")
+T.eq(detail.choices[1][1],"OPEN","the detail action never appears as a destructive reset")
 T.eq(#run.errors,0,"setup hooks leave no loader errors")
 run.release()
 T.finish("Display setup runtime Gen "..generation)

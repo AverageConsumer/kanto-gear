@@ -170,6 +170,15 @@ return function(THEME, displayRuntime, mod, render, resetSwapState, session)
     return state.stage == "test" or state.fallback and requested() == "separate"
   end
 
+  function displayRuntime.requestDisplaySetup()
+    if state.pending or state.stage or state.draining then return false end
+    -- Use the engine's scoped writer: Android file managers cannot always
+    -- access this cache. Queue the same safe boundary as first use.
+    if mod.cache and mod.cache.write then mod.cache:write(Model.MARKER, "pending") end
+    state.pending, nextSafety = true, 0
+    return true
+  end
+
   function displayRuntime.observeSetupDisplay(native)
     if native ~= bridge then bridge, nextProbe, nextPush, state.healthy = native, 0, 0, false end
     local time = now()
