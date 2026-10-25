@@ -60,7 +60,7 @@ The Mod Index listing is temporarily unavailable because its installed scanner
 rejects mod API 3. [Index PR #333](https://github.com/bryanthaboi/gen1recomp-mod-index/pull/333)
 contains the compatibility fix; use the release ZIP while maintainer review and
 scanner deployment are pending.
-Kanto Gear 4.5.0 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
+Kanto Gear 4.5.1 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
 Update Recomp before importing this version. Recomp 0.3.92 and earlier cannot
 load it; keep Kanto Gear 4.3.1 if you are staying on an older host.
 
