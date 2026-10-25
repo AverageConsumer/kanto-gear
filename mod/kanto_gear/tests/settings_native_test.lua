@@ -55,7 +55,7 @@ local function load(cache, stored, generation)
     rows()
     for _, row in ipairs(manager.optionRows) do if row.id == key then return row end end
   end
-  return run, api, schema, native, manager, find, function() return persisted, writes end, options
+  return run, api, schema, native, manager, find, function() return persisted, writes end, options, display
 end
 
 for generation = 1, 3 do
@@ -127,6 +127,21 @@ for generation = 1, 3 do
   T.eq(migrated.options:get("info_level"), "custom", "legacy native helper differences migrate to Custom")
   T.eq(migrated.options:get("type_hints"), false, "migration preserves the disabled native helper")
   T.eq(legacySaved().info_level, "custom", "migrated preset reaches host persistence")
+  T.eq(migrated.options:get("display_mode"), "separate", "an older installation keeps its unsaved Separate default")
+  T.eq(migrated.cache:read("display/setup-v1"), "done", "existing options do not queue first-use setup")
   legacy.release()
+  for _, fixture in ipairs({
+    { cache={}, stored={}, mode="combined", pending=true },
+    { cache={}, stored={theme_v3="hgss_dark"}, mode="separate", pending=false },
+    { cache={["options/theme_v3"]="shgss_dark"}, stored={}, mode="separate", pending=false },
+    { cache={}, stored={display_mode="combined"}, mode="combined", pending=false },
+    { cache={}, stored={display_mode="fullscreen"}, mode="fullscreen", pending=false },
+    { cache={["display/setup-v1"]="pending"}, stored={display_mode="separate"}, mode="separate", pending=true },
+  }) do
+    local boot, bootApi, _, _, _, _, _, _, bootDisplay = load(fixture.cache, fixture.stored, generation)
+    T.eq(bootApi.options:get("display_mode"),fixture.mode,"upgrade preserves the appropriate output preference")
+    T.eq(bootDisplay.displaySetup.pending,fixture.pending,"only a new install or unfinished requested setup queues the prompt")
+    boot.release()
+  end
 end
 T.finish("Kanto Gear native options parity and recovery")

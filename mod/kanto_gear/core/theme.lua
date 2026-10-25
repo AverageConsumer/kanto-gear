@@ -167,11 +167,12 @@ function THEME:statusName(id, content)
 end
 
 -- Host path [all games]: old window_layout values seed display_mode/combined_layout only when the new settings are absent.
-function THEME:displayDefaults(get)
+function THEME:displayDefaults(get, existing)
   local legacy = get("window_layout")
   local mode = get("display_mode")
   if mode == nil then
-    mode = legacy == "off" and "separate" or "combined"
+    mode = legacy and legacy ~= "off" and "combined"
+      or (legacy == "off" or existing) and "separate" or "combined"
   end
   local layout = get("combined_layout")
   if layout == nil then

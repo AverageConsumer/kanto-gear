@@ -66,9 +66,6 @@ return function(
   SettingsInfo.help.discovery_section = "Choose an information category to customize. Changes apply across Gear."
 
   local displaySetup = mod.cache and mod.cache.read and mod.cache:read("display/setup-v1")
-  THEME.displaySetupFresh = displaySetup == "pending" or displaySetup == nil
-    and mod.options:get("display_mode") == nil and mod.options:get("window_layout") == nil
-  if THEME.displaySetupFresh and mod.cache and mod.cache.write then mod.cache:write("display/setup-v1", "pending") end
   THEME.displayModeDefault, THEME.combinedLayoutDefault = THEME:displayDefaults(
     function(key) return mod.options:get(key) end)
 
@@ -247,6 +244,23 @@ return function(
         key = "notifications", equals = true,
       } },
   }, Discovery.initialPolicy)
+
+  -- Inspect persisted values before define() makes schema defaults readable.
+  -- Older users could keep Separate without ever explicitly saving that row.
+  local hasSettings = mod.options:get("window_layout") ~= nil or mod.options:get("profile") ~= nil
+  for _, row in ipairs(THEME.optionSchema) do
+    if mod.options:get(row.key) ~= nil then hasSettings = true; break end
+  end
+  THEME.displaySetupFresh = displaySetup == "pending" or displaySetup == nil and not hasSettings
+  local legacyInstallation = displaySetup == nil and hasSettings
+  THEME.displayModeDefault, THEME.combinedLayoutDefault = THEME:displayDefaults(
+    function(key) return mod.options:get(key) end, legacyInstallation)
+  for _, row in ipairs(THEME.optionSchema) do
+    if row.key == "display_mode" then row.default = THEME.displayModeDefault end
+  end
+  if displaySetup == nil and mod.cache and mod.cache.write then
+    mod.cache:write("display/setup-v1", THEME.displaySetupFresh and "pending" or "done")
+  end
 
   -- Host path [all games]: stock option menus lack Gear visibility/reset descriptors; publish a compatible copy while preserving the richer Gear schema.
   -- Recomp's stock menu only understands equals/not_equals visibility and

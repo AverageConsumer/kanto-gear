@@ -213,7 +213,9 @@ return function(THEME, displayRuntime, mod, render, resetSwapState, session)
         state.healthy = success and shown == true
       end
     else
-      state.healthy = ready and requested()=="separate" and not state.fallback and session.displayReady == true
+      -- Availability belongs to the physical output, not whether Gear has
+      -- already painted a frame (boot, loading and modal ownership can defer it).
+      state.healthy = ready and requested()=="separate" and not state.fallback
     end
   end
 
