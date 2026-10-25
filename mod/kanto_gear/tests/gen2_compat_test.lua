@@ -110,8 +110,9 @@ local game = {
     return self.states[#self.states]
   end },
 }
+run.loader.modOptions.kanto_gear = { display_mode = "separate" }
 run.loader.events:emit("game.ready", { game = game })
-run.loader.modOptions.kanto_gear = { theme_v3 = "kanto", trigger_tabs = true, info_level = "spoiler" }
+run.loader.modOptions.kanto_gear = { theme_v3 = "kanto", display_mode = "separate", trigger_tabs = true, info_level = "spoiler" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "theme_v3", value = "kanto" })
 run.loader.events:emit("mod.options_changed",

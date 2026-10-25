@@ -8,12 +8,14 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
     local colors = self.colors
     model = model or {}
     if not model.category then
+      local count = #(model.categories or {})
+      local spacing = count > 6 and floor(178 / count) or 30
       for index, category in ipairs(model.categories or {}) do
-        local y = 34 + (index - 1) * 30
-        local pressed = self:beginPress(7, y, 226, 26)
+        local y = 34 + (index - 1) * spacing
+        local pressed = self:beginPress(7, y, 226, min(26, spacing - 2))
         local accent = accentOf(self, category.accent)
-        self:v4Key(7, y, 226, 27)
-        if cg(self) then R(8, y + 4, 2, 17, accent) end
+        self:v4Key(7, y, 226, min(27, spacing - 1))
+        if cg(self) then R(8, y + 4, 2, min(17, spacing - 11), accent) end
         -- glyph seat
         CIRC(11, y + 2, 22, colors.outline)
         CIRC(12, y + 3, 20, mix(colors.surface, accent, self.dark and 0.35 or 0.22))
@@ -329,6 +331,10 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
   ---------------------------------------------------------------------------
   H.v4SettingsTabs = true
   local TAB_Y, TAB_H, TAB_STEP = 32, 22, 38
+  -- Six tabs fill the 226 px row at 38 px; more tabs share it evenly and
+  -- the row stays centred.
+  local function tabStep(count) return count > 6 and floor(228 / count) or TAB_STEP end
+  local function tabLeft(count) return 7 + floor((226 - (count * tabStep(count) - 2)) / 2) end
   local ROW_Y, ROW_H, ROW_STEP, CTRL_X, CTRL_W = 71, 22, 24, 114, 113
 
   local function rowKey(row) return row.key or row.action end
@@ -370,13 +376,14 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
   function H:v4SettingsTabbed(model)
     local colors = self.colors
     -- category tabs
+    local step, left = tabStep(#model.tabs), tabLeft(#model.tabs)
     for i, cat in ipairs(model.tabs) do
-      local x = 7 + (i - 1) * TAB_STEP
+      local x = left + (i - 1) * step
       local active = i == model.tab
       local accent = accentOf(self, cat.accent)
-      local pressed = self:beginPress(x, TAB_Y, TAB_STEP - 2, TAB_H, not active)
-      if active then self:v4Button(x, TAB_Y, TAB_STEP - 2, TAB_H, K.rampOf(accent), { radius = 4, lip = 3, chamfer = 4 })
-      else self:v4Key(x, TAB_Y, TAB_STEP - 2, TAB_H) end
+      local pressed = self:beginPress(x, TAB_Y, step - 2, TAB_H, not active)
+      if active then self:v4Button(x, TAB_Y, step - 2, TAB_H, K.rampOf(accent), { radius = 4, lip = 3, chamfer = 4 })
+      else self:v4Key(x, TAB_Y, step - 2, TAB_H) end
       local glyph = CAT_GLYPH[tostring(cat.label)] or CAT_GLYPH[tostring(cat.id):upper()]
       local artName = "c_" .. tostring(cat.label):lower()
       if artName == "c_exploration" then artName = "c_research" end
@@ -387,7 +394,7 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
           local e = self:v4Enter("settings_tab", i, 0.24)
           if e < 1 then hop = -floor(math.sin(e * math.pi) * 3 + 0.5) end
         end
-        self:v4Icon(artName, x + floor((TAB_STEP - 2 - 16) / 2), TAB_Y + floor((TAB_H - 16) / 2) - (active and 1 or 0) + hop)
+        self:v4Icon(artName, x + floor((step - 2 - 16) / 2), TAB_Y + floor((TAB_H - 16) / 2) - (active and 1 or 0) + hop)
       elseif glyph then
         local G = ui.graphics
         local hop = 0
@@ -395,7 +402,7 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
           local e = self:v4Enter("settings_tab", i, 0.24)
           if e < 1 then hop = -floor(math.sin(e * math.pi) * 3 + 0.5) end
         end
-        G.push(); G.translate(x + 9, TAB_Y + 2 + hop); G.scale(0.9, 0.9)
+        G.push(); G.translate(x + floor((step - 2 - 18) / 2), TAB_Y + 2 + hop); G.scale(0.9, 0.9)
         glyph(0, 0, active and WHITE or accent, active and mix(accent, WHITE, 0.5) or mix(accent, colors.surface, 0.45))
         G.pop()
       end
@@ -496,8 +503,9 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
   function H:v4SettingsTabbedHit(x, y, model)
     if y < 29 and x < 27 then return "back" end
     if y >= TAB_Y and y < TAB_Y + TAB_H then
-      local i = floor((x - 7) / TAB_STEP) + 1
-      if i >= 1 and i <= #model.tabs and x < 7 + i * TAB_STEP - 2 and i ~= model.tab then return "tab", i end
+      local step, left = tabStep(#model.tabs), tabLeft(#model.tabs)
+      local i = floor((x - left) / step) + 1
+      if x >= left and i >= 1 and i <= #model.tabs and x < left + i * step - 2 and i ~= model.tab then return "tab", i end
       return nil
     end
     if model.pages > 1 and y >= 55 and y < 69 then

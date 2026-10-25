@@ -21,6 +21,7 @@ return function(
   end
 
   local function tap(x, y)
+    if displayRuntime.noticeTap and displayRuntime.noticeTap(x, y) then return end
     if session.battle and currentBattleUIMode() == "info" then
       tapBattle(x, y)
       return
@@ -148,6 +149,9 @@ return function(
       return
     elseif THEME.style == "hgss" and session.page == "CALENDAR" and displayRuntime.tapCalendar then
       displayRuntime.tapCalendar(x * THEME.hgssScale, y * THEME.hgssScale)
+      return
+    elseif THEME.style == "hgss" and session.page == "SHINY" then
+      displayRuntime.tapShinyHunt(x * THEME.hgssScale, y * THEME.hgssScale)
       return
     elseif THEME.style == "hgss" and session.page == "PSS" then
       if y * THEME.hgssScale < 30 and x * THEME.hgssScale < 27 then

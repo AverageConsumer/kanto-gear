@@ -4,6 +4,7 @@ return function(
 )
   function displayRuntime.openHomeApp(id, deviceTarget)
     local home = displayRuntime.home
+    if displayRuntime.markNoticeRead then displayRuntime.markNoticeRead(id) end
     if id == "pokegear" or id == "pokenav" then
       local package = displayRuntime.homeCatalog.packages[id]
       if not package.installed or package.available == false
@@ -59,6 +60,8 @@ return function(
     elseif id == "calendar" then
       local state = displayRuntime.calendar
       state.view, state.day, state.selected, state.page = nil, nil, nil, 1
+    elseif id == "shiny" then
+      displayRuntime.openShinyHunt()
     elseif id == "achievements" then
       local state = displayRuntime.achievements
       state.view, state.page, state.selected = "goals", 1, nil

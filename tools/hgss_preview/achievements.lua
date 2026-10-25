@@ -65,6 +65,34 @@ return function(theme, screen, gen1, translate, drawPokemon)
     areas[2].sections[3].untracked = 1
     areas[2].sections[4].done = 6
   end
+  -- Moments tab: illustrative records through the shipped catalog.
+  if screen:find("achievements_moment", 1, true) then
+    local Moments = assert(loadfile(os.getenv("KANTO_GEAR_ROOT") .. "/mod/kanto_gear/features/moments.lua"))()
+    local function shown(id, info)
+      local entry = Moments.byId[id]
+      return { id = id, title = translate(entry.title), line = translate(entry.line), glyph = entry.glyph,
+        tone = entry.tone, species = info.species, shiny = info.shiny, name = info.name, place = info.place,
+        foe = info.foe, date = info.date, play = info.play }
+    end
+    local list = {
+      shown("last_hp", { species = "CYNDAQUIL", name = "EMBER", place = gen1 and "ROUTE 3" or "ROUTE 32",
+        date = "24 OCT 2026", play = "4:12", foe = "BUG CATCHER" }),
+      shown("first_shiny", { species = "ZUBAT", shiny = true, name = "ZUBAT", place = "UNION CAVE",
+        date = "19 OCT 2026" }),
+      shown("rematch", { species = "CYNDAQUIL", name = "EMBER", place = "VIOLET CITY", date = "18 OCT 2026",
+        play = "2:40", foe = "FALKNER" }) }
+    local view = screen == "achievements_moment" and "moment" or "moments"
+    if screen == "achievements_moments_empty" then list = {} end
+    local model = { view = view, page = 1, pages = screen == "achievements_moments_pages" and 4 or 1,
+      moments = list, moment = list[1], drawPokemon = drawPokemon,
+      momentsUnseen = screen == "achievements_moments_unseen" }
+    if screen == "achievements_moments_unseen" then model.view, model.goals, model.mode = "goals", {}, "spoiler" end
+    theme:headerBar(translate("ACHIEVEMENTS"), true, false)
+    theme:headerClock("20:04", "NITE", 139, 72, 6)
+    theme:battery(214, 8, 4, nil, true, theme.colors.ink, theme.colors.greenLight)
+    theme:achievements(model)
+    return
+  end
   local inside = screen == "achievements_location_inside"
   local entrance = screen ~= "achievements_location_outdoor" and { mapId = "CITY", x = 7, y = 9 } or nil
   local location = { label = "NPC TRADE", mapId = "HOUSE_5F", x = 3, y = 4 }

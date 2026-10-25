@@ -141,7 +141,8 @@ return function(
     elseif not hgss and (session.page == "HOME" or session.page == "STORE"
         or session.page == "STEPS" or session.page == "POKEDEX" or session.page == "BAG"
         or session.page == "ACHIEVEMENTS" or session.page == "NOTES" or session.page == "PSS"
-        or session.page == "DAYCARE" or session.page == "CALENDAR") then
+        or session.page == "DAYCARE" or session.page == "CALENDAR"
+        or session.page == "SHINY") then
       session.page = "MAP"
     elseif hgss and (session.page == "GUIDE" or session.page == "AREA") then
       session.page = "LOCAL"

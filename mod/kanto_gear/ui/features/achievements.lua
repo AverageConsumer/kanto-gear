@@ -279,18 +279,25 @@ return function(H, G, translate, format)
       return
     end
     local view, area = model.view, model.area
-    if view == "goals" or view == "album" then
-      for i, tab in ipairs({ { "GOALS", "goals" }, { "STAMP BOOK", "album" } }) do
-        local x = 6 + (i - 1) * 117
-        hit(x, 34, 111, 18, "view", tab[2])
+    if view == "goals" or view == "album" or view == "moments" then
+      for i, tab in ipairs({ { "GOALS", "goals" }, { "STAMP BOOK", "album" }, { "MOMENTS", "moments" } }) do
+        local x = 6 + (i - 1) * 77
+        local seat = self.v4AchievementTabLayout and self:v4AchievementTabLayout()[i]
+        hit(seat and seat.x or x, 34, seat and seat.w or 74, 18, "view", tab[2])
         if not self.v4AchievementTabs then
           if view == tab[2] then
-            self:panel(x, 34, 111, 18, false); rect(x + 5, 49, 101, 2, accent)
+            self:panel(x, 34, 74, 18, false); rect(x + 5, 49, 64, 2, accent)
           end
-          label(translate(tab[1]), x, 35, 111, 12, view == tab[2] and accent or quiet, true)
+          label(translate(tab[1]), x, 35, 74, 12, view == tab[2] and accent or quiet, true)
+          if tab[2] == "moments" and model.momentsUnseen and view ~= "moments" and self.homeUnreadDot then
+            self:homeUnreadDot(x, 34, 74)
+          end
         end
       end
-      if self.v4AchievementTabs then self:v4AchievementTabs(view) end
+      if self.v4AchievementTabs then self:v4AchievementTabs(view, model.momentsUnseen) end
+    end
+    if (view == "moments" or view == "moment") and self.momentsView then
+      return self:momentsView(model, { hit = hit, card = card, label = label, name = name })
     end
     if view == "goals" and #(model.goals or {}) > 0 then
       for i, goal in ipairs(model.goals) do

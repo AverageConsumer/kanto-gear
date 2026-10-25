@@ -5,6 +5,7 @@ return function(
 )
   -- Game path [Gen 3 / FRLG]: save.created precedes field entry, and FRLG Continue may replay Quest Log before the session is ready for tool storage.
   function displayRuntime.reloadSavedUi()
+    if displayRuntime.resetNotices then displayRuntime.resetNotices() end
     if displayRuntime.gen3 then displayRuntime.gen3:clearEncounterPreviews() end
     session.toolArmed = nil
     -- Gen 3's created event precedes _enterField; Continue can first replay
@@ -25,6 +26,8 @@ return function(
       displayRuntime.gen3:syncStorageIdentity()
       displayRuntime.gen3BoundSession = displayRuntime.gen3.session
     end
+    displayRuntime.bindShinyHunt()
+    if displayRuntime.bindMoments then displayRuntime.bindMoments() end
     displayRuntime.recentItem:bind(session.game.save)
     displayRuntime.resetAchievements()
     displayRuntime.pokedex.data = nil

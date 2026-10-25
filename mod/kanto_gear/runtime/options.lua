@@ -207,6 +207,45 @@ return function(
       type = "toggle", default = false, visible_if = {
         key = "theme_v3", one_of = { "hgss", "hgss_dark", "hgss_auto", "cgear", "cgear_dark", "cgear_auto" },
       } },
+    { key = "notifications", label = "NOTIFICATIONS",
+      type = "toggle", default = true },
+    { key = "notification_sound", label = "NOTIFICATION SOUND",
+      type = "toggle", default = true, visible_if = {
+        key = "notifications", equals = true,
+      } },
+    -- What, how and when: one switch per area, then timing and placement.
+    { key = "notice_shiny", label = "SHINY HUNT", type = "choice", default = "full",
+      choices = {
+        { "WITH SOUND", "full" }, { "SILENT", "silent" }, { "DOT ONLY", "dot" }, { "OFF", "off" },
+      } },
+    { key = "notice_moments", label = "MOMENTS", type = "choice", default = "full",
+      choices = {
+        { "WITH SOUND", "full" }, { "SILENT", "silent" }, { "DOT ONLY", "dot" }, { "OFF", "off" },
+      } },
+    { key = "notice_daycare", label = "DAY-CARE", type = "choice", default = "full",
+      choices = {
+        { "WITH SOUND", "full" }, { "SILENT", "silent" }, { "DOT ONLY", "dot" }, { "OFF", "off" },
+      } },
+    { key = "notice_calendar", label = "CALENDAR", type = "choice", default = "silent",
+      choices = {
+        { "WITH SOUND", "full" }, { "SILENT", "silent" }, { "DOT ONLY", "dot" }, { "OFF", "off" },
+      } },
+    { key = "notice_stamps", label = "STAMPS", type = "choice", default = "full",
+      choices = {
+        { "WITH SOUND", "full" }, { "SILENT", "silent" }, { "DOT ONLY", "dot" }, { "OFF", "off" },
+      } },
+    { key = "notice_shiny_timing", label = "SHINY CHIME", type = "choice", default = "now",
+      choices = { { "AT ONCE", "now" }, { "WITH CARD", "after" } }, visible_if = {
+        key = "notifications", equals = true,
+      } },
+    { key = "notice_duration", label = "CARD TIME", type = "choice", default = "normal",
+      choices = { { "SHORT", "short" }, { "NORMAL", "normal" }, { "LONG", "long" } }, visible_if = {
+        key = "notifications", equals = true,
+      } },
+    { key = "notice_where", label = "GEAR HIDDEN", type = "choice", default = "over",
+      choices = { { "OVER GAME", "over" }, { "WAIT", "wait" } }, visible_if = {
+        key = "notifications", equals = true,
+      } },
   }, Discovery.initialPolicy)
 
   -- Host path [all games]: stock option menus lack Gear visibility/reset descriptors; publish a compatible copy while preserving the richer Gear schema.

@@ -227,6 +227,7 @@ return function(
       daycare = (needed.daycare or needed.daycare_small) and displayRuntime.daycareModel() or nil,
       calendar = (needed.calendar or needed.calendar_small) and displayRuntime.calendarModel
         and displayRuntime.calendarModel() or nil,
+      shiny = (needed.shiny or needed.shiny_small) and displayRuntime.shinyHuntModel() or nil,
       drawPokemon = function(view, x, y, size, fainted)
         local mon = party[view and view.slot or 1]
         if not mon then return end
@@ -284,6 +285,14 @@ return function(
     header(THEME:translate(home.library and "ADD TO HOME"
       or home.editing and "EDIT HOME" or "SILPH LINK"), home.library == true)
     local tiles, slots = displayRuntime.homePageElements()
+    -- Apps and widgets with unseen news carry a dot until opened.
+    local unreadTiles = {}
+    for _, tile in ipairs(tiles or {}) do
+      local surface = displayRuntime.homeCatalog.surfaces[tile.id]
+      if surface and displayRuntime.noticeUnread and displayRuntime.noticeUnread(surface.package) then
+        unreadTiles[tile.id] = true
+      end
+    end
     local needed = {}
     for _, tile in ipairs(tiles or {}) do
       if tile.widget then needed[tile.widget] = true end
@@ -293,7 +302,7 @@ return function(
     local explorer = overview
       and displayRuntime.perf:call("home_explorer", displayRuntime.explorerModel, overview, true) or {}
     local model = {
-      page = home.page, pages = pages, tiles = tiles, slots = slots,
+      page = home.page, pages = pages, tiles = tiles, slots = slots, unreadTiles = unreadTiles,
       help = displayRuntime.homeHelpActive(), editing = home.editing,
       dragging = home.swapSource, steps = assist("journey_stats") and compactSteps(session.steps) or "--",
       route = explorer.route or "UNKNOWN AREA",

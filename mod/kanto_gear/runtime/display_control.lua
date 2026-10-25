@@ -268,6 +268,7 @@ return function(
     local gen1 = not displayRuntime.gen3 and not (session.game.save and session.game.save.generation == 2)
     displayRuntime.homeCatalog.surfaces.daycare_small_widget.hidden = gen1
     if displayRuntime.applyCalendarSupport then displayRuntime.applyCalendarSupport() end
+    displayRuntime.applyShinyHuntSupport()
     displayRuntime.applyDeviceSupport()
     -- third-party store modules decide their availability for this game
     displayRuntime.gearModules.applyAvailability({
@@ -285,6 +286,9 @@ return function(
       displayRuntime.gen3:syncStorageIdentity()
       displayRuntime.gen3BoundSession = displayRuntime.gen3.session
     end
+    if displayRuntime.resetNotices then displayRuntime.resetNotices() end
+    displayRuntime.bindShinyHunt()
+    if displayRuntime.bindMoments then displayRuntime.bindMoments() end
     displayRuntime.recentItem:bind(session.game.save)
     displayRuntime.resetAchievements()
     THEME.storedTheme = mod.options:get("theme_v3")

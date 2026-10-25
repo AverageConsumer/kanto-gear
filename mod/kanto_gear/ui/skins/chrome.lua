@@ -211,7 +211,7 @@ return function(H, ui, K)
     POKEDEX = "e04838", TRAINER = "3878d0", STEPS = "3ea04c", BAG = "d88a18",
     STORE = "d84860", NOTES = "c88a20", ACHIEVEMENTS = "c89a18", SETTINGS = "5a6c88",
     TOOLS = "d88a18", MAP = "3878d0", LOCAL = "3878d0", PSS = "4a68c8",
-    DAYCARE = "d85878", CALENDAR = "3878d0",
+    DAYCARE = "d85878", CALENDAR = "3878d0", SHINY = "e0a020",
   }
   local tintCache = {}
   -- Every app wears its own colour on the header plate; Home keeps the theme.
@@ -824,6 +824,44 @@ return function(H, ui, K)
     RRrows(x + 1, y + 1 + off, w - 2, hh, r - 1, 0, floor(hh * 0.45), a.L)
     R(x + r, y + 2 + off, w - 2 * r, 1, a.Hi)
     return off
+  end
+
+  ---------------------------------------------------------------------------
+  -- Large counter digits (the quantity well's face); the regular face stands
+  -- in when the large one lacks a glyph.
+  ---------------------------------------------------------------------------
+  local function largeFace(value)
+    local font = ui.largeFont
+    if font and (not font.hasGlyphs or font:hasGlyphs(value)) then return font end
+  end
+  function H:v4LargeWidth(value)
+    value = tostring(value or "")
+    local font = largeFace(value)
+    if font then return font:getWidth(value) end
+    return self:partyInfoWidth(value)
+  end
+  function H:v4LargeHeight()
+    local font = ui.largeFont
+    return font and font:getHeight() or 10
+  end
+  function H:v4LargeFits(value, width)
+    return largeFace(tostring(value or "")) ~= nil and self:v4LargeWidth(value) <= width
+  end
+  function H:v4Large(value, x, y, tint, width, align)
+    value = tostring(value or "")
+    local font = largeFace(value)
+    local w = self:v4LargeWidth(value)
+    if width and align == "center" then x = x + floor((width - w) / 2)
+    elseif width and align == "right" then x = x + width - w end
+    if not font then
+      self:partyInfo(value, x, y + floor((self:v4LargeHeight() - 10) / 2), tint)
+      return w
+    end
+    local G = graphics()
+    local previous = G.getFont()
+    G.setFont(font); setc(tint); G.print(value, floor(x), floor(y))
+    if previous then G.setFont(previous) end
+    return w
   end
 
   K.WHITE = WHITE

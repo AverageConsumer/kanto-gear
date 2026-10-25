@@ -118,7 +118,10 @@ do
 end
 T.eq(display.storeEntries()[1].id, "pss", "PSS is visible on the first Apps page")
 T.eq(display.storeTodayEntries()[1].id, "pss", "PSS is featured when the Store opens")
+T.eq(display.storeWidgetSummary().label, "SHINY HUNT", "Store widget promotes the new Shiny Hunt until it is installed")
+T.check(display.setPackageInstalled("shiny", true), "Shiny Hunt installs")
 T.eq(display.storeWidgetSummary().label, "APPS", "Store widget shows the catalogue when no app is new")
+T.check(display.setPackageInstalled("shiny", false), "Shiny Hunt uninstalls")
 do
   local renderer = theme.hgss
   local originalText, originalBar = renderer.partyInfo, renderer.expBar
@@ -325,7 +328,8 @@ do
   display.loadHome()
   T.check(not home.help, "durable acknowledgement survives a stale game-save reload")
   display.openHomeApp("settings")
-  display.settings.category = 6
+  -- System is the last settings tab.
+  display.settings.category = #display.settingsCategories
   T.eq(display.settingsModel().rows[1].action, "home_help",
     "System settings exposes the explanation above the reset actions")
   display.tapSettings(30, 80)
@@ -841,8 +845,9 @@ T.eq(display.settings.option, nil, "reopening Settings clears its previous expla
 T.eq(display.settings.direct, nil, "reopening Settings clears direct-navigation state")
 T.eq(display.settings.choicePage, 1, "reopening Settings resets its choice pager")
 local settings = display.settingsModel()
-T.eq(#(settings.tabs or settings.categories), 6,
-  "Settings groups the existing options into six readable sections")
+T.eq(#(settings.tabs or settings.categories), 7,
+  "Settings groups the existing options into seven readable sections")
+T.eq((settings.tabs or settings.categories)[6].id, "notifications", "Notifications have their own section")
 display.settings.category, display.settings.page = 5, 1
 settings = display.settingsModel()
 local keyboardRow

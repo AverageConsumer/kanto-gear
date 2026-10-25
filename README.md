@@ -72,9 +72,10 @@ contest, Frontier and other native screens remain on the game screen.
 | **Party** | Check HP, status, experience, types, held items and moves. Inspect full partner summaries and give or take held items where the game supports them. |
 | **Bag** | Browse pockets, inspect items and use the actions available in the current context, including Use, Give and Toss. A recent-item shortcut stays available while you still own that item. |
 | **Pokédex** | Search your research, read complete entries, check evolution targets and conditions, and find habitats with encounter methods and access requirements. Native cry, size and form pages are adapted where supported. |
-| **Stamps** | Track each location's trainers, items, hidden finds and Pokémon. Open remaining goals to see their location; indoor finds point to the building entrance first, with an option to look inside. |
+| **Stamps** | Track each location's trainers, items, hidden finds and Pokémon. Open remaining goals to see their location; indoor finds point to the building entrance first, with an option to look inside. A **Moments** tab keeps small stories from your playthrough — a win with 1 HP left, the last ball, a first shiny, a rematch won — plus a few that belong to each game, such as Johto's red Gyarados or Hoenn's Feebas. Moments stay hidden until they happen and show who, where and when. |
 | **Notes** | Keep general or location-linked text notes, checklists and colored drawings. QWERTY and QWERTZ are available. |
 | **Day-Care** | Check boarded Pokémon, current levels, withdrawal fees and moves at pickup. In Gen 2 and 3, also check breeding compatibility, waiting eggs and party eggs. FireRed/LeafGreen keep the Route 5 boarder separate from the Four Island pair. |
+| **Shiny Hunt** | Count encounters toward a shiny automatically in Gen 2 and 3: wild battles and soft-reset statics of your target, or every hatch in an egg hunt. See the cumulative probability for your encounter count, the 50–99% milestones, time and pace, where the target appears here, and Gen 2's 1-in-64 boost from a shiny Day-Care parent. Other shinies are logged as phases; counters live outside the save, so soft resets keep them. |
 | **Calendar** | In Gen 2, browse weekly visitors, time windows, ready rematches and gifts. Hoenn shows the current game day with a 24-hour clock, tides, upcoming berry harvests and ready activities. FireRed/LeafGreen show VS Seeker charge and ready trainers. Timing follows the game's clock. |
 | **Pokégear** | Open the original device in Gold, Silver and Crystal on the touch screen, with the cards you have received. Keep walking on the game screen while using its clock, map, phone or radio below. |
 | **PokéNav** | Open the original device in Ruby, Sapphire and Emerald below while the game keeps its normal controls above. Available features follow your progress in the game. |
@@ -85,13 +86,26 @@ contest, Frontier and other native screens remain on the game screen.
 | **Silph Store** | Manage your installed Gear apps and discover what to add to Home. Compatible apps from other installed Recomp mods can appear here too. |
 
 Home widgets cover the live Explorer map, lead partner, whole team, Pokédex,
-region map, Bag, Trainer Card, steps, Stamps, Silph Connect, Day-Care, Calendar
-and individual field tools. The Calendar is available in Gen 2 and 3; the egg
-widget is available in games that support breeding. Egg contents, progress,
-breeding odds and event schedules follow your information settings.
+region map, Bag, Trainer Card, steps, Stamps, Silph Connect, Day-Care, Calendar,
+Shiny Hunt and individual field tools. The Calendar and Shiny Hunt are available
+in Gen 2 and 3; the egg widget is available in games that support breeding.
+Egg contents, progress, breeding odds and event schedules follow your
+information settings.
 Installing Pokégear or PokéNav also offers optional widgets that open an
 individual card or main-menu feature directly. Add them from Home's Widgets
 tab; each shortcut respects the game's device and feature unlocks.
+
+### Notifications
+
+Short Gear messages tell you when something happens: a shiny, a new moment,
+an egg waiting at the Day-Care, a boarder that grew, a visitor or rematch on
+the Calendar, or a silver or gold stamp. They wait for battles and menus,
+chime with the game's sound-effect volume and leave a dot on the app until
+you open it. When the Gear is hidden on one screen, they show over the game.
+Tap a message to open it, or swipe it away. The Notifications tab in
+Settings sets each area to sound, silent, dot only or off, and chooses the
+shiny chime's timing, how long messages stay and whether they wait for the
+Gear.
 
 <p align="center">
   <img src="screenshots/4.0-explorer-layer-pokegear-light.png" width="49%" alt="Explorer map, encounter cards and progress tabs">

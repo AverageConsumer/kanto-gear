@@ -79,7 +79,7 @@ local function exercise(run, display)
   api.options:set("info_level", "enhanced")
   display.settings.category, display.settings.option, display.settings.selected = nil, nil, nil
   T.eq(display.settingsModel().tab, 1, "Settings opens on its first tab instead of a submenu list")
-  display.tapSettings(7 + 3 * 38 + 18, 42)
+  display.tapSettings(9 + 3 * 32 + 15, 42)
   T.eq(display.settings.category, 4, "the Exploration tab opens with one tap")
   display.tapSettings(30, 80)
   T.eq(display.settingsModel().selected, "info_level", "the first tap selects and explains the setting")

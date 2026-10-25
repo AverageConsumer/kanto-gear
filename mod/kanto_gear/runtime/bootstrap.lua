@@ -292,6 +292,16 @@ return function(
   assert(load(mod:read("ui/features/daycare.lua"), "@kanto_gear/ui/features/daycare.lua"))()(
     THEME.hgss, render.G, function(value) return THEME:translate(value) end,
     function(value, ...) return THEME:format(value, ...) end)
+  displayRuntime.Notices = assert(load(mod:read("features/notices.lua"), "@kanto_gear/features/notices.lua"))()
+  assert(load(mod:read("ui/features/notices.lua"), "@kanto_gear/ui/features/notices.lua"))()(
+    THEME.hgss, render.G, function(value) return THEME:translate(value) end)
+  displayRuntime.ShinyHunt = assert(load(mod:read("features/shiny_hunt.lua"), "@kanto_gear/features/shiny_hunt.lua"))()
+  displayRuntime.Moments = assert(load(mod:read("features/moments.lua"), "@kanto_gear/features/moments.lua"))()
+  assert(load(mod:read("ui/features/moments.lua"), "@kanto_gear/ui/features/moments.lua"))()(
+    THEME.hgss, render.G, function(value) return THEME:translate(value) end)
+  assert(load(mod:read("ui/features/shiny_hunt.lua"), "@kanto_gear/ui/features/shiny_hunt.lua"))()(
+    THEME.hgss, render.G, function(value) return THEME:translate(value) end,
+    function(value, ...) return THEME:format(value, ...) end)
   displayRuntime.Notes = assert(load(mod:read("features/notes.lua"), "@kanto_gear/features/notes.lua"))()
   displayRuntime.Pss = assert(load(mod:read("features/pss.lua"), "@kanto_gear/features/pss.lua"))()
   assert(load(mod:read("ui/features/pss.lua"), "@kanto_gear/ui/features/pss.lua"))()(
@@ -326,6 +336,7 @@ return function(
       pss = { installed = false },
       daycare = { installed = false },
       calendar = { installed = false },
+      shiny = { installed = false },
     },
     surfaces = {
       explorer_widget = { package = "explorer", kind = "widget",
@@ -392,6 +403,12 @@ return function(
         widget = "calendar_small", columns = 5, label = "TODAY" },
       calendar_app = { package = "calendar", kind = "app", columns = 3,
         icon = "calendar", accent = "blue", label = "CALENDAR" },
+      shiny_widget = { package = "shiny", kind = "widget",
+        widget = "shiny", columns = 12, label = "SHINY HUNT" },
+      shiny_small_widget = { package = "shiny", kind = "widget",
+        widget = "shiny_small", columns = 5, label = "SHINY" },
+      shiny_app = { package = "shiny", kind = "app", columns = 3,
+        icon = "shiny", accent = "amber", label = "SHINY HUNT" },
     },
   }
   displayRuntime.deviceShortcuts = assert(load(mod:read("core/device_shortcuts.lua"),
@@ -428,6 +445,10 @@ return function(
       category = "SCHEDULE", target = "CALENDAR",
       description = { "WEEKDAY VISITORS AND EVENTS.",
         "REMATCHES, GIFTS AND BERRIES.", "WHAT YOU CAN DO TODAY." } },
+    { id = "shiny", icon = "shiny", label = "SHINY HUNT",
+      category = "COLLECTION", target = "SHINY", new = true,
+      description = { "COUNTS EVERY ENCOUNTER FOR YOU.",
+        "LIVE ODDS, PHASES AND A SHINY LOG.", "SOFT RESETS KEEP YOUR COUNT." } },
     { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
       category = "ADVENTURE", target = "ACHIEVEMENTS",
       description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
@@ -506,6 +527,11 @@ return function(
     table.insert(displayRuntime.settingsCategories[4].keys, Discovery.key(row[1]))
   end
   table.insert(displayRuntime.settingsCategories[6].actions, 2, "display_setup")
+  -- Notifications: what each area may show, how it sounds and when it comes.
+  table.insert(displayRuntime.settingsCategories, 6, { id = "notifications", label = "NOTIFICATIONS",
+    detail = "WHAT, HOW AND WHEN", accent = "amber", keys = { "notifications", "notification_sound",
+      "notice_shiny", "notice_moments", "notice_daycare", "notice_calendar", "notice_stamps",
+      "notice_shiny_timing", "notice_duration", "notice_where" } })
   displayRuntime.defaultHomeTiles = {
     { id = "explorer_widget", page = 1, column = 1, row = 1 },
     { id = "party_widget", page = 1, column = 8, row = 1 },

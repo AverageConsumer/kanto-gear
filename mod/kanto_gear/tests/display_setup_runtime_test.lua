@@ -141,7 +141,7 @@ T.eq(api.options:get("display_mode"),"separate","timeout cannot overwrite the sa
 frame(); input:sourcePress("b","test"); frame(); input:sourceRelease("b","test"); frame(); frame()
 T.eq(api.options:get("display_mode"),"combined","B can keep the safe one-screen fallback")
 idle=false
-display.settings.category,display.settings.option=6,nil
+display.settings.category,display.settings.option=#display.settingsCategories,nil
 local reopen
 for _,row in ipairs(display.settingsModel().rows) do if row.action=="display_setup" then reopen=row end end
 T.check(reopen and reopen.label=="DISPLAY SETUP" and reopen.value=="OPEN","System exposes a non-destructive setup action")

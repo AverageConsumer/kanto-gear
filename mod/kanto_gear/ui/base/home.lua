@@ -538,6 +538,10 @@ return function(H, ui, draw, icons)
         self:homeCalendar(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "calendar_small" and self.homeCalendarSmall then
         self:homeCalendarSmall(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "shiny" and self.homeShinyHunt then
+        self:homeShinyHunt(model, tile, selected)
+      elseif tile.kind == "widget" and tile.widget == "shiny_small" and self.homeShinyHuntSmall then
+        self:homeShinyHuntSmall(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "steps" then
         self:homeSteps(model, tile, selected)
       elseif tile.kind == "widget" and tile.widget == "tool" then
@@ -548,6 +552,9 @@ return function(H, ui, draw, icons)
           tile.label or tile.id or "APP",
           tile.widget == "device" and self:v4ShortcutIcon(tile.icon) or icon[tile.icon or tile.id]
             or icon.tools, selected)
+      end
+      if not model.editing and model.unreadTiles and model.unreadTiles[tile.id] and self.homeUnreadDot then
+        self:homeUnreadDot(x, y, w)
       end
       if model.editing then
         self:homeEditOverlay(tile, model.dragging == tile.id)

@@ -124,7 +124,10 @@ local requested = {}
 local mainSource
 for _, filename in ipairs({ "main.lua", "ui/base/init.lua", "ui/features/achievements.lua", "ui/features/notes.lua", "features/notes.lua", "ui/features/pss.lua",
     "features/daycare.lua", "ui/features/daycare.lua", "runtime/daycare.lua", "features/calendar.lua",
-    "ui/features/calendar.lua", "runtime/calendar.lua", "runtime/calendar_gen3.lua" }) do
+    "ui/features/calendar.lua", "runtime/calendar.lua", "runtime/calendar_gen3.lua",
+    "features/shiny_hunt.lua", "ui/features/shiny_hunt.lua", "runtime/shiny_hunt.lua",
+    "features/notices.lua", "ui/features/notices.lua", "runtime/notices.lua",
+    "features/moments.lua", "ui/features/moments.lua", "runtime/moments.lua", "runtime/notice_sources.lua" }) do
   local file = assert(io.open(root .. "/" .. filename, "rb"))
   local source = file:read("*a")
   file:close()
@@ -172,6 +175,27 @@ end
 
 -- Conditional translation arguments are not visible to the literal-callsite scan.
 requested["NO SPACE"] = true
+for _, key in ipairs({ "AFTER %s EGGS", "AFTER %s ENCOUNTERS", "SHINY DITTO BOARDING: EGGS 1/%d",
+    "SHINY PARENT BOARDING: EGGS 1/%d", "AUTO COUNT", "PAUSED", "EGGS", "RESETS", "ENCOUNTERS",
+    "TARGET", "PHASE", "LUCKY", "HUNT", "ODDS", "LOG", "HUNT NOT SAVED", "ANYTHING", "LAST MET",
+    "THIS AREA", "YOUR PARTY", "EGG", "SHINY HUNT", "SHINY", "COLLECTION",
+    "COUNTS EVERY ENCOUNTER FOR YOU.", "LIVE ODDS, PHASES AND A SHINY LOG.",
+    "SOFT RESETS KEEP YOUR COUNT.", "SHINY PHASE!", "NOTIFICATIONS", "NOTIFICATION SOUND",
+    "OPEN RIGHT NOW", "NOW OPEN", "GOLD STAMP!", "SILVER STAMP!", "WITH SOUND", "SILENT", "DOT ONLY",
+    "SHINY CHIME", "AT ONCE", "WITH CARD", "CARD TIME", "SHORT", "NORMAL", "LONG", "GEAR HIDDEN",
+    "OVER GAME", "WAIT", "WHAT, HOW AND WHEN" }) do
+  requested[key] = true
+end
+
+-- Moments catalog titles, lines, detail rows and months are looked up by value.
+do
+  local Moments = loadModule("features/moments.lua")
+  for _, entry in ipairs(Moments.CATALOG) do requested[entry.title], requested[entry.line] = true, true end
+  for _, key in ipairs({ "POKEMON", "OPPONENT", "PLACE", "DATE", "PLAY TIME", "JAN", "FEB", "MAR", "APR",
+      "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" }) do
+    requested[key] = true
+  end
+end
 
 -- Shared dynamic arrays are not visible to the literal-callsite scan.
 local theme = assert(loadfile(root .. "/tests/support/core.lua"))().THEME

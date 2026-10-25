@@ -62,6 +62,7 @@ return function(
   end
 
   local function swipe(dx, down)
+    if displayRuntime.noticeSwipe and displayRuntime.noticeSwipe(down) then return end
     if session.battle and currentBattleUIMode() == "info" then return end
     if displayRuntime.pageChoice(dx < 0 and 1 or -1) then return end
     if THEME.style == "hgss" and not session.moveInfo then
@@ -95,9 +96,13 @@ return function(
     if THEME.style == "hgss" and session.page == "ACHIEVEMENTS" then
       local state = displayRuntime.achievements
       if (down.y or 0) * THEME.hgssScale < 53
-          and (state.view == "album" or state.view == "goals") then
-        state.view, state.page = state.view == "album" and "goals" or "album", 1
-        session.dirty = true
+          and (state.view == "album" or state.view == "goals" or state.view == "moments") then
+        -- Goals, Stamp Book and Moments, in tab order.
+        if displayRuntime.cycleAchievementTabs then displayRuntime.cycleAchievementTabs(dx < 0 and 1 or -1)
+        else
+          state.view, state.page = state.view == "album" and "goals" or "album", 1
+          session.dirty = true
+        end
       else displayRuntime.cycleAchievements(dx < 0 and 1 or -1) end
       return
     end
@@ -166,6 +171,7 @@ return function(
   end
 
   local function swipeVertical(dy, down)
+    if displayRuntime.noticeSwipe and displayRuntime.noticeSwipe(down) then return end
     if session.battle and currentBattleUIMode() == "info" then return end
     if displayRuntime.pageChoice(dy < 0 and 1 or -1) then return end
     if displayRuntime.startMenu() then return end
