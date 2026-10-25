@@ -28,5 +28,6 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   mod.storage, mod.save = storage, save
   display.saveShinyHunt()
   T.eq(Json.encode(game.session), before, "moments and notices leave the native save unchanged")
+  assert(loadfile(path .. "/tests/support/notice_gestures.lua"))()(T,run,display)
 end
 dofile(path .. "/tests/gen3_fixture.lua")

@@ -376,6 +376,21 @@ return function(
   displayRuntime.primaryTouch = primaryTouch
 
   mod.hooks:wrap("input.pointer", function(next, pointerGame, event)
+    -- A captured finger remains ours when its card, output or screen changes.
+    -- Its release must never become a click on a newly exposed control.
+    if displayRuntime.noticeOwnsTouch and displayRuntime.noticeOwnsTouch("canvas") then
+      local action = ({ pressed = "down", released = "up", moved = "move", cancelled = "cancel" })[event.phase]
+      local rect = session.primaryBottomRect
+      if action then
+        if rect and event.x and event.y then
+          displayRuntime.noticeCanvasTouch(action, (event.x - rect.x) * 240 / rect.w,
+            (event.y - rect.y) * 216 / rect.h)
+        else displayRuntime.noticeCanvasTouch("cancel") end
+      end
+      return true
+    end
+    if displayRuntime.noticeOwnsTouch and displayRuntime.noticeOwnsTouch("game")
+        and displayRuntime.noticePointer(event) then return true end
     if moduleShown() then return next(pointerGame, event) end
     if displayRuntime.displaySetupPointer and displayRuntime.displaySetupPointer(event) then return true end
     if displayRuntime.phoneStatusPointer(event) then return true end

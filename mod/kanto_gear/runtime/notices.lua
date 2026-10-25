@@ -13,8 +13,14 @@ return function(
   local BANNER = { x = 6, y = 33, w = 228, h = 32 }
   displayRuntime.noticeRect = BANNER
   function displayRuntime.resetNotices()
+    local gesture = state.gesture
     for key in pairs(state) do state[key] = nil end
     for key, value in pairs(Notices.new()) do state[key] = value end
+    if gesture then
+      gesture.active = false
+      gesture.card.heldAt = nil
+      state.gesture = gesture
+    end
   end
 
   local function enabled() return mod.options:get("notifications") ~= false end
@@ -133,6 +139,7 @@ return function(
     if displayRuntime.gearModules and displayRuntime.gearModules.anyShown() then return false end
     if session.pendingFly or session.pendingAction or session.fieldChoice then return false end
     if displayRuntime.notesShown and displayRuntime.notesShown() then return false end
+    if displayRuntime.homeHelpActive and displayRuntime.homeHelpActive() then return false end
     -- "Wait for the Gear": nothing shows while the Gear is out of view.
     if not overGame() and state.hiddenAt and clock() - state.hiddenAt < 0.25 then return false end
     local mode = screenState()
@@ -221,17 +228,26 @@ return function(
   end
 
   local function paint(card, now)
+    local motion = not displayRuntime.motionEnabled or displayRuntime.motionEnabled()
+    local dx, dy = Notices.offset(card, now, BANNER.w, BANNER.h, 216 - BANNER.y + 8, motion)
     local view = { title = card.title, detail = card.detail, species = card.species, icon = card.icon,
       shiny = card.shiny, drawIcon = card.drawIcon,
       tone = card.tone, presence = presence(card, now), closing = card.closing,
+      offsetX = dx, offsetY = dy,
       drawPokemon = displayRuntime.shinyDrawPokemon }
     if view.presence <= 0 then return false end
+    local theme, gesture = THEME.hgss, state.gesture
+    local tx, ty, enabled = theme.touchX, theme.touchY, theme.touchEnabled
+    local pressed = gesture and gesture.card == card and gesture.active and not gesture.dragging
+    theme:setTouch(pressed and gesture.x, pressed and gesture.y, pressed or false)
     THEME.hgss:noticeBanner(view, BANNER.x, BANNER.y, BANNER.w, BANNER.h)
+    theme:setTouch(tx, ty, enabled)
     return true
   end
 
   -- Inside drawContents, in the canvas's 240x216 space.
   function displayRuntime.drawNoticeLayer()
+    state.overRect = nil
     if THEME.style ~= "hgss" or not enabled() or not free() then return end
     local card = state.current
     if not card then return end
@@ -264,24 +280,110 @@ return function(
     local ok = pcall(paint, card, now)
     THEME.hgss:setTouch(touchX, touchY, touchOn)
     render.G.pop()
-    if ok then state.overRect = { x = x, y = y, w = w, h = h, card = card } end
+    if ok then state.overRect = { x = x, y = y, w = w, h = h, card = card,
+      scale = scale, originX = x - BANNER.x * scale, originY = y - BANNER.y * scale } end
   end
 
   ----------------------------------------------------------------------------
   -- Touch
   ----------------------------------------------------------------------------
+  local function insideCard(card, x, y)
+    if not (card and x and y) or presence(card, clock()) <= 0 then return false end
+    local motion = not displayRuntime.motionEnabled or displayRuntime.motionEnabled()
+    local dx, dy = Notices.offset(card, clock(), BANNER.w, BANNER.h, 216 - BANNER.y + 8, motion)
+    dx, dy = math.floor(dx + 0.5), math.floor(dy + 0.5)
+    return x >= math.max(0, BANNER.x + dx) and x < math.min(240, BANNER.x + dx + BANNER.w)
+      and y >= math.max(BANNER.y - 3, BANNER.y + dy) and y < math.min(216, BANNER.y + dy + BANNER.h)
+  end
+
+  local function releaseHold(card)
+    if card.heldAt then
+      local finish = math.min(clock(), state.pausedAt or clock())
+      card.shownAt = card.shownAt + math.max(0, finish - card.heldAt)
+      card.heldAt = nil
+    end
+  end
+
+  local function returnCard(card)
+    releaseHold(card)
+    card.returning = { at = clock(), x = card.dragX or 0, y = card.dragY or 0 }
+    card.dragX, card.dragY = nil, nil
+  end
+
+  local function gestureTouch(action, x, y, surface, transform)
+    local gesture = state.gesture
+    if gesture then
+      if gesture.surface ~= surface then return false end
+      local card = gesture.card
+      if THEME.style ~= "hgss" or not enabled() or not free() or state.current ~= card or card.closing then
+        if gesture.active then returnCard(card) end
+        gesture.active = false
+      end
+      if gesture.active and x and y and (action == "move" or action == "moved" or action == "up") then
+        local dx, dy = x - gesture.x, y - gesture.y
+        gesture.distance = math.max(gesture.distance or 0, math.abs(dx), math.abs(dy))
+        if not gesture.axis and gesture.distance > 6 then
+          gesture.axis = math.abs(dx) >= math.abs(dy) and "x" or "y"
+        end
+        gesture.dragging = gesture.axis ~= nil
+        card.dragX, card.dragY = gesture.axis == "x" and dx or 0, gesture.axis == "y" and dy or 0
+      end
+      if action == "up" or action == "cancel" then
+        releaseHold(card)
+        if gesture.active and action == "up" then
+          local dx, dy = card.dragX or 0, card.dragY or 0
+          if math.max(math.abs(dx), math.abs(dy)) >= BANNER.h / 3 then
+            Notices.dismiss(state, clock(), dx, dy)
+          elseif (gesture.distance or 0) <= 6 and insideCard(card, x, y) then
+            if surface == "game" and displayRuntime.revealGear then displayRuntime.revealGear() end
+            open(card)
+            if displayRuntime.haptic then displayRuntime.haptic("open") end
+          else returnCard(card) end
+        elseif gesture.active then returnCard(card) end
+        state.gesture = nil
+        if surface == "canvas" and session.touchDown and session.touchDown.notice then session.touchDown = nil end
+      end
+      session.dirty = true
+      return true
+    end
+    if action ~= "down" and action ~= "tap" then return false end
+    if THEME.style ~= "hgss" or not enabled() or not free() then return false end
+    local card = state.current
+    if not insideCard(card, x, y) then return false end
+    local active = not card.closing and presence(card, clock()) >= 1
+    if action == "tap" then
+      if active then open(card) end
+      return true
+    end
+    state.gesture = { card = card, surface = surface, x = x, y = y, active = active,
+      transform = transform }
+    if active then
+      card.heldAt, card.dragX, card.dragY, card.returning = clock(), 0, 0, nil
+    end
+    if surface == "canvas" then
+      session.touchDown = { notice = true, at = clock() }
+    end
+    session.dirty = true
+    return true
+  end
+
+  function displayRuntime.noticeCanvasTouch(action, x, y)
+    -- Save replacement can clear the card before the original finger lifts.
+    if session.touchDown and session.touchDown.notice and not state.gesture then
+      if action == "up" or action == "cancel" then session.touchDown = nil end
+      return true
+    end
+    return gestureTouch(action, x, y, "canvas")
+  end
+
+  function displayRuntime.noticeOwnsTouch(surface)
+    return state.gesture and state.gesture.surface == surface
+      or surface == "canvas" and session.touchDown and session.touchDown.notice or false
+  end
+
   -- A tap on the canvas card (base 160x144 coordinates).
   function displayRuntime.noticeTap(x, y)
-    if not enabled() or not free() then return false end
-    local card = state.current
-    if not card or card.closing or presence(card, clock()) < 0.5 then return false end
-    local hx, hy = x * THEME.hgssScale, y * THEME.hgssScale
-    if hx < BANNER.x or hx >= BANNER.x + BANNER.w or hy < BANNER.y or hy >= BANNER.y + BANNER.h then
-      return false
-    end
-    open(card)
-    if displayRuntime.haptic then displayRuntime.haptic("open") end
-    return true
+    return displayRuntime.noticeCanvasTouch("tap", x * THEME.hgssScale, y * THEME.hgssScale)
   end
 
   -- A swipe that starts on the canvas card sends it away (base 160x144).
@@ -301,36 +403,14 @@ return function(
   -- A pointer on the card drawn over the game: a tap brings the Gear up
   -- there, a drag sends the card away.
   function displayRuntime.noticePointer(event)
-    if not enabled() or not free() then
-      local captured = state.overDown ~= nil
-      if event and (event.phase == "released" or event.phase == "cancelled") then state.overDown = nil end
-      state.overRect = nil
-      return captured
-    end
-    local rect = state.overRect
-    if not (rect and event and event.x and event.y) then return false end
-    local inside = event.x >= rect.x and event.x < rect.x + rect.w
-      and event.y >= rect.y and event.y < rect.y + rect.h
-    if event.phase == "pressed" then
-      state.overDown = inside and { x = event.x, y = event.y } or nil
-      return inside
-    end
-    local down = state.overDown
-    if not down then return false end
-    if event.phase == "released" or event.phase == "cancelled" then
-      state.overDown = nil
-      local card = rect.card
-      if event.phase ~= "released" or state.current ~= card or card.closing then return true end
-      -- A quarter of the card's height counts as a drag.
-      local limit = math.max(6, rect.h / 4)
-      if math.abs(event.x - down.x) > limit or math.abs(event.y - down.y) > limit then
-        Notices.dismiss(state, clock())
-        session.dirty = true
-      elseif inside then
-        if displayRuntime.revealGear then displayRuntime.revealGear() end
-        open(card)
-      end
-    end
-    return true
+    if not event then return false end
+    local action = ({ pressed = "down", released = "up", moved = "move", cancelled = "cancel" })[event.phase]
+    if not action then return false end
+    local gesture = state.gesture
+    local rect = gesture and gesture.surface == "game" and gesture.transform or state.overRect
+    if not rect then return false end
+    local x = event.x and (event.x - rect.originX) / rect.scale
+    local y = event.y and (event.y - rect.originY) / rect.scale
+    return gestureTouch(action, x, y, "game", rect)
   end
 end

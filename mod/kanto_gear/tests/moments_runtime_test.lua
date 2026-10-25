@@ -35,6 +35,7 @@ local current
 mod.battle = { snapshot = function() return current end }
 run.loader.events:emit("game.ready", { game = game })
 local session, events = display.session, run.loader.events
+display.home.help, display.home.helpSeen = nil, true
 local theme = up(display.drawShinyHunt, "THEME").hgss
 T.check(type(display.moments) == "table" and display.moments.data.retro == true, "Moments bind with the playthrough")
 display.setPackageInstalled("achievements", true)

@@ -1,5 +1,5 @@
 -- The notice card and the unread dot. The card slides out from under the
--- header bar; its hit region is the runtime's fixed rectangle.
+-- header bar. Runtime and drawing share the animated card position.
 return function(H, G, translate)
   local floor, max = math.floor, math.max
   local WHITE = { 1, 1, 1, 1 }
@@ -20,11 +20,11 @@ return function(H, G, translate)
     local stripe = special and c.amber or c.green
     local p = max(0, math.min(1, view.presence or 1))
     -- Eased slide from behind the header; nothing paints above y - 3.
-    local eased = 1 - (1 - p) * (1 - p)
-    local offset = floor((1 - eased) * (h + 4) + 0.5)
+    local offset = floor((1 - p) ^ 2 * (h + 4) + 0.5)
     G.push("all")
-    clip(0, y - 3, 240, h + 8)
-    G.translate(0, -offset)
+    clip(0, y - 3, 240, 216 - (y - 3))
+    G.translate(floor((view.offsetX or 0) + 0.5),
+      view.offsetY and floor(view.offsetY + 0.5) or -offset)
     local pressed = self:beginPress(x, y, w, h, p >= 0.5 and not view.closing)
     self:v4Window(x, y, w, h, { radius = self:isCGear() and 3 or 5 })
     G.setColor(stripe); G.rectangle("fill", x + 2, y + 3, 3, h - 6)

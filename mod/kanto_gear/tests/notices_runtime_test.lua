@@ -50,6 +50,7 @@ T.eq(display.optionRow("notification_sound").default, true, "the chime is on by 
 
 display.setPackageInstalled("shiny", true)
 session.page = "HOME"
+display.home.help, display.home.helpSeen = nil, true
 
 -- A shiny in battle: chime now, card later.
 session.battle = { kind = "wild" }
@@ -94,7 +95,8 @@ now = now + 0.3
 T.check(display.noticeTap(120 / 1.5, 48 / 1.5), "a tap on the card is taken")
 T.eq(session.page, "SHINY", "the card opens Shiny Hunt")
 T.check(not display.noticeUnread("shiny"), "opening the app clears its dot")
-T.check(not display.noticeTap(120 / 1.5, 48 / 1.5) or display.notices.current == nil, "a dismissed card takes no second tap")
+display.noticeTap(120 / 1.5, 48 / 1.5)
+T.eq(session.page, "SHINY", "a closing card consumes touches without opening twice")
 
 -- A pointer on the card over the game is taken and opens the app too.
 session.page = "HOME"
@@ -106,6 +108,7 @@ display.notices.queue, display.notices.current = {}, nil
 display.notify({ key = "test", app = "shiny", page = "SHINY", title = "TEST" })
 now = now + 10
 display.noticeCard(now)
+now = now + 0.3
 display.drawNoticeOverGame({ x = 0, y = 0, w = 640, h = 576 })
 local rect = display.notices.overRect
 T.check(rect ~= nil, "the over-game card has a hit area")
@@ -139,4 +142,5 @@ T.eq(display.notify({ key = "off", app = "shiny", page = "SHINY", title = "OFF",
 T.eq(#played, before, "and play nothing")
 T.check(display.noticeUnread("shiny"), "the quiet dot still marks the app")
 
+assert(loadfile(path .. "/tests/support/notice_gestures.lua"))()(T,run,display)
 T.finish("Gear notices runtime")

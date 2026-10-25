@@ -43,6 +43,7 @@ mod.storage = { read = function() return nil end, write = function() return true
 run.loader.events:emit("game.ready", { game = game })
 local session, events = display.session, run.loader.events
 session.page = "HOME"
+display.home.help, display.home.helpSeen = nil, true
 local function clear() display.notices.current, display.notices.queue = nil, {} end
 local function find(key)
   local n = display.notices

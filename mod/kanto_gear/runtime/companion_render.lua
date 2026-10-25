@@ -106,7 +106,7 @@ return function(
   end
 
   function displayRuntime.pressTouch(mode, choice, touch, owned, blocked)
-    if blocked or mode == "loading"
+    if blocked or type(touch) == "table" and touch.notice or mode == "loading"
         or (mode == "textbox" and not choice and not owned)
         or (mode == "locked" and not owned) then
       return nil

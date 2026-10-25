@@ -38,11 +38,11 @@ tests/gen3_battle_presentation_test.lua
 tests/gen3_controls_test.lua
 tests/gen3_daycare_calendar_test.lua
 tests/gen3_device_app_test.lua
-tests/gen3_encounters_test.lua
-tests/gen3_encounter_preview_test.lua
-tests/gen3_encounter_preview_runtime_test.lua
 tests/gen3_dex_cache_test.lua
 tests/gen3_dialogue_test.lua
+tests/gen3_encounter_preview_runtime_test.lua
+tests/gen3_encounter_preview_test.lua
+tests/gen3_encounters_test.lua
 tests/gen3_field_test.lua
 tests/gen3_fixture.lua
 tests/gen3_full_battle_test.lua
@@ -53,8 +53,8 @@ tests/gen3_map_test.lua
 tests/gen3_menu_refresh_test.lua
 tests/gen3_module_cache_test.lua
 tests/gen3_modules_test.lua
-tests/gen3_move_learning_test.lua
 tests/gen3_moments_notices_test.lua
+tests/gen3_move_learning_test.lua
 tests/gen3_naming_test.lua
 tests/gen3_native_test.lua
 tests/gen3_online_test.lua
@@ -155,6 +155,7 @@ tests/summary_details_cases.lua
 tests/support/core.lua
 tests/support/menu_touch.lua
 tests/support/module.lua
+tests/support/notice_gestures.lua
 tests/support/runtime.lua
 tests/support/source.lua
 tests/team_widget_test.lua
