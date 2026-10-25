@@ -52,11 +52,12 @@ The clock can follow the game or your device.
    and import your own supported ROM.
 2. Install **Kanto Gear** from the [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/),
    or import the ZIP from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
-3. Enable the mod, start your game and open Gear's **Options** to choose your layout,
-   theme, language and discovery level.
+3. Enable the mod and start your game. The first-use display setup starts on one
+   screen and helps you choose a layout. Open Gear's **Options** for theme,
+   language and discovery level; **System → Display Setup** reopens the setup.
 
 The same ZIP works on Android, Windows and Linux. It includes no ROM or save.
-Kanto Gear 4.4.1 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
+Kanto Gear 4.5.0 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
 Update Recomp before importing this version. Recomp 0.3.92 and earlier cannot
 load it; keep Kanto Gear 4.3.1 if you are staying on an older host.
 
