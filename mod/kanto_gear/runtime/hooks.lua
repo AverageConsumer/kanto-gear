@@ -349,6 +349,7 @@ return function(
 
   mod.hooks:wrap("input.pointer", function(next, pointerGame, event)
     if moduleShown() then return next(pointerGame, event) end
+    if displayRuntime.phoneStatusPointer(event) then return true end
     local action = ({ pressed = "down", released = "up", moved = "move",
                       cancelled = "cancel" })[event.phase]
     if action and primaryTouch(action, event.x, event.y) then return true end

@@ -150,12 +150,12 @@ return function(
         local data = L.filesystem.newFileData(mod:read(name), name)
         local image = L.image.newImageData(data)
         local metrics
-        if name == "ui/fonts/hgss_small_font.png" then
+        if name == "ui/fonts/hgss_small_font.png" or name == "ui/fonts/hgss_font.png" then
           metrics = assert(load(mod:read("ui/fonts/metrics.lua"), "@kanto_gear/ui/fonts/metrics.lua"))()(image, glyphList(fontGlyphs))
         end
         return render.G.newImageFont(image, fontGlyphs), metrics
       end
-      THEME.hgssFont = imageFont("ui/fonts/hgss_font.png")
+      THEME.hgssFont, THEME.hgssFontMetrics = imageFont("ui/fonts/hgss_font.png")
       THEME.hgssSmallFont, THEME.hgssSmallMetrics = imageFont("ui/fonts/hgss_small_font.png")
       THEME.hgssLargeFont = imageFont("ui/fonts/hgss_large_font.png")
     end

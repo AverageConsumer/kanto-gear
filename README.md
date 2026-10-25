@@ -193,8 +193,10 @@ use a left-handed or one-hand preset, or arrange and resize the controls yoursel
 Portrait and landscape layouts are separate. **Remember settings** saves these
 preferences only in that browser; it never saves pairing credentials.
 
-To return to a local display without your phone, open Recomp's
-**Mods → Kanto Gear → Options → Display Mode** and choose another mode.
+To return without connecting a phone, tap **Use One Screen** on the pairing
+card. This saves **Combined Screen / Auto** and closes the phone connection.
+You can also open Recomp's **Mods → Kanto Gear → Options → Display Mode**;
+the pairing card stays out of the way while those settings are open.
 
 This uses a local, **unencrypted** connection, with no account or external service.
 Use a private network you trust. Visible Gear content, including open notes, is

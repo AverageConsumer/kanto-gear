@@ -611,7 +611,7 @@ function Phone.drawStatus(state, graphics, viewport, theme)
   local font = theme.font or state.fallbackFont
   local small = theme.small or font
   local large = theme.large or font
-  local u = math.max(1, math.floor(height / 270))         -- one panel pixel
+  local u = math.max(1, math.floor(math.min(height / 270, width / 200))) -- one panel pixel
   local fs = math.max(1, math.floor(u / 2))               -- font scale (integer, crisp)
   local function textW(f, s) return f:getWidth(s) * fs end
   local function textH(f) return f:getHeight() * fs end
@@ -634,6 +634,8 @@ function Phone.drawStatus(state, graphics, viewport, theme)
   local footer = failed and "Switch display mode to try again" or connecting and "Keep this game open"
     or "Same Wi-Fi as this device"
   local footer2 = not failed and not connecting and remaining and string.format("One-time code · expires in %d:%02d", math.floor(remaining / 60), remaining % 60) or nil
+  local exitLabel = "USE ONE SCREEN"
+  local buttonH = math.max(36, textH(font) + 8 * u)
 
   -- Size the QR as large as the side column allows, then fit the card to it.
   local pad = 6 * u
@@ -644,6 +646,7 @@ function Phone.drawStatus(state, graphics, viewport, theme)
       code and textW(large, code) or 0, textW(small, state.url or ""), 96 * u)
     local h = textH(font) + 8 * u + pad                     -- header + top padding
       + math.max(textH(font), 7 * u) + 2 * u + textH(small) + 6 * u -- title + hint
+      + buttonH + 6 * u -- local recovery never needs another phone or a native menu
       + (qr and qrSide + 6 * u or 0)
       + (code and textH(small) + u + textH(large) + 4 * u or 0)
       + (state.url and not failed and not connecting and textH(small) + 4 * u or 0)
@@ -652,15 +655,15 @@ function Phone.drawStatus(state, graphics, viewport, theme)
   end
   if qr then
     m = math.max(3, math.floor(height * .36 / (qr.size + 8)))
-    while m > 2 do
+    while m > 1 do
       local w, h = measure()
-      if h <= height - 12 * u and w <= (width >= 640 and width * .42 or width - 16 * u) then break end
+      if h <= height - 12 * u and w <= (width >= height and width >= 640 and width * .42 or width - 16 * u) then break end
       m = m - 1
     end
   end
   local cardW, cardH = measure()
   cardW = math.min(cardW, width - 8 * u)
-  local x = math.floor(width - cardW - 8 * u)
+  local x = math.floor(width < height and (width - cardW) / 2 or width - cardW - 8 * u)
   local y = math.floor(math.max(6 * u, (height - cardH) / 2))
   local r = cg and u or 3 * u
 
@@ -718,6 +721,25 @@ function Phone.drawStatus(state, graphics, viewport, theme)
   text(small, hint, cx, cy, c.muted)
   cy = cy + textH(small) + 6 * u
 
+  local exit = { x = cx, y = cy, w = innerW, h = buttonH }
+  rect(accent, exit.x, exit.y, exit.w, exit.h, cg and u or 2 * u)
+  local left, right, top, bottom = 0, font:getWidth(exitLabel) - 1, 0, font:getHeight() - 1
+  if theme.fontMetrics then
+    left, right, top, bottom = math.huge, -1, math.huge, -1
+    for i = 1, #exitLabel do
+      local bounds = theme.fontMetrics[exitLabel:sub(i, i)]
+      if bounds and bounds.right >= bounds.left then
+        local advance = font:getWidth(exitLabel:sub(1, i - 1))
+        left, right = math.min(left, advance + bounds.left), math.max(right, advance + bounds.right)
+        top, bottom = math.min(top, bounds.top), math.max(bottom, bounds.bottom)
+      end
+    end
+  end
+  text(font, exitLabel, exit.x + math.floor((exit.w - (right - left + 1) * fs) / 2) - left * fs,
+    exit.y + math.floor((exit.h - (bottom - top + 1) * fs) / 2) - top * fs,
+    theme.dark == false and c.bandInk or c.body)
+  cy = cy + buttonH + 6 * u
+
   if qr then
     local qx = math.floor(x + (cardW - qrSide) / 2)
     rect(cg and accent or c.line, qx - u, cy - u, qrSide + 2 * u, qrSide + 2 * u, cg and 0 or 2 * u)
@@ -752,5 +774,6 @@ function Phone.drawStatus(state, graphics, viewport, theme)
     end
   end
   G.pop()
+  return { card = { x = x, y = y, w = cardW, h = cardH }, exit = exit }
 end
 return Phone
