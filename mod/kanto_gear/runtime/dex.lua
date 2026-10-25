@@ -386,7 +386,7 @@ return function(
           or planned.status and THEME:translate(planned.status),
         time = appearance.time or "ANY TIME", method = appearance.method,
         chance = math.floor((tonumber(appearance.chance) or 0) + 0.5),
-        levels = appearance.minLevel == appearance.maxLevel
+        levels = not appearance.minLevel and "--" or appearance.minLevel == appearance.maxLevel
           and THEME:format("L%d", appearance.minLevel or 0)
           or THEME:format("L%d-%d", appearance.minLevel or 0,
             appearance.maxLevel or 0),

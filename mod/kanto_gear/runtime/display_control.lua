@@ -215,7 +215,7 @@ return function(
         local path = "adapters/gen3/" .. name .. ".lua"
         return assert(load(mod:read(path), "@kanto_gear/" .. path))()(function(name) return mod:read(name) end)
       end
-      displayRuntime.gen3 = loadAdapter("init").new(session.game, mod.content)
+      displayRuntime.gen3 = loadAdapter("init").new(session.game, mod.content, mod.world)
       displayRuntime.gen3Field = assert(load(mod:read("adapters/gen3/field.lua"), "@kanto_gear/adapters/gen3/field.lua"))().new(displayRuntime.gen3, mod.world)
       displayRuntime.gen3Progress = loadAdapter("progress").new(displayRuntime.gen3)
       displayRuntime.gen3Ui = loadAdapter("ui").new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage, displayRuntime.StoragePage, displayRuntime.ItemPage, displayRuntime.MovePage,

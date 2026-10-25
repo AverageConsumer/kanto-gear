@@ -93,7 +93,7 @@ return function(
         if assist("encounter_details") then
         local minLevel = row.currentMinLevel or row.minLevel
         local maxLevel = row.currentMaxLevel or row.maxLevel
-        local levels = minLevel == maxLevel and THEME:format("L%d", minLevel)
+        local levels = not minLevel and "--" or minLevel == maxLevel and THEME:format("L%d", minLevel)
           or THEME:format("L%d-%d", minLevel, maxLevel)
         local methods1, methods2
         if row.availability == "now" then
@@ -150,7 +150,7 @@ return function(
         local method = THEME:translate(appearance.method)
         text(fit(THEME:format("%s %s %d%%", time, method,
           appearance.chance), 18), 7, y + 15, render.DARK)
-        local levels = appearance.minLevel == appearance.maxLevel
+        local levels = not appearance.minLevel and "--" or appearance.minLevel == appearance.maxLevel
           and THEME:format("L%d", appearance.minLevel)
           or THEME:format("L%d-%d", appearance.minLevel, appearance.maxLevel)
         text(levels, 156 - #glyphList(levels) * 6, y + 15, render.DARK)

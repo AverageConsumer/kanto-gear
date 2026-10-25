@@ -162,6 +162,6 @@ return function(Gen3)
         end
       end
     end
-    return rows
+    return self.previewEncounters and self:previewEncounters(mapId, rows) or rows
   end
 end

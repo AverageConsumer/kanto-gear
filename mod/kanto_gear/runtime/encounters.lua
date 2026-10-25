@@ -347,10 +347,14 @@ return function(
           else row.mapAllTimes = true end
         end
         if now then
-          row.currentMinLevel = math.min(row.currentMinLevel or appearance.minLevel,
-            appearance.minLevel)
-          row.currentMaxLevel = math.max(row.currentMaxLevel or appearance.maxLevel,
-            appearance.maxLevel)
+          if not appearance.minLevel or not appearance.maxLevel then
+            row.currentLevelsUnknown, row.currentMinLevel, row.currentMaxLevel = true, nil, nil
+          elseif not row.currentLevelsUnknown then
+            row.currentMinLevel = math.min(row.currentMinLevel or appearance.minLevel,
+              appearance.minLevel)
+            row.currentMaxLevel = math.max(row.currentMaxLevel or appearance.maxLevel,
+              appearance.maxLevel)
+          end
           local odds = currentSet[appearance.method]
           if not odds then
             odds = { name = appearance.method, min = appearance.chance,

@@ -11,9 +11,9 @@ return function(read)
   local function clear(t)
     for key in pairs(t) do t[key] = nil end
   end
-  function Gen3.new(game, content)
+  function Gen3.new(game, content, world)
     assert(game.generation == 3, "native Gen 3 game required")
-    local self = setmetatable({ game = game, content = content,
+    local self = setmetatable({ game = game, content = content, encounterWorld = world,
       mons = setmetatable({}, { __mode = "k" }) }, Gen3)
     self.profile = require("src.core.game3.profile").forSession(game.session)
     -- Game path [Gen 3]: hoenn means Ruby/Sapphire/Emerald; rs excludes Emerald because its native menus differ.
@@ -59,6 +59,7 @@ return function(read)
   install("pokemon", Gen3, copy)
   install("state", Gen3, clear, copy)
   install("world", Gen3)
+  install("encounter_preview", Gen3)
   install("game_view", Gen3, clear)
   install("battle", Gen3)
   return Gen3

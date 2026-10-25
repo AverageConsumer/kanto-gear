@@ -1,4 +1,8 @@
 return function()
+local function mergeLevels(a, b, low)
+  if a == nil or b == nil then return nil end
+  return low and math.min(a, b) or math.max(a, b)
+end
 local function addEncounters(rows, bySpecies, slots, method, buckets, context)
   slots = slots or {}
   if type(context) ~= "table" then context = context and { time = context } end
@@ -13,8 +17,8 @@ local function addEncounters(rows, bySpecies, slots, method, buckets, context)
       weights[species] = (weights[species] or 0) + weight
       local range = levels[species]
       if range then
-        range.min, range.max = math.min(range.min, minLevel),
-          math.max(range.max, maxLevel)
+        range.min, range.max = mergeLevels(range.min, minLevel, true),
+          mergeLevels(range.max, maxLevel)
       else
         levels[species] = { min = minLevel, max = maxLevel }
       end
@@ -25,8 +29,8 @@ local function addEncounters(rows, bySpecies, slots, method, buckets, context)
                 appearances = {} }
         rows[#rows + 1], bySpecies[species] = row, row
       else
-        row.minLevel = math.min(row.minLevel, minLevel)
-        row.maxLevel = math.max(row.maxLevel, maxLevel)
+        row.minLevel = mergeLevels(row.minLevel, minLevel, true)
+        row.maxLevel = mergeLevels(row.maxLevel, maxLevel)
       end
       if context and context.time then
         row.times = row.times or {}

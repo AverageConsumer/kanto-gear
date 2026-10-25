@@ -14,14 +14,18 @@ return function(Gen3, copy)
     return out
   end
   function Gen3:refreshDefinitions()
-    local source
+    local source, speciesById = nil, {}
     if self.content then
       -- API 3 owns the merged definitions and their symbolic IDs. Keep native
       -- indices only at this presentation adapter's storage/sprite boundary.
       source = { pokemon = {}, moves = {}, items = {} }
       for _, name in ipairs({ "pokemon", "moves", "items" }) do
-        for _, row in self.content[name]:each() do
+        for id, row in self.content[name]:each() do
           if row.index then source[name][row.index] = row end
+          if name == "pokemon" and row.index then
+            speciesById[id] = row.index
+            if row.id then speciesById[row.id] = row.index end
+          end
         end
       end
     else
@@ -34,20 +38,20 @@ return function(Gen3, copy)
     local hoennEntries = self.hoenn and
       assert(require("src.ui.game3.rse.mapsec").readLua("pokemon/pokedex/entries.lua"))
     local data = { pokemon = {}, moves = {}, items = {}, maps = self.game.data and self.game.data.maps or {} }
-    -- Iterate National IDs, not the native table length (which includes holes
-    -- and special sprite IDs). Keep internal IDs as keys everywhere else.
-    for dex = 1, self.Dex.NATIONAL_MAX do
-      local id = P.speciesFromNational(dex)
-      if id then
+    local function addPokemon(id, dex, registered)
         local row = copy(source.pokemon[id])
         row.index, row.dex, row.national = id, dex, dex
         row.regionalDex = self.Dex.regionalNumber and self.Dex.regionalNumber(id, self.profile.id)
           or (not self.hoenn and dex <= 151 and dex or nil)
-        local entry = hoennEntries and assert(hoennEntries[id]) or dexData.getEntry(id)
-        row.dexEntry = { kind = entry.category, heightM = (entry.heightDm or entry.height) / 10,
-          weightKg = (entry.weightHg or entry.weight) / 10,
+        local declared = registered and row.dexEntry
+        local entry = declared and { category = declared.kind, height = declared.height,
+          weight = declared.weight, description = declared.text }
+          or hoennEntries and hoennEntries[id] or not self.hoenn and dexData.getEntry(id)
+          or {}
+        row.dexEntry = { kind = entry.category or "", heightM = (entry.heightDm or entry.height or 0) / 10,
+          weightKg = (entry.weightHg or entry.weight or 0) / 10,
           -- Game path [Ruby/Sapphire]: native descriptions span two text fields, which must be joined for the common Dex page.
-          text = self.rs and entry.description2 and entry.description .. "\n" .. entry.description2 or entry.description }
+          text = self.rs and entry.description2 and (entry.description or "") .. "\n" .. entry.description2 or entry.description or "" }
         row.types = self:types(row.types)
         if self.content then
           local learnset = {}
@@ -71,6 +75,17 @@ return function(Gen3, copy)
           end
         end
         data.pokemon[id] = row
+    end
+    -- Native holes/egg sprites are not species. Registered additions and forms
+    -- are authoritative even when they have no canonical National-number slot.
+    for dex = 1, self.Dex.NATIONAL_MAX do
+      local id = P.speciesFromNational(dex)
+      if id then addPokemon(id, dex) end
+    end
+    if self.content then
+      for id, row in pairs(source.pokemon) do
+        local dex = tonumber(row.baseDex or row.dex or row.national)
+        if not data.pokemon[id] and dex and dex > 0 then addPokemon(id, dex, true) end
       end
     end
     for id = 1, require("src.import.gba.versions").MOVES_COUNT - 1 do
@@ -114,7 +129,7 @@ return function(Gen3, copy)
     self.data = data
     setmetatable(data.pokemon, { __index = function(t, id)
       if type(id) == "string" then
-        local numeric = P.speciesFromName(id)
+        local numeric = speciesById[id] or P.speciesFromName(id)
         return numeric and rawget(t, numeric)
       end
     end })
