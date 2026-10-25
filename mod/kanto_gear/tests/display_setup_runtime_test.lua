@@ -135,6 +135,13 @@ available=true; time=time+.3; display.observeSetupDisplay(bridge)
 T.eq(state.healthy,true,"a successfully submitted test image enables confirmation")
 T.eq(pushes,1,"retry submits a real secondary test frame")
 T.eq(display.setupWantsSecond(),true,"local fallback keeps the native display retry enabled")
+-- Availability must not depend on whether a first Gear frame has been drawn.
+local oldStage, oldFallback = state.stage, state.fallback
+state.stage, state.fallback = nil, false
+display.session.displayReady = false
+time=time+.3; display.observeSetupDisplay(bridge)
+T.eq(state.healthy,true,"an available output cannot be mistaken for first-frame failure")
+state.stage, state.fallback = oldStage, oldFallback
 time=state.deadline; frame()
 T.eq(state.stage,"recovery","expired retry returns to the visible recovery choices")
 T.eq(api.options:get("display_mode"),"separate","timeout cannot overwrite the saved preference")
