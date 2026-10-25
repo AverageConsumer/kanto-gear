@@ -38,6 +38,7 @@ tests/gen3_battle_presentation_test.lua
 tests/gen3_controls_test.lua
 tests/gen3_daycare_calendar_test.lua
 tests/gen3_device_app_test.lua
+tests/gen3_encounters_test.lua
 tests/gen3_dex_cache_test.lua
 tests/gen3_dialogue_test.lua
 tests/gen3_field_test.lua
