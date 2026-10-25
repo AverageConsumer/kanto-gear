@@ -13,7 +13,6 @@ Play on Android, Windows or Linux, with an optional phone browser display.
   <a href="https://github.com/AverageConsumer/kanto-gear/releases/latest"><img src="https://img.shields.io/github/v/release/AverageConsumer/kanto-gear?label=release&color=5c8a3c" alt="Latest release"></a>
   <a href="https://github.com/AverageConsumer/kanto-gear/releases"><img src="https://img.shields.io/github/downloads/AverageConsumer/kanto-gear/total?label=downloads&color=2f81f7" alt="Total downloads"></a>
   <a href="https://github.com/AverageConsumer/kanto-gear/actions/workflows/ci.yml"><img src="https://github.com/AverageConsumer/kanto-gear/actions/workflows/ci.yml/badge.svg?branch=main" alt="Source and package checks"></a>
-  <a href="https://bryanthaboi.github.io/gen1recomp-mod-index/"><img src="https://img.shields.io/badge/official-Mod%20Index-6f42c1" alt="Available in the Mod Index"></a>
 </p>
 
 <p>
@@ -50,13 +49,17 @@ The clock can follow the game or your device.
 
 1. Install [Gen1Recomp 0.3.93 or newer](https://github.com/bryanthaboi/gen1recomp/releases/latest)
    and import your own supported ROM.
-2. Install **Kanto Gear** from the [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/),
-   or import the ZIP from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
+2. Import the **Kanto Gear ZIP** from the
+   [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
 3. Enable the mod and start your game. The first-use display setup starts on one
    screen and helps you choose a layout. Open Gear's **Options** for theme,
    language and discovery level; **System → Display Setup** reopens the setup.
 
 The same ZIP works on Android, Windows and Linux. It includes no ROM or save.
+The Mod Index listing is temporarily unavailable because its installed scanner
+rejects mod API 3. [Index PR #333](https://github.com/bryanthaboi/gen1recomp-mod-index/pull/333)
+contains the compatibility fix; use the release ZIP while maintainer review and
+scanner deployment are pending.
 Kanto Gear 4.5.0 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
 Update Recomp before importing this version. Recomp 0.3.92 and earlier cannot
 load it; keep Kanto Gear 4.3.1 if you are staying on an older host.

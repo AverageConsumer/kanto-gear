@@ -15,6 +15,7 @@
 
 ## Install
 
-Update from the [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/)
-or import `kanto_gear-X.Y.Z.zip` below. The same ZIP works on Android,
+Import `kanto_gear-X.Y.Z.zip` below, or update from the
+[Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/) when the listing
+is available. The same ZIP works on Android,
 Windows and Linux. It includes no ROM or save.
