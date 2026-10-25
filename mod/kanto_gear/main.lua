@@ -207,6 +207,7 @@ return function(mod)
     dialogueChoice, displayRuntime, fullBottomBattleUI, hasDisplay, hgssRuntime, holdTextSpeed,
     mod, refreshBattle, refreshTheme, reloadSteps, render, screenContract,
     session, touchEvent)
+  install("runtime/display_setup", THEME, displayRuntime, mod, render, resetSwapState, session)
   install("runtime/options_events",
     Area, Discovery, THEME, assist, compat, displayRuntime,
     hgssRuntime, invalidateLocalMap, localMapMode, mod, refreshTheme, reloadSteps,

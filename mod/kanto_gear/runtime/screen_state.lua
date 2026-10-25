@@ -236,6 +236,7 @@ return function(
 
   -- Game path [Gen 2 vs Gen 1/3 projection]: Gen 2 keeps the world outside the menu stack; idle means no top menu rather than top==world.
   local function screenState()
+    if displayRuntime.displaySetupModal then return "paused", nil, 0 end
     local top = session.game and session.game.stack and session.game.stack:top()
     local world = session.game and (session.game.overworld or session.game.world)
     if not (world and (compat.isGen2() and world.map or stackHas(world))) then

@@ -113,6 +113,7 @@ return function(
   displayRuntime.explorer.mapZoom = 1
   displayRuntime.autoBattle = {}
   function displayRuntime.gearPrimary()
+    if THEME.displayModeOverride then return false end
     if displayRuntime.autoBattle.shown ~= nil then return displayRuntime.autoBattle.shown end
     return THEME:gearPrimary(mod.options, displayRuntime.swapped)
   end

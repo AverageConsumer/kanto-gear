@@ -44,7 +44,7 @@ T.eq(#optionByKey.battle_view.choices, 4,
 T.check(optionByKey.ui_motion.visible_if == nil
     and optionByKey.local_map.visible_if == nil,
   "native menus keep options reachable without unsupported list conditions")
-run.loader.modOptions.kanto_gear = { theme = "kanto" }
+run.loader.modOptions.kanto_gear = { theme = "kanto", display_mode = "separate" }
 
 local world = { map = { id = "PALLET_TOWN" } }
 local game = {
@@ -963,10 +963,12 @@ T.eq(run.loader.modOptions.kanto_gear.info_level, "enhanced",
   "resetting options does not preserve a migrated research mode")
 T.eq(run.loader.modOptions.kanto_gear.ui_motion, true,
   "resetting options restores UI motion")
-T.eq(run.loader.modOptions.kanto_gear.display_mode, "separate",
+T.eq(run.loader.modOptions.kanto_gear.display_mode, "combined",
   "resetting options restores the canonical display mode")
 T.eq(run.loader.modOptions.kanto_gear.combined_layout, "auto",
   "resetting options restores the canonical combined layout")
+-- The remaining fixtures exercise the physical companion's retained frames.
+run.loader.modOptions.kanto_gear.display_mode = "separate"
 home.layout = { tiles = {
   { id = "map_app", page = 1, column = 1, row = 1 },
 } }

@@ -65,6 +65,10 @@ return function(
   for _, row in ipairs(Discovery.options) do SettingsInfo.help[Discovery.key(row[1])] = row[5] end
   SettingsInfo.help.discovery_section = "Choose an information category to customize. Changes apply across Gear."
 
+  local displaySetup = mod.cache and mod.cache.read and mod.cache:read("display/setup-v1")
+  THEME.displaySetupFresh = displaySetup == "pending" or displaySetup == nil
+    and mod.options:get("display_mode") == nil and mod.options:get("window_layout") == nil
+  if THEME.displaySetupFresh and mod.cache and mod.cache.write then mod.cache:write("display/setup-v1", "pending") end
   THEME.displayModeDefault, THEME.combinedLayoutDefault = THEME:displayDefaults(
     function(key) return mod.options:get(key) end)
 
@@ -116,7 +120,7 @@ return function(
         key = "theme_v3", not_one_of = { "hgss", "hgss_dark", "hgss_auto", "cgear", "cgear_dark", "cgear_auto" },
       } },
     { key = "display_mode", label = "DISPLAY MODE", type = "choice",
-      default = THEME.displayModeDefault, reset_default = "separate", choices = {
+      default = THEME.displayModeDefault, reset_default = "combined", choices = {
         { "FULLSCREEN SWAP", "fullscreen" },
         { "COMBINED SCREEN", "combined" },
         { "SEPARATE SCREENS", "separate" },

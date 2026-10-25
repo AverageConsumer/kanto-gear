@@ -155,7 +155,7 @@ for _, row in ipairs(manager:buildOptionRows({ id = "kanto_gear" }, run.loader.o
 end
 display.updatePhone()
 T.eq(stopped, previous + 1, "native Reset Defaults shuts down the wireless server")
-T.eq(api.options:get("display_mode"), "separate", "native reset restores local Gear output")
+T.eq(api.options:get("display_mode"), "combined", "native reset restores visible one-screen output")
 previous = stopped
 display.phone, display.phoneStatus = phone, phone
 T.eq(hook("core.quit_to_launcher")(next), sentinel, "returning to the launcher preserves its result")

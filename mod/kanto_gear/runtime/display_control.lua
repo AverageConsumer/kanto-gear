@@ -18,6 +18,7 @@ return function(
   end
 
   local function phonePairingShown()
+    if displayRuntime.displaySetupModal then return false end
     if not session.active or THEME:displayMode(mod.options) ~= "phone"
         or not displayRuntime.phoneStatus or displayRuntime.gearModules.anyShown() then return false end
     if displayRuntime.phone and displayRuntime.phone:ready() then return false end
@@ -95,10 +96,12 @@ return function(
 
   mod.hooks:wrap("core.update", function(next, updateGame, dt)
     displayRuntime.updatePhone()
+    if displayRuntime.updateDisplaySetup and displayRuntime.updateDisplaySetup(updateGame, dt) then return end
     return next(updateGame, dt)
   end, 1000)
 
   mod.hooks:wrap("core.quit_to_launcher", function(next)
+    if displayRuntime.clearDisplaySetup then displayRuntime.clearDisplaySetup() end
     if displayRuntime.phone then displayRuntime.phone:stop() end
     displayRuntime.phone, displayRuntime.phoneStatus, displayRuntime.phoneConnected = nil, nil, nil
     displayRuntime.nativePhoneOwner = nil
@@ -122,6 +125,7 @@ return function(
     else
       displayRuntime.phoneStatusTouches = nil
     end
+    if displayRuntime.drawDisplaySetup then displayRuntime.drawDisplaySetup(hudGame, viewport) end
     return result
   end, -1000)
 

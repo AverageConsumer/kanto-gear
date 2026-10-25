@@ -15,6 +15,7 @@ GEN3 = ["firered", "leafgreen", "emerald", "ruby", "sapphire"]
 
 
 def editions(name):
+    if name == "display_setup_runtime_test": return ["red", "crystal", "firered", "emerald"]
     if name == "phone_runtime_test": return ["red", "crystal", "firered", "emerald"]
     if name.startswith("rs_"): return GEN3[3:]
     if name.startswith("emerald_"): return ["emerald"]

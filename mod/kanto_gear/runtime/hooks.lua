@@ -349,6 +349,7 @@ return function(
 
   mod.hooks:wrap("input.pointer", function(next, pointerGame, event)
     if moduleShown() then return next(pointerGame, event) end
+    if displayRuntime.displaySetupPointer and displayRuntime.displaySetupPointer(event) then return true end
     if displayRuntime.phoneStatusPointer(event) then return true end
     local action = ({ pressed = "down", released = "up", moved = "move",
                       cancelled = "cancel" })[event.phase]
@@ -557,6 +558,7 @@ return function(
         displayRuntime.recentItem.pending = nil
       end
     end
+    if displayRuntime.observeSetupDisplay then displayRuntime.observeSetupDisplay(context and context.secondScreen) end
     local inline = inlineDisplay()
     session.companion = context and context.secondScreen
     if THEME:displayMode(mod.options) == "phone" then
