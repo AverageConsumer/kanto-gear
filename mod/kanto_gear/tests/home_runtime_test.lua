@@ -44,7 +44,7 @@ T.eq(#optionByKey.battle_view.choices, 4,
 T.check(optionByKey.ui_motion.visible_if == nil
     and optionByKey.local_map.visible_if == nil,
   "native menus keep options reachable without unsupported list conditions")
-run.loader.modOptions.kanto_gear = { theme = "kanto" }
+run.loader.modOptions.kanto_gear = { theme = "kanto", display_mode = "separate" }
 
 local world = { map = { id = "PALLET_TOWN" } }
 local game = {
@@ -118,7 +118,10 @@ do
 end
 T.eq(display.storeEntries()[1].id, "pss", "PSS is visible on the first Apps page")
 T.eq(display.storeTodayEntries()[1].id, "pss", "PSS is featured when the Store opens")
+T.eq(display.storeWidgetSummary().label, "SHINY HUNT", "Store widget promotes the new Shiny Hunt until it is installed")
+T.check(display.setPackageInstalled("shiny", true), "Shiny Hunt installs")
 T.eq(display.storeWidgetSummary().label, "APPS", "Store widget shows the catalogue when no app is new")
+T.check(display.setPackageInstalled("shiny", false), "Shiny Hunt uninstalls")
 do
   local renderer = theme.hgss
   local originalText, originalBar = renderer.partyInfo, renderer.expBar
@@ -325,7 +328,8 @@ do
   display.loadHome()
   T.check(not home.help, "durable acknowledgement survives a stale game-save reload")
   display.openHomeApp("settings")
-  display.settings.category = 6
+  -- System is the last settings tab.
+  display.settings.category = #display.settingsCategories
   T.eq(display.settingsModel().rows[1].action, "home_help",
     "System settings exposes the explanation above the reset actions")
   display.tapSettings(30, 80)
@@ -841,8 +845,9 @@ T.eq(display.settings.option, nil, "reopening Settings clears its previous expla
 T.eq(display.settings.direct, nil, "reopening Settings clears direct-navigation state")
 T.eq(display.settings.choicePage, 1, "reopening Settings resets its choice pager")
 local settings = display.settingsModel()
-T.eq(#(settings.tabs or settings.categories), 6,
-  "Settings groups the existing options into six readable sections")
+T.eq(#(settings.tabs or settings.categories), 7,
+  "Settings groups the existing options into seven readable sections")
+T.eq((settings.tabs or settings.categories)[6].id, "notifications", "Notifications have their own section")
 display.settings.category, display.settings.page = 5, 1
 settings = display.settingsModel()
 local keyboardRow
@@ -963,10 +968,12 @@ T.eq(run.loader.modOptions.kanto_gear.info_level, "enhanced",
   "resetting options does not preserve a migrated research mode")
 T.eq(run.loader.modOptions.kanto_gear.ui_motion, true,
   "resetting options restores UI motion")
-T.eq(run.loader.modOptions.kanto_gear.display_mode, "separate",
+T.eq(run.loader.modOptions.kanto_gear.display_mode, "combined",
   "resetting options restores the canonical display mode")
 T.eq(run.loader.modOptions.kanto_gear.combined_layout, "auto",
   "resetting options restores the canonical combined layout")
+-- The remaining fixtures exercise the physical companion's retained frames.
+run.loader.modOptions.kanto_gear.display_mode = "separate"
 home.layout = { tiles = {
   { id = "map_app", page = 1, column = 1, row = 1 },
 } }

@@ -163,8 +163,10 @@ local migratedMode, migratedLayout = displayDefaults({ window_layout = "large" }
 T.eq(migratedMode, "combined", "legacy one-window users keep combined mode")
 T.eq(migratedLayout, "overlay", "legacy large layout migrates to overlay")
 local freshMode, freshLayout = displayDefaults({})
-T.eq(freshMode, "separate", "existing device output remains the fresh default")
+T.eq(freshMode, "combined", "new installations start with both views visible")
 T.eq(freshLayout, "auto", "combined mode starts orientation-aware")
+local legacyOff = displayDefaults({ window_layout = "off" })
+T.eq(legacyOff, "separate", "existing explicit legacy output preferences survive the new default")
 local fakeOptions = { values = {
   display_mode = "fullscreen", fullscreen_start = "game",
 } }
@@ -319,7 +321,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 56, "Kanto Gear registers all settings including keyboard layout and automatic battle display")
+T.eq(#options, 66, "Kanto Gear registers all settings including keyboard layout, automatic battle display and notifications")
 local optionsByKey = {}
 for _, row in ipairs(options) do optionsByKey[row.key] = row end
 T.eq(optionsByKey.auto_battle_screen.default, false, "automatic battle switching is opt-in")
@@ -483,6 +485,7 @@ game.overworld = world
 game.stack = { states = { world }, top = function(self)
   return self.states[#self.states]
 end }
+run.loader.modOptions.kanto_gear = { display_mode = "separate" }
 run.loader.events:emit("game.ready", { game = game })
 T.eq(run.loader.hooks:call("render.output_enabled",
   function() return false end), false,
@@ -977,7 +980,7 @@ T.eq(run.loader.hooks:call("render.output_enabled",
   "disabling one-window layout restores native output")
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
 T.eq(swapPolls, 0, "disabled screen swapping never polls Y")
-run.loader.modOptions.kanto_gear = { screen_swap = true }
+run.loader.modOptions.kanto_gear = { screen_swap = true, display_mode = "separate" }
 run.loader.events:emit("mod.options_changed",
   { mod = "kanto_gear", key = "screen_swap" })
 run.loader.hooks:call("input.step", function() end, game, 1 / 60)
@@ -1406,7 +1409,7 @@ end
 T.eq(run.loader.hooks:call("battle.caught_marker_visible",
   function() return false end, {}), true,
   "Kanto Gear shows its caught icon by default")
-run.loader.modOptions.kanto_gear = { caught_icon = false }
+run.loader.modOptions.kanto_gear = { caught_icon = false, display_mode = "separate" }
 T.eq(run.loader.hooks:call("battle.caught_marker_visible",
   function() return true end, {}), true,
   "disabling Kanto's icon preserves another mod's marker")
@@ -1480,7 +1483,7 @@ do
     promptSprites = promptSprites + 1
     return promptSpritePath(...)
   end
-  run.loader.modOptions.kanto_gear = { battle_view = "gear" }
+  run.loader.modOptions.kanto_gear = { battle_view = "gear", display_mode = "separate" }
   run.loader.events:emit("mod.options_changed",
     { mod = "kanto_gear", key = "battle_view" })
   run.loader.hooks:call("render.compose", function() return false end, {}, {

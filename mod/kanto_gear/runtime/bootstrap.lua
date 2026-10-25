@@ -113,6 +113,7 @@ return function(
   displayRuntime.explorer.mapZoom = 1
   displayRuntime.autoBattle = {}
   function displayRuntime.gearPrimary()
+    if THEME.displayModeOverride then return false end
     if displayRuntime.autoBattle.shown ~= nil then return displayRuntime.autoBattle.shown end
     return THEME:gearPrimary(mod.options, displayRuntime.swapped)
   end
@@ -150,12 +151,12 @@ return function(
         local data = L.filesystem.newFileData(mod:read(name), name)
         local image = L.image.newImageData(data)
         local metrics
-        if name == "ui/fonts/hgss_small_font.png" then
+        if name == "ui/fonts/hgss_small_font.png" or name == "ui/fonts/hgss_font.png" then
           metrics = assert(load(mod:read("ui/fonts/metrics.lua"), "@kanto_gear/ui/fonts/metrics.lua"))()(image, glyphList(fontGlyphs))
         end
         return render.G.newImageFont(image, fontGlyphs), metrics
       end
-      THEME.hgssFont = imageFont("ui/fonts/hgss_font.png")
+      THEME.hgssFont, THEME.hgssFontMetrics = imageFont("ui/fonts/hgss_font.png")
       THEME.hgssSmallFont, THEME.hgssSmallMetrics = imageFont("ui/fonts/hgss_small_font.png")
       THEME.hgssLargeFont = imageFont("ui/fonts/hgss_large_font.png")
     end
@@ -291,6 +292,16 @@ return function(
   assert(load(mod:read("ui/features/daycare.lua"), "@kanto_gear/ui/features/daycare.lua"))()(
     THEME.hgss, render.G, function(value) return THEME:translate(value) end,
     function(value, ...) return THEME:format(value, ...) end)
+  displayRuntime.Notices = assert(load(mod:read("features/notices.lua"), "@kanto_gear/features/notices.lua"))()
+  assert(load(mod:read("ui/features/notices.lua"), "@kanto_gear/ui/features/notices.lua"))()(
+    THEME.hgss, render.G, function(value) return THEME:translate(value) end)
+  displayRuntime.ShinyHunt = assert(load(mod:read("features/shiny_hunt.lua"), "@kanto_gear/features/shiny_hunt.lua"))()
+  displayRuntime.Moments = assert(load(mod:read("features/moments.lua"), "@kanto_gear/features/moments.lua"))()
+  assert(load(mod:read("ui/features/moments.lua"), "@kanto_gear/ui/features/moments.lua"))()(
+    THEME.hgss, render.G, function(value) return THEME:translate(value) end)
+  assert(load(mod:read("ui/features/shiny_hunt.lua"), "@kanto_gear/ui/features/shiny_hunt.lua"))()(
+    THEME.hgss, render.G, function(value) return THEME:translate(value) end,
+    function(value, ...) return THEME:format(value, ...) end)
   displayRuntime.Notes = assert(load(mod:read("features/notes.lua"), "@kanto_gear/features/notes.lua"))()
   displayRuntime.Pss = assert(load(mod:read("features/pss.lua"), "@kanto_gear/features/pss.lua"))()
   assert(load(mod:read("ui/features/pss.lua"), "@kanto_gear/ui/features/pss.lua"))()(
@@ -325,6 +336,7 @@ return function(
       pss = { installed = false },
       daycare = { installed = false },
       calendar = { installed = false },
+      shiny = { installed = false },
     },
     surfaces = {
       explorer_widget = { package = "explorer", kind = "widget",
@@ -391,6 +403,12 @@ return function(
         widget = "calendar_small", columns = 5, label = "TODAY" },
       calendar_app = { package = "calendar", kind = "app", columns = 3,
         icon = "calendar", accent = "blue", label = "CALENDAR" },
+      shiny_widget = { package = "shiny", kind = "widget",
+        widget = "shiny", columns = 12, label = "SHINY HUNT" },
+      shiny_small_widget = { package = "shiny", kind = "widget",
+        widget = "shiny_small", columns = 5, label = "SHINY" },
+      shiny_app = { package = "shiny", kind = "app", columns = 3,
+        icon = "shiny", accent = "amber", label = "SHINY HUNT" },
     },
   }
   displayRuntime.deviceShortcuts = assert(load(mod:read("core/device_shortcuts.lua"),
@@ -427,6 +445,10 @@ return function(
       category = "SCHEDULE", target = "CALENDAR",
       description = { "WEEKDAY VISITORS AND EVENTS.",
         "REMATCHES, GIFTS AND BERRIES.", "WHAT YOU CAN DO TODAY." } },
+    { id = "shiny", icon = "shiny", label = "SHINY HUNT",
+      category = "COLLECTION", target = "SHINY", new = true,
+      description = { "COUNTS EVERY ENCOUNTER FOR YOU.",
+        "LIVE ODDS, PHASES AND A SHINY LOG.", "SOFT RESETS KEEP YOUR COUNT." } },
     { id = "achievements", icon = "achievements", label = "ACHIEVEMENTS",
       category = "ADVENTURE", target = "ACHIEVEMENTS",
       description = { "COLLECT STAMPS FOR YOUR JOURNEY.",
@@ -504,6 +526,12 @@ return function(
   for _, row in ipairs(Discovery.options) do
     table.insert(displayRuntime.settingsCategories[4].keys, Discovery.key(row[1]))
   end
+  table.insert(displayRuntime.settingsCategories[6].actions, 2, "display_setup")
+  -- Notifications: what each area may show, how it sounds and when it comes.
+  table.insert(displayRuntime.settingsCategories, 6, { id = "notifications", label = "NOTIFICATIONS",
+    detail = "WHAT, HOW AND WHEN", accent = "amber", keys = { "notifications", "notification_sound",
+      "notice_shiny", "notice_moments", "notice_daycare", "notice_calendar", "notice_stamps",
+      "notice_shiny_timing", "notice_duration", "notice_where" } })
   displayRuntime.defaultHomeTiles = {
     { id = "explorer_widget", page = 1, column = 1, row = 1 },
     { id = "party_widget", page = 1, column = 8, row = 1 },
@@ -567,12 +595,13 @@ return function(
     if state.option then
       local row = displayRuntime.optionRow(state.option)
       if not row and SettingsInfo.help[state.option] then
-        row = { key = state.option, type = "action", label = state.option == "home_help" and "CUSTOMIZE HOME"
+        row = { key = state.option, type = "action", label = state.option == "display_setup" and "DISPLAY SETUP"
+          or state.option == "home_help" and "CUSTOMIZE HOME"
           or state.option == "reset_home" and "RESET HOME" or "RESET OPTIONS" }
       end
       if row and displayRuntime.optionVisible(row) then
         local choices = row.type == "action" and {
-          { row.key == "home_help" and "SHOW ME" or state.confirm == row.key and "TAP AGAIN" or "RESET", true } }
+          { row.key == "display_setup" and "OPEN" or row.key == "home_help" and "SHOW ME" or state.confirm == row.key and "TAP AGAIN" or "RESET", true } }
           or row.type == "toggle" and { { "OFF", false }, { "ON", true } }
           or displayRuntime.optionChoices(row)
         local perPage = row.key == "theme_v3" and 3 or 4
@@ -606,11 +635,13 @@ return function(
       end
     end
     for _, action in ipairs(category.actions or {}) do
+      local setupWaiting = action == "display_setup" and displayRuntime.displaySetup and displayRuntime.displaySetup.pending
       rows[#rows + 1] = { action = action,
-        label = action == "home_help" and "CUSTOMIZE HOME"
+        enabled = not setupWaiting,
+        label = action == "display_setup" and "DISPLAY SETUP" or action == "home_help" and "CUSTOMIZE HOME"
           or action == "reset_home" and "RESET HOME" or "RESET OPTIONS",
         description = SettingsInfo.help[action],
-        value = action == "home_help" and "SHOW ME"
+        value = action == "display_setup" and (setupWaiting and "WAIT" or "OPEN") or action == "home_help" and "SHOW ME"
           or state.confirm == action and "TAP AGAIN" or "RESET" }
     end
     local pages = math.max(1, math.ceil(#rows / 4))
@@ -669,6 +700,11 @@ return function(
 
   function displayRuntime.runSettingsAction(action)
     local state = displayRuntime.settings
+    if action == "display_setup" then
+      state.confirm = nil
+      if displayRuntime.requestDisplaySetup then displayRuntime.requestDisplaySetup() end
+      return
+    end
     if action == "home_help" then
       state.confirm = nil
       displayRuntime.showHomeHelp()

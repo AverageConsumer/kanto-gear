@@ -135,9 +135,18 @@ return function(Gen3)
     for _, pool in ipairs(pools) do
       local encounter = area and area[pool.key]
       if encounter and (pool.key == "fishing" or (tonumber(encounter.rate) or 0) > 0) then
+        local slots, count, total = encounter.slots or {}, #pool.weights, 100
+        -- Host path [FRLG]: the native picker walks the actual slot list and
+        -- gives added slots weight 1. Hoenn and rod windows use fixed indices.
+        local variable = not self.hoenn and pool.key ~= "fishing"
+        if variable then
+          count, total = #slots, 0
+          for index = 1, count do total = total + (pool.weights[index] or 1) end
+        end
         local bySpecies = {}
-        for index, chance in ipairs(pool.weights) do
-          local slot = encounter.slots and encounter.slots[pool.first + index - 1]
+        for index = 1, count do
+          local chance = variable and (pool.weights[index] or 1) * 100 / total or pool.weights[index]
+          local slot = slots[pool.first + index - 1]
           if slot and self.data.pokemon[slot.species] then
             local row = bySpecies[slot.species]
             if not row then
@@ -153,6 +162,6 @@ return function(Gen3)
         end
       end
     end
-    return rows
+    return self.previewEncounters and self:previewEncounters(mapId, rows) or rows
   end
 end

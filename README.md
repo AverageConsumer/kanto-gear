@@ -52,11 +52,12 @@ The clock can follow the game or your device.
    and import your own supported ROM.
 2. Install **Kanto Gear** from the [Mod Index](https://bryanthaboi.github.io/gen1recomp-mod-index/),
    or import the ZIP from the [latest release](https://github.com/AverageConsumer/kanto-gear/releases/latest).
-3. Enable the mod, start your game and open Gear's **Options** to choose your layout,
-   theme, language and discovery level.
+3. Enable the mod and start your game. The first-use display setup starts on one
+   screen and helps you choose a layout. Open Gear's **Options** for theme,
+   language and discovery level; **System → Display Setup** reopens the setup.
 
 The same ZIP works on Android, Windows and Linux. It includes no ROM or save.
-Kanto Gear 4.4.1 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
+Kanto Gear 4.5.0 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
 Update Recomp before importing this version. Recomp 0.3.92 and earlier cannot
 load it; keep Kanto Gear 4.3.1 if you are staying on an older host.
 
@@ -72,9 +73,10 @@ contest, Frontier and other native screens remain on the game screen.
 | **Party** | Check HP, status, experience, types, held items and moves. Inspect full partner summaries and give or take held items where the game supports them. |
 | **Bag** | Browse pockets, inspect items and use the actions available in the current context, including Use, Give and Toss. A recent-item shortcut stays available while you still own that item. |
 | **Pokédex** | Search your research, read complete entries, check evolution targets and conditions, and find habitats with encounter methods and access requirements. Native cry, size and form pages are adapted where supported. |
-| **Stamps** | Track each location's trainers, items, hidden finds and Pokémon. Open remaining goals to see their location; indoor finds point to the building entrance first, with an option to look inside. |
+| **Stamps** | Track each location's trainers, items, hidden finds and Pokémon. Open remaining goals to see their location; indoor finds point to the building entrance first, with an option to look inside. A **Moments** tab keeps small stories from your playthrough — a win with 1 HP left, the last ball, a first shiny, a rematch won — plus a few that belong to each game, such as Johto's red Gyarados or Hoenn's Feebas. Moments stay hidden until they happen and show who, where and when. |
 | **Notes** | Keep general or location-linked text notes, checklists and colored drawings. QWERTY and QWERTZ are available. |
 | **Day-Care** | Check boarded Pokémon, current levels, withdrawal fees and moves at pickup. In Gen 2 and 3, also check breeding compatibility, waiting eggs and party eggs. FireRed/LeafGreen keep the Route 5 boarder separate from the Four Island pair. |
+| **Shiny Hunt** | Count encounters toward a shiny automatically in Gen 2 and 3: wild battles and soft-reset statics of your target, or every hatch in an egg hunt. See the cumulative probability for your encounter count, the 50–99% milestones, time and pace, where the target appears here, and Gen 2's 1-in-64 boost from a shiny Day-Care parent. Other shinies are logged as phases; counters live outside the save, so soft resets keep them. |
 | **Calendar** | In Gen 2, browse weekly visitors, time windows, ready rematches and gifts. Hoenn shows the current game day with a 24-hour clock, tides, upcoming berry harvests and ready activities. FireRed/LeafGreen show VS Seeker charge and ready trainers. Timing follows the game's clock. |
 | **Pokégear** | Open the original device in Gold, Silver and Crystal on the touch screen, with the cards you have received. Keep walking on the game screen while using its clock, map, phone or radio below. |
 | **PokéNav** | Open the original device in Ruby, Sapphire and Emerald below while the game keeps its normal controls above. Available features follow your progress in the game. |
@@ -85,13 +87,26 @@ contest, Frontier and other native screens remain on the game screen.
 | **Silph Store** | Manage your installed Gear apps and discover what to add to Home. Compatible apps from other installed Recomp mods can appear here too. |
 
 Home widgets cover the live Explorer map, lead partner, whole team, Pokédex,
-region map, Bag, Trainer Card, steps, Stamps, Silph Connect, Day-Care, Calendar
-and individual field tools. The Calendar is available in Gen 2 and 3; the egg
-widget is available in games that support breeding. Egg contents, progress,
-breeding odds and event schedules follow your information settings.
+region map, Bag, Trainer Card, steps, Stamps, Silph Connect, Day-Care, Calendar,
+Shiny Hunt and individual field tools. The Calendar and Shiny Hunt are available
+in Gen 2 and 3; the egg widget is available in games that support breeding.
+Egg contents, progress, breeding odds and event schedules follow your
+information settings.
 Installing Pokégear or PokéNav also offers optional widgets that open an
 individual card or main-menu feature directly. Add them from Home's Widgets
 tab; each shortcut respects the game's device and feature unlocks.
+
+### Notifications
+
+Short Gear messages tell you when something happens: a shiny, a new moment,
+an egg waiting at the Day-Care, a boarder that grew, a visitor or rematch on
+the Calendar, or a silver or gold stamp. They wait for battles and menus,
+chime with the game's sound-effect volume and leave a dot on the app until
+you open it. When the Gear is hidden on one screen, they show over the game.
+Tap a message to open it, or swipe it away. The Notifications tab in
+Settings sets each area to sound, silent, dot only or off, and chooses the
+shiny chime's timing, how long messages stay and whether they wait for the
+Gear.
 
 <p align="center">
   <img src="screenshots/4.0-explorer-layer-pokegear-light.png" width="49%" alt="Explorer map, encounter cards and progress tabs">
@@ -155,6 +170,19 @@ when Gear cannot safely take ownership.
 
 ## One screen or two
 
+New installations start with the game and Gear together. A one-time setup on
+the game screen accepts touch or D-Pad and A/B. It waits for a safe title or
+idle overworld state, then pauses gameplay while you choose. Held buttons must
+be released before the game resumes. Two-screen mode is saved only after you
+confirm its test image; the test returns to the safe choice after 15 seconds.
+To repeat the setup, open Gear's **Settings → System → Display Setup → Open**.
+This uses the app's own storage access; no file manager or game-save reset is needed.
+
+If a saved second display is unavailable for two seconds, Gear temporarily
+returns to the game window. Recovery choices wait until gameplay is idle;
+you can retry the display or keep one screen. The temporary fallback preserves
+your saved two-screen preference. Phone / Browser remains an explicit choice.
+
 | Layout | Use it for |
 | --- | --- |
 | **Fullscreen Swap** | Switching between the game and Gear on a single screen |
@@ -193,8 +221,10 @@ use a left-handed or one-hand preset, or arrange and resize the controls yoursel
 Portrait and landscape layouts are separate. **Remember settings** saves these
 preferences only in that browser; it never saves pairing credentials.
 
-To return to a local display without your phone, open Recomp's
-**Mods → Kanto Gear → Options → Display Mode** and choose another mode.
+To return without connecting a phone, tap **Use One Screen** on the pairing
+card. This saves **Combined Screen / Auto** and closes the phone connection.
+You can also open Recomp's **Mods → Kanto Gear → Options → Display Mode**;
+the pairing card stays out of the way while those settings are open.
 
 This uses a local, **unencrypted** connection, with no account or external service.
 Use a private network you trust. Visible Gear content, including open notes, is

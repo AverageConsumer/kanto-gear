@@ -148,6 +148,7 @@ return function(Gen3, clear, copy)
   end
   function Gen3:dexNumber(species)
     local def = self.data.pokemon[species]
+    if def and (def.form or def.baseSpecies) then return nil end
     return def and (self.save and self.save.pokedex.national and def.dex or def.regionalDex)
   end
   function Gen3:badge(index)

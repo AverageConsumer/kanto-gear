@@ -1,20 +1,33 @@
 return function(ART, BOOK_G, CH, CIRC, FLAG_G, H, K, R, RING, RR, TONES, WHITE, cg, floor, hex, max, min, mix, translate, ui)
-  function H:v4AchievementTabs(view)
+  local MOMENT_G = { "...o...", "..o#o..", "oo###oo", ".o###o.", "o#o.o#o" }
+  local TAB_SEATS = { { x=7, w=75 }, { x=82, w=76 }, { x=158, w=75 } }
+  function H:v4AchievementTabLayout() return TAB_SEATS end
+  function H:v4AchievementTabs(view, unseen)
     local c = self.colors
     local a = K.rampOf(hex("c89a18"))
     if cg(self) then CH(6, 34, 228, 18, 3, c.outline); CH(7, 35, 226, 16, 2, self.dark and hex("141b22") or hex("e4ebf0"))
     else RR(6, 34, 228, 18, 4, c.outline); RR(7, 35, 226, 16, 3, self.dark and hex("1c2533") or hex("dfe8e1")) end
-    local hx = self:v4Glide("ach_tab", view == "album" and 120 or 7)
-    if cg(self) then CH(hx, 35, 113, 16, 2, a.M); CH(hx, 35, 113, 7, 2, a.L)
-    else RR(hx, 35, 113, 16, 3, a.D); RR(hx, 35, 113, 14, 3, a.M); R(hx + 3, 35, 107, 1, a.Hi) end
-    for i, t in ipairs({ { "GOALS", "goals", FLAG_G }, { "STAMP BOOK", "album", BOOK_G } }) do
-      local x = 6 + (i - 1) * 117
-      local lit = hx + 56 >= x and hx + 56 < x + 115
-      local label = translate(t[1])
+    -- The centre tab owns the odd pixel: 75 + 76 + 75 fills the track.
+    local stops = { goals = 7, album = 82, moments = 158 }
+    local hx = self:v4Glide("ach_tab", stops[view] or 7)
+    local activeW = view == "album" and 76 or 75
+    if cg(self) then CH(hx, 35, activeW, 16, 2, a.M); CH(hx, 35, activeW, 7, 2, a.L)
+    else RR(hx, 35, activeW, 16, 3, a.D); RR(hx, 35, activeW, 14, 3, a.M); R(hx + 3, 35, activeW - 6, 1, a.Hi) end
+    for i, t in ipairs({ { "GOALS", "goals", FLAG_G }, { "STAMP BOOK", "album", BOOK_G },
+        { "MOMENTS", "moments", MOMENT_G } }) do
+      local x = stops[t[2]]
+      local w = TAB_SEATS[i].w
+      local lit = hx + 37 >= x and hx + 37 < x + w
+      local label = self:fitPartyInfo(translate(t[1]), w - 6)
       local gw = #t[3][1] + 4
-      local lx = x + floor((111 - gw - self:partyInfoWidth(label)) / 2)
-      ART(t[3], lx, 40, { o = lit and WHITE or c.mutedInk, ["#"] = lit and hex("f8e070") or c.band })
-      self:partyInfo(label, lx + gw, 37, lit and WHITE or c.mutedInk)
+      -- The mark goes first when the tab is wide enough for both.
+      if self:partyInfoWidth(label) + gw > w - 6 then gw = 0 end
+      local lx = x + floor((w - gw - self:partyInfoWidth(label)) / 2)
+      if gw > 0 then ART(t[3], lx, 40, { o = lit and WHITE or c.mutedInk, ["#"] = lit and hex("f8e070") or c.band }) end
+      self:partyInfo(self:fitPartyInfo(label, w - 6), lx + gw, 37, lit and WHITE or c.mutedInk)
+      if t[2] == "moments" and unseen and view ~= "moments" and self.homeUnreadDot then
+        self:homeUnreadDot(x, 34, w - 2)
+      end
     end
   end
 

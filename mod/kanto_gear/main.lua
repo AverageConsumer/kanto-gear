@@ -111,6 +111,14 @@ return function(mod)
     THEME, assist, compat, displayRuntime, header, locationEntry, mod, render,
     session)
   install("runtime/calendar_gen3", THEME, assist, displayRuntime, session)
+  install("runtime/notices",
+    THEME, compat, displayRuntime, mod, render, screenState, session)
+  install("runtime/shiny_hunt",
+    THEME, areaName, assist, battleState, compat, displayRuntime, drawSprite,
+    guideData, header, mod, render, session)
+  install("runtime/moments",
+    THEME, areaName, compat, displayRuntime, mod, render, session)
+  install("runtime/notice_sources", THEME, compat, displayRuntime, mod, session)
   local drawFieldChoice, drawNormalParty, drawParty, drawPartyAction = install("runtime/party",
     THEME, button, displayRuntime, fit, header, hgssRuntime,
     partyCard, partyData, render, session)
@@ -207,6 +215,7 @@ return function(mod)
     dialogueChoice, displayRuntime, fullBottomBattleUI, hasDisplay, hgssRuntime, holdTextSpeed,
     mod, refreshBattle, refreshTheme, reloadSteps, render, screenContract,
     session, touchEvent)
+  install("runtime/display_setup", THEME, displayRuntime, mod, render, resetSwapState, session)
   install("runtime/options_events",
     Area, Discovery, THEME, assist, compat, displayRuntime,
     hgssRuntime, invalidateLocalMap, localMapMode, mod, refreshTheme, reloadSteps,

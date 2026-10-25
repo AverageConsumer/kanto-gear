@@ -1,6 +1,7 @@
 -- Explanations are shared by the touch settings and the native mod menu.
 local Info = {}
 Info.help = {
+  display_setup = "Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept.",
   language = "Language of Kanto Gear. Game translations are separate mods.",
   theme_v3 = "Choose a light or dark companion. Auto follows the time of day.",
   clock_source = "Choose the game clock or your device clock. Games without a clock use device time.",
@@ -27,6 +28,16 @@ Info.help = {
   catch_odds = "Show estimated catch chances for Poke Balls. Estimates are not a guarantee.",
   keyboard_layout = "Choose the order of letters on Gear's touch keyboard. QWERTY puts Y in the top row; QWERTZ puts Z there.",
   ui_haptics = "Brief vibration for accepted touches on devices that support it.",
+  notifications = "Short Gear messages when something happens, such as a shiny. They wait for battles and menus, and also show over the game when the Gear is hidden.",
+  notification_sound = "A short chime with each message. It follows the game's sound effect volume.",
+  notice_shiny = "Shiny Hunt messages: with sound, silent, only a dot on the app, or nothing.",
+  notice_moments = "New Stamp Book moments: with sound, silent, only a dot on the app, or nothing.",
+  notice_daycare = "Day-Care news, such as a waiting egg or a boarder that grew: with sound, silent, only a dot, or nothing.",
+  notice_calendar = "Calendar news when something opens right now, such as a visitor or a rematch: with sound, silent, only a dot, or nothing.",
+  notice_stamps = "A silver or gold stamp earned in the current area: with sound, silent, only a dot, or nothing.",
+  notice_shiny_timing = "At once chimes as soon as a shiny appears, even mid-battle. With card waits for the message after the battle.",
+  notice_duration = "How long a message stays on screen. A tap opens it earlier.",
+  notice_where = "When the Gear is hidden, show messages over the game, or wait until the Gear is in view again.",
   home_help = "Show how to add, move and remove apps and widgets on Home.",
   reset_home = "Restore the initial Home layout and installed apps. Notes and game progress are kept. Tap Reset twice to confirm.",
   reset_options = "Restore Gear's default settings, including discovery and battle helpers. Notes and game saves are kept. Tap Reset twice to confirm.",

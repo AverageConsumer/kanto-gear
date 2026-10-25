@@ -588,7 +588,7 @@ return function(H, ui, draw)
       end
       local detailRows = model.detailRows or {}
       local function levels(appearance)
-        return appearance.minLevel == appearance.maxLevel
+        return not appearance.minLevel and "--" or appearance.minLevel == appearance.maxLevel
           and "L" .. tostring(appearance.minLevel)
           or "L" .. tostring(appearance.minLevel) .. "-"
             .. tostring(appearance.maxLevel)

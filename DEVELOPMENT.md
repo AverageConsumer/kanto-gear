@@ -15,7 +15,7 @@ These paths are relative to `mod/kanto_gear/`.
 | `adapters/gen1_2/` | Active native GB/GBC menus from Red through Crystal, previously named `legacy_*`. |
 | `adapters/gen3/` | Native FireRed, LeafGreen, Ruby, Sapphire and Emerald integration. `models/` reads data; `ui/menus/` builds menu projections; `progress/` evaluates objectives. |
 | `adapters/` | Shared start-menu, map and Pokédex interfaces. |
-| `features/` | Notes, Stamps, Silph Connect, gifts and berries. |
+| `features/` | Notes, Stamps, Moments, Shiny Hunt, notifications, Silph Connect, gifts and berries. |
 | `models/` | Pokémon information, summaries, evolutions and habitats. |
 | `ui/pages/` | Shared screen geometry and interactions. |
 | `ui/skins/` | Pokégear and C-Gear drawing; `apps/` holds app screens and `native/` holds native companion views. |
@@ -83,8 +83,8 @@ same private touch input as the full app.
 ### API 3 host contract
 
 Gear opts into API 3, available in Gen1Recomp 0.3.93 and newer. The release
-fixtures use the exact 0.3.95 source
-(`2b45436abffc31100d3cb599c6cc09d00c1ddac3`). API 2 hosts are rejected by
+fixtures use the exact 0.3.96 source
+(`0e92b587468c2db7c386f055fc272e6505b0f401`). API 2 hosts are rejected by
 the manifest.
 
 Gen 3 definitions come from `mod.content` and battle snapshots/intents from

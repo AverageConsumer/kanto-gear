@@ -82,7 +82,8 @@ local function shown(text)
   for _, label in ipairs(labels) do if label.s:find(text, 1, true) then return true end end
 end
 local status = new()
-Phone.drawStatus(status, graphics, { width = 640, height = 576 })
+local recovery = Phone.drawStatus(status, graphics, { width = 640, height = 576 })
+assert(recovery and shown("USE ONE SCREEN"), "unpaired phone mode always offers a local exit")
 local card = boxes[3] -- shadow, rim, then the card body
 assert(shown((status.url:gsub("^http://", ""))) and shown(status.pin:sub(1, 4)) and shown(status.pin:sub(5, 8)),
   "pairing card shows the address and the eight-digit code")
@@ -97,16 +98,22 @@ local function pixelFont(width, height)
 end
 local preview = { url = status.url, pin = status.pin, expires = 300, now = function() return 0 end,
   qr = { size = 37, runs = { { 0, 0, 37 } } } }
-for _, size in ipairs({ {320,288}, {640,576}, {1280,720}, {1920,1080} }) do
+for _, size in ipairs({ {320,288}, {320,568}, {393,852}, {402,874}, {640,576},
+    {942,2048}, {1206,2622}, {1280,720}, {1920,1080} }) do
   for _, skin in ipairs({ "pokegear", "cgear" }) do for _, dark in ipairs({ false, true }) do
     boxes, labels = {}, {}
-    Phone.drawStatus(preview, graphics, { width = size[1], height = size[2] },
+    local layout = Phone.drawStatus(preview, graphics, { width = size[1], height = size[2] },
       { skin = skin, dark = dark, font = pixelFont(6,7), small = pixelFont(5,7), large = pixelFont(12,14) })
     local body = boxes[3]
     assert(body.x >= 0 and body.y >= 0 and body.x + body.w <= size[1] and body.y + body.h <= size[2],
       "pairing card fits small and large viewports in every skin")
     for _, box in ipairs(boxes) do assert(box.w >= 0 and box.h >= 0, "pixel icons never have negative dimensions") end
     assert(shown("expires in 5:00"), "expiry stays visible alongside the QR and PIN")
+    local exit = layout.exit
+    assert(shown("USE ONE SCREEN") and exit.x >= body.x and exit.x + exit.w <= body.x + body.w
+      and exit.y >= body.y and exit.y + exit.h <= body.y + body.h,
+      "portrait and landscape recovery controls stay inside the visible card")
+    assert(exit.y + exit.h < size[2] * .7, "local exit stays above the lower touch controls")
   end end
 end
 status:stop()

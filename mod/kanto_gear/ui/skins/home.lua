@@ -137,6 +137,8 @@ return function(H, ui, K)
     local text = translate(label)
     local shown = self:fitPartyType(text, w)
     local first, second = text:match("^(%S+)%s+(.+)$")
+    -- A compound without a space ("SHINY-JAGD") breaks after its hyphen.
+    if not first then first, second = text:match("^([^%s%-]+%-)([^%s%-].*)$") end
     if shown ~= text and first and self:fitPartyType(first, w) == first
         and self:fitPartyType(second, w) == second then
       self:partyType(first, x, y - 5, ink, w)
@@ -150,7 +152,7 @@ return function(H, ui, K)
     map = "blue", tools = "amber", store = "red", settings = "slate", bag = "amber",
     pokedex = "red", trainer = "blue", steps = "green", achievements = "amber",
     party = "red", explorer = "green", notes = "amber", pss = "blue",
-    daycare = "red", calendar = "blue", pokegear = "blue", pokenav = "green",
+    daycare = "red", calendar = "blue", pokegear = "blue", pokenav = "green", shiny = "amber",
     pg_clock = "blue", pg_phone = "blue", pg_radio = "blue", pn_map = "green",
     pn_condition = "green", pn_matchcall = "green", pn_eyes = "green", pn_ribbons = "green",
   }
@@ -170,7 +172,8 @@ return function(H, ui, K)
     local id = iconId(icon)
     local a = K.rampOf(self:v4AppAccent(id) or accent or colors.green)
     local text = translate(label)
-    local twoLines = self:fitPartyType(text, w - 10) ~= text and text:find("%s") ~= nil
+    local twoLines = self:fitPartyType(text, w - 10) ~= text
+      and (text:find("%s") ~= nil or text:find("^[^%s%-]+%-[^%s%-]") ~= nil)
     local plateH = twoLines and 25 or 16
     local d = min(40, w - 13, h - 40)
     local bx = x + floor((w - d) / 2)

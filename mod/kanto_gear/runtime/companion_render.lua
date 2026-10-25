@@ -106,7 +106,7 @@ return function(
   end
 
   function displayRuntime.pressTouch(mode, choice, touch, owned, blocked)
-    if blocked or mode == "loading"
+    if blocked or type(touch) == "table" and touch.notice or mode == "loading"
         or (mode == "textbox" and not choice and not owned)
         or (mode == "locked" and not owned) then
       return nil
@@ -145,6 +145,8 @@ return function(
       displayRuntime.drawDaycare()
     elseif THEME.style == "hgss" and session.page == "CALENDAR" and displayRuntime.drawCalendar then
       displayRuntime.drawCalendar()
+    elseif THEME.style == "hgss" and session.page == "SHINY" then
+      displayRuntime.drawShinyHunt()
     elseif THEME.style == "hgss" and session.page == "PSS" then
       displayRuntime.drawPss()
     elseif THEME.style == "hgss" and session.page == "BAG" then
@@ -311,6 +313,12 @@ return function(
     end
     if THEME.style == "hgss" then THEME.hgss.nativeFocus = false end
     THEME.nativeFocus = nil
+    -- Gear notices sit above every page, below nothing.
+    if highResolution and displayRuntime.drawNoticeLayer then
+      render.G.push(); render.G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+      displayRuntime.drawNoticeLayer()
+      render.G.pop()
+    end
     if highResolution then render.G.pop() end
     render.G.setCanvas()
   end

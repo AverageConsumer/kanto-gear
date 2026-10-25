@@ -15,6 +15,8 @@ GEN3 = ["firered", "leafgreen", "emerald", "ruby", "sapphire"]
 
 
 def editions(name):
+    if name == "display_setup_runtime_test": return ["red", "crystal", "firered", "emerald"]
+    if name == "phone_runtime_test": return ["red", "crystal", "firered", "emerald"]
     if name.startswith("rs_"): return GEN3[3:]
     if name.startswith("emerald_"): return ["emerald"]
     if name in {"gen3_native_test", "gen3_runtime_test", "gen3_progress_test", "gen3_online_test", "gen3_controls_test"}: return GEN3[:2]
@@ -24,7 +26,8 @@ def editions(name):
     if name.startswith("gen2_"): return GEN2
     if name.startswith("gen1_"): return GEN1
     if name in {"compat_test", "battle_modes_test", "level_up_runtime_test", "native_dex_test", "touch_companion_test", "party_summary_test", "legacy_party_test", "third_party_modules_test"}: return GEN1 + GEN2
-    if name in {"daycare_runtime_test", "calendar_runtime_test"}: return ["red", "crystal"]
+    if name in {"daycare_runtime_test", "calendar_runtime_test", "shiny_hunt_runtime_test", "moments_runtime_test"}: return ["red", "crystal"]
+    if name in {"notices_runtime_test", "notice_settings_test"}: return ["crystal"]
     if name in {"home_runtime_test", "motion_runtime_test", "haptics_test", "achievements_test", "bag_runtime_test", "legacy_bag_test", "team_widget_test", "auto_battle_screen_test", "standard_battle_test"}: return ["red", "crystal"]
     return ["red"]
 

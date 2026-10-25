@@ -157,6 +157,7 @@ function love.load()
   local screen = os.getenv("KANTO_GEAR_PREVIEW_SCREEN") or "party"
   local achievements = screen:sub(1, 12) == "achievements"
   local daycareScreen = screen:sub(1, 7) == "daycare" or screen:sub(1, 8) == "calendar"
+    or screen:sub(1, 5) == "shiny"
   local homePreview = screen:sub(1, 4) == "home"
   local storeExplorerPreview = screen == "store-detail"
     and os.getenv("KANTO_GEAR_PREVIEW_STORE_APP") == "explorer"
@@ -214,7 +215,8 @@ function love.load()
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
   for prefix, name in pairs({ pokedex = "POKEDEX", trainer = "TRAINER", bag = "BAG",
       store = "STORE", tools = "TOOLS", settings = "SETTINGS", achievements = "ACHIEVEMENTS",
-      region_map = "MAP", pss = "PSS", notes = "NOTES", daycare = "DAYCARE", calendar = "CALENDAR" }) do
+      region_map = "MAP", pss = "PSS", notes = "NOTES", daycare = "DAYCARE", calendar = "CALENDAR",
+      shiny = "SHINY" }) do
     if screen:sub(1, #prefix) == prefix then theme.v4Page = name end
   end
   if screen == "trainer_steps" then theme.v4Page = "STEPS" end
@@ -223,10 +225,15 @@ function love.load()
   end
   assert(loadfile(root .. "/mod/kanto_gear/ui/features/achievements.lua"))()(
     theme, love.graphics, translate, format)
+  assert(loadfile(root .. "/mod/kanto_gear/ui/features/moments.lua"))()(theme, love.graphics, translate)
   assert(loadfile(root .. "/mod/kanto_gear/ui/features/daycare.lua"))()(
     theme, love.graphics, translate, format)
   assert(loadfile(root .. "/mod/kanto_gear/ui/features/calendar.lua"))()(
     theme, love.graphics, translate, format)
+  assert(loadfile(root .. "/mod/kanto_gear/ui/features/shiny_hunt.lua"))()(
+    theme, love.graphics, translate, format)
+  assert(loadfile(root .. "/mod/kanto_gear/ui/features/notices.lua"))()(
+    theme, love.graphics, translate)
   theme:setTouch(20, 20)
   assert(theme:isPressed(29, 29, 3, 3)
       and not theme:isPressed(29, 29, 3, 3, false),
@@ -714,9 +721,10 @@ function love.load()
   settingsAppearance = settingsAppearance or screen == "settings_appearance_page2"
   local settingsControls = screen == "settings_controls"
   local settingsBattle, settingsResearch = screen == "settings_battle", screen == "settings_research"
+  local settingsNotifications = screen == "settings_notifications"
   local settings = settingsRoot or settingsDisplay
     or settingsAppearance or settingsSystem or settingsControls or settingsBattle or settingsResearch
-    or screen == "settings_option"
+    or settingsNotifications or screen == "settings_option"
   local store = storeToday or storeApps or storeLibrary or storeDetail
   local explorer = explorerOverview or explorerMap or explorerLayer
     or explorerDetail
@@ -796,6 +804,7 @@ function love.load()
     or settingsSystem and "SYSTEM"
     or settingsBattle and "BATTLE"
     or settingsResearch and "RESEARCH"
+    or settingsNotifications and "NOTIFICATIONS"
     or settings and "SETTINGS"
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
@@ -1828,6 +1837,9 @@ function love.load()
     end
     theme:pss(state)
     end
+  elseif screen:sub(1, 5) == "shiny" then
+    assert(loadfile(root .. "/tools/hgss_preview/shiny_hunt.lua"))()(
+      theme, screen, gen1, translate, format, root, drawPortrait)
   elseif daycareScreen then
     assert(loadfile(root .. "/tools/hgss_preview/daycare_calendar.lua"))()(
       theme, screen, gen1, translate, format, root, function(mon, x, y, size)
@@ -2267,6 +2279,7 @@ function love.load()
       { id = "battle", label = "BATTLE", detail = "SEPARATE BATTLE HELPERS", accent = "red" },
       { id = "research", label = "EXPLORATION", detail = "WHAT GEAR REVEALS", accent = "amber" },
       { id = "controls", label = "CONTROLS", detail = "OPTIONAL SHORTCUTS", accent = "blue" },
+      { id = "notifications", label = "NOTIFICATIONS", detail = "WHAT, HOW AND WHEN", accent = "amber" },
       { id = "system", label = "SYSTEM", detail = "HELP AND RESET", accent = "green" },
     }
     local which = screen == "settings" and "appearance" or screen:match("^settings_(%a+)")
@@ -2292,8 +2305,22 @@ function love.load()
         { key = "caught_icon", label = "CAUGHT ICON", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
         { key = "type_hints", label = "TYPE HINTS", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
       },
+      notifications = {
+        { key = "notice_shiny", label = "SHINY HUNT", value = "WITH SOUND", raw = "full",
+          choices = { { "WITH SOUND", "full" }, { "SILENT", "silent" }, { "DOT ONLY", "dot" }, { "OFF", "off" } },
+          info = "Shiny Hunt messages: with sound, silent, only a dot on the app, or nothing." },
+        { key = "notice_moments", label = "MOMENTS", value = "WITH SOUND", raw = "full",
+          choices = { { "WITH SOUND", "full" }, { "SILENT", "silent" }, { "DOT ONLY", "dot" }, { "OFF", "off" } } },
+        { key = "notice_daycare", label = "DAY-CARE", value = "WITH SOUND", raw = "full",
+          choices = { { "WITH SOUND", "full" }, { "SILENT", "silent" }, { "DOT ONLY", "dot" }, { "OFF", "off" } } },
+        { key = "notice_calendar", label = "CALENDAR", value = "SILENT", raw = "silent",
+          choices = { { "WITH SOUND", "full" }, { "SILENT", "silent" }, { "DOT ONLY", "dot" }, { "OFF", "off" } } },
+        { key = "notice_where", label = "GEAR HIDDEN", value = "OVER GAME", raw = "over",
+          choices = { { "OVER GAME", "over" }, { "WAIT", "wait" } } },
+      },
       system = {
         { action = "home_help", label = "CUSTOMIZE HOME", value = "SHOW ME", description = "Shows how to edit Home." },
+        { action = "display_setup", label = "DISPLAY SETUP", value = "OPEN", description = "Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept." },
         { action = "reset_home", label = "RESET HOME", value = "RESET" },
         { action = "reset_options", label = "RESET OPTIONS", value = "TAP AGAIN", description = "Tap again to reset every option." },
       },
@@ -2304,7 +2331,7 @@ function love.load()
     local selected = sel and rows[sel] and (rows[sel].key or rows[sel].action) or nil
     theme:settings({ category = which, label = TABS[tab].label, detail = TABS[tab].detail, accent = TABS[tab].accent,
       tabs = TABS, tab = tab, rows = rows, page = 1, pages = #rows > 4 and 2 or 1, selected = selected,
-      confirm = which == "system" and sel == 3 and "reset_options" or nil })
+      confirm = which == "system" and sel == 4 and "reset_options" or nil })
   elseif settingsRoot and false then
     theme:settings({ categories = {
       { label = "APPEARANCE", detail = "THEME AND TRANSITIONS",
@@ -2468,9 +2495,13 @@ function love.load()
         calendar_widget = { package = "calendar", kind = "widget", widget = "calendar", columns = 12, label = "CALENDAR" },
         calendar_small_widget = { package = "calendar", kind = "widget", widget = "calendar_small", columns = 5, label = "TODAY" },
         calendar_app = { package = "calendar", kind = "app", columns = 3, icon = "calendar", accent = "blue", label = "CALENDAR" },
+        shiny_widget = { package = "shiny", kind = "widget", widget = "shiny", columns = 12, label = "SHINY HUNT" },
+        shiny_small_widget = { package = "shiny", kind = "widget", widget = "shiny_small", columns = 5, label = "SHINY" },
+        shiny_app = { package = "shiny", kind = "app", columns = 3, icon = "shiny", accent = "amber", label = "SHINY HUNT" },
       },
     }
     catalog.packages.daycare, catalog.packages.calendar = { installed = true }, { installed = true }
+    catalog.packages.shiny = { installed = true }
     local deviceShortcuts = assert(loadfile(root .. "/mod/kanto_gear/core/device_shortcuts.lua"))()
     if screen == "home-device-shortcuts" then
       catalog.packages.pokegear, catalog.packages.pokenav = { installed = true }, { installed = true }
@@ -2516,6 +2547,13 @@ function love.load()
         { id = "daycare_small_widget", page = 1, column = 1, row = 2 },
         { id = "daycare_app", page = 1, column = 7, row = 2 },
         { id = "calendar_app", page = 1, column = 10, row = 2 },
+      }
+    elseif screen:sub(1, 10) == "home-shiny" then
+      layout.tiles = {
+        { id = "shiny_widget", page = 1, column = 1, row = 1 },
+        { id = "shiny_small_widget", page = 1, column = 1, row = 2 },
+        { id = "shiny_app", page = 1, column = 7, row = 2 },
+        { id = "daycare_app", page = 1, column = 10, row = 2 },
       }
     elseif screen:sub(1, 13) == "home-calendar" then
       layout.tiles = {
@@ -2731,6 +2769,10 @@ function love.load()
         drawPortrait(row.slot, x, y, size, false)
       end,
     }
+    if screen:sub(1, 10) == "home-shiny" then
+      model.shiny = assert(loadfile(root .. "/tools/hgss_preview/shiny_hunt.lua"))()(
+        theme, screen, gen1, translate, format, root, drawPortrait, true)
+    end
     if screen:sub(1, 12) == "home-daycare" or screen:sub(1, 13) == "home-calendar" then
       local fixture = assert(loadfile(root .. "/tools/hgss_preview/daycare_calendar.lua"))()
       local variant = os.getenv("KANTO_GEAR_PREVIEW_WIDGET") or ""
@@ -3394,6 +3436,30 @@ function love.load()
       for i = 1, math.min(25, #rl) do io.stdout:write(string.format("RECTS %s %d\n", rl[i][1], rl[i][2])) end
     end
     collectgarbage("restart")
+  end
+  -- KANTO_GEAR_PREVIEW_NOTICE=shiny|plain draws a notice card over the screen;
+  -- KANTO_GEAR_PREVIEW_NOTICE_P sets its slide (0..1).
+  local noticeKind = os.getenv("KANTO_GEAR_PREVIEW_NOTICE")
+  if noticeKind then
+    love.graphics.setCanvas(canvas)
+    love.graphics.origin()
+    local shiny = noticeKind == "shiny"
+    local moment = noticeKind == "moment" and function(x, y, size)
+      theme:momentSeal(x + math.floor(size / 2), y + math.floor(size / 2), math.floor(size / 2) - 1, "heart", "red")
+    end or nil
+    if moment then
+      theme:noticeBanner({ title = translate("NEW MOMENT"), detail = translate("HANGING BY A THREAD"),
+        drawIcon = moment, tone = "special", presence = tonumber(os.getenv("KANTO_GEAR_PREVIEW_NOTICE_P")) or 1 },
+        6, 33, 228, 32)
+    else
+    theme:noticeBanner({ title = translate(shiny and "SHINY FOUND!" or "NOTIFICATIONS"),
+      detail = shiny and "ABRA" or translate("SOFT RESETS KEEP YOUR COUNT."),
+      species = shiny and "ABRA" or nil, icon = not shiny and "shiny" or nil,
+      tone = shiny and "special" or "notice",
+      presence = tonumber(os.getenv("KANTO_GEAR_PREVIEW_NOTICE_P")) or 1,
+      drawPokemon = function(_, x, y, size) drawPortrait(6, x, y, size, false) end }, 6, 33, 228, 32)
+    end -- moment notice
+    if os.getenv("KANTO_GEAR_PREVIEW_DOT") then theme:homeUnreadDot(7 + 6 * 19, 117, 55) end
   end
   love.graphics.setCanvas()
   local preview = love.graphics.newCanvas(960, 864, { dpiscale = 1 })

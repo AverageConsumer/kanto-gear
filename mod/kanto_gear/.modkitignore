@@ -15,6 +15,8 @@ tests/desktop_compat_test.lua
 tests/discovery_partner_cases.lua
 tests/display_background_test.lua
 tests/display_idle_test.lua
+tests/display_setup_model_test.lua
+tests/display_setup_runtime_test.lua
 tests/emerald_item_pc_test.lua
 tests/emerald_native_test.lua
 tests/emerald_runtime_test.lua
@@ -38,6 +40,9 @@ tests/gen3_daycare_calendar_test.lua
 tests/gen3_device_app_test.lua
 tests/gen3_dex_cache_test.lua
 tests/gen3_dialogue_test.lua
+tests/gen3_encounter_preview_runtime_test.lua
+tests/gen3_encounter_preview_test.lua
+tests/gen3_encounters_test.lua
 tests/gen3_field_test.lua
 tests/gen3_fixture.lua
 tests/gen3_full_battle_test.lua
@@ -48,6 +53,7 @@ tests/gen3_map_test.lua
 tests/gen3_menu_refresh_test.lua
 tests/gen3_module_cache_test.lua
 tests/gen3_modules_test.lua
+tests/gen3_moments_notices_test.lua
 tests/gen3_move_learning_test.lua
 tests/gen3_naming_test.lua
 tests/gen3_native_test.lua
@@ -63,6 +69,7 @@ tests/gen3_relearner_test.lua
 tests/gen3_runtime_test.lua
 tests/gen3_safari_test.lua
 tests/gen3_save_test.lua
+tests/gen3_shiny_hunt_test.lua
 tests/gen3_trades_test.lua
 tests/habitats_test.lua
 tests/haptics_test.lua
@@ -83,6 +90,8 @@ tests/level_up_test.lua
 tests/location_preview_test.lua
 tests/map_motion_test.lua
 tests/map_redraw_test.lua
+tests/moments_model_test.lua
+tests/moments_runtime_test.lua
 tests/motion_runtime_test.lua
 tests/move_page_cases.lua
 tests/native_dex3_test.lua
@@ -91,6 +100,9 @@ tests/native_map_test.lua
 tests/native_options_test.lua
 tests/notes_runtime_test.lua
 tests/notes_test.lua
+tests/notice_settings_test.lua
+tests/notices_model_test.lua
+tests/notices_runtime_test.lua
 tests/party_storage_test.lua
 tests/party_summary_test.lua
 tests/pc_items_gen3_cases.lua
@@ -131,6 +143,8 @@ tests/safari_cases.lua
 tests/settings_discovery_test.lua
 tests/settings_fallback_test.lua
 tests/settings_native_test.lua
+tests/shiny_hunt_model_test.lua
+tests/shiny_hunt_runtime_test.lua
 tests/shop_gen3_cases.lua
 tests/sprite_filter_test.lua
 tests/sprite_runtime_cases.lua
@@ -141,6 +155,7 @@ tests/summary_details_cases.lua
 tests/support/core.lua
 tests/support/menu_touch.lua
 tests/support/module.lua
+tests/support/notice_gestures.lua
 tests/support/runtime.lua
 tests/support/source.lua
 tests/team_widget_test.lua

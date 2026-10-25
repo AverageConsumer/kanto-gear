@@ -29,6 +29,18 @@ return function(
   end
 
   displayRuntime.displayBridge = {}
+  function displayRuntime.detectNativeDisplay(native, now)
+    if not (native and native.detected) then return false end
+    local state = displayRuntime.displayBridge
+    if state.owner ~= native or state.probe ~= native.detected or not state.checkedAt
+        or now < state.checkedAt or now >= state.checkAt then
+      state.owner, state.probe = native, native.detected
+      local ok, detected = pcall(displayRuntime.perf.call, displayRuntime.perf, "display_detect", native.detected)
+      state.detected = ok and not not detected
+      state.checkedAt, state.checkAt = now, now + .05
+    end
+    return state.detected
+  end
   local function hasDisplay()
     if displayRuntime.gearModules and displayRuntime.gearModules.anyShown() then return false end
     if THEME:displayMode(mod.options) == "phone" then
@@ -39,24 +51,19 @@ return function(
         or displayRuntime.gearPrimary()
     end
     if not (session.companion and session.companion.detected) then return false end
-    local state, now = displayRuntime.displayBridge, love.timer.getTime()
     -- Discovery crosses JNI and reads Android system settings. Share one
     -- result across input/draw hooks; this never throttles image submissions.
-    if state.owner ~= session.companion or state.probe ~= session.companion.detected
-        or not state.checkedAt or now < state.checkedAt or now >= state.checkAt then
-      state.owner, state.probe = session.companion, session.companion.detected
-      state.detected = not not displayRuntime.perf:call("display_detect", session.companion.detected)
-      state.checkedAt, state.checkAt = now, now + 0.05
-    end
-    return state.detected
+    return displayRuntime.detectNativeDisplay(session.companion, love.timer.getTime())
   end
 
   function displayRuntime.syncDisplayBridge(now, inline)
     if not (session.companion and session.companion.setEnabled) then return end
-    local state, enabled = displayRuntime.displayBridge, session.active and not inline
+    local state, enabled = displayRuntime.displayBridge, session.active and (not inline
+      or displayRuntime.setupWantsSecond and displayRuntime.setupWantsSecond())
     if state.enabledOwner ~= session.companion or state.enable ~= session.companion.setEnabled
         or state.enabled ~= enabled
-        or enabled and (state.detected == false or not session.displayReady)
+        or enabled and (state.detected == false or not session.displayReady
+          or displayRuntime.setupWantsSecond and displayRuntime.setupWantsSecond())
           and now >= (state.retryAt or 0) then
       -- Android posts UI-thread work for every enable call, even unchanged ones.
       -- Host path [all games]: older or temporarily unavailable companion presentations need a bounded retry after enabling the display.
@@ -134,7 +141,8 @@ return function(
     elseif not hgss and (session.page == "HOME" or session.page == "STORE"
         or session.page == "STEPS" or session.page == "POKEDEX" or session.page == "BAG"
         or session.page == "ACHIEVEMENTS" or session.page == "NOTES" or session.page == "PSS"
-        or session.page == "DAYCARE" or session.page == "CALENDAR") then
+        or session.page == "DAYCARE" or session.page == "CALENDAR"
+        or session.page == "SHINY") then
       session.page = "MAP"
     elseif hgss and (session.page == "GUIDE" or session.page == "AREA") then
       session.page = "LOCAL"

@@ -99,9 +99,9 @@ for generation = 1, 3 do
   T.eq(saved().display_mode, "separate", "recovery survives restart")
   api.options:set("display_mode", "phone")
   find("__reset").activate()
-  T.eq(api.options:get("display_mode"), "separate", "reset never restores phone mode")
+  T.eq(api.options:get("display_mode"), "combined", "reset restores a visible one-screen mode")
   T.eq(api.options:get("combined_layout"), "auto", "reset does not reuse a cached overlay default")
-  T.eq(saved().display_mode, "separate", "native reset persists the safe local output")
+  T.eq(saved().display_mode, "combined", "native reset persists the safe local output")
   local launcherRows = up(require("src.import.LauncherSettings").open, "modRows")
   local launcherOptions = { modOptions = { kanto_gear = { display_mode = "phone" } } }
   local launcher = launcherRows(launcherOptions, { id = "kanto_gear", schema = native })
@@ -110,7 +110,7 @@ for generation = 1, 3 do
   T.eq(launcherOptions.modOptions.kanto_gear.display_mode, "separate", "launcher can exit phone mode too")
   launcherOptions.modOptions.kanto_gear.display_mode = "phone"
   launcher[#launcher].step()
-  T.eq(launcherOptions.modOptions.kanto_gear.display_mode, "separate", "launcher reset uses the same safe default")
+  T.eq(launcherOptions.modOptions.kanto_gear.display_mode, "combined", "launcher reset uses the same safe default")
   T.eq(#launcher, #schema + 1, "launcher exposes every option plus reset")
   T.eq(#run.errors, 0, "native options leave no loader errors")
   local persisted = saved()

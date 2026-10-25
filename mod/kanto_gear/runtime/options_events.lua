@@ -5,6 +5,8 @@ return function(
 )
   -- Game path [Gen 3 / FRLG]: save.created precedes field entry, and FRLG Continue may replay Quest Log before the session is ready for tool storage.
   function displayRuntime.reloadSavedUi()
+    if displayRuntime.resetNotices then displayRuntime.resetNotices() end
+    if displayRuntime.gen3 then displayRuntime.gen3:clearEncounterPreviews() end
     session.toolArmed = nil
     -- Gen 3's created event precedes _enterField; Continue can first replay
     -- the quest log. Bind tool storage only once the new field/save is live.
@@ -24,6 +26,8 @@ return function(
       displayRuntime.gen3:syncStorageIdentity()
       displayRuntime.gen3BoundSession = displayRuntime.gen3.session
     end
+    displayRuntime.bindShinyHunt()
+    if displayRuntime.bindMoments then displayRuntime.bindMoments() end
     displayRuntime.recentItem:bind(session.game.save)
     displayRuntime.resetAchievements()
     displayRuntime.pokedex.data = nil
@@ -40,6 +44,7 @@ return function(
   mod.events:on("save.loaded", displayRuntime.reloadSavedUi)
 
   mod.events:on("map.entered", function(payload)
+    if displayRuntime.gen3 then displayRuntime.gen3:clearEncounterPreviews() end
     session.toolArmed = nil
     if displayRuntime.gen3 and displayRuntime.gen3BoundSession ~= displayRuntime.sourceGame.session then
       displayRuntime.reloadSavedUi()
@@ -157,6 +162,7 @@ return function(
     end
   end
   mod.events:on("mod.options_changed", function(payload)
+    if displayRuntime.gen3 then displayRuntime.gen3:clearEncounterPreviews() end
     if payload and payload.mod == "kanto_gear"
         and payload.value ~= nil and mod.options.syncExternal then
       mod.options:syncExternal(payload.key, payload.value)

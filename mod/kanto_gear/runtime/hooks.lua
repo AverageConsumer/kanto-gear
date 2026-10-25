@@ -95,6 +95,25 @@ return function(
     return result
   end, 1000)
 
+  -- A tap on a notice drawn over the game brings a hidden Gear up, the same
+  -- way the overlay and swap buttons do.
+  function displayRuntime.revealGear()
+    if not (session.active and inlineDisplay()) then return false end
+    if displayRuntime.overlayHidden then
+      displayRuntime.overlayHidden = false
+      resetSwapState()
+      return true
+    end
+    if displayRuntime.gearPrimary() then return false end
+    if displayRuntime.autoBattle.wanted ~= nil then
+      displayRuntime.autoBattle.shown = true
+    else
+      displayRuntime.swapped = not displayRuntime.swapped
+    end
+    resetSwapState()
+    return true
+  end
+
   mod.hooks:wrap("render.viewport", function(next, context)
     local available = next(context)
     THEME.nativeWindowLayout = nil
@@ -171,6 +190,9 @@ return function(
         if layout.showGame then THEME:drawCanvas(context.canvas, layout.game) end
         session.primaryBottomRect = layout.showGear
           and THEME:drawCanvas(session.canvas, layout.gear) or nil
+      end
+      if not layout.showGear and layout.showGame and displayRuntime.drawNoticeOverGame then
+        displayRuntime.drawNoticeOverGame(layout.game)
       end
       render.G.setScissor()
       render.G.pop()
@@ -283,6 +305,12 @@ return function(
     if not THEME.nativeWindowLayout.showGear then
       session.primaryBottomRect = nil
       session.displayReady = false
+      if THEME.nativeWindowLayout.showGame and displayRuntime.drawNoticeOverGame then
+        render.G.push("all")
+        render.G.origin(); render.G.setCanvas(); render.G.setShader(); render.G.setBlendMode("alpha")
+        displayRuntime.drawNoticeOverGame(THEME.nativeWindowLayout.game)
+        render.G.pop()
+      end
       return true
     end
     if session.dirty then draw(); session.dirty = false end
@@ -348,7 +376,25 @@ return function(
   displayRuntime.primaryTouch = primaryTouch
 
   mod.hooks:wrap("input.pointer", function(next, pointerGame, event)
+    -- A captured finger remains ours when its card, output or screen changes.
+    -- Its release must never become a click on a newly exposed control.
+    if displayRuntime.noticeOwnsTouch and displayRuntime.noticeOwnsTouch("canvas") then
+      local action = ({ pressed = "down", released = "up", moved = "move", cancelled = "cancel" })[event.phase]
+      local rect = session.primaryBottomRect
+      if action then
+        if rect and event.x and event.y then
+          displayRuntime.noticeCanvasTouch(action, (event.x - rect.x) * 240 / rect.w,
+            (event.y - rect.y) * 216 / rect.h)
+        else displayRuntime.noticeCanvasTouch("cancel") end
+      end
+      return true
+    end
+    if displayRuntime.noticeOwnsTouch and displayRuntime.noticeOwnsTouch("game")
+        and displayRuntime.noticePointer(event) then return true end
     if moduleShown() then return next(pointerGame, event) end
+    if displayRuntime.displaySetupPointer and displayRuntime.displaySetupPointer(event) then return true end
+    if displayRuntime.phoneStatusPointer(event) then return true end
+    if session.active and displayRuntime.noticePointer and displayRuntime.noticePointer(event) then return true end
     local action = ({ pressed = "down", released = "up", moved = "move",
                       cancelled = "cancel" })[event.phase]
     if action and primaryTouch(action, event.x, event.y) then return true end
@@ -556,6 +602,7 @@ return function(
         displayRuntime.recentItem.pending = nil
       end
     end
+    if displayRuntime.observeSetupDisplay then displayRuntime.observeSetupDisplay(context and context.secondScreen) end
     local inline = inlineDisplay()
     session.companion = context and context.secondScreen
     if THEME:displayMode(mod.options) == "phone" then
@@ -796,6 +843,7 @@ return function(
     end
     if THEME.style == "hgss" and THEME.hgss.ambientDue
         and THEME.hgss:ambientDue(now) then session.dirty = true end
+    if displayRuntime.tickNotices and displayRuntime.tickNotices(now) then session.dirty = true end
     if not displayRuntime.bootWarm.finished and screenState() == "title"
         and displayRuntime.bootWarmStep() then session.dirty = true end
     displayRuntime.updateStepRefresh(now)

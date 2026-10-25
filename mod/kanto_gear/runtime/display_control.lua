@@ -17,6 +17,52 @@ return function(
     session.dirty = true
   end
 
+  local function phonePairingShown()
+    if displayRuntime.displaySetupModal then return false end
+    if not session.active or THEME:displayMode(mod.options) ~= "phone"
+        or not displayRuntime.phoneStatus or displayRuntime.gearModules.anyShown() then return false end
+    if displayRuntime.phone and displayRuntime.phone:ready() then return false end
+    local game = displayRuntime.sourceGame
+    local top = game and game.stack and game.stack:top()
+    -- Host path [all games]: recovery menus must remain visible above the pairing HUD.
+    return not (top and (top.screenId == "ManagerState" or top.isModOptions == true))
+  end
+
+  function displayRuntime.phoneStatusPointer(event)
+    if not phonePairingShown() or not displayRuntime.phoneStatusLayout then
+      displayRuntime.phoneStatusTouches = nil
+      return false
+    end
+    local layout = displayRuntime.phoneStatusLayout
+    local x, y = event.x or -math.huge, event.y or -math.huge
+    local function inside(rect)
+      return x >= rect.x and x < rect.x + rect.w and y >= rect.y and y < rect.y + rect.h
+    end
+    local id = event.id or "mouse"
+    local touches = displayRuntime.phoneStatusTouches or {}
+    displayRuntime.phoneStatusTouches = touches
+    if event.phase == "pressed" then
+      if not inside(layout.card) then return false end
+      touches[id] = { exit = inside(layout.exit) and (event.button == nil or event.button == 1),
+        rect = layout.exit }
+      return true
+    end
+    local held = touches[id]
+    if not held then return false end
+    local rect = held.rect
+    held.exit = held.exit and inside(layout.exit) and rect.x == layout.exit.x
+      and rect.y == layout.exit.y and rect.w == layout.exit.w and rect.h == layout.exit.h
+    if event.phase == "released" or event.phase == "cancelled" then
+      touches[id] = nil
+      if event.phase == "released" and held.exit then
+        mod.options:set("combined_layout", "auto")
+        mod.options:set("display_mode", "combined")
+        displayRuntime.updatePhone()
+      end
+    end
+    return true
+  end
+
   function displayRuntime.updatePhone()
     if session.active and THEME:displayMode(mod.options) == "phone" then
       displayRuntime.Phone = displayRuntime.Phone or assert(load(mod:read("phone/display.lua"),
@@ -43,35 +89,43 @@ return function(
       if displayRuntime.phone then displayRuntime.phone:stop() end
       displayRuntime.phone, displayRuntime.phoneStatus, displayRuntime.phoneConnected = nil, nil, nil
       displayRuntime.nativePhoneOwner = nil
+      displayRuntime.phoneStatusLayout, displayRuntime.phoneStatusTouches = nil, nil
       resetSwapState()
     end
   end
 
   mod.hooks:wrap("core.update", function(next, updateGame, dt)
     displayRuntime.updatePhone()
+    if displayRuntime.updateDisplaySetup and displayRuntime.updateDisplaySetup(updateGame, dt) then return end
     return next(updateGame, dt)
   end, 1000)
 
   mod.hooks:wrap("core.quit_to_launcher", function(next)
+    if displayRuntime.clearDisplaySetup then displayRuntime.clearDisplaySetup() end
     if displayRuntime.phone then displayRuntime.phone:stop() end
     displayRuntime.phone, displayRuntime.phoneStatus, displayRuntime.phoneConnected = nil, nil, nil
     displayRuntime.nativePhoneOwner = nil
+    displayRuntime.phoneStatusLayout, displayRuntime.phoneStatusTouches = nil, nil
     resetSwapState()
     return next()
   end, 1000)
 
   mod.hooks:wrap("render.hud", function(next, hudGame, viewport)
     local result = next(hudGame, viewport)
-    if displayRuntime.gearModules.anyShown() then return result end
-    if session.active and THEME:displayMode(mod.options) == "phone" and displayRuntime.phoneStatus then
+    displayRuntime.phoneStatusLayout = nil
+    if phonePairingShown() then
       local look = displayRuntime.phoneLook or {}
       displayRuntime.phoneLook = look
       -- The pairing card follows the Gear skin; non-Gear themes use the dark Pokégear look.
       look.skin = THEME.style == "hgss" and THEME.hgss.skinName or "pokegear"
       if THEME.style == "hgss" then look.dark = THEME.hgss.dark == true else look.dark = THEME.style ~= "modern_light" end
       look.font, look.small, look.large = THEME.hgssFont, THEME.hgssSmallFont, THEME.hgssLargeFont
-      displayRuntime.Phone.drawStatus(displayRuntime.phoneStatus, render.G, viewport, look)
+      look.fontMetrics = THEME.hgssFontMetrics
+      displayRuntime.phoneStatusLayout = displayRuntime.Phone.drawStatus(displayRuntime.phoneStatus, render.G, viewport, look)
+    else
+      displayRuntime.phoneStatusTouches = nil
     end
+    if displayRuntime.drawDisplaySetup then displayRuntime.drawDisplaySetup(hudGame, viewport) end
     return result
   end, -1000)
 
@@ -161,7 +215,7 @@ return function(
         local path = "adapters/gen3/" .. name .. ".lua"
         return assert(load(mod:read(path), "@kanto_gear/" .. path))()(function(name) return mod:read(name) end)
       end
-      displayRuntime.gen3 = loadAdapter("init").new(session.game, mod.content)
+      displayRuntime.gen3 = loadAdapter("init").new(session.game, mod.content, mod.world)
       displayRuntime.gen3Field = assert(load(mod:read("adapters/gen3/field.lua"), "@kanto_gear/adapters/gen3/field.lua"))().new(displayRuntime.gen3, mod.world)
       displayRuntime.gen3Progress = loadAdapter("progress").new(displayRuntime.gen3)
       displayRuntime.gen3Ui = loadAdapter("ui").new(displayRuntime.gen3, THEME.hgss, displayRuntime.ChoicePage, displayRuntime.NamingPage, displayRuntime.StoragePage, displayRuntime.ItemPage, displayRuntime.MovePage,
@@ -214,6 +268,7 @@ return function(
     local gen1 = not displayRuntime.gen3 and not (session.game.save and session.game.save.generation == 2)
     displayRuntime.homeCatalog.surfaces.daycare_small_widget.hidden = gen1
     if displayRuntime.applyCalendarSupport then displayRuntime.applyCalendarSupport() end
+    displayRuntime.applyShinyHuntSupport()
     displayRuntime.applyDeviceSupport()
     -- third-party store modules decide their availability for this game
     displayRuntime.gearModules.applyAvailability({
@@ -231,6 +286,9 @@ return function(
       displayRuntime.gen3:syncStorageIdentity()
       displayRuntime.gen3BoundSession = displayRuntime.gen3.session
     end
+    if displayRuntime.resetNotices then displayRuntime.resetNotices() end
+    displayRuntime.bindShinyHunt()
+    if displayRuntime.bindMoments then displayRuntime.bindMoments() end
     displayRuntime.recentItem:bind(session.game.save)
     displayRuntime.resetAchievements()
     THEME.storedTheme = mod.options:get("theme_v3")

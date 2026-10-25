@@ -12,7 +12,9 @@ return function(
       local motion = displayRuntime.motion
       local cached = motion.direction and motion.cached and motion.started
         and love.timer.getTime() - motion.started < motion.duration
-      if not cached and not displayRuntime.drawMapRefresh() then displayRuntime.drawContents() end
+      -- A notice card overlaps the map widget: repaint whole while one shows.
+      local notice = displayRuntime.noticeShowing and displayRuntime.noticeShowing()
+      if not cached and (notice or not displayRuntime.drawMapRefresh()) then displayRuntime.drawContents() end
       displayRuntime.applyMotion()
     end)
     -- A failed nested draw skips its own pops. Restore our entire scope before
@@ -268,6 +270,8 @@ return function(
       end
     end
     session.battle = nextBattle
+    if displayRuntime.shinyObserveSnapshot then displayRuntime.shinyObserveSnapshot(nextBattle) end
+    if displayRuntime.momentsObserveSnapshot then displayRuntime.momentsObserveSnapshot(nextBattle) end
     if displayRuntime.enemyInfoSelection ~= nil then
       local present = false
       for _, mon in ipairs(session.battle and session.battle.battlers or {}) do

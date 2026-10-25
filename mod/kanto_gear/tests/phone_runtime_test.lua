@@ -55,11 +55,15 @@ local context = { secondScreen = native }
 local sentinel = {}
 local function next() return sentinel end
 local statusDraws, viewport = 0, { width = 640, height = 576 }
+local statusLayout = { card = { x = 330, y = 30, w = 290, h = 400 },
+  exit = { x = 350, y = 100, w = 250, h = 40 } }
+local expectedStatus = phone
 display.Phone = { drawStatus = function(state, graphics, context)
-  T.eq(state, phone, "HUD receives the live phone status")
+  T.eq(state, expectedStatus, "HUD receives the live phone status")
   T.eq(graphics, love.graphics, "HUD uses the host graphics context")
   T.eq(context, viewport, "HUD keeps the host viewport geometry")
   statusDraws = statusDraws + 1
+  return statusLayout
 end }
 T.eq(hook("render.hud")(next, game, viewport), sentinel,
   "pairing HUD preserves the host return value")
@@ -151,11 +155,63 @@ for _, row in ipairs(manager:buildOptionRows({ id = "kanto_gear" }, run.loader.o
 end
 display.updatePhone()
 T.eq(stopped, previous + 1, "native Reset Defaults shuts down the wireless server")
-T.eq(api.options:get("display_mode"), "separate", "native reset restores local Gear output")
+T.eq(api.options:get("display_mode"), "combined", "native reset restores visible one-screen output")
 previous = stopped
 display.phone, display.phoneStatus = phone, phone
 T.eq(hook("core.quit_to_launcher")(next), sentinel, "returning to the launcher preserves its result")
 T.eq(stopped, previous + 1, "returning to the launcher closes the listening socket")
+
+-- Recovery works from an already persisted Phone mode without a browser,
+-- including a failed server, and never activates from a stray release.
+api.options:set("display_mode", "phone")
+api.options:set("combined_layout", "overlay")
+display.phone, display.phoneStatus = phone, phone
+available, acknowledged = false, false
+hook("render.hud")(next, game, viewport)
+local pointer = hook("input.pointer")
+local function point(phase, x, y, id)
+  return pointer(next, game, { phase = phase, x = x, y = y, id = id or 1, source = "touch" })
+end
+T.eq(point("released", 400, 120), sentinel, "a release without a press cannot change mode")
+T.eq(point("pressed", 400, 200), true, "static pairing content shields the native menu")
+T.eq(point("released", 400, 120), true, "dragging from static content into exit is consumed")
+T.eq(api.options:get("display_mode"), "phone", "static content cannot activate recovery")
+point("pressed", 400, 120); point("moved", 100, 20); point("released", 400, 120)
+T.eq(api.options:get("display_mode"), "phone", "dragging away cancels the local exit")
+point("pressed", 400, 120); point("cancelled", 400, 120)
+T.eq(api.options:get("display_mode"), "phone", "focus loss cannot activate recovery")
+point("pressed", 400, 120)
+local originalLayout = statusLayout
+statusLayout = { card = originalLayout.card, exit = { x = 355, y = 100, w = 250, h = 40 } }
+hook("render.hud")(next, game, viewport)
+point("released", 400, 120)
+T.eq(api.options:get("display_mode"), "phone", "rotation during a touch cancels the old target")
+statusLayout = originalLayout
+local managerView = { screenId = "ManagerState" }
+game.stack.states[#game.stack.states + 1] = managerView
+local beforeStatus = statusDraws
+hook("render.hud")(next, game, viewport)
+T.eq(statusDraws, beforeStatus, "pairing HUD cannot cover the native mod manager")
+T.eq(point("pressed", 400, 120), sentinel, "native recovery settings keep pointer ownership")
+managerView.screenId, managerView.isModOptions = "OtherModOptions", true
+hook("render.hud")(next, game, viewport)
+T.eq(statusDraws, beforeStatus, "standard mod-options screens also remain visible")
+table.remove(game.stack.states)
+hook("render.hud")(next, game, viewport)
+local beforeRecovery = stopped
+point("pressed", 400, 120); point("released", 400, 120)
+T.eq(api.options:get("display_mode"), "combined", "a local tap exits persisted Phone mode")
+T.eq(api.options:get("combined_layout"), "auto", "recovery cannot inherit a hidden corner overlay")
+T.eq(api.cache:read("options/display_mode"), "scombined", "recovery survives restarting Recomp")
+T.eq(stopped, beforeRecovery + 1, "local recovery immediately stops the server and releases its controls")
+T.eq(display.phoneStatusLayout, nil, "recovery removes the stale pairing hit targets")
+api.options:set("display_mode", "phone")
+expectedStatus = { error = "server unavailable" }
+display.phone, display.phoneStatus = nil, expectedStatus
+hook("render.hud")(next, game, viewport)
+point("pressed", 400, 120); point("released", 400, 120)
+T.eq(api.options:get("display_mode"), "combined", "server startup failure has the same local escape")
+T.eq(display.phoneStatus, nil, "server error recovery removes the pairing card")
 T.eq(#run.errors, 0, "phone lifecycle leaves no loader errors")
 run.release()
 T.finish("Kanto Gear phone runtime Gen " .. generation)
