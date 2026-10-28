@@ -498,6 +498,11 @@ return function(
 
   mod.hooks:wrap("screen.render_visible", function(next, state)
     if next(state) == false then return false end
+    -- Mod path [Modern Bag / Highlander, Gen 1/2]: these bags compose their
+    -- own responsive surface. Hiding only the native screen leaves their
+    -- canvas/widescreen pass alive with a different visible stack beneath it.
+    -- Keep the whole external surface together; the companion may mirror it.
+    if state and state.modernBagUI == true then return true end
     -- Standard/Info never replace native screens, including every stats page.
     if not customBattleLayout() then return true end
     if compat.isScreen(state, "summary")
