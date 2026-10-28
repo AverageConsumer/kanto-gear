@@ -59,6 +59,9 @@ return function(
         displayRuntime.cycleBagPage(direction)
       end
       return
+    elseif THEME.style == "hgss" and session.page == "NOTIFICATIONS" then
+      displayRuntime.cycleNoticeHistory(direction)
+      return
     elseif THEME.style == "hgss" and session.page == "SETTINGS" then
       displayRuntime.cycleSettingsPage(direction)
       return

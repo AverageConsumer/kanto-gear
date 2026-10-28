@@ -58,4 +58,48 @@ return function(H, G, translate)
     G.setColor(c.red); G.rectangle("fill", dx + 1, dy + 1, 4, 4)
     G.setColor(WHITE); G.rectangle("fill", dx + 1, dy + 1, 1, 1)
   end
+
+  -- The same three row rectangles and pager bounds drive drawing and input.
+  function H:noticeHistoryHit(x, y, model)
+    if y < 29 and x < 27 then return "back" end
+    if y >= 196 and y < 213 then
+      if x >= 6 and x < 34 and model.page > 1 then return "prev" end
+      if x >= 206 and x < 234 and model.page < model.pages then return "next" end
+    end
+    if x < 6 or x >= 234 then return end
+    for index, row in ipairs(model.rows) do
+      local top = 50 + (index - 1) * 48
+      if row.enabled and y >= top and y < top + 43 then return "row", index end
+    end
+  end
+
+  function H:noticeHistory(model)
+    local c = self.colors
+    self:partyInfoCentered(translate("OLDEST FIRST"), 6, 33, 228, 14, c.mutedInk)
+    if #model.rows == 0 then
+      self:v4MessageWindow(6, 50, 228, 139)
+      self:partyInfoCentered(translate("NO NOTIFICATIONS YET"), 12, 50, 216, 139, c.mutedInk)
+    end
+    for index, row in ipairs(model.rows) do
+      local entry, y = row.entry, 50 + (index - 1) * 48
+      local pressed = self:beginPress(6, y, 228, 43, row.enabled)
+      self:v4Window(6, y, 228, 43, { radius = self:isCGear() and 3 or 5 })
+      local icon = entry.icon or "c_notifications"
+      if self:v4HasIcon(icon) then self:v4Icon(icon, 13, y + 9) end
+      self:partyInfo(row.timestamp, 44, y + 3, c.mutedInk)
+      self:partyInfo(self:fitPartyInfo(entry.title, 182), 44, y + 15,
+        entry.tone == "special" and c.amber or c.ink)
+      self:partyInfo(self:fitPartyInfo(entry.detail or "", 182), 44, y + 27, c.mutedInk)
+      self:endPress(pressed)
+    end
+    for _, button in ipairs({ { x = 6, label = "<", enabled = model.page > 1 },
+        { x = 206, label = ">", enabled = model.page < model.pages } }) do
+      local pressed = self:beginPress(button.x, 196, 28, 17, button.enabled)
+      self:v4Window(button.x, 196, 28, 17, { shadow = false })
+      self:partyInfoCentered(button.label, button.x, 196, 28, 17,
+        button.enabled and c.ink or c.disabledInk)
+      self:endPress(pressed)
+    end
+    self:partyInfoCentered(model.page .. "/" .. model.pages, 40, 196, 160, 17, c.ink)
+  end
 end

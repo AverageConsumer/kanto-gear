@@ -722,6 +722,7 @@ function love.load()
   local settingsControls = screen == "settings_controls"
   local settingsBattle, settingsResearch = screen == "settings_battle", screen == "settings_research"
   local settingsNotifications = screen == "settings_notifications"
+  local noticeHistory = screen == "notification_history" or screen == "notification_history_empty"
   local settings = settingsRoot or settingsDisplay
     or settingsAppearance or settingsSystem or settingsControls or settingsBattle or settingsResearch
     or settingsNotifications or screen == "settings_option"
@@ -804,7 +805,7 @@ function love.load()
     or settingsSystem and "SYSTEM"
     or settingsBattle and "BATTLE"
     or settingsResearch and "RESEARCH"
-    or settingsNotifications and "NOTIFICATIONS"
+    or (settingsNotifications or noticeHistory) and "NOTIFICATIONS"
     or settings and "SETTINGS"
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
@@ -842,7 +843,7 @@ function love.load()
       pssScreen or homeAdd or store or explorer and not explorerOverview
         or pokedex or bag or regionMap or legacyBack
         or trainerScreen or trainerSteps
-        or tools or settings or swapMode
+        or tools or settings or swapMode or noticeHistory
         or context or summary
         or moves or memo or memoTransition or summaryMoveInfo
         or transition or movesTransition,
@@ -852,7 +853,7 @@ function love.load()
         and not legacy and not summaryMoveInfo
         and not pokedex and not bag
         and not trainerScreen
-        and not trainerSteps and not tools and not settings and not swapMode and (summary or moves or memo or memoTransition
+        and not trainerSteps and not tools and not settings and not swapMode and not noticeHistory and (summary or moves or memo or memoTransition
         or movesTransition or transition and transitionProgress >= 0.42
         or not context) or toolsScreen and toolPages > 1), headerOffset)
     if context then
@@ -2272,6 +2273,16 @@ function love.load()
       if app.id == detailId then detail = app break end
     end
     theme:storeReceived({ app = detail or storeCatalog[1] })
+  elseif noticeHistory then
+    theme:noticeHistory({ page = 1, pages = screen == "notification_history_empty" and 1 or 2,
+      rows = screen == "notification_history_empty" and {} or {
+        { timestamp = "28.10. 16:22", enabled = true,
+          entry = { title = translate("SHINY FOUND!"), detail = "ZUBAT", icon = "shiny", tone = "special" } },
+        { timestamp = "28.10. 16:23", enabled = true,
+          entry = { title = translate("NEW MOMENT"), detail = translate("HANGING BY A THREAD"), icon = "achievements" } },
+        { timestamp = "28.10. 16:24", enabled = false,
+          entry = { title = translate("AN EGG IS WAITING"), detail = translate("DAY-CARE"), icon = "daycare" } },
+      } })
   elseif screen:sub(1, 8) == "settings" and screen ~= "settings_option" and not (os.getenv("KANTO_GEAR_PREVIEW_OLD_SETTINGS") == "1") then
     local TABS = {
       { id = "appearance", label = "APPEARANCE", detail = "LANGUAGE, THEME AND CLOCK", accent = "blue" },

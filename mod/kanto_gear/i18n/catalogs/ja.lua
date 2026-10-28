@@ -1369,6 +1369,10 @@ return {
   ["A short chime with each message. It follows the game's sound effect volume."] = "おしらせごとに みじかい おとが なります。ゲームの こうかおんの おおきさに あわせます。",
   ["NOTIFICATION SOUND"] = "おしらせの おと",
   ["NOTIFICATIONS"] = "おしらせ",
+  ["HISTORY"] = "りれき",
+  ["OLDEST FIRST"] = "ふるい じゅん",
+  ["NO NOTIFICATIONS YET"] = "おしらせは ありません",
+  ["The last 100 messages shown in this playthrough, oldest first. Tap a message to open its installed app."] = "この ぼうけんで ひょうじされた さいきんの おしらせを 100けんまで ふるい じゅんに ひょうじします。タッチすると インストールずみの アプリを ひらきます。",
   ["SHINY PHASE!"] = "いろちがい フェーズ!",
   ["Short Gear messages when something happens, such as a shiny. They wait for battles and menus, and also show over the game when the Gear is hidden."] = "いろちがいなど なにかが おきると Gearが みじかく しらせます。バトルや メニューの あとに でて、Gearが かくれていても ゲームの うえに でます。",
   -- Shiny Hunt

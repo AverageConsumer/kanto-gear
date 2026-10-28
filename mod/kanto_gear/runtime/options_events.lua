@@ -26,6 +26,7 @@ return function(
       displayRuntime.gen3:syncStorageIdentity()
       displayRuntime.gen3BoundSession = displayRuntime.gen3.session
     end
+    if displayRuntime.bindNoticeHistory then displayRuntime.bindNoticeHistory() end
     displayRuntime.bindShinyHunt()
     if displayRuntime.bindMoments then displayRuntime.bindMoments() end
     displayRuntime.recentItem:bind(session.game.save)

@@ -45,5 +45,22 @@ N.markUnread(q, "shiny")
 check(q.unread.shiny and N.markRead(q, "shiny") and not q.unread.shiny, "opening an app clears its dot")
 check(not N.markRead(q, "shiny"), "a clear dot stays clear")
 
+local h = N.new()
+local first = { title = "FIRST", detail = "ORIGINAL", onOpen = function() end }
+check(N.remember(h, first, 200) and not N.remember(h, first, 201), "one history entry per displayed card")
+first.detail = "CHANGED"
+N.remember(h, { title = "SECOND" }, 100)
+check(h.history[1].title == "FIRST" and h.history[2].title == "SECOND",
+  "display order survives a backwards wall-clock change")
+check(h.history[1].detail == "ORIGINAL" and h.history[1].onOpen == nil,
+  "history is a presentation snapshot without live callbacks")
+for index = 1, 105 do N.remember(h, { title = tostring(index) }, index) end
+check(#h.history == 100 and h.history[1].title == "6" and h.history[100].title == "105",
+  "history retains the latest 100 displayed messages")
+local loaded = N.history({ false, {title="SAFE", timestamp=0/0, game={}}, {title="LAST", timestamp=120} })
+check(#loaded == 2 and loaded[1].timestamp == nil and loaded[1].game == nil and loaded[2].timestamp == 120,
+  "stored history rejects malformed entries and unsafe fields")
+check(#N.history(false) == 0, "invalid stored history starts empty")
+
 io.write(string.format("%d/%d checks passed  (notices model)\n", passed, passed + failed))
 if failed > 0 then os.exit(1) end

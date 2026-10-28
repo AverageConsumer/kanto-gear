@@ -5,13 +5,38 @@
 -- Cards wait while a battle, dialogue or menu owns the screen. Read only:
 -- nothing here writes the game or takes game buttons.
 return function(
-  THEME, compat, displayRuntime, mod, render, screenState, session
+  THEME, compat, displayRuntime, header, mod, render, screenState, session
 )
   local Notices = displayRuntime.Notices
   local state = Notices.new()
   displayRuntime.notices = state
   local BANNER = { x = 6, y = 33, w = 228, h = 32 }
   displayRuntime.noticeRect = BANNER
+  local HISTORY_KEY = "notifications/history"
+  local function storageGame() return displayRuntime.sourceGame or session.game end
+  local function saveHistory()
+    local storage, game = mod.storage, storageGame()
+    if storage and game and type(storage.write) == "function" then
+      local ok, result = pcall(storage.write, storage, game, HISTORY_KEY, state.history)
+      if ok and result ~= false and result ~= nil then return end
+    end
+    if mod.save and type(mod.save.set) == "function" then
+      pcall(mod.save.set, mod.save, "notification_history", state.history)
+    end
+  end
+  function displayRuntime.bindNoticeHistory()
+    local storage, game, values = mod.storage, storageGame()
+    if storage and game and type(storage.read) == "function" then
+      local ok, result = pcall(storage.read, storage, game, HISTORY_KEY)
+      if ok and type(result) == "table" then values = result end
+    end
+    if not values and mod.save and type(mod.save.get) == "function" then
+      local ok, result = pcall(mod.save.get, mod.save, "notification_history")
+      if ok then values = result end
+    end
+    state.history = Notices.history(values)
+    state.historyPage = 1
+  end
   function displayRuntime.resetNotices()
     local gesture = state.gesture
     for key in pairs(state) do state[key] = nil end
@@ -135,6 +160,7 @@ return function(
 
   local function free()
     if not session.active or not session.game or session.battle then return false end
+    if session.page == "NOTIFICATIONS" then return false end
     if displayRuntime.displaySetupModal then return false end
     if displayRuntime.gearModules and displayRuntime.gearModules.anyShown() then return false end
     if session.pendingFly or session.pendingAction or session.fieldChoice then return false end
@@ -160,6 +186,7 @@ return function(
     local card = Notices.advance(state, now, true)
     if card and card.fresh then
       card.fresh = nil
+      if Notices.remember(state, card, os.time()) then saveHistory() end
       announce(card)
       session.dirty = true
     end
@@ -201,6 +228,51 @@ return function(
   end
 
   function displayRuntime.noticeUnread(app) return state.unread[app] == true end
+
+  function displayRuntime.noticeHistoryModel()
+    local pages = math.max(1, math.ceil(#state.history / 3))
+    state.historyPage = math.max(1, math.min(pages, state.historyPage or 1))
+    local rows = {}
+    for index = (state.historyPage - 1) * 3 + 1, math.min(#state.history, state.historyPage * 3) do
+      local entry = state.history[index]
+      local package = entry.app and displayRuntime.homeCatalog.packages[entry.app]
+      local ok, stamp = pcall(os.date, "%d.%m. %H:%M", entry.timestamp or 0)
+      rows[#rows + 1] = { entry = entry, timestamp = entry.timestamp and ok and stamp or "",
+        enabled = package and package.installed and package.available ~= false or false }
+    end
+    return { rows = rows, page = state.historyPage, pages = pages, count = #state.history }
+  end
+
+  function displayRuntime.openNoticeHistory()
+    state.historyPage, session.page, session.dirty = 1, "NOTIFICATIONS", true
+  end
+
+  function displayRuntime.cycleNoticeHistory(direction)
+    local model = displayRuntime.noticeHistoryModel()
+    local target = math.max(1, math.min(model.pages, model.page + direction))
+    if target == model.page then return false end
+    state.historyPage, session.dirty = target, true
+    return true
+  end
+
+  function displayRuntime.tapNoticeHistory(x, y)
+    local model = displayRuntime.noticeHistoryModel()
+    local action, index = THEME.hgss:noticeHistoryHit(x, y, model)
+    if action == "back" then session.page, session.dirty = "SETTINGS", true
+    elseif action == "prev" or action == "next" then
+      displayRuntime.cycleNoticeHistory(action == "next" and 1 or -1)
+    elseif action == "row" then
+      local entry = model.rows[index].entry
+      if displayRuntime.openHomeApp(entry.app) then displayRuntime.markNoticeRead(entry.app) end
+    end
+  end
+
+  function displayRuntime.drawNoticeHistory()
+    header(THEME:translate("NOTIFICATIONS"), true, false)
+    render.G.push(); render.G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
+    THEME.hgss:noticeHistory(displayRuntime.noticeHistoryModel())
+    render.G.pop()
+  end
 
   local function open(card)
     Notices.dismiss(state, clock())

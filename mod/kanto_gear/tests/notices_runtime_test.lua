@@ -142,5 +142,72 @@ T.eq(display.notify({ key = "off", app = "shiny", page = "SHINY", title = "OFF",
 T.eq(#played, before, "and play nothing")
 T.check(display.noticeUnread("shiny"), "the quiet dot still marks the app")
 
+-- Display chronology and durable history use detached presentation records.
+mod.options:set("notifications", true)
+local stored = {}
+mod.storage = {
+  read = function(_, target, key) return stored[target.save] and stored[target.save][key] end,
+  write = function(_, target, key, value)
+    stored[target.save] = stored[target.save] or {}
+    stored[target.save][key] = display.Notices.history(value)
+    return true
+  end,
+}
+session.page, session.battle = "HOME", {kind="wild"}
+display.resetNotices(); display.bindNoticeHistory()
+display.notify({key="history-a",title="FIRST",detail="ORIGINAL",app="shiny",onOpen=function() end})
+display.notify({key="history-b",title="SECOND"})
+T.eq(display.noticeCard(now), nil, "queued cards wait for battle")
+T.eq(#display.notices.history, 0, "unseen queued cards are absent from history")
+session.battle = nil
+display.noticeCard(now)
+T.eq(#display.notices.history, 1, "first display records a message")
+display.notify({key="history-a",title="FIRST",detail="UPDATED"})
+display.noticeCard(now)
+T.eq(#display.notices.history, 1, "refreshing a displayed card does not duplicate history")
+now = now + 10; display.noticeCard(now)
+T.eq(display.notices.history[2].title, "SECOND", "history follows display order")
+T.eq(display.notices.history[1].detail, "ORIGINAL", "the original displayed message remains readable")
+display.resetNotices(); display.bindNoticeHistory()
+T.eq(#display.notices.history, 2, "save reload restores history")
+T.eq(#display.notices.queue, 0, "restoring history does not replay cards")
+T.eq(display.notices.history[1].onOpen, nil, "persisted history carries no stale callback")
+local originalSave = game.save
+game.save = {inventory={},party={},pokedex={}}
+display.resetNotices(); display.bindNoticeHistory()
+T.eq(#display.notices.history, 0, "another save has its own history")
+game.save = originalSave
+display.bindNoticeHistory()
+display.openNoticeHistory()
+T.eq(session.page, "NOTIFICATIONS", "history opens from the settings action")
+T.check(not display.cycleNoticeHistory(1), "a single history page cannot turn")
+local historyModel = display.noticeHistoryModel()
+T.check(historyModel.rows[1].enabled and not historyModel.rows[2].enabled,
+  "only entries with an installed destination are actionable")
+T.eq(theme:noticeHistoryHit(220, 204, historyModel), nil, "disabled paging has no action")
+local presses, beginPress = {}, theme.beginPress
+theme.beginPress = function(self, x, y, w, h, enabled)
+  presses[y] = enabled
+  return beginPress(self, x, y, w, h, enabled)
+end
+local okHistory, historyError = pcall(display.drawContents)
+theme.beginPress = beginPress
+T.check(okHistory, "the history page renders: " .. tostring(historyError))
+T.eq(presses[98], false, "a static history row cannot animate")
+T.eq(presses[196], false, "disabled history paging cannot animate")
+display.Notices.remember(display.notices, {title="THIRD"}, 3)
+display.Notices.remember(display.notices, {title="FOURTH"}, 4)
+T.check(display.cycleNoticeHistory(1), "history can reach older overflow pages")
+T.eq(display.noticeHistoryModel().rows[1].entry.title, "FOURTH", "paging reaches the correct chronological entry")
+T.check(not display.cycleNoticeHistory(1), "last history page cannot turn forward")
+T.check(display.cycleNoticeHistory(-1), "history can return to the first page")
+display.tapNoticeHistory(70, 110)
+T.eq(session.page, "NOTIFICATIONS", "static history rows do not open anything")
+display.tapNoticeHistory(70, 60)
+T.eq(session.page, "SHINY", "a history entry opens its installed app")
+display.openNoticeHistory(); display.tapNoticeHistory(10, 10)
+T.eq(session.page, "SETTINGS", "history returns to notification settings")
+session.page = "HOME"
+
 assert(loadfile(path .. "/tests/support/notice_gestures.lua"))()(T,run,display)
 T.finish("Gear notices runtime")

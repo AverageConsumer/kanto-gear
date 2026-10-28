@@ -133,7 +133,14 @@ Use `tools/hgss_preview/localization.ps1` for the language/Gen 1/2/Light/Dark
 matrix, optionally with `-Screens` and `-Languages`. Run previews sequentially:
 they share one temporary LÖVE runtime and require local sprite fixtures.
 
+Notifications keep the last 100 displayed cards per playthrough in
+`notifications/history` storage, with a mod-save fallback. Open the chronological
+list through Settings → Notifications → History. Cards enter history on first
+display, after any battle/menu wait; restoring history never replays them.
+History rows open the installed destination app, without retaining live callbacks.
+
 ## Third-party store modules
+
 
 Another mod can add its own app to the Silph Store. The Gear ships no knowledge
 of any third-party mod: only a mod that calls the hook appears, and everything it

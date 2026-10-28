@@ -64,7 +64,8 @@ end
 T.eq(display.optionRow("notice_calendar").default, "silent", "the Calendar is quiet by default")
 display.settings.category = tab
 local model = display.settingsModel()
-T.check(model.rows and #model.rows == 10 and model.pages == 3, "ten rows over three pages")
+T.check(model.rows and #model.rows == 11 and model.pages == 3, "history and ten settings over three pages")
+T.eq(model.rows[1].action, "notification_history", "history is the first notification setting")
 
 -- Levels per area.
 display.setPackageInstalled("shiny", true)

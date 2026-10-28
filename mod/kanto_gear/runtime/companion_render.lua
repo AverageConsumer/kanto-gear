@@ -151,6 +151,8 @@ return function(
       displayRuntime.drawPss()
     elseif THEME.style == "hgss" and session.page == "BAG" then
       displayRuntime.drawBag()
+    elseif THEME.style == "hgss" and session.page == "NOTIFICATIONS" then
+      displayRuntime.drawNoticeHistory()
     elseif THEME.style == "hgss" and session.page == "SETTINGS" then
       displayRuntime.drawSettings()
     elseif session.page == "MAP" then

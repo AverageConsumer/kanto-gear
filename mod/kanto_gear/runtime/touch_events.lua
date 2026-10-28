@@ -51,6 +51,8 @@ return function(
         .. tostring(displayRuntime.pss.inUse) .. ":" .. tostring(displayRuntime.pss.selected)
         .. ":" .. displayRuntime.pss.page)),
       tostring(displayRuntime.StartMenu.window(nativeMenu or top)),
+      tostring(session.page == "NOTIFICATIONS" and displayRuntime.notices.historyPage),
+      tostring(session.page == "NOTIFICATIONS" and #displayRuntime.notices.history),
       tostring(displayRuntime.autoBattle.shown) }, ":")
     if session.battle and currentBattleUIMode() == "info" then
       key = "battle-info:" .. tostring(raw) .. ":" .. tostring(displayRuntime.enemyInfoSelection)

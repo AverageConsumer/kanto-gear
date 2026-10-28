@@ -112,7 +112,7 @@ return function(mod)
     session)
   install("runtime/calendar_gen3", THEME, assist, displayRuntime, session)
   install("runtime/notices",
-    THEME, compat, displayRuntime, mod, render, screenState, session)
+    THEME, compat, displayRuntime, header, mod, render, screenState, session)
   install("runtime/shiny_hunt",
     THEME, areaName, assist, battleState, compat, displayRuntime, drawSprite,
     guideData, header, mod, render, session)

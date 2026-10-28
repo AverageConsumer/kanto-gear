@@ -5,8 +5,51 @@ local M = {}
 
 M.ENTER, M.SHOW, M.EXIT = 0.18, 3.5, 0.18
 M.LIMIT = 6
+M.HISTORY_LIMIT = 100
 
-function M.new() return { queue = {}, unread = {}, serial = 0 } end
+function M.new() return { queue = {}, unread = {}, serial = 0, history = {}, historyPage = 1 } end
+
+-- Persist only presentation values. Native objects, callbacks and transient
+-- gesture/timing state must never survive a save/session replacement.
+local function historyTimestamp(value)
+  local timestamp = tonumber(value)
+  if timestamp and timestamp >= 0 and timestamp < 253402300800 then return math.floor(timestamp) end
+end
+
+local function historyEntry(value)
+  if type(value) ~= "table" or type(value.title) ~= "string" then return end
+  local out = {}
+  for _, key in ipairs({ "title", "detail", "app", "page", "icon", "tone" }) do
+    if type(value[key]) == "string" then out[key] = value[key]:sub(1, 512) end
+  end
+  if type(value.species) == "string" or type(value.species) == "number" then out.species = value.species end
+  out.shiny = value.shiny == true
+  out.timestamp = historyTimestamp(value.timestamp)
+  return out
+end
+
+function M.history(values)
+  local out = {}
+  if type(values) ~= "table" then return out end
+  for index = math.max(1, #values - M.HISTORY_LIMIT + 1), #values do
+    local entry = historyEntry(values[index])
+    if entry then out[#out + 1] = entry end
+  end
+  return out
+end
+
+-- Called on first display, not on post: queued/merged/dropped cards have not
+-- appeared yet. Array order remains authoritative even if the clock changes.
+function M.remember(state, card, timestamp)
+  if card.recorded then return false end
+  local entry = historyEntry(card)
+  if not entry then return false end
+  card.recorded = true
+  entry.timestamp = historyTimestamp(timestamp)
+  state.history[#state.history + 1] = entry
+  while #state.history > M.HISTORY_LIMIT do table.remove(state.history, 1) end
+  return true
+end
 
 local function copy(notice)
   local out = {}
