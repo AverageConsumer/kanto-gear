@@ -531,7 +531,7 @@ return function(
   table.insert(displayRuntime.settingsCategories, 6, { id = "notifications", label = "NOTIFICATIONS",
     detail = "WHAT, HOW AND WHEN", accent = "amber", keys = { "notifications", "notification_sound",
       "notice_shiny", "notice_moments", "notice_daycare", "notice_calendar", "notice_stamps",
-      "notice_shiny_timing", "notice_duration", "notice_where" } })
+      "notice_shiny_timing", "notice_duration", "notice_where" }, actions = { "notification_history" } })
   displayRuntime.defaultHomeTiles = {
     { id = "explorer_widget", page = 1, column = 1, row = 1 },
     { id = "party_widget", page = 1, column = 8, row = 1 },
@@ -636,13 +636,14 @@ return function(
     end
     for _, action in ipairs(category.actions or {}) do
       local setupWaiting = action == "display_setup" and displayRuntime.displaySetup and displayRuntime.displaySetup.pending
-      rows[#rows + 1] = { action = action,
+      local row = { action = action,
         enabled = not setupWaiting,
-        label = action == "display_setup" and "DISPLAY SETUP" or action == "home_help" and "CUSTOMIZE HOME"
+        label = action == "notification_history" and "HISTORY" or action == "display_setup" and "DISPLAY SETUP" or action == "home_help" and "CUSTOMIZE HOME"
           or action == "reset_home" and "RESET HOME" or "RESET OPTIONS",
         description = SettingsInfo.help[action],
-        value = action == "display_setup" and (setupWaiting and "WAIT" or "OPEN") or action == "home_help" and "SHOW ME"
+        value = action == "notification_history" and "OPEN" or action == "display_setup" and (setupWaiting and "WAIT" or "OPEN") or action == "home_help" and "SHOW ME"
           or state.confirm == action and "TAP AGAIN" or "RESET" }
+      table.insert(rows, action == "notification_history" and 1 or #rows + 1, row)
     end
     local pages = math.max(1, math.ceil(#rows / 4))
     state.page = math.max(1, math.min(pages, state.page or 1))
@@ -700,6 +701,11 @@ return function(
 
   function displayRuntime.runSettingsAction(action)
     local state = displayRuntime.settings
+    if action == "notification_history" then
+      state.confirm = nil
+      displayRuntime.openNoticeHistory()
+      return
+    end
     if action == "display_setup" then
       state.confirm = nil
       if displayRuntime.requestDisplaySetup then displayRuntime.requestDisplaySetup() end

@@ -225,7 +225,7 @@ return function(
         and session.battle.prompt ~= "menu" and session.battle.prompt ~= "moves"
         and session.battle.prompt ~= "safari" and session.battle.prompt ~= "mimic"
         and session.battle.prompt ~= "forget"
-      local blocked = unsupportedSpecial or battleLocked or session.battle and (session.battle.nativeUnsupported or session.battle.nativeInputLocked)
+      local blocked = displayRuntime.noticeShadeActive() or unsupportedSpecial or battleLocked or session.battle and (session.battle.nativeUnsupported or session.battle.nativeInputLocked)
         or session.battle and top and top.isTextBox and not choice
         or session.battle and top and top ~= battleState() and not top.isTextBox
           and not startMenu and not battlePanel and not learn and not choice and not levelStats
@@ -317,6 +317,7 @@ return function(
     if highResolution and displayRuntime.drawNoticeLayer then
       render.G.push(); render.G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
       displayRuntime.drawNoticeLayer()
+      displayRuntime.drawNoticeShade()
       render.G.pop()
     end
     if highResolution then render.G.pop() end

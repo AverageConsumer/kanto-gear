@@ -1363,6 +1363,11 @@ return {
   ["A short chime with each message. It follows the game's sound effect volume."] = "Un court carillon à chaque message. Il suit le volume des effets du jeu.",
   ["NOTIFICATION SOUND"] = "SON DES NOTIFICATIONS",
   ["NOTIFICATIONS"] = "NOTIFICATIONS",
+  ["HISTORY"] = "HISTORIQUE",
+  ["READ"] = "LUE",
+  ["OLDEST FIRST"] = "ANCIENNES D'ABORD",
+  ["NO NOTIFICATIONS YET"] = "AUCUNE NOTIFICATION",
+  ["The last 100 messages shown in this playthrough, oldest first. Tap a message to open its installed app."] = "Les 100 derniers messages affichés dans cette partie, du plus ancien au plus récent. Touchez un message pour ouvrir son application installée.",
   ["SHINY PHASE!"] = "PHASE CHROMATIQUE !",
   ["Short Gear messages when something happens, such as a shiny. They wait for battles and menus, and also show over the game when the Gear is hidden."] = "Courts messages de Gear quand il se passe quelque chose, comme un chromatique. Ils attendent la fin des combats et menus, et s'affichent aussi sur le jeu si Gear est masqué.",
   -- Shiny Hunt

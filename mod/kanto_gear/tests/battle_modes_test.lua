@@ -70,6 +70,14 @@ for _, style in ipairs({ "hgss", "hgss_dark" }) do
     T.eq(call("battle.bottom_ui_visible", raw, false), false, "respect another mod's hidden commands")
     T.eq(call("battle.status_hud_visible", raw, false), false, "respect another mod's hidden HUD")
     T.eq(call("screen.render_visible", {}, true), true, "unknown menus always stay native")
+    local responsiveBag = { screenId = gen == 2 and "Gen2PackMenu" or "BagMenu",
+      modernBagUI = true, index = 1, items = {}, rows = {},
+      pocket = function() return { id = "ITEM" } end,
+      uiSize = function() return 256, 144 end }
+    T.eq(call("screen.render_visible", responsiveBag, true), true,
+      mode .. " keeps Highlander's responsive bag surface visible")
+    T.eq(call("screen.render_visible", responsiveBag, false), false,
+      "external surface preservation respects another mod's visibility")
     T.eq(call("screen.render_visible", party, true), not owns, mode .. " team menu visibility")
     T.eq(call("screen.render_visible", party, false), false, "respect other menu suppression")
     T.eq(call("ui.party.grid_navigation", party, true), true, "respect another mod's party navigation")

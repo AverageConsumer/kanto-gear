@@ -45,5 +45,45 @@ N.markUnread(q, "shiny")
 check(q.unread.shiny and N.markRead(q, "shiny") and not q.unread.shiny, "opening an app clears its dot")
 check(not N.markRead(q, "shiny"), "a clear dot stays clear")
 
+local h = N.new()
+local first = { title = "FIRST", detail = "ORIGINAL", onOpen = function() end }
+check(N.remember(h, first, 200) and not N.remember(h, first, 201), "one history entry per displayed card")
+first.detail = "CHANGED"
+N.remember(h, { title = "SECOND" }, 100)
+check(h.history[1].title == "FIRST" and h.history[2].title == "SECOND",
+  "display order survives a backwards wall-clock change")
+check(h.history[1].detail == "ORIGINAL" and h.history[1].onOpen == nil,
+  "history is a presentation snapshot without live callbacks")
+for index = 1, 105 do N.remember(h, { title = tostring(index) }, index) end
+check(#h.history == 100 and h.history[1].title == "6" and h.history[100].title == "105",
+  "history retains the latest 100 displayed messages")
+local loaded = N.history({ false, {title="SAFE", timestamp=0/0, game={}}, {title="LAST", timestamp=120} })
+check(#loaded == 2 and loaded[1].timestamp == nil and loaded[1].game == nil and loaded[2].timestamp == 120,
+  "stored history rejects malformed entries and unsafe fields")
+check(#N.history(false) == 0, "invalid stored history starts empty")
+
+local read = N.new()
+local a, b = {title="A",app="shiny"}, {title="B",app="shiny"}
+N.remember(read,a,1); N.remember(read,b,2); N.markUnread(read,"shiny")
+read.current = a
+local firstEntry, secondEntry = read.history[1], read.history[2]
+check(N.readHistory(read,firstEntry) and read.current == nil,
+  "reading a displayed notice removes its paused card too")
+check(read.unread.shiny and #read.history==1 and read.history[1]==secondEntry,
+  "reading one notice preserves another unread notice from the same app")
+check(not N.readHistory(read,firstEntry) and #read.history==1,
+  "a stale row cannot remove the notification that moved into its position")
+read.queue={{title="WAITING",app="shiny"}}
+check(N.readHistory(read,secondEntry) and read.unread.shiny,
+  "an unseen queued notice retains the app dot")
+read.queue={}; N.remember(read,{title="C",app="shiny"},3)
+read.unreadOnly.shiny=true
+check(N.readHistory(read,read.history[1]) and read.unread.shiny,
+  "a dot-only notice is independent of the displayed list")
+N.remember(read,{title="D",app="shiny"},4)
+check(N.markRead(read,"shiny") and read.history[1].read and not read.unreadOnly.shiny,
+  "opening the app marks all its stored records read and clears dot-only news")
+check(N.history(read.history)[1].read, "per-entry read state survives storage normalization")
+
 io.write(string.format("%d/%d checks passed  (notices model)\n", passed, passed + failed))
 if failed > 0 then os.exit(1) end

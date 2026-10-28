@@ -12,8 +12,33 @@ return function(
   displayRuntime.notices = state
   local BANNER = { x = 6, y = 33, w = 228, h = 32 }
   displayRuntime.noticeRect = BANNER
+  local HISTORY_KEY = "notifications/history"
+  local function storageGame() return displayRuntime.sourceGame or session.game end
+  local function saveHistory()
+    local storage, game = mod.storage, storageGame()
+    if storage and game and type(storage.write) == "function" then
+      local ok, result = pcall(storage.write, storage, game, HISTORY_KEY, state.history)
+      if ok and result ~= false and result ~= nil then return end
+    end
+    if mod.save and type(mod.save.set) == "function" then
+      pcall(mod.save.set, mod.save, "notification_history", state.history)
+    end
+  end
+  function displayRuntime.bindNoticeHistory()
+    local storage, game, values = mod.storage, storageGame()
+    if storage and game and type(storage.read) == "function" then
+      local ok, result = pcall(storage.read, storage, game, HISTORY_KEY)
+      if ok and type(result) == "table" then values = result end
+    end
+    if not values and mod.save and type(mod.save.get) == "function" then
+      local ok, result = pcall(mod.save.get, mod.save, "notification_history")
+      if ok then values = result end
+    end
+    state.history = Notices.history(values)
+    state.historyPage = 1
+  end
   function displayRuntime.resetNotices()
-    local gesture = state.gesture
+    local gesture, shadeGesture = state.gesture, state.shadeGesture
     for key in pairs(state) do state[key] = nil end
     for key, value in pairs(Notices.new()) do state[key] = value end
     if gesture then
@@ -21,6 +46,7 @@ return function(
       gesture.card.heldAt = nil
       state.gesture = gesture
     end
+    if shadeGesture then shadeGesture.cancelled = true; state.shadeGesture = shadeGesture end
   end
 
   local function enabled() return mod.options:get("notifications") ~= false end
@@ -123,7 +149,11 @@ return function(
     displayRuntime.home.widgetCache = nil
     displayRuntime.mapRefresh.paintedPage = nil
     session.dirty = true
-    if not enabled() or level == "dot" then return nil end
+    if not enabled() or level == "dot" then
+      if notice.app and state.unread[notice.app] then state.unreadOnly[notice.app] = true end
+      return nil
+    end
+    notice.read = notice.app ~= nil and session.page == notice.page
     notice.silent = level == "silent" or nil
     notice.show = notice.show or showTime()
     local card = Notices.post(state, notice, clock())
@@ -135,6 +165,7 @@ return function(
 
   local function free()
     if not session.active or not session.game or session.battle then return false end
+    if state.shade then return false end
     if displayRuntime.displaySetupModal then return false end
     if displayRuntime.gearModules and displayRuntime.gearModules.anyShown() then return false end
     if session.pendingFly or session.pendingAction or session.fieldChoice then return false end
@@ -160,6 +191,7 @@ return function(
     local card = Notices.advance(state, now, true)
     if card and card.fresh then
       card.fresh = nil
+      if Notices.remember(state, card, os.time()) then saveHistory() end
       announce(card)
       session.dirty = true
     end
@@ -168,12 +200,13 @@ return function(
 
   -- Called every composed frame: repaint while a card is moving or showing.
   function displayRuntime.tickNotices(now)
+    local shadeChanged = displayRuntime.tickNoticeShade and displayRuntime.tickNoticeShade(now or clock())
     if free() and displayRuntime.pollNoticeSources then displayRuntime.pollNoticeSources(now or clock()) end
     local card = Notices.pending(state) and displayRuntime.noticeCard(now) or nil
     if not card then
       -- One more whole repaint wipes the card that just left.
       if state.wasShowing then state.wasShowing, state.clearPending = false, true; return true end
-      return false
+      return shadeChanged or false
     end
     state.wasShowing = true
     -- Without motion a card needs only its first and last frame.
@@ -187,6 +220,7 @@ return function(
 
   -- Whole repaints (not the map-only refresh) while a card shows or leaves.
   function displayRuntime.noticeShowing()
+    if state.shade then return true end
     if state.current then return true end
     if state.clearPending then state.clearPending = nil; return true end
     return false
@@ -194,6 +228,7 @@ return function(
 
   function displayRuntime.markNoticeRead(app)
     if Notices.markRead(state, app) then
+      saveHistory()
       displayRuntime.home.widgetCache = nil
       displayRuntime.mapRefresh.paintedPage = nil
       session.dirty = true
@@ -201,6 +236,41 @@ return function(
   end
 
   function displayRuntime.noticeUnread(app) return state.unread[app] == true end
+
+  function displayRuntime.readNoticeHistory(entry)
+    if not Notices.readHistory(state, entry) then return false end
+    saveHistory()
+    displayRuntime.home.widgetCache = nil
+    displayRuntime.mapRefresh.paintedPage = nil
+    session.dirty = true
+    return true
+  end
+
+  function displayRuntime.noticeHistoryModel()
+    local pages = math.max(1, math.ceil(#state.history / 3))
+    state.historyPage = math.max(1, math.min(pages, state.historyPage or 1))
+    local rows = {}
+    for index = (state.historyPage - 1) * 3 + 1, math.min(#state.history, state.historyPage * 3) do
+      local entry = state.history[index]
+      local package = entry.app and displayRuntime.homeCatalog.packages[entry.app]
+      local ok, stamp = pcall(os.date, "%d.%m. %H:%M", entry.timestamp or 0)
+      rows[#rows + 1] = { entry = entry, timestamp = entry.timestamp and ok and stamp or "",
+        enabled = package and package.installed and package.available ~= false or false }
+    end
+    return { rows = rows, page = state.historyPage, pages = pages, count = #state.history }
+  end
+
+  function displayRuntime.openNoticeHistory()
+    return displayRuntime.openNoticeShade()
+  end
+
+  function displayRuntime.cycleNoticeHistory(direction)
+    local model = displayRuntime.noticeHistoryModel()
+    local target = math.max(1, math.min(model.pages, model.page + direction))
+    if target == model.page then return false end
+    state.historyPage, session.dirty = target, true
+    return true
+  end
 
   local function open(card)
     Notices.dismiss(state, clock())

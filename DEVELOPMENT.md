@@ -133,7 +133,24 @@ Use `tools/hgss_preview/localization.ps1` for the language/Gen 1/2/Light/Dark
 matrix, optionally with `-Screens` and `-Languages`. Run previews sequentially:
 they share one temporary LÖVE runtime and require local sprite fixtures.
 
+Notifications keep the last 100 displayed cards per playthrough in
+`notifications/history` storage, with a mod-save fallback. Open the chronological
+drawer by dragging down from the Gear header; an upward swipe closes it and
+restores the same app. Settings → Notifications → History also opens the drawer.
+It follows continuous pointer input and settles in 180ms; reduced motion snaps
+on release. Native menus, battles and app modals block opening and dismiss an
+existing drawer. It owns captured releases and repaints fully when it closes.
+Cards enter history on first
+display, after any battle/menu wait; restoring history never replays them.
+History rows open the installed destination app, without retaining live callbacks.
+Swipe a notification card left or right to mark that individual message read
+and remove it persistently. Short or cancelled drags return to their position;
+page arrows and swipes outside cards still page the list. A dismissed current
+banner cannot replay after closing the drawer. Other unread messages, including
+queued and dot-only notifications, retain their app's unread dot.
+
 ## Third-party store modules
+
 
 Another mod can add its own app to the Silph Store. The Gear ships no knowledge
 of any third-party mod: only a mod that calls the hook appears, and everything it

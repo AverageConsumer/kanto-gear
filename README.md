@@ -60,7 +60,7 @@ The Mod Index listing is temporarily unavailable because its installed scanner
 rejects mod API 3. [Index PR #333](https://github.com/bryanthaboi/gen1recomp-mod-index/pull/333)
 contains the compatibility fix; use the release ZIP while maintainer review and
 scanner deployment are pending.
-Kanto Gear 4.5.1 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
+Kanto Gear 4.6.0 requires **Gen1Recomp 0.3.93 or newer (mod API 3)**.
 Update Recomp before importing this version. Recomp 0.3.92 and earlier cannot
 load it; keep Kanto Gear 4.3.1 if you are staying on an older host.
 
@@ -110,6 +110,15 @@ Tap a message to open it, or swipe it away. The Notifications tab in
 Settings sets each area to sound, silent, dot only or off, and chooses the
 shiny chime's timing, how long messages stay and whether they wait for the
 Gear.
+
+Pull down from the Gear's top bar to open the notification center. It keeps
+the last 100 displayed messages for your playthrough, in chronological order,
+and opens at the newest page. Swipe up to close it and return to the same app.
+Tap a message to open its installed app, or swipe the card left or right to
+mark that message read and remove it. Removed messages stay gone after a
+reload; other unread messages keep their app's dot. Short swipes return the
+card to its place. The notification center is also available under
+**Settings → Notifications → History**.
 
 <p align="center">
   <img src="screenshots/4.0-explorer-layer-pokegear-light.png" width="49%" alt="Explorer map, encounter cards and progress tabs">

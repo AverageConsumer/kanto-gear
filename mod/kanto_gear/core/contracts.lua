@@ -144,7 +144,8 @@ end
 
 local function categorizedBag(state)
   return state and (state.__pocketIndex ~= nil or state.pocketIndex ~= nil
-    or state.modernBag ~= nil or state.__gen3uiBagPocketIndex ~= nil)
+    or state.modernBag ~= nil or state.modernBagUI == true
+    or state.__gen3uiBagPocketIndex ~= nil)
     or false
 end
 

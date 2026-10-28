@@ -531,5 +531,8 @@ return function(
       and displayRuntime.explorerSwipeTarget("wild", true, 99) == "detail",
     "Explorer horizontal swipe regions")
 
+  function displayRuntime.noticeShadeHeaderTap(x, y)
+    displayRuntime.dispatchTouchTap(tap, x / THEME.hgssScale, y / THEME.hgssScale)
+  end
   return tap
 end

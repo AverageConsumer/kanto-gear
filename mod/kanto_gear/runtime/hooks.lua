@@ -354,6 +354,8 @@ return function(
       session.touchDown = nil
       return not inline
     end
+    if displayRuntime.noticeShadeTouch(action, (x - rect.x) * 240 / rect.w,
+        (y - rect.y) * 216 / rect.h) then return true end
     if displayRuntime.notesShown() then
       if action == "down" and not insideRect then return not inline end
       if action ~= "down" and not displayRuntime.notes.down then return not inline end
@@ -376,6 +378,15 @@ return function(
   displayRuntime.primaryTouch = primaryTouch
 
   mod.hooks:wrap("input.pointer", function(next, pointerGame, event)
+    if displayRuntime.noticeShadeOwnsTouch() then
+      local action = ({ pressed = "down", released = "up", moved = "move", cancelled = "cancel" })[event.phase]
+      local rect = session.primaryBottomRect
+      if action and rect and event.x and event.y then
+        displayRuntime.noticeShadeTouch(action, (event.x - rect.x) * 240 / rect.w,
+          (event.y - rect.y) * 216 / rect.h)
+      elseif action then displayRuntime.noticeShadeTouch("cancel") end
+      return true
+    end
     -- A captured finger remains ours when its card, output or screen changes.
     -- Its release must never become a click on a newly exposed control.
     if displayRuntime.noticeOwnsTouch and displayRuntime.noticeOwnsTouch("canvas") then
@@ -498,6 +509,11 @@ return function(
 
   mod.hooks:wrap("screen.render_visible", function(next, state)
     if next(state) == false then return false end
+    -- Mod path [Modern Bag / Highlander, Gen 1/2]: these bags compose their
+    -- own responsive surface. Hiding only the native screen leaves their
+    -- canvas/widescreen pass alive with a different visible stack beneath it.
+    -- Keep the whole external surface together; the companion may mirror it.
+    if state and state.modernBagUI == true then return true end
     -- Standard/Info never replace native screens, including every stats page.
     if not customBattleLayout() then return true end
     if compat.isScreen(state, "summary")
@@ -650,10 +666,12 @@ return function(
     end
 
     local now = love.timer.getTime()
-    -- Phone input and Notes run every rendered frame; game snapshots keep their 50ms tick.
+    -- Continuous drawing/dragging runs every rendered frame; game snapshots
+    -- retain their 50ms tick. A captured release is polled even after cancel.
     local notesActive = displayRuntime.notesShown()
+    local shadeActive = displayRuntime.noticeShadeActive() or displayRuntime.noticeShadeOwnsTouch()
     local phoneMode = THEME:displayMode(mod.options) == "phone"
-    if notesActive or phoneMode then
+    if notesActive or phoneMode or shadeActive then
       if not inline and not bottomOnHandheld() then
         for _ = 1, 128 do
           local event = session.companion.pollTouch()
@@ -664,7 +682,7 @@ return function(
         end
       end
     end
-    if not displayRuntime.notesShown() then displayRuntime.notes:suspend() end
+    if not displayRuntime.notesShown() or shadeActive then displayRuntime.notes:suspend() end
     displayRuntime.perf:call("notes_flush", displayRuntime.notes.flush, displayRuntime.notes)
     if displayRuntime.notes:takeChanged() then session.dirty = true end
     displayRuntime.updateHomeLongPress(now)
@@ -682,7 +700,7 @@ return function(
       refreshTheme()
       displayRuntime.perf:call("battle_snapshot", refreshBattle)
       displayRuntime.syncTouchGuard()
-      if not inline and not phoneMode and not displayRuntime.notesShown() then
+      if not inline and not phoneMode and not notesActive and not shadeActive then
         for _ = 1, 32 do
           local event = session.companion.pollTouch()
           if not event then break end

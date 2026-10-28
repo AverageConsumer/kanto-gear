@@ -51,6 +51,8 @@ return function(
         .. tostring(displayRuntime.pss.inUse) .. ":" .. tostring(displayRuntime.pss.selected)
         .. ":" .. displayRuntime.pss.page)),
       tostring(displayRuntime.StartMenu.window(nativeMenu or top)),
+      tostring(displayRuntime.noticeShadeActive()),
+      tostring(displayRuntime.noticeShadeActive() and displayRuntime.notices.historyPage),
       tostring(displayRuntime.autoBattle.shown) }, ":")
     if session.battle and currentBattleUIMode() == "info" then
       key = "battle-info:" .. tostring(raw) .. ":" .. tostring(displayRuntime.enemyInfoSelection)
@@ -84,6 +86,7 @@ return function(
 
   local function touchEvent(value, sourceWidth, sourceHeight)
     if displayRuntime.gearModules.anyShown()
+        and not displayRuntime.noticeShadeOwnsTouch()
         and not (displayRuntime.noticeOwnsTouch and displayRuntime.noticeOwnsTouch("canvas")) then return end
     local action, sx, sy = value:match("^(%a+),(%d+),(%d+)$")
     local x, y = tonumber(sx), tonumber(sy)
@@ -95,6 +98,7 @@ return function(
     -- long-press detection or legacy coordinate quantization can see it.
     local noticeX = x and x * 240 / (sourceWidth or WIDTH)
     local noticeY = y and y * 216 / (sourceHeight or HEIGHT)
+    if displayRuntime.noticeShadeTouch(action, noticeX, noticeY) then return end
     if displayRuntime.noticeCanvasTouch and displayRuntime.noticeCanvasTouch(action, noticeX, noticeY) then
       return
     end
