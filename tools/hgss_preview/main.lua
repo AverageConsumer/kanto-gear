@@ -3472,6 +3472,24 @@ function love.load()
     end -- moment notice
     if os.getenv("KANTO_GEAR_PREVIEW_DOT") then theme:homeUnreadDot(7 + 6 * 19, 117, 55) end
   end
+  if screen == "notification-shade" then
+    local progress = tonumber(os.getenv("KANTO_GEAR_PREVIEW_SHADE_P")) or 1
+    local model = { shade = true, page = 1, pages = 2, rows = {
+      {timestamp="28.10. 16:22",enabled=true,entry={title=translate("SHINY FOUND!"),detail="ZUBAT",icon="shiny",tone="special"}},
+      {timestamp="28.10. 16:23",enabled=true,entry={title=translate("NEW MOMENT"),detail=translate("HANGING BY A THREAD"),icon="achievements"}},
+      {timestamp="28.10. 16:24",enabled=false,entry={title=translate("AN EGG IS WAITING"),detail=translate("DAY-CARE"),icon="daycare"}},
+    } }
+    if os.getenv("KANTO_GEAR_PREVIEW_SHADE_EMPTY") == "1" then model.rows, model.pages = {}, 1 end
+    local display = { notices = { shade = {height=216*progress} }, noticeHistoryModel=function() return model end }
+    assert(loadfile(root .. "/mod/kanto_gear/runtime/notice_shade.lua"))()(
+      {hgss=theme,hgssScale=1,translate=function(_, value) return translate(value) end}, display,
+      function(title, back, paged)
+        theme:headerBar(title, back, paged)
+        theme:headerClock("20:04", "NITE", 139, 72, 6)
+        theme:battery(214, 8, 4, nil, true, theme.colors.ink, theme.colors.greenLight)
+      end, {G=love.graphics}, function() return "active" end, {})
+    display.drawNoticeShade()
+  end
   love.graphics.setCanvas()
   local preview = love.graphics.newCanvas(960, 864, { dpiscale = 1 })
   preview:setFilter("nearest", "nearest")

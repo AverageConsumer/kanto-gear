@@ -178,8 +178,10 @@ display.resetNotices(); display.bindNoticeHistory()
 T.eq(#display.notices.history, 0, "another save has its own history")
 game.save = originalSave
 display.bindNoticeHistory()
+mod.options:set("ui_motion", false)
 display.openNoticeHistory()
-T.eq(session.page, "NOTIFICATIONS", "history opens from the settings action")
+T.eq(session.page, "HOME", "opening history preserves the current app")
+T.check(display.noticeShadeActive(), "the settings shortcut opens the notification drawer")
 T.check(not display.cycleNoticeHistory(1), "a single history page cannot turn")
 local historyModel = display.noticeHistoryModel()
 T.check(historyModel.rows[1].enabled and not historyModel.rows[2].enabled,
@@ -193,21 +195,103 @@ end
 local okHistory, historyError = pcall(display.drawContents)
 theme.beginPress = beginPress
 T.check(okHistory, "the history page renders: " .. tostring(historyError))
-T.eq(presses[98], false, "a static history row cannot animate")
-T.eq(presses[196], false, "disabled history paging cannot animate")
+T.eq(presses[91], false, "a static history row cannot animate")
+T.eq(presses[188], false, "disabled history paging cannot animate")
 display.Notices.remember(display.notices, {title="THIRD"}, 3)
 display.Notices.remember(display.notices, {title="FOURTH"}, 4)
 T.check(display.cycleNoticeHistory(1), "history can reach older overflow pages")
 T.eq(display.noticeHistoryModel().rows[1].entry.title, "FOURTH", "paging reaches the correct chronological entry")
 T.check(not display.cycleNoticeHistory(1), "last history page cannot turn forward")
 T.check(display.cycleNoticeHistory(-1), "history can return to the first page")
-display.tapNoticeHistory(70, 110)
-T.eq(session.page, "NOTIFICATIONS", "static history rows do not open anything")
-display.tapNoticeHistory(70, 60)
+display.noticeShadeTouch("tap", 70, 100)
+T.eq(session.page, "HOME", "static history rows do not open anything")
+T.check(display.noticeShadeActive(), "static rows keep the drawer open")
+display.noticeShadeTouch("tap", 70, 60)
 T.eq(session.page, "SHINY", "a history entry opens its installed app")
-display.openNoticeHistory(); display.tapNoticeHistory(10, 10)
-T.eq(session.page, "SETTINGS", "history returns to notification settings")
+T.check(not display.noticeShadeActive(), "opening a destination closes the drawer")
+display.openNoticeHistory(); display.noticeShadeTouch("tap", 10, 10)
+T.eq(session.page, "SHINY", "closing the drawer returns to the same app")
 session.page = "HOME"
+
+-- Exercise the actual 240x216 input stream, not only the drawer's callbacks.
+local compose, pointer
+for _, entry in ipairs(run.loader.hooks.chains["render.compose"]) do
+  if entry.owner == "kanto_gear" then compose = entry.callback end
+end
+for _, entry in ipairs(run.loader.hooks.chains["input.pointer"]) do
+  if entry.owner == "kanto_gear" then pointer = entry.callback end
+end
+local touch = up(compose, "touchEvent")
+local function drawerReady(motion)
+  display.resetNotices(); display.bindNoticeHistory()
+  session.page, session.battle, session.touchDown = "HOME", nil, nil
+  mod.options:set("ui_motion", motion)
+  display.touchGuard.key, display.touchGuard.pending = nil, false
+  display.touchGuard.readyAt = 0
+  now = now + 1
+end
+local function send(action, x, y) touch(action .. "," .. x .. "," .. y, 240, 216) end
+local function settleDrawer() now = now + 0.3; display.tickNotices(now) end
+drawerReady(true)
+send("down", 120, 10); send("move", 120, 110)
+T.eq(display.notices.shade.height, 100, "the drawer follows the finger before release")
+send("up", 120, 110)
+T.eq(display.notices.shade.target, 216, "a deliberate pull settles open")
+settleDrawer()
+T.eq(display.notices.shade.height, 216, "opening finishes at the exact screen edge")
+T.eq(session.page, "HOME", "a pull never navigates the underlying app")
+send("down", 120, 200); send("move", 120, 145); send("up", 120, 145)
+T.eq(display.notices.shade.target, 0, "an upward drag settles closed")
+settleDrawer()
+T.check(not display.noticeShadeActive(), "closing clears the overlay")
+T.check(display.noticeShowing(), "closing forces a whole repaint instead of leaving drawer pixels in a map refresh")
+T.check(not display.noticeShowing(), "the drawer clearing repaint is requested only once")
+drawerReady(true)
+send("down", 120, 10); send("move", 120, 30); send("up", 120, 30)
+settleDrawer()
+T.check(not display.noticeShadeActive(), "an incomplete pull returns without opening")
+local tapFallback, swipeFallback = 0, 0
+local oldTap, oldSwipe = display.noticeShadeHeaderTap, display.noticeShadeHeaderSwipe
+display.noticeShadeHeaderTap = function() tapFallback = tapFallback + 1 end
+display.noticeShadeHeaderSwipe = function() swipeFallback = swipeFallback + 1 end
+drawerReady(true)
+send("down", 120, 10); send("up", 120, 10)
+T.eq(tapFallback, 1, "an ordinary header tap still reaches its original control")
+drawerReady(true)
+send("down", 180, 10); send("move", 110, 10); send("up", 110, 10)
+T.eq(swipeFallback, 1, "horizontal header swipes retain their original paging")
+T.eq(tapFallback, 1, "a header swipe cannot become a tap")
+display.noticeShadeHeaderTap, display.noticeShadeHeaderSwipe = oldTap, oldSwipe
+drawerReady(false)
+send("down", 120, 10); send("move", 120, 100)
+T.eq(display.notices.shade.height, 0, "reduced motion does not animate the drag")
+send("up", 120, 100)
+T.eq(display.notices.shade.height, 216, "reduced motion opens immediately on release")
+drawerReady(true)
+display.home.storeConfirm = "shiny"
+T.check(not display.noticeShadeTouch("down", 120, 10), "a modal blocks drawer gestures")
+display.home.storeConfirm = nil
+session.battle = {kind="wild"}
+T.check(not display.noticeShadeTouch("down", 120, 10), "battle controls cannot pull open the drawer")
+session.battle = nil
+send("down", 120, 10); send("move", 120, 100)
+session.battle = {kind="wild"}
+send("up", 120, 100)
+T.check(not display.noticeShadeActive() and not display.noticeShadeOwnsTouch(),
+  "a battle interruption consumes the captured release without opening")
+drawerReady(true)
+send("down", 120, 10); display.resetNotices(); send("up", 120, 110)
+T.check(not display.noticeShadeActive() and session.touchDown == nil,
+  "save replacement cannot release a captured pull onto an app control")
+drawerReady(true)
+send("down", 120, 10); send("move", 120, 100)
+session.primaryBottomRect = nil
+local leaked = 0
+pointer(function() leaked = leaked + 1 end, game, {phase="released",x=800,y=800})
+T.eq(leaked, 0, "changing outputs cannot leak a drawer release to the game")
+settleDrawer()
+T.check(not display.noticeShadeActive(), "losing the output cancels an unfinished pull")
+drawerReady(true)
 
 assert(loadfile(path .. "/tests/support/notice_gestures.lua"))()(T,run,display)
 T.finish("Gear notices runtime")

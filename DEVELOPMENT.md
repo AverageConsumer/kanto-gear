@@ -135,7 +135,12 @@ they share one temporary LÖVE runtime and require local sprite fixtures.
 
 Notifications keep the last 100 displayed cards per playthrough in
 `notifications/history` storage, with a mod-save fallback. Open the chronological
-list through Settings → Notifications → History. Cards enter history on first
+drawer by dragging down from the Gear header; an upward swipe closes it and
+restores the same app. Settings → Notifications → History also opens the drawer.
+It follows continuous pointer input and settles in 180ms; reduced motion snaps
+on release. Native menus, battles and app modals block opening and dismiss an
+existing drawer. It owns captured releases and repaints fully when it closes.
+Cards enter history on first
 display, after any battle/menu wait; restoring history never replays them.
 History rows open the installed destination app, without retaining live callbacks.
 

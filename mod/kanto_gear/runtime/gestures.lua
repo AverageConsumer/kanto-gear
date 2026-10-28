@@ -225,5 +225,8 @@ return function(
     end
   end
 
+  function displayRuntime.noticeShadeHeaderSwipe(dx, x, y)
+    swipe(dx, { x = x / THEME.hgssScale, y = y / THEME.hgssScale })
+  end
   return swipe, swipeVertical
 end

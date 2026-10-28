@@ -61,31 +61,35 @@ return function(H, G, translate)
 
   -- The same three row rectangles and pager bounds drive drawing and input.
   function H:noticeHistoryHit(x, y, model)
+    local pagerY = model.shade and 188 or 196
     if y < 29 and x < 27 then return "back" end
-    if y >= 196 and y < 213 then
+    if y >= pagerY and y < pagerY + 17 then
       if x >= 6 and x < 34 and model.page > 1 then return "prev" end
       if x >= 206 and x < 234 and model.page < model.pages then return "next" end
     end
     if x < 6 or x >= 234 then return end
     for index, row in ipairs(model.rows) do
-      local top = 50 + (index - 1) * 48
-      if row.enabled and y >= top and y < top + 43 then return "row", index end
+      local top = (model.shade and 45 or 50) + (index - 1) * (model.shade and 46 or 48)
+      if row.enabled and y >= top and y < top + (model.shade and 41 or 43) then return "row", index end
     end
   end
 
   function H:noticeHistory(model)
     local c = self.colors
-    self:partyInfoCentered(translate("OLDEST FIRST"), 6, 33, 228, 14, c.mutedInk)
+    local top, step, height, pagerY = model.shade and 45 or 50, model.shade and 46 or 48,
+      model.shade and 41 or 43, model.shade and 188 or 196
+    self:partyInfoCentered(translate("OLDEST FIRST"), 6, model.shade and 28 or 33, 228, 14, c.mutedInk)
     if #model.rows == 0 then
-      self:v4MessageWindow(6, 50, 228, 139)
-      self:partyInfoCentered(translate("NO NOTIFICATIONS YET"), 12, 50, 216, 139, c.mutedInk)
+      local h = model.shade and 133 or 139
+      self:v4MessageWindow(6, top, 228, h)
+      self:partyInfoCentered(translate("NO NOTIFICATIONS YET"), 12, top, 216, h, c.mutedInk)
     end
     for index, row in ipairs(model.rows) do
-      local entry, y = row.entry, 50 + (index - 1) * 48
-      local pressed = self:beginPress(6, y, 228, 43, row.enabled)
-      self:v4Window(6, y, 228, 43, { radius = self:isCGear() and 3 or 5 })
+      local entry, y = row.entry, top + (index - 1) * step
+      local pressed = self:beginPress(6, y, 228, height, row.enabled)
+      self:v4Window(6, y, 228, height, { radius = self:isCGear() and 3 or 5 })
       local icon = entry.icon or "c_notifications"
-      if self:v4HasIcon(icon) then self:v4Icon(icon, 13, y + 9) end
+      if self:v4HasIcon(icon) then self:v4Icon(icon, 13, y + math.floor((height - 24) / 2)) end
       self:partyInfo(row.timestamp, 44, y + 3, c.mutedInk)
       self:partyInfo(self:fitPartyInfo(entry.title, 182), 44, y + 15,
         entry.tone == "special" and c.amber or c.ink)
@@ -94,12 +98,17 @@ return function(H, G, translate)
     end
     for _, button in ipairs({ { x = 6, label = "<", enabled = model.page > 1 },
         { x = 206, label = ">", enabled = model.page < model.pages } }) do
-      local pressed = self:beginPress(button.x, 196, 28, 17, button.enabled)
-      self:v4Window(button.x, 196, 28, 17, { shadow = false })
-      self:partyInfoCentered(button.label, button.x, 196, 28, 17,
+      local pressed = self:beginPress(button.x, pagerY, 28, 17, button.enabled)
+      self:v4Window(button.x, pagerY, 28, 17, { shadow = false })
+      self:partyInfoCentered(button.label, button.x, pagerY, 28, 17,
         button.enabled and c.ink or c.disabledInk)
       self:endPress(pressed)
     end
-    self:partyInfoCentered(model.page .. "/" .. model.pages, 40, 196, 160, 17, c.ink)
+    self:partyInfoCentered(model.page .. "/" .. model.pages, 40, pagerY, 160, 17, c.ink)
+  end
+
+  function H:noticeShadeHandle(y, open)
+    G.setColor(self.colors.mutedInk)
+    G.rectangle("fill", open and 104 or 111, y, open and 32 or 18, open and 3 or 2)
   end
 end

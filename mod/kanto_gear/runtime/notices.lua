@@ -5,7 +5,7 @@
 -- Cards wait while a battle, dialogue or menu owns the screen. Read only:
 -- nothing here writes the game or takes game buttons.
 return function(
-  THEME, compat, displayRuntime, header, mod, render, screenState, session
+  THEME, compat, displayRuntime, mod, render, screenState, session
 )
   local Notices = displayRuntime.Notices
   local state = Notices.new()
@@ -38,7 +38,7 @@ return function(
     state.historyPage = 1
   end
   function displayRuntime.resetNotices()
-    local gesture = state.gesture
+    local gesture, shadeGesture = state.gesture, state.shadeGesture
     for key in pairs(state) do state[key] = nil end
     for key, value in pairs(Notices.new()) do state[key] = value end
     if gesture then
@@ -46,6 +46,7 @@ return function(
       gesture.card.heldAt = nil
       state.gesture = gesture
     end
+    if shadeGesture then shadeGesture.cancelled = true; state.shadeGesture = shadeGesture end
   end
 
   local function enabled() return mod.options:get("notifications") ~= false end
@@ -160,7 +161,7 @@ return function(
 
   local function free()
     if not session.active or not session.game or session.battle then return false end
-    if session.page == "NOTIFICATIONS" then return false end
+    if state.shade then return false end
     if displayRuntime.displaySetupModal then return false end
     if displayRuntime.gearModules and displayRuntime.gearModules.anyShown() then return false end
     if session.pendingFly or session.pendingAction or session.fieldChoice then return false end
@@ -195,12 +196,13 @@ return function(
 
   -- Called every composed frame: repaint while a card is moving or showing.
   function displayRuntime.tickNotices(now)
+    local shadeChanged = displayRuntime.tickNoticeShade and displayRuntime.tickNoticeShade(now or clock())
     if free() and displayRuntime.pollNoticeSources then displayRuntime.pollNoticeSources(now or clock()) end
     local card = Notices.pending(state) and displayRuntime.noticeCard(now) or nil
     if not card then
       -- One more whole repaint wipes the card that just left.
       if state.wasShowing then state.wasShowing, state.clearPending = false, true; return true end
-      return false
+      return shadeChanged or false
     end
     state.wasShowing = true
     -- Without motion a card needs only its first and last frame.
@@ -214,6 +216,7 @@ return function(
 
   -- Whole repaints (not the map-only refresh) while a card shows or leaves.
   function displayRuntime.noticeShowing()
+    if state.shade then return true end
     if state.current then return true end
     if state.clearPending then state.clearPending = nil; return true end
     return false
@@ -244,7 +247,7 @@ return function(
   end
 
   function displayRuntime.openNoticeHistory()
-    state.historyPage, session.page, session.dirty = 1, "NOTIFICATIONS", true
+    return displayRuntime.openNoticeShade()
   end
 
   function displayRuntime.cycleNoticeHistory(direction)
@@ -253,25 +256,6 @@ return function(
     if target == model.page then return false end
     state.historyPage, session.dirty = target, true
     return true
-  end
-
-  function displayRuntime.tapNoticeHistory(x, y)
-    local model = displayRuntime.noticeHistoryModel()
-    local action, index = THEME.hgss:noticeHistoryHit(x, y, model)
-    if action == "back" then session.page, session.dirty = "SETTINGS", true
-    elseif action == "prev" or action == "next" then
-      displayRuntime.cycleNoticeHistory(action == "next" and 1 or -1)
-    elseif action == "row" then
-      local entry = model.rows[index].entry
-      if displayRuntime.openHomeApp(entry.app) then displayRuntime.markNoticeRead(entry.app) end
-    end
-  end
-
-  function displayRuntime.drawNoticeHistory()
-    header(THEME:translate("NOTIFICATIONS"), true, false)
-    render.G.push(); render.G.scale(1 / THEME.hgssScale, 1 / THEME.hgssScale)
-    THEME.hgss:noticeHistory(displayRuntime.noticeHistoryModel())
-    render.G.pop()
   end
 
   local function open(card)
