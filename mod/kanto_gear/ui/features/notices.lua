@@ -60,6 +60,14 @@ return function(H, G, translate)
   end
 
   -- The same three row rectangles and pager bounds drive drawing and input.
+  function H:noticeHistoryRowAt(x, y, model)
+    if x < 6 or x >= 234 then return end
+    for index in ipairs(model.rows) do
+      local top = (model.shade and 45 or 50) + (index - 1) * (model.shade and 46 or 48)
+      if y >= top and y < top + (model.shade and 41 or 43) then return index end
+    end
+  end
+
   function H:noticeHistoryHit(x, y, model)
     local pagerY = model.shade and 188 or 196
     if y < 29 and x < 27 then return "back" end
@@ -67,11 +75,8 @@ return function(H, G, translate)
       if x >= 6 and x < 34 and model.page > 1 then return "prev" end
       if x >= 206 and x < 234 and model.page < model.pages then return "next" end
     end
-    if x < 6 or x >= 234 then return end
-    for index, row in ipairs(model.rows) do
-      local top = (model.shade and 45 or 50) + (index - 1) * (model.shade and 46 or 48)
-      if row.enabled and y >= top and y < top + (model.shade and 41 or 43) then return "row", index end
-    end
+    local index = self:noticeHistoryRowAt(x, y, model)
+    if index and model.rows[index].enabled then return "row", index end
   end
 
   function H:noticeHistory(model)
@@ -86,6 +91,11 @@ return function(H, G, translate)
     end
     for index, row in ipairs(model.rows) do
       local entry, y = row.entry, top + (index - 1) * step
+      local offset = model.rowOffsets and model.rowOffsets[index] or 0
+      if offset ~= 0 then
+        self:partyInfoCentered(translate("READ"), 6, y, 228, height, c.green)
+        G.push("all"); G.translate(math.floor(offset + 0.5), 0)
+      end
       local pressed = self:beginPress(6, y, 228, height, row.enabled)
       self:v4Window(6, y, 228, height, { radius = self:isCGear() and 3 or 5 })
       local icon = entry.icon or "c_notifications"
@@ -95,6 +105,7 @@ return function(H, G, translate)
         entry.tone == "special" and c.amber or c.ink)
       self:partyInfo(self:fitPartyInfo(entry.detail or "", 182), 44, y + 27, c.mutedInk)
       self:endPress(pressed)
+      if offset ~= 0 then G.pop() end
     end
     for _, button in ipairs({ { x = 6, label = "<", enabled = model.page > 1 },
         { x = 206, label = ">", enabled = model.page < model.pages } }) do

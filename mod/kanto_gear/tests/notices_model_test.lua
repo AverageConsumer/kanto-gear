@@ -62,5 +62,28 @@ check(#loaded == 2 and loaded[1].timestamp == nil and loaded[1].game == nil and 
   "stored history rejects malformed entries and unsafe fields")
 check(#N.history(false) == 0, "invalid stored history starts empty")
 
+local read = N.new()
+local a, b = {title="A",app="shiny"}, {title="B",app="shiny"}
+N.remember(read,a,1); N.remember(read,b,2); N.markUnread(read,"shiny")
+read.current = a
+local firstEntry, secondEntry = read.history[1], read.history[2]
+check(N.readHistory(read,firstEntry) and read.current == nil,
+  "reading a displayed notice removes its paused card too")
+check(read.unread.shiny and #read.history==1 and read.history[1]==secondEntry,
+  "reading one notice preserves another unread notice from the same app")
+check(not N.readHistory(read,firstEntry) and #read.history==1,
+  "a stale row cannot remove the notification that moved into its position")
+read.queue={{title="WAITING",app="shiny"}}
+check(N.readHistory(read,secondEntry) and read.unread.shiny,
+  "an unseen queued notice retains the app dot")
+read.queue={}; N.remember(read,{title="C",app="shiny"},3)
+read.unreadOnly.shiny=true
+check(N.readHistory(read,read.history[1]) and read.unread.shiny,
+  "a dot-only notice is independent of the displayed list")
+N.remember(read,{title="D",app="shiny"},4)
+check(N.markRead(read,"shiny") and read.history[1].read and not read.unreadOnly.shiny,
+  "opening the app marks all its stored records read and clears dot-only news")
+check(N.history(read.history)[1].read, "per-entry read state survives storage normalization")
+
 io.write(string.format("%d/%d checks passed  (notices model)\n", passed, passed + failed))
 if failed > 0 then os.exit(1) end

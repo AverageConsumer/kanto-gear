@@ -291,6 +291,68 @@ pointer(function() leaked = leaked + 1 end, game, {phase="released",x=800,y=800}
 T.eq(leaked, 0, "changing outputs cannot leak a drawer release to the game")
 settleDrawer()
 T.check(not display.noticeShadeActive(), "losing the output cancels an unfinished pull")
+
+local function readFixture(motion, count)
+  drawerReady(motion)
+  local state = display.notices
+  state.history, state.unread, state.unreadOnly, state.queue = {}, {}, {}, {}
+  for index=1,count or 3 do
+    local card={title="READ " .. index,app=index==3 and "daycare" or "shiny"}
+    display.Notices.remember(state,card,index)
+    display.Notices.markUnread(state,card.app)
+    if index==1 then state.current=card end
+  end
+  display.openNoticeHistory(); settleDrawer()
+  return state
+end
+local readState = readFixture(true)
+local firstRecord, secondRecord = readState.history[1], readState.history[2]
+send("down",120,60); send("move",90,60)
+T.eq(readState.shadeGesture.offset,-30,"a horizontal row drag follows the finger")
+T.eq(#readState.history,3,"dragging alone cannot mark anything read")
+send("up",90,60)
+T.eq(readState.shade.rowMotion.target,0,"a short swipe glides back")
+settleDrawer()
+T.eq(#readState.history,3,"a short swipe preserves the list")
+send("down",120,60); send("move",50,60); send("up",50,60)
+T.eq(#readState.history,2,"a left swipe removes exactly one message")
+T.eq(readState.history[1],secondRecord,"the next message retains its identity")
+T.check(firstRecord.read and readState.current==nil,"a dismissed message is read and cannot replay as a banner")
+T.eq(readState.shade.rowMotion.target,-246,"a left dismissal continues off the left edge")
+T.eq(#stored[game.save]["notifications/history"],2,"dismissal persists before the exit animation finishes")
+T.check(display.noticeUnread("shiny"),"another unread shiny message retains the dot")
+T.eq(session.page,"HOME","a row swipe never opens its destination app")
+send("down",120,60); send("up",50,60)
+T.eq(#readState.history,2,"touches during the exit cannot remove the following row")
+settleDrawer()
+send("down",60,105); send("move",160,105); send("up",160,105)
+T.eq(#readState.history,1,"a right swipe can remove a row without an installed destination")
+T.eq(readState.shade.rowMotion.target,246,"a right dismissal continues off the right edge")
+T.check(not display.noticeUnread("daycare") and display.noticeUnread("shiny"),
+  "reading a daycare message cannot clear another app's unread state")
+settleDrawer()
+send("down",120,60); send("move",50,60); send("up",50,60); settleDrawer()
+T.eq(#readState.history,0,"the last message can be dismissed")
+T.check(not display.noticeUnread("shiny"),"reading the final message clears its app dot")
+local emptyOK, emptyError=pcall(display.drawContents)
+T.check(emptyOK,"dismissing the last message draws the empty state: " .. tostring(emptyError))
+display.resetNotices(); display.bindNoticeHistory()
+T.eq(#display.notices.history,0,"read messages stay removed after reload")
+
+readState=readFixture(false,4)
+T.eq(readState.historyPage,2,"the newest page opens initially")
+send("down",120,60); send("move",190,60); send("up",190,60)
+T.eq(#readState.history,3,"reduced motion dismisses a right-swiped message")
+T.eq(readState.shade.rowMotion,nil,"reduced motion skips row animation")
+T.eq(display.noticeHistoryModel().page,1,"removing the last row of the last page clamps paging")
+local countBefore=#readState.history
+send("down",120,60); send("move",50,60); send("cancel",50,60)
+T.eq(#readState.history,countBefore,"a cancelled swipe cannot mark a message read")
+send("down",120,60); send("move",50,60)
+display.home.storeConfirm="shiny"
+send("up",50,60)
+T.eq(#readState.history,countBefore,"a modal interruption cannot dismiss the row underneath")
+display.home.storeConfirm=nil
 drawerReady(true)
 
 assert(loadfile(path .. "/tests/support/notice_gestures.lua"))()(T,run,display)

@@ -1376,6 +1376,7 @@ return {
   ["NOTIFICATION SOUND"] = "MELDUNGSTON",
   ["NOTIFICATIONS"] = "MELDUNGEN",
   ["HISTORY"] = "VERLAUF",
+  ["READ"] = "GELESEN",
   ["OLDEST FIRST"] = "ÄLTESTE ZUERST",
   ["NO NOTIFICATIONS YET"] = "NOCH KEINE MELDUNGEN",
   ["The last 100 messages shown in this playthrough, oldest first. Tap a message to open its installed app."] = "Die letzten 100 angezeigten Meldungen dieses Spielstands, älteste zuerst. Tippe eine Meldung an, um ihre installierte App zu öffnen.",

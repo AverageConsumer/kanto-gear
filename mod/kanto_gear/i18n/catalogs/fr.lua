@@ -1364,6 +1364,7 @@ return {
   ["NOTIFICATION SOUND"] = "SON DES NOTIFICATIONS",
   ["NOTIFICATIONS"] = "NOTIFICATIONS",
   ["HISTORY"] = "HISTORIQUE",
+  ["READ"] = "LUE",
   ["OLDEST FIRST"] = "ANCIENNES D'ABORD",
   ["NO NOTIFICATIONS YET"] = "AUCUNE NOTIFICATION",
   ["The last 100 messages shown in this playthrough, oldest first. Tap a message to open its installed app."] = "Les 100 derniers messages affichés dans cette partie, du plus ancien au plus récent. Touchez un message pour ouvrir son application installée.",

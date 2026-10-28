@@ -1366,6 +1366,7 @@ return {
   ["NOTIFICATION SOUND"] = "SONIDO DE AVISO",
   ["NOTIFICATIONS"] = "NOTIFICACIONES",
   ["HISTORY"] = "HISTORIAL",
+  ["READ"] = "LEÍDA",
   ["OLDEST FIRST"] = "ANTIGUAS PRIMERO",
   ["NO NOTIFICATIONS YET"] = "AÚN NO HAY AVISOS",
   ["The last 100 messages shown in this playthrough, oldest first. Tap a message to open its installed app."] = "Los últimos 100 avisos mostrados en esta partida, del más antiguo al más reciente. Toca un aviso para abrir su aplicación instalada.",

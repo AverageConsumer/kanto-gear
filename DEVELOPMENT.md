@@ -143,6 +143,11 @@ existing drawer. It owns captured releases and repaints fully when it closes.
 Cards enter history on first
 display, after any battle/menu wait; restoring history never replays them.
 History rows open the installed destination app, without retaining live callbacks.
+Swipe a notification card left or right to mark that individual message read
+and remove it persistently. Short or cancelled drags return to their position;
+page arrows and swipes outside cards still page the list. A dismissed current
+banner cannot replay after closing the drawer. Other unread messages, including
+queued and dot-only notifications, retain their app's unread dot.
 
 ## Third-party store modules
 

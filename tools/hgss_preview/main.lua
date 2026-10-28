@@ -3481,6 +3481,8 @@ function love.load()
     } }
     if os.getenv("KANTO_GEAR_PREVIEW_SHADE_EMPTY") == "1" then model.rows, model.pages = {}, 1 end
     local display = { notices = { shade = {height=216*progress} }, noticeHistoryModel=function() return model end }
+    local swipe = tonumber(os.getenv("KANTO_GEAR_PREVIEW_SHADE_SWIPE"))
+    if swipe then display.notices.shade.rowMotion = {model=model,index=2,offset=swipe} end
     assert(loadfile(root .. "/mod/kanto_gear/runtime/notice_shade.lua"))()(
       {hgss=theme,hgssScale=1,translate=function(_, value) return translate(value) end}, display,
       function(title, back, paged)

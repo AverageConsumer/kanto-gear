@@ -1370,6 +1370,7 @@ return {
   ["NOTIFICATION SOUND"] = "おしらせの おと",
   ["NOTIFICATIONS"] = "おしらせ",
   ["HISTORY"] = "りれき",
+  ["READ"] = "きどく",
   ["OLDEST FIRST"] = "ふるい じゅん",
   ["NO NOTIFICATIONS YET"] = "おしらせは ありません",
   ["The last 100 messages shown in this playthrough, oldest first. Tap a message to open its installed app."] = "この ぼうけんで ひょうじされた さいきんの おしらせを 100けんまで ふるい じゅんに ひょうじします。タッチすると インストールずみの アプリを ひらきます。",

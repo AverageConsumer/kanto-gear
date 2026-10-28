@@ -149,7 +149,11 @@ return function(
     displayRuntime.home.widgetCache = nil
     displayRuntime.mapRefresh.paintedPage = nil
     session.dirty = true
-    if not enabled() or level == "dot" then return nil end
+    if not enabled() or level == "dot" then
+      if notice.app and state.unread[notice.app] then state.unreadOnly[notice.app] = true end
+      return nil
+    end
+    notice.read = notice.app ~= nil and session.page == notice.page
     notice.silent = level == "silent" or nil
     notice.show = notice.show or showTime()
     local card = Notices.post(state, notice, clock())
@@ -224,6 +228,7 @@ return function(
 
   function displayRuntime.markNoticeRead(app)
     if Notices.markRead(state, app) then
+      saveHistory()
       displayRuntime.home.widgetCache = nil
       displayRuntime.mapRefresh.paintedPage = nil
       session.dirty = true
@@ -231,6 +236,15 @@ return function(
   end
 
   function displayRuntime.noticeUnread(app) return state.unread[app] == true end
+
+  function displayRuntime.readNoticeHistory(entry)
+    if not Notices.readHistory(state, entry) then return false end
+    saveHistory()
+    displayRuntime.home.widgetCache = nil
+    displayRuntime.mapRefresh.paintedPage = nil
+    session.dirty = true
+    return true
+  end
 
   function displayRuntime.noticeHistoryModel()
     local pages = math.max(1, math.ceil(#state.history / 3))

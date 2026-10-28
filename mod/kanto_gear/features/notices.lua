@@ -7,7 +7,7 @@ M.ENTER, M.SHOW, M.EXIT = 0.18, 3.5, 0.18
 M.LIMIT = 6
 M.HISTORY_LIMIT = 100
 
-function M.new() return { queue = {}, unread = {}, serial = 0, history = {}, historyPage = 1 } end
+function M.new() return { queue = {}, unread = {}, unreadOnly = {}, serial = 0, history = {}, historyPage = 1 } end
 
 -- Persist only presentation values. Native objects, callbacks and transient
 -- gesture/timing state must never survive a save/session replacement.
@@ -24,6 +24,7 @@ local function historyEntry(value)
   end
   if type(value.species) == "string" or type(value.species) == "number" then out.species = value.species end
   out.shiny = value.shiny == true
+  out.read = value.read == true
   out.timestamp = historyTimestamp(value.timestamp)
   return out
 end
@@ -45,6 +46,7 @@ function M.remember(state, card, timestamp)
   local entry = historyEntry(card)
   if not entry then return false end
   card.recorded = true
+  card.historyEntry = entry
   entry.timestamp = historyTimestamp(timestamp)
   state.history[#state.history + 1] = entry
   while #state.history > M.HISTORY_LIMIT do table.remove(state.history, 1) end
@@ -90,8 +92,36 @@ end
 
 function M.markUnread(state, app) if app then state.unread[app] = true end end
 function M.markRead(state, app)
-  if not app or not state.unread[app] then return false end
+  if not app then return false end
+  local changed = state.unread[app] == true
+  for _, entry in ipairs(state.history) do
+    if entry.app == app and not entry.read then entry.read, changed = true, true end
+  end
+  for _, card in ipairs(state.queue) do if card.app == app then card.read = true end end
+  if state.current and state.current.app == app then state.current.read = true end
   state.unread[app] = nil
+  state.unreadOnly[app] = nil
+  return changed
+end
+
+-- Identity, not visible position: rows can move when the last page shrinks.
+-- A read card cannot reappear behind the drawer when it closes.
+function M.readHistory(state, entry)
+  local found
+  for index, candidate in ipairs(state.history) do
+    if candidate == entry then table.remove(state.history, index); found = true; break end
+  end
+  if not found then return false end
+  entry.read = true
+  if state.current and state.current.historyEntry == entry then state.current = nil end
+  local app = entry.app
+  if app then
+    local pending = state.unreadOnly[app] == true
+    if state.current and state.current.app == app and not state.current.read then pending = true end
+    for _, card in ipairs(state.queue) do if card.app == app and not card.read then pending = true end end
+    for _, other in ipairs(state.history) do if other.app == app and not other.read then pending = true end end
+    if not pending then state.unread[app] = nil end
+  end
   return true
 end
 
