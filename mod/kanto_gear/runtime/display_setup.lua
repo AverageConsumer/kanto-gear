@@ -92,7 +92,9 @@ return function(THEME, displayRuntime, mod, render, resetSwapState, session)
     local input = game.input
     if not (input and input.step and input.isDown and input.wasPressed) then return false end
     local time = now()
+    local previousStage = state.stage
     state:tick(time, requested(), state.healthy == true, false)
+    if previousStage == "recovery" and not state.stage then layout, pointers = nil, {} end
     -- Eligibility builds native field-action records. Query it only while a
     -- choice is waiting, at a bounded rate, never throughout normal gameplay.
     if not state.stage and not state.draining and (state.pending or state.recoveryPending)
@@ -215,7 +217,7 @@ return function(THEME, displayRuntime, mod, render, resetSwapState, session)
     else
       -- Availability belongs to the physical output, not whether Gear has
       -- already painted a frame (boot, loading and modal ownership can defer it).
-      state.healthy = ready and requested()=="separate" and not state.fallback
+      state.healthy = ready and requested()=="separate"
     end
   end
 
