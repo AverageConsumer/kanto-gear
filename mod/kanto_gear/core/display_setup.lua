@@ -20,6 +20,16 @@ function Setup:tick(now, mode, healthy, safe)
     self.mode, self.missingSince = mode, nil
     self.fallback, self.recoveryPending = false, false
   end
+  -- Sleep, lid changes and system overlays can temporarily remove the native
+  -- presentation. Its return restores the saved layout, including in battle.
+  -- A user-started test still owns its confirmation and timeout.
+  if mode == "separate" and healthy and self.fallback
+      and (not self.stage or self.stage == "recovery") then
+    self.fallback, self.recoveryPending, self.missingSince = false, false, nil
+    if self.stage == "recovery" then
+      self.stage, self.armed, self.draining = nil, false, true
+    end
+  end
   if mode == "separate" and not self.fallback and not self.stage and not self.draining then
     if healthy then self.missingSince = nil
     else self.missingSince = self.missingSince or now end

@@ -109,6 +109,43 @@ T.eq(state.stage,nil,"a failed preference write cannot trap the user in setup")
 T.eq(state:override(),"combined","read-only storage leaves a safe local session")
 api.options.set=set; state.sessionMode=nil
 api.options:set("display_mode","separate")
+local restored,detected=true,true
+local returningBridge={detected=function() return detected end,available=function() return restored end}
+local function observeReturn() time=time+.3; display.observeSetupDisplay(returningBridge) end
+state:bind(time,"separate"); state.pending=false
+observeReturn(); frame()
+T.eq(state.healthy,true,"an established second screen starts healthy")
+restored=false; observeReturn(); frame(); time=time+2.1; frame()
+T.eq(state.stage,"recovery","a sustained field outage opens recovery")
+frame()
+layout=display.drawDisplaySetup(game,viewport); b=layout.buttons[1]
+pointer("pressed",b.x+2,b.y+2)
+input:sourcePress("a","test")
+local recoveryUpdates,recoveryActions=updates,actions
+restored=true; observeReturn(); frame()
+T.eq(state.stage,nil,"returning availability dismisses recovery without another screen test")
+T.eq(state.fallback,false,"returning availability restores the saved two-screen layout")
+T.eq(api.options:get("display_mode"),"separate","automatic recovery does not persist split screen")
+T.eq(state.draining,true,"held modal confirmation is drained on automatic recovery")
+T.eq(updates,recoveryUpdates,"automatic dismissal cannot pass held A into gameplay")
+display.displaySetupPointer({phase="released",x=b.x+2,y=b.y+2,id=7})
+T.eq(api.options:get("display_mode"),"separate","a stale recovery touch cannot select one screen")
+input:sourceRelease("a","test"); frame(); frame()
+T.eq(actions,recoveryActions,"modal confirmation remains consumed after automatic recovery")
+idle=false
+restored,detected=false,false; observeReturn(); frame(); time=time+2.1; frame()
+T.eq(state.fallback,true,"a sustained battle or script outage retains a visible local layout")
+T.eq(state.stage,nil,"busy recovery does not interrupt gameplay")
+restored,detected=true,true; observeReturn(); frame()
+T.eq(state.fallback,false,"a returning display restores two screens before the battle ends")
+T.eq(state.recoveryPending,false,"reconnection cancels the queued post-battle prompt")
+idle=true; frame()
+T.eq(state.stage,nil,"the idle boundary cannot replay the recovered outage")
+api.options:set("display_mode","combined")
+observeReturn(); frame()
+T.eq(api.options:get("display_mode"),"combined","a returning display cannot override an explicit one-screen choice")
+T.eq(state:override(),nil,"an explicit one-screen choice leaves no recovery override")
+api.options:set("display_mode","separate")
 state:bind(time,"separate"); state.pending=false
 idle=false; state.healthy=false
 frame(); time=time+2.1; local busyBefore=updates; frame()
@@ -142,6 +179,7 @@ display.session.displayReady = false
 time=time+.3; display.observeSetupDisplay(bridge)
 T.eq(state.healthy,true,"an available output cannot be mistaken for first-frame failure")
 state.stage, state.fallback = oldStage, oldFallback
+available=false; time=time+.3; display.observeSetupDisplay(bridge)
 time=state.deadline; frame()
 T.eq(state.stage,"recovery","expired retry returns to the visible recovery choices")
 T.eq(api.options:get("display_mode"),"separate","timeout cannot overwrite the saved preference")
