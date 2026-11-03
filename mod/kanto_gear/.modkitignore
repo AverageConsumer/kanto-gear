@@ -85,6 +85,7 @@ tests/legacy_pc_runtime_test.lua
 tests/legacy_save_test.lua
 tests/legacy_shop_test.lua
 tests/legacy_storage_test.lua
+tests/lettering_test.lua
 tests/level_up_runtime_test.lua
 tests/level_up_test.lua
 tests/location_preview_test.lua
