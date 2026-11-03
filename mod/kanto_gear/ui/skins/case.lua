@@ -11,7 +11,7 @@
 --     in sentence case) are left exactly as typed.
 -- Header bars and type/status badges keep capitals on purpose, and long game
 -- prose (Pokédex entries, battle text) stays as the cartridge prints it.
-return function(H, ui, K)
+return function(H, ui, K, read)
   local unpack = table.unpack or unpack
   local base = {}
   for _, name in ipairs({ "partyInfo", "partyName", "partyInfoWidth", "fitPartyInfo",
@@ -38,12 +38,11 @@ return function(H, ui, K)
   -- "9 AM", "MT / MO".
   local MARKED = { AM = true, PM = true, MO = true }
 
-  local LOWER = { ["Ä"] = "ä", ["Ö"] = "ö", ["Ü"] = "ü", ["À"] = "à", ["Â"] = "â",
-    ["Ç"] = "ç", ["Á"] = "á", ["È"] = "è", ["É"] = "é", ["Ê"] = "ê", ["Ë"] = "ë",
-    ["Í"] = "í", ["Î"] = "î", ["Ï"] = "ï", ["Ó"] = "ó", ["Ô"] = "ô", ["Ú"] = "ú",
-    ["Ù"] = "ù", ["Û"] = "û", ["Ÿ"] = "ÿ", ["Ñ"] = "ñ", ["Ì"] = "ì", ["Ò"] = "ò" }
+  local latinCase = assert(load(assert(read("i18n/latin_case.lua")), "@kanto_gear/i18n/latin_case.lua"))()()
+  local LOWER = latinCase.lower
   local UPPER_SET, LOWER_SET = {}, {}
   for up, low in pairs(LOWER) do UPPER_SET[up] = true; LOWER_SET[low] = true end
+  for low in pairs(latinCase.upper) do LOWER_SET[low] = true end
   LOWER_SET["é"] = nil -- POKéMON / POKéDEX spell é inside capitals
 
   local function chars(word)
@@ -66,7 +65,7 @@ return function(H, ui, K)
   end
 
   local function lowerChar(ch)
-    return LOWER[ch] or ch:lower()
+    return LOWER[ch] or (#ch == 1 and ch:lower() or ch)
   end
 
   -- One run of letters (apostrophes allowed inside: FARFETCH'D).
@@ -89,7 +88,7 @@ return function(H, ui, K)
   local cache, cached = {}, 0
   local function title(value)
     if type(value) ~= "string" then value = tostring(value or "") end
-    if value == "" or not value:find("%u") then return value end
+    if value == "" then return value end
     local hit = cache[value]
     if hit then return hit end
     local list = chars(value)

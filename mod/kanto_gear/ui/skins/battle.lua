@@ -321,12 +321,17 @@ return function(H, ui, K)
       disabled and colors.redLight or (ppLow and hex("f8e070") or ink), 35, "right")
     RR(x + 5, y + 37, 102, 14, 3, mix(a.D, { 0, 0, 0, 1 }, 0.2))
     RR(x + 6, y + 38, 100, 12, 2, mix(a.D, a.M, 0.25))
+    local powerText, accuracyText = move.powerText or "--", move.accuracyText or "--"
+    -- Reserve each value's measured width and a two-pixel gap before fitting
+    -- translated labels; the fallback font can be wider than the Latin face.
+    local powerWidth = max(0, 42 - self:partyInfoWidth(powerText) - 2)
+    local accuracyWidth = max(0, 44 - self:partyInfoWidth(accuracyText) - 2)
     self:withoutShadow(function()
-      self:partyInfo(move.powerLabel or translate("PWR"), x + 10, y + 38, wellLabel)
-      self:partyInfo(move.accuracyLabel or translate("ACC"), x + 59, y + 38, wellLabel)
+      self:partyInfo(self:fitPartyInfo(move.powerLabel or translate("PWR"), powerWidth), x + 10, y + 38, wellLabel)
+      self:partyInfo(self:fitPartyInfo(move.accuracyLabel or translate("ACC"), accuracyWidth), x + 59, y + 38, wellLabel)
     end)
-    self:partyInfo(move.powerText or "--", x + 30, y + 38, ink, 22, "right")
-    self:partyInfo(move.accuracyText or "--", x + 80, y + 38, ink, 23, "right")
+    self:partyInfo(powerText, x + 30, y + 38, ink, 22, "right")
+    self:partyInfo(accuracyText, x + 80, y + 38, ink, 23, "right")
     local cy = y + 56
     if disabled then
       RR(x + 9, cy, 94, 12, 3, colors.outline)

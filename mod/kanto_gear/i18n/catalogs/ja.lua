@@ -687,7 +687,7 @@ return {
   ["75%"] = "75%",
   ["80%"] = "80%",
   ["A BALL USED TO CATCH WILD POKEMON."] = "やせいポケモンをつかむのボール",
-  ["ACC"] = "めいちゅうりつ",
+  ["ACC"] = "命中",
   ["ACHIEVEMENTS"] = "ぎょうせき",
   ["ADD"] = "さんか",
   ["ADD TO HOME"] = "ホームにさんか",

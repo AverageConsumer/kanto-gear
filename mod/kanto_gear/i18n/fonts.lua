@@ -60,7 +60,8 @@ function Fonts:select(base, value)
   if glyphs == "" or not base.hasGlyphs or base:hasGlyphs(glyphs) then return base, 0 end
   local multiplier = base:getHeight() >= 20 and 2 or 1
   local font = self:loadFont(self, multiplier)
-  if self.readBundled and (not font or not font:hasGlyphs(glyphs)) then
+  if font and not font:hasGlyphs(glyphs) then font = nil end
+  if self.readBundled and not font then
     local first, second = "ja", "ko"
     if hasHangul(value) then first, second = second, first end
     for _, language in ipairs({ first, second }) do

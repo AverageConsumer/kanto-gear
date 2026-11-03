@@ -13,7 +13,12 @@ SOURCES = Path(__file__).resolve().parent / "sources"
 
 def glyphs() -> str:
     value = "".join(chr(code) for code in range(32, 127)) + "×→←▲▼"
-    for path in MOD.rglob("*.lua"):
+    # Include external translation alphabets even when Gear's own catalogs do
+    # not use them. Keep codepoint order stable across filesystems and locales.
+    common = set(TTFont(SOURCES / "hgss_pixel.ttf").getBestCmap())
+    common.intersection_update(TTFont(SOURCES / "hgss_small.ttf").getBestCmap())
+    value += "".join(chr(code) for code in sorted(common) if chr(code).isprintable())
+    for path in sorted(MOD.rglob("*.lua")):
         value += "".join(
             char for char in path.read_text(encoding="utf-8") if ord(char) >= 128
         )

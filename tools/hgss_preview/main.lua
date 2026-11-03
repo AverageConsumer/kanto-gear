@@ -213,6 +213,10 @@ function love.load()
   theme.previewEnter = tonumber(os.getenv("KANTO_GEAR_PREVIEW_ENTER"))
   theme:setSkin(os.getenv("KANTO_GEAR_PREVIEW_SKIN") or "pokegear")
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  if os.getenv("KANTO_GEAR_PREVIEW_FONT_CHECK") == "1" then
+    assert(loadfile(root .. "/tools/hgss_preview/lettering.lua"))()(root,
+      translationFonts, { font, smallFont, largeFont }, fontGlyphs, theme)
+  end
   for prefix, name in pairs({ pokedex = "POKEDEX", trainer = "TRAINER", bag = "BAG",
       store = "STORE", tools = "TOOLS", settings = "SETTINGS", achievements = "ACHIEVEMENTS",
       region_map = "MAP", pss = "PSS", notes = "NOTES", daycare = "DAYCARE", calendar = "CALENDAR",
@@ -1573,6 +1577,11 @@ function love.load()
           ppText = "10/10", powerText = "--", accuracyText = "90",
           effectiveness = 20 },
       }
+    end
+    if os.getenv("KANTO_GEAR_PREVIEW_MOVE_NAMES") == "pt-br" then
+      for index, name in ipairs({ "FERRÃO VENENOSO", "ESTILINGADA", "ENDURECER", "ATAQUE DE FÚRIA" }) do
+        mon.moves[index].name = name
+      end
     end
     return mon
   end

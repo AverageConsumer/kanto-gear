@@ -6,7 +6,7 @@ return function(loadModule)
   local addEncounters, battleUIMode, checklistPages, clockText, compactClock, oneShotTrainerStatus = loadModule("core/encounters")
   local Area = loadModule("core/area")
   local battleChoice, bottomOwnsBattleUI, categorizedBag, caughtWild, localMapGrid, localMapLayout, localMapMode, prepareBattleSnapshot, screenContract, supportedBattleUI = loadModule("core/contracts", THEME, rowsContract)
-  local FONT, box, clean, color, fit, glyphList, methodLines, normalize = loadModule("core/typography", THEME, render)
+  local FONT, box, clean, color, fit, glyphList, methodLines, normalize = loadModule("core/typography", THEME, render, loadModule("i18n/latin_case"))
   local button, centered, expBar, hpBar, inside, outline, text = loadModule("core/drawing", FONT, THEME, WIDTH, box, clean, color, fit, glyphList, progressRatio, render)
   loadModule("core/option_fallback", THEME)
   return {

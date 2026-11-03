@@ -58,6 +58,7 @@ eq(fonts:select(font("base", 24), "한국어").size, 20, "large Korean labels us
 eq(fonts:bind({ file = "game", size = 10 }), true, "a game font can be bound")
 local gameFont = fonts:select(base, "MOD TEXT é")
 eq(gameFont.kind, "game", "game font retains priority when it covers the text")
+eq(fonts:select(base, "☄"), base, "an uncovered game font is never selected")
 eq(fonts:select(base, "漢字"), japanese, "a Latin game font cannot block Japanese")
 eq(fonts:select(base, "한국어"), korean, "a Latin game font cannot block Korean")
 eq(fonts:bind({ file = "game", size = 10 }), false, "unchanged game font does not reset caches")
