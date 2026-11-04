@@ -1,5 +1,8 @@
 -- Brazilian Portuguese translation contributed by Solid One (https://github.com/leomontenegro6).
 return {
+  ["INTEGER SCALING"] = "ESCALA INTEIRA",
+  ["HOST UPDATE REQUIRED"] = "ATUALIZE O RECOMP",
+  ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Amplia o Gear por fatores inteiros. Desativado, aproveita o espaço disponível. Áreas pequenas sempre mostram a imagem completa.",
   ["OPEN APP"] = "ABRIR",
   ["COMPANION"] = "COMPANHEIRO",
   ["PHONE / BROWSER"] = "TELEFONE / NAVEGADOR",

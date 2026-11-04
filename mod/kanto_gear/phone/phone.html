@@ -298,8 +298,12 @@ body[data-theme^="cgear"]:has(#pair:not([hidden])) #status { border-radius: 4px;
 body[data-theme^="cgear"] .lcd::before { border-radius: 4px; box-shadow: 0 0 0 2px var(--bezel-rim), inset 0 -3px 0 var(--accent-2); }
 .lcd { isolation: isolate; anchor-name: --gear; }
 #gear {
-  display: none; image-rendering: crisp-edges; image-rendering: pixelated;
+  display: none; opacity: 0;
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+#gear-output {
+  position: absolute; left: 0; top: 0; pointer-events: none;
+  transform-origin: top left;
 }
 
 /* Button sizing: chosen size, shrunk for the screen only down to a finger-sized floor that grows with the chosen size. */

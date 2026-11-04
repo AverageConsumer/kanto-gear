@@ -1,4 +1,7 @@
 return {
+  ["INTEGER SCALING"] = "INTEGER-SKALIERUNG",
+  ["HOST UPDATE REQUIRED"] = "HOST-UPDATE NÖTIG",
+  ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Vergrößert Gear in ganzen Pixelschritten. Aus nutzt den verfügbaren Platz. Kleine Flächen zeigen immer das vollständige Bild.",
   ["OPEN APP"] = "ÖFFNEN",
   ["SPECIES TYPES"] = "ARTENTYPEN",
   ["Show species types before catching them. Your own Pokemon and caught Dex entries keep their native types."] = "Zeigt Artentypen vor dem Fang. Eigene Pokemon und gefangene Dex-Eintraege behalten ihre Originaltypen.",

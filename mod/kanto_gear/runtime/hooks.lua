@@ -184,12 +184,14 @@ return function(
       render.G.clear(0, 0, 0, 1)
       render.G.setColor(1, 1, 1, 1)
       if layout.gameOnTop then
-        session.primaryBottomRect = THEME:drawCanvas(session.canvas, layout.gear)
+        session.primaryBottomRect = THEME:drawCanvas(session.canvas, layout.gear,
+          mod.options:get("integer_scaling") == true)
         THEME:drawCanvas(context.canvas, layout.game)
       else
         if layout.showGame then THEME:drawCanvas(context.canvas, layout.game) end
         session.primaryBottomRect = layout.showGear
-          and THEME:drawCanvas(session.canvas, layout.gear) or nil
+          and THEME:drawCanvas(session.canvas, layout.gear,
+            mod.options:get("integer_scaling") == true) or nil
       end
       if not layout.showGear and layout.showGame and displayRuntime.drawNoticeOverGame then
         displayRuntime.drawNoticeOverGame(layout.game)
@@ -268,10 +270,6 @@ return function(
     if session.dirty then draw(); session.dirty = false end
     local ww = math.max(1, context.width or render.G.getWidth())
     local wh = math.max(1, context.height or render.G.getHeight())
-    local scale = math.min(ww / session.canvas:getWidth(), wh / session.canvas:getHeight())
-    local dw, dh = session.canvas:getWidth() * scale, session.canvas:getHeight() * scale
-    local dx, dy = math.floor((ww - dw) / 2), math.floor((wh - dh) / 2)
-    session.primaryBottomRect = { x = dx, y = dy, w = dw, h = dh }
 
     render.G.push("all")
     render.G.setCanvas()
@@ -283,7 +281,8 @@ return function(
     render.G.clear(render.PAPER[1] * brightness, render.PAPER[2] * brightness,
       render.PAPER[3] * brightness, 1)
     render.G.setColor(1, 1, 1, 1)
-    render.G.draw(session.canvas, dx, dy, 0, scale, scale)
+    session.primaryBottomRect = THEME:drawCanvas(session.canvas,
+      { x = 0, y = 0, w = ww, h = wh }, mod.options:get("integer_scaling") == true)
     render.G.pop()
     session.displayReady = true
     return true
@@ -321,7 +320,8 @@ return function(
     render.G.setShader()
     render.G.setBlendMode("alpha")
     render.G.setColor(1, 1, 1, 1)
-    session.primaryBottomRect = THEME:drawCanvas(session.canvas, THEME.nativeWindowLayout.gear)
+    session.primaryBottomRect = THEME:drawCanvas(session.canvas, THEME.nativeWindowLayout.gear,
+      mod.options:get("integer_scaling") == true)
     if THEME.nativeWindowLayout.gameOnTop then
       THEME:drawCanvas(context.canvas, THEME.nativeWindowLayout.game)
     end

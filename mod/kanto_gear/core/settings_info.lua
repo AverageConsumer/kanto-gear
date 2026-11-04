@@ -1,6 +1,7 @@
 -- Explanations are shared by the touch settings and the native mod menu.
 local Info = {}
 Info.help = {
+  integer_scaling = "Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image.",
   notification_history = "The last 100 messages shown in this playthrough, oldest first. Tap a message to open its installed app.",
   display_setup = "Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept.",
   language = "Language of Kanto Gear. Game translations are separate mods.",

@@ -206,15 +206,22 @@ function THEME:gearPrimary(options, swapped)
   return gear
 end
 
-function THEME:fitRect(rect, width, height)
-  local scale = math.min(rect.w / width, rect.h / height)
-  -- Keep one scale on both axes. Flooring each dimension independently
-  -- subtly stretches nearest-filtered pixels whenever the fit is fractional.
+function THEME:fitRect(rect, width, height, integer, dpi, dpiY)
+  dpi = dpi or 1
+  dpiY = dpiY or dpi
+  local left, top = math.ceil(rect.x * dpi - 1e-7), math.ceil(rect.y * dpiY - 1e-7)
+  local right = math.floor((rect.x + rect.w) * dpi + 1e-7)
+  local bottom = math.floor((rect.y + rect.h) * dpiY + 1e-7)
+  local availableW, availableH = math.max(1, right - left), math.max(1, bottom - top)
+  local scale = math.min(availableW / width, availableH / height)
+  -- Integer mode never crops. Below 1x, proportional minification is needed
+  -- even in this mode to keep the complete interface available.
+  if integer and scale >= 1 then scale = math.floor(scale + 1e-7) end
   local w, h = width * scale, height * scale
   return {
-    x = math.floor(rect.x + (rect.w - w) / 2),
-    y = math.floor(rect.y + (rect.h - h) / 2),
-    w = w, h = h,
+    x = (left + math.floor((availableW - w) / 2 + 1e-7)) / dpi,
+    y = (top + math.floor((availableH - h) / 2 + 1e-7)) / dpiY,
+    w = w / dpi, h = h / dpiY,
   }
 end
 
@@ -285,8 +292,17 @@ function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
   }
 end
 
-function THEME:drawCanvas(canvas, rect)
-  local fitted = self:fitRect(rect, canvas:getWidth(), canvas:getHeight())
+function THEME:drawCanvas(canvas, rect, integer)
+  local dpi = render.G.getDPIScale and render.G.getDPIScale() or 1
+  local dpiY = dpi
+  -- Some dual-screen hosts report independently rounded unit dimensions.
+  -- Use both drawable/unit ratios so the resulting physical pixels are square.
+  if render.G.getPixelDimensions then
+    local w, h = render.G.getDimensions()
+    local pw, ph = render.G.getPixelDimensions()
+    if w > 0 and h > 0 and pw > 0 and ph > 0 then dpi, dpiY = pw / w, ph / h end
+  end
+  local fitted = self:fitRect(rect, canvas:getWidth(), canvas:getHeight(), integer, dpi, dpiY)
   render.G.setScissor(rect.x, rect.y, rect.w, rect.h)
   render.G.draw(canvas, fitted.x, fitted.y, 0,
     fitted.w / canvas:getWidth(), fitted.h / canvas:getHeight())

@@ -1,4 +1,7 @@
 return {
+  ["INTEGER SCALING"] = "ÉCHELLE ENTIÈRE",
+  ["HOST UPDATE REQUIRED"] = "MISE À JOUR REQUISE",
+  ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Agrandit Gear par facteurs entiers. Désactivé, adapte l’image à l’espace disponible. Les petites zones affichent toujours l’image complète.",
   ["OPEN APP"] = "OUVRIR",
   ["COMPANION"] = "COMPAGNON",
   ["PHONE / BROWSER"] = "TÉLÉPHONE / NAVIGATEUR",

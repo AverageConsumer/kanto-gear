@@ -814,6 +814,7 @@ function love.load()
     or settingsBattle and "BATTLE"
     or settingsResearch and "RESEARCH"
     or (settingsNotifications or noticeHistory) and "NOTIFICATIONS"
+    or screen == "settings_option" and os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "integer_scaling" and "INTEGER SCALING"
     or settings and "SETTINGS"
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
@@ -2327,6 +2328,9 @@ function love.load()
       },
       display = {
         { key = "display_mode", label = "DISPLAY MODE", value = "COMBINED SCREEN" },
+        { key = "integer_scaling", label = "INTEGER SCALING", value = "OFF", raw = false,
+          choices = { { "OFF", false }, { "ON", true } },
+          info = "Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image." },
         { key = "combined_layout", label = "LAYOUT", value = "SIDE BY SIDE" },
         { key = "combined_primary", label = "PRIMARY VIEW", value = "GAME" },
         { key = "secondary_size", label = "SECONDARY SIZE", value = "40%" },
@@ -2418,6 +2422,11 @@ function love.load()
           { "ENGLISH", "en" }, { "DEUTSCH", "de" }, { "ESPANOL", "es" }, { "FRANCAIS", "fr" },
           { "JAPANESE", "ja" }, { "ITALIANO", "it" }, { "PORTUGUES (BR)", "pt-BR" },
         }, value = languageCode, page = page, pages = 2 })
+    elseif os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "integer_scaling" then
+      local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
+      theme:settings({ category = "option", option = "integer_scaling", label = "INTEGER SCALING", accent = "green",
+        description = info.help.integer_scaling, choices = { { "OFF", false }, { "ON", true } },
+        value = os.getenv("KANTO_GEAR_PREVIEW_INTEGER") == "1", page = 1, pages = 1 })
     elseif os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "display_mode" then
       local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
       theme:settings({ category = "option", option = "display_mode", label = "DISPLAY MODE", accent = "green",

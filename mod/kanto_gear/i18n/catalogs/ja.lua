@@ -1,4 +1,7 @@
 return {
+  ["INTEGER SCALING"] = "整数倍表示",
+  ["HOST UPDATE REQUIRED"] = "本体の更新が必要",
+  ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Gearを整数倍で拡大します。オフでは表示領域に合わせます。小さい領域でも画像全体を表示します。",
   ["OPEN APP"] = "ひらく",
   ["%d VISIBLE"] = false,
   ["ABILITY"] = false,

@@ -874,8 +874,9 @@ T.eq(run.loader.modOptions.kanto_gear.caught_icon, false,
 display.settings.category, display.settings.page = 2, 1
 run.loader.modOptions.kanto_gear.display_mode = "fullscreen"
 settings = display.settingsModel()
-T.eq(#settings.rows, 2,
-  "Display settings only shows controls relevant to fullscreen mode")
+T.eq(#settings.rows, 3,
+  "Display settings includes integer scaling alongside fullscreen controls")
+T.eq(settings.rows[2].key, "integer_scaling", "integer scaling is available in the Display category")
 run.loader.modOptions.kanto_gear.display_mode = "combined"
 settings = display.settingsModel()
 T.check(#settings.rows >= 6,

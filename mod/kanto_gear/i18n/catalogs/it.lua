@@ -1,4 +1,7 @@
 return {
+  ["INTEGER SCALING"] = "SCALA INTERA",
+  ["HOST UPDATE REQUIRED"] = "AGGIORNA RECOMP",
+  ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Ingrandisce Gear con fattori interi. Disattivato, usa lo spazio disponibile. Le aree piccole mostrano sempre l’immagine completa.",
   ["OPEN APP"] = "APRI",
   ["SPECIES TYPES"] = "TIPI DELLE SPECIE",
   ["Show species types before catching them. Your own Pokemon and caught Dex entries keep their native types."] = "Mostra i tipi prima della cattura. Restano visibili per i tuoi Pokémon e le voci già catturate.",

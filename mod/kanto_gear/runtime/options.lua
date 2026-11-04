@@ -124,6 +124,7 @@ return function(
         { "SEPARATE SCREENS", "separate" },
         { "PHONE / BROWSER", "phone" },
       } },
+    { key = "integer_scaling", label = "INTEGER SCALING", type = "toggle", default = false },
     { key = "fullscreen_start", label = "START SCREEN", type = "choice",
       default = "game", visible_if = {
         key = "display_mode", equals = "fullscreen",
