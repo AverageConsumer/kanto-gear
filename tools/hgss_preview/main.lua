@@ -1583,6 +1583,14 @@ function love.load()
         mon.moves[index].name = name
       end
     end
+    if os.getenv("KANTO_GEAR_PREVIEW_MOVE_NAMES") == "pt-br-accents" then
+      mon.moves = {
+        { name = "CHOQUE ELÉTRICO", type = "ELECTRIC", typeLabel = "ELÉTRICO", ppText = "30/30", powerText = "40", accuracyText = "100", effectiveness = 20 },
+        { name = "ATAQUE RÁPIDO", type = "NORMAL", typeLabel = "NORMAL", ppText = "30/30", powerText = "40", accuracyText = "100", effectiveness = 10 },
+        { name = "CAUDA CHICOTE", type = "NORMAL", typeLabel = "NORMAL", ppText = "30/30", powerText = "--", accuracyText = "100" },
+        { name = "ONDA DE TROVÃO", type = "ELECTRIC", typeLabel = "ELÉTRICO", ppText = "20/20", powerText = "--", accuracyText = "100" },
+      }
+    end
     return mon
   end
   local function battleBagData()
