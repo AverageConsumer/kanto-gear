@@ -80,6 +80,7 @@ tests/held_item_test.lua
 tests/home_layout_test.lua
 tests/home_runtime_test.lua
 tests/i18n_test.lua
+tests/image_filter_test.lua
 tests/item_page_cases.lua
 tests/legacy_bag_test.lua
 tests/legacy_party_test.lua

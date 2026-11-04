@@ -1,4 +1,9 @@
 return {
+  ["IMAGE FILTER"] = "FILTRE D’IMAGE",
+  ["NEAREST"] = "AU PLUS PROCHE",
+  ["BILINEAR"] = "BILINÉAIRE",
+  ["SHARP BILINEAR"] = "BILINÉAIRE NET",
+  ["Auto keeps whole-pixel enlargement sharp, uses Sharp Bilinear between whole sizes, and Bilinear when shrinking. Manual filters change Gear only."] = "Auto garde les agrandissements entiers nets, utilise le bilinéaire net entre deux tailles entières et le bilinéaire en réduction. Les filtres manuels concernent uniquement Gear.",
   ["INTEGER SCALING"] = "ÉCHELLE ENTIÈRE",
   ["HOST UPDATE REQUIRED"] = "MISE À JOUR REQUISE",
   ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Agrandit Gear par facteurs entiers. Désactivé, adapte l’image à l’espace disponible. Les petites zones affichent toujours l’image complète.",

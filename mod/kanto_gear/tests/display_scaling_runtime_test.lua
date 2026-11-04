@@ -11,6 +11,7 @@ local schema
 for _,row in ipairs(theme.optionSchema) do if row.key=="integer_scaling" then schema=row end end
 T.check(schema and schema.default==false,"proportional fit is the explicit default")
 local source=love.graphics.newCanvas(240,216)
+love.graphics.newShader = function() return { send = function() end } end
 up(output,"canvas",source);up(output,"active",true);up(output,"dirty",false)
 up(output,"hasDisplay",function() return true end)
 local options={display_mode="fullscreen",integer_scaling=false,fullscreen_start="gear"}
@@ -50,16 +51,26 @@ options.display_mode="separate";options.display_target="secondary"
 up(output,"companion",{scalingAvailable=function() return true end})
 options.integer_scaling=false;T.eq(preference(),"secondary:fit","fit reaches a capable second display")
 options.integer_scaling=true;T.eq(preference(),"secondary:integer","integer reaches a capable second display")
+up(output,"companion",{scalingAvailable=function() return true end,filteringAvailable=function() return true end})
+T.eq(preference(),"secondary:integer:auto","new APK uses Auto by default")
+for _,filter in ipairs({"auto","nearest","bilinear","sharp"}) do
+  options.image_filter=filter
+  T.eq(preference(),"secondary:integer:"..filter,"filter and sizing remain independent")
+end
 up(output,"companion",{})
 T.eq(preference(),"secondary","older hosts keep their supported routing token")
 T.check(not display.integerScalingAvailable(),"an older native host is not reported as supporting the new mode")
 display.settings.category=2
 for _,row in ipairs(display.settingsModel().rows) do
-  if row.key=="integer_scaling" then
+  if row.key=="integer_scaling" or row.key=="image_filter" then
     T.eq(row.value,"HOST UPDATE REQUIRED","the unsupported row explains why it is disabled")
     T.eq(row.choices,nil,"unsupported choices cannot hide the host requirement behind a switch")
     T.eq(row.enabled,false,"an older host keeps the scaling control inactive")
   end
 end
 T.check(not display.cycleSetting({key="integer_scaling",source={type="toggle"}},1),"an unsupported output cannot animate or apply an integer choice")
+T.check(not display.cycleSetting({key="image_filter",source={type="choice"}},1),"an unsupported output cannot animate or apply a filter")
+up(output,"swapped",true)
+display.optionsChanged({mod="kanto_gear",key="image_filter",value="bilinear"})
+T.eq(up(output,"swapped"),true,"changing only sampling preserves the user's screen swap")
 run.release();T.finish("Gear scaling output and touch")

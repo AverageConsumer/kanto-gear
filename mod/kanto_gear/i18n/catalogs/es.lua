@@ -1,4 +1,9 @@
 return {
+  ["IMAGE FILTER"] = "FILTRO DE IMAGEN",
+  ["NEAREST"] = "VECINO CERCANO",
+  ["BILINEAR"] = "BILINEAL",
+  ["SHARP BILINEAR"] = "BILINEAL NÍTIDO",
+  ["Auto keeps whole-pixel enlargement sharp, uses Sharp Bilinear between whole sizes, and Bilinear when shrinking. Manual filters change Gear only."] = "Auto mantiene nítidas las ampliaciones enteras, usa bilineal nítido entre tamaños enteros y bilineal al reducir. Los filtros manuales solo cambian Gear.",
   ["INTEGER SCALING"] = "ESCALA ENTERA",
   ["HOST UPDATE REQUIRED"] = "ACTUALIZA RECOMP",
   ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Amplía Gear por factores enteros. Desactivado, aprovecha el espacio disponible. En áreas pequeñas siempre se muestra la imagen completa.",

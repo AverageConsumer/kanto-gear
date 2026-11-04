@@ -133,6 +133,11 @@ return function(
     local bridge = session.companion
     return bridge and bridge.scalingAvailable and bridge.scalingAvailable() or false
   end
+  function displayRuntime.imageFilteringAvailable()
+    if inlineDisplay() or bottomOnHandheld() or THEME:displayMode(mod.options) == "phone" then return true end
+    local bridge = session.companion
+    return bridge and bridge.filteringAvailable and bridge.filteringAvailable() or false
+  end
   local function displayPreference()
     local target
     if displayRuntime.swapped then
@@ -142,12 +147,19 @@ return function(
     end
     local bridge = session.companion
     if bridge and bridge.scalingAvailable and bridge.scalingAvailable() then
-      return target .. (mod.options:get("integer_scaling") == true and ":integer" or ":fit")
+      local preference = target .. (mod.options:get("integer_scaling") == true and ":integer" or ":fit")
+      if bridge.filteringAvailable and bridge.filteringAvailable() then
+        local filter = mod.options:get("image_filter") or "auto"
+        if filter ~= "nearest" and filter ~= "bilinear" and filter ~= "sharp" then filter = "auto" end
+        return preference .. ":" .. filter
+      end
+      return preference
     end
     return target
   end
 
   render.G = rawget(_G, "love") and rawget(_G, "love").graphics
+  THEME.imageFilter = assert(load(mod:read("core/image_filter.lua"), "@kanto_gear/core/image_filter.lua"))()
   if not render.G then
     mod.log:warn("host has no graphics runtime; mod stays inactive")
     return
@@ -523,7 +535,7 @@ return function(
       accent = "blue", keys = {
         "language", "theme_v3", "clock_source", "clock_format", "map_motion", "ui_motion" } },
     { id = "display", label = "DISPLAY", detail = "SCREENS AND LAYOUT",
-      accent = "green", keys = { "display_mode", "integer_scaling", "fullscreen_start",
+      accent = "green", keys = { "display_mode", "integer_scaling", "image_filter", "fullscreen_start",
         "combined_layout", "combined_primary", "secondary_size",
         "bottom_safe_area", "overlay_corner", "overlay_button",
         "display_target", "screen_swap" } },
@@ -613,7 +625,8 @@ return function(
           or state.option == "reset_home" and "RESET HOME" or "RESET OPTIONS" }
       end
       if row and displayRuntime.optionVisible(row)
-          and (row.key ~= "integer_scaling" or displayRuntime.integerScalingAvailable()) then
+          and (row.key ~= "integer_scaling" or displayRuntime.integerScalingAvailable())
+          and (row.key ~= "image_filter" or displayRuntime.imageFilteringAvailable()) then
         local choices = row.type == "action" and {
           { row.key == "display_setup" and "OPEN" or row.key == "home_help" and "SHOW ME" or state.confirm == row.key and "TAP AGAIN" or "RESET", true } }
           or row.type == "toggle" and { { "OFF", false }, { "ON", true } }
@@ -639,7 +652,8 @@ return function(
     for _, key in ipairs(category.keys or {}) do
       local row = displayRuntime.optionRow(key)
       if row and displayRuntime.optionVisible(row) then
-        local scalingAvailable = key ~= "integer_scaling" or displayRuntime.integerScalingAvailable()
+        local scalingAvailable = (key ~= "integer_scaling" or displayRuntime.integerScalingAvailable())
+          and (key ~= "image_filter" or displayRuntime.imageFilteringAvailable())
         rows[#rows + 1] = { key = key, label = row.label,
           value = scalingAvailable and displayRuntime.optionValueLabel(row) or "HOST UPDATE REQUIRED", source = row,
           raw = mod.options:get(key),
@@ -686,7 +700,8 @@ return function(
 
   function displayRuntime.cycleSetting(row, direction)
     if not (row and row.enabled ~= false and row.source and mod.options.set)
-        or row.key == "integer_scaling" and not displayRuntime.integerScalingAvailable() then return false end
+        or row.key == "integer_scaling" and not displayRuntime.integerScalingAvailable()
+        or row.key == "image_filter" and not displayRuntime.imageFilteringAvailable() then return false end
     local source, value = row.source, mod.options:get(row.key)
     if source.type == "toggle" then
       return mod.options:set(row.key, value ~= true)

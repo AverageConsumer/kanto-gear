@@ -14,7 +14,7 @@ module.exports=async function({browser,root,out}) {
         await page.setViewportSize(viewport);
         for(const enabled of [false,true]) {
           const r=await page.evaluate(({enabled,source})=>{
-            frame=1;capability='gba';integerScaling=enabled;form.hidden=true;controller.hidden=false;
+            frame=1;capability='gba';integerScaling=enabled;imageFilter='nearest';form.hidden=true;controller.hidden=false;
             socket={readyState:WebSocket.OPEN,send:text=>window.scalingTouches.push(text)};
             window.scalingTouches=[];
             canvas.width=source.w;canvas.height=source.h;canvas.style.display='block';
@@ -42,6 +42,28 @@ module.exports=async function({browser,root,out}) {
         }
       }
     }
+    const policies=await page.evaluate(()=>{
+      const result=[];
+      for(const scale of [.75,1,1.25,2,4.5,5]) {
+        imageFilter='auto';result.push([scale,resolvedImageFilter(scale)]);
+        for(const filter of ['nearest','bilinear','sharp']) {imageFilter=filter;if(resolvedImageFilter(scale)!==filter)throw Error('manual filter override');}
+      }
+      canvas.width=240;canvas.height=216;
+      const image=new ImageData(240,216);
+      for(let y=0;y<216;y++)for(let x=0;x<240;x++){
+        const i=(y*240+x)*4,v=(x+y)%2?255:0;image.data[i]=image.data[i+1]=image.data[i+2]=v;image.data[i+3]=255;
+      }
+      context.putImageData(image,0,0);
+      for(const scale of [1.25,4.5,5]) {
+        output.width=240*scale;output.height=216*scale;
+        outputPlacement={scale,width:240*scale,height:216*scale,dpi:1};
+        imageFilter='auto';paintOutput();const auto=outputContext.getImageData(0,0,output.width,output.height).data.slice();
+        imageFilter=scale===5?'nearest':'sharp';paintOutput();const manual=outputContext.getImageData(0,0,output.width,output.height).data;
+        if(auto.some((v,i)=>v!==manual[i]))throw Error('auto output differs from resolved manual filter');
+      }
+      return result;
+    });
+    assert.deepEqual(policies,[[.75,'bilinear'],[1,'nearest'],[1.25,'sharp'],[2,'nearest'],[4.5,'sharp'],[5,'nearest']]);
     if(dpi===3)await page.screenshot({path:path.join(out,'phone-physical-scaling-dpr3.png')});
     assert.deepEqual(errors,[]);await session.close();
   }

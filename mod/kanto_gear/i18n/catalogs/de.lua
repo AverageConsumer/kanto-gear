@@ -1,4 +1,9 @@
 return {
+  ["IMAGE FILTER"] = "BILDFILTER",
+  ["NEAREST"] = "NÄCHSTER PIXEL",
+  ["BILINEAR"] = "BILINEAR",
+  ["SHARP BILINEAR"] = "SCHARF BILINEAR",
+  ["Auto keeps whole-pixel enlargement sharp, uses Sharp Bilinear between whole sizes, and Bilinear when shrinking. Manual filters change Gear only."] = "Auto hält ganzzahlige Vergrößerungen scharf, nutzt sonst Sharp Bilinear und beim Verkleinern Bilinear. Manuelle Filter gelten nur für Gear.",
   ["INTEGER SCALING"] = "INTEGER-SKALIERUNG",
   ["HOST UPDATE REQUIRED"] = "HOST-UPDATE NÖTIG",
   ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Vergrößert Gear in ganzen Pixelschritten. Aus nutzt den verfügbaren Platz. Kleine Flächen zeigen immer das vollständige Bild.",

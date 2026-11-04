@@ -1,5 +1,10 @@
 -- Brazilian Portuguese translation contributed by Solid One (https://github.com/leomontenegro6).
 return {
+  ["IMAGE FILTER"] = "FILTRO DE IMAGEM",
+  ["NEAREST"] = "VIZINHO PRÓXIMO",
+  ["BILINEAR"] = "BILINEAR",
+  ["SHARP BILINEAR"] = "BILINEAR NÍTIDO",
+  ["Auto keeps whole-pixel enlargement sharp, uses Sharp Bilinear between whole sizes, and Bilinear when shrinking. Manual filters change Gear only."] = "Auto mantém ampliações inteiras nítidas, usa bilinear nítido entre tamanhos inteiros e bilinear ao reduzir. Os filtros manuais alteram apenas o Gear.",
   ["INTEGER SCALING"] = "ESCALA INTEIRA",
   ["HOST UPDATE REQUIRED"] = "ATUALIZE O RECOMP",
   ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Amplia o Gear por fatores inteiros. Desativado, aproveita o espaço disponível. Áreas pequenas sempre mostram a imagem completa.",

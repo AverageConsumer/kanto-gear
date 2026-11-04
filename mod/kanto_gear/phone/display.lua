@@ -81,6 +81,7 @@ function Phone.new(mod, runtime, socket, pairing, video, perf)
   self:updatePairing()
   self.bridge = {
     scalingAvailable = function() return true end,
+    filteringAvailable = function() return true end,
     detected = function() return self:detected() end,
     pollTouch = function() return table.remove(self.touches, 1) end,
     setEnabled = function() end,
@@ -343,6 +344,7 @@ function Phone:message(c, text)
     self.epoch = self.epoch + 1
     c.controls = self:controls()
     c.scalingMessage = self.integerScaling and "s,1" or "s,0"
+    c.filterMessage = "f," .. (self.imageFilter or "auto")
     -- The HTTP upgrade has already been fully written before auth is read.
     c.out, c.sent = packet(1, "ok"), 0
     c.profilePending = self.perf ~= nil
@@ -508,6 +510,12 @@ function Phone:read(c)
 end
 
 function Phone:poll()
+  local filter = self.mod.options and self.mod.options:get("image_filter") or "auto"
+  if filter ~= "nearest" and filter ~= "bilinear" and filter ~= "sharp" then filter = "auto" end
+  if filter ~= self.imageFilter then
+    self.imageFilter = filter
+    if self.viewer then self.viewer.filterMessage = "f," .. filter end
+  end
   local integer = self.mod.options and self.mod.options:get("integer_scaling") == true or false
   if integer ~= self.integerScaling then
     self.integerScaling = integer
@@ -552,6 +560,9 @@ function Phone:poll()
       if not ok then break end
       if not c.out and c.scalingMessage then
         c.out, c.sent, c.scalingMessage = packet(1, c.scalingMessage), 0, nil
+      end
+      if not c.out and c.filterMessage then
+        c.out, c.sent, c.filterMessage = packet(1, c.filterMessage), 0, nil
       end
       if not c.out and c.videoQueue and #c.videoQueue > 0 then
         local value = table.remove(c.videoQueue, 1)

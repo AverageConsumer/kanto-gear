@@ -292,7 +292,7 @@ function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
   }
 end
 
-function THEME:drawCanvas(canvas, rect, integer)
+function THEME:drawCanvas(canvas, rect, integer, filter)
   local dpi = render.G.getDPIScale and render.G.getDPIScale() or 1
   local dpiY = dpi
   -- Some dual-screen hosts report independently rounded unit dimensions.
@@ -304,8 +304,14 @@ function THEME:drawCanvas(canvas, rect, integer)
   end
   local fitted = self:fitRect(rect, canvas:getWidth(), canvas:getHeight(), integer, dpi, dpiY)
   render.G.setScissor(rect.x, rect.y, rect.w, rect.h)
-  render.G.draw(canvas, fitted.x, fitted.y, 0,
-    fitted.w / canvas:getWidth(), fitted.h / canvas:getHeight())
+  if filter and self.imageFilter then
+    self.imageFilter.draw(render.G, canvas, fitted.x, fitted.y,
+      fitted.w / canvas:getWidth(), fitted.h / canvas:getHeight(), filter,
+      fitted.w * dpi / canvas:getWidth(), fitted.h * dpiY / canvas:getHeight())
+  else
+    render.G.draw(canvas, fitted.x, fitted.y, 0,
+      fitted.w / canvas:getWidth(), fitted.h / canvas:getHeight())
+  end
   return fitted
 end
 

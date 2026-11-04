@@ -42,6 +42,7 @@ function fs.getDirectoryItems(file)
 end
 if _G.KANTO_GEAR_BEFORE_LOAD then _G.KANTO_GEAR_BEFORE_LOAD() end
 local run = T.sdk.loadMod(path, { generation = 3, data = data, fs = fs })
+T.love.graphics.newShader = function() return { send = function() end } end
 T.eq(run.mod and run.mod.state, "loaded", "native Gen3 test build loads")
 for _, err in ipairs(run.errors) do print(err.message or err.error or tostring(err)) end
 local raw = setmetatable({ generation = 3, data = data, phase = "boot" },

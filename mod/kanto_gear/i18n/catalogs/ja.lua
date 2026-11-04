@@ -1,4 +1,9 @@
 return {
+  ["IMAGE FILTER"] = "画像フィルター",
+  ["NEAREST"] = "最近傍",
+  ["BILINEAR"] = "バイリニア",
+  ["SHARP BILINEAR"] = "シャープバイリニア",
+  ["Auto keeps whole-pixel enlargement sharp, uses Sharp Bilinear between whole sizes, and Bilinear when shrinking. Manual filters change Gear only."] = "自動は整数倍を鮮明に保ち、それ以外の拡大にシャープバイリニア、縮小にバイリニアを使います。手動フィルターはGearだけに適用します。",
   ["INTEGER SCALING"] = "整数倍表示",
   ["HOST UPDATE REQUIRED"] = "本体の更新が必要",
   ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Gearを整数倍で拡大します。オフでは表示領域に合わせます。小さい領域でも画像全体を表示します。",

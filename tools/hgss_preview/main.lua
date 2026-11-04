@@ -815,6 +815,7 @@ function love.load()
     or settingsResearch and "RESEARCH"
     or (settingsNotifications or noticeHistory) and "NOTIFICATIONS"
     or screen == "settings_option" and os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "integer_scaling" and "INTEGER SCALING"
+    or screen == "settings_option" and os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "image_filter" and "IMAGE FILTER"
     or settings and "SETTINGS"
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
@@ -2422,6 +2423,12 @@ function love.load()
           { "ENGLISH", "en" }, { "DEUTSCH", "de" }, { "ESPANOL", "es" }, { "FRANCAIS", "fr" },
           { "JAPANESE", "ja" }, { "ITALIANO", "it" }, { "PORTUGUES (BR)", "pt-BR" },
         }, value = languageCode, page = page, pages = 2 })
+    elseif os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "image_filter" then
+      local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
+      theme:settings({ category = "option", option = "image_filter", label = "IMAGE FILTER", accent = "green",
+        description = info.help.image_filter, choices = { { "AUTO", "auto" }, { "NEAREST", "nearest" },
+          { "BILINEAR", "bilinear" }, { "SHARP BILINEAR", "sharp" } },
+        value = "auto", page = 1, pages = 1 })
     elseif os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "integer_scaling" then
       local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
       theme:settings({ category = "option", option = "integer_scaling", label = "INTEGER SCALING", accent = "green",

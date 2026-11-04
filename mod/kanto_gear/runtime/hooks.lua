@@ -185,13 +185,13 @@ return function(
       render.G.setColor(1, 1, 1, 1)
       if layout.gameOnTop then
         session.primaryBottomRect = THEME:drawCanvas(session.canvas, layout.gear,
-          mod.options:get("integer_scaling") == true)
+          mod.options:get("integer_scaling") == true, mod.options:get("image_filter") or "auto")
         THEME:drawCanvas(context.canvas, layout.game)
       else
         if layout.showGame then THEME:drawCanvas(context.canvas, layout.game) end
         session.primaryBottomRect = layout.showGear
           and THEME:drawCanvas(session.canvas, layout.gear,
-            mod.options:get("integer_scaling") == true) or nil
+            mod.options:get("integer_scaling") == true, mod.options:get("image_filter") or "auto") or nil
       end
       if not layout.showGear and layout.showGame and displayRuntime.drawNoticeOverGame then
         displayRuntime.drawNoticeOverGame(layout.game)
@@ -282,7 +282,8 @@ return function(
       render.PAPER[3] * brightness, 1)
     render.G.setColor(1, 1, 1, 1)
     session.primaryBottomRect = THEME:drawCanvas(session.canvas,
-      { x = 0, y = 0, w = ww, h = wh }, mod.options:get("integer_scaling") == true)
+      { x = 0, y = 0, w = ww, h = wh }, mod.options:get("integer_scaling") == true,
+      mod.options:get("image_filter") or "auto")
     render.G.pop()
     session.displayReady = true
     return true
@@ -321,7 +322,7 @@ return function(
     render.G.setBlendMode("alpha")
     render.G.setColor(1, 1, 1, 1)
     session.primaryBottomRect = THEME:drawCanvas(session.canvas, THEME.nativeWindowLayout.gear,
-      mod.options:get("integer_scaling") == true)
+      mod.options:get("integer_scaling") == true, mod.options:get("image_filter") or "auto")
     if THEME.nativeWindowLayout.gameOnTop then
       THEME:drawCanvas(context.canvas, THEME.nativeWindowLayout.game)
     end

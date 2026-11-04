@@ -6,6 +6,13 @@ const output = document.createElement("canvas"), outputContext = output.getConte
 output.id = "gear-output"; output.setAttribute("aria-hidden", "true");
 canvas.parentElement.append(output);
 let integerScaling = false, outputPlacement = null;
+let imageFilter = "auto";
+const prescaleCanvas = document.createElement("canvas"), prescaleContext = prescaleCanvas.getContext("2d");
+function resolvedImageFilter(scale) {
+  if (["nearest", "bilinear", "sharp"].includes(imageFilter)) return imageFilter;
+  if (scale < 1) return "bilinear";
+  return Math.abs(scale - Math.round(scale)) < 1e-6 ? "nearest" : "sharp";
+}
 const status = document.getElementById("status"), connect = document.getElementById("connect");
 let socket, frame = 0, pointer = null, lastContact = 0, heartbeat, generation = 0;
 const controller = document.getElementById("controller"), settings = document.getElementById("settings");
@@ -149,8 +156,19 @@ function fit() {
 function paintOutput() {
   if (!outputPlacement) return;
   outputContext.clearRect(0, 0, output.width, output.height);
-  outputContext.imageSmoothingEnabled = false;
-  outputContext.drawImage(canvas, 0, 0, outputPlacement.width, outputPlacement.height);
+  const mode = resolvedImageFilter(outputPlacement.scale);
+  outputContext.imageSmoothingEnabled = mode !== "nearest";
+  outputContext.imageSmoothingQuality = "low";
+  const n = Math.max(1, Math.floor(outputPlacement.scale + 1e-7));
+  if (mode === "sharp" && n > 1) {
+    // Exact nearest prescaling followed by one bilinear stretch implements
+    // the same virtual prescale as the GPU shader, locally in the browser.
+    if (prescaleCanvas.width !== canvas.width * n) prescaleCanvas.width = canvas.width * n;
+    if (prescaleCanvas.height !== canvas.height * n) prescaleCanvas.height = canvas.height * n;
+    prescaleContext.imageSmoothingEnabled = false;
+    prescaleContext.drawImage(canvas, 0, 0, prescaleCanvas.width, prescaleCanvas.height);
+    outputContext.drawImage(prescaleCanvas, 0, 0, outputPlacement.width, outputPlacement.height);
+  } else outputContext.drawImage(canvas, 0, 0, outputPlacement.width, outputPlacement.height);
 }
 function send(text) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(text); }
 function stop(message, reason = "client_stop") {
@@ -320,6 +338,9 @@ form.addEventListener("submit", event => {
     if (event.data === "p,1") { profiling = true; profileReceived = performance.now(); return; }
     if (event.data === "s,0" || event.data === "s,1") {
       releaseAll(); integerScaling = event.data === "s,1"; fit(); return;
+    }
+    if (["f,auto", "f,nearest", "f,bilinear", "f,sharp"].includes(event.data)) {
+      imageFilter = event.data.slice(2); paintOutput(); return;
     }
     if (["c,gb", "c,gba", "c,none"].includes(event.data)) {
       if (editing) finishLayout(false);
