@@ -346,20 +346,46 @@ return function(H, ui, K)
   end
   K.periodIcon = periodIcon
 
+  local function clockTextBounds(value, metrics, advance, height)
+    local cursor, left, top, right, bottom = 0, math.huge, math.huge, -1, -1
+    for _, ch in ipairs(ui.glyphs(value)) do
+      local bounds = metrics and metrics[ch]
+      if not bounds then return 0, 0, advance, height end
+      if bounds.right >= 0 then
+        left, right = min(left, cursor + bounds.left), max(right, cursor + bounds.right)
+        top, bottom = min(top, bounds.top), max(bottom, bounds.bottom)
+      end
+      cursor = cursor + bounds.advance
+    end
+    if right < 0 then return 0, 0, 0, 0 end
+    return left, top, right - left + 1, bottom - top + 1
+  end
+
+  local function clockPeriod(period)
+    period = tostring(period or ""):upper()
+    if period == "DAY" or period == "NITE" then return period, 0, 7 end
+    if period == "MORN" then return period, 1, 4 end
+  end
+
   function H:headerClock(value, period, left, width, y)
     value = tostring(value or "")
     local tok = self.tok
     local digits, suffix = value:match("^([%d:]+)%s*(.*)$")
     digits = digits or value
+    local icon, iconTop, iconHeight = clockPeriod(period)
     -- Cached frames can outlive a blink phase; keep the time readable at rest.
     if cg(self) then
-      local w = self:labelWidth(value)
-      local iconW = period and 10 or 0
-      local x = left + floor((width - w - iconW) / 2) + 6
-      self:label(value, x, y - 3, self.colors.ink)
-      if period then
-        periodIcon(period, x + w + 4, y + 1,
-          tostring(period):upper() == "NITE" and tok.acc.M or hex("f0a020"))
+      local bearing, top, w, h = clockTextBounds(value, ui.fontMetrics,
+        self:labelWidth(value), ui.font and ui.font:getHeight() or 12)
+      local shadow = self.textShadow ~= false and not self.shadowSuspended and 1 or 0
+      w, h = w + shadow, h + shadow
+      local total = w + (icon and 4 + 7 or 0)
+      local x = left + floor((width - total) / 2)
+      self:label(value, x - bearing, y - 3, self.colors.ink)
+      if icon then
+        periodIcon(icon, x + w + 4,
+          y - 3 + top + floor((h - iconHeight) / 2) - iconTop,
+          icon == "NITE" and tok.acc.M or hex("f0a020"))
       end
       return x
     end
@@ -367,18 +393,23 @@ return function(H, ui, K)
     RR(lx, 3, lw, 17, 3, tok.lcdFrame)
     RR(lx + 1, 4, lw - 2, 15, 2, tok.lcd)
     R(lx + 2, 5, lw - 4, 1, { 1, 1, 1, 0.08 })
-    local dw = lcdWidth(digits)
-    local sw = suffix ~= "" and self:partyInfoWidth(suffix) + 2 or 0
-    local iw = period and 9 or 0
-    local total = dw + sw + (iw > 0 and iw + 3 or 0)
+    -- Advances include the digit's trailing blank column. Center the actual
+    -- painted group, keeping the suffix and icon gaps independent of bearings.
+    local dw = max(0, lcdWidth(digits) - 1)
+    local sl, st, sw, sh = clockTextBounds(suffix, ui.smallFontMetrics,
+      self:partyInfoWidth(suffix), ui.smallFont and ui.smallFont:getHeight() or 10)
+    local suffixX = dw + 3
+    local textWidth = dw + (sw > 0 and 3 + sw or 0)
+    local total = textWidth + (icon and 4 + 7 or 0)
     local x = lx + floor((lw - total) / 2)
     lcd(digits, x, 7, tok.lcdOn, tok.lcdGhost, true)
     if sw > 0 then
       self:withoutShadow(function()
-        self:partyInfo(suffix, x + dw + 2, 5, tok.lcdOn)
+        self:partyInfo(suffix, x + suffixX - sl, 7 + floor((9 - sh) / 2) - st, tok.lcdOn)
       end)
     end
-    if period then periodIcon(period, x + dw + sw + 3, 8, tok.lcdOn) end
+    if icon then periodIcon(icon, x + textWidth + 4,
+      7 + floor((9 - iconHeight) / 2) - iconTop, tok.lcdOn) end
     return x
   end
 

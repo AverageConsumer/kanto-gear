@@ -171,12 +171,12 @@ function love.load()
     local result = love.graphics.newImageFont(data, fontGlyphs)
     result:setFilter("nearest", "nearest")
     local metrics
-    if name == "ui/fonts/hgss_small_font.png" then
+    if name == "ui/fonts/hgss_small_font.png" or name == "ui/fonts/hgss_font.png" then
       metrics = assert(loadfile(root .. "/mod/kanto_gear/ui/fonts/metrics.lua"))()(data,glyphs(fontGlyphs))
     end
     return result, metrics
   end
-  local font = imageFont("ui/fonts/hgss_font.png")
+  local font, fontMetrics = imageFont("ui/fonts/hgss_font.png")
   local smallFont, smallMetrics = imageFont("ui/fonts/hgss_small_font.png")
   local largeFont = imageFont("ui/fonts/hgss_large_font.png")
   local translationFonts = assert(loadfile(root .. "/mod/kanto_gear/i18n/fonts.lua"))().new(
@@ -195,7 +195,7 @@ function love.load()
     pokedexPage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/pokedex.lua"))(),
     partyPage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/party.lua"))(),
     itemPage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/item.lua"))(),
-    fit = fit, glyphs = glyphs, color = color, font = font,
+    fit = fit, glyphs = glyphs, color = color, font = font, fontMetrics = fontMetrics,
     smallFont = smallFont, smallFontMetrics = smallMetrics, largeFont = largeFont,
     translate = translate, format = format,
     translationFonts = translationFonts,
@@ -213,6 +213,10 @@ function love.load()
   theme.previewEnter = tonumber(os.getenv("KANTO_GEAR_PREVIEW_ENTER"))
   theme:setSkin(os.getenv("KANTO_GEAR_PREVIEW_SKIN") or "pokegear")
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  if os.getenv("KANTO_GEAR_PREVIEW_CLOCK_CHECK") == "1" then
+    assert(loadfile(root .. "/tools/hgss_preview/clock.lua"))()(theme,
+      os.getenv("KANTO_GEAR_CLOCK_CHECK_OUT"))
+  end
   if os.getenv("KANTO_GEAR_PREVIEW_FONT_CHECK") == "1" then
     assert(loadfile(root .. "/tools/hgss_preview/lettering.lua"))()(root,
       translationFonts, { font, smallFont, largeFont }, fontGlyphs, theme)

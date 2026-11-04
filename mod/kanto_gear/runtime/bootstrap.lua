@@ -195,6 +195,7 @@ return function(
   local hgssUi = {
     graphics = render.G, box = box, text = text, fit = fit,
     glyphs = glyphList, color = color, font = THEME.hgssFont,
+    fontMetrics = THEME.hgssFontMetrics,
     nativeFocus = false, partyPage = displayRuntime.PartyPage, itemPage = displayRuntime.ItemPage,
     safariPage = displayRuntime.SafariPage, pokedexPage = displayRuntime.PokedexPage,
     smallFont = THEME.hgssSmallFont,
