@@ -75,6 +75,7 @@ return function(
         { "ENGLISH", "en" }, { "DEUTSCH", "de" },
         { "ESPANOL", "es" }, { "FRANCAIS", "fr" }, { "JAPANESE", "ja" },
         { "ITALIANO", "it" },
+        { "PORTUGUES (BR)", "pt-BR" },
       } },
     { key = "theme_v3", label = "THEME", type = "choice", default = "hgss",
       choices = {

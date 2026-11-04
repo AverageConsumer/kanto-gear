@@ -22,14 +22,16 @@ return function(H, ui, K, read)
   local KEEP = {}
   for word in ([[HP PP TM HM ID OT EXP XP PKMN PKRS PSS PC OK BST DV DVS STAB EV IV KO NPC
       KP EP AP VM VS PV PS MO MT MS CT
-      VS TV UI LCD GSC RBY SLS DS GB GBC GBA AM PM CPU USB]]):gmatch("%S+") do
+      VS TV UI LCD GSC RBY SLS DS GB GBC GBA AM PM CPU USB BR]]):gmatch("%S+") do
     KEEP[word] = true
   end
   local MINOR = {}
   for word in ([[A AN THE OF ON IN AT TO AND OR FOR BY FROM AS INTO
       ZU ZUM ZUR UND ODER IM AM AN AUF FÜR VON VOM MIT DER DIE DAS DEM DES EIN EINE BEI NACH
       DE DU DES LA LE LES ET EN AU AUX POUR SUR UN UNE
-      EL LOS LAS Y CON POR PARA AL DEL]]):gmatch("%S+") do
+      EL LOS LAS Y CON POR PARA AL DEL
+      O OS AS DO DOS DA DAS E EM NO NOS NA NAS COM SEM SOB PELO PELA PELOS PELAS
+      UM UMA UNS UMAS AO AOS À ÀS ATÉ ENTRE]]):gmatch("%S+") do
     MINOR[word] = true
   end
   local UNITS = { FT = "ft", IN = "in", LB = "lb", KG = "kg", CM = "cm", KM = "km" }

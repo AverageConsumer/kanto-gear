@@ -125,7 +125,7 @@ T.check(display.setPackageInstalled("shiny", false), "Shiny Hunt uninstalls")
 do
   local renderer = theme.hgss
   local originalText, originalBar = renderer.partyInfo, renderer.expBar
-  for _, code in ipairs({ "de", "es", "fr", "it" }) do
+  for _, code in ipairs({ "de", "es", "fr", "it", "pt-BR" }) do
     local labels = assert(loadfile(path .. "/i18n/catalogs/" .. code .. ".lua"))()
     local nextLabel, value = labels.NEXT, "999999"
     local positions, bar = {}, {}

@@ -12,7 +12,10 @@ Copyright (c) 2020 Akshay Oppiliappan (nerdy@peppe.rs)
 https://github.com/oppiliappan/scientifica
 
 The bundled image font was rasterized from an unmodified-outline Unicode
-subset. scientifica is distributed under the SIL Open Font License 1.1. The
+subset. Above-letter Latin-1 accents receive pixel corrections in all three
+image fonts; the original TTF source files are unchanged. Corrected accents
+in the large face use integer 2x scaling from the regular face.
+scientifica is distributed under the SIL Open Font License 1.1. The
 complete license text follows.
 
 Copyright (c) 2020 Akshay Oppiliappan (nerdy@peppe.rs)

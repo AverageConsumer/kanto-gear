@@ -11,7 +11,7 @@ local function check(condition, label)
 end
 
 local catalogs = {}
-for _, language in ipairs({ "de", "es", "fr", "ja", "it" }) do
+for _, language in ipairs({ "de", "es", "fr", "ja", "it", "pt-BR" }) do
   catalogs[language] = loadModule("i18n/catalogs/" .. language .. ".lua")
 end
 
@@ -40,6 +40,16 @@ check(i18n:format("HP %d/%d", 12, 34) == "PS 12/34", "Italian format arguments s
 check(i18n:text("OPEN APP") == "APRI" and i18n:text("OPEN") == "APERTO",
   "Italian distinguishes opening apps from unfinished tasks")
 check(#i18n:coverage("it") == 0, "Italian battle labels have no fallback")
+for _, locale in ipairs({ "pt-BR", "pt_br", "PT-br", "pt", "pt_BR.UTF-8" }) do
+  selected = locale
+  check(i18n:language() == "pt-BR", "Brazilian Portuguese locale resolves: " .. locale)
+  check(i18n:text("LANGUAGE") == "IDIOMA" and i18n:text("BACK") == "VOLTAR",
+    "Brazilian Portuguese UI uses the contributed catalog")
+  check(i18n:format("HP %d/%d", 12, 34) == string.format(catalogs["pt-BR"]["HP %d/%d"], 12, 34),
+    "Brazilian Portuguese format arguments survive")
+end
+selected = "pt-PT"
+check(i18n:language() == "en", "European Portuguese does not select a different regional translation")
 selected = "ja-JP"
 check(i18n:language() == "ja", "Japanese locale resolves to its catalog")
 check(i18n:text("START GAME") == catalogs.ja["START GAME"], "Japanese UI text comes from contributor catalog")
@@ -88,7 +98,7 @@ end
 local reference, referenceCount = catalogs.de, 0
 for key in pairs(reference) do referenceCount = referenceCount + 1 end
 
-for _, language in ipairs({ "de", "es", "fr", "ja", "it" }) do
+for _, language in ipairs({ "de", "es", "fr", "ja", "it", "pt-BR" }) do
   local count, expectedMissing = 0, {}
   local localized = I18N.new(function(code) return catalogs[code] end,
     function() return language end)
@@ -116,6 +126,9 @@ for key, value in pairs(reference) do
 end
 for key, value in pairs(catalogs.it) do
   check(type(value) == "string" and value ~= "", "Italian has a complete translation: " .. key)
+end
+for key, value in pairs(catalogs["pt-BR"]) do
+  check(type(value) == "string" and value ~= "", "Brazilian Portuguese has a complete translation: " .. key)
 end
 
 -- Literal callsites are a release gate; dynamic screen models are additionally

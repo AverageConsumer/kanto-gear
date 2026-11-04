@@ -15,7 +15,10 @@ end
 for _, row in ipairs({
   { "FERRÃO VENENOSO", "Ferrão Venenoso" },
   { "Ferrão Venenoso", "Ferrão Venenoso" },
-  { "CANÇÕES E AÇÕES", "Canções E Ações" },
+  { "CANÇÕES E AÇÕES", "Canções e Ações" },
+  { "DADOS DO PARCEIRO", "Dados do Parceiro" },
+  { "PORTUGUÊS (BR)", "Português (BR)" },
+  { "HÁ UM OVO ESPERANDO", "Há um Ovo Esperando" },
   { "ÃÕ", "Ãõ" }, -- no ASCII uppercase character in this word
   { "ÄÖÜ ÃÕ", "Äöü Ãõ" },
   { "ÄRGER ÜBER GRÖSSE", "Ärger Über Grösse" },
@@ -49,7 +52,7 @@ for low, up in pairs(latinCase.upper) do
   eq(core.normalize(low), up, "Latin upper " .. low)
   if low ~= "é" then eq(H.v4Title("A" .. low .. "Z"), "A" .. low .. "Z", "mixed case " .. low) end
 end
-for _, code in ipairs({ "de", "es", "fr", "it", "ja" }) do
+for _, code in ipairs({ "de", "es", "fr", "it", "ja", "pt-BR" }) do
   for _, value in pairs(module("i18n/catalogs/" .. code .. ".lua")) do
     if type(value) == "string" then
       local title = H.v4Title(value)
