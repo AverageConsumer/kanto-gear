@@ -1,10 +1,12 @@
 local I18N = {}
 I18N.__index = I18N
 
-local SUPPORTED = { en = true, de = true, es = true, fr = true, ja = true, it = true }
+local SUPPORTED = { en = true, de = true, es = true, fr = true, ja = true, it = true, ["pt-BR"] = true }
 
 local function languageCode(value)
   value = tostring(value or ""):lower():gsub("_", "-")
+  value = value:gsub("[%.@].*$", "")
+  if value == "pt" or value == "pt-br" or value:match("^pt%-br%-") then return "pt-BR" end
   return value:match("^([a-z][a-z])")
 end
 
@@ -22,7 +24,7 @@ function I18N.new(loadCatalog, selectedLanguage)
     selectedLanguage = selectedLanguage or function() return "en" end,
     catalogs = { en = {} }, requested = {},
   }, I18N)
-  for _, code in ipairs({ "de", "es", "fr", "ja", "it" }) do
+  for _, code in ipairs({ "de", "es", "fr", "ja", "it", "pt-BR" }) do
     self.catalogs[code] = assert(loadCatalog(code),
       "missing Kanto Gear language catalog: " .. code)
   end

@@ -2307,7 +2307,7 @@ function love.load()
     for i, t in ipairs(TABS) do if t.id == which then tab = i end end
     local rows = ({
       appearance = {
-        { key = "language", label = "LANGUAGE", value = ({ en = "ENGLISH", de = "DEUTSCH", es = "ESPANOL", fr = "FRANCAIS", ja = "JAPANESE", it = "ITALIANO" })[languageCode], raw = languageCode, choices = { { "EN", "en" }, { "DE", "de" }, { "ES", "es" }, { "FR", "fr" }, { "JA", "ja" }, { "IT", "it" } }, info = "Language of Kanto Gear. Game translations are separate mods." },
+        { key = "language", label = "LANGUAGE", value = ({ en = "ENGLISH", de = "DEUTSCH", es = "ESPANOL", fr = "FRANCAIS", ja = "JAPANESE", it = "ITALIANO", ["pt-BR"] = "PORTUGUES (BR)" })[languageCode], raw = languageCode, choices = { { "EN", "en" }, { "DE", "de" }, { "ES", "es" }, { "FR", "fr" }, { "JA", "ja" }, { "IT", "it" }, { "PT-BR", "pt-BR" } }, info = "Language of Kanto Gear. Game translations are separate mods." },
         { key = "theme_v3", label = "THEME", value = "POKEGEAR AUTO", raw = "hgss_auto", choices = { { "A", 1 }, { "B", 2 }, { "C", 3 }, { "D", 4 } }, info = "Choose a light or dark companion. Auto follows the time of day." },
         { key = "clock_source", label = "CLOCK SOURCE", value = "GAME", raw = "game", choices = { { "GAME", "game" }, { "DEVICE", "device" } }, info = "Choose the game clock or your device clock. Games without a clock use device time." },
         { key = "clock_format", label = "CLOCK FORMAT", value = "24 HOUR", raw = "24", choices = { { "12 HOUR", "12" }, { "24 HOUR", "24" } }, info = "Show 12-hour or 24-hour time. System follows your device preference." },
@@ -2378,7 +2378,7 @@ function love.load()
     theme:settings({ category = "appearance", accent = "blue", page = screen == "settings_appearance_page2" and 2 or 1,
       pages = 2, rows = {
         { label = "LANGUAGE", value = ({ en = "ENGLISH", de = "DEUTSCH",
-          es = "ESPANOL", fr = "FRANCAIS", ja = "JAPANESE", it = "ITALIANO" })[languageCode] or "ENGLISH" },
+          es = "ESPANOL", fr = "FRANCAIS", ja = "JAPANESE", it = "ITALIANO", ["pt-BR"] = "PORTUGUES (BR)" })[languageCode] or "ENGLISH" },
         { label = "THEME", value = "HGSS AUTO" },
         { label = "CLOCK SOURCE", value = "GAME (GEN 2)" },
         { label = "CLOCK FORMAT", value = "SYSTEM" },
@@ -2399,7 +2399,14 @@ function love.load()
         { "VANILLA", "purist" }, { "ENHANCED", "enhanced" }, { "SPOILERS", "spoiler" } } },
     } })
   elseif screen == "settings_option" then
-    if os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "display_mode" then
+    if os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "language" then
+      local page = tonumber(os.getenv("KANTO_GEAR_PREVIEW_PAGE")) or 1
+      theme:settings({ category = "option", option = "language", label = "LANGUAGE", accent = "blue",
+        description = "Language of Kanto Gear. Game translations are separate mods.", choices = {
+          { "ENGLISH", "en" }, { "DEUTSCH", "de" }, { "ESPANOL", "es" }, { "FRANCAIS", "fr" },
+          { "JAPANESE", "ja" }, { "ITALIANO", "it" }, { "PORTUGUES (BR)", "pt-BR" },
+        }, value = languageCode, page = page, pages = 2 })
+    elseif os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "display_mode" then
       local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
       theme:settings({ category = "option", option = "display_mode", label = "DISPLAY MODE", accent = "green",
         description = info.help.display_mode, choices = {

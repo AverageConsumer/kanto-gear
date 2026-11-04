@@ -116,7 +116,7 @@ T.eq(api.cache:read("options/clock_format"), "s24",
 
 -- Audit all dynamic metadata, not only the currently visible settings page.
 local theme = upvalue(display.drawContents, "THEME")
-for _, language in ipairs({ "de", "es", "fr", "it" }) do
+for _, language in ipairs({ "de", "es", "fr", "it", "pt-BR" }) do
   api.options:set("language", language)
   for _, row in ipairs(run.loader.optionSchemas.kanto_gear) do
     theme:translate(row.label)
@@ -174,7 +174,17 @@ local italianDisplay = runtime(italianRestart)
 local italianTheme = upvalue(italianDisplay.drawContents, "THEME")
 T.eq(italianTheme.i18n:language(), "it", "Italian survives a new mod instance")
 T.eq(italianTheme:translate("HP"), "PS", "restarted Italian UI uses the Italian catalog")
+local portugueseApi = upvalue(italianDisplay.saveHome, "mod")
+T.check(portugueseApi.options:set("language", "pt-BR"), "Brazilian Portuguese can be selected in native options")
+T.eq(italianTheme:translate("LANGUAGE"), "IDIOMA", "Portuguese selection updates labels immediately")
+T.eq(portugueseApi.cache:read("options/language"), "spt-BR", "regional language selection is persisted")
 italianRestart.release()
+local portugueseRestart = loadWithoutNativeSetter(persistedCache)
+portugueseRestart.loader.events:emit("game.ready", { game = gameFor(portugueseRestart) })
+local portugueseTheme = upvalue(runtime(portugueseRestart).drawContents, "THEME")
+T.eq(portugueseTheme.i18n:language(), "pt-BR", "Brazilian Portuguese survives a new mod instance")
+T.eq(portugueseTheme:translate("BACK"), "VOLTAR", "restarted Portuguese UI uses the contributed catalog")
+portugueseRestart.release()
 
 for _, case in ipairs({
   { cache = { ["options/info_level"] = "senhanced", ["options/type_hints"] = "b0" },

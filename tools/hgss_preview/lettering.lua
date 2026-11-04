@@ -43,7 +43,7 @@ return function(root, fonts, faces, atlas, H)
     end
   end
   for _, face in ipairs(faces) do assert(face:hasGlyphs(atlas), "atlas and glyph map disagree") end
-  for _, code in ipairs({ "de", "es", "fr", "it", "ja" }) do
+  for _, code in ipairs({ "de", "es", "fr", "it", "ja", "pt-BR" }) do
     local catalog = assert(loadfile(root .. "/mod/kanto_gear/i18n/catalogs/" .. code .. ".lua"))()
     assert(fonts:width(faces[2], H.v4Title(catalog.ACC)) <= 27,
       code .. " accuracy abbreviation overlaps three-digit values")

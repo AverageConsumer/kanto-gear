@@ -1093,6 +1093,7 @@ return {
   ["SIZE"] = false,
   ["ENTRY"] = false,
   ["ITALIANO"] = "ITALIANO",
+  ["PORTUGUES (BR)"] = "PORTUGUÊS (BR)",
   ["DAY-CARE"] = "そだてや",
   ["EGGS"] = "タマゴ",
   ["BREEDING"] = "そだてや",
