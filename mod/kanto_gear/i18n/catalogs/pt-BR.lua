@@ -1,4 +1,4 @@
--- Brazilian Portuguese translation contributed by Solid One.
+-- Brazilian Portuguese translation contributed by Solid One (https://github.com/leomontenegro6).
 return {
   ["OPEN APP"] = "ABRIR",
   ["COMPANION"] = "COMPANHEIRO",

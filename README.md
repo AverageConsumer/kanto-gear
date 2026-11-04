@@ -254,8 +254,9 @@ IPv4 address with port 8765.
 
 ## Languages and online
 
-English, German, Spanish (Spain), French, Japanese, Italian and Brazilian Portuguese are available under
-**Options → Appearance → Language**. Some newer labels fall back to English.
+English, German, Spanish (Spain), French, Japanese, Italian and Brazilian
+Portuguese are available under **Options → Appearance → Language**.
+Some newer labels fall back to English.
 Gear translates its own interface; game names and dialogue come from the game
 or a separate translation mod.
 
@@ -320,7 +321,7 @@ or the [security policy](SECURITY.md) to report a vulnerability privately.
 Kanto Gear is built on [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)
 and released under the [MIT License](LICENSE). Spanish was contributed by
 **Desierto La Espada**, French by **Blastheaven2**, Japanese by **Theeohn**
-and Brazilian Portuguese by **Solid One**.
+and Brazilian Portuguese by [**Solid One (@leomontenegro6)**](https://github.com/leomontenegro6).
 Special thanks to [@Rocky5150](https://github.com/Rocky5150) for extensive device testing.
 
 Font credits:
