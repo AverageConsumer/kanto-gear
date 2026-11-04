@@ -321,7 +321,8 @@ or the [security policy](SECURITY.md) to report a vulnerability privately.
 Kanto Gear is built on [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)
 and released under the [MIT License](LICENSE). Spanish was contributed by
 **Desierto La Espada**, French by **Blastheaven2**, Japanese by **Theeohn**
-and Brazilian Portuguese by [**Solid One (@leomontenegro6)**](https://github.com/leomontenegro6).
+and Brazilian Portuguese by [**Solid One (@leomontenegro6)**](https://github.com/leomontenegro6),
+with translation assistance from Gemini.
 Special thanks to [@Rocky5150](https://github.com/Rocky5150) for extensive device testing.
 
 Font credits:
