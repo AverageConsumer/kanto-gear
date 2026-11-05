@@ -212,6 +212,16 @@ do
 end
 
 -- Shared dynamic arrays are not visible to the literal-callsite scan.
+local settingsInfo = loadModule("core/settings_info.lua")
+for _, values in ipairs({ settingsInfo.help, settingsInfo.discovery }) do
+  for _, key in pairs(values) do requested[key] = true end
+end
+for _, language in ipairs({ "es", "pt-BR" }) do
+  for _, option in ipairs({ "display_mode", "battle_view", "display_setup" }) do
+    check(type(catalogs[language][settingsInfo.help[option]]) == "string",
+      language .. " translates current help: " .. option)
+  end
+end
 local theme = assert(loadfile(root .. "/tests/support/core.lua"))().THEME
 for _, effects in ipairs({ theme.moveEffects, theme.moveSpecial }) do
   for _, lines in pairs(effects) do

@@ -42,6 +42,12 @@ return function(Gen3)
     return self:plainText(self.Message.currentPage())
   end
   function Gen3:plainText(text)
+    -- Translation packs can emit this composite ROM command as a braced
+    -- macro. Older host scanners only recognise its individual color tags.
+    text = tostring(text or ""):gsub("{([^{}]+)}", function(tag)
+      if tag:upper():match("^COLOR_HIGHLIGHT_SHADOW%s+%d+%s+%d+%s+%d+$") then return "" end
+      return "{" .. tag .. "}"
+    end)
     local out = {}
     local glyphs = { [0x53] = "PK", [0x54] = "MN", [0x34] = "Lv",
       [0x55] = "POKéBLOCK", [0x56] = "", [0x57] = "", [0x58] = "", [0x59] = "",

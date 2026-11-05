@@ -6,7 +6,7 @@ return {
   ["Auto keeps whole-pixel enlargement sharp, uses Sharp Bilinear between whole sizes, and Bilinear when shrinking. Manual filters change Gear only."] = "Auto mantiene nitidi gli ingrandimenti interi, usa bilineare nitido tra le dimensioni intere e bilineare per ridurre. I filtri manuali cambiano solo Gear.",
   ["INTEGER SCALING"] = "SCALA INTERA",
   ["HOST UPDATE REQUIRED"] = "AGGIORNA RECOMP",
-  ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Ingrandisce Gear con fattori interi. Disattivato, usa lo spazio disponibile. Le aree piccole mostrano sempre l’immagine completa.",
+  ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Ingrandisce Gear con fattori interi. Disattivato, usa lo spazio disponibile. Le aree piccole mostrano sempre l'immagine completa.",
   ["OPEN APP"] = "APRI",
   ["SPECIES TYPES"] = "TIPI DELLE SPECIE",
   ["Show species types before catching them. Your own Pokemon and caught Dex entries keep their native types."] = "Mostra i tipi prima della cattura. Restano visibili per i tuoi Pokémon e le voci già catturate.",
@@ -1442,4 +1442,7 @@ return {
   ["TIME HUNTING"] = "TEMPO DI CACCIA",
   ["WHILE HUNTING %s"] = "CACCIANDO %s",
   ["YOUR PARTY"] = "LA TUA SQUADRA",
+  ["Separate uses two displays. Combined shows both views together. Fullscreen switches views. Phone uses a paired browser on the same Wi-Fi."] = "Separati usa due schermi. Combinati mostra entrambe le viste. Schermo intero alterna le viste. Telefono usa un browser abbinato sulla stessa rete Wi-Fi.",
+  ["Companion keeps the original battle above with touch controls below. Info shows opponent details. Gear moves menus and text below; Full Gear moves HP bars too. Outside battles the game stays unchanged."] = "Compagno: lotta originale sopra e comandi sotto. Info mostra i dati avversari. Gear sposta menu e testo sotto; Gear completo sposta anche le barre dei PS. Fuori dalla lotta, il gioco resta invariato.",
+  ["Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept."] = "Chiudi il menu di gioco per ripetere la configurazione degli schermi. Salvataggi, note e altre impostazioni di Gear vengono conservati.",
 }

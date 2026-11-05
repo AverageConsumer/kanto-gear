@@ -1,12 +1,12 @@
 return {
-  ["IMAGE FILTER"] = "FILTRE D’IMAGE",
+  ["IMAGE FILTER"] = "FILTRE D'IMAGE",
   ["NEAREST"] = "AU PLUS PROCHE",
   ["BILINEAR"] = "BILINÉAIRE",
   ["SHARP BILINEAR"] = "BILINÉAIRE NET",
   ["Auto keeps whole-pixel enlargement sharp, uses Sharp Bilinear between whole sizes, and Bilinear when shrinking. Manual filters change Gear only."] = "Auto garde les agrandissements entiers nets, utilise le bilinéaire net entre deux tailles entières et le bilinéaire en réduction. Les filtres manuels concernent uniquement Gear.",
   ["INTEGER SCALING"] = "ÉCHELLE ENTIÈRE",
   ["HOST UPDATE REQUIRED"] = "MISE À JOUR REQUISE",
-  ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Agrandit Gear par facteurs entiers. Désactivé, adapte l’image à l’espace disponible. Les petites zones affichent toujours l’image complète.",
+  ["Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image."] = "Agrandit Gear par facteurs entiers. Désactivé, adapte l'image à l'espace disponible. Les petites zones affichent toujours l'image complète.",
   ["OPEN APP"] = "OUVRIR",
   ["COMPANION"] = "COMPAGNON",
   ["PHONE / BROWSER"] = "TÉLÉPHONE / NAVIGATEUR",
@@ -1452,4 +1452,7 @@ return {
   ["TIME HUNTING"] = "TEMPS DE CHASSE",
   ["WHILE HUNTING %s"] = "EN CHASSANT %s",
   ["YOUR PARTY"] = "TON ÉQUIPE",
+  ["Separate uses two displays. Combined shows both views together. Fullscreen switches views. Phone uses a paired browser on the same Wi-Fi."] = "Séparé utilise deux écrans. Combiné affiche les deux vues ensemble. Plein écran alterne les vues. Téléphone utilise un navigateur associé sur le même Wi-Fi.",
+  ["Companion keeps the original battle above with touch controls below. Info shows opponent details. Gear moves menus and text below; Full Gear moves HP bars too. Outside battles the game stays unchanged."] = "Compagnon : combat original en haut, commandes en bas. Info affiche les données adverses. Gear déplace menus et texte en bas ; Gear complet déplace aussi les barres de PV. Hors combat, le jeu reste inchangé.",
+  ["Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept."] = "Fermez le menu du jeu pour refaire la configuration des écrans. Les sauvegardes, notes et autres réglages de Gear sont conservés.",
 }

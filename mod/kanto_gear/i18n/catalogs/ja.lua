@@ -1458,4 +1458,7 @@ return {
   ["TIME HUNTING"] = "ハントした じかん",
   ["WHILE HUNTING %s"] = "%sを ハントちゅう",
   ["YOUR PARTY"] = "てもち",
+  ["Separate uses two displays. Combined shows both views together. Fullscreen switches views. Phone uses a paired browser on the same Wi-Fi."] = "別画面は2つの画面を使います。結合は両方の表示を並べます。全画面は表示を切り替えます。スマートフォンは同じWi-Fiのペアリング済みブラウザーを使います。",
+  ["Companion keeps the original battle above with touch controls below. Info shows opponent details. Gear moves menus and text below; Full Gear moves HP bars too. Outside battles the game stays unchanged."] = "コンパニオンは元の戦闘を上、タッチ操作を下に表示。情報は相手のデータを表示。Gearはメニューと文章を下へ、フルGearはHPバーも下へ移します。戦闘外の表示は変わりません。",
+  ["Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept."] = "ゲームのメニューを閉じると画面設定をやり直せます。セーブ、メモ、ほかのGear設定は保持されます。",
 }

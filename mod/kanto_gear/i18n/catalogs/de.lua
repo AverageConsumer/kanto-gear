@@ -1464,4 +1464,7 @@ return {
   ["TIME HUNTING"] = "JAGDZEIT",
   ["WHILE HUNTING %s"] = "BEI DER JAGD AUF %s",
   ["YOUR PARTY"] = "DEIN TEAM",
+  ["Separate uses two displays. Combined shows both views together. Fullscreen switches views. Phone uses a paired browser on the same Wi-Fi."] = "Getrennt nutzt zwei Displays. Kombiniert zeigt beide Ansichten zusammen. Vollbild wechselt zwischen ihnen. Handy nutzt einen gekoppelten Browser im selben WLAN.",
+  ["Companion keeps the original battle above with touch controls below. Info shows opponent details. Gear moves menus and text below; Full Gear moves HP bars too. Outside battles the game stays unchanged."] = "Begleiter: Originalkampf oben, Touchsteuerung unten. Info zeigt Gegnerdaten. Gear verlegt Menüs und Text nach unten, Voll-Gear auch KP-Leisten. Außerhalb des Kampfes bleibt das Spiel unverändert.",
+  ["Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept."] = "Schließe das Spielmenü, um die Display-Einrichtung zu wiederholen. Spielstände, Notizen und andere Gear-Einstellungen bleiben erhalten.",
 }

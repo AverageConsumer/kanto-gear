@@ -2337,8 +2337,8 @@ function love.load()
         { key = "secondary_size", label = "SECONDARY SIZE", value = "40%" },
       },
       battle = {
-        { key = "battle_view", label = "BATTLE VIEW", value = "STANDARD", raw = "standard", choices = { { "STD", "standard" }, { "GEAR", "gear" }, { "FULL", "full" } }, info = "Which screen shows battles." },
-        { key = "auto_battle_screen", label = "AUTO SCREEN", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
+        { key = "battle_view", label = "BATTLE VIEW", value = "COMPANION", raw = "standard", choices = { { "COMPANION", "standard" }, { "INFO", "info" }, { "GEAR", "gear" }, { "FULL GEAR", "full" } } },
+        { key = "auto_battle_screen", label = "AUTO BATTLE SCREEN", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
         { key = "caught_icon", label = "CAUGHT ICON", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
         { key = "type_hints", label = "TYPE HINTS", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
       },
@@ -2364,11 +2364,17 @@ function love.load()
     })[which] or {
       { key = "info_level", label = "INFO", value = "ENHANCED", raw = "enhanced", choices = { { "VANILLA", "purist" }, { "MORE", "enhanced" }, { "ALL", "spoiler" } } },
     }
+    local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
+    for _, row in ipairs(rows) do row.info = info.help[row.key or row.action] or row.info end
+    if which == "battle" and os.getenv("KANTO_GEAR_PREVIEW_ROWS") == "3" then rows[4] = nil end
     local sel = tonumber(os.getenv("KANTO_GEAR_PREVIEW_SELECT") or "")
     local selected = sel and rows[sel] and (rows[sel].key or rows[sel].action) or nil
-    theme:settings({ category = which, label = TABS[tab].label, detail = TABS[tab].detail, accent = TABS[tab].accent,
+    local model = { category = which, label = TABS[tab].label, detail = TABS[tab].detail, accent = TABS[tab].accent,
       tabs = TABS, tab = tab, rows = rows, page = 1, pages = #rows > 4 and 2 or 1, selected = selected,
-      confirm = which == "system" and sel == 4 and "reset_options" or nil })
+      confirm = which == "system" and sel == 4 and "reset_options" or nil }
+    theme:settingsHelpModel(model)
+    theme.v4HelpPage = tonumber(os.getenv("KANTO_GEAR_PREVIEW_HELP_PAGE")) or 1
+    theme:settings(model)
   elseif settingsRoot and false then
     theme:settings({ categories = {
       { label = "APPEARANCE", detail = "THEME AND TRANSITIONS",

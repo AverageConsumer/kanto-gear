@@ -1454,4 +1454,7 @@ return {
   ["TIME HUNTING"] = "TEMPO DE CAÇADA",
   ["WHILE HUNTING %s"] = "CAÇANDO %s",
   ["YOUR PARTY"] = "SUA EQUIPE",
+  ["Separate uses two displays. Combined shows both views together. Fullscreen switches views. Phone uses a paired browser on the same Wi-Fi."] = "Separada usa duas telas. Combinada mostra ambas as visões juntas. Tela Cheia alterna as visões. Telefone usa um navegador pareado na mesma rede Wi-Fi.",
+  ["Companion keeps the original battle above with touch controls below. Info shows opponent details. Gear moves menus and text below; Full Gear moves HP bars too. Outside battles the game stays unchanged."] = "Companheiro: batalha original acima e controles abaixo. Info mostra dados do oponente. Gear move menus e texto para baixo; Gear Completo também move as barras de HP. Fora da batalha, o jogo segue igual.",
+  ["Close the game menu to repeat display setup. Saves, notes and other Gear settings are kept."] = "Feche o menu do jogo para repetir a configuração de telas. Dados salvos, notas e outros ajustes do Gear são mantidos.",
 }

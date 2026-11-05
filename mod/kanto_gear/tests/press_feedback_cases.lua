@@ -43,6 +43,13 @@ return function(T, display, H)
     T.eq(rendered, "日", "typewriter reveals whole Japanese glyphs")
     H.partyInfo, H.settingsHelpLines, H.clock = partyInfo, helpLines, clock
     H.frozenTime, H.motionEnabled = frozen, motion
+    local help = { category = "option", option = "help_test", page = 1, pages = 1,
+      choices = { { "ON", true } }, value = true, description = string.rep("LONG HELP TEXT. ", 60) }
+    at(120, 202, function() H:settings(help) end, 1, "multipage help counter responds to touch")
+    at(120, 170, function() H:settings(help) end, 0, "help prose cannot animate the pager")
+    help.description = "SHORT HELP."
+    at(120, 202, function() H:settings(help) end, 0, "single-page help has no decorative touch response")
+
   end
   local region = { interactive=true,fly=true,width=160,height=128,cursorX=100,cursorY=90,
     area="TOWN",status="NOT VISITED",drawMap=function() end }

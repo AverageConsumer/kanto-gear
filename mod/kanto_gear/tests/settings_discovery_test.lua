@@ -76,6 +76,37 @@ local function exercise(run, display)
   local game = up(display.pokedexData, "game")
   local id = up(display.homeRegionMap, "mapId") or "HERE"
   up(display.homeRegionMap, "mapId", id, true)
+  local function verifyHelp(model)
+    local layout = theme.hgss
+    local first = layout:settingsHelpModel(model)
+    layout.v4HelpPage = 1
+    local recovered = {}
+    for page = 1, first.pages do
+      local help = layout:settingsHelpModel(model)
+      T.eq(help.page, page, "help page follows the visible counter")
+      T.check(#help.lines <= help.capacity, "visible help fits the actual panel")
+      for _, line in ipairs(help.lines) do recovered[#recovered + 1] = line end
+      local x, y = 120, help.y + help.h - 10
+      T.eq(layout:settingsHelpHit(x, y, model), help.pages > 1,
+        "only a multipage explanation has an active pager")
+      if help.pages > 1 then
+        T.eq(layout:settingsHit(x, y, model), "help", "pager hit shares the drawing geometry")
+        T.check(not layout:settingsHelpHit(95, y, model), "outside pager stays inactive")
+        T.check(not layout:settingsHelpHit(x, help.y + 1, model), "help prose stays inactive")
+      end
+      layout:advanceSettingsHelp(model)
+    end
+    T.eq(table.concat(recovered, "\n"), table.concat(first.allLines, "\n"), "every help line is reachable without truncation")
+    T.eq(layout:settingsHelpModel(model).page, 1, "last help page wraps to the beginning")
+    if first.pages > 1 then
+      layout:advanceSettingsHelp(model)
+      local changed = {}
+      for k, v in pairs(model) do changed[k] = v end
+      if changed.option then changed.description = "A different explanation."
+      else changed.selected = nil; changed.detail = "A different explanation." end
+      T.eq(layout:settingsHelpModel(changed).page, 1, "changed content resets the help page")
+    end
+  end
   api.options:set("info_level", "enhanced")
   display.settings.category, display.settings.option, display.settings.selected = nil, nil, nil
   T.eq(display.settingsModel().tab, 1, "Settings opens on its first tab instead of a submenu list")
@@ -97,7 +128,12 @@ local function exercise(run, display)
       for _, language in ipairs({ "en", "de", "es", "fr", "ja", "it", "pt-BR" }) do
         api.options:set("language", language)
         local lines = theme.hgss:settingsHelpLines(theme:translate(detail.description))
-        T.check(#lines <= 6, "complete help fits its panel in " .. language .. ": " .. detail.option)
+        verifyHelp(detail)
+        display.settings.option = nil
+        local tabbed = display.settingsModel()
+        tabbed.selected = row.key or row.action
+        verifyHelp(tabbed)
+        display.settings.option = row.key or row.action
         for _, line in ipairs(lines) do
           T.eq(theme.hgss:fitPartyType(line, 210), line, "help never needs clipping")
         end
@@ -119,6 +155,21 @@ local function exercise(run, display)
       display.settings.option = nil
     end
   end
+  display.settings.category, display.settings.page, display.settings.option = 2, 1, nil
+  display.settings.selected = "display_mode"
+  api.options:set("language", "pt-BR")
+  local help = theme.hgss:settingsHelpModel(display.settingsModel())
+  T.check(help.pages > 1, "screen-mode regression fixture needs multiple help pages")
+  local mode, motion = api.options:get("display_mode"), theme.hgss.motionEnabled
+  theme.hgss.motionEnabled = false
+  display.tapSettings(120, help.y + help.h - 10)
+  T.eq(theme.hgss:settingsHelpModel(display.settingsModel()).page, 2,
+    "runtime touch advances help with animations disabled")
+  T.eq(api.options:get("display_mode"), mode, "reading help cannot change screen mode")
+  display.tapSettings(120, help.y + 1)
+  T.eq(theme.hgss:settingsHelpModel(display.settingsModel()).page, 2, "static prose has no touch action")
+  theme.hgss.motionEnabled = motion
+  api.options:set("language", "en")
   display.settings.category, display.settings.page, display.settings.option = 4, 1, nil
   display.settings.selected = nil
   local before = api.options:get("info_level")
