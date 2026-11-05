@@ -78,34 +78,38 @@ local function exercise(run, display)
   up(display.homeRegionMap, "mapId", id, true)
   local function verifyHelp(model)
     local layout = theme.hgss
+    local clock, elapsed = layout.clock, 0
+    layout.clock = function() return elapsed end
+    layout.v4HelpContentKey, layout.v4HelpPreviewElapsed = nil, nil
     local first = layout:settingsHelpModel(model)
-    layout.v4HelpPage = 1
-    local recovered = {}
-    for page = 1, first.pages do
+    T.eq(first.offset, 0, "new help starts at its beginning")
+    local seen, extra = {}, math.max(0, #first.lines - first.capacity)
+    local step = layout.motionEnabled == false or layout.ambientEnabled == false
+    local seconds = step and 3 or 11 / 6
+    for line = 0, extra do
+      elapsed = line == 0 and 0 or 4 + line * seconds + 0.001
       local help = layout:settingsHelpModel(model)
-      T.eq(help.page, page, "help page follows the visible counter")
-      T.check(#help.lines <= help.capacity, "visible help fits the actual panel")
-      for _, line in ipairs(help.lines) do recovered[#recovered + 1] = line end
-      local x, y = 120, help.y + help.h - 10
-      T.eq(layout:settingsHelpHit(x, y, model), help.pages > 1,
-        "only a multipage explanation has an active pager")
-      if help.pages > 1 then
-        T.eq(layout:settingsHit(x, y, model), "help", "pager hit shares the drawing geometry")
-        T.check(not layout:settingsHelpHit(95, y, model), "outside pager stays inactive")
-        T.check(not layout:settingsHelpHit(x, help.y + 1, model), "help prose stays inactive")
-      end
-      layout:advanceSettingsHelp(model)
+      T.eq(help.offset, line * 11, "automatic scroll reaches every complete line")
+      T.check(help.offset <= help.maxOffset, "scroll never moves past the final line")
+      for index = line + 1, math.min(line + help.capacity, #help.lines) do seen[index] = true end
+      T.eq(layout:settingsHit(120, help.y + help.h - 10, model), nil, "help has no manual paging control")
     end
-    T.eq(table.concat(recovered, "\n"), table.concat(first.allLines, "\n"), "every help line is reachable without truncation")
-    T.eq(layout:settingsHelpModel(model).page, 1, "last help page wraps to the beginning")
-    if first.pages > 1 then
-      layout:advanceSettingsHelp(model)
+    for index in ipairs(first.lines) do T.check(seen[index], "every help line becomes fully visible") end
+    if extra > 0 then
+      elapsed = 3.99
+      T.eq(layout:settingsHelpModel(model).offset, 0, "initial reading pause keeps text still")
+      elapsed = first.cycle - 0.01
+      T.eq(layout:settingsHelpModel(model).offset, first.maxOffset, "final reading pause keeps the ending visible")
+      elapsed = first.cycle + 0.01
+      T.eq(layout:settingsHelpModel(model).offset, 0, "help loops back to its beginning")
+      elapsed = 4 + extra * seconds
       local changed = {}
       for k, v in pairs(model) do changed[k] = v end
       if changed.option then changed.description = "A different explanation."
       else changed.selected = nil; changed.detail = "A different explanation." end
-      T.eq(layout:settingsHelpModel(changed).page, 1, "changed content resets the help page")
-    end
+      T.eq(layout:settingsHelpModel(changed).offset, 0, "changed content restarts at the beginning")
+    else T.eq(first.delay, nil, "fitting help needs no scroll repaints") end
+    layout.clock = clock
   end
   api.options:set("info_level", "enhanced")
   display.settings.category, display.settings.option, display.settings.selected = nil, nil, nil
@@ -159,16 +163,26 @@ local function exercise(run, display)
   display.settings.selected = "display_mode"
   api.options:set("language", "pt-BR")
   local help = theme.hgss:settingsHelpModel(display.settingsModel())
-  T.check(help.pages > 1, "screen-mode regression fixture needs multiple help pages")
-  local mode, motion = api.options:get("display_mode"), theme.hgss.motionEnabled
-  theme.hgss.motionEnabled = false
+  T.check(help.maxOffset > 0, "screen-mode regression fixture needs scrolling")
+  local layout = theme.hgss
+  local mode, motion, ambient, frozen, clock = api.options:get("display_mode"), layout.motionEnabled,
+    layout.ambientEnabled, layout.frozenTime, layout.clock
+  local now = 100
+  layout.motionEnabled, layout.ambientEnabled, layout.frozenTime = false, false, nil
+  layout.clock = function() return now end
+  layout.v4HelpContentKey = nil
+  layout:v4SettingsHelp(display.settingsModel())
+  T.check(not layout:settingsHelpDue(103.99), "reading pause does not repaint early")
+  T.check(layout:settingsHelpDue(104), "help timer runs with Performance mode and motion disabled")
+  now = 107.01
+  layout:v4SettingsHelp(display.settingsModel())
+  T.eq(layout:settingsHelpModel(display.settingsModel()).offset, 11,
+    "reduced motion advances one complete line automatically")
+  T.check(layout.v4HelpNextAt > now, "drawing schedules the next content update")
   display.tapSettings(120, help.y + help.h - 10)
-  T.eq(theme.hgss:settingsHelpModel(display.settingsModel()).page, 2,
-    "runtime touch advances help with animations disabled")
-  T.eq(api.options:get("display_mode"), mode, "reading help cannot change screen mode")
-  display.tapSettings(120, help.y + 1)
-  T.eq(theme.hgss:settingsHelpModel(display.settingsModel()).page, 2, "static prose has no touch action")
-  theme.hgss.motionEnabled = motion
+  T.eq(api.options:get("display_mode"), mode, "static help touch cannot change screen mode")
+  T.eq(layout:settingsHelpModel(display.settingsModel()).offset, 11, "help touch does not scroll or restart text")
+  layout.motionEnabled, layout.ambientEnabled, layout.frozenTime, layout.clock = motion, ambient, frozen, clock
   api.options:set("language", "en")
   display.settings.category, display.settings.page, display.settings.option = 4, 1, nil
   display.settings.selected = nil

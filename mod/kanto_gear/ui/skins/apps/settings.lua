@@ -326,7 +326,7 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
     return true
   end
 
-  -- Drawing and hit testing share the exact help text, panel and page size.
+  -- Keep complete help text; overflow moves inside the panel after a reading pause.
   function H:settingsHelpModel(model)
     local text, key, y, h
     if model.option then
@@ -356,27 +356,41 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
     end
     local lines = self:settingsHelpLines(text)
     local capacity = max(1, floor((h - 10) / 11))
-    if #lines > capacity then capacity = max(1, capacity - 1) end -- pager seat
-    local pages = max(1, math.ceil(#lines / capacity))
     key = key .. ":" .. text .. ":" .. capacity
+    local now = self:clock()
     if self.v4HelpContentKey ~= key then
-      self.v4HelpContentKey, self.v4HelpPage = key, 1
+      self.v4HelpContentKey, self.v4HelpStarted = key, now
     end
-    local page = min(self.v4HelpPage or 1, pages)
-    local visible = {}
-    for i = (page - 1) * capacity + 1, min(page * capacity, #lines) do visible[#visible + 1] = lines[i] end
-    return { lines = visible, allLines = lines, key = key .. ":" .. page, page = page,
-      pages = pages, capacity = capacity, y = y, h = h }
+    local extra = max(0, #lines - capacity)
+    -- Reduced motion changes one complete line at a time. Reading access is
+    -- independent of decorative animation and Performance mode.
+    local step = self.motionEnabled == false or self.ambientEnabled == false
+    local travel = extra * (step and 3 or 11 / 6)
+    local cycle = 4 + travel + 4
+    local elapsed = self.v4HelpPreviewElapsed or max(0, now - (self.v4HelpStarted or now))
+    local phase = elapsed % cycle
+    local offset, delay = 0, nil
+    if extra > 0 then
+      if phase < 4 then delay = 4 - phase
+      elseif phase < 4 + travel then
+        local moving = phase - 4
+        if step then
+          offset = min(extra, floor(moving / 3)) * 11
+          delay = 3 - moving % 3
+        else
+          offset = min(extra * 11, floor(moving * 6))
+          delay = (offset + 1) / 6 - moving
+        end
+      else offset, delay = extra * 11, cycle - phase end
+    end
+    return { lines = lines, key = key, capacity = capacity, y = y, h = h,
+      offset = offset, maxOffset = extra * 11, delay = delay, cycle = cycle }
   end
 
-  function H:advanceSettingsHelp(model)
-    local help = self:settingsHelpModel(model)
-    if help.pages > 1 then self.v4HelpPage = help.page % help.pages + 1 end
-  end
-
-  function H:settingsHelpHit(x, y, model)
-    local help = self:settingsHelpModel(model)
-    return help.pages > 1 and x >= 96 and x < 144 and y >= help.y + help.h - 16 and y < help.y + help.h - 3
+  function H:settingsHelpDue(now)
+    if not self.v4HelpNextAt or now < self.v4HelpNextAt then return false end
+    self.v4HelpNextAt = nil
+    return true
   end
 
   function H:v4SettingsHelp(model)
@@ -386,16 +400,23 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
     self:v4MessageWindow(x, y, w, h)
     local now = self:clock()
     if self.v4HelpKey ~= key then self.v4HelpKey, self.v4HelpAt = key, now end
-    local shown = (self.motionEnabled == false or self.frozenTime) and math.huge
+    local shown = (help.maxOffset > 0 or self.motionEnabled == false or self.frozenTime) and math.huge
       or floor((now - (self.v4HelpAt or now)) * 70)
     local total, left, characters = 0, shown, {}
     for index, line in ipairs(lines) do
       characters[index] = ui.glyphs(line)
       total = total + #characters[index]
     end
-    -- Keep the complete page clear of the border and pager.
-    local textH = h - (help.pages > 1 and 11 or 0)
-    local top = y + floor((textH - #lines * 11) / 2)
+    local top = y + floor((h - min(#lines, help.capacity) * 11) / 2) - help.offset
+    local G = ui.graphics
+    G.push("all")
+    local clipLeft, upper, right, bottom = x + 10, y + 5, x + w - 10, y + h - 5
+    if G.transformPoint then
+      clipLeft, upper = G.transformPoint(clipLeft, upper)
+      right, bottom = G.transformPoint(right, bottom)
+    end
+    if G.intersectScissor then G.intersectScissor(clipLeft, upper, right - clipLeft, bottom - upper)
+    else G.setScissor(clipLeft, upper, right - clipLeft, bottom - upper) end
     for index, line in ipairs(lines) do
       local chars = characters[index]
       local part = left >= #chars and line
@@ -403,13 +424,8 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
       left = left - #chars
       if #part > 0 then self:partyInfo(part, x + 10, top + (index - 1) * 11 - 1, colors.ink) end
     end
-    if help.pages > 1 then
-      local py = y + h - 16
-      local pressed = self:beginPress(96, py, 48, 13, true)
-      -- Centre the visible counter and arrow together in the touch seat.
-      self:partyInfoCentered(help.page .. "/" .. help.pages .. " >", 96, py, 48, 13, colors.ink)
-      self:endPress(pressed)
-    end
+    G.pop()
+    self.v4HelpNextAt = help.delay and not self.frozenTime and now + max(0.01, help.delay) or nil
     if shown < total then self:wantAmbient(0.05, 1 / 30) end
   end
 
@@ -523,7 +539,6 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
       if x >= left and i >= 1 and i <= #model.tabs and x < left + i * step - 2 and i ~= model.tab then return "tab", i end
       return nil
     end
-    if self:settingsHelpHit(x, y, model) then return "help" end
     if model.pages > 1 and y >= 55 and y < 69 then
       if x >= 176 and x < 196 then return "prev" end
       if x >= 213 and x < 233 then return "next" end
@@ -558,7 +573,6 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
     if model and model.tabs and not model.option then return self:v4SettingsTabbedHit(x, y, model) end
     if not (model and model.option) then return base.settingsHit(self, x, y, model) end
     if y < 29 and x < 27 then return "back" end
-    if self:settingsHelpHit(x, y, model) then return "help" end
     if model.pages > 1 and y >= 133 and y < 148 then
       if x >= 72 and x < 104 then return "prev" end
       if x >= 136 and x < 168 then return "next" end

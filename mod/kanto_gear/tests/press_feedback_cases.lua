@@ -45,10 +45,18 @@ return function(T, display, H)
     H.frozenTime, H.motionEnabled = frozen, motion
     local help = { category = "option", option = "help_test", page = 1, pages = 1,
       choices = { { "ON", true } }, value = true, description = string.rep("LONG HELP TEXT. ", 60) }
-    at(120, 202, function() H:settings(help) end, 1, "multipage help counter responds to touch")
-    at(120, 170, function() H:settings(help) end, 0, "help prose cannot animate the pager")
+    local drawn, drawInfo = {}, H.partyInfo
+    H.partyInfo = function(self, text, x, ...)
+      if x == 16 then drawn[#drawn + 1] = text end
+      return drawInfo(self, text, x, ...)
+    end
+    at(120, 202, function() H:settings(help) end, 0, "scrolling help has no touch feedback")
+    H.partyInfo = drawInfo
+    T.eq(table.concat(drawn, "\n"), table.concat(H:settingsHelpLines(help.description), "\n"),
+      "scroll viewport receives complete wrapped text without losing glyphs")
+    at(120, 170, function() H:settings(help) end, 0, "scrolling help prose stays still on touch")
     help.description = "SHORT HELP."
-    at(120, 202, function() H:settings(help) end, 0, "single-page help has no decorative touch response")
+    at(120, 202, function() H:settings(help) end, 0, "short help has no decorative touch response")
 
   end
   local region = { interactive=true,fly=true,width=160,height=128,cursorX=100,cursorY=90,

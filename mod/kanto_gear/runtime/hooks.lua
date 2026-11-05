@@ -860,6 +860,15 @@ return function(
     if displayRuntime.frontArtRetryAt and now >= displayRuntime.frontArtRetryAt then
       displayRuntime.frontArtRetryAt, session.dirty = nil, true
     end
+    -- Long help remains readable with UI motion disabled: its content timer
+    -- schedules only the next pixel/line change or reading-pause boundary.
+    if THEME.style == "hgss" then
+      if session.page == "SETTINGS" then
+        if THEME.hgss:settingsHelpDue(now) then session.dirty = true end
+      else
+        THEME.hgss.v4HelpNextAt, THEME.hgss.v4HelpContentKey = nil, nil
+      end
+    end
     if THEME.style == "hgss" and THEME.hgss.ambientDue
         and THEME.hgss:ambientDue(now) then session.dirty = true end
     if displayRuntime.tickNotices and displayRuntime.tickNotices(now) then session.dirty = true end

@@ -2373,7 +2373,7 @@ function love.load()
       tabs = TABS, tab = tab, rows = rows, page = 1, pages = #rows > 4 and 2 or 1, selected = selected,
       confirm = which == "system" and sel == 4 and "reset_options" or nil }
     theme:settingsHelpModel(model)
-    theme.v4HelpPage = tonumber(os.getenv("KANTO_GEAR_PREVIEW_HELP_PAGE")) or 1
+    theme.v4HelpPreviewElapsed = tonumber(os.getenv("KANTO_GEAR_PREVIEW_HELP_ELAPSED")) or 0
     theme:settings(model)
   elseif settingsRoot and false then
     theme:settings({ categories = {

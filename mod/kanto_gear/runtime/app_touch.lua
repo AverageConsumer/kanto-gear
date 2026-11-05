@@ -173,9 +173,7 @@ return function(
       end
     end
     local row = model.rows and index and model.rows[index]
-    if action == "help" then
-      THEME.hgss:advanceSettingsHelp(model)
-    elseif action == "tab" then
+    if action == "tab" then
       if state.category ~= index then displayRuntime.requestPageMotion(index > (state.category or 1) and 1 or -1) end
       state.category, state.page, state.confirm, state.selected = index, 1, nil, nil
     elseif action == "select" and row then
