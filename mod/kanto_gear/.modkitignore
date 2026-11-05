@@ -114,6 +114,7 @@ tests/performance_runtime_test.lua
 tests/performance_test.lua
 tests/phone_browser_test.cjs
 tests/phone_display_test.lua
+tests/phone_fullscreen_cases.cjs
 tests/phone_input_test.lua
 tests/phone_layout_cases.cjs
 tests/phone_pairing_test.lua

@@ -143,13 +143,17 @@ function fit() {
   const w = canvas.width * scale, h = canvas.height * scale;
   const rasterW = Math.max(1, Math.ceil(w - 1e-7)), rasterH = Math.max(1, Math.ceil(h - 1e-7));
   const x = left + Math.floor((width - w) / 2 + 1e-7), y = top + Math.floor((height - h) / 2 + 1e-7);
-  canvas.style.width = `${rasterW / dpi}px`; canvas.style.height = `${rasterH / dpi}px`;
+  const cssWidth = `${rasterW / dpi}px`, cssHeight = `${rasterH / dpi}px`;
+  canvas.style.width = output.style.width = cssWidth;
+  canvas.style.height = output.style.height = cssHeight;
   const lcd = canvas.parentElement;
   lcd.style.inset = "0 auto auto 0"; lcd.style.margin = "0";
+  // Translation retains sub-CSS-pixel precision at fractional display density;
+  // only the output raster's oversized scale layer is unnecessary.
   lcd.style.transform = `translate(${x / dpi - rect.left}px, ${y / dpi - rect.top}px)`;
+  lcd.style.width = cssWidth; lcd.style.height = cssHeight;
   if (output.width !== rasterW) output.width = rasterW;
   if (output.height !== rasterH) output.height = rasterH;
-  output.style.transform = `scale(${1 / dpi})`;
   outputPlacement = { scale, width: w, height: h, dpi };
   paintOutput();
 }
@@ -450,11 +454,16 @@ const fullscreen = document.getElementById("fullscreen");
 fullscreen.disabled = !document.documentElement.requestFullscreen;
 fullscreen.addEventListener("click", async () => {
   releaseAll();
+  // A modal left open while the document enters the top layer can keep the
+  // controller inert even when a mobile browser composites the picture above it.
+  settings.close();
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
     else await document.documentElement.requestFullscreen();
   } catch (_) { status.textContent = "Fullscreen is unavailable in this browser."; }
 });
+document.addEventListener("fullscreenchange", () => { releaseAll(); requestAnimationFrame(fit); });
+window.visualViewport?.addEventListener("resize", () => { releaseAll(); requestAnimationFrame(fit); });
 
 // Layout work happens only on gestures/resizes, never in the frame decoder.
 function applyLayout() {

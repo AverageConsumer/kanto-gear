@@ -283,7 +283,8 @@ body[data-theme^="cgear"]:has(#pair:not([hidden])) #status { border-radius: 4px;
 #controller[data-controls="false"] .controls > * { display: none; }
 
 /* Screen well: padding is room for the bezel; #gear-slot is only the canvas area. */
-.screen { grid-area: screen; min-width: 0; min-height: 0; padding: var(--spad-top) var(--spad) var(--spad); display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+.screen { grid-area: screen; min-width: 0; min-height: 0; padding: var(--spad-top) var(--spad) var(--spad); display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); isolation: isolate; overflow: hidden; z-index: 0; }
+.controls > :is(.dpad, .actions, [data-button]) { z-index: 1; }
 #gear-slot { position: relative; min-width: 0; min-height: 0; }
 .lcd { position: absolute; inset: 0; margin: auto; width: fit-content; height: fit-content; }
 /* Below Gear: the screen hugs a 240×216 image at full width and hands spare height to the controls side. */
@@ -298,12 +299,11 @@ body[data-theme^="cgear"]:has(#pair:not([hidden])) #status { border-radius: 4px;
 body[data-theme^="cgear"] .lcd::before { border-radius: 4px; box-shadow: 0 0 0 2px var(--bezel-rim), inset 0 -3px 0 var(--accent-2); }
 .lcd { isolation: isolate; anchor-name: --gear; }
 #gear {
-  display: none; opacity: 0;
+  display: none; opacity: 0; position: relative; z-index: 1;
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 #gear-output {
-  position: absolute; left: 0; top: 0; pointer-events: none;
-  transform-origin: top left;
+  position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
 }
 
 /* Button sizing: chosen size, shrunk for the screen only down to a finger-sized floor that grows with the chosen size. */
