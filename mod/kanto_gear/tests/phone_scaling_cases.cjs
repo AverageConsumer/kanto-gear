@@ -1,6 +1,6 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 module.exports=async function({browser,root,out}) {
-  let checks=0;
+  let checks=0,composited=0;
   for(const dpi of [1,1.25,2,3]) {
     const session=await browser.newContext({viewport:{width:640,height:480},deviceScaleFactor:dpi});
     const page=await session.newPage(); const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -42,6 +42,44 @@ module.exports=async function({browser,root,out}) {
         }
       }
     }
+    // Inspect the browser's final composited pixels, not only getImageData on
+    // the backing raster. Fractional CSS dimensions can add a second filter.
+    await page.setViewportSize({width:915,height:412});
+    const physical=await page.evaluate(()=>{
+      canvas.width=160;canvas.height=144;integerScaling=true;
+      const image=new ImageData(160,144);
+      for(let y=0;y<144;y++)for(let x=0;x<160;x++){
+        const i=(y*160+x)*4,v=(x+y)%2?255:0;
+        image.data[i]=image.data[i+1]=image.data[i+2]=v;image.data[i+3]=255;
+      }
+      context.putImageData(image,0,0);fit();
+      const r=output.getBoundingClientRect();
+      return {x:Math.round(r.left*devicePixelRatio),y:Math.round(r.top*devicePixelRatio)};
+    });
+    for(const filter of ['nearest','bilinear','sharp','auto']) {
+      await page.evaluate(filter=>{imageFilter=filter;paintOutput();},filter);
+      const png=await page.screenshot();
+      const mismatches=await page.evaluate(async({png,physical})=>{
+        const bitmap=await createImageBitmap(new Blob([Uint8Array.from(png)],{type:'image/png'}));
+        const snapshot=new OffscreenCanvas(bitmap.width,bitmap.height),g=snapshot.getContext('2d');
+        g.drawImage(bitmap,0,0);bitmap.close();
+        const w=output.width-16,h=output.height-16;
+        const visible=g.getImageData(physical.x+8,physical.y+8,w,h).data;
+        const expected=outputContext.getImageData(8,8,w,h).data;
+        let changed=0;
+        for(let i=0;i<expected.length;i+=4)if(visible[i]!==expected[i]||visible[i+1]!==expected[i+1]||visible[i+2]!==expected[i+2])changed++;
+        return changed;
+      },{png:[...png],physical});
+      if(mismatches) {
+        fs.writeFileSync(path.join(out,`phone-raster-dpr${dpi}-${filter}.png`),png);
+        const debug=await page.evaluate(()=>({rect:output.getBoundingClientRect().toJSON(),raster:[output.width,output.height],expected:output.toDataURL()}));
+        fs.writeFileSync(path.join(out,`phone-raster-dpr${dpi}-${filter}-expected.png`),Buffer.from(debug.expected.split(',')[1],'base64'));
+        delete debug.expected;
+        fs.writeFileSync(path.join(out,`phone-raster-dpr${dpi}-${filter}.json`),JSON.stringify({physical,...debug}));
+      }
+      assert.equal(mismatches,0,`DPR ${dpi}/${filter}: final browser composition preserves the chosen raster filter`);
+      composited++;
+    }
     const policies=await page.evaluate(()=>{
       const result=[];
       for(const scale of [.75,1,1.25,2,4.5,5]) {
@@ -67,5 +105,5 @@ module.exports=async function({browser,root,out}) {
     if(dpi===3)await page.screenshot({path:path.join(out,'phone-physical-scaling-dpr3.png')});
     assert.deepEqual(errors,[]);await session.close();
   }
-  console.log(`PASS ${checks} browser scale, physical origin, checkerboard and touch cases`);
+  console.log(`PASS ${checks} scale/origin/touch cases and ${composited} final composited raster comparisons`);
 };

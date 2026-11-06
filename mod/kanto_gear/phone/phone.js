@@ -144,16 +144,17 @@ function fit() {
   const rasterW = Math.max(1, Math.ceil(w - 1e-7)), rasterH = Math.max(1, Math.ceil(h - 1e-7));
   const x = left + Math.floor((width - w) / 2 + 1e-7), y = top + Math.floor((height - h) / 2 + 1e-7);
   const cssWidth = `${rasterW / dpi}px`, cssHeight = `${rasterH / dpi}px`;
-  canvas.style.width = output.style.width = cssWidth;
-  canvas.style.height = output.style.height = cssHeight;
+  canvas.style.width = cssWidth; canvas.style.height = cssHeight;
   const lcd = canvas.parentElement;
   lcd.style.inset = "0 auto auto 0"; lcd.style.margin = "0";
-  // Translation retains sub-CSS-pixel precision at fractional display density;
-  // only the output raster's oversized scale layer is unnecessary.
+  // Translation retains the sub-CSS-pixel precision of the physical origin.
   lcd.style.transform = `translate(${x / dpi - rect.left}px, ${y / dpi - rect.top}px)`;
   lcd.style.width = cssWidth; lcd.style.height = cssHeight;
   if (output.width !== rasterW) output.width = rasterW;
   if (output.height !== rasterH) output.height = rasterH;
+  // CSS widths are quantized to layout units. Keep physical raster dimensions
+  // and apply the exact density ratio so whole device pixels stay whole.
+  output.style.transform = `scale(${1 / dpi})`;
   outputPlacement = { scale, width: w, height: h, dpi };
   paintOutput();
 }

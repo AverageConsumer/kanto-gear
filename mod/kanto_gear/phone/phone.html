@@ -304,6 +304,9 @@ body[data-theme^="cgear"] .lcd::before { border-radius: 4px; box-shadow: 0 0 0 2
 }
 #gear-output {
   position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
+  transform-origin: top left;
+  /* paintOutput already applies the selected filter; preserve that final raster. */
+  image-rendering: pixelated;
 }
 
 /* Button sizing: chosen size, shrunk for the screen only down to a finger-sized floor that grows with the chosen size. */
