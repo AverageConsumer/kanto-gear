@@ -575,7 +575,8 @@ return function(H, ui, draw)
         local left = gender and 19 + math.floor((202 - width - 14) / 2) or 19
         self:partyInfo(requirement, left, 169, colors.ink, width, "center")
         if gender then self:genderIcon(gender, left + width + 4, 169) end
-        self:partyType(selected.isEgg and translate("EGG") or selected.level and "L" .. tostring(selected.level) or translate("TALK TO NPC"),
+        self:partyType(selected.isEgg and translate("EGG")
+          or selected.level and self:levelText(selected.level) or translate("TALK TO NPC"),
           19, 190, colors.green, 202)
         return
       end
@@ -587,12 +588,6 @@ return function(H, ui, draw)
           colors.green, 58)
       end
       local detailRows = model.detailRows or {}
-      local function levels(appearance)
-        return not appearance.minLevel and "--" or appearance.minLevel == appearance.maxLevel
-          and "L" .. tostring(appearance.minLevel)
-          or "L" .. tostring(appearance.minLevel) .. "-"
-            .. tostring(appearance.maxLevel)
-      end
       if #detailRows == 1 then
         local appearance = detailRows[1]
         local status = appearance.blocked and "NEEDS TOOL" or appearance.current and "HERE NOW"
@@ -611,7 +606,7 @@ return function(H, ui, draw)
           { translate("TIME"), translate(appearance.time or "ANY TIME") },
           { translate("METHOD"), translate(appearance.method or "--") },
           { translate("CHANCE"), tostring(appearance.chance or "--") .. "%" },
-          { translate("LEVEL"), levels(appearance) },
+          { translate("LEVEL"), self:levelText(appearance.minLevel, appearance.maxLevel) },
         }
         for index, stat in ipairs(stats) do
           local x = 15 + (index - 1) * 53
@@ -640,7 +635,7 @@ return function(H, ui, draw)
             .. tostring(appearance.chance or "--") .. "%"
           self:partyType(self:fitPartyType(detail, 116), 17, y + 13,
             colors.green, 116)
-          self:partyInfo(levels(appearance), 166, y + 13,
+          self:partyInfo(self:levelText(appearance.minLevel, appearance.maxLevel), 166, y + 13,
             colors.ink, 55, "center")
         end
       end

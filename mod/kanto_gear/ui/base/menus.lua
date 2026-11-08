@@ -39,7 +39,7 @@ return function(H, ui, draw)
     end
   end
 
-  function H:partyInfoCentered(value, x, y, w, h, tint)
+  function H:partyInfoCentered(value, x, y, w, h, tint, padding)
     local advance, left, top, right, bottom = 0, math.huge, math.huge, -1, -1
     for _, char in ipairs(glyphs(value)) do
       local bounds = ui.smallFontMetrics and ui.smallFontMetrics[char]
@@ -54,7 +54,9 @@ return function(H, ui, draw)
       self:partyInfo(value, x + math.floor((w - (right - left + 1)) / 2) - left,
         y + math.floor((h - (bottom - top + 1)) / 2) - top, tint or self.colors.ink)
     else
-      self:partyInfo(value, x + 4, y + math.floor((h - 9) / 2) - 1, tint or self.colors.ink, w - 8, "center")
+      padding = padding or 4
+      self:partyInfo(value, x + padding, y + math.floor((h - 9) / 2) - 1,
+        tint or self.colors.ink, w - 2 * padding, "center")
     end
   end
 

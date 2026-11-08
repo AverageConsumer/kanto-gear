@@ -188,6 +188,8 @@ for (const file of ['phone.js','phone_decoder.js','phone.html']) new TextDecoder
   assert(await noHaptics.locator('#setting-haptics').isDisabled(), 'unsupported vibration cannot be toggled');
   await unsupported.close();
   assert.deepEqual(errors,[]);
+  await require('./phone_scaling_cases.cjs')({browser,root,out});
+  await require('./phone_fullscreen_cases.cjs')({browser,root,out});
   await browser.close();
   console.log('PASS browser pairing, multitouch, Dpad slide, Gear touch, modal, settings persistence, capabilities, haptics, UTF-8 and responsive geometry');
 })().catch(error => { console.error(error); process.exit(1); });

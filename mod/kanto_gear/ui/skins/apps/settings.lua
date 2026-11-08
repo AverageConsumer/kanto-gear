@@ -63,29 +63,7 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
         H.v4PagerKey(self, 136, 133, 32, 14, false, model.page < model.pages, true)
         self:partyInfoCentered(model.page .. "/" .. model.pages, 104, 133, 32, 12, colors.ink)
       end
-      -- Gen 4 text box with typewriter help and the blinking advance mark
-      self:v4MessageWindow(6, 150, 228, 62)
-      local lines = self:settingsHelpLines(translate(model.description or ""))
-      local key = tostring(model.option) .. ":" .. tostring(model.value)
-      local now = self:clock()
-      if self.v4HelpKey ~= key then self.v4HelpKey, self.v4HelpAt = key, now end
-      local shown = (self.motionEnabled == false or self.frozenTime) and math.huge
-        or floor((now - (self.v4HelpAt or now)) * 70)
-      local total, left, characters = 0, shown, {}
-      for index, line in ipairs(lines) do
-        characters[index] = ui.glyphs(line)
-        total = total + #characters[index]
-      end
-      local top = 150 + floor((62 - #lines * 9) / 2) - 1
-      for index, line in ipairs(lines) do
-        local chars = characters[index]
-        local part = left >= #chars and line
-          or table.concat(chars, "", 1, math.max(0, left))
-        left = left - #chars
-        if #part > 0 then self:partyInfo(part, 16, top + (index - 1) * 9 - 1, colors.ink) end
-      end
-      -- help text types itself out; no advance arrow, there is nothing to advance
-      if shown < total then self:wantAmbient(0.05, 1 / 30) end
+      self:v4SettingsHelp(model)
       return
     end
 
@@ -348,21 +326,97 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
     return true
   end
 
-  local function typewriter(self, text, key, x, y, w, h, maxLines)
-    local colors = self.colors
+  -- Keep complete help text; overflow moves inside the panel after a reading pause.
+  function H:settingsHelpModel(model)
+    local text, key, y, h
+    if model.option then
+      text, key, y, h = translate(model.description or ""), tostring(model.option) .. ":" .. tostring(model.value), 150, 62
+    else
+      local first, shown, selected = (model.page - 1) * 4 + 1, 0, nil
+      for visible = 0, 3 do
+        local row = model.rows[first + visible]
+        if row then
+          shown = visible + 1
+          if rowKey(row) == model.selected then selected = row end
+        end
+      end
+      y = shown < 4 and ROW_Y + shown * ROW_STEP + 4 or 168
+      h = 212 - y
+      if selected then
+        text = translate(selected.info or selected.description or "")
+        key = tostring(rowKey(selected)) .. ":" .. tostring(selected.raw) .. ":" .. tostring(model.confirm)
+      else
+        text, key = translate(model.detail or ""), "cat:" .. tostring(model.tab)
+        local only = shown == 1 and model.rows[first]
+        local about = only and (only.info or only.description)
+        if h >= 70 then
+          text = text .. "\n" .. translate(about and about ~= "" and about or "TAP A SETTING TO SEE WHAT IT DOES.")
+        end
+      end
+    end
     local lines = self:settingsHelpLines(text)
-    while #lines > (maxLines or 3) do table.remove(lines) end
+    local capacity = max(1, floor((h - 10) / 11))
+    key = key .. ":" .. text .. ":" .. capacity
+    local now = self:clock()
+    if self.v4HelpContentKey ~= key then
+      self.v4HelpContentKey, self.v4HelpStarted = key, now
+    end
+    local extra = max(0, #lines - capacity)
+    -- Reduced motion changes one complete line at a time. Reading access is
+    -- independent of decorative animation and Performance mode.
+    local step = self.motionEnabled == false or self.ambientEnabled == false
+    local travel = extra * (step and 3 or 11 / 6)
+    local cycle = 4 + travel + 4
+    local elapsed = self.v4HelpPreviewElapsed or max(0, now - (self.v4HelpStarted or now))
+    local phase = elapsed % cycle
+    local offset, delay = 0, nil
+    if extra > 0 then
+      if phase < 4 then delay = 4 - phase
+      elseif phase < 4 + travel then
+        local moving = phase - 4
+        if step then
+          offset = min(extra, floor(moving / 3)) * 11
+          delay = 3 - moving % 3
+        else
+          offset = min(extra * 11, floor(moving * 6))
+          delay = (offset + 1) / 6 - moving
+        end
+      else offset, delay = extra * 11, cycle - phase end
+    end
+    return { lines = lines, key = key, capacity = capacity, y = y, h = h,
+      offset = offset, maxOffset = extra * 11, delay = delay, cycle = cycle }
+  end
+
+  function H:settingsHelpDue(now)
+    if not self.v4HelpNextAt or now < self.v4HelpNextAt then return false end
+    self.v4HelpNextAt = nil
+    return true
+  end
+
+  function H:v4SettingsHelp(model)
+    local help = self:settingsHelpModel(model)
+    local colors, lines, key = self.colors, help.lines, help.key
+    local x, y, w, h = 6, help.y, 228, help.h
+    self:v4MessageWindow(x, y, w, h)
     local now = self:clock()
     if self.v4HelpKey ~= key then self.v4HelpKey, self.v4HelpAt = key, now end
-    local shown = (self.motionEnabled == false or self.frozenTime) and math.huge
+    local shown = (help.maxOffset > 0 or self.motionEnabled == false or self.frozenTime) and math.huge
       or floor((now - (self.v4HelpAt or now)) * 70)
     local total, left, characters = 0, shown, {}
     for index, line in ipairs(lines) do
       characters[index] = ui.glyphs(line)
       total = total + #characters[index]
     end
-    -- a tall help panel reads from the top like a message window
-    local top = (maxLines or 3) > 3 and y + 9 or y + floor((h - #lines * 11) / 2)
+    local top = y + floor((h - min(#lines, help.capacity) * 11) / 2) - help.offset
+    local G = ui.graphics
+    G.push("all")
+    local clipLeft, upper, right, bottom = x + 10, y + 5, x + w - 10, y + h - 5
+    if G.transformPoint then
+      clipLeft, upper = G.transformPoint(clipLeft, upper)
+      right, bottom = G.transformPoint(right, bottom)
+    end
+    if G.intersectScissor then G.intersectScissor(clipLeft, upper, right - clipLeft, bottom - upper)
+    else G.setScissor(clipLeft, upper, right - clipLeft, bottom - upper) end
     for index, line in ipairs(lines) do
       local chars = characters[index]
       local part = left >= #chars and line
@@ -370,6 +424,8 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
       left = left - #chars
       if #part > 0 then self:partyInfo(part, x + 10, top + (index - 1) * 11 - 1, colors.ink) end
     end
+    G.pop()
+    self.v4HelpNextAt = help.delay and not self.frozenTime and now + max(0.01, help.delay) or nil
     if shown < total then self:wantAmbient(0.05, 1 / 30) end
   end
 
@@ -421,7 +477,6 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
     end
     -- rows
     local first = (model.page - 1) * 4 + 1
-    local selectedRow
     -- switching category cascades the rows in from the right
     local enter = self:v4Enter("settings_rows", tostring(model.tab) .. ":" .. tostring(model.page), 0.26)
     local G = ui.graphics
@@ -434,7 +489,6 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
         local y = ROW_Y + visible * ROW_STEP
         local enabled = row.enabled ~= false
         local selected = model.selected ~= nil and rowKey(row) == model.selected
-        if selected then selectedRow = row end
         local pressed = self:beginPress(7, y, 226, ROW_H, enabled and not selected)
         self:v4Window(7, y, 226, ROW_H, { radius = 3, shadow = false,
           fill = selected and mix(colors.surface, accent, self.dark and 0.2 or 0.12) or nil })
@@ -474,30 +528,7 @@ return function(ART, CAT_GLYPH, CH, CIRC, H, K, R, RR, RRrows, WHITE, base, cg, 
       end
       if row and dx ~= 0 then G.pop() end
     end
-    -- help panel: it rises to meet the last row, so a short category
-    -- (Exploration, Controls, System) gets a full explainer, not a gap
-    local shownRows = 0
-    for visible = 0, 3 do if model.rows[first + visible] then shownRows = visible + 1 end end
-    local helpY = shownRows < 4 and ROW_Y + shownRows * ROW_STEP + 4 or 168
-    local helpH = 212 - helpY
-    self:v4MessageWindow(6, helpY, 228, helpH)
-    local text, key
-    if selectedRow then
-      text = translate(selectedRow.info or selectedRow.description or "")
-      key = tostring(rowKey(selectedRow)) .. ":" .. tostring(selectedRow.raw) .. ":" .. tostring(model.confirm)
-    else
-      text = translate(model.detail or "")
-      local only = shownRows == 1 and model.rows[first]
-      local about = only and (only.info or only.description)
-      if helpH >= 70 and about and about ~= "" then
-        -- a one-setting category explains that setting straight away
-        text = text .. "\n" .. translate(about)
-      elseif helpH >= 70 then
-        text = text .. "\n" .. translate("TAP A SETTING TO SEE WHAT IT DOES.")
-      end
-      key = "cat:" .. tostring(model.tab)
-    end
-    typewriter(self, text, key, 6, helpY, 228, helpH, max(3, floor((helpH - 10) / 11)))
+    self:v4SettingsHelp(model)
   end
 
   function H:v4SettingsTabbedHit(x, y, model)

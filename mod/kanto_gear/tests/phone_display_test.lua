@@ -36,7 +36,8 @@ local runtime = { timer = { getTime = function() return now end },
       return "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
     end,
   } }
-local mod = { read = function(_, name)
+local integerScaling = false
+local mod = { options = { get = function(_, key) return key == "integer_scaling" and integerScaling end }, read = function(_, name)
   assert(name == "phone/phone.html" or name == "phone/phone.js" or name == "phone/phone_decoder.js")
   return name == "phone/phone.html" and "<html>Gear</html>" or "/* phone controller */"
 end }
@@ -152,6 +153,12 @@ assert(cross.closed and not phone:detected())
 local rebinding = sock(); rebinding.input = request("/"):gsub("Host: 127.0.0.1", "Host: attacker.example")
 incoming[1] = rebinding; phone:poll(); assert(rebinding.closed)
 local c = connect(phone)
+assert(phone.bridge.scalingAvailable(), "the browser backend supports explicit scaling")
+phone:poll()
+assert(c.output:find("s,0",1,true), "the default fit policy is sent at authentication")
+integerScaling = true; phone:poll()
+assert(c.output:find("s,1",1,true), "changing integer scaling updates a connected browser")
+integerScaling = false; phone:poll()
 assert(c.output:find("101 Switching Protocols", 1, true))
 assert(hashInput == "dGhlIHNhbXBsZSBub25jZQ==258EAFA5-E914-47DA-95CA-C5AB0DC85B11" and encodeInput == "hash")
 phone:poll()

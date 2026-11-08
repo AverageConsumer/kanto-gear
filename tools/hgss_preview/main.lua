@@ -61,7 +61,6 @@ local languages = {
     homeTrainer = "TRAINER", homeStore = "STORE", homeNotes = "NOTES",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
-    types = {},
   },
 }
 local languageCode = os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "en"
@@ -71,6 +70,8 @@ local I18N = assert(loadfile(root .. "/mod/kanto_gear/i18n/init.lua"))()
 local i18n = I18N.new(function(code)
   return assert(loadfile(root .. "/mod/kanto_gear/i18n/catalogs/" .. code .. ".lua"))()
 end, function() return languageCode end)
+local _, _, labelTheme = assert(loadfile(root .. "/mod/kanto_gear/core/theme.lua"))()()
+labelTheme.i18n = i18n
 local function translate(value)
   return i18n:text(value)
 end
@@ -107,8 +108,8 @@ for slot, mon in ipairs(party) do
   mon.name = language.names[slot]
   mon.hpLabel = translate(language.hp)
   mon.expLabel = translate(language.exp)
-  mon.typeLabel = language.types[mon.type] or mon.type
-  mon.type2Label = language.types[mon.type2] or mon.type2
+  mon.typeLabel = labelTheme:typeName(mon.type)
+  mon.type2Label = labelTheme:typeName(mon.type2)
 end
 
 local previewPokerus = os.getenv("KANTO_GEAR_PREVIEW_POKERUS")
@@ -127,6 +128,7 @@ if os.getenv("KANTO_GEAR_PREVIEW_STATUSES") == "all" then
     end
   end
 end
+for _, mon in ipairs(party) do mon.statusLabel = labelTheme:statusName(mon.statusId) end
 
 local species = { 160, 189, 17, 28, 96, 128 }
 
@@ -171,12 +173,12 @@ function love.load()
     local result = love.graphics.newImageFont(data, fontGlyphs)
     result:setFilter("nearest", "nearest")
     local metrics
-    if name == "ui/fonts/hgss_small_font.png" then
+    if name == "ui/fonts/hgss_small_font.png" or name == "ui/fonts/hgss_font.png" then
       metrics = assert(loadfile(root .. "/mod/kanto_gear/ui/fonts/metrics.lua"))()(data,glyphs(fontGlyphs))
     end
     return result, metrics
   end
-  local font = imageFont("ui/fonts/hgss_font.png")
+  local font, fontMetrics = imageFont("ui/fonts/hgss_font.png")
   local smallFont, smallMetrics = imageFont("ui/fonts/hgss_small_font.png")
   local largeFont = imageFont("ui/fonts/hgss_large_font.png")
   local translationFonts = assert(loadfile(root .. "/mod/kanto_gear/i18n/fonts.lua"))().new(
@@ -195,9 +197,10 @@ function love.load()
     pokedexPage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/pokedex.lua"))(),
     partyPage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/party.lua"))(),
     itemPage = assert(loadfile(root .. "/mod/kanto_gear/ui/pages/item.lua"))(),
-    fit = fit, glyphs = glyphs, color = color, font = font,
+    fit = fit, glyphs = glyphs, color = color, font = font, fontMetrics = fontMetrics,
     smallFont = smallFont, smallFontMetrics = smallMetrics, largeFont = largeFont,
     translate = translate, format = format,
+    typeShortName = function(id, label) return labelTheme:typeShortName(id, label) end,
     translationFonts = translationFonts,
   }
   local theme = chunk()(previewUi, function(name)
@@ -213,6 +216,27 @@ function love.load()
   theme.previewEnter = tonumber(os.getenv("KANTO_GEAR_PREVIEW_ENTER"))
   theme:setSkin(os.getenv("KANTO_GEAR_PREVIEW_SKIN") or "pokegear")
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  if screen == "party" then
+    theme:v4Caps(function()
+      for key, name in pairs(i18n.catalogs[i18n:language()]) do
+        local id = key:match("^TYPE|(.+)$")
+        if id then
+          local short = assert(labelTheme:typeShortName(id, name), "missing compact type " .. id)
+          assert(#glyphs(short) <= 3 and theme:partyInfoWidth(short) <= 18,
+            "compact type does not fit the dual badge: " .. id .. " (" .. short .. ")")
+        end
+        local status = key:match("^STATUS SHORT|(.+)$")
+        if status then
+          assert(labelTheme:statusName(status) == name and theme:partyInfoWidth(name) <= 18,
+            "status label does not fit its badge: " .. status .. " (" .. name .. ")")
+        end
+      end
+    end)
+  end
+  if os.getenv("KANTO_GEAR_PREVIEW_CLOCK_CHECK") == "1" then
+    assert(loadfile(root .. "/tools/hgss_preview/clock.lua"))()(theme,
+      os.getenv("KANTO_GEAR_CLOCK_CHECK_OUT"))
+  end
   if os.getenv("KANTO_GEAR_PREVIEW_FONT_CHECK") == "1" then
     assert(loadfile(root .. "/tools/hgss_preview/lettering.lua"))()(root,
       translationFonts, { font, smallFont, largeFont }, fontGlyphs, theme)
@@ -810,6 +834,8 @@ function love.load()
     or settingsBattle and "BATTLE"
     or settingsResearch and "RESEARCH"
     or (settingsNotifications or noticeHistory) and "NOTIFICATIONS"
+    or screen == "settings_option" and os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "integer_scaling" and "INTEGER SCALING"
+    or screen == "settings_option" and os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "image_filter" and "IMAGE FILTER"
     or settings and "SETTINGS"
     or os.getenv("KANTO_GEAR_PREVIEW_CONTEXT") == "item"
       and language.useItemOn
@@ -1579,8 +1605,10 @@ function love.load()
       }
     end
     if os.getenv("KANTO_GEAR_PREVIEW_MOVE_NAMES") == "pt-br" then
+      local types = { "POISON", "BUG", "NORMAL", "NORMAL" }
       for index, name in ipairs({ "FERRÃO VENENOSO", "ESTILINGADA", "ENDURECER", "ATAQUE DE FÚRIA" }) do
         mon.moves[index].name = name
+        mon.moves[index].type = types[index]
       end
     end
     if os.getenv("KANTO_GEAR_PREVIEW_MOVE_NAMES") == "pt-br-accents" then
@@ -1591,6 +1619,7 @@ function love.load()
         { name = "ONDA DE TROVÃO", type = "ELECTRIC", typeLabel = "ELÉTRICO", ppText = "20/20", powerText = "--", accuracyText = "100" },
       }
     end
+    for _, move in ipairs(mon.moves) do move.typeLabel = labelTheme:typeName(move.type) end
     return mon
   end
   local function battleBagData()
@@ -2017,12 +2046,12 @@ function love.load()
         special = 13 },
       weak = {
         { type = "ELECTRIC", typeLabel = "ELECTRIC", effectLabel = "2X" },
-        { type = "GRASS", typeLabel = language.types.GRASS or "GRASS",
+        { type = "GRASS", typeLabel = labelTheme:typeName("GRASS"),
           effectLabel = "2X" },
       },
       resist = {
         { type = "FIRE", typeLabel = "FIRE", effectLabel = "1/2" },
-        { type = "WATER", typeLabel = language.types.WATER or "WATER",
+        { type = "WATER", typeLabel = labelTheme:typeName("WATER"),
           effectLabel = "1/2" },
         { type = "ICE", typeLabel = "ICE", effectLabel = "1/2" },
       },
@@ -2323,13 +2352,16 @@ function love.load()
       },
       display = {
         { key = "display_mode", label = "DISPLAY MODE", value = "COMBINED SCREEN" },
+        { key = "integer_scaling", label = "INTEGER SCALING", value = "OFF", raw = false,
+          choices = { { "OFF", false }, { "ON", true } },
+          info = "Use whole-pixel enlargement for Gear. Off fits the available space. Small areas always show the complete image." },
         { key = "combined_layout", label = "LAYOUT", value = "SIDE BY SIDE" },
         { key = "combined_primary", label = "PRIMARY VIEW", value = "GAME" },
         { key = "secondary_size", label = "SECONDARY SIZE", value = "40%" },
       },
       battle = {
-        { key = "battle_view", label = "BATTLE VIEW", value = "STANDARD", raw = "standard", choices = { { "STD", "standard" }, { "GEAR", "gear" }, { "FULL", "full" } }, info = "Which screen shows battles." },
-        { key = "auto_battle_screen", label = "AUTO SCREEN", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
+        { key = "battle_view", label = "BATTLE VIEW", value = "COMPANION", raw = "standard", choices = { { "COMPANION", "standard" }, { "INFO", "info" }, { "GEAR", "gear" }, { "FULL GEAR", "full" } } },
+        { key = "auto_battle_screen", label = "AUTO BATTLE SCREEN", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
         { key = "caught_icon", label = "CAUGHT ICON", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
         { key = "type_hints", label = "TYPE HINTS", value = "ON", raw = true, choices = { { "OFF", false }, { "ON", true } } },
       },
@@ -2355,11 +2387,17 @@ function love.load()
     })[which] or {
       { key = "info_level", label = "INFO", value = "ENHANCED", raw = "enhanced", choices = { { "VANILLA", "purist" }, { "MORE", "enhanced" }, { "ALL", "spoiler" } } },
     }
+    local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
+    for _, row in ipairs(rows) do row.info = info.help[row.key or row.action] or row.info end
+    if which == "battle" and os.getenv("KANTO_GEAR_PREVIEW_ROWS") == "3" then rows[4] = nil end
     local sel = tonumber(os.getenv("KANTO_GEAR_PREVIEW_SELECT") or "")
     local selected = sel and rows[sel] and (rows[sel].key or rows[sel].action) or nil
-    theme:settings({ category = which, label = TABS[tab].label, detail = TABS[tab].detail, accent = TABS[tab].accent,
+    local model = { category = which, label = TABS[tab].label, detail = TABS[tab].detail, accent = TABS[tab].accent,
       tabs = TABS, tab = tab, rows = rows, page = 1, pages = #rows > 4 and 2 or 1, selected = selected,
-      confirm = which == "system" and sel == 4 and "reset_options" or nil })
+      confirm = which == "system" and sel == 4 and "reset_options" or nil }
+    theme:settingsHelpModel(model)
+    theme.v4HelpPreviewElapsed = tonumber(os.getenv("KANTO_GEAR_PREVIEW_HELP_ELAPSED")) or 0
+    theme:settings(model)
   elseif settingsRoot and false then
     theme:settings({ categories = {
       { label = "APPEARANCE", detail = "THEME AND TRANSITIONS",
@@ -2414,6 +2452,17 @@ function love.load()
           { "ENGLISH", "en" }, { "DEUTSCH", "de" }, { "ESPANOL", "es" }, { "FRANCAIS", "fr" },
           { "JAPANESE", "ja" }, { "ITALIANO", "it" }, { "PORTUGUES (BR)", "pt-BR" },
         }, value = languageCode, page = page, pages = 2 })
+    elseif os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "image_filter" then
+      local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
+      theme:settings({ category = "option", option = "image_filter", label = "IMAGE FILTER", accent = "green",
+        description = info.help.image_filter, choices = { { "AUTO", "auto" }, { "NEAREST", "nearest" },
+          { "BILINEAR", "bilinear" }, { "SHARP BILINEAR", "sharp" } },
+        value = "auto", page = 1, pages = 1 })
+    elseif os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "integer_scaling" then
+      local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
+      theme:settings({ category = "option", option = "integer_scaling", label = "INTEGER SCALING", accent = "green",
+        description = info.help.integer_scaling, choices = { { "OFF", false }, { "ON", true } },
+        value = os.getenv("KANTO_GEAR_PREVIEW_INTEGER") == "1", page = 1, pages = 1 })
     elseif os.getenv("KANTO_GEAR_PREVIEW_OPTION") == "display_mode" then
       local info = assert(loadfile(root .. "/mod/kanto_gear/core/settings_info.lua"))()
       theme:settings({ category = "option", option = "display_mode", label = "DISPLAY MODE", accent = "green",
@@ -3252,6 +3301,7 @@ function love.load()
     local slot = gen1 and 6 or 1
     local player = party[slot]
     player.statusId = gen1 and "SLP" or nil
+    player.statusLabel = labelTheme:statusName(player.statusId)
     player.hpText = string.format("%d/%d", player.hp, player.maxHp)
     player.levelText = player.levelText or "L" .. tostring(player.level or 0)
     local enemy = {
@@ -3262,7 +3312,7 @@ function love.load()
       hp = gen1 and 88 or 31,
       maxHp = gen1 and 126 or 45,
       statusId = "PAR",
-      statusLabel = "PAR",
+      statusLabel = labelTheme:statusName("PAR"),
       caught = true,
     }
     local function portrait(subject, x, y, size, fainted)

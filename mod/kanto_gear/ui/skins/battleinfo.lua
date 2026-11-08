@@ -69,11 +69,11 @@ return function(H, ui, K)
     for i = 1, shown do
       local row = rows[i]
       local col, line = (i - 1) % 2, floor((i - 1) / 2)
-      local px, py = x + col * 50, y + line * 13
+      local px, py = x + col * 50, y + line * 14
       self:v4TypePill(row.type, row.typeLabel or row.type, px, py, 30)
       self:partyInfo(row.effectLabel or "", px + 32, py - 2, effectColor(row.effectLabel))
     end
-    if #rows > 4 then self:partyInfo("+" .. tostring(#rows - 4), x + w - 14, y + 26, colors.mutedInk) end
+    if #rows > 4 then self:partyInfo("+" .. tostring(#rows - 4), x + w - 14, y + 28, colors.mutedInk) end
   end
 
   function H:enemyInfoOverview(model)
@@ -265,7 +265,7 @@ return function(H, ui, K)
     local other = weak and (mon.resist or {}) or (mon.weak or {})
     if #other > 0 then
       local lines = math.ceil(min(#other, 8) / 4)
-      local h = 17 + lines * 13
+      local h = 16 + lines * 14
       local top = y + 4
       if top + h <= 211 then
         local oc = weak and BLUE or RED
@@ -275,7 +275,7 @@ return function(H, ui, K)
         for j = 1, min(#other, 8) do
           local row = other[j]
           local col, line = (j - 1) % 4, floor((j - 1) / 4)
-          local px, py = 13 + col * 54, top + 16 + line * 13
+          local px, py = 13 + col * 54, top + 16 + line * 14
           self:v4TypePill(row.type, row.typeLabel or row.type, px, py, 30)
           self:partyInfo(row.effectLabel or "", px + 32, py - 2, effectColor(row.effectLabel))
         end

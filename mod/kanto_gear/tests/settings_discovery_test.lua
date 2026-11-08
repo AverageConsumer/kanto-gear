@@ -76,6 +76,41 @@ local function exercise(run, display)
   local game = up(display.pokedexData, "game")
   local id = up(display.homeRegionMap, "mapId") or "HERE"
   up(display.homeRegionMap, "mapId", id, true)
+  local function verifyHelp(model)
+    local layout = theme.hgss
+    local clock, elapsed = layout.clock, 0
+    layout.clock = function() return elapsed end
+    layout.v4HelpContentKey, layout.v4HelpPreviewElapsed = nil, nil
+    local first = layout:settingsHelpModel(model)
+    T.eq(first.offset, 0, "new help starts at its beginning")
+    local seen, extra = {}, math.max(0, #first.lines - first.capacity)
+    local step = layout.motionEnabled == false or layout.ambientEnabled == false
+    local seconds = step and 3 or 11 / 6
+    for line = 0, extra do
+      elapsed = line == 0 and 0 or 4 + line * seconds + 0.001
+      local help = layout:settingsHelpModel(model)
+      T.eq(help.offset, line * 11, "automatic scroll reaches every complete line")
+      T.check(help.offset <= help.maxOffset, "scroll never moves past the final line")
+      for index = line + 1, math.min(line + help.capacity, #help.lines) do seen[index] = true end
+      T.eq(layout:settingsHit(120, help.y + help.h - 10, model), nil, "help has no manual paging control")
+    end
+    for index in ipairs(first.lines) do T.check(seen[index], "every help line becomes fully visible") end
+    if extra > 0 then
+      elapsed = 3.99
+      T.eq(layout:settingsHelpModel(model).offset, 0, "initial reading pause keeps text still")
+      elapsed = first.cycle - 0.01
+      T.eq(layout:settingsHelpModel(model).offset, first.maxOffset, "final reading pause keeps the ending visible")
+      elapsed = first.cycle + 0.01
+      T.eq(layout:settingsHelpModel(model).offset, 0, "help loops back to its beginning")
+      elapsed = 4 + extra * seconds
+      local changed = {}
+      for k, v in pairs(model) do changed[k] = v end
+      if changed.option then changed.description = "A different explanation."
+      else changed.selected = nil; changed.detail = "A different explanation." end
+      T.eq(layout:settingsHelpModel(changed).offset, 0, "changed content restarts at the beginning")
+    else T.eq(first.delay, nil, "fitting help needs no scroll repaints") end
+    layout.clock = clock
+  end
   api.options:set("info_level", "enhanced")
   display.settings.category, display.settings.option, display.settings.selected = nil, nil, nil
   T.eq(display.settingsModel().tab, 1, "Settings opens on its first tab instead of a submenu list")
@@ -97,7 +132,12 @@ local function exercise(run, display)
       for _, language in ipairs({ "en", "de", "es", "fr", "ja", "it", "pt-BR" }) do
         api.options:set("language", language)
         local lines = theme.hgss:settingsHelpLines(theme:translate(detail.description))
-        T.check(#lines <= 6, "complete help fits its panel in " .. language .. ": " .. detail.option)
+        verifyHelp(detail)
+        display.settings.option = nil
+        local tabbed = display.settingsModel()
+        tabbed.selected = row.key or row.action
+        verifyHelp(tabbed)
+        display.settings.option = row.key or row.action
         for _, line in ipairs(lines) do
           T.eq(theme.hgss:fitPartyType(line, 210), line, "help never needs clipping")
         end
@@ -119,6 +159,31 @@ local function exercise(run, display)
       display.settings.option = nil
     end
   end
+  display.settings.category, display.settings.page, display.settings.option = 2, 1, nil
+  display.settings.selected = "display_mode"
+  api.options:set("language", "pt-BR")
+  local help = theme.hgss:settingsHelpModel(display.settingsModel())
+  T.check(help.maxOffset > 0, "screen-mode regression fixture needs scrolling")
+  local layout = theme.hgss
+  local mode, motion, ambient, frozen, clock = api.options:get("display_mode"), layout.motionEnabled,
+    layout.ambientEnabled, layout.frozenTime, layout.clock
+  local now = 100
+  layout.motionEnabled, layout.ambientEnabled, layout.frozenTime = false, false, nil
+  layout.clock = function() return now end
+  layout.v4HelpContentKey = nil
+  layout:v4SettingsHelp(display.settingsModel())
+  T.check(not layout:settingsHelpDue(103.99), "reading pause does not repaint early")
+  T.check(layout:settingsHelpDue(104), "help timer runs with Performance mode and motion disabled")
+  now = 107.01
+  layout:v4SettingsHelp(display.settingsModel())
+  T.eq(layout:settingsHelpModel(display.settingsModel()).offset, 11,
+    "reduced motion advances one complete line automatically")
+  T.check(layout.v4HelpNextAt > now, "drawing schedules the next content update")
+  display.tapSettings(120, help.y + help.h - 10)
+  T.eq(api.options:get("display_mode"), mode, "static help touch cannot change screen mode")
+  T.eq(layout:settingsHelpModel(display.settingsModel()).offset, 11, "help touch does not scroll or restart text")
+  layout.motionEnabled, layout.ambientEnabled, layout.frozenTime, layout.clock = motion, ambient, frozen, clock
+  api.options:set("language", "en")
   display.settings.category, display.settings.page, display.settings.option = 4, 1, nil
   display.settings.selected = nil
   local before = api.options:get("info_level")

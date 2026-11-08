@@ -51,7 +51,7 @@ return function(H, ui, draw, icons)
       self:partyInfo(translate("WILD"), WILD_LEFT, 3, colors.green,
         WILD_WIDTH, "center")
       local detail = tostring(enemyTeam.name or translate("POKEMON"))
-      if enemyTeam.level then detail = detail .. " L" .. enemyTeam.level end
+      if enemyTeam.level then detail = detail .. " " .. self:levelText(enemyTeam.level) end
       self:partyInfo(self:fitPartyInfo(detail, WILD_WIDTH),
         WILD_LEFT, 15, colors.ink, WILD_WIDTH, "center")
     else

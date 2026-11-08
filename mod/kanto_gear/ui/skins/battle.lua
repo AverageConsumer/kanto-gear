@@ -311,13 +311,19 @@ return function(H, ui, K)
     local lum = a.L[1] * 0.3 + a.L[2] * 0.59 + a.L[3] * 0.11
     local label = lum > 0.45 and mix(a.D, { 0, 0, 0, 1 }, 0.15) or mix(a.Hi, WHITE, 0.2)
     local wellLabel = mix(a.Hi, WHITE, 0.2)
-    RR(x + 7, y + 20, 44, 10, 3, mix(a.D, { 0, 0, 0, 1 }, 0.25))
-    RR(x + 8, y + 21, 42, 8, 2, a.D)
-    local typeText = self:fitPartyInfo(move.typeLabel or move.type or "---", 40)
-    self:partyInfo(typeText, x + 7 + floor((44 - self:partyInfoWidth(typeText)) / 2) + 1, y + 18, WHITE)
-    self:withoutShadow(self.partyInfo, self, move.ppLabel or translate("PP"), x + 55, y + 19, label)
+    local ppLabel, ppText = move.ppLabel or translate("PP"), move.ppText or "--"
+    local typeWidth = self:v4Caps(function()
+      return self:partyInfoWidth(move.typeLabel or move.type or "---")
+    end)
+    -- The badge starts at 7, the PP value ends at 105, and the two gaps use 7 pixels.
+    local room = 105 - 7 - 7 - self:partyInfoWidth(ppLabel) - self:partyInfoWidth(ppText)
+    local badgeWidth = max(44, min(typeWidth + 3, room))
+    RR(x + 7, y + 19, badgeWidth, 13, 3, mix(a.D, { 0, 0, 0, 1 }, 0.25))
+    RR(x + 8, y + 20, badgeWidth - 2, 11, 2, a.D)
+    self:drawTypeBadgeLabel(move.type, move.typeLabel, x + 7, y + 19, badgeWidth, 13, WHITE)
+    self:withoutShadow(self.partyInfo, self, ppLabel, x + 11 + badgeWidth, y + 20, label)
     local ppLow = move.pp and move.maxPp and move.maxPp > 0 and move.pp / move.maxPp <= 0.25
-    self:partyInfo(move.ppText or "--", x + 70, y + 19,
+    self:partyInfo(ppText, x + 70, y + 20,
       disabled and colors.redLight or (ppLow and hex("f8e070") or ink), 35, "right")
     RR(x + 5, y + 37, 102, 14, 3, mix(a.D, { 0, 0, 0, 1 }, 0.2))
     RR(x + 6, y + 38, 100, 12, 2, mix(a.D, a.M, 0.25))
@@ -592,7 +598,7 @@ return function(H, ui, K)
     self:v4Seat(x + 4, y + 21, 52, fainted)
     drawPortrait(mon, x + 5, y + 22, 50, fainted)
     local infoX, infoW = x + 62, w - 69
-    if mon.statusId then self:v4StatusPill(mon.statusId, infoX, y + 24) end
+    if mon.statusId then self:v4StatusPill(mon.statusId, infoX, y + 24, mon.statusLabel) end
     if not player and not mon.statusId and mon.statusLabel and mon.statusLabel ~= "" then
       self:partyInfo(mon.statusLabel, infoX + 26, y + 22, colors.mutedInk, max(0, infoW - 26), "right")
     end
@@ -626,9 +632,9 @@ return function(H, ui, K)
     self:partyInfo(level, x + 107 - lw, y + 1, player and colors.green or colors.mutedInk)
     self:v4HpBar(x + 35, y + 14, 72, mon.hp, mon.maxHp)
     -- EXP shares the HP bar's bottom outline, under the bar (not the tag)
-    local tag = cg(self) and 12 or 14
+    local tag = mon.statusId and 22 or (cg(self) and 12 or 14)
     if player and mon.expProgress then self:expBar(x + 35 + tag, y + 20, 72 - tag, mon.expProgress) end
-    if mon.statusId then self:v4StatusPill(mon.statusId, x + 35, y + 27) end
+    if mon.statusId then self:v4StatusPill(mon.statusId, x + 35, y + 25, mon.statusLabel) end
     if player then self:partyInfo(mon.hpText or "--/--", x + 58, y + 24, colors.ink, 49, "right") end
   end
 
@@ -732,7 +738,7 @@ return function(H, ui, K)
           self:partyInfo(move.disabledLabel or "", x + 7, y + 22, WHITE)
         else
           RR(x + 6, y + 23, 44, 11, 2, a.D)
-          self:partyInfo(self:fitPartyInfo(move.typeLabel or move.type or "", 40), x + 6, y + 21, WHITE, 44, "center")
+          self:drawTypeBadgeLabel(move.type, move.typeLabel, x + 6, y + 23, 44, 11, WHITE)
           self:fullMoveMatchup(move, x + 52, y + 23, a)
         end
         self:partyInfo(move.ppText or "", x + w - 49, y + 21, ink, 42, "right")

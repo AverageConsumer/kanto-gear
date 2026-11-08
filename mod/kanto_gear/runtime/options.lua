@@ -124,6 +124,11 @@ return function(
         { "SEPARATE SCREENS", "separate" },
         { "PHONE / BROWSER", "phone" },
       } },
+    { key = "integer_scaling", label = "INTEGER SCALING", type = "toggle", default = false },
+    { key = "image_filter", label = "IMAGE FILTER", type = "choice", default = "auto", choices = {
+      { "AUTO", "auto" }, { "NEAREST", "nearest" },
+      { "BILINEAR", "bilinear" }, { "SHARP BILINEAR", "sharp" },
+    } },
     { key = "fullscreen_start", label = "START SCREEN", type = "choice",
       default = "game", visible_if = {
         key = "display_mode", equals = "fullscreen",

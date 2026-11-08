@@ -137,9 +137,8 @@ return function(
     local name = fit(mon.name or mon.species or "-", owned and 10 or 11)
     text(name, 9, y + 5, render.INK)
     if owned then drawCaughtBall(11 + THEME:textWidth(name), y + 5) end
-    local status = (mon.hp or 0) <= 0 and "FNT"
-      or THEME:statusName(mon.status, mod.content)
-    if status then text(fit(status, 3), 100, y + 5, render.DARK) end
+    local status = THEME:statusName((mon.hp or 0) <= 0 and "FNT" or mon.status, mod.content)
+    if status then text(fit(status, 4), 100, y + 5, render.DARK) end
     text(fit(THEME:format("L%d", mon.level or 0), 4), 124, y + 5, render.DARK)
     text(THEME:translate("HP"), 9, y + 24, render.DARK)
     drawFullBattleHpBar(28, y + 24, 68, mon.hp, mon.maxHp)

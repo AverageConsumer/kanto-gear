@@ -102,6 +102,7 @@ return function(
         end
       end
       if payload.key == "display_mode"
+          or payload.key == "integer_scaling"
           or payload.key == "fullscreen_start"
           or payload.key == "combined_layout"
           or payload.key == "combined_primary"

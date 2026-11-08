@@ -346,20 +346,46 @@ return function(H, ui, K)
   end
   K.periodIcon = periodIcon
 
+  local function clockTextBounds(value, metrics, advance, height)
+    local cursor, left, top, right, bottom = 0, math.huge, math.huge, -1, -1
+    for _, ch in ipairs(ui.glyphs(value)) do
+      local bounds = metrics and metrics[ch]
+      if not bounds then return 0, 0, advance, height end
+      if bounds.right >= 0 then
+        left, right = min(left, cursor + bounds.left), max(right, cursor + bounds.right)
+        top, bottom = min(top, bounds.top), max(bottom, bounds.bottom)
+      end
+      cursor = cursor + bounds.advance
+    end
+    if right < 0 then return 0, 0, 0, 0 end
+    return left, top, right - left + 1, bottom - top + 1
+  end
+
+  local function clockPeriod(period)
+    period = tostring(period or ""):upper()
+    if period == "DAY" or period == "NITE" then return period, 0, 7 end
+    if period == "MORN" then return period, 1, 4 end
+  end
+
   function H:headerClock(value, period, left, width, y)
     value = tostring(value or "")
     local tok = self.tok
     local digits, suffix = value:match("^([%d:]+)%s*(.*)$")
     digits = digits or value
+    local icon, iconTop, iconHeight = clockPeriod(period)
     -- Cached frames can outlive a blink phase; keep the time readable at rest.
     if cg(self) then
-      local w = self:labelWidth(value)
-      local iconW = period and 10 or 0
-      local x = left + floor((width - w - iconW) / 2) + 6
-      self:label(value, x, y - 3, self.colors.ink)
-      if period then
-        periodIcon(period, x + w + 4, y + 1,
-          tostring(period):upper() == "NITE" and tok.acc.M or hex("f0a020"))
+      local bearing, top, w, h = clockTextBounds(value, ui.fontMetrics,
+        self:labelWidth(value), ui.font and ui.font:getHeight() or 12)
+      local shadow = self.textShadow ~= false and not self.shadowSuspended and 1 or 0
+      w, h = w + shadow, h + shadow
+      local total = w + (icon and 4 + 7 or 0)
+      local x = left + floor((width - total) / 2)
+      self:label(value, x - bearing, y - 3, self.colors.ink)
+      if icon then
+        periodIcon(icon, x + w + 4,
+          y - 3 + top + floor((h - iconHeight) / 2) - iconTop,
+          icon == "NITE" and tok.acc.M or hex("f0a020"))
       end
       return x
     end
@@ -367,18 +393,23 @@ return function(H, ui, K)
     RR(lx, 3, lw, 17, 3, tok.lcdFrame)
     RR(lx + 1, 4, lw - 2, 15, 2, tok.lcd)
     R(lx + 2, 5, lw - 4, 1, { 1, 1, 1, 0.08 })
-    local dw = lcdWidth(digits)
-    local sw = suffix ~= "" and self:partyInfoWidth(suffix) + 2 or 0
-    local iw = period and 9 or 0
-    local total = dw + sw + (iw > 0 and iw + 3 or 0)
+    -- Advances include the digit's trailing blank column. Center the actual
+    -- painted group, keeping the suffix and icon gaps independent of bearings.
+    local dw = max(0, lcdWidth(digits) - 1)
+    local sl, st, sw, sh = clockTextBounds(suffix, ui.smallFontMetrics,
+      self:partyInfoWidth(suffix), ui.smallFont and ui.smallFont:getHeight() or 10)
+    local suffixX = dw + 3
+    local textWidth = dw + (sw > 0 and 3 + sw or 0)
+    local total = textWidth + (icon and 4 + 7 or 0)
     local x = lx + floor((lw - total) / 2)
     lcd(digits, x, 7, tok.lcdOn, tok.lcdGhost, true)
     if sw > 0 then
       self:withoutShadow(function()
-        self:partyInfo(suffix, x + dw + 2, 5, tok.lcdOn)
+        self:partyInfo(suffix, x + suffixX - sl, 7 + floor((9 - sh) / 2) - st, tok.lcdOn)
       end)
     end
-    if period then periodIcon(period, x + dw + sw + 3, 8, tok.lcdOn) end
+    if icon then periodIcon(icon, x + textWidth + 4,
+      7 + floor((9 - iconHeight) / 2) - iconTop, tok.lcdOn) end
     return x
   end
 
@@ -668,7 +699,16 @@ return function(H, ui, K)
     R(x + 1, y + 1, f, 2, colors.exp); R(x + 1, y + 1, f, 1, mix(colors.exp, WHITE, 0.55))
   end
 
-  -- Status as a Gen 4 pill (21×9). Signature: statusIcon(id, x, y) for a 7×7 slot;
+  local function badgePlate(self, x, y, w, h, fill, rim, highlight)
+    local chamfered = cg(self)
+    local shape, corner = chamfered and CH or RR, chamfered and 2 or 3
+    local inset = corner + 1
+    shape(x, y, w, h, corner, rim)
+    shape(x + 1, y + 1, w - 2, h - 2, corner - 1, fill)
+    R(x + inset, y, w - 2 * inset, 1, highlight)
+  end
+
+  -- Status as a Gen 4 pill (21×13). Signature: statusIcon(id, x, y) for a 7×7 slot;
   -- pills are drawn by v4StatusPill where layouts have room.
   local STATUS = {
     PAR = { "e8b818", "f8e070", "6a4a00" }, SLP = { "8c8ca0", "c8c8d8", "303040" },
@@ -677,22 +717,19 @@ return function(H, ui, K)
     FNT = { "d04040", "f08080", "4a0c0c" },
   }
   for key, value in pairs(STATUS) do STATUS[key] = { hex(value[1]), hex(value[2]), hex(value[3]) } end
-  function H:v4StatusPill(id, x, y)
+  function H:v4StatusPill(id, x, y, label)
     id = tostring(id or ""):upper()
     local s = STATUS[id]
     if not s then return 0 end
-    local by = y - 1
-    if cg(self) then
-      CH(x, by, 21, 11, 2, s[3]); CH(x + 1, by + 1, 19, 9, 1, s[1])
-      R(x + 2, by + 1, 17, 4, s[2])
-    else
-      RR(x, by, 21, 11, 3, s[3]); RR(x + 1, by + 1, 19, 9, 2, s[1]); R(x + 2, by + 1, 17, 4, s[2])
-    end
-    local w = self:partyInfoWidth(id)
+    local by = y - 2
+    badgePlate(self, x, by, 21, 13, s[1], s[3], s[2])
     local c = s[1]
     local lum = c[1] * 0.3 + c[2] * 0.59 + c[3] * 0.11
-    self:withoutShadow(self.partyInfo, self, id, x + floor((21 - w) / 2) + 1, y - 2,
-      lum > 0.62 and s[3] or WHITE)
+    self:v4Caps(function()
+      local shown = self:fitPartyInfo(label or id, 18)
+      self:withoutShadow(self.partyInfoCentered, self, shown, x, by, 21, 13,
+        lum > 0.62 and s[3] or WHITE, 0)
+    end)
     return 21
   end
 
@@ -741,29 +778,39 @@ return function(H, ui, K)
   function H:typeColor(typeId)
     return TYPE[tostring(typeId or "NORMAL"):upper()] or TYPE.NORMAL
   end
+  function H:typeBadgeLabel(typeId, label, width, compact)
+    label = label or typeId or "---"
+    if ui.typeShortName and (compact or self:partyInfoWidth(label) > width) then
+      return ui.typeShortName(typeId, label) or label
+    end
+    return label
+  end
+  function H:drawTypeBadgeLabel(typeId, label, x, y, w, h, tint, compact)
+    self:v4Caps(function()
+      local width = w - 3
+      local shown = self:typeBadgeLabel(typeId, label, width, compact)
+      if compact then
+        local chars = ui.glyphs(shown)
+        while #chars > 1 and (#chars > 3 or self:partyInfoWidth(shown) > width) do
+          table.remove(chars)
+          shown = table.concat(chars)
+        end
+      else
+        shown = self:fitPartyInfo(shown, width)
+      end
+      self:withoutShadow(self.partyInfoCentered, self, shown, x, y, w, h, tint, 0)
+    end)
+  end
   function H:v4TypePill(typeId, label, x, y, w, fainted)
     local c = self:typeColor(typeId)
     if fainted then c = mix(c, hex("707070"), 0.6) end
     local d = mix(c, { 0, 0, 0, 1 }, 0.45)
-    -- the badge is tall enough to hold its letters, which are printed flat
-    -- (no drop shadow) so nothing spills over the rim
-    local by = y - 1
-    if cg(self) then
-      CH(x, by, w, 11, 2, d); CH(x + 1, by + 1, w - 2, 9, 1, c)
-      R(x + 2, by + 1, w - 4, 1, mix(c, WHITE, 0.4))
-    else
-      RR(x, by, w, 11, 3, d); RR(x + 1, by + 1, w - 2, 9, 2, c)
-      R(x + 2, by + 1, w - 4, 1, mix(c, WHITE, 0.35)); R(x + 2, by + 9, w - 4, 1, mix(c, d, 0.4))
-    end
-    local chars = {}
-    for ch in tostring(label or typeId or "---"):gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = ch end
-    local limit = w >= 30 and 99 or 3
-    while #chars > limit or (#chars > 1 and self:partyInfoWidth(table.concat(chars)) > w - 3) do table.remove(chars) end
-    local shown = table.concat(chars)
-    local tw = self:partyInfoWidth(shown)
+    -- Keep a clear row between the tallest accented letters and each rim.
+    local by = y - 2
+    badgePlate(self, x, by, w, 13, c, d, mix(c, WHITE, cg(self) and 0.3 or 0.25))
     local lum = c[1] * 0.3 + c[2] * 0.59 + c[3] * 0.11
-    self:withoutShadow(self.partyInfo, self, shown, x + floor((w - tw) / 2) + 1, y - 2,
-      lum > 0.62 and mix(c, { 0, 0, 0, 1 }, 0.62) or WHITE)
+    self:drawTypeBadgeLabel(typeId, label, x, by, w, 13,
+      lum > 0.62 and mix(c, { 0, 0, 0, 1 }, 0.62) or WHITE, w < 30)
   end
   function H:typeBadges(mon, x, y, fainted)
     local dual = mon.type2 and mon.type2 ~= mon.type

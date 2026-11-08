@@ -202,6 +202,13 @@ your saved two-screen preference. Phone / Browser remains an explicit choice.
 | **Separate** | Dual-screen handhelds, independent desktop windows or multiple monitors |
 | **Phone / Browser** | Gear and optional touch controller buttons on a phone over your local Wi-Fi |
 
+**Integer Scaling** in **Settings → Display** is off by default: Gear fits the
+available area without changing its proportions. Turn it on for the largest
+whole-pixel enlargement. Areas smaller than the original image still show the
+complete interface. The game view keeps its own scaling settings. Separate
+screens require a host with explicit scaling support; older hosts show
+**Host Update Required** for this setting.
+
 **Auto Battle Screen** can switch to Gear for battle choices and back to the game
 for text and animations on single-screen layouts. **Performance** keeps maps smooth
 while disabling UI transitions; **Quality** allows optional interface animations.
