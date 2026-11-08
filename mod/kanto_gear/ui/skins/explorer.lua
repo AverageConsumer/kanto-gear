@@ -418,6 +418,10 @@ return function(H, ui, K)
       local swapW = 0
       local iconW = #icon.art[1] + 2
       local room = w - 6 - iconW - swapW
+      if view == "wild" and self:partyInfoWidth(label) > room then
+        local shortLabel = translate("WILD SHORT")
+        if shortLabel ~= "WILD SHORT" then label = shortLabel end
+      end
       local cw = count and (self:partyInfoWidth(" " .. count)) or 0
       if self:partyInfoWidth(label) + cw > room then cw = 0; count = nil end
       label = self:fitPartyInfo(label, room - cw)
