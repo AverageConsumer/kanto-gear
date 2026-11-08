@@ -157,6 +157,12 @@ return function(ui)
   local format = ui.format or function(value, ...)
     return string.format(translate(value), ...)
   end
+  function H:levelText(level, maxLevel)
+    level, maxLevel = tonumber(level), tonumber(maxLevel)
+    if not level then return "--" end
+    if maxLevel and maxLevel ~= level then return format("L%d-%d", level, maxLevel) end
+    return format("L%d", level)
+  end
   local runnerParts = {
     { 119, 155, 3, 5 }, { 118, 156, 5, 3 },
     { 118, 163, 4, 7 },

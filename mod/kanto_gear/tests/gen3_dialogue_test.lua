@@ -90,6 +90,23 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   T.eq(sent, count, "old finger release cannot activate the screen underneath")
   Message.showStay("A choice follows.", { speed = 0 })
   Choice.yesNo(function() error("background tap must not choose") end)
+  local nativeOptions = Choice.options
+  for _, answers in ipairs({
+    { "{Color_Highlight_Shadow 13 14 15}Sim", "Não", "Sim", "Não" },
+    { "{COLOR RED}Sí{SHADOW 3}", "No", "Sí", "No" },
+    { string.char(0xFC, 0x04, 13, 14, 15) .. "Yes", "No", "Yes", "No" },
+    { "{PKMN} {Lv}", "Cancel", "PKMN Lv", "Cancel" },
+  }) do
+    Choice.options = { answers[1], answers[2] }
+    local original = Choice.options
+    local view = assert(display.gen3Ui:choice())
+    T.eq(view.items[1].label, answers[3], "choice projects visible native glyphs without color commands")
+    T.eq(view.items[2].label, answers[4], "localized negative answer survives")
+    T.eq(Choice.options, original, "native option identity stays authoritative")
+    T.eq(Choice.options[1], answers[1], "native answer text is not mutated")
+    T.eq(Choice.cursor, 1, "text conversion never changes the native answer")
+  end
+  Choice.options = nativeOptions
   settle(); count = sent; touch("tap,155,140"); step()
   T.eq(sent, count, "background tap does not confirm a choice")
   Choice.active = false; Message.reset(); Hud.clearWaitButton(); Stack.clear()

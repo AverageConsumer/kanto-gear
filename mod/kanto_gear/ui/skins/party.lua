@@ -99,15 +99,15 @@ return function(H, ui, K)
     local ink = cg(self) and colors.ink or WHITE
     local quiet = cg(self) and colors.mutedInk or WHITE
     -- portrait
-    self:v4Seat(x + 4, y + 4, 38, fainted, selected)
+    self:v4Seat(x + 4, y + 3, 38, fainted, selected)
     local hop = self:v4Hop(mon, (mon.slot or 0) * 0.37)
-    drawPortrait(mon, x + 7, y + 7 - hop, 32, fainted)
+    drawPortrait(mon, x + 7, y + 6 - hop, 32, fainted)
     -- held item / mail marker on the seat, like the DS party screen
     if mon.heldItem then
       local art = mon.heldItem.mail
         and { "oooooooo", "owwwwwwo", "oowwwwoo", "owowwowo", "owwoowwo", "oooooooo" }
         or { "..oooo..", ".oyyyyo.", "oywyyyyo", "oyyyyyyo", "oyyyyddo", ".oyyddo.", "..oooo.." }
-      ART(art, x + 33, y + 34 - #art + 7, { o = colors.outline, w = WHITE, y = hex("f8d048"), d = hex("d09820") })
+      ART(art, x + 33, y + 40 - #art, { o = colors.outline, w = WHITE, y = hex("f8d048"), d = hex("d09820") })
     end
     if mon.statusId == "SLP" then
       local t = self:clock()
@@ -130,10 +130,10 @@ return function(H, ui, K)
       self:detailChevron(x + (cg(self) and 100 or 105), y + (cg(self) and 3 or 6), ink)
     end
     if mon.egg then self:endPress(pressed); return end
-    self:typeBadges(mon, x + 1, y + 45, fainted)
+    self:typeBadges(mon, x + 1, y + 44, fainted)
     -- level / status / gender
     self:partyInfo(mon.levelText, x + 46, y + 13, quiet)
-    if mon.statusId then self:v4StatusPill(mon.statusId, x + 69, y + 16) end
+    if mon.statusId then self:v4StatusPill(mon.statusId, x + 69, y + 16, mon.statusLabel) end
     self:pokerusMark(mon.pokerus, x + 92, y + 17)
     if mon.gender == "male" or mon.gender == "female" then
       self:genderIcon(mon.gender, x + 100, y + 16)

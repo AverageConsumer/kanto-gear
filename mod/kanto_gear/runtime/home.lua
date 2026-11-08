@@ -66,6 +66,7 @@ return function(
     local type1 = mon.types and mon.types[1] or def.types and def.types[1]
     local type2 = mon.types and (mon.types[2] or mon.types[1])
       or def.types and (def.types[2] or def.types[1])
+    local statusId = not isEgg and ((mon.hp or 0) <= 0 and "FNT" or mon.status) or nil
     return {
       slot = mon.slot, name = isEgg and THEME:translate("EGG")
         or source.nickname or mon.name or def.name or source.name,
@@ -73,8 +74,8 @@ return function(
       gender = mon.gender == "M" and "male" or mon.gender == "F" and "female" or mon.gender,
       hp = mon.hp, maxHp = maxHp,
       expProgress = mon.expProgress or displayRuntime.partyExpProgress(mon),
-      statusId = not isEgg and ((mon.hp or 0) <= 0 and "FNT"
-        or THEME:statusName(mon.status, mod.content)) or nil,
+      statusId = statusId,
+      statusLabel = THEME:statusName(statusId, mod.content),
       pokerus = compat.summary.pokerusState(source, displayRuntime.gen3 and 3 or compat.isGen2() and 2 or 1),
       type = type1, type2 = type2,
       typeLabel = THEME:typeName(type1, mod.content),
@@ -127,14 +128,11 @@ return function(
          selected and render.PAPER or render.DARK)
     hpBar(x + 29, y + 25, 41, mon.hp, mon.maxHp)
     expBar(x + 29, y + 30, 41, mon.expProgress or 0, selected)
-    if (mon.hp or 0) <= 0 then
-      text(THEME:translate("FNT"), x + 52, y + 14,
-        selected and render.PAPER or render.INK)
-    elseif mon.status then
-      text(fit(THEME:statusName(mon.status, mod.content), 3),
-           x + 52, y + 14, selected and render.PAPER or render.INK)
+    local view = displayRuntime.partyView(mon)
+    if view.statusLabel then
+      text(fit(view.statusLabel, 4), x + 52, y + 14, selected and render.PAPER or render.INK)
     end
-    local pokerus = displayRuntime.partyView(mon).pokerus
+    local pokerus = view.pokerus
     if pokerus then
       box("fill", x + 19, y + 22, 9, 9, selected and render.DARK or render.MID)
       THEME.hgss:pokerusMark(pokerus, x + 20, y + 23)

@@ -183,8 +183,16 @@ return function(UI, labels)
       self.choiceView = view
     end
     view.items = labels(key)
+    -- Native choices may contain ROM color/spacing commands, including in
+    -- translated Yes/No labels. Project visible glyphs without changing the
+    -- native options table used for selection and stale-view validation.
+    local visibleLabels = {}
+    for index, item in ipairs(view.items) do
+      item.label = self.adapter:plainText(item.label)
+      visibleLabels[index] = item.label
+    end
     view.prompt = self.adapter:messageText()
-    local model = self.choicePage.model(view.choiceState, key, nil, Choice.cursor)
+    local model = self.choicePage.model(view.choiceState, visibleLabels, nil, Choice.cursor)
     view.learningPrompt = learning
     view.title = view.learningPrompt and "NEW MOVE" or "CHOOSE ACTION"
     view.fixedLayout, view.touchWindow = true, { first = model.first, count = #model.entries }

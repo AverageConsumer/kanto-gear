@@ -69,6 +69,16 @@ The QR library under `vendor/` is third-party code with its own license.
 
 ## Tests and previews
 
+Gear's output uses one proportional scale and a physical-pixel-aligned origin.
+`integer_scaling` defaults to false; true floors enlargements at 1x and above,
+while smaller areas still use proportional minification. Touch coordinates use
+the rectangle actually drawn. Keep game-output scaling independent of Gear.
+For separate outputs, feature-detect `secondScreen.scalingAvailable()` before
+using `auto:fit`, `secondary:fit`, `handheld:fit` or the corresponding `:integer`
+preferences. A Lua-only host update does not establish support in an older APK.
+The browser draws decoded pixels onto a separate physical output canvas with
+nearest sampling; its source canvas and transport dimensions stay unchanged.
+
 The Pokégear and PokéNav Store apps use detached native device state in
 `runtime/device_apps.lua`. Their private touch input never consumes or queues
 game buttons, and their device layers must not remain on the game's modal

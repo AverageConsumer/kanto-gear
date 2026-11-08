@@ -15,6 +15,8 @@ tests/desktop_compat_test.lua
 tests/discovery_partner_cases.lua
 tests/display_background_test.lua
 tests/display_idle_test.lua
+tests/display_scaling_runtime_test.lua
+tests/display_scaling_test.lua
 tests/display_setup_model_test.lua
 tests/display_setup_runtime_test.lua
 tests/emerald_item_pc_test.lua
@@ -78,6 +80,7 @@ tests/held_item_test.lua
 tests/home_layout_test.lua
 tests/home_runtime_test.lua
 tests/i18n_test.lua
+tests/image_filter_test.lua
 tests/item_page_cases.lua
 tests/legacy_bag_test.lua
 tests/legacy_party_test.lua
@@ -111,10 +114,12 @@ tests/performance_runtime_test.lua
 tests/performance_test.lua
 tests/phone_browser_test.cjs
 tests/phone_display_test.lua
+tests/phone_fullscreen_cases.cjs
 tests/phone_input_test.lua
 tests/phone_layout_cases.cjs
 tests/phone_pairing_test.lua
 tests/phone_runtime_test.lua
+tests/phone_scaling_cases.cjs
 tests/phone_video_cases.cjs
 tests/phone_video_test.lua
 tests/pickup_state_test.lua

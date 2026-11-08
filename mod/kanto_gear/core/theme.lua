@@ -149,21 +149,54 @@ function THEME:format(source, ...)
   return ok and value or tostring(source or "")
 end
 
+local TYPE_LABELS = {
+  NORMAL = true, FIGHTING = true, FLYING = true, POISON = true, GROUND = true,
+  ROCK = true, BUG = true, GHOST = true, STEEL = true, FIRE = true,
+  WATER = true, GRASS = true, ELECTRIC = true, PSYCHIC = true, ICE = true,
+  DRAGON = true, DARK = true, FAIRY = true,
+}
+
+local function localizedType(theme, id, prefix)
+  id = id == "PSYCHIC_TYPE" and "PSYCHIC" or id
+  if not TYPE_LABELS[id] then return nil end
+  local key = prefix .. id
+  local value = theme:translate(key)
+  if value ~= key then return value end
+end
+
 function THEME:typeName(id, content)
   local registry = content and content.type_chart
   local record = id and registry and registry:get(id)
-  local name = record and record.name or id or "STATUS"
+  local canonical = id == "PSYCHIC_TYPE" and "PSYCHIC" or id
+  local name = record and record.name or canonical or "STATUS"
   -- Translation mods can publish contextual display strings while keeping
   -- canonical type records intact for mechanics and other mods.
   local strings = content and content.strings
   local translated = strings and strings:get("type|" .. name)
-  return type(translated) == "string" and translated ~= "" and translated or name
+  if type(translated) == "string" and translated ~= "" and translated ~= name then return translated end
+  if name == canonical then return localizedType(self, id, "TYPE|") or name end
+  return name
 end
+
+function THEME:typeShortName(id, label)
+  -- Keep a native translation or a modded type name in its original language.
+  if label ~= localizedType(self, id, "TYPE|") then return nil end
+  return localizedType(self, id, "TYPE SHORT|")
+end
+
+local STATUS_LABELS = { SLP = true, PAR = true, PSN = true, TOX = true, BRN = true, FRZ = true, FNT = true }
 
 function THEME:statusName(id, content)
   local registry = content and content.statuses
   local record = id and registry and registry:get(id)
-  return record and (record.hudLabel or record.label) or id
+  local label = record and (record.hudLabel or record.label)
+  if type(label) == "string" and label ~= "" and label ~= id then return label end
+  if STATUS_LABELS[id] then
+    local key = "STATUS SHORT|" .. id
+    local translated = self:translate(key)
+    if translated ~= key then return translated end
+  end
+  return id
 end
 
 -- Host path [all games]: old window_layout values seed display_mode/combined_layout only when the new settings are absent.
@@ -206,15 +239,22 @@ function THEME:gearPrimary(options, swapped)
   return gear
 end
 
-function THEME:fitRect(rect, width, height)
-  local scale = math.min(rect.w / width, rect.h / height)
-  -- Keep one scale on both axes. Flooring each dimension independently
-  -- subtly stretches nearest-filtered pixels whenever the fit is fractional.
+function THEME:fitRect(rect, width, height, integer, dpi, dpiY)
+  dpi = dpi or 1
+  dpiY = dpiY or dpi
+  local left, top = math.ceil(rect.x * dpi - 1e-7), math.ceil(rect.y * dpiY - 1e-7)
+  local right = math.floor((rect.x + rect.w) * dpi + 1e-7)
+  local bottom = math.floor((rect.y + rect.h) * dpiY + 1e-7)
+  local availableW, availableH = math.max(1, right - left), math.max(1, bottom - top)
+  local scale = math.min(availableW / width, availableH / height)
+  -- Integer mode never crops. Below 1x, proportional minification is needed
+  -- even in this mode to keep the complete interface available.
+  if integer and scale >= 1 then scale = math.floor(scale + 1e-7) end
   local w, h = width * scale, height * scale
   return {
-    x = math.floor(rect.x + (rect.w - w) / 2),
-    y = math.floor(rect.y + (rect.h - h) / 2),
-    w = w, h = h,
+    x = (left + math.floor((availableW - w) / 2 + 1e-7)) / dpi,
+    y = (top + math.floor((availableH - h) / 2 + 1e-7)) / dpiY,
+    w = w / dpi, h = h / dpiY,
   }
 end
 
@@ -285,11 +325,26 @@ function THEME:windowLayout(mode, width, height, swapped, overlayCorner,
   }
 end
 
-function THEME:drawCanvas(canvas, rect)
-  local fitted = self:fitRect(rect, canvas:getWidth(), canvas:getHeight())
+function THEME:drawCanvas(canvas, rect, integer, filter)
+  local dpi = render.G.getDPIScale and render.G.getDPIScale() or 1
+  local dpiY = dpi
+  -- Some dual-screen hosts report independently rounded unit dimensions.
+  -- Use both drawable/unit ratios so the resulting physical pixels are square.
+  if render.G.getPixelDimensions then
+    local w, h = render.G.getDimensions()
+    local pw, ph = render.G.getPixelDimensions()
+    if w > 0 and h > 0 and pw > 0 and ph > 0 then dpi, dpiY = pw / w, ph / h end
+  end
+  local fitted = self:fitRect(rect, canvas:getWidth(), canvas:getHeight(), integer, dpi, dpiY)
   render.G.setScissor(rect.x, rect.y, rect.w, rect.h)
-  render.G.draw(canvas, fitted.x, fitted.y, 0,
-    fitted.w / canvas:getWidth(), fitted.h / canvas:getHeight())
+  if filter and self.imageFilter then
+    self.imageFilter.draw(render.G, canvas, fitted.x, fitted.y,
+      fitted.w / canvas:getWidth(), fitted.h / canvas:getHeight(), filter,
+      fitted.w * dpi / canvas:getWidth(), fitted.h * dpiY / canvas:getHeight())
+  else
+    render.G.draw(canvas, fitted.x, fitted.y, 0,
+      fitted.w / canvas:getWidth(), fitted.h / canvas:getHeight())
+  end
   return fitted
 end
 

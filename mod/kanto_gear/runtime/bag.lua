@@ -50,6 +50,9 @@ return function(
     local move = moveId and session.game.data.moves and session.game.data.moves[moveId]
     local source = move and move.description or def and def.description
     if source and source ~= "" then
+      -- GBA descriptions can still contain literal ROM breaks after a translation patch.
+      -- Flatten them before Gear strips unsupported glyphs and wraps the text.
+      if displayRuntime.gen3 then source = tostring(source):gsub("\\[nplf]", " ") end
       return displayRuntime.bagWords(source, 31, 3)
     end
     if moveId then

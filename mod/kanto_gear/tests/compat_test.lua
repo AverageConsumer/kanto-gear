@@ -2,6 +2,7 @@ local Inspect = assert(loadfile(assert(os.getenv("KANTO_GEAR_MOD_PATH")) .. "/te
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
+T.love.graphics.newShader = function() return { send = function() end } end
 local path = os.getenv("KANTO_GEAR_MOD_PATH") or "mods/kanto_gear"
 local source = assert(loadfile(path .. "/tests/support/source.lua"))()(path)
 local Summary = assert(loadfile(path .. "/models/summary.lua"))()
@@ -321,7 +322,7 @@ T.eq(#run.errors, 0,
   "Kanto Gear loads clean: " .. table.concat(run.errors, "; "))
 T.check(run.loader.exports.kanto_gear ~= nil, "Kanto Gear registers")
 local options = run.loader.optionSchemas.kanto_gear
-T.eq(#options, 66, "Kanto Gear registers all settings including keyboard layout, automatic battle display and notifications")
+T.eq(#options, 68, "Kanto Gear registers all settings including integer scaling and filters")
 local optionsByKey = {}
 for _, row in ipairs(options) do optionsByKey[row.key] = row end
 T.eq(optionsByKey.auto_battle_screen.default, false, "automatic battle switching is opt-in")

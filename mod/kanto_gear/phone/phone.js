@@ -1,6 +1,18 @@
 "use strict";
 const screen = document.getElementById("gear-slot"), form = document.getElementById("pair");
 const canvas = document.getElementById("gear"), context = canvas.getContext("2d", { alpha: false });
+// Keep decoded source pixels separate from the physical output raster.
+const output = document.createElement("canvas"), outputContext = output.getContext("2d");
+output.id = "gear-output"; output.setAttribute("aria-hidden", "true");
+canvas.parentElement.append(output);
+let integerScaling = false, outputPlacement = null;
+let imageFilter = "auto";
+const prescaleCanvas = document.createElement("canvas"), prescaleContext = prescaleCanvas.getContext("2d");
+function resolvedImageFilter(scale) {
+  if (["nearest", "bilinear", "sharp"].includes(imageFilter)) return imageFilter;
+  if (scale < 1) return "bilinear";
+  return Math.abs(scale - Math.round(scale)) < 1e-6 ? "nearest" : "sharp";
+}
 const status = document.getElementById("status"), connect = document.getElementById("connect");
 let socket, frame = 0, pointer = null, lastContact = 0, heartbeat, generation = 0;
 const controller = document.getElementById("controller"), settings = document.getElementById("settings");
@@ -122,9 +134,46 @@ let paintedAt = 0, fpsAt = 0, paintedFrames = 0, fps = 0, profiling = false;
 let profilePaint = null, profileDropped = 0, profileReceived = 0;
 function fit() {
   if (!canvas.width || !canvas.height) return;
-  const scale = Math.max(0, Math.min(screen.clientWidth / canvas.width, screen.clientHeight / canvas.height));
-  canvas.style.width = `${canvas.width * scale}px`;
-  canvas.style.height = `${canvas.height * scale}px`;
+  const rect = screen.getBoundingClientRect(), dpi = devicePixelRatio || 1;
+  const left = Math.ceil(rect.left * dpi - 1e-7), top = Math.ceil(rect.top * dpi - 1e-7);
+  const width = Math.max(1, Math.floor(rect.right * dpi + 1e-7) - left);
+  const height = Math.max(1, Math.floor(rect.bottom * dpi + 1e-7) - top);
+  let scale = Math.min(width / canvas.width, height / canvas.height);
+  if (integerScaling && scale >= 1) scale = Math.floor(scale + 1e-7);
+  const w = canvas.width * scale, h = canvas.height * scale;
+  const rasterW = Math.max(1, Math.ceil(w - 1e-7)), rasterH = Math.max(1, Math.ceil(h - 1e-7));
+  const x = left + Math.floor((width - w) / 2 + 1e-7), y = top + Math.floor((height - h) / 2 + 1e-7);
+  const cssWidth = `${rasterW / dpi}px`, cssHeight = `${rasterH / dpi}px`;
+  canvas.style.width = cssWidth; canvas.style.height = cssHeight;
+  const lcd = canvas.parentElement;
+  lcd.style.inset = "0 auto auto 0"; lcd.style.margin = "0";
+  // Translation retains the sub-CSS-pixel precision of the physical origin.
+  lcd.style.transform = `translate(${x / dpi - rect.left}px, ${y / dpi - rect.top}px)`;
+  lcd.style.width = cssWidth; lcd.style.height = cssHeight;
+  if (output.width !== rasterW) output.width = rasterW;
+  if (output.height !== rasterH) output.height = rasterH;
+  // CSS widths are quantized to layout units. Keep physical raster dimensions
+  // and apply the exact density ratio so whole device pixels stay whole.
+  output.style.transform = `scale(${1 / dpi})`;
+  outputPlacement = { scale, width: w, height: h, dpi };
+  paintOutput();
+}
+function paintOutput() {
+  if (!outputPlacement) return;
+  outputContext.clearRect(0, 0, output.width, output.height);
+  const mode = resolvedImageFilter(outputPlacement.scale);
+  outputContext.imageSmoothingEnabled = mode !== "nearest";
+  outputContext.imageSmoothingQuality = "low";
+  const n = Math.max(1, Math.floor(outputPlacement.scale + 1e-7));
+  if (mode === "sharp" && n > 1) {
+    // Exact nearest prescaling followed by one bilinear stretch implements
+    // the same virtual prescale as the GPU shader, locally in the browser.
+    if (prescaleCanvas.width !== canvas.width * n) prescaleCanvas.width = canvas.width * n;
+    if (prescaleCanvas.height !== canvas.height * n) prescaleCanvas.height = canvas.height * n;
+    prescaleContext.imageSmoothingEnabled = false;
+    prescaleContext.drawImage(canvas, 0, 0, prescaleCanvas.width, prescaleCanvas.height);
+    outputContext.drawImage(prescaleCanvas, 0, 0, outputPlacement.width, outputPlacement.height);
+  } else outputContext.drawImage(canvas, 0, 0, outputPlacement.width, outputPlacement.height);
 }
 function send(text) { if (socket && socket.readyState === WebSocket.OPEN) socket.send(text); }
 function stop(message, reason = "client_stop") {
@@ -186,6 +235,7 @@ function paintFrame(current) {
       if (!paintImage) paintImage = new ImageData(image.width, image.height);
       paintImage.data.set(image.pixels);
       context.putImageData(paintImage, 0, 0);
+      if (resized) fit(); else paintOutput();
       const paintCost = profiling ? performance.now() - paintStarted : 0;
       frame = image.id; lastContact = performance.now();
       if (lastContact - paintedAt > 250) { fpsAt = lastContact; paintedFrames = 0; fps = 0; }
@@ -291,6 +341,12 @@ form.addEventListener("submit", event => {
     if (!authenticated) return;
     if (event.data === "h") { lastContact = performance.now(); return; }
     if (event.data === "p,1") { profiling = true; profileReceived = performance.now(); return; }
+    if (event.data === "s,0" || event.data === "s,1") {
+      releaseAll(); integerScaling = event.data === "s,1"; fit(); return;
+    }
+    if (["f,auto", "f,nearest", "f,bilinear", "f,sharp"].includes(event.data)) {
+      imageFilter = event.data.slice(2); paintOutput(); return;
+    }
     if (["c,gb", "c,gba", "c,none"].includes(event.data)) {
       if (editing) finishLayout(false);
       releaseAll(); capability = event.data.slice(2); refreshControls(); fit(); return;
@@ -304,9 +360,10 @@ form.addEventListener("submit", event => {
   socket.onerror = () => stop("Could not connect. Check the code, Wi-Fi and game. After repeated attempts, wait one minute.");
 });
 function touch(action, event) {
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - rect.left) * canvas.width / rect.width)));
-  const y = Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - rect.top) * canvas.height / rect.height)));
+  const rect = output.getBoundingClientRect();
+  const scale = outputPlacement ? outputPlacement.scale / outputPlacement.dpi : rect.width / canvas.width;
+  const x = Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - rect.left) / scale)));
+  const y = Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - rect.top) / scale)));
   send(`${action},${x},${y},${frame}`);
 }
 canvas.addEventListener("pointerdown", event => {
@@ -325,6 +382,12 @@ for (const [name, action] of [["pointerup", "up"], ["pointercancel", "cancel"], 
 }
 document.addEventListener("visibilitychange", () => { if (document.hidden) stop("Page paused. Return to the game, then reconnect.", "page_hidden"); });
 new ResizeObserver(fit).observe(screen);
+function watchDensity() {
+  matchMedia(`(resolution: ${devicePixelRatio || 1}dppx)`).addEventListener("change", () => {
+    fit(); watchDensity();
+  }, { once: true });
+}
+watchDensity();
 
 // Each finger owns a button; multiple fingers on one button still make one hold.
 for (const button of buttons) {
@@ -392,11 +455,16 @@ const fullscreen = document.getElementById("fullscreen");
 fullscreen.disabled = !document.documentElement.requestFullscreen;
 fullscreen.addEventListener("click", async () => {
   releaseAll();
+  // A modal left open while the document enters the top layer can keep the
+  // controller inert even when a mobile browser composites the picture above it.
+  settings.close();
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
     else await document.documentElement.requestFullscreen();
   } catch (_) { status.textContent = "Fullscreen is unavailable in this browser."; }
 });
+document.addEventListener("fullscreenchange", () => { releaseAll(); requestAnimationFrame(fit); });
+window.visualViewport?.addEventListener("resize", () => { releaseAll(); requestAnimationFrame(fit); });
 
 // Layout work happens only on gestures/resizes, never in the frame decoder.
 function applyLayout() {

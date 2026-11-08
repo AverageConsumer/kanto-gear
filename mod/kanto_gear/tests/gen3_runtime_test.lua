@@ -42,6 +42,7 @@ function fs.getDirectoryItems(file)
 end
 if _G.KANTO_GEAR_BEFORE_LOAD then _G.KANTO_GEAR_BEFORE_LOAD() end
 local run = T.sdk.loadMod(path, { generation = 3, data = data, fs = fs })
+T.love.graphics.newShader = function() return { send = function() end } end
 T.eq(run.mod and run.mod.state, "loaded", "native Gen3 test build loads")
 for _, err in ipairs(run.errors) do print(err.message or err.error or tostring(err)) end
 local raw = setmetatable({ generation = 3, data = data, phase = "boot" },
@@ -224,6 +225,26 @@ T.check(display.gen3Ui:openBagItem(4), "Gear Bag hands the selected item to the 
 T.eq(NativeBag.currentPocket(), "POKE_BALLS", "handoff uses the actual pocket")
 T.eq(NativeBag.list()[NativeBag.cursor].id, 4, "handoff retains the chosen item")
 NativeBag.close()
+Bag.add(session.bag, 13, 1)
+display.gen3:refresh()
+display.gen3.syncScreens()
+T.check(display.gen3Ui:openBagItem(13), "Potion opens in the native Bag")
+NativeBag.settle()
+NativeBag.handleInput({ wasPressed = function(_, key) return key == "a" end,
+  isDown = function() return false end })
+T.eq(NativeBag.mode, "action", "native Potion opens its action menu")
+local potion = display.gen3.data.items[13]
+local originalDescription = potion.description
+local translatedDescription = [[Restaura os PV\ndo Pokémon.\pUse\lcom\fcuidado.]]
+potion.description = translatedDescription
+local action = assert(display.startMenu()).itemModel
+T.eq(action.detail.id, 13, "Gear projects the selected native item")
+T.eq(table.concat(action.detail.lines, " "), "RESTAURA OS PV DO POKÉMON. USE COM CUIDADO.",
+  "Gear reflows escaped ROM breaks as spaces and preserves translated letters")
+T.eq(potion.description, translatedDescription, "Gear leaves the source description intact")
+potion.description = originalDescription
+NativeBag.close()
+Bag.remove(session.bag, 13, 1)
 for _, container in ipairs({ { 341, "tm_case" }, { 139, "berry_pouch" } }) do
   Bag.add(session.bag, container[1], 1); display.gen3:refresh()
   display.gen3.syncScreens()

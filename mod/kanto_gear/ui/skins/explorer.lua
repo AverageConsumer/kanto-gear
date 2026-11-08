@@ -78,11 +78,6 @@ return function(H, ui, K)
     if fill > 0 then R(x + 1, y + 1, fill, 1, chanceTint(self, chance)) end
   end
 
-  local function levels(a)
-    if not a or not a.minLevel then return "--" end
-    return a.minLevel == a.maxLevel and "L" .. tostring(a.minLevel)
-      or "L" .. tostring(a.minLevel) .. "-" .. tostring(a.maxLevel)
-  end
   local function statusColor(self, key)
     local colors = self.colors
     if key == "CAUGHT" or key == "FOUND" or key == "BEATEN" or key == "RECORDED"
@@ -124,7 +119,8 @@ return function(H, ui, K)
       self:partyInfo(requirement, left, 171, colors.ink)
       if gender then self:genderIcon(gender, left + width + 4, 172) end
       R(15, 186, 210, 1, colors.band)
-      local lv = selected.isEgg and translate("EGG") or selected.level and "L" .. tostring(selected.level) or translate("TALK TO NPC")
+      local lv = selected.isEgg and translate("EGG")
+        or selected.level and self:levelText(selected.level) or translate("TALK TO NPC")
       self:partyType(lv, 15, 192, colors.green, 210)
       return
     end
@@ -166,7 +162,7 @@ return function(H, ui, K)
           self:partyInfo(tostring(a.chance or "--") .. "%", x, 184, colors.ink, 51, "center")
           self:v4ChanceBar(x + 6, 199, 39, a.chance)
         else
-          self:partyInfo(levels(a), x, 187, colors.ink, 51, "center")
+          self:partyInfo(self:levelText(a.minLevel, a.maxLevel), x, 187, colors.ink, 51, "center")
         end
       end
     else
@@ -184,7 +180,7 @@ return function(H, ui, K)
         local cx = 108
         self:partyInfo(tostring(a.chance or "--") .. "%", cx, y + 16, colors.ink, 26, "right")
         self:v4ChanceBar(cx + 30, y + 21, 40, a.chance)
-        self:partyInfo(levels(a), 178, y + 15, colors.ink, 48, "right")
+        self:partyInfo(self:levelText(a.minLevel, a.maxLevel), 178, y + 15, colors.ink, 48, "right")
       end
     end
   end
@@ -507,7 +503,7 @@ return function(H, ui, K)
     end
     if model.encounterDetails == false then return self:endPress(pressed) end
     -- one quiet line: levels on the left, the odds on the right
-    self:partyInfo(levels(best), x + 29, y + 12, colors.mutedInk)
+    self:partyInfo(self:levelText(best.minLevel, best.maxLevel), x + 29, y + 12, colors.mutedInk)
     if best.blocked then
       self:v4Pill("TOOL", x + CARD_W - 4, y + 13, hex("e09a20"), { right = true, maxW = 40 })
     else
