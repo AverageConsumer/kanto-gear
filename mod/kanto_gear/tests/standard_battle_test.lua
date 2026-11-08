@@ -178,8 +178,20 @@ for _, mode in ipairs({ "standard", "gear", "full" }) do
   upvalue(input, "moveInfo", nil, true); battle.moves[3].pp = saved
 end
 options.battle_view, battle.prompt, battle.kind, rendered = "standard", "menu", "wild", {}
+local partyInfo, wildLevel = H.partyInfo
+H.partyInfo = function(self, value, x, y, ...)
+  if y == 15 and tostring(value):match("^PARTNER2 ") then wildLevel = value end
+  return partyInfo(self, value, x, y, ...)
+end
+options.language = "pt-BR"
 snapshot(); drawBattle()
+H.partyInfo = partyInfo
 T.eq(rendered.battleTeamStrip[1][2].wild, true, "Companion wild battles retain the Wild strip")
+T.eq(wildLevel, "PARTNER2 N30", "wild battle header uses the localized level prefix")
+T.eq(H:levelText(7, 7), "N7", "fixed encounter levels use the same localized prefix")
+T.eq(H:levelText(7, 9), "N7-9", "encounter ranges use the localized format")
+T.eq(H:levelText(nil), "--", "missing encounter levels retain the placeholder")
+options.language = nil
 battle.kind = "trainer"
 options.ui_motion = true
 runtime.beginAnimation("battle_moves")
