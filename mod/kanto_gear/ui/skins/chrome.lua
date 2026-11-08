@@ -699,7 +699,16 @@ return function(H, ui, K)
     R(x + 1, y + 1, f, 2, colors.exp); R(x + 1, y + 1, f, 1, mix(colors.exp, WHITE, 0.55))
   end
 
-  -- Status as a Gen 4 pill (21×9). Signature: statusIcon(id, x, y) for a 7×7 slot;
+  local function badgePlate(self, x, y, w, h, fill, rim, highlight)
+    local chamfered = cg(self)
+    local shape, corner = chamfered and CH or RR, chamfered and 2 or 3
+    local inset = corner + 1
+    shape(x, y, w, h, corner, rim)
+    shape(x + 1, y + 1, w - 2, h - 2, corner - 1, fill)
+    R(x + inset, y, w - 2 * inset, 1, highlight)
+  end
+
+  -- Status as a Gen 4 pill (21×11). Signature: statusIcon(id, x, y) for a 7×7 slot;
   -- pills are drawn by v4StatusPill where layouts have room.
   local STATUS = {
     PAR = { "e8b818", "f8e070", "6a4a00" }, SLP = { "8c8ca0", "c8c8d8", "303040" },
@@ -713,17 +722,11 @@ return function(H, ui, K)
     local s = STATUS[id]
     if not s then return 0 end
     local by = y - 1
-    if cg(self) then
-      CH(x, by, 21, 11, 2, s[3]); CH(x + 1, by + 1, 19, 9, 1, s[1])
-      R(x + 2, by + 1, 17, 4, s[2])
-    else
-      RR(x, by, 21, 11, 3, s[3]); RR(x + 1, by + 1, 19, 9, 2, s[1]); R(x + 2, by + 1, 17, 4, s[2])
-    end
-    local w = self:partyInfoWidth(id)
+    badgePlate(self, x, by, 21, 11, s[1], s[3], s[2])
     local c = s[1]
     local lum = c[1] * 0.3 + c[2] * 0.59 + c[3] * 0.11
-    self:withoutShadow(self.partyInfo, self, id, x + floor((21 - w) / 2) + 1, y - 2,
-      lum > 0.62 and s[3] or WHITE)
+    self:withoutShadow(self.partyInfoCentered, self, id, x, by, 21, 11,
+      lum > 0.62 and s[3] or WHITE, 0)
     return 21
   end
 
@@ -801,13 +804,7 @@ return function(H, ui, K)
     local d = mix(c, { 0, 0, 0, 1 }, 0.45)
     -- Keep a clear row between the tallest accented letters and each rim.
     local by = y - 2
-    if cg(self) then
-      CH(x, by, w, 13, 2, d); CH(x + 1, by + 1, w - 2, 11, 1, c)
-      R(x + 3, by, w - 6, 1, mix(c, WHITE, 0.3))
-    else
-      RR(x, by, w, 13, 3, d); RR(x + 1, by + 1, w - 2, 11, 2, c)
-      R(x + 4, by, w - 8, 1, mix(c, WHITE, 0.25))
-    end
+    badgePlate(self, x, by, w, 13, c, d, mix(c, WHITE, cg(self) and 0.3 or 0.25))
     local lum = c[1] * 0.3 + c[2] * 0.59 + c[3] * 0.11
     self:drawTypeBadgeLabel(typeId, label, x, by, w, 13,
       lum > 0.62 and mix(c, { 0, 0, 0, 1 }, 0.62) or WHITE, w < 30)
