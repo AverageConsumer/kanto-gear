@@ -708,7 +708,7 @@ return function(H, ui, K)
     R(x + inset, y, w - 2 * inset, 1, highlight)
   end
 
-  -- Status as a Gen 4 pill (21×11). Signature: statusIcon(id, x, y) for a 7×7 slot;
+  -- Status as a Gen 4 pill (21×13). Signature: statusIcon(id, x, y) for a 7×7 slot;
   -- pills are drawn by v4StatusPill where layouts have room.
   local STATUS = {
     PAR = { "e8b818", "f8e070", "6a4a00" }, SLP = { "8c8ca0", "c8c8d8", "303040" },
@@ -717,16 +717,19 @@ return function(H, ui, K)
     FNT = { "d04040", "f08080", "4a0c0c" },
   }
   for key, value in pairs(STATUS) do STATUS[key] = { hex(value[1]), hex(value[2]), hex(value[3]) } end
-  function H:v4StatusPill(id, x, y)
+  function H:v4StatusPill(id, x, y, label)
     id = tostring(id or ""):upper()
     local s = STATUS[id]
     if not s then return 0 end
-    local by = y - 1
-    badgePlate(self, x, by, 21, 11, s[1], s[3], s[2])
+    local by = y - 2
+    badgePlate(self, x, by, 21, 13, s[1], s[3], s[2])
     local c = s[1]
     local lum = c[1] * 0.3 + c[2] * 0.59 + c[3] * 0.11
-    self:withoutShadow(self.partyInfoCentered, self, id, x, by, 21, 11,
-      lum > 0.62 and s[3] or WHITE, 0)
+    self:v4Caps(function()
+      local shown = self:fitPartyInfo(label or id, 18)
+      self:withoutShadow(self.partyInfoCentered, self, shown, x, by, 21, 13,
+        lum > 0.62 and s[3] or WHITE, 0)
+    end)
     return 21
   end
 

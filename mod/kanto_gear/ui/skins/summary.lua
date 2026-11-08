@@ -37,7 +37,7 @@ return function(H, ui, K)
     self:partyInfo(mon.levelText, 190, 37, ink, 37, "right")
     self:partyInfo(mon.dexText, 76, 50, quiet)
     self:typeBadges(mon, 124, 52, false)
-    if mon.statusId then self:v4StatusPill(mon.statusId, 206, 52) end
+    if mon.statusId then self:v4StatusPill(mon.statusId, 206, 52, mon.statusLabel) end
     if mon.info2Label then
       self:partyInfo(mon.infoLabel, 76, 63, quiet)
       self:partyInfo(self:fitPartyInfo(mon.infoText, 34), 108, 63, ink, 34, "right")
@@ -162,7 +162,7 @@ return function(H, ui, K)
       self:genderIcon(mon.gender, 140, 38)
     end
     self:partyInfo(mon.levelText, 150, 35, colors.ink)
-    if mon.statusId then self:v4StatusPill(mon.statusId, 177, 37) end
+    if mon.statusId then self:v4StatusPill(mon.statusId, 177, 37, mon.statusLabel) end
     self:v4HpBar(36, 48, 112, mon.hp, mon.maxHp)
     self:partyInfo(mon.hpText, 152, 45, colors.ink, 75, "right")
   end

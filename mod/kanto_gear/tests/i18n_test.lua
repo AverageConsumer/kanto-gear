@@ -68,6 +68,7 @@ local _, _, theme = loadModule("core/theme.lua")()
 theme.i18n = i18n
 local types = { "NORMAL", "FIGHTING", "FLYING", "POISON", "GROUND", "ROCK", "BUG",
   "GHOST", "STEEL", "FIRE", "WATER", "GRASS", "ELECTRIC", "PSYCHIC", "ICE", "DRAGON", "DARK", "FAIRY" }
+local statuses = { "SLP", "PAR", "PSN", "TOX", "BRN", "FRZ", "FNT" }
 for locale, catalog in pairs(catalogs) do
   selected = locale
   for _, id in ipairs(types) do
@@ -75,6 +76,10 @@ for locale, catalog in pairs(catalogs) do
     local short = theme:typeShortName(id, name)
     check(name == catalog["TYPE|" .. id] and short and short == catalog["TYPE SHORT|" .. id],
       locale .. " resolves both badge labels for " .. id)
+  end
+  for _, id in ipairs(statuses) do
+    check(theme:statusName(id) == catalog["STATUS SHORT|" .. id],
+      locale .. " resolves the status badge label for " .. id)
   end
 end
 selected = "pt-BR"
@@ -88,12 +93,20 @@ local pack = { strings = { get = function(_, key)
 end } }
 check(theme:typeName("POISON", pack) == "GIFT" and theme:typeShortName("POISON", "GIFT") == nil,
   "native contextual type translations keep their name and language")
+local statusContent = { statuses = { get = function(_, id) return { label = id } end } }
+check(theme:statusName("SLP", statusContent) == "DOR" and theme:statusName("FNT") == "DES",
+  "default registry labels fall back to the selected Gear language")
+statusContent.statuses.get = function() return { label = "SLP", hudLabel = "SOM" } end
+check(theme:statusName("SLP", statusContent) == "SOM",
+  "native status translations retain HUD label precedence")
 local custom = { type_chart = { get = function() return { name = "SOUND" } end } }
 check(theme:typeName("CUSTOM", custom) == "SOUND" and theme:typeShortName("CUSTOM", "SOUND") == nil,
   "custom types retain their registry labels")
 selected = "en"
 check(theme:typeName("PSYCHIC_TYPE") == "PSYCHIC" and theme:typeShortName("BUG", "BUG") == nil,
   "English uses the canonical names and existing compact fallback")
+check(theme:statusName("SLP") == "SLP" and theme:statusName(nil) == nil,
+  "English uses native status IDs and healthy Pokemon have no label")
 
 selected = "de"
 check(i18n:text("UNTRANSLATED UI") == "UNTRANSLATED UI", "missing UI falls back to English")

@@ -78,8 +78,7 @@ return function(
     local def = session.game.data.pokemon[source.species] or {}
     local hp = math.max(0, source.hp or 0)
     local maxHp = source.maxHp or source.stats and source.stats.hp or hp
-    local statusId = hp <= 0 and "FNT"
-      or THEME:statusName(source.status, mod.content)
+    local statusId = hp <= 0 and "FNT" or source.status
     return {
       expProgress = side == "player" and source.expProgress or nil,
       species = source.species,
@@ -94,7 +93,7 @@ return function(
       maxHp = math.max(1, maxHp or 1),
       hpText = THEME:format("%d/%d", hp, maxHp or 0),
       statusId = statusId,
-      statusLabel = statusId or "",
+      statusLabel = THEME:statusName(statusId, mod.content) or "",
       caught = side == "enemy" and mod.options:get("caught_icon") ~= false
         and caughtWild(session.battle.kind,
           compat.caughtDex(session.game.save)[source.species]),
@@ -123,9 +122,11 @@ return function(
     local function teamState(source)
       source = source or {}
       local mon = source.mon or source
+      local status = source.shownStatus
+      if status == nil then status = mon.status end
       return {
         alive = (source.shownHP or mon.hp or 0) > 0,
-        status = THEME:statusName(source.shownStatus or mon.status, mod.content),
+        status = status,
       }
     end
     for slot, mon in ipairs(session.battle.party or {}) do

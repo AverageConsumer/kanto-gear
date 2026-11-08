@@ -69,12 +69,16 @@ T.eq(firstX - tx, tx + tw - lastX - lastW, "portrait strip has equal outside gap
 local captured
 local renderHome = renderer.home
 renderer.home = function(_, model) captured = model end
+run.loader.modOptions.kanto_gear.language = "pt-BR"
 display.drawHome()
+run.loader.modOptions.kanto_gear.language = nil
 renderer.home = renderHome
 T.eq(#captured.team, 6, "runtime supplies all six live party members")
 T.eq(captured.team[5].hp, 0, "fainted HP stays zero")
 T.eq(captured.team[5].statusId, "FNT", "fainted status is explicit")
+T.eq(captured.team[5].statusLabel, "DES", "fainted badge uses the selected language")
 T.eq(captured.team[6].statusId, "SLP", "sleep reaches the widget")
+T.eq(captured.team[6].statusLabel, "DOR", "sleep label is separate from the native ID")
 T.eq(captured.team[1].pokerus, generation == 2 and "active" or nil, "active Pokérus reaches the widget")
 T.eq(captured.team[2].pokerus, generation == 2 and "cured" or nil, "cured Pokérus reaches the widget")
 T.eq(captured.team[4].egg, generation == 2, "Gen 2 egg is not an ordinary party member")

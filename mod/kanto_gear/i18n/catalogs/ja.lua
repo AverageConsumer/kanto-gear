@@ -471,7 +471,14 @@ return {
   ["SPC %d"] = "とく %d",
   ["TYPE1 %s"] = "タイプ1 %s",
   ["TYPE2 %s"] = "タイプ2 %s",
-  ["FNT"] = "ひんし",
+  -- Compact status badges share their palette and behavior by status ID.
+  ["STATUS SHORT|SLP"] = "眠",
+  ["STATUS SHORT|PAR"] = "麻痺",
+  ["STATUS SHORT|PSN"] = "毒",
+  ["STATUS SHORT|TOX"] = "猛毒",
+  ["STATUS SHORT|BRN"] = "火傷",
+  ["STATUS SHORT|FRZ"] = "凍",
+  ["STATUS SHORT|FNT"] = "瀕死",
 
   -- Kanto Gear settings. Theme and product names stay recognizable while
   -- descriptive labels follow the selected language.

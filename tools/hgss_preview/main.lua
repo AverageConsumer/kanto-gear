@@ -70,8 +70,8 @@ local I18N = assert(loadfile(root .. "/mod/kanto_gear/i18n/init.lua"))()
 local i18n = I18N.new(function(code)
   return assert(loadfile(root .. "/mod/kanto_gear/i18n/catalogs/" .. code .. ".lua"))()
 end, function() return languageCode end)
-local _, _, typeTheme = assert(loadfile(root .. "/mod/kanto_gear/core/theme.lua"))()()
-typeTheme.i18n = i18n
+local _, _, labelTheme = assert(loadfile(root .. "/mod/kanto_gear/core/theme.lua"))()()
+labelTheme.i18n = i18n
 local function translate(value)
   return i18n:text(value)
 end
@@ -108,8 +108,8 @@ for slot, mon in ipairs(party) do
   mon.name = language.names[slot]
   mon.hpLabel = translate(language.hp)
   mon.expLabel = translate(language.exp)
-  mon.typeLabel = typeTheme:typeName(mon.type)
-  mon.type2Label = typeTheme:typeName(mon.type2)
+  mon.typeLabel = labelTheme:typeName(mon.type)
+  mon.type2Label = labelTheme:typeName(mon.type2)
 end
 
 local previewPokerus = os.getenv("KANTO_GEAR_PREVIEW_POKERUS")
@@ -128,6 +128,7 @@ if os.getenv("KANTO_GEAR_PREVIEW_STATUSES") == "all" then
     end
   end
 end
+for _, mon in ipairs(party) do mon.statusLabel = labelTheme:statusName(mon.statusId) end
 
 local species = { 160, 189, 17, 28, 96, 128 }
 
@@ -199,7 +200,7 @@ function love.load()
     fit = fit, glyphs = glyphs, color = color, font = font, fontMetrics = fontMetrics,
     smallFont = smallFont, smallFontMetrics = smallMetrics, largeFont = largeFont,
     translate = translate, format = format,
-    typeShortName = function(id, label) return typeTheme:typeShortName(id, label) end,
+    typeShortName = function(id, label) return labelTheme:typeShortName(id, label) end,
     translationFonts = translationFonts,
   }
   local theme = chunk()(previewUi, function(name)
@@ -220,9 +221,14 @@ function love.load()
       for key, name in pairs(i18n.catalogs[i18n:language()]) do
         local id = key:match("^TYPE|(.+)$")
         if id then
-          local short = assert(typeTheme:typeShortName(id, name), "missing compact type " .. id)
+          local short = assert(labelTheme:typeShortName(id, name), "missing compact type " .. id)
           assert(#glyphs(short) <= 3 and theme:partyInfoWidth(short) <= 18,
             "compact type does not fit the dual badge: " .. id .. " (" .. short .. ")")
+        end
+        local status = key:match("^STATUS SHORT|(.+)$")
+        if status then
+          assert(labelTheme:statusName(status) == name and theme:partyInfoWidth(name) <= 18,
+            "status label does not fit its badge: " .. status .. " (" .. name .. ")")
         end
       end
     end)
@@ -1613,7 +1619,7 @@ function love.load()
         { name = "ONDA DE TROVÃO", type = "ELECTRIC", typeLabel = "ELÉTRICO", ppText = "20/20", powerText = "--", accuracyText = "100" },
       }
     end
-    for _, move in ipairs(mon.moves) do move.typeLabel = typeTheme:typeName(move.type) end
+    for _, move in ipairs(mon.moves) do move.typeLabel = labelTheme:typeName(move.type) end
     return mon
   end
   local function battleBagData()
@@ -2040,12 +2046,12 @@ function love.load()
         special = 13 },
       weak = {
         { type = "ELECTRIC", typeLabel = "ELECTRIC", effectLabel = "2X" },
-        { type = "GRASS", typeLabel = typeTheme:typeName("GRASS"),
+        { type = "GRASS", typeLabel = labelTheme:typeName("GRASS"),
           effectLabel = "2X" },
       },
       resist = {
         { type = "FIRE", typeLabel = "FIRE", effectLabel = "1/2" },
-        { type = "WATER", typeLabel = typeTheme:typeName("WATER"),
+        { type = "WATER", typeLabel = labelTheme:typeName("WATER"),
           effectLabel = "1/2" },
         { type = "ICE", typeLabel = "ICE", effectLabel = "1/2" },
       },
@@ -3295,6 +3301,7 @@ function love.load()
     local slot = gen1 and 6 or 1
     local player = party[slot]
     player.statusId = gen1 and "SLP" or nil
+    player.statusLabel = labelTheme:statusName(player.statusId)
     player.hpText = string.format("%d/%d", player.hp, player.maxHp)
     player.levelText = player.levelText or "L" .. tostring(player.level or 0)
     local enemy = {
@@ -3305,7 +3312,7 @@ function love.load()
       hp = gen1 and 88 or 31,
       maxHp = gen1 and 126 or 45,
       statusId = "PAR",
-      statusLabel = "PAR",
+      statusLabel = labelTheme:statusName("PAR"),
       caught = true,
     }
     local function portrait(subject, x, y, size, fainted)

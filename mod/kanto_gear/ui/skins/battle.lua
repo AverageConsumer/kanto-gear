@@ -598,7 +598,7 @@ return function(H, ui, K)
     self:v4Seat(x + 4, y + 21, 52, fainted)
     drawPortrait(mon, x + 5, y + 22, 50, fainted)
     local infoX, infoW = x + 62, w - 69
-    if mon.statusId then self:v4StatusPill(mon.statusId, infoX, y + 24) end
+    if mon.statusId then self:v4StatusPill(mon.statusId, infoX, y + 24, mon.statusLabel) end
     if not player and not mon.statusId and mon.statusLabel and mon.statusLabel ~= "" then
       self:partyInfo(mon.statusLabel, infoX + 26, y + 22, colors.mutedInk, max(0, infoW - 26), "right")
     end
@@ -632,9 +632,9 @@ return function(H, ui, K)
     self:partyInfo(level, x + 107 - lw, y + 1, player and colors.green or colors.mutedInk)
     self:v4HpBar(x + 35, y + 14, 72, mon.hp, mon.maxHp)
     -- EXP shares the HP bar's bottom outline, under the bar (not the tag)
-    local tag = cg(self) and 12 or 14
+    local tag = mon.statusId and 22 or (cg(self) and 12 or 14)
     if player and mon.expProgress then self:expBar(x + 35 + tag, y + 20, 72 - tag, mon.expProgress) end
-    if mon.statusId then self:v4StatusPill(mon.statusId, x + 35, y + 27) end
+    if mon.statusId then self:v4StatusPill(mon.statusId, x + 35, y + 25, mon.statusLabel) end
     if player then self:partyInfo(mon.hpText or "--/--", x + 58, y + 24, colors.ink, 49, "right") end
   end
 

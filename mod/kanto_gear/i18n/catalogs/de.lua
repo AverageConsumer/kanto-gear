@@ -578,7 +578,14 @@ return {
   ["SPC %d"] = "SPEZ %d",
   ["TYPE1 %s"] = "TYP1 %s",
   ["TYPE2 %s"] = "TYP2 %s",
-  ["FNT"] = "K.O.",
+  -- Compact status badges share their palette and behavior by status ID.
+  ["STATUS SHORT|SLP"] = "SLF",
+  ["STATUS SHORT|PAR"] = "PAR",
+  ["STATUS SHORT|PSN"] = "GIF",
+  ["STATUS SHORT|TOX"] = "TOX",
+  ["STATUS SHORT|BRN"] = "BRD",
+  ["STATUS SHORT|FRZ"] = "GFR",
+  ["STATUS SHORT|FNT"] = "KO",
 
   -- Kanto Gear settings. Theme and product names stay recognizable while
   -- descriptive labels follow the selected language.

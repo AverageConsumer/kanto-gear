@@ -184,10 +184,19 @@ function THEME:typeShortName(id, label)
   return localizedType(self, id, "TYPE SHORT|")
 end
 
+local STATUS_LABELS = { SLP = true, PAR = true, PSN = true, TOX = true, BRN = true, FRZ = true, FNT = true }
+
 function THEME:statusName(id, content)
   local registry = content and content.statuses
   local record = id and registry and registry:get(id)
-  return record and (record.hudLabel or record.label) or id
+  local label = record and (record.hudLabel or record.label)
+  if type(label) == "string" and label ~= "" and label ~= id then return label end
+  if STATUS_LABELS[id] then
+    local key = "STATUS SHORT|" .. id
+    local translated = self:translate(key)
+    if translated ~= key then return translated end
+  end
+  return id
 end
 
 -- Host path [all games]: old window_layout values seed display_mode/combined_layout only when the new settings are absent.
