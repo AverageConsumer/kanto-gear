@@ -799,18 +799,17 @@ return function(H, ui, K)
     local c = self:typeColor(typeId)
     if fainted then c = mix(c, hex("707070"), 0.6) end
     local d = mix(c, { 0, 0, 0, 1 }, 0.45)
-    -- the badge is tall enough to hold its letters, which are printed flat
-    -- (no drop shadow) so nothing spills over the rim
-    local by = y - 1
+    -- Keep a clear row between the tallest accented letters and each rim.
+    local by = y - 2
     if cg(self) then
-      CH(x, by, w, 11, 2, d); CH(x + 1, by + 1, w - 2, 9, 1, c)
-      R(x + 2, by + 1, w - 4, 1, mix(c, WHITE, 0.4))
+      CH(x, by, w, 13, 2, d); CH(x + 1, by + 1, w - 2, 11, 1, c)
+      R(x + 3, by, w - 6, 1, mix(c, WHITE, 0.3))
     else
-      RR(x, by, w, 11, 3, d); RR(x + 1, by + 1, w - 2, 9, 2, c)
-      R(x + 2, by + 1, w - 4, 1, mix(c, WHITE, 0.35)); R(x + 2, by + 9, w - 4, 1, mix(c, d, 0.4))
+      RR(x, by, w, 13, 3, d); RR(x + 1, by + 1, w - 2, 11, 2, c)
+      R(x + 4, by, w - 8, 1, mix(c, WHITE, 0.25))
     end
     local lum = c[1] * 0.3 + c[2] * 0.59 + c[3] * 0.11
-    self:drawTypeBadgeLabel(typeId, label, x, by, w, 11,
+    self:drawTypeBadgeLabel(typeId, label, x, by, w, 13,
       lum > 0.62 and mix(c, { 0, 0, 0, 1 }, 0.62) or WHITE, w < 30)
   end
   function H:typeBadges(mon, x, y, fainted)

@@ -318,12 +318,12 @@ return function(H, ui, K)
     -- The badge starts at 7, the PP value ends at 105, and the two gaps use 7 pixels.
     local room = 105 - 7 - 7 - self:partyInfoWidth(ppLabel) - self:partyInfoWidth(ppText)
     local badgeWidth = max(44, min(typeWidth + 3, room))
-    RR(x + 7, y + 20, badgeWidth, 10, 3, mix(a.D, { 0, 0, 0, 1 }, 0.25))
-    RR(x + 8, y + 21, badgeWidth - 2, 8, 2, a.D)
-    self:drawTypeBadgeLabel(move.type, move.typeLabel, x + 7, y + 20, badgeWidth, 10, WHITE)
-    self:withoutShadow(self.partyInfo, self, ppLabel, x + 11 + badgeWidth, y + 19, label)
+    RR(x + 7, y + 19, badgeWidth, 13, 3, mix(a.D, { 0, 0, 0, 1 }, 0.25))
+    RR(x + 8, y + 20, badgeWidth - 2, 11, 2, a.D)
+    self:drawTypeBadgeLabel(move.type, move.typeLabel, x + 7, y + 19, badgeWidth, 13, WHITE)
+    self:withoutShadow(self.partyInfo, self, ppLabel, x + 11 + badgeWidth, y + 20, label)
     local ppLow = move.pp and move.maxPp and move.maxPp > 0 and move.pp / move.maxPp <= 0.25
-    self:partyInfo(ppText, x + 70, y + 19,
+    self:partyInfo(ppText, x + 70, y + 20,
       disabled and colors.redLight or (ppLow and hex("f8e070") or ink), 35, "right")
     RR(x + 5, y + 37, 102, 14, 3, mix(a.D, { 0, 0, 0, 1 }, 0.2))
     RR(x + 6, y + 38, 100, 12, 2, mix(a.D, a.M, 0.25))
