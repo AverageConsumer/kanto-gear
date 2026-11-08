@@ -227,6 +227,7 @@ return function(
     largeFont = THEME.hgssLargeFont,
     translationFonts = THEME.translationFonts,
     translate = function(value) return THEME:translate(value) end,
+    typeShortName = function(id, label) return THEME:typeShortName(id, label) end,
     format = function(value, ...) return THEME:format(value, ...) end,
     dimBackground = displayRuntime.dimBackground,
   }

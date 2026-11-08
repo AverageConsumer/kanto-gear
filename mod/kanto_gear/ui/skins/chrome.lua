@@ -772,6 +772,29 @@ return function(H, ui, K)
   function H:typeColor(typeId)
     return TYPE[tostring(typeId or "NORMAL"):upper()] or TYPE.NORMAL
   end
+  function H:typeBadgeLabel(typeId, label, width, compact)
+    label = label or typeId or "---"
+    if ui.typeShortName and (compact or self:partyInfoWidth(label) > width) then
+      return ui.typeShortName(typeId, label) or label
+    end
+    return label
+  end
+  function H:drawTypeBadgeLabel(typeId, label, x, y, w, h, tint, compact)
+    self:v4Caps(function()
+      local width = w - 3
+      local shown = self:typeBadgeLabel(typeId, label, width, compact)
+      if compact then
+        local chars = ui.glyphs(shown)
+        while #chars > 1 and (#chars > 3 or self:partyInfoWidth(shown) > width) do
+          table.remove(chars)
+          shown = table.concat(chars)
+        end
+      else
+        shown = self:fitPartyInfo(shown, width)
+      end
+      self:withoutShadow(self.partyInfoCentered, self, shown, x, y, w, h, tint, 0)
+    end)
+  end
   function H:v4TypePill(typeId, label, x, y, w, fainted)
     local c = self:typeColor(typeId)
     if fainted then c = mix(c, hex("707070"), 0.6) end
@@ -786,15 +809,9 @@ return function(H, ui, K)
       RR(x, by, w, 11, 3, d); RR(x + 1, by + 1, w - 2, 9, 2, c)
       R(x + 2, by + 1, w - 4, 1, mix(c, WHITE, 0.35)); R(x + 2, by + 9, w - 4, 1, mix(c, d, 0.4))
     end
-    local chars = {}
-    for ch in tostring(label or typeId or "---"):gmatch("[%z\1-\127\194-\244][\128-\191]*") do chars[#chars + 1] = ch end
-    local limit = w >= 30 and 99 or 3
-    while #chars > limit or (#chars > 1 and self:partyInfoWidth(table.concat(chars)) > w - 3) do table.remove(chars) end
-    local shown = table.concat(chars)
-    local tw = self:partyInfoWidth(shown)
     local lum = c[1] * 0.3 + c[2] * 0.59 + c[3] * 0.11
-    self:withoutShadow(self.partyInfo, self, shown, x + floor((w - tw) / 2) + 1, y - 2,
-      lum > 0.62 and mix(c, { 0, 0, 0, 1 }, 0.62) or WHITE)
+    self:drawTypeBadgeLabel(typeId, label, x, by, w, 11,
+      lum > 0.62 and mix(c, { 0, 0, 0, 1 }, 0.62) or WHITE, w < 30)
   end
   function H:typeBadges(mon, x, y, fainted)
     local dual = mon.type2 and mon.type2 ~= mon.type

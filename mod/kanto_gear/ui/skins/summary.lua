@@ -185,8 +185,7 @@ return function(H, ui, K)
     -- type plate
     RR(x + 5, y + 5, 50, 21, 3, mix(a.D, { 0, 0, 0, 1 }, 0.25))
     RR(x + 6, y + 6, 48, 19, 2, a.D)
-    local typeText = self:fitPartyInfo(move.typeLabel or move.type or "---", 44)
-    self:partyInfo(typeText, x + 6 + floor((48 - self:partyInfoWidth(typeText)) / 2) + 1, y + 9, WHITE)
+    self:drawTypeBadgeLabel(move.type, move.typeLabel, x + 6, y + 6, 48, 19, WHITE)
     self:partyName(move.name or "-", x + 62, y + 3, WHITE, 92)
     local lum = a.M[1] * 0.3 + a.M[2] * 0.59 + a.M[3] * 0.11
     self:withoutShadow(self.partyInfo, self, move.ppLabel or translate("PP"), x + 158, y + 3,

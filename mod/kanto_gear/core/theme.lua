@@ -149,15 +149,39 @@ function THEME:format(source, ...)
   return ok and value or tostring(source or "")
 end
 
+local TYPE_LABELS = {
+  NORMAL = true, FIGHTING = true, FLYING = true, POISON = true, GROUND = true,
+  ROCK = true, BUG = true, GHOST = true, STEEL = true, FIRE = true,
+  WATER = true, GRASS = true, ELECTRIC = true, PSYCHIC = true, ICE = true,
+  DRAGON = true, DARK = true, FAIRY = true,
+}
+
+local function localizedType(theme, id, prefix)
+  id = id == "PSYCHIC_TYPE" and "PSYCHIC" or id
+  if not TYPE_LABELS[id] then return nil end
+  local key = prefix .. id
+  local value = theme:translate(key)
+  if value ~= key then return value end
+end
+
 function THEME:typeName(id, content)
   local registry = content and content.type_chart
   local record = id and registry and registry:get(id)
-  local name = record and record.name or id or "STATUS"
+  local canonical = id == "PSYCHIC_TYPE" and "PSYCHIC" or id
+  local name = record and record.name or canonical or "STATUS"
   -- Translation mods can publish contextual display strings while keeping
   -- canonical type records intact for mechanics and other mods.
   local strings = content and content.strings
   local translated = strings and strings:get("type|" .. name)
-  return type(translated) == "string" and translated ~= "" and translated or name
+  if type(translated) == "string" and translated ~= "" and translated ~= name then return translated end
+  if name == canonical then return localizedType(self, id, "TYPE|") or name end
+  return name
+end
+
+function THEME:typeShortName(id, label)
+  -- Keep a native translation or a modded type name in its original language.
+  if label ~= localizedType(self, id, "TYPE|") then return nil end
+  return localizedType(self, id, "TYPE SHORT|")
 end
 
 function THEME:statusName(id, content)

@@ -61,7 +61,6 @@ local languages = {
     homeTrainer = "TRAINER", homeStore = "STORE", homeNotes = "NOTES",
     names = { "FERALIGATR", "JUMPLUFF", "PIDGEOTTO", "SANDSLASH",
       "DROWZEE", "TAUROS" },
-    types = {},
   },
 }
 local languageCode = os.getenv("KANTO_GEAR_PREVIEW_LANGUAGE") or "en"
@@ -71,6 +70,8 @@ local I18N = assert(loadfile(root .. "/mod/kanto_gear/i18n/init.lua"))()
 local i18n = I18N.new(function(code)
   return assert(loadfile(root .. "/mod/kanto_gear/i18n/catalogs/" .. code .. ".lua"))()
 end, function() return languageCode end)
+local _, _, typeTheme = assert(loadfile(root .. "/mod/kanto_gear/core/theme.lua"))()()
+typeTheme.i18n = i18n
 local function translate(value)
   return i18n:text(value)
 end
@@ -107,8 +108,8 @@ for slot, mon in ipairs(party) do
   mon.name = language.names[slot]
   mon.hpLabel = translate(language.hp)
   mon.expLabel = translate(language.exp)
-  mon.typeLabel = language.types[mon.type] or mon.type
-  mon.type2Label = language.types[mon.type2] or mon.type2
+  mon.typeLabel = typeTheme:typeName(mon.type)
+  mon.type2Label = typeTheme:typeName(mon.type2)
 end
 
 local previewPokerus = os.getenv("KANTO_GEAR_PREVIEW_POKERUS")
@@ -198,6 +199,7 @@ function love.load()
     fit = fit, glyphs = glyphs, color = color, font = font, fontMetrics = fontMetrics,
     smallFont = smallFont, smallFontMetrics = smallMetrics, largeFont = largeFont,
     translate = translate, format = format,
+    typeShortName = function(id, label) return typeTheme:typeShortName(id, label) end,
     translationFonts = translationFonts,
   }
   local theme = chunk()(previewUi, function(name)
@@ -213,6 +215,18 @@ function love.load()
   theme.previewEnter = tonumber(os.getenv("KANTO_GEAR_PREVIEW_ENTER"))
   theme:setSkin(os.getenv("KANTO_GEAR_PREVIEW_SKIN") or "pokegear")
   theme:setVariant(os.getenv("KANTO_GEAR_PREVIEW_VARIANT") == "dark")
+  if screen == "party" then
+    theme:v4Caps(function()
+      for key, name in pairs(i18n.catalogs[i18n:language()]) do
+        local id = key:match("^TYPE|(.+)$")
+        if id then
+          local short = assert(typeTheme:typeShortName(id, name), "missing compact type " .. id)
+          assert(#glyphs(short) <= 3 and theme:partyInfoWidth(short) <= 18,
+            "compact type does not fit the dual badge: " .. id .. " (" .. short .. ")")
+        end
+      end
+    end)
+  end
   if os.getenv("KANTO_GEAR_PREVIEW_CLOCK_CHECK") == "1" then
     assert(loadfile(root .. "/tools/hgss_preview/clock.lua"))()(theme,
       os.getenv("KANTO_GEAR_CLOCK_CHECK_OUT"))
@@ -1585,8 +1599,10 @@ function love.load()
       }
     end
     if os.getenv("KANTO_GEAR_PREVIEW_MOVE_NAMES") == "pt-br" then
+      local types = { "POISON", "BUG", "NORMAL", "NORMAL" }
       for index, name in ipairs({ "FERRÃO VENENOSO", "ESTILINGADA", "ENDURECER", "ATAQUE DE FÚRIA" }) do
         mon.moves[index].name = name
+        mon.moves[index].type = types[index]
       end
     end
     if os.getenv("KANTO_GEAR_PREVIEW_MOVE_NAMES") == "pt-br-accents" then
@@ -1597,6 +1613,7 @@ function love.load()
         { name = "ONDA DE TROVÃO", type = "ELECTRIC", typeLabel = "ELÉTRICO", ppText = "20/20", powerText = "--", accuracyText = "100" },
       }
     end
+    for _, move in ipairs(mon.moves) do move.typeLabel = typeTheme:typeName(move.type) end
     return mon
   end
   local function battleBagData()
@@ -2023,12 +2040,12 @@ function love.load()
         special = 13 },
       weak = {
         { type = "ELECTRIC", typeLabel = "ELECTRIC", effectLabel = "2X" },
-        { type = "GRASS", typeLabel = language.types.GRASS or "GRASS",
+        { type = "GRASS", typeLabel = typeTheme:typeName("GRASS"),
           effectLabel = "2X" },
       },
       resist = {
         { type = "FIRE", typeLabel = "FIRE", effectLabel = "1/2" },
-        { type = "WATER", typeLabel = language.types.WATER or "WATER",
+        { type = "WATER", typeLabel = typeTheme:typeName("WATER"),
           effectLabel = "1/2" },
         { type = "ICE", typeLabel = "ICE", effectLabel = "1/2" },
       },

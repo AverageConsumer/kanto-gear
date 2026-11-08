@@ -36,6 +36,13 @@ _G.KANTO_GEAR_RENDER_CAPTURE = function(run, display, game)
   local function sync() display.gen3.syncScreens(); refresh() end
   sync()
   local moves = hgss.battleMon().moves
+  local language = options.language
+  options.language = "pt-BR"
+  local localized = hgss.battleMon().moves
+  T.eq(localized[1].type, "ELECTRIC", "localized move card keeps its native type ID")
+  T.eq(localized[1].typeLabel, "ELÉTRICO", "native move card uses the Brazilian Portuguese label")
+  T.eq(localized[2].typeLabel, "FOGO", "native move types share the Gear catalog")
+  options.language = language
   T.eq(moves[1].effectiveness, 40, "Electric has 4x base matchup against Water/Flying")
   T.eq(moves[2].effectiveness, 5, "Fire has 1/2 base matchup against Water/Flying")
   T.eq(moves[3].effectiveness, 0, "Ground has zero base matchup against Flying")

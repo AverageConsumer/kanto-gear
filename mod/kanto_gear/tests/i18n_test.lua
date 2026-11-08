@@ -64,6 +64,37 @@ selected = "en"
 check(i18n:text("PIKACHU") == "PIKACHU",
   "English UI keys are identity values")
 
+local _, _, theme = loadModule("core/theme.lua")()
+theme.i18n = i18n
+local types = { "NORMAL", "FIGHTING", "FLYING", "POISON", "GROUND", "ROCK", "BUG",
+  "GHOST", "STEEL", "FIRE", "WATER", "GRASS", "ELECTRIC", "PSYCHIC", "ICE", "DRAGON", "DARK", "FAIRY" }
+for locale, catalog in pairs(catalogs) do
+  selected = locale
+  for _, id in ipairs(types) do
+    local name = theme:typeName(id)
+    local short = theme:typeShortName(id, name)
+    check(name == catalog["TYPE|" .. id] and short and short == catalog["TYPE SHORT|" .. id],
+      locale .. " resolves both badge labels for " .. id)
+  end
+end
+selected = "pt-BR"
+check(theme:typeName("PSYCHIC_TYPE") == "PSÍQUICO"
+  and theme:typeShortName("PSYCHIC_TYPE", "PSÍQUICO") == "PSÍ",
+  "legacy Psychic type ID resolves both translated labels")
+check(theme:typeName("POISON") == "VENENO" and theme:typeShortName("BUG", "INSETO") == "INS",
+  "the reported move and party badge types use Brazilian Portuguese")
+local pack = { strings = { get = function(_, key)
+  if key == "type|POISON" then return "GIFT" end
+end } }
+check(theme:typeName("POISON", pack) == "GIFT" and theme:typeShortName("POISON", "GIFT") == nil,
+  "native contextual type translations keep their name and language")
+local custom = { type_chart = { get = function() return { name = "SOUND" } end } }
+check(theme:typeName("CUSTOM", custom) == "SOUND" and theme:typeShortName("CUSTOM", "SOUND") == nil,
+  "custom types retain their registry labels")
+selected = "en"
+check(theme:typeName("PSYCHIC_TYPE") == "PSYCHIC" and theme:typeShortName("BUG", "BUG") == nil,
+  "English uses the canonical names and existing compact fallback")
+
 selected = "de"
 check(i18n:text("UNTRANSLATED UI") == "UNTRANSLATED UI", "missing UI falls back to English")
 catalogs.de["PENDING TRANSLATION"] = false
