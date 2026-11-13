@@ -197,8 +197,9 @@ return function(
     session.discoveryPolicy = Discovery.resolve(function(key) return mod.options:get(key) end)
     displayRuntime.sourceGame = session.game
     if displayRuntime.phone then displayRuntime.phone:setGame(session.game) end
-    -- Mod path [Gen 1/2]: g9-battle-sprites may provide front art; native Gen 3 uses its own source-aware sprite readers.
-    local spriteProvider = session.game.generation ~= 3 and mod.find("g9-battle-sprites")
+    -- Mod path [Gen 1/2]: g9-battle-sprites (or g9-battle-sprites-gen3, which replaces it) may provide front art; native Gen 3 uses its own source-aware sprite readers.
+    local spriteProvider = session.game.generation ~= 3
+      and (mod.find("g9-battle-sprites") or mod.find("g9-battle-sprites-gen3"))
     local frontArt = spriteProvider and spriteProvider.exports and spriteProvider.exports.frontArt
     displayRuntime.frontArt = type(frontArt) == "function" and frontArt or nil
     displayRuntime.frontArtRetryAt = nil
